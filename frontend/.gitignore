@@ -1,0 +1,9 @@
+node_modules/
+.nuxt/
+.output/
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+coverage/

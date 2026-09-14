@@ -1,0 +1,25 @@
+from dataclasses import dataclass
+from datetime import UTC, datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
+from app.schemas.dashboard import Period
+
+
+@dataclass(frozen=True)
+class PeriodWindow:
+    start: datetime
+    end: datetime
+
+
+def period_window(period: Period, now: datetime, timezone: str) -> PeriodWindow:
+    if now.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
+    end = now.astimezone(UTC)
+    if period == "today":
+        zone = ZoneInfo(timezone)
+        start = datetime.combine(end.astimezone(zone).date(), time.min, zone).astimezone(UTC)
+    elif period == "24h":
+        start = end - timedelta(hours=24)
+    else:
+        start = end - timedelta(days=7)
+    return PeriodWindow(start=start, end=end)

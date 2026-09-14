@@ -1,0 +1,38 @@
+import { defineConfig, devices } from '@playwright/test'
+
+const production = process.env.TEST_PRODUCTION === '1'
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  expect: { timeout: 20000 },
+  use: { baseURL: 'http://127.0.0.1:3100', trace: 'retain-on-failure' },
+  projects: [
+    {
+      name: 'desktop',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 1100 } },
+    },
+    {
+      name: 'mobile',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+  ],
+  webServer: {
+    command: production
+      ? 'node .output/server/index.mjs'
+      : 'pnpm exec nuxt dev --host 127.0.0.1 --port 3100',
+    env: {
+      NITRO_HOST: '127.0.0.1',
+      NITRO_PORT: '3100',
+      // Production must remove the manual credential UI even if this flag is set.
+      NUXT_PUBLIC_ALLOW_DEV_TOKEN_ENTRY: production ? 'true' : 'false',
+    },
+    url: 'http://127.0.0.1:3100',
+    reuseExistingServer: false,
+    timeout: 120000,
+  },
+})

@@ -1,0 +1,14 @@
+.venv/
+.env
+.env.*
+!.env.example
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.pyc
+.coverage
+htmlcov/
+# Local database backups may contain credentials and personal data.
+uranus-*.sql
+backups/

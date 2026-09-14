@@ -1,0 +1,7 @@
+node_modules
+.nuxt
+.output
+pnpm-lock.yaml
+test-results
+playwright-report
+docs/openapi.json

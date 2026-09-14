@@ -1,0 +1,34 @@
+[project]
+name = "kulturbytes-admin-api"
+version = "0.1.0"
+description = "Internal administration and data quality API for Kulturbytes/Uranus"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "fastapi>=0.115,<1", "pydantic>=2.10,<3", "pydantic-settings>=2.7,<3",
+  "sqlalchemy[asyncio]>=2.0,<2.1", "asyncpg>=0.30,<1", "alembic>=1.14,<2",
+  "uvicorn>=0.34,<1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3,<10", "pytest-asyncio>=0.25,<2", "httpx>=0.28,<1",
+       "ruff>=0.9,<1", "mypy>=1.14,<2"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = ["integration: requires a disposable PostgreSQL/PostGIS database"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["app", "migrations"]
+
+[tool.uv]
+package = false

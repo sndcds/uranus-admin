@@ -1,0 +1,89 @@
+import { failure } from '#shared/errors'
+
+const routes: Record<string, readonly string[]> = {
+  '/health': [],
+  '/ready': [],
+  '/api/v1/dashboard/summary': ['period'],
+  '/api/v1/findings': [
+    'severity',
+    'entity_type',
+    'rule',
+    'organization_id',
+    'status',
+    'page',
+    'page_size',
+  ],
+  '/api/v1/quality/venues/missing-geolocation': ['organization_id', 'page', 'page_size'],
+}
+export interface ProxyInput {
+  path: string
+  method: string
+  query: URLSearchParams
+  authorization?: string
+}
+export interface ProxyResult {
+  status: number
+  body: unknown
+}
+function rejected(status: number, code: string): ProxyResult {
+  const detail = failure(status, code)
+  return { status, body: { error: { code: detail.code, message: detail.message } } }
+}
+
+export async function forwardAdminRequest(
+  input: ProxyInput,
+  base: string,
+  fetcher: typeof fetch = fetch,
+): Promise<ProxyResult> {
+  const allowed = Object.hasOwn(routes, input.path) ? routes[input.path] : undefined
+  if (!allowed) return rejected(404, 'route_not_allowed')
+  if (input.method !== 'GET') return rejected(405, 'method_not_allowed')
+  for (const key of input.query.keys()) {
+    if (!allowed.includes(key) || input.query.getAll(key).length !== 1) {
+      return rejected(422, 'invalid_query')
+    }
+  }
+  if (
+    input.path.startsWith('/api/') &&
+    !/^Bearer [^\s\r\n]{1,8192}$/i.test(input.authorization ?? '')
+  ) {
+    return rejected(401, 'authentication_required')
+  }
+  let url: URL
+  try {
+    const origin = new URL(base)
+    if (
+      !['http:', 'https:'].includes(origin.protocol) ||
+      origin.username ||
+      origin.password ||
+      origin.search ||
+      origin.hash ||
+      origin.pathname !== '/'
+    )
+      return rejected(503, 'invalid_upstream_configuration')
+    url = new URL(input.path, origin)
+    url.search = input.query.toString()
+  } catch {
+    return rejected(503, 'invalid_upstream_configuration')
+  }
+  try {
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    if (input.authorization) headers.Authorization = input.authorization
+    const response = await fetcher(url, {
+      method: 'GET',
+      headers,
+      redirect: 'error',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10000),
+    })
+    // Preserve upstream status, but never relay error bodies/headers that could expose internals.
+    if (!response.ok) return rejected(response.status, 'upstream_error')
+    const body: unknown = await response.json()
+    return { status: response.status, body }
+  } catch (error) {
+    return rejected(
+      error instanceof Error && error.name === 'TimeoutError' ? 504 : 502,
+      'upstream_unavailable',
+    )
+  }
+}
