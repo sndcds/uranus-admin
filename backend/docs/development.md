@@ -171,3 +171,39 @@ GitHub Actions führt getrennte Jobs für Lint/Format, strict mypy und Tests aus
 fixierte uv-Version und `uv sync --locked`; Testjob mit PostgreSQL/PostGIS-Service und Healthcheck.
 Actions sind auf Commit-SHAs, das PostGIS-Image auf einen amd64-Manifest-Digest fixiert. Keine produktiven Secrets oder Datenbankzugänge.
 Eine lokale Prüfung des Workflows ersetzt keinen tatsächlich auf GitHub gelaufenen Job.
+
+## Erweiterung: Check Runs und Reviews
+
+Der neue Vertrag steht unter [contracts.md](contracts.md); er ersetzt die früheren Aussagen
+über noch nicht angebundene Persistenz. Migration `0002` ergänzt Regelabdeckung und Reviewfelder.
+Keine Domain-Tabelle wird geändert. Vorhandene Daten bleiben beim Upgrade erhalten.
+
+Der Reader braucht zusätzlich SELECT auf `uranus.event_link`, `uranus.license`,
+`uranus.pluto_image_link` und `uranus.organization_access_grants`.
+
+Optionalen Admin-Runtimeaccount durch den DB-Betreiber anlegen (nach Migration):
+
+```sql
+CREATE ROLE kulturbytes_admin_history LOGIN;
+GRANT USAGE ON SCHEMA admin TO kulturbytes_admin_history;
+GRANT SELECT, INSERT, UPDATE ON admin.finding, admin.check_run TO kulturbytes_admin_history;
+```
+
+Secrets separat setzen, keine Kennwörter in SQL-Dateien/Git hinterlegen. Dieser Account erhält
+keine Uranus-Schreibrechte, keine Superuser-/CREATEROLE-Rechte und keine DDL-Rechte. Vor Verwendung
+prüft die Anwendung die Grenze einschließlich Domain-Spaltenschreibrechten.
+`ADMIN_DATABASE_URL=postgresql+asyncpg://...` in der Backend-Konfiguration aktiviert die Ablage.
+Ohne diese Variable bleiben Live-APIs verfügbar; Persistenz-/Reviewzugriff liefert 503
+`admin_storage_unconfigured`. Reader, Writer und Migrator sind verschiedene Verantwortlichkeiten.
+
+Neue Reporting-Schwellen: `IMAGE_ORPHAN_GRACE_HOURS=48`, `PENDING_AGE_DAYS=14`,
+`ACTIVATION_AGE_DAYS=7`. Änderungen sind Produktentscheidungen, keine historischen Fakten.
+
+Manuelle Prüfläufe über POST `/api/v1/check-runs`; es gibt keinen automatisch gestarteten Scheduler.
+Ein Worker-/Serverabbruch erzeugt keinen Erfolg. Ein noch laufender alter Eintrag wird beim nächsten
+exklusiven Lauf als unterbrochen markiert. Die Detailsemantik steht im Vertragsdokument.
+
+Aktuelle Tests ergänzen die ursprünglichen Fixtures um synthetische Event-Links, Lizenzen,
+Bildlinks und Grants aus dem überprüften dev-DDL sowie isolierte Admin-Rollen. Upgrade/check/
+Downgrade werden weiterhin mit einem eingeschränkten Migrator ausgeführt. Tests verändern
+niemals eine bestehende Uranus-Installation.

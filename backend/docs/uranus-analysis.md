@@ -236,3 +236,13 @@ Der Integrationstest führt `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` gegen Mini
 Das prüft die Ausführbarkeit; es ist keine belastbare Produktionskapazitätsmessung. Kein Uranus-
 Index wurde verändert. Konkrete spätere Kandidaten stehen in
 [future-uranus-improvements.md](future-uranus-improvements.md).
+
+## Nachprüfung und Umsetzung des Reviews
+
+Die Nachprüfung gegen aktuellen Remote-dev **733c54133362460353400eb96c60a0cdb9f8450a**,
+implementierte Regeln sowie verbliebene Unsicherheiten stehen in
+[source-verification.md](source-verification.md). Die ursprünglichen Aussagen dieses Dokuments
+über geplante Activity-/Persistenzfunktionen beschreiben den früheren Stand; aktuelle API-,
+Prioritäts-, Historien- und Autorisierungsverträge stehen in [contracts.md](contracts.md).
+Die öffentliche COALESCE-Space-Vererbung wird jetzt ausdrücklich als eigener geprüfter
+Darstellungspfad bewertet, ohne eine Vereinheitlichung der Uranus-Handler zu behaupten.

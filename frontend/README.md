@@ -1,139 +1,117 @@
 # Kulturbytes Admin Dashboard
 
-Nuxt 4 / Vue 3 / TypeScript, TailwindCSS 4 über das Vite-Plugin, Pinia mit `@pinia/nuxt`.
-Die unveränderte visuelle Referenz liegt in diesem Verzeichnis:
-[kulturbytes-admin-dashboard-mockup.html](kulturbytes-admin-dashboard-mockup.html). Das Frontend wurde ergänzt; die bestehende
-FastAPI-Anwendung und ihr Datenmodell werden nicht verändert.
+Nuxt 4 / Vue 3 / Pinia / TypeScript / Zod. Dashboard, filterbare Findings, Activity für neun
+Objektarten, Partner-/Einladungs-/Aktivierungslisten, Prüfläufe und menschliche Reviews.
+Das ursprüngliche HTML-Mockup bleibt unverändert.
 
-## Installation und Start
+## Start und Versionen
 
-Node gemäß `package.json` (z.B. 22.22.3) und pnpm 12.3.4 verwenden:
+Node gemäß `package.json`, CI verwendet fest **22.22.3**; pnpm **12.3.4** über `packageManager`.
 
 ```bash
 cd frontend
 pnpm install --frozen-lockfile
-cp .env.example .env
+cp .env.example .env  # nur bei der ersten Einrichtung
 pnpm dev
 ```
 
-Browser: **http://127.0.0.1:3000**. `pnpm dev` bindet ausschließlich an Loopback.
-FastAPI wird separat im Ordner [backend/](../backend/README.md) gestartet und läuft auf Port 8000.
-Es gibt kein automatisches Starten, Migrieren oder Verändern der Backend-Datenbank.
-
-```env
-NUXT_ADMIN_API_BASE=http://127.0.0.1:8000
-NUXT_PUBLIC_ALLOW_DEV_TOKEN_ENTRY=false
-```
-
-`NUXT_ADMIN_API_BASE` ist ausschließlich serverseitige runtimeConfig. Es gibt keinen
-serverseitig hinterlegten Admin-Schlüssel. Für Container: **127.0.0.1/localhost bezeichnet
-den Nuxt-Server bzw. dessen Container, nicht den Browser-Rechner.** Bei getrennten Containern
-z.B. `NUXT_ADMIN_API_BASE=http://admin-api:8000` konfigurieren. Keine öffentliche Freigabe
-oder produktives Deployment ist Teil dieses Projektschritts.
+Browser http://127.0.0.1:3000. FastAPI separat starten, standardmäßig Port 8000.
+`NUXT_ADMIN_API_BASE=http://127.0.0.1:8000` bleibt ausschließlich serverseitig.
+Bei getrennten Containern eine passende interne Backend-Origin konfigurieren.
+Keine automatische Backend-Migration oder Domain-Schreiboperation.
 
 ## Authentifizierung
 
-Uranus-/Admin-Systemlogin ist im vorhandenen Backend noch nicht integriert. Daher ist
-der normale Zustand ohne bereitgestellten Zugang ehrlich gesperrt (401). 403 bedeutet
-fehlende Berechtigung; 503 bedeutet nicht bereite API/DB oder nicht konfigurierte Backend-Auth.
-Eine Frontend-Navigation umgeht diese Prüfung nicht. Es gibt keine erfundene Login-Route,
-Token-Ausgabe, Benutzeridentität oder automatische Vergabe von Adminrechten.
+Ein Uranus-Login ist keine globale Adminberechtigung. Die Backend-Integration bleibt produktiv
+bewusst gesperrt. Ohne Credential 401, fehlende Berechtigung 403, unkonfigurierte Auth/DB 503.
+Es gibt keine erfundene Loginroute, Tokenausgabe oder automatische Vergabe von Adminrechten.
 
-Für **explizite lokale Entwicklung** kann die bereits vorhandene Bearer-Authentifizierung
-der FastAPI verwendet werden:
+Nur lokale Entwicklung: FastAPI muss ihren Development-Override aktivieren. Im Frontend
+`NUXT_PUBLIC_ALLOW_DEV_TOKEN_ENTRY=true` setzen, `pnpm dev` starten und unter
+„Lokaler Entwicklungszugang“ den selbst bereitgestellten DEV_ADMIN_TOKEN eingeben.
+Der Token bleibt ausschließlich in einer Closure der aktuellen Nuxt-App: kein localStorage,
+Cookie, Pinia-State, SSR-Payload, URL oder Log. Reload entfernt ihn. Ein Production-Build entfernt
+die Eingabe unabhängig vom Flag. Ein Zugangwechsel verwirft geladene Verwaltungsdaten und
+invalidiert laufende Detailansichten. Das Development-Subject ist kein Uranus-User.
 
-1. FastAPI muss bereits ausdrücklich mit ihrem Development-Override konfiguriert sein.
-2. Im Frontend `.env` `NUXT_PUBLIC_ALLOW_DEV_TOKEN_ENTRY=true` setzen und `pnpm dev` starten.
-3. „Lokaler Entwicklungszugang“ öffnen und den selbst bereitgestellten `DEV_ADMIN_TOKEN`
-   der Backend-`.env` eingeben, nur den Wert ohne `Bearer`-Präfix.
-4. „Zugang verwenden“ lädt die Daten erneut. „Zugang entfernen“ löscht Credential und Daten.
+## Seiten und API
 
-Das ist keine Anmeldung und keine Fake-Autorisierung: FastAPI prüft jeden Request. Der Token
-bleibt nur in einer Closure der aktuellen Nuxt-App im Browser-Speicher. Eingabefeld wird geleert;
-kein localStorage/sessionStorage, Cookie, Pinia-State, SSR-Payload, URL oder Log enthält ihn.
-Ein Neuladen entfernt den Zugang. In einem Production-Build existiert die manuelle Eingabe
-auch mit gesetzter Variable nicht (`import.meta.dev`-Grenze). Keine Backend-Secrets werden
-automatisch aus dem übergeordneten Projekt übernommen.
+| Seite | Backend |
+| --- | --- |
+| `/` und `/quality` | GET dashboard/summary und findings |
+| `/findings` | GET findings; live oder persisted, Filter/Pagination |
+| `/activity` | GET dashboard/activity; Typ/Organisation/Zeitraum oder separate undatierte Liste |
+| `/queues/partner_requests` | GET work-queues/partner_requests |
+| `/queues/team_invitations` | GET work-queues/team_invitations |
+| `/queues/user_activation` | GET work-queues/user_activation |
+| `/checks` | GET/POST check-runs |
+| Finding-Detail bei persistiertem Erstfund | PATCH finding-reviews |
 
-## Proxy und verwendeter Vertrag
-
-Der Browser verwendet ausschließlich gleiche Origin `/api/admin/...`.
-Der vollständige Backend-Pfad wird angehängt, z.B.
+Alle Backend-Pfade haben Prefix `/api/v1`. Browserzugriff ausschließlich über gleiche Origin:
 `/api/admin/api/v1/findings` → `${NUXT_ADMIN_API_BASE}/api/v1/findings`.
+Health/ready und der bestehende spezielle Venue-Endpunkt bleiben für Diagnose verfügbar.
 
-| FastAPI GET                                  | Frontend                                                             |
-| -------------------------------------------- | -------------------------------------------------------------------- |
-| `/health`                                    | Typisierter Diagnosezugriff über Proxy                               |
-| `/ready`                                     | Typisierter Diagnosezugriff über Proxy                               |
-| `/api/v1/dashboard/summary`                  | KPI-Karten, Zeitraum, neue Datensätze, Qualitätsübersicht            |
-| `/api/v1/findings`                           | Dashboard-Vorschau und filterbare, paginierte Arbeitsliste           |
-| `/api/v1/quality/venues/missing-geolocation` | Typisierter Diagnosezugriff; UI verwendet die generische Befundliste |
+Proxy-Allowlist: exakte bekannte Routen, GET, zusätzlich ausschließlich POST check-runs und
+PATCH finding-reviews. Keine Domain-Updates. Begrenzte Querynamen, keine doppelten Parameter,
+feste konfigurierte Origin ohne Pfade/Credentials, keine Redirects. Nur Authorization wird
+weitergeleitet; keine Cookies/fremden Headers. Antworten `private, no-store`.
+Reviews verwenden einen strikt Zod-validierten Body. Reads haben 10 Sekunden Upstream-Timeout,
+synchrone Prüfläufe/Reviews 120 Sekunden; ein Timeout beweist keinen erfolgreichen Abschluss.
 
-Verifiziert anhand des laufenden `/openapi.json` und lokalen Backend-Codes. Der abgerufene
-Vertrag liegt ohne Daten/Secrets in [docs/openapi.json](docs/openapi.json).
-`shared/contracts.ts` bildet ihn mit expliziten Zod-Schemas ab und leitet TypeScript-Typen ab.
-Das liefert zusätzlich Laufzeitvalidierung; ungültige Responses werden nicht durch Casts oder
-Demo-Zahlen kaschiert. Für diesen kleinen Vertrag ist kein weiterer Codegenerator erforderlich.
+Bekannte Fehlercodes werden ausschließlich aus streng validiertem JSON mit passendem HTTP-Status
+erhalten. Fehlermeldungen werden lokal erzeugt; Tracebacks und beliebige Upstream-Daten bleiben
+sanitisiert. [OpenAPI-Snapshot](docs/openapi.json) und `shared/contracts.ts` beschreiben den Vertrag;
+Responses werden zur Laufzeit validiert. Keine Demo-Daten außerhalb der Tests.
 
-Proxy-Schutz: exakte Route- und GET-Allowlist, erlaubte Query-Namen, keine doppelten Parameter,
-feste konfigurierte Ziel-Origin ohne Credentials/Pfade, keine Redirects, 10-Sekunden-Timeout,
-keine Weiterleitung von Cookies oder fremden Requestheaders. Nur das vom Browser übergebene
-Authorization-Header wird weitergegeben. 401 bei fehlendem Credential, Backend-Status bleiben
-erhalten; Fehlertexte werden datensparsam normalisiert. Antworten sind `private, no-store`.
-Es existiert kein unbeschränkter Proxy und keine Domain-Schreiboperation.
+## Semantik und Bedienung
 
-## Oberfläche und Zustandsverwaltung
+`entity_key` unterstützt UUIDs und Composite Keys. `entity_id` ist nur ein veralteter nullable
+UUID-Alias. Die Oberfläche verwendet entity_key. Finding-Actions enthalten bekannte Route,
+Objektschlüssel und einen exakt dagegen validierten internen href; Bearbeitungsrouten werden
+nicht aus Texten erraten. Für noch nicht vorhandene Objektdetails bleibt action NULL.
 
-- Sidebar, responsive Raster, fünf KPI-Karten, Arbeitsliste, Qualitätsübersicht, dunkle
-  Veranstaltungskarte, neue Datensätze, offene Vorgänge und Schnellfilter folgen dem Mockup.
-- Mobile Navigation und Details verwenden native modale Dialoge mit Escape/Fokus-Rückgabe.
-- Zeiträume `today`, `24h`, `7d` werden unverändert an das Backend gegeben. Keine eigene
-  Zeitfensterberechnung. Formate explizit Deutsch/Europe-Berlin; Headerzeit per Nuxt `useState`
-  zwischen SSR und Hydration geteilt.
-- Dashboard-/Findings-Stores kapseln Laden, Fehler, letzten Erfolg, Filter und Pagination.
-  Request-IDs verhindern Überschreiben durch verspätete Antworten. Filterwechsel setzt Seite 1.
-- Filter und Seitenzahlen liegen in der URL; Organisation per UUID, da kein Organisations-
-  Suchendpoint existiert. Keine lokale Filterung einer Teilseite als angeblich vollständige Suche.
-- Fehlende Werte: „Nicht verfügbar“; echte 0: „0“. Bei Aktualisierungsfehlern werden alte Daten
-  als veraltet markiert, bei 401/403 entfernt. Geänderte Perioden kennzeichnen ggf. alte Zahlen.
-- Daten werden erst im Browser geladen; SSR überträgt weder sensible Listen noch Credentials.
-  Pinia-Instanzen und API-Client entstehen pro Nuxt-App, kein globaler Benutzerzustand.
+`priority_score` bestimmt die globale Reihenfolge; diskrete priority und priority_reasons stehen
+im Detail. Terminanzahlen sind Informationen, kein zusätzlicher versteckter Sortierschlüssel.
 
-## Noch nicht verfügbar
+Activity zeigt reale created_at-Werte. Unknown-Zeitpunkte haben eine separate Identitätsreihenfolge;
+es gibt kein erfundenes Datum. Today ist lokaler Kalendertag, 24h/7d sind gleitende Zeiträume.
+Einladungsalter beruht auf invited_at; created_at ist kein Beitritt. User-Aktivierungsstatus liefert
+keine Aussage über Login/Inaktivität. Partneranfragen liefern keine rekonstruierte Entscheidungshistorie.
 
-Aktivitätsfeed, persönlicher Besuchsstand, offene Vorgänge, nächste Veranstaltung, Prüfläufe
-und Abdeckungsprozente, weitere Qualitätsregeln, Objektverwaltung, Bearbeiten, Reviews,
-Ignorieren und Export. Keine erfundenen Aufrufe, Demo-Zahlen oder Erfolgsbestätigungen.
-Der Schweregrad fehlender Geopositionen bleibt laut API **Warnung**, auch wenn das Mockup
-ein solches Beispiel als Fehler markiert. `urgent_findings` ist sichtbar, aber nicht als
-exakter Schnellfilter verlinkt: dafür fehlt ein passender Backend-Filter.
+Ein Prüflauf benötigt die optionale Admin-Ablage im Backend. Nur vollständig erfolgreiche
+Prüfungen schließen abgedeckte Findings. Die persistierte Liste bietet open/in_progress/snoozed/
+exception; Snooze braucht Ablauf, Ausnahme einen Grund. Zuweisung verlangt eine existierende
+User-UUID. Es gibt keinen manuellen resolved-Schalter. Reviews ändern keine Domain-Daten.
 
-Status im normalen UI: offene Live-Befunde. Historische reviewed/ignored/resolved-Mengen
-sind fachlich noch nicht implementiert. Befunddetails verwenden ausschließlich schon geladene
-Felder. „Erstmals gefunden“ bleibt bei fehlender Historie nicht verfügbar.
+Dashboard-/Finding-Stores schützen vor verspäteten Responses und entfernen Daten bei Authverlust.
+Neue Activity-/Queue-/Check-Seiten laden ausschließlich clientseitig, verwenden Request-IDs und
+verwerfen alte Daten beim Filter-/Zugangswechsel. Datumsanzeige Deutsch/Europe-Berlin; das
+Snooze-Eingabefeld nennt ausdrücklich die lokale Browserzeit und sendet einen ISO-Zeitpunkt.
 
 ## Tests und Build
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm lint
 pnpm typecheck
 pnpm test
-pnpm exec playwright install chromium  # einmalig, falls noch nicht vorhanden
-pnpm test:e2e
 pnpm build
-TEST_PRODUCTION=1 pnpm test:e2e  # dieselben Browser-Tests gegen den fertigen Build
-pnpm preview
+pnpm exec playwright install chromium
+pnpm test:e2e
+TEST_PRODUCTION=1 pnpm test:e2e
 ```
 
-Unit-/Komponententests: Vertrag, Mapping, Null vs. 0, Fehlertypen, Stores, Pagination,
-veraltete Antworten, Proxy-Ziel/Route/Header/Status/Timeout. Playwright: Desktop/Mobil,
-Navigation/Escape/Fokus, Filter/Pagination, Detailpanel, gesperrter Zugang, API-Ausfall,
-Proxy-Allowlist, Überbreite und Hydration. Testdaten liegen ausschließlich unter `tests/`.
-Die Browser-Tests starten einen eigenen Loopback-Testserver auf Port 3100. Screenshots und
-Fehlertraces liegen im ignorierten `test-results/`. Regulärer Betrieb benutzt keine Fixtures.
+CI führt Installation/Lint/Typen/Unit/Build und Chromium-Tests gegen den Produktionsbuild aus,
+getrennt von Backend-Jobs. SHA-gepinnte Actions, feste Node-Version, pnpm aus packageManager,
+Lockfile strikt und pnpm-Cache. Branch-Protection/Required-Checks werden nicht automatisch verändert.
+Playwright startet seinen eigenen Loopback-Server auf Port 3100; Tests verwenden synthetische
+Responses. Backend/PostGIS-Integration wird separat im Backend geprüft.
 
-Die ausgeführten Prüfungen und ihre Grenzen stehen in [docs/verification.md](docs/verification.md).
+Ergebnisse und Grenzen: [Verifikation](docs/verification.md).
+Verbindliche Fach-/Sicherheitsverträge: [Backend-Verträge](../backend/docs/contracts.md).
 
-Verwendete Integrationen: [Nuxt](https://nuxt.com/docs/4.x),
-[Tailwind Vite-Integration](https://tailwindcss.com/docs/installation/framework-guides/nuxt),
-[Pinia/Nuxt](https://pinia.vuejs.org/ssr/nuxt.html).
+## Bewusst offen
+
+Produktive Uranus-Systemadmin-Autorisierung, fachliches Editieren, persönlicher Sichtungsstand,
+vollständiges Auditjournal, automatische Geocodierung/Merges und externe URL-/Dateiabfragen.
+Portal-Bildziele sowie Space-Feature-Zuordnungen bleiben bis zur eindeutigen Quellklärung offen.

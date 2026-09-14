@@ -39,3 +39,17 @@ pnpm dev
 
 Dashboard: http://127.0.0.1:3000. Voraussetzungen, Konfiguration und Tests
 stehen in der [Frontend-Anleitung](frontend/README.md).
+
+## Review-Funktionen
+
+Activity für neun Quelltypen, 19 zentrale Qualitätsregeln einschließlich bestehender Venue-Prüfung,
+operative Arbeitslisten sowie optionale persistierte Prüfläufe und Reviews sind angebunden.
+Die neue Admin-Schreibverbindung verwaltet ausschließlich eigene Metadaten; Uranus bleibt read-only.
+Produktive globale Admin-Autorisierung muss weiterhin explizit in Uranus definiert werden.
+
+Die optionale Ablage erfordert Admin-Migration `0002` und einen separat eingeschränkten
+`ADMIN_DATABASE_URL`-Account. Ohne Ablage bleibt Live-Reporting nutzbar.
+Details: [Backend-Verträge](backend/docs/contracts.md),
+[verifizierter Uranus-dev-Stand](backend/docs/source-verification.md).
+Frontend und Backend werden in getrennten CI-Jobs geprüft, einschließlich Frontend-Produktionsbuild
+und reproduzierbarer Chromium-Tests.
