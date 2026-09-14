@@ -94,3 +94,24 @@ export const filtersSchema = z.object({
   page_size: z.coerce.number().int().min(1).max(100).default(50),
 })
 export type FindingFilters = z.infer<typeof filtersSchema>
+
+// Own API codes only. Messages are validated but replaced with local safe text.
+export const adminErrorStatuses = {
+  authentication_required: 401,
+  invalid_credentials: 401,
+  permission_denied: 403,
+  invalid_input: 422,
+  internal_error: 500,
+  admin_auth_unconfigured: 503,
+  source_timezone_unconfigured: 503,
+  database_unavailable: 503,
+  admin_storage_unconfigured: 503,
+  check_run_conflict: 409,
+  finding_not_found: 404,
+} as const
+export const adminErrorSchema = z.object({
+  error: z.object({
+    code: z.enum(Object.keys(adminErrorStatuses) as [keyof typeof adminErrorStatuses, ...Array<keyof typeof adminErrorStatuses>]),
+    message: z.string().min(1).max(1024),
+  }).strict(),
+}).strict()

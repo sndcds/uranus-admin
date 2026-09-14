@@ -1,3 +1,4 @@
+import { adminErrorSchema, adminErrorStatuses } from '#shared/contracts'
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
@@ -76,8 +77,17 @@ export async function forwardAdminRequest(
       cache: 'no-store',
       signal: AbortSignal.timeout(10000),
     })
-    // Preserve upstream status, but never relay error bodies/headers that could expose internals.
-    if (!response.ok) return rejected(response.status, 'upstream_error')
+    if (!response.ok) {
+      if (response.headers.get('content-type')?.split(';')[0]?.trim() === 'application/json') {
+        try {
+          const raw: unknown = await response.json()
+          const parsed = adminErrorSchema.safeParse(raw)
+          if (parsed.success && adminErrorStatuses[parsed.data.error.code] === response.status)
+            return rejected(response.status, parsed.data.error.code)
+        } catch { /* Invalid JSON is sanitized with its original HTTP status. */ }
+      }
+      return rejected(response.status, 'upstream_error')
+    }
     const body: unknown = await response.json()
     return { status: response.status, body }
   } catch (error) {
