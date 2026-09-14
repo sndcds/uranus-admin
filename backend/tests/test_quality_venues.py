@@ -163,3 +163,23 @@ def test_composite_entity_key_and_legacy_uuid_alias():
         assert composite.entity_key == key
         assert composite.entity_id is None
     assert table.c.entity_key.name == "entity_id"  # Existing TEXT storage needs no migration.
+
+
+@pytest.mark.parametrize("severity", list(Severity))
+@pytest.mark.parametrize(
+    "published,soon,upcoming",
+    [(False, False, False), (False, False, True), (True, False, True), (True, True, True)],
+)
+def test_priority_score_is_explicit(severity, published, soon, upcoming):
+    from app.services.quality.priority import priority_details
+
+    result = priority_details(severity, published=published, soon=soon, upcoming=upcoming)
+    assert (
+        result["priority_score"]
+        == (7 - result["priority"]) * 1000
+        + 200 * published
+        + 400 * (published and soon)
+        + 100 * upcoming
+    )
+    assert ("published_soon" in result["priority_reasons"]) == (published and soon)
+    assert f"severity_{severity}" in result["priority_reasons"]

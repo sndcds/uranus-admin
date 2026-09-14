@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.schemas.finding import FindingFilters, FindingStatus, Severity
+from app.services.quality.priority import venue_priority_score_sql
 
 RULE = "venue_missing_geolocation"
 QUALITY_SQL = Path(__file__).with_name("sql").joinpath("venue_missing_geolocation.sql").read_text()
@@ -56,10 +57,9 @@ async def list_missing_geolocation(
             + QUALITY_SQL
             + """
         ) AS findings
-        ORDER BY (upcoming_event_date_count > 0) DESC,
-                 soon_published_event_date_count DESC,
-                 upcoming_published_event_date_count DESC,
-                 upcoming_event_date_count DESC, uuid
+        ORDER BY """
+            + venue_priority_score_sql()
+            + """ DESC, uuid
         LIMIT :limit OFFSET :offset
         """
         ),

@@ -91,6 +91,7 @@ defineExpose({ open })
       <p class="mt-5 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
         Bearbeiten, als geprüft markieren und ignorieren sind noch nicht verfügbar.
       </p>
+      <NuxtLink v-if="finding.action" :to="finding.action.href" class="button mt-4" @click="close">Objekt öffnen</NuxtLink>
       <button class="button mt-4" @click="close">Schließen</button>
     </template>
   </dialog>

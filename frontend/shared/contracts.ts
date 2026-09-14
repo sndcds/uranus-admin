@@ -37,11 +37,21 @@ export const summarySchema = z.object({
   }),
   check_status: z.null().optional(),
 })
+export const actionSchema = z.object({
+  type: z.literal('view'),
+  route: z.enum(['activity', 'partner_requests', 'team_invitations', 'user_activation']),
+  entity_key: z.string().min(1).max(1024),
+  href: z.string(),
+}).refine((action) => action.href === `${action.route === 'activity' ? '/activity' : `/queues/${action.route}`}?entity_key=${encodeURIComponent(action.entity_key).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`,
+  'Invalid internal action target')
+
 export const findingSchema = z.object({
   id: z.string(),
   rule: z.string(),
   severity: severitySchema,
   priority: z.number().int().min(1).max(6),
+  priority_score: count,
+  priority_reasons: z.array(z.string()),
   entity_type: z.string(),
   entity_key: z.string().min(1).max(1024),
   entity_id: z.uuid().nullable().optional(),
@@ -50,6 +60,7 @@ export const findingSchema = z.object({
   organization_name: z.string(),
   field: z.string(),
   message: z.string(),
+  action: actionSchema.nullable().optional(),
   address: z.object({
     street: z.string().nullable().optional(),
     house_number: z.string().nullable().optional(),

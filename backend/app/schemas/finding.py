@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import AliasChoices, BaseModel, Field, computed_field
 
+from app.schemas.action import Action
+
 
 class Severity(StrEnum):
     error = "error"
@@ -42,6 +44,8 @@ class Finding(BaseModel):
     rule: str
     severity: Severity
     priority: int = Field(ge=1, le=6)
+    priority_score: int = Field(ge=0)
+    priority_reasons: list[str]
     entity_type: str
     entity_key: str = Field(
         min_length=1, max_length=1024, validation_alias=AliasChoices("entity_key", "entity_id")
@@ -51,6 +55,7 @@ class Finding(BaseModel):
     organization_name: str
     field: str
     message: str
+    action: Action | None = None
     address: Address
     status: FindingStatus = FindingStatus.open
     first_seen_at: datetime | None = None
@@ -60,7 +65,7 @@ class Finding(BaseModel):
     upcoming_published_event_date_count: int = Field(ge=0)
     soon_published_event_date_count: int = Field(ge=0)
 
-    @computed_field(deprecated="Use entity_key; composite keys have no UUID alias.")
+    @computed_field(deprecated="Use entity_key; composite keys have no UUID alias.")  # type: ignore[prop-decorator]
     @property
     def entity_id(self) -> UUID | None:
         try:

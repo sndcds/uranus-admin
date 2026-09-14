@@ -37,6 +37,8 @@ export const findings: FindingPage = {
       rule: 'venue_missing_geolocation',
       severity: 'warning',
       priority: 4,
+    priority_score: 3700,
+    priority_reasons: ['severity_warning', 'published', 'published_soon', 'upcoming_dates'],
       entity_type: 'venue',
       entity_key: '00000000-0000-4000-8000-000000000020',
       entity_name: 'Test-Hafenbühne',
