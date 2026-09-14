@@ -207,3 +207,40 @@ async def db_client(database, settings):
 @pytest.fixture
 def now(database):
     return database[1]
+
+
+@pytest.fixture
+async def admin_store(database, settings):
+    from sqlalchemy import text
+
+    from app.admin_database import create_admin_engine
+    from app.admin_tables import metadata
+
+    setup = create_async_engine(database[0], poolclass=NullPool)
+    async with setup.begin() as connection:
+        assert (
+            await connection.execute(text("SELECT to_regnamespace('admin')"))
+        ).scalar_one() is None
+        await connection.execute(text("CREATE SCHEMA admin"))
+        await connection.run_sync(metadata.create_all)
+        await connection.execute(text("CREATE ROLE admin_history_test LOGIN"))
+        await connection.execute(text("GRANT USAGE ON SCHEMA admin TO admin_history_test"))
+        await connection.execute(
+            text("GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA admin TO admin_history_test")
+        )
+    settings.admin_database_url = SecretStr(
+        make_url(database[0])
+        .set(username="admin_history_test")
+        .render_as_string(hide_password=False)
+    )
+    engine = create_admin_engine(settings)
+    try:
+        async with engine.connect() as connection:
+            yield connection
+    finally:
+        await engine.dispose()
+        async with setup.begin() as connection:
+            await connection.run_sync(metadata.drop_all)
+            await connection.execute(text("DROP SCHEMA admin"))
+            await connection.execute(text("DROP ROLE admin_history_test"))
+        await setup.dispose()

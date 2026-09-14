@@ -10,7 +10,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
-from app.api import dashboard, findings, health, quality
+from app.admin_database import create_admin_engine
+from app.api import activity, checks, dashboard, findings, health, quality, queues
 from app.auth.dependencies import get_current_admin
 from app.config import Settings
 from app.database import create_engine
@@ -33,10 +34,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         configure_logging(settings.log_level)
         engine = create_engine(settings)
         application.state.engine = engine
+        admin_engine = create_admin_engine(settings)
+        application.state.admin_engine = admin_engine
         try:
             yield
         finally:
             await engine.dispose()
+            if admin_engine is not None:
+                await admin_engine.dispose()
 
     application = FastAPI(
         title="Kulturbytes Admin API",
@@ -83,13 +88,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             503: {"model": ErrorResponse},
         },
     )
-    for router in (dashboard.router, findings.router, quality.router):
+    for router in (
+        dashboard.router,
+        findings.router,
+        quality.router,
+        activity.router,
+        queues.router,
+        checks.router,
+    ):
         admin.include_router(router)
     application.include_router(admin)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.origins,
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST", "PATCH"],
         allow_headers=["Authorization"],
         allow_credentials=False,
     )

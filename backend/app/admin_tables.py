@@ -15,6 +15,7 @@ check_run = sa.Table(
     sa.Column("rule_count", sa.Integer, nullable=False, server_default="0"),
     sa.Column("finding_count", sa.Integer, nullable=False, server_default="0"),
     sa.Column("error_message", sa.Text),
+    sa.Column("rule_results", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
     sa.CheckConstraint("status IN ('running', 'success', 'failed')", name="check_run_status"),
     sa.CheckConstraint("rule_count >= 0 AND finding_count >= 0", name="check_run_counts"),
     sa.CheckConstraint("finished_at >= started_at", name="check_run_timestamps"),
@@ -40,10 +41,15 @@ finding = sa.Table(
     sa.Column("reviewed_at", sa.DateTime(timezone=True)),
     sa.Column("ignored_until", sa.DateTime(timezone=True)),
     sa.Column("comment", sa.Text),
+    sa.Column("assigned_to", UUID),
+    sa.Column("reviewed_subject", sa.Text),
+    sa.Column("snoozed_until", sa.DateTime(timezone=True)),
+    sa.Column("exception_reason", sa.Text),
     sa.UniqueConstraint("rule", "entity_type", "entity_key", "field", name="finding_identity"),
     sa.CheckConstraint("severity IN ('error', 'warning', 'info')", name="finding_severity"),
     sa.CheckConstraint(
-        "status IN ('open', 'reviewed', 'ignored', 'resolved')", name="finding_status"
+        "status IN ('open','in_progress','snoozed','exception','reviewed','ignored','resolved')",
+        name="finding_status",
     ),
     sa.CheckConstraint("last_seen_at >= first_seen_at", name="finding_timestamps"),
 )

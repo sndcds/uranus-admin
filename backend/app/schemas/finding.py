@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import AliasChoices, BaseModel, Field, computed_field
@@ -16,12 +16,16 @@ class Severity(StrEnum):
 
 class FindingStatus(StrEnum):
     open = "open"
+    in_progress = "in_progress"
+    snoozed = "snoozed"
+    exception = "exception"
     reviewed = "reviewed"
     ignored = "ignored"
     resolved = "resolved"
 
 
 class FindingFilters(BaseModel):
+    mode: Literal["live", "persisted"] = "live"
     severity: Severity | None = None
     entity_type: str | None = Field(default=None, max_length=64)
     rule: str | None = Field(default=None, max_length=100)
@@ -51,19 +55,27 @@ class Finding(BaseModel):
         min_length=1, max_length=1024, validation_alias=AliasChoices("entity_key", "entity_id")
     )
     entity_name: str
-    organization_id: UUID
-    organization_name: str
+    organization_id: UUID | None
+    organization_name: str | None
     field: str
     message: str
     action: Action | None = None
-    address: Address
+    address: Address = Field(default_factory=Address)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     status: FindingStatus = FindingStatus.open
+    assigned_to: UUID | None = None
+    reviewed_by: UUID | None = None
+    reviewed_subject: str | None = None
+    reviewed_at: datetime | None = None
+    snoozed_until: datetime | None = None
+    comment: str | None = None
+    exception_reason: str | None = None
     first_seen_at: datetime | None = None
     last_seen_at: datetime
     resolved_at: datetime | None = None
-    upcoming_event_date_count: int = Field(ge=0)
-    upcoming_published_event_date_count: int = Field(ge=0)
-    soon_published_event_date_count: int = Field(ge=0)
+    upcoming_event_date_count: int = Field(default=0, ge=0)
+    upcoming_published_event_date_count: int = Field(default=0, ge=0)
+    soon_published_event_date_count: int = Field(default=0, ge=0)
 
     @computed_field(deprecated="Use entity_key; composite keys have no UUID alias.")  # type: ignore[prop-decorator]
     @property
@@ -85,4 +97,4 @@ class FindingPage(BaseModel):
     items: list[Finding]
     pagination: Pagination
     observed_at: datetime
-    mode: Literal["live"] = "live"
+    mode: Literal["live", "persisted"] = "live"

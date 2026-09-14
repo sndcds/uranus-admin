@@ -80,3 +80,26 @@ async def test_cors_restricts_origins(settings):
                 },
             )
             assert response.status_code == expected
+
+
+@pytest.mark.parametrize(
+    "method,path",
+    [
+        ("GET", "/api/v1/dashboard/activity"),
+        ("GET", "/api/v1/work-queues/partner_requests"),
+        ("GET", "/api/v1/work-queues/team_invitations"),
+        ("GET", "/api/v1/work-queues/user_activation"),
+        ("GET", "/api/v1/check-runs"),
+        ("POST", "/api/v1/check-runs"),
+        ("PATCH", "/api/v1/finding-reviews"),
+    ],
+)
+async def test_new_routes_are_fail_closed(client, method, path):
+    response = await client.request(method, path)
+    assert response.status_code == 401
+
+
+async def test_storage_disabled_does_not_enable_writes(client, headers):
+    response = await client.get("/api/v1/check-runs", headers=headers)
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "admin_storage_unconfigured"
