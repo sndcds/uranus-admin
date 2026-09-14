@@ -91,29 +91,124 @@ describe('bounded admin proxy', () => {
   })
 })
 
-
 it.each([
-  [401, 'authentication_required'], [401, 'invalid_credentials'], [403, 'permission_denied'],
-  [422, 'invalid_input'], [500, 'internal_error'], [503, 'admin_auth_unconfigured'],
-  [503, 'source_timezone_unconfigured'], [503, 'database_unavailable'],
+  [401, 'authentication_required'],
+  [401, 'invalid_credentials'],
+  [403, 'permission_denied'],
+  [422, 'invalid_input'],
+  [500, 'internal_error'],
+  [503, 'admin_auth_unconfigured'],
+  [503, 'source_timezone_unconfigured'],
+  [503, 'database_unavailable'],
 ])('preserves validated code %s %s without relaying details', async (status, code) => {
-  const result = await forwardAdminRequest(input, base, vi.fn().mockResolvedValue(
-    Response.json({ error: { code, message: 'private exception details' } }, { status: Number(status) }),
-  ))
+  const result = await forwardAdminRequest(
+    input,
+    base,
+    vi
+      .fn()
+      .mockResolvedValue(
+        Response.json(
+          { error: { code, message: 'private exception details' } },
+          { status: Number(status) },
+        ),
+      ),
+  )
   expect(result).toMatchObject({ status, body: { error: { code } } })
   expect(JSON.stringify(result)).not.toContain('private exception')
 })
 
 it.each([
   ['{"error":{"code":"unknown","message":"secret"}}', 'application/json'],
-  ['{"error":{"code":"database_unavailable","message":"secret","traceback":"secret"}}', 'application/json'],
-  ['{bad json', 'application/json'], ['<html>secret</html>', 'text/html'],
+  [
+    '{"error":{"code":"database_unavailable","message":"secret","traceback":"secret"}}',
+    'application/json',
+  ],
+  ['{bad json', 'application/json'],
+  ['<html>secret</html>', 'text/html'],
   ['secret', 'text/plain'],
   ['{"error":{"code":"invalid_credentials","message":"secret"}}', 'application/json'],
 ])('sanitizes untrusted errors %s', async (body, type) => {
-  const result = await forwardAdminRequest(input, base, vi.fn().mockResolvedValue(
-    new Response(body, { status: 503, headers: { 'Content-Type': type } }),
-  ))
+  const result = await forwardAdminRequest(
+    input,
+    base,
+    vi
+      .fn()
+      .mockResolvedValue(new Response(body, { status: 503, headers: { 'Content-Type': type } })),
+  )
   expect(result).toMatchObject({ status: 503, body: { error: { code: 'upstream_error' } } })
   expect(JSON.stringify(result)).not.toContain('secret')
+})
+
+it('allows only validated admin review and check mutations', async () => {
+  const fetcher = vi.fn().mockImplementation(async () => Response.json({ status: 'success' }))
+  const review = {
+    finding_id: 'rule:venue:key:field',
+    status: 'exception',
+    exception_reason: 'Agreed',
+  }
+  expect(
+    (
+      await forwardAdminRequest(
+        { ...input, path: '/api/v1/finding-reviews', method: 'PATCH', body: review },
+        base,
+        fetcher,
+      )
+    ).status,
+  ).toBe(200)
+  expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
+    method: 'PATCH',
+    body: JSON.stringify(review),
+  })
+  expect(
+    (
+      await forwardAdminRequest(
+        {
+          ...input,
+          path: '/api/v1/finding-reviews',
+          method: 'PATCH',
+          body: { ...review, status: 'resolved' },
+        },
+        base,
+        fetcher,
+      )
+    ).status,
+  ).toBe(422)
+  expect(
+    (
+      await forwardAdminRequest(
+        {
+          ...input,
+          path: '/api/v1/finding-reviews',
+          method: 'PATCH',
+          body: { ...review, sql: 'UPDATE uranus.venue' },
+        },
+        base,
+        fetcher,
+      )
+    ).status,
+  ).toBe(422)
+  expect(
+    (
+      await forwardAdminRequest(
+        { ...input, path: '/api/v1/check-runs', method: 'POST', body: {} },
+        base,
+        fetcher,
+      )
+    ).status,
+  ).toBe(200)
+  expect(
+    (
+      await forwardAdminRequest(
+        {
+          ...input,
+          path: '/api/v1/check-runs',
+          method: 'POST',
+          body: { organization_id: 'guess' },
+        },
+        base,
+        fetcher,
+      )
+    ).status,
+  ).toBe(422)
+  expect(fetcher).toHaveBeenCalledTimes(2)
 })

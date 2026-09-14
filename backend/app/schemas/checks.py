@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.finding import Pagination
 
@@ -24,6 +24,7 @@ class CheckRunPage(BaseModel):
 
 
 class ReviewUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     finding_id: str = Field(min_length=1, max_length=8192)
     status: Literal["open", "in_progress", "snoozed", "exception"]
     assigned_to: UUID | None = None

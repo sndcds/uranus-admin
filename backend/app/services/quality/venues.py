@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.repositories import venues
+from app.schemas.action import Action
 from app.schemas.finding import Address, Finding, FindingFilters, FindingPage, Pagination, Severity
 from app.services.quality.priority import priority_details
 
@@ -24,6 +25,7 @@ def map_venue(row: dict[str, Any], observed_at: datetime) -> Finding:
         **priority_details(
             Severity.warning, published=published > 0, soon=soon > 0, upcoming=count > 0
         ),
+        action=Action(route="activity", entity_key=str(row["uuid"]), entity_type="venue"),
         entity_type="venue",
         entity_key=str(row["uuid"]),
         entity_name=row["name"],

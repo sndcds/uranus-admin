@@ -39,20 +39,31 @@ describe('actual response contract', () => {
   })
 })
 
-
 it('accepts stable composite finding keys and rejects empty keys', () => {
   for (const entity_key of ['partner-request:org-a:org-b', 'membership:org:user']) {
     const page = { ...findings, items: [{ ...findings.items[0], entity_key, entity_id: null }] }
     expect(findingPageSchema.parse(page).items[0]?.entity_key).toBe(entity_key)
   }
-  expect(findingPageSchema.safeParse({ ...findings,
-    items: [{ ...findings.items[0], entity_key: '' }] }).success).toBe(false)
+  expect(
+    findingPageSchema.safeParse({ ...findings, items: [{ ...findings.items[0], entity_key: '' }] })
+      .success,
+  ).toBe(false)
 })
 
 it('validates internal action routes and encoded keys', async () => {
   const { actionSchema } = await import('../../shared/contracts')
-  const action = { type: 'view', route: 'partner_requests', entity_key: 'a:b', href: '/queues/partner_requests?entity_key=a%3Ab' }
+  const action = {
+    type: 'view',
+    route: 'partner_requests',
+    entity_key: 'a:b',
+    href: '/queues/partner_requests?entity_key=a%3Ab',
+  }
   expect(actionSchema.safeParse(action).success).toBe(true)
-  for (const href of ['https://evil.invalid', '//evil.invalid', '/venues/a', '/queues/partner_requests?entity_key=a%3Ab&url=evil'])
+  for (const href of [
+    'https://evil.invalid',
+    '//evil.invalid',
+    '/venues/a',
+    '/queues/partner_requests?entity_key=a%3Ab&url=evil',
+  ])
     expect(actionSchema.safeParse({ ...action, href }).success).toBe(false)
 })

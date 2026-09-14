@@ -6,7 +6,15 @@ const count = z.number().int().nonnegative()
 const timestamp = z.string().datetime({ offset: true })
 export const periodSchema = z.enum(['today', '24h', '7d'])
 export const severitySchema = z.enum(['error', 'warning', 'info'])
-export const statusSchema = z.enum(['open', 'reviewed', 'ignored', 'resolved'])
+export const statusSchema = z.enum([
+  'open',
+  'in_progress',
+  'snoozed',
+  'exception',
+  'reviewed',
+  'ignored',
+  'resolved',
+])
 export const summarySchema = z.object({
   period: periodSchema,
   from_at: timestamp,
@@ -37,13 +45,37 @@ export const summarySchema = z.object({
   }),
   check_status: z.null().optional(),
 })
-export const actionSchema = z.object({
-  type: z.literal('view'),
-  route: z.enum(['activity', 'partner_requests', 'team_invitations', 'user_activation']),
-  entity_key: z.string().min(1).max(1024),
-  href: z.string(),
-}).refine((action) => action.href === `${action.route === 'activity' ? '/activity' : `/queues/${action.route}`}?entity_key=${encodeURIComponent(action.entity_key).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`,
-  'Invalid internal action target')
+export const actionSchema = z
+  .object({
+    type: z.literal('view'),
+    route: z.enum(['activity', 'partner_requests', 'team_invitations', 'user_activation']),
+    entity_type: z
+      .enum([
+        'organization',
+        'venue',
+        'space',
+        'event',
+        'event_date',
+        'user',
+        'partner_request',
+        'team_membership',
+        'image',
+      ])
+      .nullable()
+      .optional(),
+    entity_key: z.string().min(1).max(1024),
+    href: z.string(),
+  })
+  .refine((action) => {
+    if (action.route === 'activity' && !action.entity_type) return false
+    const path = action.route === 'activity' ? '/activity' : `/queues/${action.route}`
+    const key = encodeURIComponent(action.entity_key).replace(
+      /[!'()*]/g,
+      (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+    )
+    const suffix = action.route === 'activity' ? `&entity_type=${action.entity_type}` : ''
+    return action.href === `${path}?entity_key=${key}${suffix}`
+  }, 'Invalid internal action target')
 
 export const findingSchema = z.object({
   id: z.string(),
@@ -56,8 +88,8 @@ export const findingSchema = z.object({
   entity_key: z.string().min(1).max(1024),
   entity_id: z.uuid().nullable().optional(),
   entity_name: z.string(),
-  organization_id: z.uuid(),
-  organization_name: z.string(),
+  organization_id: z.uuid().nullable(),
+  organization_name: z.string().nullable(),
   field: z.string(),
   message: z.string(),
   action: actionSchema.nullable().optional(),
@@ -69,6 +101,13 @@ export const findingSchema = z.object({
     country: z.string().nullable().optional(),
   }),
   status: statusSchema.optional(),
+  assigned_to: z.uuid().nullable().optional(),
+  reviewed_by: z.uuid().nullable().optional(),
+  reviewed_subject: z.string().nullable().optional(),
+  reviewed_at: timestamp.nullable().optional(),
+  snoozed_until: timestamp.nullable().optional(),
+  comment: z.string().nullable().optional(),
+  exception_reason: z.string().nullable().optional(),
   first_seen_at: timestamp.nullable().optional(),
   last_seen_at: timestamp,
   resolved_at: timestamp.nullable().optional(),
@@ -85,7 +124,7 @@ export const findingPageSchema = z.object({
     pages: count,
   }),
   observed_at: timestamp,
-  mode: z.literal('live').optional(),
+  mode: z.enum(['live', 'persisted']).optional(),
 })
 export const healthSchema = z.object({ status: z.literal('ok').optional() })
 export const errorSchema = z.object({ error: z.object({ code: z.string(), message: z.string() }) })
@@ -96,6 +135,7 @@ export type FindingPage = z.infer<typeof findingPageSchema>
 export type DashboardSummary = z.infer<typeof summarySchema>
 
 export const filtersSchema = z.object({
+  mode: z.enum(['live', 'persisted']).default('live'),
   severity: severitySchema.optional(),
   entity_type: z.string().max(64).optional(),
   rule: z.string().max(100).optional(),
@@ -120,9 +160,107 @@ export const adminErrorStatuses = {
   check_run_conflict: 409,
   finding_not_found: 404,
 } as const
-export const adminErrorSchema = z.object({
-  error: z.object({
-    code: z.enum(Object.keys(adminErrorStatuses) as [keyof typeof adminErrorStatuses, ...Array<keyof typeof adminErrorStatuses>]),
-    message: z.string().min(1).max(1024),
-  }).strict(),
-}).strict()
+export const adminErrorSchema = z
+  .object({
+    error: z
+      .object({
+        code: z.enum(
+          Object.keys(adminErrorStatuses) as [
+            keyof typeof adminErrorStatuses,
+            ...Array<keyof typeof adminErrorStatuses>,
+          ],
+        ),
+        message: z.string().min(1).max(1024),
+      })
+      .strict(),
+  })
+  .strict()
+
+export const entityTypeSchema = z.enum([
+  'organization',
+  'venue',
+  'space',
+  'event',
+  'event_date',
+  'user',
+  'partner_request',
+  'team_membership',
+  'image',
+])
+export const activityPageSchema = z.object({
+  items: z.array(
+    z.object({
+      entity_type: entityTypeSchema,
+      entity_key: z.string(),
+      entity_name: z.string(),
+      organization_id: z.uuid().nullable(),
+      organization_name: z.string().nullable(),
+      created_at: timestamp.nullable(),
+      status: z.string().nullable(),
+      action: actionSchema.nullable(),
+    }),
+  ),
+  pagination: findingPageSchema.shape.pagination,
+  observed_at: timestamp,
+  from_at: timestamp.nullable(),
+  to_at: timestamp.nullable(),
+  timestamp_state: z.enum(['known', 'unknown']),
+  unknown_timestamp_count: count,
+})
+export type ActivityPage = z.infer<typeof activityPageSchema>
+
+export const queueKindSchema = z.enum(['partner_requests', 'team_invitations', 'user_activation'])
+export const queuePageSchema = z.object({
+  kind: queueKindSchema,
+  items: z.array(
+    z.object({
+      entity_key: z.string(),
+      organization_id: z.uuid().nullable(),
+      organization_name: z.string().nullable(),
+      from_organization_id: z.uuid().nullable(),
+      from_organization_name: z.string().nullable(),
+      to_organization_id: z.uuid().nullable(),
+      to_organization_name: z.string().nullable(),
+      user_id: z.uuid(),
+      user_name: z.string().nullable(),
+      status: z.string(),
+      created_at: timestamp,
+      invited_at: timestamp.nullable(),
+      has_joined: z.boolean().nullable(),
+      age_days: count.nullable(),
+      age_basis: z.enum(['created_at', 'invited_at']),
+      checks: z.array(z.string()),
+      action: actionSchema,
+    }),
+  ),
+  pagination: findingPageSchema.shape.pagination,
+  observed_at: timestamp,
+})
+export type QueuePage = z.infer<typeof queuePageSchema>
+export const checkRunSchema = z.object({
+  id: z.uuid(),
+  started_at: timestamp,
+  finished_at: timestamp.nullable(),
+  status: z.enum(['running', 'success', 'failed']),
+  rule_count: count,
+  finding_count: count,
+  error_message: z.string().nullable(),
+  rule_results: z.record(z.string(), z.unknown()),
+})
+export const checkRunPageSchema = z.object({
+  items: z.array(checkRunSchema),
+  pagination: findingPageSchema.shape.pagination,
+})
+export const reviewUpdateSchema = z
+  .object({
+    finding_id: z.string().min(1).max(8192),
+    status: z.enum(['open', 'in_progress', 'snoozed', 'exception']),
+    assigned_to: z.uuid().nullable().optional(),
+    snoozed_until: timestamp.nullable().optional(),
+    comment: z.string().max(4000).nullable().optional(),
+    exception_reason: z.string().max(2000).nullable().optional(),
+  })
+  .strict()
+  .refine((value) => value.status !== 'snoozed' || !!value.snoozed_until)
+  .refine((value) => value.status !== 'exception' || !!value.exception_reason?.trim())
+export type ReviewUpdate = z.infer<typeof reviewUpdateSchema>

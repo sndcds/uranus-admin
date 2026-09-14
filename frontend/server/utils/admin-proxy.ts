@@ -1,12 +1,49 @@
-import { adminErrorSchema, adminErrorStatuses } from '#shared/contracts'
+import { adminErrorSchema, adminErrorStatuses, reviewUpdateSchema } from '#shared/contracts'
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
+  '/api/v1/check-runs': ['page', 'page_size'],
+  '/api/v1/finding-reviews': [],
+  '/api/v1/work-queues/partner_requests': [
+    'organization_id',
+    'entity_key',
+    'status',
+    'min_age_days',
+    'page',
+    'page_size',
+  ],
+  '/api/v1/work-queues/team_invitations': [
+    'organization_id',
+    'entity_key',
+    'status',
+    'min_age_days',
+    'page',
+    'page_size',
+  ],
+  '/api/v1/work-queues/user_activation': [
+    'organization_id',
+    'entity_key',
+    'status',
+    'min_age_days',
+    'page',
+    'page_size',
+  ],
   '/health': [],
   '/ready': [],
   '/api/v1/dashboard/summary': ['period'],
-  '/api/v1/dashboard/activity': ['entity_type', 'entity_key', 'organization_id', 'period', 'from_at', 'to_at', 'timestamp_state', 'page', 'page_size'],
+  '/api/v1/dashboard/activity': [
+    'entity_type',
+    'entity_key',
+    'organization_id',
+    'period',
+    'from_at',
+    'to_at',
+    'timestamp_state',
+    'page',
+    'page_size',
+  ],
   '/api/v1/findings': [
+    'mode',
     'severity',
     'entity_type',
     'rule',
@@ -22,6 +59,7 @@ export interface ProxyInput {
   method: string
   query: URLSearchParams
   authorization?: string
+  body?: unknown
 }
 export interface ProxyResult {
   status: number
@@ -39,7 +77,28 @@ export async function forwardAdminRequest(
 ): Promise<ProxyResult> {
   const allowed = Object.hasOwn(routes, input.path) ? routes[input.path] : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
-  if (input.method !== 'GET') return rejected(405, 'method_not_allowed')
+  const write =
+    (input.method === 'POST' && input.path === '/api/v1/check-runs') ||
+    (input.method === 'PATCH' && input.path === '/api/v1/finding-reviews')
+  if (!write && (input.method !== 'GET' || input.path === '/api/v1/finding-reviews'))
+    return rejected(405, 'method_not_allowed')
+  if (write && input.query.size) return rejected(422, 'invalid_query')
+  let requestBody: string | undefined
+  if (write && input.path === '/api/v1/finding-reviews') {
+    const parsed = reviewUpdateSchema.safeParse(input.body)
+    if (!parsed.success) return rejected(422, 'invalid_input')
+    requestBody = JSON.stringify(parsed.data)
+  }
+  if (
+    write &&
+    input.path === '/api/v1/check-runs' &&
+    input.body !== undefined &&
+    (input.body === null ||
+      typeof input.body !== 'object' ||
+      Array.isArray(input.body) ||
+      Object.keys(input.body).length)
+  )
+    return rejected(422, 'invalid_input')
   for (const key of input.query.keys()) {
     if (!allowed.includes(key) || input.query.getAll(key).length !== 1) {
       return rejected(422, 'invalid_query')
@@ -70,13 +129,15 @@ export async function forwardAdminRequest(
   }
   try {
     const headers: Record<string, string> = { Accept: 'application/json' }
+    if (requestBody) headers['Content-Type'] = 'application/json'
     if (input.authorization) headers.Authorization = input.authorization
     const response = await fetcher(url, {
-      method: 'GET',
+      method: input.method,
+      body: requestBody,
       headers,
       redirect: 'error',
       cache: 'no-store',
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(write ? 120000 : 10000),
     })
     if (!response.ok) {
       if (response.headers.get('content-type')?.split(';')[0]?.trim() === 'application/json') {
@@ -85,7 +146,9 @@ export async function forwardAdminRequest(
           const parsed = adminErrorSchema.safeParse(raw)
           if (parsed.success && adminErrorStatuses[parsed.data.error.code] === response.status)
             return rejected(response.status, parsed.data.error.code)
-        } catch { /* Invalid JSON is sanitized with its original HTTP status. */ }
+        } catch {
+          /* Invalid JSON is sanitized with its original HTTP status. */
+        }
       }
       return rejected(response.status, 'upstream_error')
     }

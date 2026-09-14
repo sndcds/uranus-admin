@@ -25,7 +25,9 @@ function closeMenu() {
   menuOpen.value = false
   menuButton.value?.focus()
 }
+const accessRevision = useState('admin-access-revision', () => 0)
 async function accessChanged() {
+  accessRevision.value++
   dashboard.reset()
   findings.reset()
   await Promise.all([dashboard.load($adminApi), findings.load($adminApi)])

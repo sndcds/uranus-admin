@@ -52,7 +52,14 @@ def test_unsafe_production_config_rejected(extra):
 
 
 async def test_openapi(client):
+    import asyncio
+    import json
+    from pathlib import Path
+
     schema = (await client.get("/openapi.json")).json()
+    assert schema == json.loads(
+        await asyncio.to_thread(Path("../frontend/docs/openapi.json").read_text)
+    )
     for path in ADMIN_PATHS:
         operation = schema["paths"][path]["get"]
         assert operation["security"] == [{"HTTPBearer": []}]

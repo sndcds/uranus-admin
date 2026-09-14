@@ -200,3 +200,22 @@ async def test_concurrent_run_lock(admin_store, db_connection, settings):
     finally:
         await admin_store.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": LOCK_KEY})
         await admin_store.commit()
+
+
+async def test_persisted_history_survives_source_outage(admin_store, db_client, headers):
+    from app.database import get_connection
+
+    app = db_client._transport.app
+
+    async def unavailable(request):
+        raise OSError("Source unavailable")
+        yield
+
+    app.dependency_overrides[get_connection] = unavailable
+    response = await db_client.get("/api/v1/findings?mode=persisted", headers=headers)
+    assert response.status_code == 200 and response.json()["items"] == []
+
+
+def test_review_rejects_unrecognized_fields():
+    with pytest.raises(ValidationError):
+        ReviewUpdate(finding_id="f", status="open", resolved_at="2026-09-14T12:00:00Z")

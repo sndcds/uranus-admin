@@ -8,12 +8,14 @@ from app.admin_database import AdminConnectionDep
 from app.admin_tables import check_run
 from app.auth.dependencies import AdminPrincipal, get_current_admin
 from app.database import ConnectionDep, SettingsDep
+from app.errors import ErrorResponse
 from app.schemas.checks import CheckRun, CheckRunPage, ReviewUpdate
 from app.schemas.finding import Finding, Pagination
 from app.services.checks import review, run_check
 
 router = APIRouter(
-    tags=["Check runs and review"], responses={409: {"description": "Concurrent check or review"}}
+    tags=["Check runs and review"],
+    responses={409: {"model": ErrorResponse, "description": "Concurrent check or review"}},
 )
 
 

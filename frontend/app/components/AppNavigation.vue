@@ -4,6 +4,10 @@ const route = useRoute()
 const dashboard = useDashboardStore()
 const links = [
   { label: 'Übersicht', icon: 'home', to: '/' },
+  { label: 'Partneranfragen', icon: 'organization', to: '/queues/partner_requests' },
+  { label: 'Einladungen', icon: 'users', to: '/queues/team_invitations' },
+  { label: 'Aktivierungen', icon: 'users', to: '/queues/user_activation' },
+  { label: 'Prüfläufe', icon: 'history', to: '/checks' },
   { label: 'Aktivität', icon: 'history', to: '/activity' },
   { label: 'Arbeitsliste', icon: 'list', to: '/findings' },
   { label: 'Veranstaltungen', icon: 'calendar' },
@@ -67,11 +71,6 @@ const links = [
       @click="$emit('navigate')"
       ><AppIcon name="quality" />Datenqualität</NuxtLink
     >
-    <div class="flex items-center gap-3 rounded-xl px-4 py-3 text-slate-500" aria-disabled="true">
-      <AppIcon name="history" /><span
-        >Prüfläufe<span class="block text-[10px]">Noch nicht verfügbar</span></span
-      >
-    </div>
   </nav>
   <div class="shrink-0 border-t border-slate-100 p-4">
     <div class="flex items-center gap-3 rounded-xl bg-slate-50 p-3">

@@ -83,7 +83,14 @@ async def activity_page(
         OR (entity_type='partner_request' AND EXISTS (
           SELECT 1 FROM uranus.organization_partner_request p
           WHERE 'partner-request:'||p.from_org_uuid||':'||p.to_org_uuid=a.entity_key
-            AND p.to_org_uuid=:org)))
+            AND p.to_org_uuid=:org))
+        OR (entity_type='image' AND EXISTS (
+          SELECT 1 FROM uranus.pluto_image_link l
+          LEFT JOIN uranus.venue v ON l.context='venue' AND v.uuid=l.context_uuid
+          LEFT JOIN uranus.event e ON l.context='event' AND e.uuid=l.context_uuid
+          WHERE l.pluto_image_uuid::text=a.entity_key AND
+            ((l.context='organization' AND l.context_uuid=:org)
+             OR v.org_uuid=:org OR e.org_uuid=:org))))
     """
     base = f"WITH a AS ({ACTIVITY_SQL}) SELECT * FROM a {where}"
     unknown = int(
@@ -107,7 +114,8 @@ async def activity_page(
     rows = (
         await connection.execute(
             text(
-                f"SELECT entity_type, entity_key, entity_name, organization_id, organization_name, status, created_at AT TIME ZONE :tz AS created_at FROM ({base}) q "
+                f"SELECT entity_type, entity_key, entity_name, organization_id, organization_name, "
+                f"status, created_at AT TIME ZONE :tz AS created_at FROM ({base}) q "
                 f"ORDER BY {order} LIMIT :limit OFFSET :offset"
             ),
             params,
@@ -116,7 +124,11 @@ async def activity_page(
     items = []
     for row in rows:
         data = dict(row)
-        data["action"] = Action(route="activity", entity_key=data["entity_key"])
+        data["action"] = (
+            Action(route="activity", entity_key=data["entity_key"], entity_type=data["entity_type"])
+            if data["created_at"] is not None
+            else None
+        )
         items.append(Activity.model_validate(data))
     return ActivityPage(
         items=items,

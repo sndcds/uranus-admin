@@ -183,3 +183,23 @@ def test_priority_score_is_explicit(severity, published, soon, upcoming):
     )
     assert ("published_soon" in result["priority_reasons"]) == (published and soon)
     assert f"severity_{severity}" in result["priority_reasons"]
+
+
+async def test_sql_and_api_priority_agree_without_hidden_counts(db_connection, settings, now):
+    from app.repositories.venues import QUALITY_SQL, query_parameters
+    from app.services.quality.priority import venue_priority_score_sql
+
+    rows = (
+        await db_connection.execute(
+            text(
+                "SELECT q.*, "
+                + venue_priority_score_sql()
+                + " AS score FROM ("
+                + QUALITY_SQL
+                + ") q"
+            ),
+            query_parameters(settings, now),
+        )
+    ).mappings()
+    for row in rows:
+        assert row["score"] == map_venue(dict(row), now).priority_score
