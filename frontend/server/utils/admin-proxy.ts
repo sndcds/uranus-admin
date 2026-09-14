@@ -5,6 +5,7 @@ const routes: Record<string, readonly string[]> = {
   '/health': [],
   '/ready': [],
   '/api/v1/dashboard/summary': ['period'],
+  '/api/v1/dashboard/activity': ['entity_type', 'entity_key', 'organization_id', 'period', 'from_at', 'to_at', 'timestamp_state', 'page', 'page_size'],
   '/api/v1/findings': [
     'severity',
     'entity_type',

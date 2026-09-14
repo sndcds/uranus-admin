@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import { findingPageSchema, summarySchema, healthSchema, errorSchema } from '#shared/contracts'
+import { findingPageSchema, summarySchema, healthSchema, errorSchema, activityPageSchema } from '#shared/contracts'
 import type { FindingFilters, Period } from '#shared/contracts'
 import { AdminApiError, failure } from '#shared/errors'
 
@@ -52,6 +52,7 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
     findings: (filters: FindingFilters) => request('/api/v1/findings', findingPageSchema, filters),
     missingGeolocation: (page = 1) =>
       request('/api/v1/quality/venues/missing-geolocation', findingPageSchema, { page }),
+    activity: (query: Record<string, string | number | undefined>) => request('/api/v1/dashboard/activity', activityPageSchema, query),
     health: () => request('/health', healthSchema),
     ready: () => request('/ready', healthSchema),
   }

@@ -4,6 +4,7 @@ const route = useRoute()
 const dashboard = useDashboardStore()
 const links = [
   { label: 'Übersicht', icon: 'home', to: '/' },
+  { label: 'Aktivität', icon: 'history', to: '/activity' },
   { label: 'Arbeitsliste', icon: 'list', to: '/findings' },
   { label: 'Veranstaltungen', icon: 'calendar' },
   { label: 'Orte & Räume', icon: 'pin' },
