@@ -219,3 +219,34 @@ async def test_persisted_history_survives_source_outage(admin_store, db_client, 
 def test_review_rejects_unrecognized_fields():
     with pytest.raises(ValidationError):
         ReviewUpdate(finding_id="f", status="open", resolved_at="2026-09-14T12:00:00Z")
+
+
+async def test_queue_exception_reopens_when_requesting_user_changes(
+    admin_store, db_connection, settings, now
+):
+    await db_connection.execute(
+        text("UPDATE uranus.organization_partner_request SET created_at=:old"),
+        {"old": (now - timedelta(days=60)).replace(tzinfo=None)},
+    )
+    await run_check(db_connection, admin_store, settings)
+    item = (
+        await persisted_page(admin_store, FindingFilters(rule="partner_long_pending"), now)
+    ).items[0]
+    await review(
+        admin_store,
+        db_connection,
+        ReviewUpdate(finding_id=item.id, status="exception", exception_reason="Reviewed requester"),
+        "development-only",
+        now,
+    )
+    await run_check(db_connection, admin_store, settings)
+    assert (
+        await persisted_page(admin_store, FindingFilters(rule=item.rule, status="exception"), now)
+    ).items
+    await db_connection.execute(
+        text("UPDATE uranus.organization_partner_request SET from_user_uuid=:id"), {"id": uid(999)}
+    )
+    await run_check(db_connection, admin_store, settings)
+    assert (
+        await persisted_page(admin_store, FindingFilters(rule=item.rule, status="open"), now)
+    ).items

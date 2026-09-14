@@ -1,3 +1,5 @@
+import hashlib
+import json
 from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -186,7 +188,13 @@ async def queue_findings(
                     organization={"uuid": item.organization_id, "name": item.organization_name}
                     if item.organization_id
                     else None,
-                    metadata={"age_days": item.age_days, "age_basis": item.age_basis},
+                    metadata={
+                        "age_days": item.age_days,
+                        "age_basis": item.age_basis,
+                        "source_fingerprint": hashlib.sha256(
+                            json.dumps(row, sort_keys=True, default=str).encode()
+                        ).hexdigest(),
+                    },
                 )
                 finding.action = item.action
                 results[rule].findings.append(finding)
