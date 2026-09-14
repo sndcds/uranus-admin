@@ -25,7 +25,7 @@ def map_venue(row: dict[str, Any], observed_at: datetime) -> Finding:
             Severity.warning, published=published > 0, soon=soon > 0, upcoming=count > 0
         ),
         entity_type="venue",
-        entity_id=row["uuid"],
+        entity_key=str(row["uuid"]),
         entity_name=row["name"],
         organization_id=row["org_uuid"],
         organization_name=row["organization_name"],

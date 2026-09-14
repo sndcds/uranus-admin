@@ -28,7 +28,7 @@ finding = sa.Table(
     sa.Column("severity", sa.Text, nullable=False),
     sa.Column("entity_type", sa.Text, nullable=False),
     # Text deliberately supports composite domain keys, without cross-schema foreign keys.
-    sa.Column("entity_id", sa.Text, nullable=False),
+    sa.Column("entity_id", sa.Text, key="entity_key", nullable=False),
     sa.Column("field", sa.Text, nullable=False, server_default=""),
     sa.Column("message", sa.Text, nullable=False),
     sa.Column("first_seen_at", sa.DateTime(timezone=True), nullable=False),
@@ -40,7 +40,7 @@ finding = sa.Table(
     sa.Column("reviewed_at", sa.DateTime(timezone=True)),
     sa.Column("ignored_until", sa.DateTime(timezone=True)),
     sa.Column("comment", sa.Text),
-    sa.UniqueConstraint("rule", "entity_type", "entity_id", "field", name="finding_identity"),
+    sa.UniqueConstraint("rule", "entity_type", "entity_key", "field", name="finding_identity"),
     sa.CheckConstraint("severity IN ('error', 'warning', 'info')", name="finding_severity"),
     sa.CheckConstraint(
         "status IN ('open', 'reviewed', 'ignored', 'resolved')", name="finding_status"

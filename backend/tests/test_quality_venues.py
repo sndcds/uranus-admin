@@ -137,3 +137,29 @@ async def test_invalid_filters(db_client, headers, params):
     response = await db_client.get("/api/v1/findings", headers=headers, params=params)
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_input"
+
+
+def test_composite_entity_key_and_legacy_uuid_alias():
+    from app.admin_tables import finding as table
+    from app.schemas.finding import Finding
+
+    original = map_venue(
+        {
+            "uuid": uid(20),
+            "name": "Venue",
+            "org_uuid": uid(10),
+            "organization_name": "Org",
+            "upcoming_event_date_count": 0,
+            "upcoming_published_event_date_count": 0,
+            "soon_published_event_date_count": 0,
+        },
+        datetime(2026, 9, 14, tzinfo=UTC),
+    )
+    assert original.entity_key == str(uid(20))
+    assert original.entity_id == uid(20)
+    data = original.model_dump(exclude={"entity_id"})
+    for key in [f"partner-request:{uid(10)}:{uid(11)}", f"membership:{uid(10)}:{uid(1)}"]:
+        composite = Finding.model_validate({**data, "entity_key": key})
+        assert composite.entity_key == key
+        assert composite.entity_id is None
+    assert table.c.entity_key.name == "entity_id"  # Existing TEXT storage needs no migration.

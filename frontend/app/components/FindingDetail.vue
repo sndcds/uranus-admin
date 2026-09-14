@@ -85,7 +85,7 @@ defineExpose({ open })
         </div>
         <div>
           <dt class="font-semibold">Objekt-ID</dt>
-          <dd class="break-all text-xs">{{ finding.entity_id }}</dd>
+          <dd class="break-all text-xs">{{ finding.entity_key }}</dd>
         </div>
       </dl>
       <p class="mt-5 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">

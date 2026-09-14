@@ -38,3 +38,13 @@ describe('actual response contract', () => {
     }
   })
 })
+
+
+it('accepts stable composite finding keys and rejects empty keys', () => {
+  for (const entity_key of ['partner-request:org-a:org-b', 'membership:org:user']) {
+    const page = { ...findings, items: [{ ...findings.items[0], entity_key, entity_id: null }] }
+    expect(findingPageSchema.parse(page).items[0]?.entity_key).toBe(entity_key)
+  }
+  expect(findingPageSchema.safeParse({ ...findings,
+    items: [{ ...findings.items[0], entity_key: '' }] }).success).toBe(false)
+})

@@ -38,7 +38,7 @@ export const findings: FindingPage = {
       severity: 'warning',
       priority: 4,
       entity_type: 'venue',
-      entity_id: '00000000-0000-4000-8000-000000000020',
+      entity_key: '00000000-0000-4000-8000-000000000020',
       entity_name: 'Test-Hafenbühne',
       organization_id: '00000000-0000-4000-8000-000000000010',
       organization_name: 'Test-Kulturverein',

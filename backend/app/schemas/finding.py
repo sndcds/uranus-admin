@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, computed_field
 
 
 class Severity(StrEnum):
@@ -43,7 +43,9 @@ class Finding(BaseModel):
     severity: Severity
     priority: int = Field(ge=1, le=6)
     entity_type: str
-    entity_id: UUID
+    entity_key: str = Field(
+        min_length=1, max_length=1024, validation_alias=AliasChoices("entity_key", "entity_id")
+    )
     entity_name: str
     organization_id: UUID
     organization_name: str
@@ -57,6 +59,14 @@ class Finding(BaseModel):
     upcoming_event_date_count: int = Field(ge=0)
     upcoming_published_event_date_count: int = Field(ge=0)
     soon_published_event_date_count: int = Field(ge=0)
+
+    @computed_field(deprecated="Use entity_key; composite keys have no UUID alias.")
+    @property
+    def entity_id(self) -> UUID | None:
+        try:
+            return UUID(self.entity_key)
+        except ValueError:
+            return None
 
 
 class Pagination(BaseModel):
