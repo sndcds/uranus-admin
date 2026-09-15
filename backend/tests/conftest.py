@@ -223,14 +223,16 @@ async def admin_store(database, settings):
         ).scalar_one() is None
         await connection.execute(text("CREATE SCHEMA admin"))
         await connection.run_sync(metadata.create_all)
-        await connection.execute(text("CREATE ROLE admin_history_test LOGIN"))
+        await connection.execute(
+            text("CREATE ROLE admin_history_test LOGIN PASSWORD 'fixture-history-only'")
+        )
         await connection.execute(text("GRANT USAGE ON SCHEMA admin TO admin_history_test"))
         await connection.execute(
             text("GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA admin TO admin_history_test")
         )
     settings.admin_database_url = SecretStr(
         make_url(database[0])
-        .set(username="admin_history_test")
+        .set(username="admin_history_test", password="fixture-history-only")
         .render_as_string(hide_password=False)
     )
     engine = create_admin_engine(settings)
