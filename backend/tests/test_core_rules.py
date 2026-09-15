@@ -3,8 +3,8 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import text
 
-from app.repositories.quality_sources import load_sources
-from app.services.quality.core import CORE_RULES, evaluate_core
+from app.repositories.quality_sources import Sources, load_sources
+from app.services.quality.core import CORE_RULES, QualityContext, effective_location, evaluate_core
 from app.services.quality.urls import url_problem, valid_online
 from tests.conftest import uid
 
@@ -80,24 +80,77 @@ async def test_events_without_dates_and_per_date_location(db_connection, setting
 
 
 @pytest.mark.parametrize(
-    "venue_id,space_id,mismatch",
+    "event,date,expected",
     [
-        pytest.param(21, None, False, id="venue-override-clears-inherited-space"),
-        pytest.param(21, 25, True, id="venue-override-with-mismatched-explicit-space"),
-        pytest.param(21, 26, False, id="venue-override-with-matching-explicit-space"),
-        pytest.param(None, None, False, id="inherit-event-venue-and-space"),
-        pytest.param(None, 25, False, id="space-only-override-matches-inherited-venue"),
-        pytest.param(None, 26, True, id="space-only-override-mismatches-inherited-venue"),
+        (
+            {"venue_uuid": uid(20), "space_uuid": uid(25)},
+            {"venue_uuid": None, "space_uuid": None},
+            (uid(20), uid(25)),
+        ),
+        (
+            {"venue_uuid": uid(20), "space_uuid": uid(25)},
+            {"venue_uuid": None, "space_uuid": uid(27)},
+            (uid(20), uid(27)),
+        ),
+        (
+            {"venue_uuid": uid(20), "space_uuid": uid(25)},
+            {"venue_uuid": uid(21), "space_uuid": None},
+            (uid(21), None),
+        ),
+        (
+            {"venue_uuid": uid(20), "space_uuid": uid(25)},
+            {"venue_uuid": uid(21), "space_uuid": uid(26)},
+            (uid(21), uid(26)),
+        ),
+        (
+            {"venue_uuid": None, "space_uuid": None},
+            {"venue_uuid": None, "space_uuid": None},
+            (None, None),
+        ),
+        ({}, {"venue_uuid": None, "space_uuid": None}, (None, None)),
+    ],
+    ids=[
+        "inherit-both",
+        "override-space",
+        "override-venue",
+        "override-both",
+        "null-values",
+        "missing-event",
+    ],
+)
+def test_effective_location(event, date, expected):
+    assert effective_location(date, event) == expected
+
+
+@pytest.mark.parametrize(
+    "venue_id,space_id,effective_venue_id,effective_space_id,mismatch",
+    [
+        pytest.param(21, None, 21, None, False, id="venue-override-clears-inherited-space"),
+        pytest.param(21, 25, 21, 25, True, id="venue-override-with-mismatched-explicit-space"),
+        pytest.param(21, 26, 21, 26, False, id="venue-override-with-matching-explicit-space"),
+        pytest.param(None, None, 20, 25, False, id="inherit-event-venue-and-space"),
+        pytest.param(None, 27, 20, 27, False, id="space-only-override-matches-inherited-venue"),
+        pytest.param(None, 26, 20, 26, True, id="space-only-override-mismatches-inherited-venue"),
     ],
 )
 async def test_space_override_checks_public_inheritance(
-    db_connection, settings, now, venue_id, space_id, mismatch
+    db_connection,
+    settings,
+    now,
+    venue_id,
+    space_id,
+    effective_venue_id,
+    effective_space_id,
+    mismatch,
 ):
     sources = await load_sources(db_connection)
     event = next(e for e in sources.rows["event"] if e["uuid"] == uid(30))
     event["space_uuid"] = uid(25)
-    sources.rows["space"].append(
-        {"uuid": uid(26), "venue_uuid": uid(21), "name": "Other", "web_link": None}
+    sources.rows["space"].extend(
+        [
+            {"uuid": uid(26), "venue_uuid": uid(21), "name": "Other", "web_link": None},
+            {"uuid": uid(27), "venue_uuid": uid(20), "name": "Second", "web_link": None},
+        ]
     )
     date = next(d for d in sources.rows["event_date"] if d["uuid"] == uid(42))
     date["venue_uuid"] = uid(venue_id) if venue_id is not None else None
@@ -107,9 +160,28 @@ async def test_space_override_checks_public_inheritance(
     assert {f.entity_key for f in result.findings} == ({str(uid(42))} if mismatch else set())
     assert ("event_date", str(uid(42))) in result.covered
     if mismatch:
-        assert result.findings[0].metadata["inheritance"] == "public_projection_coalesce"
-        assert result.findings[0].metadata["effective_venue"] == str(uid(venue_id or 20))
-        assert result.findings[0].metadata["effective_space"] == str(uid(space_id))
+        assert result.findings[0].severity == "error"
+        assert result.findings[0].message == (
+            "Raum gehört nicht zum wirksamen Venue der öffentlichen Projektion."
+        )
+        assert result.findings[0].metadata["inheritance"] == "event_date_location_override"
+        assert result.findings[0].metadata["effective_venue"] == str(uid(effective_venue_id))
+        assert result.findings[0].metadata["effective_space"] == str(uid(effective_space_id))
+
+    # Isolate this date so other dates cannot hide wrongly inherited relevance flags.
+    context = QualityContext(Sources({**sources.rows, "event_date": [date]}), settings, now)
+    for kind, expected_id in [("venue", effective_venue_id), ("space", effective_space_id)]:
+        for row in sources.rows[kind]:
+            relevant = expected_id is not None and row["uuid"] == uid(expected_id)
+            assert context.relevance(kind, row) == dict.fromkeys(
+                ("published", "upcoming", "soon"), relevant
+            )
+    if effective_space_id is None:
+        assert context.flags[("space", "None")] == {
+            "published": True,
+            "upcoming": True,
+            "soon": True,
+        }
 
 
 async def test_image_rules_and_grace_period(db_connection, settings, now):
