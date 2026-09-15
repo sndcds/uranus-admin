@@ -111,3 +111,81 @@ async def test_long_pending_threshold_and_filters(db_connection, settings, now):
             db_connection, settings, "partner_requests", QueueFilters(page=2, page_size=1), now
         )
     ).items
+
+
+async def test_sql_queue_pagination_matches_domain_mapping(db_connection, settings, now):
+    from app.repositories.queues import queue_rows
+    from app.services.queues import map_queue
+
+    # Many rows, equal ages, unknown/future invitation dates and closed states.
+    for n in range(2, 32):
+        stamp = (now - timedelta(days=n % 4, hours=1)).replace(tzinfo=None)
+        invited = None if n % 5 == 0 else stamp
+        if n % 7 == 0:
+            invited = (now + timedelta(days=1)).replace(tzinfo=None)
+        await db_connection.execute(
+            text(
+                'INSERT INTO uranus."user" (uuid,created_at,is_active,email,password_hash) '
+                "VALUES (:id,:stamp,:active,:email,'not-a-password-hash')"
+            ),
+            {
+                "id": uid(n + 100),
+                "stamp": stamp,
+                "active": n % 6 == 0,
+                "email": f"fixture-{n}@example.invalid",
+            },
+        )
+        await db_connection.execute(
+            text(
+                "INSERT INTO uranus.organization_member_link "
+                "(org_uuid,user_uuid,created_at,invited_at,has_joined) "
+                "VALUES (:org,:id,:stamp,:invited,:joined)"
+            ),
+            {
+                "org": uid(10 if n % 2 else 11),
+                "id": uid(n + 100),
+                "stamp": stamp,
+                "invited": invited,
+                "joined": n % 6 == 0,
+            },
+        )
+    for kind in ("partner_requests", "team_invitations", "user_activation"):
+        rows = await queue_rows(db_connection, kind)
+        candidates = [(map_queue(kind, row, settings, now), row) for row in rows]
+        for extra in (
+            {},
+            {"organization_id": uid(10)},
+            {"min_age_days": 0},
+            {"min_age_days": 2},
+            {"status": "joined"},
+            {"status": "active"},
+            {"status": "invited"},
+            {"entity_key": candidates[0][0].entity_key},
+            {"entity_key": "' OR 1=1 --"},
+        ):
+            filters = QueueFilters(page_size=3, **extra)
+            expected = []
+            for item, row in candidates:
+                if item.status in {"joined", "active"}:
+                    continue
+                if filters.organization_id and filters.organization_id not in {
+                    item.organization_id,
+                    item.to_organization_id,
+                    *row.get("organizations", []),
+                }:
+                    continue
+                if filters.status and item.status != filters.status:
+                    continue
+                if filters.entity_key and item.entity_key != filters.entity_key:
+                    continue
+                if filters.min_age_days is not None and (
+                    item.age_days is None or item.age_days < filters.min_age_days
+                ):
+                    continue
+                expected.append(item)
+            expected.sort(key=lambda x: (x.age_days is None, -(x.age_days or 0), x.entity_key))
+            for page in (1, 2, 100):
+                filters.page = page
+                result = await get_queue(db_connection, settings, kind, filters, now)
+                assert result.pagination.total == len(expected)
+                assert result.items == expected[(page - 1) * 3 : page * 3]

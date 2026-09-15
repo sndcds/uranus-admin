@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.errors import APIError
-from app.repositories.queues import queue_rows
+from app.repositories.queues import queue_page_rows, queue_rows
 from app.schemas.action import Action
 from app.schemas.finding import Pagination, Severity
 from app.schemas.queues import QueueFilters, QueueItem, QueueKind, QueuePage
@@ -113,33 +113,15 @@ async def get_queue(
     filters: QueueFilters,
     now: datetime,
 ) -> QueuePage:
-    rows = await queue_rows(connection, kind)
-    items = []
-    for row in rows:
-        item = map_queue(kind, row, settings, now)
-        if item.status in {"joined", "active"}:
-            continue
-        if filters.organization_id and filters.organization_id not in {
-            item.organization_id,
-            item.to_organization_id,
-            *row.get("organizations", []),
-        }:
-            continue
-        if filters.entity_key and filters.entity_key != item.entity_key:
-            continue
-        if filters.status and filters.status != item.status:
-            continue
-        if filters.min_age_days is not None and (
-            item.age_days is None or item.age_days < filters.min_age_days
-        ):
-            continue
-        items.append(item)
-    items.sort(key=lambda item: (item.age_days is None, -(item.age_days or 0), item.entity_key))
-    total = len(items)
-    start = (filters.page - 1) * filters.page_size
+    if settings.uranus_timestamp_timezone is None:
+        raise APIError(503, "source_timezone_unconfigured", "Source timezone must be configured.")
+    rows, total = await queue_page_rows(
+        connection, kind, filters, now, settings.uranus_timestamp_timezone
+    )
+    items = [map_queue(kind, row, settings, now) for row in rows]
     return QueuePage(
         kind=kind,
-        items=items[start : start + filters.page_size],
+        items=items,
         observed_at=now,
         pagination=Pagination(
             page=filters.page,
