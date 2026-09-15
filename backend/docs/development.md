@@ -139,6 +139,11 @@ uv run pytest
 Logs sind JSON mit Methode, Route-Template, Status und Dauer. Querystrings und Datenwerte
 werden nicht geloggt. DB-Fehler erscheinen als 503 mit Fehlercode; interne Fehler als 500,
 ohne Stacktrace oder SQL. SQLAlchemy echo nicht zur Fehlersuche auf echten Daten aktivieren.
+Auch bewusst ausgelöste API-Fehler mit Status 5xx erzeugen einen `admin.error`-Eintrag mit
+Fehlercode, Status und Route. Mit `APP_DEBUG=true` in Development/Test enthält dieser Eintrag
+zusätzlich den Traceback einschließlich verketteter Ursachen, beispielsweise bei abgelehnten
+Admin-Runtime-Rechten. Die HTTP-Antwort enthält weiterhin keinen Traceback; ohne Debug bleiben
+auch die Serverlogs frei davon. Nach Konfigurationsänderungen den Backend-Prozess neu starten.
 `/health` bleibt bei DB-Ausfall erreichbar; `/ready` prüft nur Verbindung, weder vollständiges
 Schema noch globale Auth. Ein 503 `source_timezone_unconfigured` erfordert den belegten
 Speichervertrag, ein 503 `admin_auth_unconfigured` die geplante Uranus-Auth-Integration.

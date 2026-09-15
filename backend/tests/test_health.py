@@ -140,3 +140,68 @@ async def test_missing_database_returns_503(database, settings):
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "database_unavailable"
     assert "kulturbytes_missing_database" not in response.text
+
+
+@pytest.mark.parametrize(
+    "app_env,debug",
+    [("development", True), ("test", True), ("development", False), ("production", False)],
+)
+async def test_api_503_logs_code_and_debug_traceback(settings, capsys, monkeypatch, app_env, debug):
+    from app.errors import APIError
+
+    for name, attributes in {
+        "admin": ("handlers", "level", "propagate"),
+        "sqlalchemy.engine": ("level",),
+        "uvicorn.access": ("disabled",),
+    }.items():
+        logger = logging.getLogger(name)
+        for attribute in attributes:
+            monkeypatch.setattr(logger, attribute, getattr(logger, attribute))
+    settings.app_env = app_env
+    settings.app_debug = debug
+    settings.dev_auth_enabled = False
+    settings.openapi_enabled = False
+    # ERROR logging must work at the normal INFO level too.
+    settings.log_level = "INFO"
+    app = create_app(settings)
+
+    async def rejected_connection():
+        try:
+            raise RuntimeError("debug-only-internal-cause")
+        except RuntimeError as cause:
+            raise APIError(
+                503, "admin_storage_unconfigured", "Admin storage requires a restricted role."
+            ) from cause
+        yield
+
+    app.dependency_overrides[get_connection] = rejected_connection
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get(
+                "/ready?secret=private-query", headers={"Authorization": "Bearer private-token"}
+            )
+    assert response.status_code == 503
+    assert response.json() == {
+        "error": {
+            "code": "admin_storage_unconfigured",
+            "message": "Admin storage requires a restricted role.",
+        }
+    }
+    assert "Traceback" not in response.text and "debug-only-internal-cause" not in response.text
+    output = capsys.readouterr().err
+    records = [json.loads(line) for line in output.splitlines()]
+    errors = [record for record in records if record["level"] == "ERROR"]
+    assert len(errors) == 1
+    error = errors[0]
+    assert error["event"] == "admin_storage_unconfigured"
+    assert error["error_type"] == "APIError"
+    assert error["status_code"] == 503 and error["method"] == "GET" and error["route"] == "/ready"
+    if debug:
+        assert "Traceback (most recent call last)" in error["traceback"]
+        assert "rejected_connection" in error["traceback"]
+        assert "Admin storage requires a restricted role." in error["traceback"]
+        assert "debug-only-internal-cause" in error["traceback"]
+    else:
+        assert "traceback" not in error
+        assert "debug-only-internal-cause" not in output
+    assert "private-query" not in output and "private-token" not in output
