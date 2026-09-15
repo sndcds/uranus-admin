@@ -17,7 +17,9 @@ pnpm dev
 
 Browser http://127.0.0.1:3000. FastAPI separat starten, standardmäßig Port 8000.
 `NUXT_ADMIN_API_BASE=http://127.0.0.1:8000` bleibt ausschließlich serverseitig.
-Bei getrennten Containern eine passende interne Backend-Origin konfigurieren.
+Bei getrennten Containern eine passende Backend-Origin konfigurieren. Nitro überträgt dort
+auch Login-Passwörter und Sitzungscookies: außerhalb von Loopback einen verschlüsselten
+Transport verwenden (HTTPS oder authentifizierter verschlüsselter Kanal).
 Keine automatische Backend-Migration oder Domain-Schreiboperation.
 
 ## Authentifizierung

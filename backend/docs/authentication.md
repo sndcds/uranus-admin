@@ -90,6 +90,11 @@ Bereits autorisierte laufende Requests können noch abschließen; nachfolgende R
 abgelehnt. Direkte DB-Passwortänderungen müssen die Credential-Version erhöhen; das CLI erledigt
 Versionserhöhung und Widerruf atomar.
 
+Die öffentliche Admin-Origin muss HTTPS verwenden. Zwischen Nitro und FastAPI laufen auch
+Passwörter und Sitzungscookies: Loopback auf demselben Host verwenden oder die Verbindung
+verschlüsseln (HTTPS bzw. einen authentifizierten verschlüsselten Transport). Ein entfernter
+unverschlüsselter HTTP-Upstream über ein ungeschütztes Netz ist keine sichere Production-Konfiguration.
+
 Production/Staging verwenden `__Host-admin_session`: Secure, HttpOnly, SameSite=Strict, Path=/,
 kein Domain-Attribut. Development/Test verwenden `admin_session` ohne Secure für lokales HTTP.
 Für Login, Logout und Cookie-authentifizierte Schreibrequests verlangt FastAPI die exakte
@@ -132,6 +137,10 @@ keine Rechte. Dev-Identität `development-only` ist ausschließlich lokal mögli
 `DEV_AUTH_ENABLED=true` benötigt `APP_ENV=development|test` und den expliziten Dev-Token.
 Staging/Production lehnen diese Konfiguration beim Start ab und prüfen zusätzlich die Umgebung
 in der Dependency. Eine Frontend-Einstellung kann diese Grenze nicht ändern.
+
+Uranus-Kontosperrung oder -Löschung deaktiviert das unabhängige Admin-Konto nicht automatisch.
+Beim Entzug des Admin-Zugangs muss der Betreiber das Admin-Konto separat sperren bzw. dessen
+globale Vergabe entziehen. Genau dafür stehen die CLI-Aktionen `disable` und `revoke` bereit.
 
 Kein MFA, SSO oder Self-Service-Passwortreset in dieser Umsetzung. Kontowiederherstellung erfolgt
 über das Betreiber-CLI. PostgreSQL ist gemeinsamer Sitzungs-/Limit-Speicher für alle API-Worker;
