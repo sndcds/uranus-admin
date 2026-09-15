@@ -8,9 +8,17 @@ import {
   healthSchema,
   errorSchema,
   activityPageSchema,
+  markPageSchema,
+  markDetailSchema,
 } from '#shared/contracts'
 import type { z } from 'zod'
-import type { FindingFilters, Period, ReviewUpdate } from '#shared/contracts'
+import type {
+  FindingFilters,
+  Period,
+  ReviewUpdate,
+  MarkCreate,
+  MarkUpdate,
+} from '#shared/contracts'
 import { AdminApiError, failure } from '#shared/errors'
 
 export function createAdminApi(fetcher: typeof fetch = fetch) {
@@ -78,6 +86,20 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
     review: (body: ReviewUpdate) =>
       request('/api/v1/finding-reviews', findingSchema, {}, 'PATCH', body),
     health: () => request('/health', healthSchema),
+    marks: (query: Record<string, string | number | undefined>) =>
+      request('/api/v1/record-marks', markPageSchema, query),
+    mark: (id: string) =>
+      request(`/api/v1/record-marks/${encodeURIComponent(id)}`, markDetailSchema),
+    createMark: (body: MarkCreate) =>
+      request('/api/v1/record-marks', markDetailSchema, {}, 'POST', body),
+    updateMark: (id: string, body: MarkUpdate) =>
+      request(
+        `/api/v1/record-marks/${encodeURIComponent(id)}`,
+        markDetailSchema,
+        {},
+        'PATCH',
+        body,
+      ),
     ready: () => request('/ready', healthSchema),
   }
 }

@@ -9,6 +9,10 @@ from app.errors import error_response
 
 
 class JsonFormatter(logging.Formatter):
+    def __init__(self, *, debug: bool = False) -> None:
+        super().__init__()
+        self.debug = debug
+
     def format(self, record: logging.LogRecord) -> str:
         payload = {
             "timestamp": datetime.now(UTC).isoformat(),
@@ -18,13 +22,15 @@ class JsonFormatter(logging.Formatter):
         for key in ("method", "route", "status_code", "duration_ms", "error_type", "rule"):
             if hasattr(record, key):
                 payload[key] = getattr(record, key)
+        if self.debug and record.exc_info:
+            payload["traceback"] = self.formatException(record.exc_info)
         return json.dumps(payload)
 
 
-def configure_logging(level: str) -> None:
+def configure_logging(level: str, *, debug: bool = False) -> None:
     logger = logging.getLogger("admin")
     handler = logging.StreamHandler()
-    handler.setFormatter(JsonFormatter())
+    handler.setFormatter(JsonFormatter(debug=debug))
     logger.handlers = [handler]
     logger.setLevel(level)
     logger.propagate = False
@@ -34,8 +40,9 @@ def configure_logging(level: str) -> None:
 
 
 class RequestLoggingMiddleware:
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, *, debug: bool = False) -> None:
         self.app = app
+        self.debug = debug
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -54,10 +61,12 @@ class RequestLoggingMiddleware:
         try:
             await self.app(scope, receive, capture)
         except Exception as exc:
-            # Prevent ServerErrorMiddleware/Uvicorn from logging exception values
-            # or tracebacks containing sensitive data. Current routes are buffered JSON.
+            # Keep errors in our logger, with details only for explicit local debugging.
+            # Current routes are buffered JSON.
             logging.getLogger("admin.error").error(
-                "internal_error", extra={"error_type": type(exc).__name__}
+                "internal_error",
+                extra={"error_type": type(exc).__name__},
+                exc_info=(type(exc), exc, exc.__traceback__) if self.debug else None,
             )
             if not response_started:
                 await error_response(500, "internal_error", "Internal server error.")(

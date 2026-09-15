@@ -19,6 +19,18 @@ ist durch den Betreiber für den bisherigen Backup bestätigt; andere Installati
 sie prüfen. `ADMIN_TIMEZONE`/`EVENT_TIMEZONE` sind davon getrennte Reporting-Einstellungen.
 `uv run python -m app` berücksichtigt außerdem `APP_HOST`/`APP_PORT`.
 
+Für lokale Fehlerdiagnose mit Exception-Details und Tracebacks im JSON-Serverlog:
+
+```bash
+APP_ENV=development APP_DEBUG=true LOG_LEVEL=DEBUG \
+uv run uvicorn app.main:app --reload --log-level debug --no-access-log
+```
+
+`APP_DEBUG=true` aktiviert das Feld `traceback` einschließlich Fehlermeldung nur in
+development/test. API-Fehlerantworten bleiben bereinigt. Debuglogs können sensible
+Daten aus Exceptions enthalten. Ohne `APP_DEBUG` bleiben Exception-Details verborgen,
+auch bei `LOG_LEVEL=DEBUG`; in staging/production wird `APP_DEBUG=true` abgewiesen.
+
 Produktive globale Admin-Autorisierung bleibt gesperrt: gültiger Uranus-Login ist keine
 systemweite Adminberechtigung. Nur ausdrücklich lokal: `APP_ENV=development`,
 `DEV_AUTH_ENABLED=true`, zufälliger `DEV_ADMIN_TOKEN` mit mindestens 32 Zeichen.

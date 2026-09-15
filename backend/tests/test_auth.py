@@ -46,9 +46,10 @@ async def test_default_auth_fails_closed():
         {"cors_origins": "*"},
     ],
 )
-def test_unsafe_production_config_rejected(extra):
+@pytest.mark.parametrize("app_env", ["staging", "production"])
+def test_unsafe_production_config_rejected(extra, app_env):
     with pytest.raises(ValidationError):
-        Settings(_env_file=None, **extra)
+        Settings(_env_file=None, app_env=app_env, **extra)
 
 
 async def test_openapi(client):

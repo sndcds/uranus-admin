@@ -189,6 +189,11 @@ defineExpose({ open })
       <NuxtLink v-if="finding.action" :to="finding.action.href" class="button mt-4" @click="close"
         >Objekt öffnen</NuxtLink
       >
+      <RecordMarkLink
+        :entity-type="finding.entity_type"
+        :entity-key="finding.entity_key"
+        @click="close"
+      />
       <button class="button mt-4" @click="close">Schließen</button>
     </template>
   </dialog>

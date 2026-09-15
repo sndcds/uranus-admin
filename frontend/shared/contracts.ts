@@ -159,6 +159,9 @@ export const adminErrorStatuses = {
   admin_storage_unconfigured: 503,
   check_run_conflict: 409,
   finding_not_found: 404,
+  mark_not_found: 404,
+  record_not_found: 404,
+  mark_conflict: 409,
 } as const
 export const adminErrorSchema = z
   .object({
@@ -264,3 +267,92 @@ export const reviewUpdateSchema = z
   .refine((value) => value.status !== 'snoozed' || !!value.snoozed_until)
   .refine((value) => value.status !== 'exception' || !!value.exception_reason?.trim())
 export type ReviewUpdate = z.infer<typeof reviewUpdateSchema>
+
+export const markEntityTypeSchema = z.enum([
+  ...entityTypeSchema.options,
+  'event_link',
+  'license',
+  'image_link',
+])
+export const markReasonSchema = z.enum([
+  'questionable_content',
+  'low_quality',
+  'incorrect',
+  'incomplete',
+  'outdated',
+  'duplicate',
+  'spam',
+  'unsuitable',
+  'rights_privacy',
+  'technical',
+  'other',
+])
+export const markStatusSchema = z.enum(['open', 'in_progress', 'done'])
+export const markUrgencySchema = z.enum(['normal', 'high', 'urgent'])
+const markFields = {
+  reasons: z
+    .array(markReasonSchema)
+    .min(1)
+    .max(11)
+    .refine((v) => new Set(v).size === v.length),
+  reason_detail: z.string().trim().min(1).max(2000).nullable().optional(),
+  urgency: markUrgencySchema,
+}
+const hasExplanation = (v: { reasons: string[]; reason_detail?: string | null }) =>
+  !v.reasons.includes('other') || !!v.reason_detail?.trim()
+export const markCreateSchema = z
+  .object({
+    ...markFields,
+    entity_type: markEntityTypeSchema,
+    entity_key: z.string().trim().min(1).max(1024),
+    note: z.string().trim().min(1).max(4000).nullable().optional(),
+  })
+  .strict()
+  .refine(hasExplanation)
+export const markUpdateSchema = z
+  .object({
+    ...markFields,
+    version: z.number().int().min(1),
+    status: markStatusSchema,
+    note: z.string().trim().min(1).max(4000).nullable().optional(),
+  })
+  .strict()
+  .refine(hasExplanation)
+export const markSchema = z.object({
+  id: z.uuid(),
+  entity_type: markEntityTypeSchema,
+  entity_key: z.string(),
+  entity_name: z.string(),
+  reasons: z.array(markReasonSchema),
+  reason_detail: z.string().nullable(),
+  urgency: markUrgencySchema,
+  status: markStatusSchema,
+  version: z.number().int().min(1),
+  created_at: timestamp,
+  created_by: z.string(),
+  updated_at: timestamp,
+  completed_at: timestamp.nullable(),
+  completed_by: z.string().nullable(),
+})
+export const markEventSchema = z.object({
+  id: z.uuid(),
+  version: z.number().int().min(1),
+  kind: z.enum(['created', 'updated', 'completed', 'reopened']),
+  author: z.string(),
+  created_at: timestamp,
+  note: z.string().nullable(),
+  status: markStatusSchema,
+  reasons: z.array(markReasonSchema),
+  reason_detail: z.string().nullable(),
+  urgency: markUrgencySchema,
+})
+export const markDetailSchema = markSchema.extend({ events: z.array(markEventSchema) })
+export const markPageSchema = z.object({
+  items: z.array(markSchema),
+  pagination: findingPageSchema.shape.pagination,
+})
+export type Mark = z.infer<typeof markSchema>
+export type MarkDetail = z.infer<typeof markDetailSchema>
+export type MarkPage = z.infer<typeof markPageSchema>
+export type MarkCreate = z.infer<typeof markCreateSchema>
+export type MarkUpdate = z.infer<typeof markUpdateSchema>

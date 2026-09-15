@@ -11,7 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
 from app.admin_database import create_admin_engine
-from app.api import activity, checks, dashboard, findings, health, quality, queues
+from app.api import activity, checks, dashboard, findings, health, marks, quality, queues
 from app.auth.dependencies import get_current_admin
 from app.config import Settings
 from app.database import create_engine
@@ -28,10 +28,11 @@ from app.logging import RequestLoggingMiddleware, configure_logging
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
+    debug_logging = settings.app_debug and settings.app_env in {"development", "test"}
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-        configure_logging(settings.log_level)
+        configure_logging(settings.log_level, debug=debug_logging)
         engine = create_engine(settings)
         application.state.engine = engine
         admin_engine = create_admin_engine(settings)
@@ -64,6 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logging.getLogger("admin.error").error(
             "database_unavailable" if unavailable else "internal_error",
             extra={"error_type": type(exc).__name__},
+            exc_info=(type(exc), exc, exc.__traceback__) if debug_logging else None,
         )
         return error_response(
             503 if unavailable else 500,
@@ -97,6 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         activity.router,
         queues.router,
         checks.router,
+        marks.router,
     ):
         admin.include_router(router)
     application.include_router(admin)
@@ -107,7 +110,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Authorization"],
         allow_credentials=False,
     )
-    application.add_middleware(RequestLoggingMiddleware)
+    application.add_middleware(RequestLoggingMiddleware, debug=debug_logging)
     return application
 
 

@@ -108,7 +108,8 @@ uv run alembic downgrade base
 ```
 
 Ohne explizite Migrations-DSN wird abgebrochen; DATABASE_URL ist niemals ein DDL-Fallback.
-`admin.alembic_version`, `admin.check_run`, `admin.finding` sind der komplette Umfang.
+`admin.alembic_version`, `admin.check_run`, `admin.finding`, `admin.record_mark` und
+`admin.record_mark_event` sind der komplette Umfang.
 Kein Create/Drop von uranus, keine automatischen Migrationen beim Start. Generierte Migrationen
 immer prüfen; Schemafilter plus eingeschränkte DB-Rolle verhindern Domain-Änderungen.
 
@@ -207,3 +208,27 @@ Aktuelle Tests ergänzen die ursprünglichen Fixtures um synthetische Event-Link
 Bildlinks und Grants aus dem überprüften dev-DDL sowie isolierte Admin-Rollen. Upgrade/check/
 Downgrade werden weiterhin mit einem eingeschränkten Migrator ausgeführt. Tests verändern
 niemals eine bestehende Uranus-Installation.
+
+
+## Markierungen, Notizen und Abschlussverlauf
+
+Migration `0003` legt `admin.record_mark` und `admin.record_mark_event` an. Vorhandene
+Findings und Reviews bleiben erhalten. Wie bei den bisherigen Migrationen wird das Upgrade
+explizit mit `ADMIN_MIGRATION_DATABASE_URL` über `uv run alembic upgrade head` ausgeführt.
+Anschließend benötigt der bereits vorhandene Runtimeaccount zusätzliche Rechte:
+
+```sql
+GRANT SELECT, INSERT, UPDATE ON admin.record_mark TO kulturbytes_admin_history;
+GRANT SELECT, INSERT ON admin.record_mark_event TO kulturbytes_admin_history;
+```
+
+Der Ereignistabelle werden keine UPDATE-/DELETE-Rechte eingeräumt. Ein eventuell vorhandenes
+`ALTER DEFAULT PRIVILEGES` mit weitergehenden Rechten muss entsprechend angepasst werden.
+Die API schreibt Markierung und Verlauf atomar und prüft die übermittelte Version gegen
+konkurrierende Änderungen. Kein Upgrade erfolgt automatisch beim Anwendungsstart.
+
+Im Frontend führt „Markierungen & Notizen“ an Activity-Datensätzen, Arbeitslisten und
+Prüfhinweisen zur jeweiligen Übersicht. Über „Neue Markierung“ werden Gründe,
+Dringlichkeit und eine optionale Notiz erfasst. Die Navigation „Markierungen“ sammelt
+standardmäßig alle offenen Anliegen. Erledigte Anliegen bleiben über den Statusfilter
+zugänglich. Im Detail können Notizen ergänzt, Anliegen erledigt und wieder geöffnet werden.

@@ -86,7 +86,7 @@ async def test_migrations_only_manage_admin(database, monkeypatch):
             await conn.fetchval(
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema='admin'"
             )
-            == 3
+            == 5
         )
         await asyncio.to_thread(command.check, config)
         await asyncio.to_thread(command.downgrade, config, "base")

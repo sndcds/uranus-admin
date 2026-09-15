@@ -82,6 +82,16 @@ onBeforeUnmount(() => {
       <p class="muted">{{ data.pagination.total }} Vorgänge</p>
       <article v-for="item in data.items" :key="item.entity_key" class="card break-words p-5">
         <h3 class="font-bold">{{ item.user_name ?? item.user_id }}</h3>
+        <RecordMarkLink
+          :entity-type="
+            data.kind === 'partner_requests'
+              ? 'partner_request'
+              : data.kind === 'team_invitations'
+                ? 'team_membership'
+                : 'user'
+          "
+          :entity-key="item.entity_key"
+        />
         <p v-if="data.kind === 'partner_requests'">
           {{ item.from_organization_name ?? item.from_organization_id }} →
           {{ item.to_organization_name ?? item.to_organization_id }}

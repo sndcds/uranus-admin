@@ -99,6 +99,7 @@ onBeforeUnmount(() => {
         class="card break-words p-5"
       >
         <h3 class="font-bold">{{ item.entity_name }}</h3>
+        <RecordMarkLink :entity-type="item.entity_type" :entity-key="item.entity_key" />
         <p>
           {{ item.entity_type }} · {{ item.organization_name ?? 'Keine eindeutige Organisation' }}
         </p>

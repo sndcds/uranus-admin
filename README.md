@@ -53,3 +53,14 @@ Details: [Backend-Verträge](backend/docs/contracts.md),
 [verifizierter Uranus-dev-Stand](backend/docs/source-verification.md).
 Frontend und Backend werden in getrennten CI-Jobs geprüft, einschließlich Frontend-Produktionsbuild
 und reproduzierbarer Chromium-Tests.
+
+
+## Markierungen und Notizen
+
+Datensätze lassen sich unabhängig von Prüfhinweisen mit mehreren Anliegen markieren.
+Jedes Anliegen enthält Gründe, Dringlichkeit, fortlaufende Notizen und einen Status.
+Erledigung und Wiederöffnung werden mit Autor und Zeitpunkt im Verlauf festgehalten.
+Die Übersicht „Markierungen“ bietet Status-, Grund- und Dringlichkeitsfilter.
+
+Voraussetzung: Admin-Migration `0003` und die zusätzlichen
+[Runtime-Rechte](backend/docs/development.md#markierungen-notizen-und-abschlussverlauf).

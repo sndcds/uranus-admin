@@ -167,6 +167,51 @@ die oben genannten Zustände. Alle Zustände bleiben ohne Statusfilter sichtbar.
 Ausnahmen/ignored erneut. Aging allein ist keine Änderung; Quellfingerprints vermeiden das
 Speichern roher ungültiger URL-Werte. Die aktuelle Review-Metadatenzeile ersetzt kein Auditlog.
 
+## Markierungen und Notizen an Datensätzen
+
+Markierungen sind unabhängige menschliche Anliegen in `admin.record_mark`; mehrere Anliegen
+pro Datensatz sind möglich. Sie benötigen keinen gespeicherten Prüflauf und verändern keine
+Uranus-Daten oder automatische Finding-Prioritäten. Unterstützt sind alle neun Activity-Typen
+sowie `event_link`, `license` und `image_link` mit deren bestehenden stabilen Schlüsseln.
+Beim Anlegen wird die Quelle auf Existenz geprüft und ihr Anzeigename als Momentaufnahme
+gespeichert. Auch Datensätze ohne Erstellungszeitpunkt lassen sich markieren. Bestehende
+Markierungen bleiben bei gelöschter oder nicht erreichbarer Quelle lesbar und bearbeitbar.
+
+- `GET /api/v1/record-marks`: Liste; Filter `entity_type`, `entity_key`, `status`, `urgency`,
+  `reason`, `sort`, `page`, `page_size`. Standardstatus `active` umfasst offen und in Bearbeitung;
+  `all` enthält auch erledigte Anliegen. Sortierung `urgency` ordnet dringend, hoch, normal,
+  danach Erstellungszeit absteigend und UUID; alternativ `newest`.
+- `POST /api/v1/record-marks`: `entity_type`, `entity_key`, `reasons`, optional `reason_detail`,
+  `urgency` (Standard `normal`) und `note`; Antwort 201 mit Markierung und Verlauf.
+- `GET /api/v1/record-marks/{uuid}`: Markierung einschließlich chronologischem Verlauf.
+- `PATCH /api/v1/record-marks/{uuid}`: aktuelle `version`, `reasons`, `reason_detail`,
+  `urgency`, `status` und optional eine **neue** `note`. Status: `open`, `in_progress`, `done`.
+  Ein veralteter Stand liefert 409 `mark_conflict`, ohne Änderungen oder zusätzliche Notiz.
+
+Gründe (Mehrfachauswahl, mindestens einer, ohne Duplikate): `questionable_content`, `low_quality`,
+`incorrect`, `incomplete`, `outdated`, `duplicate`, `spam`, `unsuitable`, `rights_privacy`,
+`technical`, `other`. `other` erfordert eine Erläuterung. Erläuterungen sind auf 2000,
+Notizen auf 4000 Zeichen begrenzt; reine Leerzeichen sind kein Inhalt.
+
+Beim Übergang nach `done` setzt der Server `completed_at` und `completed_by` aus Serverzeit
+und authentifiziertem Principal. Weitere Notizen ändern diese Abschlussangaben nicht.
+Wiederöffnung nach `open` oder `in_progress` leert die aktuellen Abschlussfelder; frühere
+Abschlüsse samt Autor, Zeitpunkt und Abschlussnotiz bleiben im Verlauf erhalten. Eine erneute
+Erledigung erhält neue Abschlussangaben. Andere Anliegen desselben Datensatzes bleiben unverändert.
+
+Jede Änderung fügt atomar einen Eintrag in `admin.record_mark_event` hinzu: Version, Autor,
+Zeitpunkt, Art (`created`, `updated`, `completed`, `reopened`), optionale Notiz und damalige
+Gründe, Erläuterung, Dringlichkeit sowie Status. Die API bietet kein Überschreiben oder Löschen
+alter Einträge. Änderungen ohne geänderte Felder oder neue Notiz erzeugen keinen Verlaufseintrag.
+Clients dürfen Autoren, Zeitstempel und Ereignisse nicht vorgeben. Die Entwicklung verwendet
+den vorhandenen Principal `development-only`; erst eine reguläre Admin-Authentifizierung kann
+individuelle Benutzeridentitäten liefern.
+
+Die Ablage benötigt Migration `0003` und die zusätzlichen Runtime-Grants aus
+[development.md](development.md). Ohne Admin-Ablage liefern diese Endpunkte 503
+`admin_storage_unconfigured`. Nuxt erlaubt ausschließlich die dokumentierten Methoden,
+Filter und UUID-Pfade; Schreibdaten werden vor dem Weiterleiten validiert.
+
 ## Auth / Authorization Boundary
 
 Alle neuen Routen verwenden dieselbe zentrale Admin-Dependency. Ohne Credential 401; ein

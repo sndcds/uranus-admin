@@ -10,6 +10,7 @@ const links = [
   { label: 'Prüfläufe', icon: 'history', to: '/checks' },
   { label: 'Aktivität', icon: 'history', to: '/activity' },
   { label: 'Arbeitsliste', icon: 'list', to: '/findings' },
+  { label: 'Markierungen', icon: 'list', to: '/marks' },
   { label: 'Veranstaltungen', icon: 'calendar' },
   { label: 'Orte & Räume', icon: 'pin' },
   { label: 'Organisationen', icon: 'organization' },

@@ -1,7 +1,23 @@
-import { adminErrorSchema, adminErrorStatuses, reviewUpdateSchema } from '#shared/contracts'
+import {
+  adminErrorSchema,
+  adminErrorStatuses,
+  reviewUpdateSchema,
+  markCreateSchema,
+  markUpdateSchema,
+} from '#shared/contracts'
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
+  '/api/v1/record-marks': [
+    'entity_type',
+    'entity_key',
+    'status',
+    'urgency',
+    'reason',
+    'sort',
+    'page',
+    'page_size',
+  ],
   '/api/v1/check-runs': ['page', 'page_size'],
   '/api/v1/finding-reviews': [],
   '/api/v1/work-queues/partner_requests': [
@@ -75,15 +91,30 @@ export async function forwardAdminRequest(
   base: string,
   fetcher: typeof fetch = fetch,
 ): Promise<ProxyResult> {
-  const allowed = Object.hasOwn(routes, input.path) ? routes[input.path] : undefined
+  const markDetail =
+    /^\/api\/v1\/record-marks\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      input.path,
+    )
+  const allowed = markDetail
+    ? []
+    : Object.hasOwn(routes, input.path)
+      ? routes[input.path]
+      : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
   const write =
+    (input.method === 'POST' && input.path === '/api/v1/record-marks') ||
+    (input.method === 'PATCH' && markDetail) ||
     (input.method === 'POST' && input.path === '/api/v1/check-runs') ||
     (input.method === 'PATCH' && input.path === '/api/v1/finding-reviews')
   if (!write && (input.method !== 'GET' || input.path === '/api/v1/finding-reviews'))
     return rejected(405, 'method_not_allowed')
   if (write && input.query.size) return rejected(422, 'invalid_query')
   let requestBody: string | undefined
+  if (write && (markDetail || input.path === '/api/v1/record-marks')) {
+    const parsed = (markDetail ? markUpdateSchema : markCreateSchema).safeParse(input.body)
+    if (!parsed.success) return rejected(422, 'invalid_input')
+    requestBody = JSON.stringify(parsed.data)
+  }
   if (write && input.path === '/api/v1/finding-reviews') {
     const parsed = reviewUpdateSchema.safeParse(input.body)
     if (!parsed.success) return rejected(422, 'invalid_input')
