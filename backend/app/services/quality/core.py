@@ -287,8 +287,14 @@ def evaluate_core(
         for row in sources.rows["event_date"]:
             result.covered.add(("event_date", entity_key("event_date", row)))
             event = events.get(str(row["event_uuid"]), {})
-            venue = row["venue_uuid"] or event.get("venue_uuid")
-            space = row["space_uuid"] or event.get("space_uuid")
+
+            if row["venue_uuid"] is not None:
+                venue = row["venue_uuid"]
+                space = row["space_uuid"]
+            else:
+                venue = event.get("venue_uuid")
+                space = row["space_uuid"] or event.get("space_uuid")
+
             severity = (
                 Severity.error if relevance("event_date", row)["published"] else Severity.warning
             )
