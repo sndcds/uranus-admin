@@ -27,8 +27,8 @@ defineEmits<{ retry: [] }>()
     </p>
     <p class="mt-1">{{ error.message }}</p>
     <p v-if="error.status === 401" class="mt-2">
-      Eine reguläre Admin-Anmeldung wird vom Backend noch nicht angeboten. Ohne gültigen Zugang
-      bleiben die Verwaltungsdaten gesperrt.
+      Bitte melde dich über „Admin-Anmeldung“ an. Nach Ablauf einer Sitzung ist eine erneute
+      Anmeldung erforderlich.
     </p>
     <p v-if="hasData" class="mt-2 font-semibold">
       Die angezeigten Daten sind veraltet. Letzter erfolgreicher Abruf: {{ dateTime(lastSuccess) }}.

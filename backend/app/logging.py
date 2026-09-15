@@ -56,6 +56,19 @@ class RequestLoggingMiddleware:
             if message["type"] == "http.response.start":
                 status = message["status"]
                 response_started = True
+                headers = list(message.get("headers", []))
+                headers = [
+                    (key, value)
+                    for key, value in headers
+                    if key.lower() not in {b"cache-control", b"vary"}
+                ]
+                headers.extend(
+                    [
+                        (b"cache-control", b"private, no-store"),
+                        (b"vary", b"Authorization, Cookie, Origin"),
+                    ]
+                )
+                message = {**message, "headers": headers}
             await send(message)
 
         try:

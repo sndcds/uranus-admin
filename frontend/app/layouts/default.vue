@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { dateTime } from '~/utils/presentation'
+import { failure } from '#shared/errors'
 import { periodSchema } from '#shared/contracts'
 const route = useRoute()
 const dashboard = useDashboardStore()
@@ -26,10 +27,26 @@ function closeMenu() {
   menuButton.value?.focus()
 }
 const accessRevision = useState('admin-access-revision', () => 0)
-async function accessChanged() {
+function clearAccess() {
   accessRevision.value++
   dashboard.reset()
   findings.reset()
+}
+const authStatus = useState('admin-auth-status', () => 0)
+let cleared = false
+$adminApi.onAccessLost((status) => {
+  authStatus.value = status
+  if (!cleared) {
+    cleared = true
+    clearAccess()
+    dashboard.error = failure(status)
+    findings.error = failure(status)
+  }
+})
+async function accessChanged() {
+  authStatus.value = 0
+  cleared = false
+  clearAccess()
   await Promise.all([dashboard.load($adminApi), findings.load($adminApi)])
 }
 </script>
@@ -113,7 +130,7 @@ async function accessChanged() {
         </div>
       </header>
       <main id="main-content" tabindex="-1" class="mx-auto max-w-7xl space-y-7 p-5 sm:p-8">
-        <AccessPanel @changed="accessChanged" /><slot />
+        <LoginPanel @changed="accessChanged" /><AccessPanel @changed="accessChanged" /><slot />
       </main>
     </div>
   </div>

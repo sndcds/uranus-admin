@@ -236,6 +236,17 @@ async def admin_store(database, settings):
         await connection.execute(
             text("GRANT SELECT, INSERT ON admin.record_mark_event TO admin_history_test")
         )
+        await connection.execute(
+            text(
+                "GRANT SELECT ON admin.auth_account, admin.auth_system_admin TO admin_history_test"
+            )
+        )
+        await connection.execute(
+            text(
+                "GRANT SELECT, INSERT, UPDATE ON admin.auth_session, "
+                "admin.auth_login_bucket TO admin_history_test"
+            )
+        )
         await connection.execute(text("GRANT USAGE ON SCHEMA uranus TO admin_history_test"))
         await connection.execute(
             text("GRANT SELECT ON ALL TABLES IN SCHEMA uranus TO admin_history_test")

@@ -177,7 +177,8 @@ GitHub Actions selbst wurde noch nicht remote ausgeführt; keine Branch-Protecti
 
 ## 9. Offene fachliche Review-Punkte
 
-- Globale produktive Admin-Autorisierung muss Uranus verbindlich definieren.
+- Nachfolgende Umsetzung zu Issue #2: [eigene Admin-Konten und explizite globale Vergabe](authentication.md);
+  keine Uranus-Authentifizierung oder Statusabfrage.
 - Venue-scope-Default widerspricht weiterhin dem bestätigten Quell-DDL; Korrektur gehört nach Uranus.
 - space_feature_link.space_id ist weiterhin ungeklärt; keine spekulative Regel.
 - Space-Vererbung ist in Uranus uneinheitlich. Die neue Regel kennzeichnet ausdrücklich die

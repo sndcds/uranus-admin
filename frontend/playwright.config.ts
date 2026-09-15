@@ -21,18 +21,26 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: production
-      ? 'node .output/server/index.mjs'
-      : 'pnpm exec nuxt dev --host 127.0.0.1 --port 3100',
-    env: {
-      NITRO_HOST: '127.0.0.1',
-      NITRO_PORT: '3100',
-      // Production must remove the manual credential UI even if this flag is set.
-      NUXT_PUBLIC_ALLOW_DEV_TOKEN_ENTRY: production ? 'true' : 'false',
+  webServer: [
+    {
+      command: 'node tests/fixtures/auth-server.mjs',
+      url: 'http://127.0.0.1:31902/health',
+      reuseExistingServer: false,
     },
-    url: 'http://127.0.0.1:3100',
-    reuseExistingServer: false,
-    timeout: 120000,
-  },
+    {
+      command: production
+        ? 'node .output/server/index.mjs'
+        : 'pnpm exec nuxt dev --host 127.0.0.1 --port 3100',
+      env: {
+        NUXT_ADMIN_API_BASE: 'http://127.0.0.1:31902',
+        NITRO_HOST: '127.0.0.1',
+        NITRO_PORT: '3100',
+        // Production must remove the manual credential UI even if this flag is set.
+        NUXT_PUBLIC_ALLOW_DEV_TOKEN_ENTRY: production ? 'true' : 'false',
+      },
+      url: 'http://127.0.0.1:3100',
+      reuseExistingServer: false,
+      timeout: 120000,
+    },
+  ],
 })

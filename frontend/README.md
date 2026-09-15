@@ -22,9 +22,23 @@ Keine automatische Backend-Migration oder Domain-Schreiboperation.
 
 ## Authentifizierung
 
-Ein Uranus-Login ist keine globale Adminberechtigung. Die Backend-Integration bleibt produktiv
-bewusst gesperrt. Ohne Credential 401, fehlende Berechtigung 403, unkonfigurierte Auth/DB 503.
-Es gibt keine erfundene Loginroute, Tokenausgabe oder automatische Vergabe von Adminrechten.
+Die „Admin-Anmeldung“ verwendet eigene FastAPI-Admin-Konten. Uranus-Login und Organisationsrechte
+werden nicht verwendet. Die globale Berechtigung steht separat in `admin.auth_system_admin`;
+ein korrektes Passwort allein genügt nicht. Der Betreiber legt Konten über das CLI an.
+[Auth-Vertrag und Betrieb](../backend/docs/authentication.md).
+
+Browser → `/api/admin/auth/{login,session,logout}` → Nitro → FastAPI. Der Browser hält nur ein
+HttpOnly-Sitzungscookie (Production: Secure, SameSite=Strict, host-only); keine Zugangsdaten in
+localStorage, Pinia, SSR-Payload oder URLs. Login-Antworten enthalten nur Identität/Berechtigung,
+keine Tokens. Logout widerruft die Sitzung; Ablauf/Sperrung/Rechteentzug verwerfen Verwaltungsdaten.
+Ohne Credential bzw. bei ungültiger Sitzung 401, fehlende globale Vergabe 403, Auth-Infrastruktur-
+fehler 503. Loginlimits liefern 429. Für Cookie-Schreibrequests wird `X-Admin-CSRF: 1` gesetzt;
+FastAPI verlangt zusätzlich die exakte Browser-Origin aus `AUTH_PUBLIC_ORIGIN`.
+
+Production benötigt HTTPS zwischen Browser und Admin-Origin; FastAPI `AUTH_PUBLIC_ORIGIN` muss
+diese Origin exakt enthalten. Lokal muss sie zur verwendeten Browseradresse passen, z. B.
+`http://127.0.0.1:3000`. Der lokale Sitzungscookiename gilt nur für `pnpm dev` und
+FastAPI development/test; ein Production-Build erwartet das Secure-Cookie.
 
 Nur lokale Entwicklung: FastAPI muss ihren Development-Override aktivieren. Im Frontend
 `NUXT_PUBLIC_ALLOW_DEV_TOKEN_ENTRY=true` setzen, `pnpm dev` starten und unter
@@ -47,14 +61,14 @@ invalidiert laufende Detailansichten. Das Development-Subject ist kein Uranus-Us
 | `/checks` | GET/POST check-runs |
 | Finding-Detail bei persistiertem Erstfund | PATCH finding-reviews |
 
-Alle Backend-Pfade haben Prefix `/api/v1`. Browserzugriff ausschließlich über gleiche Origin:
+Die fachlichen Backend-Pfade haben Prefix `/api/v1`; Anmeldung verwendet `/auth`. Browserzugriff ausschließlich über gleiche Origin:
 `/api/admin/api/v1/findings` → `${NUXT_ADMIN_API_BASE}/api/v1/findings`.
 Health/ready und der bestehende spezielle Venue-Endpunkt bleiben für Diagnose verfügbar.
 
-Proxy-Allowlist: exakte bekannte Routen, GET, zusätzlich ausschließlich POST check-runs und
-PATCH finding-reviews. Keine Domain-Updates. Begrenzte Querynamen, keine doppelten Parameter,
-feste konfigurierte Origin ohne Pfade/Credentials, keine Redirects. Nur Authorization wird
-weitergeleitet; keine Cookies/fremden Headers. Antworten `private, no-store`.
+Proxy-Allowlist: exakte bekannte Routen, GET sowie POST für Login/Logout, check-runs und
+record-marks; PATCH ausschließlich für finding-reviews und streng validierte Markierungs-UUIDs. Keine Domain-Updates. Begrenzte Querynamen, keine doppelten Parameter,
+feste konfigurierte Origin ohne Pfade/Credentials, keine Redirects. Nur explizites Authorization, das vorgesehene Sitzungscookie und Origin/CSRF werden
+weitergeleitet; keine fremden Cookies/Headers. Antworten `private, no-store`.
 Reviews verwenden einen strikt Zod-validierten Body. Reads haben 10 Sekunden Upstream-Timeout,
 synchrone Prüfläufe/Reviews 120 Sekunden; ein Timeout beweist keinen erfolgreichen Abschluss.
 
@@ -145,13 +159,15 @@ CI führt Installation/Lint/Typen/Unit/Build und Chromium-Tests gegen den Produk
 getrennt von Backend-Jobs. SHA-gepinnte Actions, feste Node-Version, pnpm aus packageManager,
 Lockfile strikt und pnpm-Cache. Branch-Protection/Required-Checks werden nicht automatisch verändert.
 Playwright startet seinen eigenen Loopback-Server auf Port 3100; Tests verwenden synthetische
-Responses. Backend/PostGIS-Integration wird separat im Backend geprüft.
+Responses. Für Login/Logout verwendet Playwright einen kontrollierten lokalen Test-Backendprozess
+auf Port 31902; dieser wird nie in die Anwendung eingebunden. Backend/PostGIS-Integration wird
+separat im Backend geprüft.
 
 Ergebnisse und Grenzen: [Verifikation](docs/verification.md).
 Verbindliche Fach-/Sicherheitsverträge: [Backend-Verträge](../backend/docs/contracts.md).
 
 ## Bewusst offen
 
-Produktive Uranus-Systemadmin-Autorisierung, fachliches Editieren, persönlicher Sichtungsstand,
+Uranus-SSO, MFA und Self-Service-Kontowiederherstellung, fachliches Editieren, persönlicher Sichtungsstand,
 vollständiges Auditjournal, automatische Geocodierung/Merges und externe URL-/Dateiabfragen.
 Portal-Bildziele sowie Space-Feature-Zuordnungen bleiben bis zur eindeutigen Quellklärung offen.

@@ -2,7 +2,7 @@
 
 ## Installation und Start
 
-Alle Befehle dieser Anleitung werden im Ordner `backend/` ausgeführt
+Soweit nicht anders angegeben, werden die Befehle dieser Anleitung im Ordner `backend/` ausgeführt
 (vom Repository-Wurzelverzeichnis aus zunächst `cd backend`).
 
 Python 3.13, uv, PostgreSQL mit PostGIS. Python-Abhängigkeiten ausschließlich in pyproject.toml
@@ -63,6 +63,10 @@ stehen in [uranus-analysis.md](uranus-analysis.md). UTC-Speicherung ist vom Betr
 | DEV_ADMIN_TOKEN | kein Default; mindestens 32 Zeichen, nur für expliziten Dev-Override |
 | ADMIN_DATABASE_URL | optionaler separater Runtime-Login für Admin-Metadaten; für die Standardlisten erforderlich |
 | ADMIN_MIGRATION_DATABASE_URL | ausschließlich Alembic; muss im Prozess-Environment gesetzt sein |
+| AUTH_PUBLIC_ORIGIN | kein Default; exakte Browser-Origin für Login/Logout/Cookie-Schreibrequests; HTTPS in Production/Staging |
+| AUTH_SESSION_SECONDS | 3600; absolute Sitzungsdauer, 300–28800 Sekunden |
+| AUTH_IDLE_SECONDS | 900; Inaktivitätsfrist, 60–3600 Sekunden, höchstens absolute Dauer |
+| ADMIN_AUTH_MANAGEMENT_DATABASE_URL | nur Betreiber-CLI; niemals dem Runtime-Service geben |
 
 Die Anwendung liest `.env` über Pydantic Settings. Alembic liest seinen separaten Zugang
 bewusst nur aus dem Prozess-Environment, nicht implizit aus der Runtime-Konfiguration.
@@ -93,7 +97,8 @@ uv run alembic downgrade base
 
 Ohne explizite Migrations-DSN wird abgebrochen; DATABASE_URL ist niemals ein DDL-Fallback.
 `admin.alembic_version`, `admin.check_run`, `admin.finding`, `admin.record_mark` und
-`admin.record_mark_event` sind der komplette Umfang.
+`admin.record_mark_event` bilden die Workflow-Ablage. Migration `0004` ergänzt ausschließlich
+`admin.auth_account`, `admin.auth_system_admin`, `admin.auth_session` und `admin.auth_login_bucket`.
 Kein Create/Drop von uranus, keine automatischen Migrationen beim Start. Generierte Migrationen
 immer prüfen; Schemafilter plus eingeschränkte DB-Rolle verhindern Domain-Änderungen.
 
@@ -146,7 +151,7 @@ Admin-Runtime-Rechten. Die HTTP-Antwort enthält weiterhin keinen Traceback; ohn
 auch die Serverlogs frei davon. Nach Konfigurationsänderungen den Backend-Prozess neu starten.
 `/health` bleibt bei DB-Ausfall erreichbar; `/ready` prüft nur Verbindung, weder vollständiges
 Schema noch globale Auth. Ein 503 `source_timezone_unconfigured` erfordert den belegten
-Speichervertrag, ein 503 `admin_auth_unconfigured` die geplante Uranus-Auth-Integration.
+Speichervertrag, ein 503 `admin_auth_unconfigured` die unabhängige Admin-Auth-Konfiguration (Origin und Admin-Ablage).
 
 Der Test `test_quality_query_explain` schreibt einen JSON-Plan ins pytest-Tempverzeichnis.
 Lokaler erster Lauf mit PostgreSQL 17/PostGIS: 2 Ergebniszeilen, oberer Knoten Hash Join,
@@ -157,10 +162,70 @@ Umgebung: daraus keine Produktionslaufzeit ableiten. Für größere anonymisiert
 
 ## CI
 
-GitHub Actions führt getrennte Jobs für Lint/Format, strict mypy und Tests aus. Python 3.13,
-fixierte uv-Version und `uv sync --locked`; Testjob mit PostgreSQL/PostGIS-Service und Healthcheck.
-Actions sind auf Commit-SHAs, das PostGIS-Image auf einen amd64-Manifest-Digest fixiert. Keine produktiven Secrets oder Datenbankzugänge.
-Eine lokale Prüfung des Workflows ersetzt keinen tatsächlich auf GitHub gelaufenen Job.
+Der Workflow [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) läuft bei jedem
+Push und Pull Request. Vor einem Merge müssen alle vier Jobs für den aktuellen PR-Stand
+erfolgreich sein:
+
+| Job | Arbeitsverzeichnis | Prüfungen |
+| --- | --- | --- |
+| `lint` | `backend/` | Ruff-Lint und Formatprüfung |
+| `typecheck` | `backend/` | strict mypy |
+| `tests` | `backend/` | pytest einschließlich PostgreSQL-/PostGIS-Integrationstests und Prüfung der dokumentierten Rollen-Grants |
+| `frontend` | `frontend/` | ESLint, Nuxt-Typecheck, Vitest, Produktionsbuild und Playwright-E2E mit Chromium |
+
+Dies sind die im Workflow ausgeführten Merge-Prüfungen. Ob GitHub sie technisch als
+Required Status Checks erzwingt, wird separat durch Branch Protection bzw. Repository-Rulesets
+festgelegt; diese Einstellungen sind nicht in der Workflow-Datei definiert.
+
+### Backend
+
+Alle drei Backend-Jobs installieren ihre Abhängigkeiten mit `uv sync --locked` und verwenden
+Python 3.13.15 sowie uv 0.12.5. Die entsprechenden lokalen Befehle aus `backend/` sind:
+
+```bash
+uv sync --locked
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy
+# TEST_DATABASE_URL für den separaten Testcluster setzen, siehe Abschnitt oben.
+uv run pytest -q
+```
+
+Der CI-Testjob startet einen PostgreSQL-17-/PostGIS-3.5-Service mit Healthcheck und setzt
+`TEST_DATABASE_URL` auf seine wegwerfbare Testdatenbank. Für einen vergleichbaren lokalen Lauf
+muss ebenfalls ein isolierter Testcluster erreichbar sein; ohne Test-DSN überspringt ein lokaler
+pytest-Lauf die DB-Integrationstests und ersetzt dieses Merge-Gate nicht. Mit gesetztem `CI`
+bricht die Testfixture bei fehlender Test-DSN ausdrücklich mit einem Fehler ab.
+
+### Frontend
+
+Der Frontend-Job verwendet Node.js 22.22.3 und die in
+[`frontend/package.json`](../../frontend/package.json) festgelegte pnpm-Version (aktuell 12.3.4).
+Er installiert mit unverändertem Lockfile und führt die folgenden Schritte in dieser Reihenfolge
+aus. Aus `backend/` lässt sich derselbe Ablauf in einer Subshell starten:
+
+```bash
+(
+  cd ../frontend || exit
+  pnpm install --frozen-lockfile &&
+  pnpm lint &&
+  pnpm typecheck &&
+  pnpm test &&
+  pnpm build &&
+  pnpm exec playwright install --with-deps chromium &&
+  TEST_PRODUCTION=1 pnpm test:e2e
+)
+```
+
+`TEST_PRODUCTION=1` lässt Playwright den zuvor erzeugten Produktionsbuild starten. Ein grüner
+Vitest-Lauf allein reicht nicht: Build und E2E gehören ebenfalls zum Frontend-Merge-Gate.
+Die Playwright-Konfiguration und Testfixtures stehen unter
+[`frontend/playwright.config.ts`](../../frontend/playwright.config.ts) und
+[`frontend/tests/e2e/`](../../frontend/tests/e2e/).
+
+Actions sind auf Commit-SHAs, das PostGIS-Image auf einen amd64-Manifest-Digest fixiert.
+Der Workflow verwendet keine produktiven Secrets oder Datenbankzugänge.
+Eine lokale Prüfung ersetzt keinen tatsächlich auf GitHub gelaufenen Job.
 
 ## Erweiterung: Check Runs und Reviews
 
@@ -170,8 +235,8 @@ Keine Domain-Tabelle wird geändert. Vorhandene Daten bleiben beim Upgrade erhal
 
 Die vollständigen Reader- und Runtime-Grants stehen in der
 [zentralen Rollen-Anleitung](#minimale-rechte-nach-migration-0003).
-`ADMIN_DATABASE_URL` aktiviert die Ablage. Ohne diese Variable bleiben explizite
-`mode=live`-APIs verfügbar; persistierte Standardlisten und Reviews liefern 503
+`ADMIN_DATABASE_URL` aktiviert die Ablage. Ohne diese Variable bleiben mit lokalem Dev-Token explizite
+`mode=live`-APIs verfügbar; Production-Anmeldung benötigt die Admin-Ablage. persistierte Standardlisten und Reviews liefern 503
 `admin_storage_unconfigured`.
 
 Neue Reporting-Schwellen: `IMAGE_ORPHAN_GRACE_HOURS=48`, `PENDING_AGE_DAYS=14`,
@@ -221,9 +286,10 @@ keine Mitgliedschaft in `admin_migrator`, auch nicht indirekt oder mit späterer
 
 Alembic meldet sich unmittelbar als `admin_migrator` an. `migrations/env.py` verwendet keine
 andere Rolle und liest seine DSN ausschließlich aus dem Prozess-Environment. Die Migrationen
-0001–0003 erzeugen fünf Tabellen in `admin`; deren Owner bleibt `admin_migrator`. Ownership des
+0001–0004 erzeugen neun Tabellen in `admin`; deren Owner bleibt `admin_migrator`. Ownership des
 Schemas allein ändert den Owner bereits vorhandener Tabellen nicht. `admin_user` wird niemals
-Owner, sondern erhält nur explizite DML-Grants. Keine neue Migration ist dafür notwendig.
+Owner, sondern erhält nur explizite DML-Grants. Rollen-/Grant-Anpassungen benötigen selbst
+keine zusätzliche Migration. Die neuen Auth-Tabellen werden durch Migration 0004 erzeugt.
 
 `record_mark_event` enthält die unveränderlichen Versionen, Autoren, Notizen und Statuswechsel
 von Markierungen. Der Anwendungscode fügt Ereignisse atomar hinzu; PostgreSQL gestattet dafür
@@ -233,7 +299,8 @@ append-only-Grenze verletzen. Versions-Eindeutigkeit sichert zusätzlich die Dat
 ### Effektive Runtime-Rechte
 
 Das vom Betreiber am 2026-09-15 lokal bestätigte Setup bestand den Boundary-Check mit
-`unsafe = false`. Die folgende Matrix reproduziert dieses Profil:
+`unsafe = false`. Die Workflow-Zeilen der folgenden Matrix reproduzieren dieses Profil; die vier Auth-Zeilen
+ergänzen die Anforderungen ab Migration 0004:
 
 | Tabelle | SELECT | INSERT | UPDATE | DELETE | TRUNCATE | TRIGGER |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -242,6 +309,10 @@ Das vom Betreiber am 2026-09-15 lokal bestätigte Setup bestand den Boundary-Che
 | `admin.finding` | ja | ja | ja | nein | nein | nein |
 | `admin.record_mark` | ja | ja | ja | nein | nein | nein |
 | `admin.record_mark_event` | ja | ja | nein | nein | nein | nein |
+| `admin.auth_account` (0004) | ja | nein | nein | nein | nein | nein |
+| `admin.auth_system_admin` (0004) | ja | nein | nein | nein | nein | nein |
+| `admin.auth_session` (0004) | ja | ja | ja | nein | nein | nein |
+| `admin.auth_login_bucket` (0004) | ja | ja | ja | nein | nein | nein |
 
 Die Runtime liest `alembic_version` im aktuellen Code nicht. SELECT ist somit **keine
 Anwendungsvoraussetzung**, aber ein zulässiger Diagnose-Grant im lokal bestätigten Profil.
@@ -336,6 +407,9 @@ REVOKE admin_migrator FROM admin_user;
 GRANT SELECT ON admin.alembic_version TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.check_run, admin.finding, admin.record_mark TO admin_user;
 GRANT SELECT, INSERT ON admin.record_mark_event TO admin_user;
+-- Migration 0004: runtime cannot create accounts or grant itself global access.
+GRANT SELECT ON admin.auth_account, admin.auth_system_admin TO admin_user;
+GRANT SELECT, INSERT, UPDATE ON admin.auth_session, admin.auth_login_bucket TO admin_user;
 REVOKE UPDATE, DELETE, TRUNCATE, TRIGGER ON admin.record_mark_event FROM admin_user;
 COMMIT;
 ```
@@ -388,7 +462,7 @@ SELECT c.relname, pg_get_userbyid(c.relowner) AS owner,
        pg_has_role('admin_user', c.relowner, 'USAGE') AS owner_privileges
 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
 WHERE n.nspname='admin' AND c.relkind IN ('r','p') ORDER BY c.relname;
--- All five owners: admin_migrator. owner_privileges: false.
+-- All nine owners after 0004: admin_migrator. owner_privileges: false.
 -- Other columns must match the runtime matrix above.
 
 SELECT c.relname,
@@ -445,7 +519,8 @@ PY
 
 Erwartet: `unsafe = false`. Der Check prüft Superuser/CREATEROLE, Schema-CREATE,
 Uranus-Schreibrechte einschließlich Spaltengrants sowie schädliche Rechte/Owner-Vererbung für
-`record_mark_event`. Er ist **keine vollständige Installationsprüfung**: Er prüft nicht, ob
+`record_mark_event`, `auth_account` und `auth_system_admin`. Die Runtime darf insbesondere
+keine Identitäten ändern oder globale Rechte vergeben. Er ist **keine vollständige Installationsprüfung**: Er prüft nicht, ob
 alle erforderlichen positiven Grants oder Tabellen existieren, und testet CREATEDB/LOGIN nicht
 separat. Deshalb Rollenattribute, Owner und Rechte-Matrix zusätzlich prüfen. `/ready` prüft
 nur die Source-Verbindung, nicht diese Admin-Grenze.
@@ -483,6 +558,9 @@ Testrollen, Schemas und Grants auch bei Testfehlern.
 
 ### Downgrade-Verluste
 
+- `0004 → 0003`: löscht eigene Admin-Konten, Passworthashes, globale Vergaben, sämtliche Sitzungen
+  und Login-Limits. Production-Anmeldung funktioniert danach nicht mehr; Workflow-Daten und
+  bestehende textuelle Audit-Autoren bleiben erhalten. Runtime vor dem Downgrade stoppen.
 - `0003 → 0002`: löscht alle Markierungen einschließlich Gründen, Notizen, Versionen,
   Abschlussdaten und des vollständigen Ereignisverlaufs. Findings/Reviews bleiben erhalten.
 - `0002 → 0001`: löscht Run-Coverage (`rule_results`), Zuweisung (`assigned_to`),
@@ -493,3 +571,85 @@ Testrollen, Schemas und Grants auch bei Testfehlern.
 
 Vor einem produktiven Downgrade Admin-Daten sichern und Runtime stoppen. Downgrades können
 verlorene Historie nicht rekonstruieren. Keine dieser Migrationen verändert Uranus.
+
+
+## Eigenständige Admin-Authentifizierung (Migration 0004)
+
+Der vollständige [Auth-Vertrag](authentication.md) trennt eigene Identitäten und die explizite
+Berechtigungstabelle. Keine Uranus-Passwörter, Rollen oder Status-Lookups. Migration `0004`
+führt nur Admin-Tabellen ein; `ADMIN_DATABASE_URL` bleibt ohne DDL- und Uranus-Schreibrechte.
+Die beiden markierten Provisionierungsblöcke oben enthalten bereits die Runtime-Grants für
+`0004`. Nach `uv run alembic upgrade head` diese tabellenspezifischen Grants anwenden.
+
+### Betreiberzugang und Kontoanlage
+
+Die Runtime darf `auth_account`/`auth_system_admin` ausschließlich lesen. Für das CLI einen
+separaten DML-Operator bereitstellen; der Migrator bleibt ausschließlich für Alembic zuständig.
+Beispiel, nach Migration 0004 durch einen dazu berechtigten DB-Betreiber ausführen:
+
+```sql
+CREATE ROLE admin_auth_operator LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOBYPASSRLS NOREPLICATION;
+GRANT USAGE ON SCHEMA admin TO admin_auth_operator;
+REVOKE CREATE ON SCHEMA admin, uranus FROM admin_auth_operator;
+GRANT SELECT, INSERT, UPDATE ON admin.auth_account TO admin_auth_operator;
+GRANT SELECT, INSERT, DELETE ON admin.auth_system_admin TO admin_auth_operator;
+GRANT SELECT, UPDATE ON admin.auth_session TO admin_auth_operator;
+-- No membership in admin_migrator, no Uranus or record_mark_event write grants.
+```
+
+Passwort des DB-Operators über das Secrets-Verfahren setzen (z. B. interaktiv
+`\password admin_auth_operator`). `ADMIN_AUTH_MANAGEMENT_DATABASE_URL` ausschließlich dem
+CLI-Prozess geben; nie dem FastAPI-/Nuxt-Dienst. Keine tatsächlichen Passwörter in Shell-Argumenten.
+Konto-Passwörter werden zweimal verdeckt über `getpass` abgefragt, mit 15–1024 Zeichen:
+
+```bash
+# Erster System-Administrator: beide Entscheidungen müssen ausdrücklich gesetzt sein.
+uv run python -m app.auth.manage create operator --active --system-admin
+# Ein normales Konto hat zunächst weder Aktivierung noch globale Rechte:
+uv run python -m app.auth.manage create reviewer
+uv run python -m app.auth.manage activate reviewer
+uv run python -m app.auth.manage grant reviewer
+uv run python -m app.auth.manage revoke reviewer
+uv run python -m app.auth.manage disable reviewer
+uv run python -m app.auth.manage password operator
+```
+
+UUIDs sind unabhängige Admin-Identitäten. Rechte-/Passwort-/Statusänderungen im CLI erhöhen die
+Credential-Version und widerrufen bestehende Sitzungen in derselben Transaktion. Re-Login ist
+anschließend erforderlich. Keine initialen Benutzer oder Default-Passwörter werden migriert.
+
+### Production und lokale Konfiguration
+
+```dotenv
+APP_ENV=production
+APP_DEBUG=false
+DEV_AUTH_ENABLED=false
+OPENAPI_ENABLED=false
+AUTH_PUBLIC_ORIGIN=https://admin.example.invalid
+AUTH_SESSION_SECONDS=3600
+AUTH_IDLE_SECONDS=900
+```
+
+`ADMIN_DATABASE_URL` sicher als Runtime-Secret bereitstellen; `DATABASE_URL` bleibt der getrennte
+Domain-Reader für Reporting. Frontend `NUXT_ADMIN_API_BASE` zeigt serverseitig auf FastAPI.
+Authentifizierung benötigt weder `URANUS_API_URL` noch einen erreichbaren Uranus-Reader.
+Keine Migration oder Kontovergabe erfolgt beim Dienststart. Nach Origin-Änderungen neu starten.
+
+Lokal: `APP_ENV=development`, `AUTH_PUBLIC_ORIGIN=http://127.0.0.1:3000` (oder exakt die verwendete
+localhost-Origin), `pnpm dev`. Eigene Konten funktionieren auch ohne Dev-Override.
+`DEV_AUTH_ENABLED=true` plus `DEV_ADMIN_TOKEN` ist weiterhin nur eine separate Testhilfe.
+Production-/Staging-Flags können weder Dev-Auth noch unverschlüsselte Cookie-Origin aktivieren.
+
+### Bereinigung
+
+Sitzungen laufen absolut ab; Rate-Limit-Fenster erneuern sich ohne Scheduler. Abgelaufene
+Metadaten benötigen dennoch periodische Bereinigung durch einen berechtigten Wartungsprozess.
+Dafür keine DELETE-Rechte an die API-Runtime vergeben. Beispiel für einen Wartungsaccount mit
+gezielten DELETE-Rechten ausschließlich auf diesen beiden Tabellen:
+
+```sql
+DELETE FROM admin.auth_session WHERE expires_at < now() OR revoked_at IS NOT NULL;
+DELETE FROM admin.auth_login_bucket WHERE window_end < now();
+```
+
+`record_mark_event` bleibt hiervon vollständig unberührt und append-only.

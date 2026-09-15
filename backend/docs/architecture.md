@@ -15,7 +15,9 @@ Berechtigung und Projektionsaktualisierung werden hier nicht nachgebaut.
 Alle Source-Abfragen laufen in read-only REPEATABLE READ-Transaktionen. Engine/Pool entstehen
 im Lifespan. Pool-/Statement-/Verbindungstimeouts und versteckte SQL-Parameter bleiben erhalten.
 Nur die separate, auf Admin beschränkte Verbindung darf Historie und Reviews schreiben.
-Globale produktive Autorisierung bleibt bis zum expliziten Uranus-Vertrag gesperrt.
+Production authentifiziert eigene Admin-Konten und prüft anschließend die separate Vergabe
+in `admin.auth_system_admin`. Kein Uranus-Identity-/Status-Lookup; Details und Betriebsgrenzen
+im [Auth-Vertrag](authentication.md).
 
 Verbindliche Details: [Verträge](contracts.md), [aktuelle Quellverifikation](source-verification.md),
 [ursprüngliche Uranus-Analyse](uranus-analysis.md), [Entwicklung](development.md).

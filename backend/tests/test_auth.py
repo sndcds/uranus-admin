@@ -31,8 +31,8 @@ async def test_default_auth_fails_closed():
         response = await client.get(
             ADMIN_PATHS[0], headers={"Authorization": "Bearer unverified-jwt"}
         )
-        assert response.status_code == 503
-        assert response.json()["error"]["code"] == "admin_auth_unconfigured"
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "invalid_credentials"
         assert (await client.get("/docs")).status_code == 404
         assert (await client.get("/openapi.json")).status_code == 404
 
@@ -111,3 +111,21 @@ async def test_storage_disabled_does_not_enable_writes(client, headers):
     response = await client.get("/api/v1/check-runs", headers=headers)
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "admin_storage_unconfigured"
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"auth_public_origin": "http://admin.example.test"},
+        {"auth_public_origin": "https://admin.example.test/login"},
+        {"auth_public_origin": "https://user:secret@admin.example.test"},
+        {"auth_public_origin": "https://*.example.test"},
+        {"auth_public_origin": "https://admin.example.test?token=secret"},
+        {"auth_session_seconds": 300, "auth_idle_seconds": 900},
+        {"auth_session_seconds": 999999},
+        {"admin_auth_management_database_url": "sqlite:///auth.db"},
+    ],
+)
+def test_production_auth_configuration_rejects_unsafe_values(extra):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, app_env="production", **extra)

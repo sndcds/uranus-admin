@@ -45,10 +45,10 @@ stehen in der [Frontend-Anleitung](frontend/README.md).
 Activity für neun Quelltypen, 19 zentrale Qualitätsregeln einschließlich bestehender Venue-Prüfung,
 operative Arbeitslisten sowie optionale persistierte Prüfläufe und Reviews sind angebunden.
 Die neue Admin-Schreibverbindung verwaltet ausschließlich eigene Metadaten; Uranus bleibt read-only.
-Produktive globale Admin-Autorisierung muss weiterhin explizit in Uranus definiert werden.
+Globale Admin-Autorisierung wird ausdrücklich in der separaten Admin-Berechtigungstabelle vergeben.
 
 Die optionale Ablage erfordert Admin-Migration `0002` und einen separat eingeschränkten
-`ADMIN_DATABASE_URL`-Account. Ohne Ablage bleibt explizites `mode=live`-Reporting nutzbar; normale Listen und Dashboard
+`ADMIN_DATABASE_URL`-Account. Ohne Ablage bleibt explizites `mode=live`-Reporting mit lokalem Dev-Token nutzbar; normale Listen und Dashboard
 verwenden gespeicherte Findings und benötigen die Admin-Ablage.
 Details: [Backend-Verträge](backend/docs/contracts.md),
 [verifizierter Uranus-dev-Stand](backend/docs/source-verification.md).
@@ -65,3 +65,11 @@ Die Übersicht „Markierungen“ bietet Status-, Grund- und Dringlichkeitsfilte
 
 Voraussetzung: Admin-Migration `0003` und die zusätzlichen
 [Runtime-Rechte und Rollen-Provisionierung](backend/docs/development.md#minimale-rechte-nach-migration-0003).
+
+## Production-Anmeldung
+
+FastAPI authentifiziert eigene Admin-Konten; eine separate Tabelle in `admin` vergibt globale
+System-Admin-Rechte. Es gibt keine Uranus-Authentifizierung oder Statusabfrage. Der Browser nutzt
+HttpOnly-Sitzungscookies über Nitro. Einrichtung einschließlich Migration 0004, eingeschränkter
+Runtime-Grants und Betreiber-CLI: [Auth-Vertrag](backend/docs/authentication.md) und
+[Provisionierung](backend/docs/development.md#eigenständige-admin-authentifizierung-migration-0004).
