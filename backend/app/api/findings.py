@@ -16,8 +16,9 @@ router = APIRouter(tags=["Findings"])
 @router.get(
     "/findings",
     response_model=FindingPage,
-    summary="List live quality findings",
-    description="Paginated current findings. Only open findings exist in live mode; "
+    summary="List persisted or explicit live quality findings",
+    description="Defaults to persisted findings without a source scan. Explicit mode=live runs "
+    "a full diagnostic scan. Only open findings exist in live mode; "
     "other status filters return an empty live result, not historical workflow data. "
     "Ordered by priority_score descending and stable finding ID.",
 )

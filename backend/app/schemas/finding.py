@@ -25,7 +25,7 @@ class FindingStatus(StrEnum):
 
 
 class FindingFilters(BaseModel):
-    mode: Literal["live", "persisted"] = "live"
+    mode: Literal["live", "persisted"] = "persisted"
     severity: Severity | None = None
     entity_type: str | None = Field(default=None, max_length=64)
     rule: str | None = Field(default=None, max_length=100)

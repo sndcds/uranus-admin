@@ -95,7 +95,11 @@ async def test_today_time_boundary(db_connection, settings, now):
 @pytest.mark.integration
 @pytest.mark.parametrize("path", ["/api/v1/findings", "/api/v1/quality/venues/missing-geolocation"])
 async def test_quality_api(db_client, headers, path):
-    response = await db_client.get(path, headers=headers, params={"page_size": 1})
+    response = await db_client.get(
+        path,
+        headers=headers,
+        params={"page_size": 1, **({"mode": "live"} if path.endswith("findings") else {})},
+    )
     assert response.status_code == 200, response.text
     body = response.json()
     assert len(body["items"]) == 1
@@ -117,7 +121,9 @@ async def test_quality_api(db_client, headers, path):
     ],
 )
 async def test_live_filters(db_client, headers, params):
-    response = await db_client.get("/api/v1/findings", headers=headers, params=params)
+    response = await db_client.get(
+        "/api/v1/findings", headers=headers, params={**params, "mode": "live"}
+    )
     assert response.status_code == 200
     assert response.json()["pagination"]["total"] == 0
 
@@ -134,7 +140,9 @@ async def test_live_filters(db_client, headers, params):
     ],
 )
 async def test_invalid_filters(db_client, headers, params):
-    response = await db_client.get("/api/v1/findings", headers=headers, params=params)
+    response = await db_client.get(
+        "/api/v1/findings", headers=headers, params={**params, "mode": "live"}
+    )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_input"
 

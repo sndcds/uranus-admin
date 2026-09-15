@@ -350,3 +350,241 @@ async def test_queue_exception_reopens_when_requesting_user_changes(
     assert (
         await persisted_page(admin_store, FindingFilters(rule=item.rule, status="open"), now)
     ).items
+
+
+async def test_default_reads_never_scan(admin_store, db_client, headers, monkeypatch):
+    async def forbidden(*args, **kwargs):
+        raise AssertionError("Normal GET must not scan Uranus")
+
+    monkeypatch.setattr("app.services.dashboard.scan", forbidden)
+    monkeypatch.setattr("app.services.quality.engine.scan", forbidden)
+    for path in ("/api/v1/findings", "/api/v1/dashboard/summary"):
+        response = await db_client.get(path, headers=headers)
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert (body["quality"] if "quality" in body else body)["mode"] == "persisted"
+
+
+async def test_default_findings_requires_storage_without_live_fallback(client, headers):
+    response = await client.get("/api/v1/findings", headers=headers)
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "admin_storage_unconfigured"
+
+
+async def test_review_aging_snooze_and_incomplete_runs(admin_store, db_connection, now):
+    item = make_finding(
+        "age_rule",
+        "user",
+        str(uid(1)),
+        "status",
+        "Old",
+        now,
+        metadata={"age_days": 30, "source_fingerprint": "stable"},
+    )
+    result = RuleResult(item.rule, [item], {("user", item.entity_key)})
+    async with admin_store.begin():
+        await persist_results(admin_store, [result], now)
+    await review(
+        admin_store,
+        db_connection,
+        ReviewUpdate(finding_id=item.id, status="exception", exception_reason="Known"),
+        "a",
+        now,
+    )
+    item.metadata["age_days"] = 31
+    async with admin_store.begin():
+        await persist_results(admin_store, [result], now + timedelta(days=1))
+    assert (await persisted_page(admin_store, FindingFilters(), now)).items[0].status == "exception"
+    await review(
+        admin_store,
+        db_connection,
+        ReviewUpdate(finding_id=item.id, status="snoozed", snoozed_until=now + timedelta(days=3)),
+        "a",
+        now,
+    )
+    async with admin_store.begin():
+        await persist_results(admin_store, [result], now + timedelta(days=2))
+    assert (await persisted_page(admin_store, FindingFilters(), now)).items[0].status == "snoozed"
+    async with admin_store.begin():
+        await persist_results(admin_store, [result], now + timedelta(days=3))
+    assert (await persisted_page(admin_store, FindingFilters(), now)).items[0].status == "open"
+
+
+@pytest.mark.parametrize("fail", [False, True])
+async def test_parallel_checks_and_reviews_release_lock(
+    admin_store, db_connection, settings, now, monkeypatch, fail
+):
+    import asyncio
+
+    from app.admin_database import create_admin_engine
+    from app.services.quality.engine import scan
+
+    real_results = await scan(db_connection, settings, now)
+    async with admin_store.begin():
+        await persist_results(admin_store, real_results, now)
+    item = (await persisted_page(admin_store, FindingFilters(), now)).items[0]
+    entered, proceed = asyncio.Event(), asyncio.Event()
+
+    async def paused(*args):
+        entered.set()
+        await proceed.wait()
+        if fail:
+            raise RuntimeError("scan failed")
+        return real_results
+
+    monkeypatch.setattr("app.services.checks.scan", paused)
+    task = asyncio.create_task(run_check(db_connection, admin_store, settings))
+    engine = create_admin_engine(settings)
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=5)
+        async with engine.connect() as peer:
+            with pytest.raises(APIError) as error:
+                await run_check(db_connection, peer, settings)
+            assert error.value.code == "check_run_conflict"
+            with pytest.raises(APIError) as error:
+                await review(
+                    peer,
+                    db_connection,
+                    ReviewUpdate(finding_id=item.id, status="in_progress"),
+                    "peer",
+                    now,
+                )
+            assert error.value.code == "check_run_conflict"
+            proceed.set()
+            run = await asyncio.wait_for(task, timeout=5)
+            assert run.status == ("failed" if fail else "success")
+            # A different physical connection can immediately acquire the released lock.
+            updated = await review(
+                peer,
+                db_connection,
+                ReviewUpdate(finding_id=item.id, status="in_progress"),
+                "peer",
+                now,
+            )
+            assert updated.status == "in_progress"
+            with pytest.raises(APIError) as error:
+                await review(
+                    peer,
+                    db_connection,
+                    ReviewUpdate(finding_id="missing", status="open"),
+                    "peer",
+                    now,
+                )
+            assert error.value.code == "finding_not_found"
+        # The failing review also released its lock.
+        assert (
+            await review(
+                admin_store,
+                db_connection,
+                ReviewUpdate(finding_id=item.id, status="open"),
+                "a",
+                now,
+            )
+        ).status == "open"
+    finally:
+        proceed.set()
+        await task
+        await engine.dispose()
+
+
+async def test_partial_or_empty_run_is_failed(
+    admin_store, db_connection, settings, now, monkeypatch
+):
+    await run_check(db_connection, admin_store, settings)
+    for results in (
+        [],
+        [RuleResult("venue_missing_geolocation", covered={("venue", str(uid(20)))})],
+        [
+            RuleResult("venue_missing_geolocation", covered={("venue", str(uid(20)))}),
+            RuleResult("url_syntax", success=False),
+        ],
+    ):
+
+        async def partial(*args, results=results):
+            return results
+
+        monkeypatch.setattr("app.services.checks.scan", partial)
+        assert (await run_check(db_connection, admin_store, settings)).status == "failed"
+        assert not (await persisted_page(admin_store, FindingFilters(status="resolved"), now)).items
+
+
+async def test_persisted_sql_filters_counts_and_priority_match_reload(admin_store, now):
+    from app.schemas.finding import Severity
+    from app.services.checks import persisted_counts
+    from app.services.quality.engine import findings_page
+
+    items = [
+        make_finding(
+            "example_rule",
+            "license",
+            f"license:{i}",
+            "url",
+            "Broken",
+            now,
+            severity=list(Severity)[i % 3],
+            published=i % 2 == 0,
+            soon=i % 2 == 0,
+            organization={"uuid": uid(10 if i % 2 else 11), "name": "Org"},
+        )
+        for i in range(20)
+    ]
+    async with admin_store.begin():
+        await persist_results(admin_store, [RuleResult("example_rule", items)], now)
+        await admin_store.execute(
+            finding.update()
+            .where(finding.c.id == items[0].id)
+            .values(status="resolved", resolved_at=now)
+        )
+    all_items = (await persisted_page(admin_store, FindingFilters(), now)).items
+    for extra in (
+        {},
+        {"severity": "warning"},
+        {"organization_id": uid(10)},
+        {"status": "resolved"},
+        {"entity_type": "license"},
+        {"rule": "missing"},
+    ):
+        for page in (1, 2, 100):
+            filters = FindingFilters(page=page, page_size=3, **extra)
+            expected = findings_page(all_items, filters, now)
+            actual = await persisted_page(admin_store, filters, now)
+            assert actual.items == expected.items and actual.pagination == expected.pagination
+    counts, urgent = await persisted_counts(admin_store)
+    active = [item for item in all_items if item.status != "resolved"]
+    assert counts.total == len(active) == 19
+    assert counts.errors == sum(item.severity == "error" for item in active)
+    assert counts.warnings == sum(item.severity == "warning" for item in active)
+    assert counts.info == sum(item.severity == "info" for item in active)
+    assert urgent == sum(
+        item.priority <= 2 or "published_soon" in item.priority_reasons for item in active
+    )
+
+
+async def test_cancelled_scan_releases_session_lock(admin_store, db_connection, settings):
+    import asyncio
+    from unittest.mock import patch
+
+    from app.admin_database import create_admin_engine
+    from app.services.checks import lock, unlock
+
+    entered = asyncio.Event()
+
+    async def blocked(*args):
+        entered.set()
+        await asyncio.Event().wait()
+
+    engine = create_admin_engine(settings)
+    try:
+        with patch("app.services.checks.scan", blocked):
+            task = asyncio.create_task(run_check(db_connection, admin_store, settings))
+            try:
+                await asyncio.wait_for(entered.wait(), 5)
+            finally:
+                task.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await task
+        async with engine.connect() as peer:
+            await lock(peer)
+            await unlock(peer)
+    finally:
+        await engine.dispose()

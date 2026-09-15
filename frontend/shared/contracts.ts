@@ -41,7 +41,7 @@ export const summarySchema = z.object({
     errors: count.optional(),
     info: count.optional(),
     rules: z.array(z.string()).optional(),
-    mode: z.literal('live').optional(),
+    mode: z.enum(['live', 'persisted']).optional(),
   }),
   check_status: z.null().optional(),
 })
@@ -135,7 +135,7 @@ export type FindingPage = z.infer<typeof findingPageSchema>
 export type DashboardSummary = z.infer<typeof summarySchema>
 
 export const filtersSchema = z.object({
-  mode: z.enum(['live', 'persisted']).default('live'),
+  mode: z.enum(['live', 'persisted']).default('persisted'),
   severity: severitySchema.optional(),
   entity_type: z.string().max(64).optional(),
   rule: z.string().max(100).optional(),

@@ -23,7 +23,8 @@ router = APIRouter(
     "/check-runs",
     response_model=CheckRun,
     summary="Run and persist all quality checks",
-    description="Reads a source snapshot; writes admin history only. "
+    description="Runs synchronously and returns the completed run (HTTP 200). "
+    "Reads a source snapshot; writes admin history only. "
     "Failed scans never resolve findings.",
 )
 async def start_check(

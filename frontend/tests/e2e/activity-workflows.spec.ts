@@ -130,3 +130,25 @@ test('real proxy keeps new admin writes authenticated', async ({ request }) => {
   ).toBe(401)
   expect((await request.post('/api/admin/api/v1/work-queues/partner_requests')).status()).toBe(405)
 })
+
+test('normal finding navigation uses stored results and live diagnosis is explicit', async ({
+  page,
+}) => {
+  const modes: string[] = []
+  await page.route('**/api/admin/api/v1/findings**', (route) => {
+    const mode = new URL(route.request().url()).searchParams.get('mode') ?? ''
+    modes.push(mode)
+    return route.fulfill({ json: { ...findings, mode } })
+  })
+  await page.goto('/findings')
+  await expect(
+    page.getByRole('button', { name: 'Befund zu Test-Hafenbühne ansehen' }),
+  ).toBeVisible()
+  expect(modes).toEqual(['persisted'])
+  await page.getByRole('button', { name: 'Aktualisieren', exact: true }).click()
+  await expect.poll(() => modes.length).toBe(2)
+  expect(modes).toEqual(['persisted', 'persisted'])
+  await page.getByRole('combobox', { name: 'Quelle', exact: true }).selectOption('live')
+  await page.getByRole('button', { name: 'Anwenden', exact: true }).click()
+  await expect.poll(() => modes.at(-1)).toBe('live')
+})

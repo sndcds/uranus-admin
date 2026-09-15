@@ -67,3 +67,8 @@ it('validates internal action routes and encoded keys', async () => {
   ])
     expect(actionSchema.safeParse({ ...action, href }).success).toBe(false)
 })
+
+it('defaults normal finding lists to persisted and requires explicit live diagnosis', () => {
+  expect(parseFilters({})?.mode).toBe('persisted')
+  expect(parseFilters({ mode: 'live' })?.mode).toBe('live')
+})

@@ -3,18 +3,21 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import select, text, update
+from sqlalchemy import case, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.admin_tables import check_run, finding
 from app.config import Settings
 from app.errors import APIError
+from app.repositories.venues import RULE
 from app.schemas.checks import CheckRun, ReviewUpdate
-from app.schemas.finding import Finding, FindingFilters, FindingPage, Severity
-from app.services.quality.core import RuleResult
-from app.services.quality.engine import findings_page, scan
+from app.schemas.dashboard import QualityCounts
+from app.schemas.finding import Finding, FindingFilters, FindingPage, Pagination, Severity
+from app.services.quality.core import CORE_RULES, RuleResult
+from app.services.quality.engine import scan
 from app.services.quality.priority import priority_details
+from app.services.queues import QUEUE_RULES
 
 # Session lock survives the initial committed 'running' row. Scans and reviews serialize.
 LOCK_KEY = 723114905
@@ -24,19 +27,28 @@ FINDING_COLUMNS = tuple(column.label(column.key) for column in finding.c)
 
 
 async def lock(connection: AsyncConnection) -> None:
-    acquired = (
-        await connection.execute(text("SELECT pg_try_advisory_lock(:key)"), {"key": LOCK_KEY})
-    ).scalar_one()
-    await connection.commit()
+    try:
+        acquired = (
+            await connection.execute(text("SELECT pg_try_advisory_lock(:key)"), {"key": LOCK_KEY})
+        ).scalar_one()
+        await connection.commit()
+    except BaseException:
+        # Never return a possibly locked session to the pool after cancellation/I/O failure.
+        await connection.invalidate()
+        raise
     if not acquired:
         raise APIError(409, "check_run_conflict", "A check or review is already in progress.")
 
 
 async def unlock(connection: AsyncConnection) -> None:
-    if connection.in_transaction():
-        await connection.rollback()
-    await connection.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": LOCK_KEY})
-    await connection.commit()
+    try:
+        if connection.in_transaction():
+            await connection.rollback()
+        await connection.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": LOCK_KEY})
+        await connection.commit()
+    except BaseException:
+        await connection.invalidate()
+        raise
 
 
 async def persist_results(
@@ -138,7 +150,12 @@ async def run_check(
             )
         try:
             results = await scan(source, settings, started)
-            if not results or not all(result.success for result in results):
+            expected_rules = {RULE, *CORE_RULES, *QUEUE_RULES}
+            if (
+                len(results) != len(expected_rules)
+                or {result.rule for result in results} != expected_rules
+                or not all(result.success for result in results)
+            ):
                 raise RuntimeError("Incomplete scan")
             finished = datetime.now(UTC)
             async with admin.begin():
@@ -226,17 +243,98 @@ def stored_finding(row: dict[str, Any]) -> Finding:
     return Finding.model_validate(payload)
 
 
+def stored_priority_score() -> Any:
+    fallback = case(
+        *[
+            (
+                finding.c.severity == severity.value,
+                priority_details(severity, published=False, soon=False, upcoming=False)[
+                    "priority_score"
+                ],
+            )
+            for severity in Severity
+        ]
+    )
+    return func.coalesce(finding.c.metadata["finding"]["priority_score"].as_integer(), fallback)
+
+
 async def persisted_page(
     admin: AsyncConnection, filters: FindingFilters, now: datetime
 ) -> FindingPage:
+    conditions = []
+    for key in ("severity", "entity_type", "rule", "status"):
+        if (value := getattr(filters, key)) is not None:
+            conditions.append(finding.c[key] == value)
+    if filters.organization_id is not None:
+        conditions.append(
+            finding.c.metadata["finding"]["organization_id"].as_string()
+            == str(filters.organization_id)
+        )
     async with admin.begin():
-        items = [
-            stored_finding(dict(row))
-            for row in (await admin.execute(select(*FINDING_COLUMNS))).mappings()
-        ]
-    result = findings_page(items, filters, now)
-    result.mode = "persisted"
-    return result
+        await admin.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        total = int(
+            (
+                await admin.execute(select(func.count()).select_from(finding).where(*conditions))
+            ).scalar_one()
+        )
+        rows = (
+            await admin.execute(
+                select(*FINDING_COLUMNS)
+                .where(*conditions)
+                .order_by(stored_priority_score().desc(), finding.c.id.collate("C"))
+                .limit(filters.page_size)
+                .offset((filters.page - 1) * filters.page_size)
+            )
+        ).mappings()
+        return FindingPage(
+            items=[stored_finding(dict(row)) for row in rows],
+            mode="persisted",
+            observed_at=now,
+            pagination=Pagination(
+                page=filters.page,
+                page_size=filters.page_size,
+                total=total,
+                pages=(total + filters.page_size - 1) // filters.page_size,
+            ),
+        )
+
+
+async def persisted_counts(admin: AsyncConnection) -> tuple[QualityCounts, int]:
+    # Resolved records remain in history, but no longer count as current quality concerns.
+    async with admin.begin():
+        row = (
+            (
+                await admin.execute(
+                    select(
+                        func.count().label("total"),
+                        func.count().filter(finding.c.severity == "error").label("errors"),
+                        func.count().filter(finding.c.severity == "warning").label("warnings"),
+                        func.count().filter(finding.c.severity == "info").label("info"),
+                        func.count()
+                        .filter(
+                            (finding.c.metadata["finding"]["priority"].as_integer() <= 2)
+                            | finding.c.metadata["finding"]["priority_reasons"].contains(
+                                ["published_soon"]
+                            )
+                        )
+                        .label("urgent"),
+                        func.array_agg(func.distinct(finding.c.rule)).label("rules"),
+                    )
+                    .select_from(finding)
+                    .where(finding.c.status != "resolved")
+                )
+            )
+            .mappings()
+            .one()
+        )
+        return QualityCounts(
+            total=row["total"],
+            errors=row["errors"],
+            warnings=row["warnings"],
+            info=row["info"],
+            rules=sorted(row["rules"] or []),
+            mode="persisted",
+        ), row["urgent"]
 
 
 async def review(

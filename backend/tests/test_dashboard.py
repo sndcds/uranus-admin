@@ -10,7 +10,7 @@ from tests.conftest import uid
 
 @pytest.mark.integration
 async def test_dashboard_real_counts(db_client, headers):
-    response = await db_client.get("/api/v1/dashboard/summary", headers=headers)
+    response = await db_client.get("/api/v1/dashboard/summary?mode=live", headers=headers)
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["new_records"] == {
@@ -35,7 +35,7 @@ async def test_dashboard_real_counts(db_client, headers):
 @pytest.mark.integration
 async def test_unknown_source_timezone_fails_closed(db_client, settings, headers):
     settings.uranus_timestamp_timezone = None
-    response = await db_client.get("/api/v1/dashboard/summary", headers=headers)
+    response = await db_client.get("/api/v1/dashboard/summary?mode=live", headers=headers)
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "source_timezone_unconfigured"
 

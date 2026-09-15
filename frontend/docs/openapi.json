@@ -66,7 +66,7 @@
           "Dashboard"
         ],
         "summary": "Dashboard summary",
-        "description": "Source-table creations in [from_at, to_at), plus live venue findings. Today starts at midnight in ADMIN_TIMEZONE. Historical check status is unavailable.",
+        "description": "Source-table creations in [from_at, to_at), plus stored unresolved findings. Only explicit mode=live runs a diagnostic scan. Today starts at midnight in ADMIN_TIMEZONE. Historical check status is unavailable.",
         "operationId": "summary_api_v1_dashboard_summary_get",
         "security": [
           {
@@ -87,6 +87,20 @@
               "type": "string",
               "default": "24h",
               "title": "Period"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "persisted",
+                "live"
+              ],
+              "type": "string",
+              "default": "persisted",
+              "title": "Mode"
             }
           }
         ],
@@ -179,8 +193,8 @@
         "tags": [
           "Findings"
         ],
-        "summary": "List live quality findings",
-        "description": "Paginated current findings. Only open findings exist in live mode; other status filters return an empty live result, not historical workflow data. Ordered by priority_score descending and stable finding ID.",
+        "summary": "List persisted or explicit live quality findings",
+        "description": "Defaults to persisted findings without a source scan. Explicit mode=live runs a full diagnostic scan. Only open findings exist in live mode; other status filters return an empty live result, not historical workflow data. Ordered by priority_score descending and stable finding ID.",
         "operationId": "findings_api_v1_findings_get",
         "security": [
           {
@@ -198,7 +212,7 @@
                 "persisted"
               ],
               "type": "string",
-              "default": "live",
+              "default": "persisted",
               "title": "Mode"
             }
           },
@@ -1001,7 +1015,7 @@
           "Check runs and review"
         ],
         "summary": "Run and persist all quality checks",
-        "description": "Reads a source snapshot; writes admin history only. Failed scans never resolve findings.",
+        "description": "Runs synchronously and returns the completed run (HTTP 200). Reads a source snapshot; writes admin history only. Failed scans never resolve findings.",
         "operationId": "start_check_api_v1_check_runs_post",
         "security": [
           {
@@ -3435,9 +3449,12 @@
           },
           "mode": {
             "type": "string",
-            "const": "live",
+            "enum": [
+              "live",
+              "persisted"
+            ],
             "title": "Mode",
-            "default": "live"
+            "default": "persisted"
           }
         },
         "type": "object",

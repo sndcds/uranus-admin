@@ -212,3 +212,28 @@ it('allows only validated admin review and check mutations', async () => {
   ).toBe(422)
   expect(fetcher).toHaveBeenCalledTimes(2)
 })
+
+it.each([
+  '/api/v1/record-marks/not-a-uuid',
+  '/api/v1/record-marks/00000000-0000-0000-0000-000000000020/extra',
+  '/api/v1/record-marks/00000000-0000-0000-0000-000000000020%2fextra',
+  '/api/v1/record-marks/../../health',
+])('rejects malformed mark detail path %s', async (path) => {
+  const fetcher = vi.fn()
+  expect((await forwardAdminRequest({ ...input, path }, base, fetcher)).status).toBe(404)
+  expect(fetcher).not.toHaveBeenCalled()
+})
+
+it('forwards only explicit authorization and omits ambient credentials', async () => {
+  const fetcher = vi.fn().mockResolvedValue(Response.json({ items: [] }))
+  await forwardAdminRequest(
+    { ...input, headers: { Cookie: 'secret', 'X-Admin': 'true' } } as typeof input,
+    base,
+    fetcher,
+  )
+  expect(fetcher.mock.calls[0]?.[1].headers).toEqual({
+    Accept: 'application/json',
+    Authorization: input.authorization,
+  })
+  expect(fetcher.mock.calls[0]?.[1].credentials).toBe('omit')
+})

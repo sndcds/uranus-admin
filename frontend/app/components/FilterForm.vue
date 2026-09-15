@@ -120,7 +120,7 @@ function apply() {
       <label
         ><span class="label">Quelle</span
         ><select v-model="mode" class="input">
-          <option value="live">Aktuelle Prüfung</option>
+          <option value="live">Live-Diagnose (vollständige Prüfung)</option>
           <option value="persisted">Gespeicherte Befunde</option>
         </select></label
       >

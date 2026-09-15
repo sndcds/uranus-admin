@@ -46,7 +46,7 @@ const routes: Record<string, readonly string[]> = {
   ],
   '/health': [],
   '/ready': [],
-  '/api/v1/dashboard/summary': ['period'],
+  '/api/v1/dashboard/summary': ['period', 'mode'],
   '/api/v1/dashboard/activity': [
     'entity_type',
     'entity_key',
@@ -168,6 +168,7 @@ export async function forwardAdminRequest(
       headers,
       redirect: 'error',
       cache: 'no-store',
+      credentials: 'omit',
       signal: AbortSignal.timeout(write ? 120000 : 10000),
     })
     if (!response.ok) {

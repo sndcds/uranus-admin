@@ -8,7 +8,12 @@ defineProps<{ data: DashboardSummary | null }>()
   <section class="card p-5">
     <h2 class="font-bold">Datenqualität</h2>
     <p class="mt-2 muted">
-      {{ metric(data?.quality.total) }} Befunde aus den geprüften Quelltabellen.
+      {{ metric(data?.quality.total) }}
+      {{
+        data?.quality.mode === 'live'
+          ? 'Befunde aus der Live-Diagnose.'
+          : 'gespeicherte, noch nicht erledigte Befunde.'
+      }}
     </p>
     <dl class="my-4 flex flex-wrap gap-4 text-sm">
       <div>
