@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from './zod'
 
 // Explicit runtime-checked contract from docs/openapi.json (FastAPI 0.1.0).
 // Missing optional metrics stay undefined; they are never replaced with mock numbers.
@@ -151,6 +151,11 @@ export const adminErrorStatuses = {
   authentication_required: 401,
   invalid_credentials: 401,
   permission_denied: 403,
+  admin_access_denied: 403,
+  csrf_rejected: 403,
+  login_rate_limited: 429,
+  request_too_large: 413,
+  auth_storage_unavailable: 503,
   invalid_input: 422,
   internal_error: 500,
   admin_auth_unconfigured: 503,
@@ -356,3 +361,19 @@ export type MarkDetail = z.infer<typeof markDetailSchema>
 export type MarkPage = z.infer<typeof markPageSchema>
 export type MarkCreate = z.infer<typeof markCreateSchema>
 export type MarkUpdate = z.infer<typeof markUpdateSchema>
+
+// Credentials are request-only; session responses never contain tokens or passwords.
+export const loginSchema = z
+  .object({
+    login: z.string().trim().min(1).max(254),
+    password: z.string().min(1).max(1024),
+  })
+  .strict()
+export const sessionSchema = z
+  .object({
+    subject: z.string().min(1).max(128),
+    system_admin: z.boolean(),
+  })
+  .strict()
+export const logoutSchema = z.object({ status: z.literal('ok') }).strict()
+export type AdminSession = z.infer<typeof sessionSchema>

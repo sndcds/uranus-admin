@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -12,7 +13,9 @@ from starlette.exceptions import HTTPException
 
 from app.admin_database import create_admin_engine
 from app.api import activity, checks, dashboard, findings, health, marks, quality, queues
+from app.auth.body_limit import AuthBodyLimitMiddleware
 from app.auth.dependencies import get_current_admin
+from app.auth.routes import router as auth_router
 from app.config import Settings
 from app.database import create_engine
 from app.errors import (
@@ -32,6 +35,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        application.state.password_slots = asyncio.Semaphore(4)
         configure_logging(settings.log_level, debug=debug_logging)
         engine = create_engine(settings)
         application.state.engine = engine
@@ -48,7 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title="Kulturbytes Admin API",
         version="0.1.0",
         lifespan=lifespan,
-        description="Internal reporting API. Production auth is unavailable in milestone 1.",
+        description="Internal reporting API with independent system administrator authentication.",
         debug=False,  # Never return a traceback, including when APP_DEBUG is enabled.
         docs_url="/docs" if settings.openapi_enabled else None,
         openapi_url="/openapi.json" if settings.openapi_enabled else None,
@@ -79,6 +83,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         application.add_exception_handler(exception_type, internal_error)
 
     application.include_router(health.router)
+    application.include_router(auth_router)
     admin = APIRouter(
         prefix="/api/v1",
         dependencies=[Depends(get_current_admin)],
@@ -107,9 +112,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.origins,
         allow_methods=["GET", "POST", "PATCH"],
-        allow_headers=["Authorization"],
+        allow_headers=["Authorization", "X-Admin-CSRF", "Content-Type"],
         allow_credentials=False,
     )
+    application.add_middleware(AuthBodyLimitMiddleware)
     application.add_middleware(RequestLoggingMiddleware, debug=debug_logging)
     return application
 

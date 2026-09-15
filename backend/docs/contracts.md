@@ -209,8 +209,7 @@ Zeitpunkt, Art (`created`, `updated`, `completed`, `reopened`), optionale Notiz 
 Gründe, Erläuterung, Dringlichkeit sowie Status. Die API bietet kein Überschreiben oder Löschen
 alter Einträge. Änderungen ohne geänderte Felder oder neue Notiz erzeugen keinen Verlaufseintrag.
 Clients dürfen Autoren, Zeitstempel und Ereignisse nicht vorgeben. Die Entwicklung verwendet
-den vorhandenen Principal `development-only`; erst eine reguläre Admin-Authentifizierung kann
-individuelle Benutzeridentitäten liefern.
+den vorhandenen Principal `development-only`; Production verwendet `admin:<eigene Konto-UUID>`.
 
 Die Ablage benötigt Migration `0003` und die zusätzlichen Runtime-Grants aus
 [development.md](development.md). Ohne Admin-Ablage liefern diese Endpunkte 503
@@ -219,10 +218,14 @@ Filter und UUID-Pfade; Schreibdaten werden vor dem Weiterleiten validiert.
 
 ## Auth / Authorization Boundary
 
-Alle neuen Routen verwenden dieselbe zentrale Admin-Dependency. Ohne Credential 401; ein
-unverifiziertes Uranus-Login begründet weiterhin **keine globale Adminrolle**. Produktive Auth
-bleibt gesperrt, bis Uranus einen expliziten globalen Autorisierungsvertrag bereitstellt.
-Development-Override ist nur in development/test erlaubt.
+Alle Verwaltungsrouten verwenden dieselbe zentrale Admin-Dependency. Die eigenständige
+Authentifizierung verwendet `admin.auth_account` und widerrufbare Sitzungen; ausschließlich
+`admin.auth_system_admin` erteilt globale Rechte. Uranus-Identitäten, Organisationsrechte und
+Uranus-Statusdaten werden dafür nicht verwendet. Ohne Credential 401, ungültige/abgelaufene
+Sitzung oder inaktives Konto 401, aktives Konto ohne globale Vergabe 403 `admin_access_denied`.
+Der vollständige [Auth-Vertrag](authentication.md) beschreibt Login/Logout, CSRF, Ablauf,
+503-Fehler und die eigene Audit-Identität `admin:<UUID>`. Development-Override bleibt nur in
+development/test erlaubt.
 
 `DATABASE_URL` bleibt SELECT-only und erzwingt read-only REPEATABLE READ-Transaktionen.
 Optionales `ADMIN_DATABASE_URL` ist eine eigene Rolle mit SELECT/INSERT/UPDATE ausschließlich auf
@@ -231,8 +234,8 @@ Uranus-Schreibrechte (auch Spaltengrants) ab. Der Betreiber muss diese Rechte wi
 Migrationen verwenden unverändert eine separate Migrations-DSN. Es gibt keine Startmigration.
 
 Nuxt erlaubt nur die bekannten GET-Routen sowie POST check-runs und PATCH finding-reviews.
-Reviewbodies werden strikt mit Zod validiert. Cookies, beliebige Headers, Redirects und fremde
-Ziel-Origins werden nicht weitergereicht. Bekannte API-Fehlercodes werden nur aus strengem JSON
+Reviewbodies werden strikt mit Zod validiert. Nur das vorgesehene Sitzungscookie sowie Auth-/Origin-/CSRF-Header werden kontrolliert
+weitergereicht; keine beliebigen Cookies/Headers, Redirects oder fremden Ziel-Origins. Bekannte API-Fehlercodes werden nur aus strengem JSON
 mit zum Code passendem Status übernommen, niemals Rohmeldungen/Tracebacks. Timeout: 10 Sekunden
 für Reads, 120 Sekunden für synchrone Admin-Schreibvorgänge; Browser wartet entsprechend länger.
 CORS erlaubt diese Methoden nur für ausdrücklich konfigurierte Origins und Bearer-Header.

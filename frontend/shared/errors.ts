@@ -10,6 +10,8 @@ export function failure(status: number, code = 'request_failed'): ApiFailure {
     403: 'Keine Berechtigung. Dein Zugang darf diese Verwaltungsdaten nicht lesen.',
     404: 'Der Datensatz oder die Markierung wurde nicht gefunden.',
     409: 'Die Markierung wurde zwischenzeitlich geändert. Bitte neu laden und die Eingaben prüfen.',
+    413: 'Die Anfrage ist zu groß.',
+    429: 'Zu viele Anmeldeversuche. Bitte in fünf Minuten erneut versuchen.',
     422: 'Bitte prüfe deine Eingaben und Filter.',
     502: 'Die Admin-API ist nicht erreichbar oder hat eine ungültige Antwort geliefert.',
     503: 'Die Admin-API ist derzeit nicht bereit. Bitte später erneut versuchen.',

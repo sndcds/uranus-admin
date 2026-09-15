@@ -74,7 +74,8 @@ nun ausdrücklich `mode=live` und behalten ihre fachlichen Assertions.
   oder neuen Source-Indizes in diesem PR. Die passenden produktiven Indizes bleiben Betriebsarbeit.
 - Background Worker mit 202/run_id und Run-Detailendpoint, Streaming/Batches und produktive
   Lastmessung bewusst verschoben; [Semantik und Folgearbeit](contracts.md#operative-gets-und-scan-kosten).
-- Produktive globale Uranus-Admin-Autorisierung bleibt eine bestehende separate Voraussetzung.
+- Zum damaligen PR-14-Stand war produktive Auth noch offen. Nachfolgende Umsetzung zu Issue #2:
+  [eigene Admin-Konten und separate globale Vergabe](authentication.md), ohne Uranus-Status-Lookup.
   Finding-Reviews besitzen weiterhin kein vollständiges Ereignisjournal; Markierungen besitzen es.
 
 ## Implementierungscommits

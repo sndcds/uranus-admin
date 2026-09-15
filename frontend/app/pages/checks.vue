@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { z } from 'zod'
+import type { z } from '#shared/zod'
 import type { checkRunPageSchema } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
 import type { ApiFailure } from '#shared/errors'

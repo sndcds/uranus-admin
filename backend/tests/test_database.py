@@ -102,7 +102,13 @@ async def test_migrations_only_manage_admin(database, monkeypatch):
             )
             == 5
         )
+        await asyncio.to_thread(command.upgrade, config, "0004")
         await asyncio.to_thread(command.check, config)
+        assert await conn.fetchval("SELECT to_regclass('admin.auth_system_admin')") is not None
+        assert await conn.fetch(fingerprint_sql) == before
+        await asyncio.to_thread(command.downgrade, config, "0003")
+        assert await conn.fetchval("SELECT to_regclass('admin.auth_account')") is None
+        assert await conn.fetch(fingerprint_sql) == before
         await conn.execute(
             "INSERT INTO admin.record_mark (id,entity_type,entity_key,entity_name,reasons,"
             "urgency,status,version,created_at,created_by,updated_at) "

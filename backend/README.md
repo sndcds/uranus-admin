@@ -31,8 +31,8 @@ development/test. API-Fehlerantworten bleiben bereinigt. Debuglogs können sensi
 Daten aus Exceptions enthalten. Ohne `APP_DEBUG` bleiben Exception-Details verborgen,
 auch bei `LOG_LEVEL=DEBUG`; in staging/production wird `APP_DEBUG=true` abgewiesen.
 
-Produktive globale Admin-Autorisierung bleibt gesperrt: gültiger Uranus-Login ist keine
-systemweite Adminberechtigung. Nur ausdrücklich lokal: `APP_ENV=development`,
+Production verwendet eigene Admin-Konten und explizite globale Vergaben (siehe unten).
+Ein Uranus-Login oder Organisationsrechte begründen keinen Zugriff. Nur ausdrücklich lokal: `APP_ENV=development`,
 `DEV_AUTH_ENABLED=true`, zufälliger `DEV_ADMIN_TOKEN` mit mindestens 32 Zeichen.
 Der Bearer-Token ist kein Uranus-Benutzer. Development-Override ist in Production verboten.
 
@@ -40,6 +40,8 @@ Der Bearer-Token ist kein Uranus-Benutzer. Development-Override ist in Productio
 
 | Methode / Pfad | Zweck |
 | --- | --- |
+| POST `/auth/login`, `/auth/logout` | Eigene Admin-Anmeldung bzw. Sitzungswiderruf; exakte Origin/CSRF |
+| GET `/auth/session` | Aktive Identität und getrennt geprüfte globale Berechtigung |
 | GET `/health`, `/ready` | Liveness / DB-Readiness; ohne Datenpreisgabe |
 | GET `/api/v1/dashboard/summary` | Neuanlagen today/24h/7d; Qualität aller implementierten Regeln |
 | GET `/api/v1/dashboard/activity` | Neuanlagenliste für neun Typen, Org-/Zeitfilter und Pagination; undatierte Bilder separat |
@@ -54,6 +56,14 @@ Alle `/api/v1`-Routen verwenden dieselbe Admin-Auth. Standardmäßig 401 ohne Cr
 503 bei unkonfigurierter globaler Auth. OpenAPI nur explizit in development/test einschalten:
 `OPENAPI_ENABLED=true`; `/docs` und `/openapi.json`.
 
+## Production-Anmeldung
+
+FastAPI verwendet unabhängige Admin-Konten und eine separate globale Berechtigungstabelle.
+[Auth-Vertrag](docs/authentication.md) und
+[Provisionierung](docs/development.md#eigenständige-admin-authentifizierung-migration-0004)
+erklären Migration 0004, Betreiber-CLI, Cookies und Production-Konfiguration.
+Uranus-Login und Organisationsrechte werden nicht als Admin-Zugang verwendet.
+
 ## Optionale Persistenz
 
 Die [zentrale PostgreSQL-Rollen-Anleitung](docs/development.md#minimale-rechte-nach-migration-0003)
@@ -64,7 +74,8 @@ Migrationen 0001–0003 erzeugen Check Runs, Findings, Record Marks und deren ap
 
 Keine automatische Migration und kein DDL-Fallback auf `DATABASE_URL`. Die Runtime ist nie
 Migrator/Owner. Gespeicherte Standardlisten benötigen die Admin-Ablage; ohne sie bleiben nur
-explizite `mode=live`-Abrufe verfügbar. Ein `admin_storage_unconfigured` kann eine fehlende DSN
+mit lokalem Dev-Token explizite `mode=live`-Abrufe verfügbar. Production-Anmeldung benötigt
+die Admin-Ablage. Ein `admin_storage_unconfigured` kann eine fehlende DSN
 oder **zu mächtige** Runtime-Rechte bedeuten; die Response-Message unterscheidet beides.
 
 Scanfehler schließen niemals Findings. Nur erfolgreich abgedeckte Objekte können resolved werden;

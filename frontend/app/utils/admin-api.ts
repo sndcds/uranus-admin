@@ -1,4 +1,6 @@
 import {
+  sessionSchema,
+  logoutSchema,
   queuePageSchema,
   checkRunPageSchema,
   checkRunSchema,
@@ -11,7 +13,7 @@ import {
   markPageSchema,
   markDetailSchema,
 } from '#shared/contracts'
-import type { z } from 'zod'
+import type { z } from '#shared/zod'
 import type {
   FindingFilters,
   Period,
@@ -24,6 +26,8 @@ import { AdminApiError, failure } from '#shared/errors'
 export function createAdminApi(fetcher: typeof fetch = fetch) {
   // Per Nuxt app instance. Never a module-level credential or serializable store field.
   let credential = ''
+  let accessLost: ((status: number) => void) | undefined
+  let accessGeneration = 0
   async function request<T>(
     path: string,
     schema: z.ZodType<T>,
@@ -31,6 +35,7 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
     method = 'GET',
     requestBody?: unknown,
   ) {
+    const generation = accessGeneration
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(query))
       if (value !== undefined) params.set(key, String(value))
@@ -42,14 +47,21 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
         headers: {
           ...(credential ? { Authorization: `Bearer ${credential}` } : {}),
           ...(requestBody === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...(method === 'GET' ? {} : { 'X-Admin-CSRF': '1' }),
         },
         cache: 'no-store',
-        credentials: 'omit',
+        credentials: credential ? 'omit' : 'same-origin',
         signal: AbortSignal.timeout(method === 'GET' ? 12000 : 125000),
       })
     } catch {
       throw new AdminApiError(failure(502))
     }
+    if (
+      generation === accessGeneration &&
+      [401, 403].includes(response.status) &&
+      path.startsWith('/api/')
+    )
+      accessLost?.(response.status)
     let body: unknown
     try {
       body = await response.json()
@@ -67,10 +79,22 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
     return parsed.data
   }
   return {
+    onAccessLost(callback: (status: number) => void) {
+      accessLost = callback
+    },
+    session: () => request('/auth/session', sessionSchema),
+    login: async (login: string, password: string) => {
+      const identity = await request('/auth/login', sessionSchema, {}, 'POST', { login, password })
+      accessGeneration++
+      return identity
+    },
+    logout: () => request('/auth/logout', logoutSchema, {}, 'POST'),
     setCredential(value: string) {
+      accessGeneration++
       credential = value.trim()
     },
     clearCredential() {
+      accessGeneration++
       credential = ''
     },
     summary: (period: Period) => request('/api/v1/dashboard/summary', summarySchema, { period }),

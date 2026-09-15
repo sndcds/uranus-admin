@@ -1,4 +1,7 @@
 import {
+  loginSchema,
+  sessionSchema,
+  logoutSchema,
   adminErrorSchema,
   adminErrorStatuses,
   reviewUpdateSchema,
@@ -8,6 +11,9 @@ import {
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
+  '/auth/login': [],
+  '/auth/logout': [],
+  '/auth/session': [],
   '/api/v1/record-marks': [
     'entity_type',
     'entity_key',
@@ -75,11 +81,15 @@ export interface ProxyInput {
   method: string
   query: URLSearchParams
   authorization?: string
+  sessionCookie?: string
+  origin?: string
+  csrf?: string
   body?: unknown
 }
 export interface ProxyResult {
   status: number
   body: unknown
+  setCookies?: string[]
 }
 function rejected(status: number, code: string): ProxyResult {
   const detail = failure(status, code)
@@ -101,7 +111,15 @@ export async function forwardAdminRequest(
       ? routes[input.path]
       : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
+  const authWrite = input.method === 'POST' && ['/auth/login', '/auth/logout'].includes(input.path)
+  if (
+    input.path.startsWith('/auth/') &&
+    !authWrite &&
+    !(input.path === '/auth/session' && input.method === 'GET')
+  )
+    return rejected(405, 'method_not_allowed')
   const write =
+    authWrite ||
     (input.method === 'POST' && input.path === '/api/v1/record-marks') ||
     (input.method === 'PATCH' && markDetail) ||
     (input.method === 'POST' && input.path === '/api/v1/check-runs') ||
@@ -110,6 +128,23 @@ export async function forwardAdminRequest(
     return rejected(405, 'method_not_allowed')
   if (write && input.query.size) return rejected(422, 'invalid_query')
   let requestBody: string | undefined
+  if (input.path === '/auth/login') {
+    const parsed = loginSchema.safeParse(input.body)
+    if (!parsed.success) return rejected(422, 'invalid_input')
+    requestBody = JSON.stringify(parsed.data)
+  }
+  if (
+    input.path === '/auth/logout' &&
+    input.body !== undefined &&
+    (input.body === null ||
+      typeof input.body !== 'object' ||
+      Array.isArray(input.body) ||
+      Object.keys(input.body).length)
+  )
+    return rejected(422, 'invalid_input')
+  const cookie = input.sessionCookie
+  if (cookie && !/^(?:__Host-admin_session|admin_session)=[A-Za-z0-9_-]{43}$/.test(cookie))
+    return rejected(401, 'invalid_credentials')
   if (write && (markDetail || input.path === '/api/v1/record-marks')) {
     const parsed = (markDetail ? markUpdateSchema : markCreateSchema).safeParse(input.body)
     if (!parsed.success) return rejected(422, 'invalid_input')
@@ -137,6 +172,7 @@ export async function forwardAdminRequest(
   }
   if (
     input.path.startsWith('/api/') &&
+    !cookie &&
     !/^Bearer [^\s\r\n]{1,8192}$/i.test(input.authorization ?? '')
   ) {
     return rejected(401, 'authentication_required')
@@ -162,6 +198,10 @@ export async function forwardAdminRequest(
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (requestBody) headers['Content-Type'] = 'application/json'
     if (input.authorization) headers.Authorization = input.authorization
+    if (cookie && (input.path.startsWith('/api/') || input.path.startsWith('/auth/')))
+      headers.Cookie = cookie
+    if (input.origin) headers.Origin = input.origin
+    if (input.csrf === '1') headers['X-Admin-CSRF'] = '1'
     const response = await fetcher(url, {
       method: input.method,
       body: requestBody,
@@ -185,6 +225,16 @@ export async function forwardAdminRequest(
       return rejected(response.status, 'upstream_error')
     }
     const body: unknown = await response.json()
+    if (input.path.startsWith('/auth/')) {
+      const parsed = (input.path === '/auth/logout' ? logoutSchema : sessionSchema).safeParse(body)
+      if (!parsed.success) return rejected(503, 'auth_storage_unavailable')
+      const setCookies = response.headers
+        .getSetCookie()
+        .filter((value) =>
+          /^(?:__Host-admin_session|admin_session)=(?:[A-Za-z0-9_-]{43}|""|);/.test(value),
+        )
+      return { status: response.status, body: parsed.data, setCookies }
+    }
     return { status: response.status, body }
   } catch (error) {
     return rejected(

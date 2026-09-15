@@ -179,6 +179,10 @@ HS256-Schlüssel technisch prüfbar; dieser gibt dem Admin-Dienst aber auch Sign
 Für Meilenstein 2 bevorzugt einen Uranus-Verifikations-/Autorisierungsvertrag oder asymmetrische
 Signaturen prüfen; Rollenprüfung und aktuelle Deaktivierung gehören in diesen Vertrag.
 
+Die vorstehende Meilenstein-2-Empfehlung beschreibt den damaligen Analyse-Stand. Die spätere
+Entscheidung zu Issue #2 verwendet [eigenständige Admin-Konten und getrennte globale Vergaben](authentication.md),
+ohne Uranus-Identity-Verifikation oder Status-Lookup.
+
 ## Team und Partner
 
 `api/admin_org_team_invite.go` verwendet Einladungs-JWTs und Membership-Status; das ist keine

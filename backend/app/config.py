@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, ge=1, le=65535)
     database_url: SecretStr = SecretStr("postgresql+asyncpg://localhost/uranus")
     admin_database_url: SecretStr | None = None
+    auth_public_origin: str | None = None
+    auth_session_seconds: int = Field(default=3600, ge=300, le=28800)
+    auth_idle_seconds: int = Field(default=900, ge=60, le=3600)
+    admin_auth_management_database_url: SecretStr | None = None
     uranus_api_url: str = "http://localhost:8080"
     # Confirmed by the Uranus operator for the supplied live backup (2026-09-14).
     uranus_timestamp_timezone: str | None = "UTC"
@@ -57,6 +61,37 @@ class Settings(BaseSettings):
             raise ValueError("ADMIN_DATABASE_URL must use postgresql+asyncpg")
         return value
 
+    @field_validator("auth_public_origin")
+    @classmethod
+    def valid_auth_origin(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme not in {"https", "http"}
+            or not parsed.hostname
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or parsed.username
+            or "*" in value
+        ):
+            raise ValueError("AUTH_PUBLIC_ORIGIN must be one exact HTTP(S) origin")
+        return value
+
+    @field_validator("admin_auth_management_database_url")
+    @classmethod
+    def valid_management_url(cls, value: SecretStr | None) -> SecretStr | None:
+        if value and not value.get_secret_value().startswith("postgresql+asyncpg://"):
+            raise ValueError("Management database must use postgresql+asyncpg")
+        return value
+
+    @property
+    def session_cookie(self) -> str:
+        return (
+            "admin_session" if self.app_env in {"development", "test"} else "__Host-admin_session"
+        )
+
     @property
     def origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
@@ -75,7 +110,11 @@ class Settings(BaseSettings):
                 or "*" in origin
             ):
                 raise ValueError("CORS_ORIGINS must contain explicit HTTP(S) origins")
+        if self.auth_idle_seconds > self.auth_session_seconds:
+            raise ValueError("Idle timeout must not exceed session lifetime")
         if self.app_env not in {"development", "test"}:
+            if self.auth_public_origin and not self.auth_public_origin.startswith("https://"):
+                raise ValueError("Production authentication requires an HTTPS origin")
             if self.app_debug or self.dev_auth_enabled or self.openapi_enabled:
                 raise ValueError(
                     "Debug, development auth and public OpenAPI require development/test"
