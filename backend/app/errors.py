@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -30,6 +32,19 @@ def error_response(status: int, code: str, message: str) -> JSONResponse:
 
 
 async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
+    if 500 <= exc.status < 600:
+        settings = request.app.state.settings
+        debug = settings.app_debug and settings.app_env in {"development", "test"}
+        logging.getLogger("admin.error").error(
+            exc.code,
+            extra={
+                "error_type": type(exc).__name__,
+                "status_code": exc.status,
+                "method": request.method,
+                "route": getattr(request.scope.get("route"), "path", "unmatched"),
+            },
+            exc_info=(type(exc), exc, exc.__traceback__) if debug else None,
+        )
     return error_response(exc.status, exc.code, exc.message)
 
 

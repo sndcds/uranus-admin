@@ -29,3 +29,13 @@ Logs enthalten Route-Template, Methode, Status, Dauer und Fehlerklasse; keine Qu
 Tokens, SQL-Parameter, Roh-Validation-Inputs oder Exceptiontexte. Infrastrukturfehler werden
 sanitisiert als 503 geliefert. Kein Debug-Stacktrace, keine externen URL-Aufrufe, keine
 Startmigration und keine Domain-Schreiboperation entstehen durch die neuen Funktionen.
+
+
+## Drei getrennte Datenbankrollen
+
+`DATABASE_URL` liest als Domain Reader ausschließlich Uranus. `ADMIN_DATABASE_URL` verwaltet
+als eingeschränkte Runtime die Admin-Workflows; `record_mark_event` erlaubt nur SELECT/INSERT.
+`ADMIN_MIGRATION_DATABASE_URL` wird ausschließlich von Alembic verwendet: Der Migrator besitzt
+Schema und Tabellen, die Runtime erhält nur explizite DML-Rechte und keine Owner-Mitgliedschaft.
+Die verbindliche Provisionierung einschließlich Default Privileges und Boundary-Diagnose steht
+in der [Betriebsanleitung](development.md#minimale-rechte-nach-migration-0003).
