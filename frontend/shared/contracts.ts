@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from './zod'
 
 // Explicit runtime-checked contract from docs/openapi.json (FastAPI 0.1.0).
 // Missing optional metrics stay undefined; they are never replaced with mock numbers.

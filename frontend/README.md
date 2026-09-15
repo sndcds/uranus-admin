@@ -88,6 +88,46 @@ Neue Activity-/Queue-/Check-Seiten laden ausschließlich clientseitig, verwenden
 verwerfen alte Daten beim Filter-/Zugangswechsel. Datumsanzeige Deutsch/Europe-Berlin; das
 Snooze-Eingabefeld nennt ausdrücklich die lokale Browserzeit und sendet einen ISO-Zeitpunkt.
 
+## Production-CSP und Zod
+
+Die Production-App benötigt **kein `'unsafe-eval'`**. Als Script-Direktive kann die
+Deployment-CSP weiterhin Folgendes verwenden:
+
+```text
+Content-Security-Policy: script-src 'self' 'unsafe-inline';
+```
+
+Dies ist nur die Script-Direktive; weitere Direktiven müssen zum Deployment passen.
+`'unsafe-inline'` bleibt vorerst für die Inline-Scripts erlaubt. Der spätere Wechsel auf
+Nonces/Hashes ist eine separate Aufgabe. Die Live-Nginx-Konfiguration wird durch diese
+Anwendungsänderung nicht verändert.
+
+Die zentrale [Zod-Konfiguration](shared/zod.ts) setzt beim Auswerten des Moduls
+`z.config({ jitless: true })` und exportiert erst danach `z`. Alle Schemas in
+[`shared/contracts.ts`](shared/contracts.ts) importieren diesen Export. Die statische
+ES-Modul-Abhängigkeit garantiert die Konfiguration vor der Schema-Konstruktion, unabhängig
+von Nuxt-Plugin-Reihenfolge, SSR, Hydration oder später geladenen Seiten. Auch die Type-Imports
+verwenden diesen Einstieg. Neue Schemas müssen Zod ebenfalls daraus importieren; kein
+Laufzeit-Import direkt aus `zod` oder seinen Unterpaketen außerhalb des Bootstrap-Moduls.
+
+Zod kann Objektvalidierung durch erzeugten JavaScript-Code beschleunigen. Schon seine
+Verfügbarkeitsprüfung mit `new Function('')` kann eine CSP-Verletzung melden, selbst wenn
+Zod die Exception abfängt. `jitless` deaktiviert diese Pfade vor der ersten Schema-Nutzung.
+Der Anwendungscode verwendet weder `zod/compile` noch `z.compile()` oder eigene Parser über
+`z.withParser()`. Der Regressionstest schützt diesen Standardpfad vor unbeabsichtigten Opt-ins.
+Insbesondere kann
+`z.compile()` die globale `jitless`-Einstellung umgehen; siehe
+[Zod: Content Security Policy](https://zod.dev/compile#content-security-policy).
+
+`tests/unit/zod-csp.test.ts` lädt die echten Schemas mit gesperrtem `Function`-Konstruktor
+und prüft gültige/ungültige Daten sowie das Ausbleiben jeglicher Codegenerierungsversuche.
+Ein zusätzlicher Quellcode-Check schützt den zentralen Importweg und verbietet Compiler-Opt-ins.
+`tests/e2e/csp.spec.ts` setzt ausschließlich auf Testantworten einen erzwingenden CSP-Header
+ohne `'unsafe-eval'`, prüft Dashboard/Findings und erfasst `securitypolicyviolation`-Events.
+Dieser Test läuft mit `TEST_PRODUCTION=1` gegen `.output/public/_nuxt/`, auch in CI.
+Bei Development-E2E wird er ausdrücklich übersprungen. Bloße `Function`-Vorkommen in
+Dependency-Fallbacks des Bundles sind kein Fehlernachweis; entscheidend ist der Browserlauf.
+
 ## Tests und Build
 
 ```bash

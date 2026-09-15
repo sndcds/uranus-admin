@@ -1,0 +1,54 @@
+import { test, expect } from '@playwright/test'
+import { summary, findings } from '../fixtures/api'
+
+test('production schemas work under an enforced CSP without unsafe-eval', async ({ page }) => {
+  test.skip(process.env.TEST_PRODUCTION !== '1', 'Requires the production client build')
+  const policy =
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'"
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.addInitScript(() => {
+    const state = window as typeof window & { cspViolations: string[] }
+    state.cspViolations = []
+    document.addEventListener('securitypolicyviolation', (event) => {
+      state.cspViolations.push(`${event.effectiveDirective}: ${event.blockedURI}`)
+    })
+  })
+  // Enforce via the HTML response header, before any client module executes.
+  // This changes only the test response, never the live proxy configuration.
+  await page.route('**/*', async (route) => {
+    if (route.request().resourceType() !== 'document') return route.continue()
+    const response = await route.fetch()
+    await route.fulfill({
+      response,
+      headers: { ...response.headers(), 'content-security-policy': policy },
+    })
+  })
+  await page.route('**/api/admin/api/v1/**', (route) =>
+    route.fulfill({
+      json: new URL(route.request().url()).pathname.endsWith('/summary') ? summary : findings,
+    }),
+  )
+  const response = await page.goto('/')
+  expect(response?.headers()['content-security-policy']).toBe(policy)
+  await expect(page.getByText('Test-Hafenbühne')).toBeVisible()
+  expect(
+    await page.evaluate(
+      () => (window as typeof window & { cspViolations: string[] }).cspViolations,
+    ),
+  ).toEqual([])
+  // Exercise a separate route and client-side filter/detail interactions too.
+  await page.goto('/findings')
+  await expect(page.getByText('Test-Hafenbühne')).toBeVisible()
+  await page.getByRole('combobox', { name: 'Schweregrad', exact: true }).selectOption('warning')
+  await page.getByRole('button', { name: 'Anwenden', exact: true }).click()
+  await expect(page).toHaveURL(/severity=warning/)
+  await page.getByRole('button', { name: 'Befund zu Test-Hafenbühne ansehen' }).click()
+  await expect(page.getByRole('dialog', { name: 'Test-Hafenbühne' })).toBeVisible()
+  expect(errors).toEqual([])
+  expect(
+    await page.evaluate(
+      () => (window as typeof window & { cspViolations: string[] }).cspViolations,
+    ),
+  ).toEqual([])
+})

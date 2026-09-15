@@ -11,7 +11,7 @@ import {
   markPageSchema,
   markDetailSchema,
 } from '#shared/contracts'
-import type { z } from 'zod'
+import type { z } from '#shared/zod'
 import type {
   FindingFilters,
   Period,
