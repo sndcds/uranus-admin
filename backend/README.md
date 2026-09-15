@@ -56,16 +56,16 @@ Alle `/api/v1`-Routen verwenden dieselbe Admin-Auth. Standardmäßig 401 ohne Cr
 
 ## Optionale Persistenz
 
-1. Schema `admin` mit eingeschränktem Migrator bereitstellen.
-2. `ADMIN_MIGRATION_DATABASE_URL` separat im Prozess-Environment setzen.
-3. `uv run alembic upgrade head` ausführen (Revisionen 0001 und 0002).
-4. Eigenen Runtimeaccount nur für SELECT/INSERT/UPDATE auf admin.finding/admin.check_run
-   bereitstellen und als `ADMIN_DATABASE_URL` konfigurieren.
+Die [zentrale PostgreSQL-Rollen-Anleitung](docs/development.md#minimale-rechte-nach-migration-0003)
+enthält die vollständigen SQL-Blöcke, Default Privileges, Ownership, Diagnose und Rechte-Matrix.
+`DATABASE_URL` verwendet `uranus_reader`; `ADMIN_DATABASE_URL` verwendet `admin_user`;
+`ADMIN_MIGRATION_DATABASE_URL` verwendet ausschließlich für Alembic `admin_migrator`.
+Migrationen 0001–0003 erzeugen Check Runs, Findings, Record Marks und deren append-only-Historie.
 
-Keine automatische Migration, keine Cross-Schema-FKs und kein DDL-Fallback auf DATABASE_URL.
-Die Source-Verbindung erzwingt weiterhin read-only Transaktionen. Der Admin-Writer verweigert
-privilegierte Rollen oder vorhandene Uranus-Schreibrechte. Ohne optionale Ablage bleibt
-Live-Reporting verfügbar; persistente Operationen melden `admin_storage_unconfigured`.
+Keine automatische Migration und kein DDL-Fallback auf `DATABASE_URL`. Die Runtime ist nie
+Migrator/Owner. Gespeicherte Standardlisten benötigen die Admin-Ablage; ohne sie bleiben nur
+explizite `mode=live`-Abrufe verfügbar. Ein `admin_storage_unconfigured` kann eine fehlende DSN
+oder **zu mächtige** Runtime-Rechte bedeuten; die Response-Message unterscheidet beides.
 
 Scanfehler schließen niemals Findings. Nur erfolgreich abgedeckte Objekte können resolved werden;
 wiederholte Scans bewahren ID und Erstfund. Review: open/in_progress/snoozed/exception.

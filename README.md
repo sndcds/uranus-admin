@@ -64,4 +64,4 @@ Erledigung und Wiederöffnung werden mit Autor und Zeitpunkt im Verlauf festgeha
 Die Übersicht „Markierungen“ bietet Status-, Grund- und Dringlichkeitsfilter.
 
 Voraussetzung: Admin-Migration `0003` und die zusätzlichen
-[Runtime-Rechte](backend/docs/development.md#markierungen-notizen-und-abschlussverlauf).
+[Runtime-Rechte und Rollen-Provisionierung](backend/docs/development.md#minimale-rechte-nach-migration-0003).
