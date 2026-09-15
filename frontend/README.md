@@ -79,6 +79,10 @@ erhalten. Fehlermeldungen werden lokal erzeugt; Tracebacks und beliebige Upstrea
 sanitisiert. [OpenAPI-Snapshot](docs/openapi.json) und `shared/contracts.ts` beschreiben den Vertrag;
 Responses werden zur Laufzeit validiert. Keine Demo-Daten außerhalb der Tests.
 
+Die Activity-Seite verwendet kompakte Zeilen, deutsche Typ-Badges und Berliner Tagesgruppen.
+Typzahlen zählen ausschließlich die sichtbare Seite; undatierte Einträge bleiben ohne Chronologie.
+[Darstellung, Grenzen und Vorher-/Nachher-Screenshots](docs/activity-stream.md).
+
 ## Semantik und Bedienung
 
 `entity_key` unterstützt UUIDs und Composite Keys. `entity_id` ist nur ein veralteter nullable

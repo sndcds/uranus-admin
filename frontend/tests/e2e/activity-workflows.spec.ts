@@ -38,7 +38,9 @@ test('activity keeps unknown times separate and sends filters', async ({ page })
   await page.getByRole('button', { name: 'Anwenden' }).click()
   await expect(page).toHaveURL(/timestamp_state=unknown/)
   await expect(page.getByText('Nach Objektschlüssel geordnet;', { exact: false })).toBeVisible()
-  await expect(page.getByText('Erstellt: Nicht verfügbar', { exact: false })).toBeVisible()
+  await expect(
+    page.getByRole('listitem').getByText('Ohne Zeitstempel', { exact: true }),
+  ).toBeVisible()
 })
 
 test('queue shows actual invitation age and preserves unknown values', async ({ page }) => {
