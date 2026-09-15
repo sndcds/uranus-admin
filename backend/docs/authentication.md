@@ -73,7 +73,7 @@ Browser → /api/admin/api/v1/... → Nitro → FastAPI
   unzureichend provisionierte Auth-Ablage: 503 `auth_storage_unavailable`. Ein vom Boundary-Check
   abgelehnter DB-Account liefert weiterhin 503 `admin_storage_unconfigured`.
 - Es gibt keine neuen JWTs, Refresh-Tokens, Signing Keys, JWKS- oder Introspection-Endpunkte.
-  Fremde JWTs/Refresh-Tokens sind ungültige Admin-Credentials. `URANUS_API_URL` bleibt unbenutzt.
+  Fremde JWTs/Refresh-Tokens sind ungültige Admin-Credentials. `URANUS_API_URL` wird nicht zur Authentifizierung verwendet; siehe Activity-Previews im API-Vertrag.
 
 ## Sitzungen, CSRF und Secrets
 

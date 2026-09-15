@@ -206,6 +206,22 @@ export const activityPageSchema = z.object({
       created_at: timestamp.nullable(),
       status: z.string().nullable(),
       action: actionSchema.nullable(),
+      image_url: z
+        .string()
+        .regex(
+          /^https:\/\/api\.kulturbytes\.de\/api\/image\/[0-9a-f-]{36}\?width=160&ratio=1%3A1$/i,
+        )
+        .nullable()
+        .optional(),
+      public_url: z
+        .string()
+        .regex(
+          /^https:\/\/kulturbytes\.de\/de\/(?:ort\/[a-z0-9-]+|veranstaltung\/[0-9a-f-]{36}\/[0-9a-f-]{36})$/i,
+        )
+        .nullable()
+        .optional(),
+      subtitle: z.string().nullable().optional(),
+      address: z.string().nullable().optional(),
     }),
   ),
   pagination: findingPageSchema.shape.pagination,

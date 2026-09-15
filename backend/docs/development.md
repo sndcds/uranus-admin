@@ -49,7 +49,7 @@ stehen in [uranus-analysis.md](uranus-analysis.md). UTC-Speicherung ist vom Betr
 | APP_DEBUG | false; aktiviert keine HTTP-Stacktraces |
 | APP_HOST / APP_PORT | 127.0.0.1 / 8000 bei `python -m app` |
 | DATABASE_URL | asyncpg-DSN des Readers, als SecretStr behandelt |
-| URANUS_API_URL | http://localhost:8080; für spätere Integration reserviert |
+| URANUS_API_URL | http://localhost:8080; öffentliche Activity-Links nur bei https://api.kulturbytes.de |
 | URANUS_TIMESTAMP_TIMEZONE | UTC; vom Betreiber für diesen Backup bestätigt, IANA-Zeitzone konfigurierbar |
 | ADMIN_TIMEZONE | Europe/Berlin; Kalendertag „today“ |
 | EVENT_TIMEZONE | Europe/Berlin; Reporting-Zeitzone lokaler Terminzeiten |
@@ -653,3 +653,15 @@ DELETE FROM admin.auth_login_bucket WHERE window_end < now();
 ```
 
 `record_mark_event` bleibt hiervon vollständig unberührt und append-only.
+
+## Activity previews
+
+For a source database belonging to the public Kulturbytes instance, set
+`URANUS_API_URL=https://api.kulturbytes.de` to enable verified public image/page URLs in the
+Activity response. Keep the local URL for unrelated test datasets. This does not change auth,
+DB grants or introduce outbound API calls. See [the preview contract](contracts.md#activity-previews-and-public-links)
+for source evidence and unsupported entity routes.
+
+The web deployment CSP needs `img-src 'self' https://api.kulturbytes.de` (plus any already
+required sources). Public image responses must allow anonymous CORS. No `unsafe-eval`, proxy
+credential forwarding, nginx edit or database migration is needed for this feature.
