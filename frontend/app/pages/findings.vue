@@ -77,7 +77,10 @@ function page(value: number) {
         <h2 class="font-bold">
           {{ store.data ? `${metric(store.data.pagination.total)} Befunde` : 'Befunde' }}
         </h2>
-        <span class="text-xs text-slate-500">Live-Auswertung · serverseitig priorisiert</span>
+        <span class="text-xs text-slate-500"
+          >{{ store.filters.mode === 'persisted' ? 'Gespeicherte Befunde' : 'Live-Auswertung' }} ·
+          serverseitig priorisiert</span
+        >
       </div>
       <FindingsList v-if="store.data?.items.length" :items="store.data.items" />
       <p v-else class="p-10 text-center text-sm text-slate-500">
@@ -139,8 +142,8 @@ function page(value: number) {
       </div>
     </section>
     <p v-if="store.lastSuccess" class="text-xs text-slate-500">
-      Letzter erfolgreicher Abruf: {{ dateTime(store.lastSuccess) }} · Europe/Berlin. Erstfund,
-      Reviews und Erledigungshistorie werden noch nicht gespeichert.
+      Letzter erfolgreicher Abruf: {{ dateTime(store.lastSuccess) }} · Europe/Berlin. Gespeicherte
+      Befunde enthalten Erstfund und Reviewstatus.
     </p>
   </div>
 </template>

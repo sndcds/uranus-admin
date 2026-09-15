@@ -14,12 +14,16 @@ class Settings(BaseSettings):
     app_host: str = "127.0.0.1"
     app_port: int = Field(default=8000, ge=1, le=65535)
     database_url: SecretStr = SecretStr("postgresql+asyncpg://localhost/uranus")
+    admin_database_url: SecretStr | None = None
     uranus_api_url: str = "http://localhost:8080"
     # Confirmed by the Uranus operator for the supplied live backup (2026-09-14).
     uranus_timestamp_timezone: str | None = "UTC"
     admin_timezone: str = "Europe/Berlin"
     event_timezone: str = "Europe/Berlin"
     upcoming_days: int = Field(default=14, ge=1, le=365)
+    image_orphan_grace_hours: int = Field(default=48, ge=1, le=8760)
+    pending_age_days: int = Field(default=14, ge=1, le=3650)
+    activation_age_days: int = Field(default=7, ge=1, le=3650)
     cors_origins: str = ""
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     db_pool_size: int = Field(default=5, ge=1, le=50)
@@ -44,6 +48,13 @@ class Settings(BaseSettings):
     def valid_database(cls, value: SecretStr) -> SecretStr:
         if not value.get_secret_value().startswith("postgresql+asyncpg://"):
             raise ValueError("DATABASE_URL must use postgresql+asyncpg")
+        return value
+
+    @field_validator("admin_database_url")
+    @classmethod
+    def valid_admin_database(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and not value.get_secret_value().startswith("postgresql+asyncpg://"):
+            raise ValueError("ADMIN_DATABASE_URL must use postgresql+asyncpg")
         return value
 
     @property

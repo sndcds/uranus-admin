@@ -29,7 +29,7 @@ function openFilters(filters: FindingFilters) {
           <p class="mt-1 muted">Neue Inhalte, offene Vorgänge und Datenprobleme an einem Ort.</p>
         </div>
         <div class="text-xs text-slate-500">
-          Live-Befunde · Prüflaufhistorie noch nicht verfügbar
+          Live-Befunde · gespeicherte Prüfungen unter „Prüfläufe“
         </div>
       </div>
       <RequestState
@@ -56,12 +56,13 @@ function openFilters(filters: FindingFilters) {
         <KpiCard
           label="Dringend"
           :value="dashboard.data?.urgent_findings"
-          description="Befunde mit baldigen veröffentlichten Terminen"
+          description="Veröffentlichte Fehler oder baldige veröffentlichte Termine"
           tone="rose"
         />
         <KpiCard
           label="Offene Vorgänge"
-          description="Einladungen & Partneranfragen · noch nicht verfügbar"
+          description="Partneranfragen in der Arbeitsliste"
+          to="/queues/partner_requests"
         />
         <KpiCard
           label="Datenqualität"
@@ -69,14 +70,15 @@ function openFilters(filters: FindingFilters) {
           :description="
             dashboard.data
               ? `${metric(dashboard.data.quality.errors)} Fehler · ${metric(dashboard.data.quality.warnings)} Warnungen`
-              : 'Aktuelle Befunde der verfügbaren Regel'
+              : 'Aktuelle Befunde der verfügbaren Regeln'
           "
           tone="fuchsia"
           to="/quality"
         />
         <KpiCard
           label="Prüfstatus"
-          description="Gespeicherte Prüfläufe und Abdeckung noch nicht verfügbar"
+          description="Gespeicherte Prüfläufe und Regelabdeckung"
+          to="/checks"
         />
       </div>
       <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
@@ -191,7 +193,11 @@ function openFilters(filters: FindingFilters) {
           </div>
         </dl>
         <p class="px-5 pb-5 text-xs text-slate-500">
-          Einzelne Aktivitäten und „seit deinem letzten Besuch“ sind noch nicht verfügbar.
+          <NuxtLink
+            :to="{ path: '/activity', query: { period: dashboard.period } }"
+            class="font-semibold text-fuchsia-700"
+            >Einzelne Neuanlagen anzeigen →</NuxtLink
+          >
         </p>
       </div>
       <div class="card">
@@ -200,31 +206,13 @@ function openFilters(filters: FindingFilters) {
           <p class="mt-1 muted">Partneranfragen, Teameinladungen und Aktivierungen.</p>
         </div>
         <div class="p-5">
-          <div class="overflow-x-auto rounded-xl border border-slate-200">
-            <table class="w-full text-left text-sm">
-              <caption class="sr-only">
-                Verfügbarkeit der offenen Vorgänge
-              </caption>
-              <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
-                <tr>
-                  <th class="px-4 py-3">Vorgang</th>
-                  <th class="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100">
-                <tr
-                  v-for="kind in ['Partneranfragen', 'Teameinladungen', 'Aktivierungen']"
-                  :key="kind"
-                >
-                  <td class="px-4 py-4 font-medium">{{ kind }}</td>
-                  <td class="px-4 py-4 text-slate-500">Noch nicht verfügbar</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="space-y-3">
+            <NuxtLink to="/queues/partner_requests" class="button w-full">Partneranfragen</NuxtLink>
+            <NuxtLink to="/queues/team_invitations" class="button w-full">Teameinladungen</NuxtLink>
+            <NuxtLink to="/queues/user_activation" class="button w-full">Aktivierungen</NuxtLink>
           </div>
-          <p class="mt-4 text-xs leading-5 text-slate-500">
-            Neue Mitgliedschaften und Partneranfragen werden oben gezählt. Daraus lässt sich kein
-            aktueller offener Vorgang ableiten.
+          <p class="mt-4 text-xs text-slate-500">
+            Die Arbeitslisten zeigen tatsächliche Zustände und belegtes Alter.
           </p>
         </div>
       </div>

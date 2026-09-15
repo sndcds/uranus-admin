@@ -15,6 +15,7 @@ check_run = sa.Table(
     sa.Column("rule_count", sa.Integer, nullable=False, server_default="0"),
     sa.Column("finding_count", sa.Integer, nullable=False, server_default="0"),
     sa.Column("error_message", sa.Text),
+    sa.Column("rule_results", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
     sa.CheckConstraint("status IN ('running', 'success', 'failed')", name="check_run_status"),
     sa.CheckConstraint("rule_count >= 0 AND finding_count >= 0", name="check_run_counts"),
     sa.CheckConstraint("finished_at >= started_at", name="check_run_timestamps"),
@@ -28,7 +29,7 @@ finding = sa.Table(
     sa.Column("severity", sa.Text, nullable=False),
     sa.Column("entity_type", sa.Text, nullable=False),
     # Text deliberately supports composite domain keys, without cross-schema foreign keys.
-    sa.Column("entity_id", sa.Text, nullable=False),
+    sa.Column("entity_id", sa.Text, key="entity_key", nullable=False),
     sa.Column("field", sa.Text, nullable=False, server_default=""),
     sa.Column("message", sa.Text, nullable=False),
     sa.Column("first_seen_at", sa.DateTime(timezone=True), nullable=False),
@@ -40,11 +41,65 @@ finding = sa.Table(
     sa.Column("reviewed_at", sa.DateTime(timezone=True)),
     sa.Column("ignored_until", sa.DateTime(timezone=True)),
     sa.Column("comment", sa.Text),
-    sa.UniqueConstraint("rule", "entity_type", "entity_id", "field", name="finding_identity"),
+    sa.Column("assigned_to", UUID),
+    sa.Column("reviewed_subject", sa.Text),
+    sa.Column("snoozed_until", sa.DateTime(timezone=True)),
+    sa.Column("exception_reason", sa.Text),
+    sa.UniqueConstraint("rule", "entity_type", "entity_key", "field", name="finding_identity"),
     sa.CheckConstraint("severity IN ('error', 'warning', 'info')", name="finding_severity"),
     sa.CheckConstraint(
-        "status IN ('open', 'reviewed', 'ignored', 'resolved')", name="finding_status"
+        "status IN ('open','in_progress','snoozed','exception','reviewed','ignored','resolved')",
+        name="finding_status",
     ),
     sa.CheckConstraint("last_seen_at >= first_seen_at", name="finding_timestamps"),
 )
 sa.Index("finding_status_rule_idx", finding.c.status, finding.c.rule)
+
+record_mark = sa.Table(
+    "record_mark",
+    metadata,
+    sa.Column("id", UUID, primary_key=True),
+    sa.Column("entity_type", sa.Text, nullable=False),
+    sa.Column("entity_key", sa.Text, nullable=False),
+    sa.Column("entity_name", sa.Text, nullable=False),
+    sa.Column("reasons", JSONB, nullable=False),
+    sa.Column("reason_detail", sa.Text),
+    sa.Column("urgency", sa.Text, nullable=False),
+    sa.Column("status", sa.Text, nullable=False),
+    sa.Column("version", sa.Integer, nullable=False),
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+    sa.Column("created_by", sa.Text, nullable=False),
+    sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+    sa.Column("completed_at", sa.DateTime(timezone=True)),
+    sa.Column("completed_by", sa.Text),
+    sa.CheckConstraint("status IN ('open','in_progress','done')", name="record_mark_status"),
+    sa.CheckConstraint("urgency IN ('normal','high','urgent')", name="record_mark_urgency"),
+    sa.CheckConstraint("version >= 1", name="record_mark_version"),
+    sa.CheckConstraint(
+        "(status = 'done' AND completed_at IS NOT NULL AND completed_by IS NOT NULL) OR "
+        "(status <> 'done' AND completed_at IS NULL AND completed_by IS NULL)",
+        name="record_mark_completion",
+    ),
+)
+sa.Index("record_mark_entity_idx", record_mark.c.entity_type, record_mark.c.entity_key)
+sa.Index("record_mark_status_urgency_idx", record_mark.c.status, record_mark.c.urgency)
+
+record_mark_event = sa.Table(
+    "record_mark_event",
+    metadata,
+    sa.Column("id", UUID, primary_key=True),
+    sa.Column("mark_id", UUID, sa.ForeignKey("admin.record_mark.id"), nullable=False),
+    sa.Column("version", sa.Integer, nullable=False),
+    sa.Column("kind", sa.Text, nullable=False),
+    sa.Column("author", sa.Text, nullable=False),
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+    sa.Column("note", sa.Text),
+    sa.Column("status", sa.Text, nullable=False),
+    sa.Column("reasons", JSONB, nullable=False),
+    sa.Column("reason_detail", sa.Text),
+    sa.Column("urgency", sa.Text, nullable=False),
+    sa.UniqueConstraint("mark_id", "version", name="record_mark_event_version"),
+    sa.CheckConstraint(
+        "kind IN ('created','updated','completed','reopened')", name="record_mark_event_kind"
+    ),
+)

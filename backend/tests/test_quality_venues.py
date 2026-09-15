@@ -95,7 +95,11 @@ async def test_today_time_boundary(db_connection, settings, now):
 @pytest.mark.integration
 @pytest.mark.parametrize("path", ["/api/v1/findings", "/api/v1/quality/venues/missing-geolocation"])
 async def test_quality_api(db_client, headers, path):
-    response = await db_client.get(path, headers=headers, params={"page_size": 1})
+    response = await db_client.get(
+        path,
+        headers=headers,
+        params={"page_size": 1, **({"mode": "live"} if path.endswith("findings") else {})},
+    )
     assert response.status_code == 200, response.text
     body = response.json()
     assert len(body["items"]) == 1
@@ -117,7 +121,9 @@ async def test_quality_api(db_client, headers, path):
     ],
 )
 async def test_live_filters(db_client, headers, params):
-    response = await db_client.get("/api/v1/findings", headers=headers, params=params)
+    response = await db_client.get(
+        "/api/v1/findings", headers=headers, params={**params, "mode": "live"}
+    )
     assert response.status_code == 200
     assert response.json()["pagination"]["total"] == 0
 
@@ -134,6 +140,74 @@ async def test_live_filters(db_client, headers, params):
     ],
 )
 async def test_invalid_filters(db_client, headers, params):
-    response = await db_client.get("/api/v1/findings", headers=headers, params=params)
+    response = await db_client.get(
+        "/api/v1/findings", headers=headers, params={**params, "mode": "live"}
+    )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_input"
+
+
+def test_composite_entity_key_and_legacy_uuid_alias():
+    from app.admin_tables import finding as table
+    from app.schemas.finding import Finding
+
+    original = map_venue(
+        {
+            "uuid": uid(20),
+            "name": "Venue",
+            "org_uuid": uid(10),
+            "organization_name": "Org",
+            "upcoming_event_date_count": 0,
+            "upcoming_published_event_date_count": 0,
+            "soon_published_event_date_count": 0,
+        },
+        datetime(2026, 9, 14, tzinfo=UTC),
+    )
+    assert original.entity_key == str(uid(20))
+    assert original.entity_id == uid(20)
+    data = original.model_dump(exclude={"entity_id"})
+    for key in [f"partner-request:{uid(10)}:{uid(11)}", f"membership:{uid(10)}:{uid(1)}"]:
+        composite = Finding.model_validate({**data, "entity_key": key})
+        assert composite.entity_key == key
+        assert composite.entity_id is None
+    assert table.c.entity_key.name == "entity_id"  # Existing TEXT storage needs no migration.
+
+
+@pytest.mark.parametrize("severity", list(Severity))
+@pytest.mark.parametrize(
+    "published,soon,upcoming",
+    [(False, False, False), (False, False, True), (True, False, True), (True, True, True)],
+)
+def test_priority_score_is_explicit(severity, published, soon, upcoming):
+    from app.services.quality.priority import priority_details
+
+    result = priority_details(severity, published=published, soon=soon, upcoming=upcoming)
+    assert (
+        result["priority_score"]
+        == (7 - result["priority"]) * 1000
+        + 200 * published
+        + 400 * (published and soon)
+        + 100 * upcoming
+    )
+    assert ("published_soon" in result["priority_reasons"]) == (published and soon)
+    assert f"severity_{severity}" in result["priority_reasons"]
+
+
+async def test_sql_and_api_priority_agree_without_hidden_counts(db_connection, settings, now):
+    from app.repositories.venues import QUALITY_SQL, query_parameters
+    from app.services.quality.priority import venue_priority_score_sql
+
+    rows = (
+        await db_connection.execute(
+            text(
+                "SELECT q.*, "
+                + venue_priority_score_sql()
+                + " AS score FROM ("
+                + QUALITY_SQL
+                + ") q"
+            ),
+            query_parameters(settings, now),
+        )
+    ).mappings()
+    for row in rows:
+        assert row["score"] == map_venue(dict(row), now).priority_score

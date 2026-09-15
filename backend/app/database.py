@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -38,7 +38,7 @@ def create_engine(settings: Settings) -> AsyncEngine:
     )
 
 
-async def get_connection(request: Request) -> AsyncIterator[AsyncConnection]:
+async def get_connection(request: Request) -> AsyncGenerator[AsyncConnection]:
     engine: AsyncEngine = request.app.state.engine
     async with engine.connect() as connection, connection.begin():
         # One consistent snapshot for count/page/summary; never write domain data.

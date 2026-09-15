@@ -1,1 +1,3762 @@
-{"openapi":"3.1.0","info":{"title":"Kulturbytes Admin API","description":"Internal reporting API. Production auth is unavailable in milestone 1.","version":"0.1.0"},"paths":{"/health":{"get":{"tags":["Health"],"summary":"Process liveness","description":"Confirms the HTTP process is running; does not access PostgreSQL.","operationId":"health_health_get","responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HealthResponse"}}}}}}},"/ready":{"get":{"tags":["Health"],"summary":"Database readiness","description":"Checks the database connection; does not certify auth or schema compatibility.","operationId":"ready_ready_get","responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HealthResponse"}}}},"503":{"description":"Service Unavailable","content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}}}}}},"/api/v1/dashboard/summary":{"get":{"tags":["Dashboard"],"summary":"Dashboard summary","description":"Source-table creations in [from_at, to_at), plus live venue findings. Today starts at midnight in ADMIN_TIMEZONE. Historical check status is unavailable.","operationId":"summary_api_v1_dashboard_summary_get","security":[{"HTTPBearer":[]}],"parameters":[{"name":"period","in":"query","required":false,"schema":{"enum":["today","24h","7d"],"type":"string","default":"24h","title":"Period"}}],"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/schemas/DashboardSummary"}}}},"401":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Unauthorized"},"403":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Forbidden"},"422":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Unprocessable Content"},"500":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Internal Server Error"},"503":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Service Unavailable"}}}},"/api/v1/findings":{"get":{"tags":["Findings"],"summary":"List live quality findings","description":"Paginated current findings. Only open findings exist in live mode; other status filters return an empty live result, not historical workflow data. Ordered by severity, priority, publication relevance, observation time and stable ID.","operationId":"findings_api_v1_findings_get","security":[{"HTTPBearer":[]}],"parameters":[{"name":"severity","in":"query","required":false,"schema":{"anyOf":[{"$ref":"#/components/schemas/Severity"},{"type":"null"}],"title":"Severity"}},{"name":"entity_type","in":"query","required":false,"schema":{"anyOf":[{"type":"string","maxLength":64},{"type":"null"}],"title":"Entity Type"}},{"name":"rule","in":"query","required":false,"schema":{"anyOf":[{"type":"string","maxLength":100},{"type":"null"}],"title":"Rule"}},{"name":"organization_id","in":"query","required":false,"schema":{"anyOf":[{"type":"string","format":"uuid"},{"type":"null"}],"title":"Organization Id"}},{"name":"status","in":"query","required":false,"schema":{"anyOf":[{"$ref":"#/components/schemas/FindingStatus"},{"type":"null"}],"title":"Status"}},{"name":"page","in":"query","required":false,"schema":{"type":"integer","maximum":100000,"minimum":1,"default":1,"title":"Page"}},{"name":"page_size","in":"query","required":false,"schema":{"type":"integer","maximum":100,"minimum":1,"default":50,"title":"Page Size"}}],"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/schemas/FindingPage"}}}},"401":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Unauthorized"},"403":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Forbidden"},"422":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Unprocessable Content"},"500":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Internal Server Error"},"503":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Service Unavailable"}}}},"/api/v1/quality/venues/missing-geolocation":{"get":{"tags":["Quality"],"summary":"Venues without a geolocation","description":"Finds NULL/empty PostGIS points and counts upcoming dates by effective venue. Includes address, organization and publication relevance in the generic finding contract.","operationId":"missing_geolocation_api_v1_quality_venues_missing_geolocation_get","security":[{"HTTPBearer":[]}],"parameters":[{"name":"organization_id","in":"query","required":false,"schema":{"anyOf":[{"type":"string","format":"uuid"},{"type":"null"}],"title":"Organization Id"}},{"name":"page","in":"query","required":false,"schema":{"type":"integer","maximum":100000,"minimum":1,"default":1,"title":"Page"}},{"name":"page_size","in":"query","required":false,"schema":{"type":"integer","maximum":100,"minimum":1,"default":50,"title":"Page Size"}}],"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/schemas/FindingPage"}}}},"401":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Unauthorized"},"403":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Forbidden"},"422":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Unprocessable Content"},"500":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Internal Server Error"},"503":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ErrorResponse"}}},"description":"Service Unavailable"}}}}},"components":{"schemas":{"Address":{"properties":{"street":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Street"},"house_number":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"House Number"},"postal_code":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Postal Code"},"city":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"City"},"country":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Country"}},"type":"object","title":"Address"},"DashboardSummary":{"properties":{"period":{"type":"string","enum":["today","24h","7d"],"title":"Period"},"from_at":{"type":"string","format":"date-time","title":"From At"},"to_at":{"type":"string","format":"date-time","title":"To At"},"admin_timezone":{"type":"string","title":"Admin Timezone"},"source_timestamp_timezone":{"type":"string","title":"Source Timestamp Timezone"},"new_records":{"$ref":"#/components/schemas/NewRecords"},"images_without_created_at":{"type":"integer","title":"Images Without Created At"},"urgent_findings":{"type":"integer","title":"Urgent Findings"},"quality":{"$ref":"#/components/schemas/QualityCounts"},"check_status":{"type":"null","title":"Check Status"}},"type":"object","required":["period","from_at","to_at","admin_timezone","source_timestamp_timezone","new_records","images_without_created_at","urgent_findings","quality"],"title":"DashboardSummary"},"ErrorDetail":{"properties":{"code":{"type":"string","title":"Code"},"message":{"type":"string","title":"Message"}},"type":"object","required":["code","message"],"title":"ErrorDetail"},"ErrorResponse":{"properties":{"error":{"$ref":"#/components/schemas/ErrorDetail"}},"type":"object","required":["error"],"title":"ErrorResponse"},"Finding":{"properties":{"id":{"type":"string","title":"Id"},"rule":{"type":"string","title":"Rule"},"severity":{"$ref":"#/components/schemas/Severity"},"priority":{"type":"integer","maximum":6.0,"minimum":1.0,"title":"Priority"},"entity_type":{"type":"string","title":"Entity Type"},"entity_id":{"type":"string","format":"uuid","title":"Entity Id"},"entity_name":{"type":"string","title":"Entity Name"},"organization_id":{"type":"string","format":"uuid","title":"Organization Id"},"organization_name":{"type":"string","title":"Organization Name"},"field":{"type":"string","title":"Field"},"message":{"type":"string","title":"Message"},"address":{"$ref":"#/components/schemas/Address"},"status":{"$ref":"#/components/schemas/FindingStatus","default":"open"},"first_seen_at":{"anyOf":[{"type":"string","format":"date-time"},{"type":"null"}],"title":"First Seen At"},"last_seen_at":{"type":"string","format":"date-time","title":"Last Seen At"},"resolved_at":{"anyOf":[{"type":"string","format":"date-time"},{"type":"null"}],"title":"Resolved At"},"upcoming_event_date_count":{"type":"integer","minimum":0.0,"title":"Upcoming Event Date Count"},"upcoming_published_event_date_count":{"type":"integer","minimum":0.0,"title":"Upcoming Published Event Date Count"},"soon_published_event_date_count":{"type":"integer","minimum":0.0,"title":"Soon Published Event Date Count"}},"type":"object","required":["id","rule","severity","priority","entity_type","entity_id","entity_name","organization_id","organization_name","field","message","address","last_seen_at","upcoming_event_date_count","upcoming_published_event_date_count","soon_published_event_date_count"],"title":"Finding"},"FindingPage":{"properties":{"items":{"items":{"$ref":"#/components/schemas/Finding"},"type":"array","title":"Items"},"pagination":{"$ref":"#/components/schemas/Pagination"},"observed_at":{"type":"string","format":"date-time","title":"Observed At"},"mode":{"type":"string","const":"live","title":"Mode","default":"live"}},"type":"object","required":["items","pagination","observed_at"],"title":"FindingPage"},"FindingStatus":{"type":"string","enum":["open","reviewed","ignored","resolved"],"title":"FindingStatus"},"HealthResponse":{"properties":{"status":{"type":"string","const":"ok","title":"Status","default":"ok"}},"type":"object","title":"HealthResponse"},"NewRecords":{"properties":{"total":{"type":"integer","title":"Total"},"organizations":{"type":"integer","title":"Organizations"},"venues":{"type":"integer","title":"Venues"},"spaces":{"type":"integer","title":"Spaces"},"events":{"type":"integer","title":"Events"},"event_dates":{"type":"integer","title":"Event Dates"},"users":{"type":"integer","title":"Users"},"partner_requests":{"type":"integer","title":"Partner Requests"},"team_memberships":{"type":"integer","title":"Team Memberships"},"images":{"type":"integer","title":"Images"}},"type":"object","required":["total","organizations","venues","spaces","events","event_dates","users","partner_requests","team_memberships","images"],"title":"NewRecords"},"Pagination":{"properties":{"page":{"type":"integer","title":"Page"},"page_size":{"type":"integer","title":"Page Size"},"total":{"type":"integer","title":"Total"},"pages":{"type":"integer","title":"Pages"}},"type":"object","required":["page","page_size","total","pages"],"title":"Pagination"},"QualityCounts":{"properties":{"total":{"type":"integer","title":"Total"},"errors":{"type":"integer","title":"Errors","default":0},"warnings":{"type":"integer","title":"Warnings"},"info":{"type":"integer","title":"Info","default":0},"rules":{"items":{"type":"string"},"type":"array","title":"Rules","default":["venue_missing_geolocation"]},"mode":{"type":"string","const":"live","title":"Mode","default":"live"}},"type":"object","required":["total","warnings"],"title":"QualityCounts"},"Severity":{"type":"string","enum":["error","warning","info"],"title":"Severity"}},"securitySchemes":{"HTTPBearer":{"type":"http","scheme":"bearer"}}}}
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Kulturbytes Admin API",
+    "description": "Internal reporting API. Production auth is unavailable in milestone 1.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Process liveness",
+        "description": "Confirms the HTTP process is running; does not access PostgreSQL.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Database readiness",
+        "description": "Checks the database connection; does not certify auth or schema compatibility.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/summary": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Dashboard summary",
+        "description": "Source-table creations in [from_at, to_at), plus stored unresolved findings. Only explicit mode=live runs a diagnostic scan. Today starts at midnight in ADMIN_TIMEZONE. Historical check status is unavailable.",
+        "operationId": "summary_api_v1_dashboard_summary_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "today",
+                "24h",
+                "7d"
+              ],
+              "type": "string",
+              "default": "24h",
+              "title": "Period"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "persisted",
+                "live"
+              ],
+              "type": "string",
+              "default": "persisted",
+              "title": "Mode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/findings": {
+      "get": {
+        "tags": [
+          "Findings"
+        ],
+        "summary": "List persisted or explicit live quality findings",
+        "description": "Defaults to persisted findings without a source scan. Explicit mode=live runs a full diagnostic scan. Only open findings exist in live mode; other status filters return an empty live result, not historical workflow data. Ordered by priority_score descending and stable finding ID.",
+        "operationId": "findings_api_v1_findings_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "live",
+                "persisted"
+              ],
+              "type": "string",
+              "default": "persisted",
+              "title": "Mode"
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Severity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Severity"
+            }
+          },
+          {
+            "name": "entity_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "rule",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rule"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FindingStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/quality/venues/missing-geolocation": {
+      "get": {
+        "tags": [
+          "Quality"
+        ],
+        "summary": "Venues without a geolocation",
+        "description": "Finds NULL/empty PostGIS points and counts upcoming dates by effective venue. Includes address, organization and publication relevance in the generic finding contract.",
+        "operationId": "missing_geolocation_api_v1_quality_venues_missing_geolocation_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/activity": {
+      "get": {
+        "tags": [
+          "Activity"
+        ],
+        "summary": "List source record creations",
+        "description": "Created timestamps only; no inferred login, join or decision history. Known timestamps descend with entity type/key ties. Unknown timestamps are a separate list.",
+        "operationId": "activity_api_v1_dashboard_activity_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "organization",
+                    "venue",
+                    "space",
+                    "event",
+                    "event_date",
+                    "user",
+                    "partner_request",
+                    "team_membership",
+                    "image"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "entity_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Key"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "today",
+                    "24h",
+                    "7d"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period"
+            }
+          },
+          {
+            "name": "from_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From At"
+            }
+          },
+          {
+            "name": "to_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To At"
+            }
+          },
+          {
+            "name": "timestamp_state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "known",
+                "unknown"
+              ],
+              "type": "string",
+              "default": "known",
+              "title": "Timestamp State"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/work-queues/{kind}": {
+      "get": {
+        "tags": [
+          "Work queues"
+        ],
+        "summary": "List operational work items",
+        "description": "Partner requests, open invitations or inactive accounts. Age uses creation or actual invitation timestamp, never last login or joined time.",
+        "operationId": "queue_api_v1_work_queues__kind__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "partner_requests",
+                "team_invitations",
+                "user_activation"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "entity_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Key"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "min_age_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 36500,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Age Days"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/check-runs": {
+      "post": {
+        "tags": [
+          "Check runs and review"
+        ],
+        "summary": "Run and persist all quality checks",
+        "description": "Runs synchronously and returns the completed run (HTTP 200). Reads a source snapshot; writes admin history only. Failed scans never resolve findings.",
+        "operationId": "start_check_api_v1_check_runs_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckRun"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Concurrent check or review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Check runs and review"
+        ],
+        "summary": "List persisted check runs",
+        "description": "Newest start first, stable UUID ties. A running or failed run is not evidence of clean data.",
+        "operationId": "runs_api_v1_check_runs_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckRunPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Concurrent check or review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/finding-reviews": {
+      "patch": {
+        "tags": [
+          "Check runs and review"
+        ],
+        "summary": "Update a human finding review",
+        "description": "Changes admin workflow only. Resolution is reserved for a successful covering recheck.",
+        "operationId": "update_review_api_v1_finding_reviews_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Finding"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Concurrent check or review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/record-marks": {
+      "get": {
+        "tags": [
+          "Record marks"
+        ],
+        "summary": "List Marks",
+        "operationId": "list_marks_api_v1_record_marks_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "organization",
+                    "venue",
+                    "space",
+                    "event",
+                    "event_date",
+                    "user",
+                    "partner_request",
+                    "team_membership",
+                    "image"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "event_link",
+                    "license",
+                    "image_link"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "entity_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Key"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "active",
+                "open",
+                "in_progress",
+                "done",
+                "all"
+              ],
+              "type": "string",
+              "default": "active",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "urgency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "normal",
+                    "high",
+                    "urgent"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Urgency"
+            }
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "questionable_content",
+                    "low_quality",
+                    "incorrect",
+                    "incomplete",
+                    "outdated",
+                    "duplicate",
+                    "spam",
+                    "unsuitable",
+                    "rights_privacy",
+                    "technical",
+                    "other"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "urgency",
+                "newest"
+              ],
+              "type": "string",
+              "default": "urgency",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Record marks"
+        ],
+        "summary": "Add Mark",
+        "operationId": "add_mark_api_v1_record_marks_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/record-marks/{mark_id}": {
+      "get": {
+        "tags": [
+          "Record marks"
+        ],
+        "summary": "Get Mark",
+        "operationId": "get_mark_api_v1_record_marks__mark_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "mark_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Mark Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Record marks"
+        ],
+        "summary": "Change Mark",
+        "operationId": "change_mark_api_v1_record_marks__mark_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "mark_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Mark Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Action": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "view",
+            "title": "Type",
+            "default": "view"
+          },
+          "route": {
+            "type": "string",
+            "enum": [
+              "activity",
+              "partner_requests",
+              "team_invitations",
+              "user_activation"
+            ],
+            "title": "Route"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "venue",
+                  "space",
+                  "event",
+                  "event_date",
+                  "user",
+                  "partner_request",
+                  "team_membership",
+                  "image"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Entity Key"
+          },
+          "href": {
+            "type": "string",
+            "title": "Href",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "route",
+          "entity_key",
+          "href"
+        ],
+        "title": "Action"
+      },
+      "Activity": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "organization",
+              "venue",
+              "space",
+              "event",
+              "event_date",
+              "user",
+              "partner_request",
+              "team_membership",
+              "image"
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "title": "Entity Key"
+          },
+          "entity_name": {
+            "type": "string",
+            "title": "Entity Name"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id"
+          },
+          "organization_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Name"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Action"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_key",
+          "entity_name",
+          "organization_id",
+          "organization_name",
+          "created_at",
+          "status"
+        ],
+        "title": "Activity"
+      },
+      "ActivityPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Activity"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "from_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From At"
+          },
+          "to_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To At"
+          },
+          "timestamp_state": {
+            "type": "string",
+            "enum": [
+              "known",
+              "unknown"
+            ],
+            "title": "Timestamp State"
+          },
+          "unknown_timestamp_count": {
+            "type": "integer",
+            "title": "Unknown Timestamp Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination",
+          "observed_at",
+          "from_at",
+          "to_at",
+          "timestamp_state",
+          "unknown_timestamp_count"
+        ],
+        "title": "ActivityPage"
+      },
+      "Address": {
+        "properties": {
+          "street": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street"
+          },
+          "house_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "House Number"
+          },
+          "postal_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postal Code"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          }
+        },
+        "type": "object",
+        "title": "Address"
+      },
+      "CheckRun": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "success",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "rule_count": {
+            "type": "integer",
+            "title": "Rule Count"
+          },
+          "finding_count": {
+            "type": "integer",
+            "title": "Finding Count"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "rule_results": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Rule Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "started_at",
+          "finished_at",
+          "status",
+          "rule_count",
+          "finding_count",
+          "error_message",
+          "rule_results"
+        ],
+        "title": "CheckRun"
+      },
+      "CheckRunPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CheckRun"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "title": "CheckRunPage"
+      },
+      "DashboardSummary": {
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "today",
+              "24h",
+              "7d"
+            ],
+            "title": "Period"
+          },
+          "from_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "From At"
+          },
+          "to_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "To At"
+          },
+          "admin_timezone": {
+            "type": "string",
+            "title": "Admin Timezone"
+          },
+          "source_timestamp_timezone": {
+            "type": "string",
+            "title": "Source Timestamp Timezone"
+          },
+          "new_records": {
+            "$ref": "#/components/schemas/NewRecords"
+          },
+          "images_without_created_at": {
+            "type": "integer",
+            "title": "Images Without Created At"
+          },
+          "urgent_findings": {
+            "type": "integer",
+            "title": "Urgent Findings"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/QualityCounts"
+          },
+          "check_status": {
+            "type": "null",
+            "title": "Check Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period",
+          "from_at",
+          "to_at",
+          "admin_timezone",
+          "source_timestamp_timezone",
+          "new_records",
+          "images_without_created_at",
+          "urgent_findings",
+          "quality"
+        ],
+        "title": "DashboardSummary"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetail"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse"
+      },
+      "Finding": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "priority": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Priority"
+          },
+          "priority_score": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Priority Score"
+          },
+          "priority_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Priority Reasons"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Entity Key"
+          },
+          "entity_name": {
+            "type": "string",
+            "title": "Entity Name"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id"
+          },
+          "organization_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Name"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Action"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FindingStatus",
+            "default": "open"
+          },
+          "assigned_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "reviewed_subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed Subject"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "snoozed_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed Until"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "exception_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exception Reason"
+          },
+          "first_seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen At"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen At"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "upcoming_event_date_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Upcoming Event Date Count",
+            "default": 0
+          },
+          "upcoming_published_event_date_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Upcoming Published Event Date Count",
+            "default": 0
+          },
+          "soon_published_event_date_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Soon Published Event Date Count",
+            "default": 0
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id",
+            "deprecated": true,
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "rule",
+          "severity",
+          "priority",
+          "priority_score",
+          "priority_reasons",
+          "entity_type",
+          "entity_key",
+          "entity_name",
+          "organization_id",
+          "organization_name",
+          "field",
+          "message",
+          "last_seen_at",
+          "entity_id"
+        ],
+        "title": "Finding"
+      },
+      "FindingPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "live",
+              "persisted"
+            ],
+            "title": "Mode",
+            "default": "live"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination",
+          "observed_at"
+        ],
+        "title": "FindingPage"
+      },
+      "FindingStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "in_progress",
+          "snoozed",
+          "exception",
+          "reviewed",
+          "ignored",
+          "resolved"
+        ],
+        "title": "FindingStatus"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "default": "ok"
+          }
+        },
+        "type": "object",
+        "title": "HealthResponse"
+      },
+      "Mark": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "venue",
+                  "space",
+                  "event",
+                  "event_date",
+                  "user",
+                  "partner_request",
+                  "team_membership",
+                  "image"
+                ]
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "event_link",
+                  "license",
+                  "image_link"
+                ]
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "title": "Entity Key"
+          },
+          "entity_name": {
+            "type": "string",
+            "title": "Entity Name"
+          },
+          "reasons": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "questionable_content",
+                "low_quality",
+                "incorrect",
+                "incomplete",
+                "outdated",
+                "duplicate",
+                "spam",
+                "unsuitable",
+                "rights_privacy",
+                "technical",
+                "other"
+              ]
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "reason_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Detail"
+          },
+          "urgency": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "high",
+              "urgent"
+            ],
+            "title": "Urgency"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "completed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "entity_type",
+          "entity_key",
+          "entity_name",
+          "reasons",
+          "reason_detail",
+          "urgency",
+          "status",
+          "version",
+          "created_at",
+          "created_by",
+          "updated_at",
+          "completed_at",
+          "completed_by"
+        ],
+        "title": "Mark"
+      },
+      "MarkCreate": {
+        "properties": {
+          "reasons": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "questionable_content",
+                "low_quality",
+                "incorrect",
+                "incomplete",
+                "outdated",
+                "duplicate",
+                "spam",
+                "unsuitable",
+                "rights_privacy",
+                "technical",
+                "other"
+              ]
+            },
+            "type": "array",
+            "maxItems": 11,
+            "minItems": 1,
+            "title": "Reasons"
+          },
+          "reason_detail": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Detail"
+          },
+          "urgency": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "high",
+              "urgent"
+            ],
+            "title": "Urgency",
+            "default": "normal"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "venue",
+                  "space",
+                  "event",
+                  "event_date",
+                  "user",
+                  "partner_request",
+                  "team_membership",
+                  "image"
+                ]
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "event_link",
+                  "license",
+                  "image_link"
+                ]
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Entity Key"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reasons",
+          "entity_type",
+          "entity_key"
+        ],
+        "title": "MarkCreate"
+      },
+      "MarkDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "venue",
+                  "space",
+                  "event",
+                  "event_date",
+                  "user",
+                  "partner_request",
+                  "team_membership",
+                  "image"
+                ]
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "event_link",
+                  "license",
+                  "image_link"
+                ]
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "title": "Entity Key"
+          },
+          "entity_name": {
+            "type": "string",
+            "title": "Entity Name"
+          },
+          "reasons": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "questionable_content",
+                "low_quality",
+                "incorrect",
+                "incomplete",
+                "outdated",
+                "duplicate",
+                "spam",
+                "unsuitable",
+                "rights_privacy",
+                "technical",
+                "other"
+              ]
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "reason_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Detail"
+          },
+          "urgency": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "high",
+              "urgent"
+            ],
+            "title": "Urgency"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "completed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed By"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/MarkEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "entity_type",
+          "entity_key",
+          "entity_name",
+          "reasons",
+          "reason_detail",
+          "urgency",
+          "status",
+          "version",
+          "created_at",
+          "created_by",
+          "updated_at",
+          "completed_at",
+          "completed_by",
+          "events"
+        ],
+        "title": "MarkDetail"
+      },
+      "MarkEvent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "completed",
+              "reopened"
+            ],
+            "title": "Kind"
+          },
+          "author": {
+            "type": "string",
+            "title": "Author"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status"
+          },
+          "reasons": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "questionable_content",
+                "low_quality",
+                "incorrect",
+                "incomplete",
+                "outdated",
+                "duplicate",
+                "spam",
+                "unsuitable",
+                "rights_privacy",
+                "technical",
+                "other"
+              ]
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "reason_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Detail"
+          },
+          "urgency": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "high",
+              "urgent"
+            ],
+            "title": "Urgency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "kind",
+          "author",
+          "created_at",
+          "note",
+          "status",
+          "reasons",
+          "reason_detail",
+          "urgency"
+        ],
+        "title": "MarkEvent"
+      },
+      "MarkPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Mark"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "title": "MarkPage"
+      },
+      "MarkUpdate": {
+        "properties": {
+          "reasons": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "questionable_content",
+                "low_quality",
+                "incorrect",
+                "incomplete",
+                "outdated",
+                "duplicate",
+                "spam",
+                "unsuitable",
+                "rights_privacy",
+                "technical",
+                "other"
+              ]
+            },
+            "type": "array",
+            "maxItems": 11,
+            "minItems": 1,
+            "title": "Reasons"
+          },
+          "reason_detail": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Detail"
+          },
+          "urgency": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "high",
+              "urgent"
+            ],
+            "title": "Urgency",
+            "default": "normal"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reasons",
+          "version",
+          "status"
+        ],
+        "title": "MarkUpdate"
+      },
+      "NewRecords": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "organizations": {
+            "type": "integer",
+            "title": "Organizations"
+          },
+          "venues": {
+            "type": "integer",
+            "title": "Venues"
+          },
+          "spaces": {
+            "type": "integer",
+            "title": "Spaces"
+          },
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          },
+          "event_dates": {
+            "type": "integer",
+            "title": "Event Dates"
+          },
+          "users": {
+            "type": "integer",
+            "title": "Users"
+          },
+          "partner_requests": {
+            "type": "integer",
+            "title": "Partner Requests"
+          },
+          "team_memberships": {
+            "type": "integer",
+            "title": "Team Memberships"
+          },
+          "images": {
+            "type": "integer",
+            "title": "Images"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "organizations",
+          "venues",
+          "spaces",
+          "events",
+          "event_dates",
+          "users",
+          "partner_requests",
+          "team_memberships",
+          "images"
+        ],
+        "title": "NewRecords"
+      },
+      "Pagination": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page",
+          "page_size",
+          "total",
+          "pages"
+        ],
+        "title": "Pagination"
+      },
+      "QualityCounts": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "errors": {
+            "type": "integer",
+            "title": "Errors",
+            "default": 0
+          },
+          "warnings": {
+            "type": "integer",
+            "title": "Warnings"
+          },
+          "info": {
+            "type": "integer",
+            "title": "Info",
+            "default": 0
+          },
+          "rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rules",
+            "default": [
+              "venue_missing_geolocation"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "live",
+              "persisted"
+            ],
+            "title": "Mode",
+            "default": "persisted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "warnings"
+        ],
+        "title": "QualityCounts"
+      },
+      "QueueItem": {
+        "properties": {
+          "entity_key": {
+            "type": "string",
+            "title": "Entity Key"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id"
+          },
+          "organization_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Name"
+          },
+          "from_organization_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Organization Id"
+          },
+          "from_organization_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Organization Name"
+          },
+          "to_organization_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Organization Id"
+          },
+          "to_organization_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Organization Name"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "user_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "invited_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invited At"
+          },
+          "has_joined": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Joined"
+          },
+          "age_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Days"
+          },
+          "age_basis": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "invited_at"
+            ],
+            "title": "Age Basis"
+          },
+          "checks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Checks"
+          },
+          "action": {
+            "$ref": "#/components/schemas/Action"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_key",
+          "user_id",
+          "user_name",
+          "status",
+          "created_at",
+          "age_days",
+          "age_basis",
+          "checks",
+          "action"
+        ],
+        "title": "QueueItem"
+      },
+      "QueuePage": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "partner_requests",
+              "team_invitations",
+              "user_activation"
+            ],
+            "title": "Kind"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/QueueItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "items",
+          "pagination",
+          "observed_at"
+        ],
+        "title": "QueuePage"
+      },
+      "ReviewUpdate": {
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Finding Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "snoozed",
+              "exception"
+            ],
+            "title": "Status"
+          },
+          "assigned_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To"
+          },
+          "snoozed_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed Until"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "exception_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exception Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "finding_id",
+          "status"
+        ],
+        "title": "ReviewUpdate"
+      },
+      "Severity": {
+        "type": "string",
+        "enum": [
+          "error",
+          "warning",
+          "info"
+        ],
+        "title": "Severity"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

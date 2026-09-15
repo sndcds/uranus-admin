@@ -8,7 +8,9 @@ export function failure(status: number, code = 'request_failed'): ApiFailure {
   const messages: Record<number, string> = {
     401: 'Anmeldung erforderlich. Für diesen Zugriff fehlen gültige Zugangsdaten.',
     403: 'Keine Berechtigung. Dein Zugang darf diese Verwaltungsdaten nicht lesen.',
-    422: 'Die Filter sind ungültig. Bitte prüfe deine Eingaben.',
+    404: 'Der Datensatz oder die Markierung wurde nicht gefunden.',
+    409: 'Die Markierung wurde zwischenzeitlich geändert. Bitte neu laden und die Eingaben prüfen.',
+    422: 'Bitte prüfe deine Eingaben und Filter.',
     502: 'Die Admin-API ist nicht erreichbar oder hat eine ungültige Antwort geliefert.',
     503: 'Die Admin-API ist derzeit nicht bereit. Bitte später erneut versuchen.',
     504: 'Die Admin-API hat nicht rechtzeitig geantwortet.',

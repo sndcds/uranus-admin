@@ -309,3 +309,23 @@ CREATE INDEX idx_event_date_venue_uuid ON uranus.event_date USING btree (venue_u
 CREATE INDEX idx_event_release_status ON uranus.event USING btree (release_status);
 CREATE INDEX idx_event_venue_uuid ON uranus.event USING btree (venue_uuid);
 CREATE INDEX idx_venue_point ON uranus.venue USING gist (point);
+-- Additional source-only tables verified against Uranus dev 733c541 (2026-09-14).
+CREATE TABLE uranus.event_link (
+ id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ modified_at timestamp,
+ event_uuid uuid NOT NULL REFERENCES uranus.event(uuid) ON DELETE CASCADE,
+ type text, label varchar(255), url text NOT NULL
+);
+CREATE TABLE uranus.license (key text PRIMARY KEY, spdx_id text, url text);
+CREATE TABLE uranus.pluto_image_link (
+ pluto_image_uuid uuid REFERENCES uranus.pluto_image(uuid) ON DELETE CASCADE,
+ context text NOT NULL, context_uuid uuid NOT NULL, identifier text NOT NULL,
+ CONSTRAINT image_context_identifier_unique UNIQUE(context,context_uuid,identifier)
+);
+CREATE TABLE uranus.organization_access_grants (
+ src_org_uuid uuid REFERENCES uranus.organization(uuid) ON DELETE CASCADE,
+ dst_org_uuid uuid REFERENCES uranus.organization(uuid) ON DELETE CASCADE,
+ permissions bigint DEFAULT 0,
+ CONSTRAINT organization_access_grants_unique_pair UNIQUE(src_org_uuid,dst_org_uuid)
+);

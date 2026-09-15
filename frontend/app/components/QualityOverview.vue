@@ -6,51 +6,38 @@ defineProps<{ data: DashboardSummary | null }>()
 
 <template>
   <section class="card p-5">
-    <div class="flex flex-wrap items-center justify-between gap-2">
+    <h2 class="font-bold">Datenqualität</h2>
+    <p class="mt-2 muted">
+      {{ metric(data?.quality.total) }}
+      {{
+        data?.quality.mode === 'live'
+          ? 'Befunde aus der Live-Diagnose.'
+          : 'gespeicherte, noch nicht erledigte Befunde.'
+      }}
+    </p>
+    <dl class="my-4 flex flex-wrap gap-4 text-sm">
       <div>
-        <h2 class="font-bold">Datenqualität</h2>
-        <p class="mt-1 muted">Aktuell verfügbare Qualitätsregel</p>
+        <dt>Fehler</dt>
+        <dd>{{ metric(data?.quality.errors) }}</dd>
       </div>
-      <span class="rounded-xl bg-fuchsia-50 px-3 py-1.5 text-xs font-semibold text-fuchsia-700">{{
-        data ? `${metric(data.quality.total)} Befunde` : 'Nicht verfügbar'
-      }}</span>
-    </div>
-    <div class="mt-5 space-y-4">
       <div>
-        <div class="mb-1.5 flex justify-between gap-3 text-sm">
-          <NuxtLink
-            to="/findings?rule=venue_missing_geolocation"
-            class="font-medium hover:underline"
-            >Venue ohne Geoposition</NuxtLink
-          ><strong>{{ metric(data?.quality.total) }}</strong>
-        </div>
-        <div class="h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-          <div
-            v-if="data && data.quality.total > 0"
-            class="h-full w-full rounded-full bg-amber-400"
-          />
-        </div>
-        <p class="mt-1 text-xs text-slate-500">
-          {{
-            data && data.quality.total > 0
-              ? 'Alle derzeit geprüften Befunde stammen aus dieser Regel.'
-              : 'Live-Auswertung beim Abruf.'
-          }}
-        </p>
+        <dt>Warnungen</dt>
+        <dd>{{ metric(data?.quality.warnings) }}</dd>
       </div>
-      <div
-        v-for="rule in ['Ungültige URL', 'Event ohne Hauptbild', 'Offene Einladung']"
-        :key="rule"
-      >
-        <div class="flex justify-between gap-3 text-sm text-slate-500">
-          <span>{{ rule }}</span
-          ><span class="text-xs">Noch nicht verfügbar</span>
-        </div>
-        <div class="mt-1.5 h-2 rounded-full bg-slate-100" />
+      <div>
+        <dt>Hinweise</dt>
+        <dd>{{ metric(data?.quality.info) }}</dd>
       </div>
-    </div>
-    <NuxtLink to="/findings?rule=venue_missing_geolocation" class="button mt-5 w-full"
-      >Qualitätsbefunde öffnen</NuxtLink
-    >
+    </dl>
+    <ul v-if="data?.quality.rules" class="space-y-2 break-words text-sm">
+      <li v-for="rule in data.quality.rules" :key="rule">
+        <NuxtLink
+          :to="{ path: '/findings', query: { rule } }"
+          class="text-fuchsia-700 hover:underline"
+          >{{ rule }}</NuxtLink
+        >
+      </li>
+    </ul>
+    <NuxtLink to="/findings" class="button mt-5 w-full">Qualitätsbefunde öffnen</NuxtLink>
   </section>
 </template>

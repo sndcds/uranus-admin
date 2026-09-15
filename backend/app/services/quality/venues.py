@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.repositories import venues
+from app.schemas.action import Action
 from app.schemas.finding import Address, Finding, FindingFilters, FindingPage, Pagination, Severity
-from app.services.quality.priority import finding_priority
+from app.services.quality.priority import priority_details
 
 logger = logging.getLogger("admin.quality")
 
@@ -21,11 +22,12 @@ def map_venue(row: dict[str, Any], observed_at: datetime) -> Finding:
         id=f"{venues.RULE}:venue:{row['uuid']}:point",
         rule=venues.RULE,
         severity=Severity.warning,
-        priority=finding_priority(
+        **priority_details(
             Severity.warning, published=published > 0, soon=soon > 0, upcoming=count > 0
         ),
+        action=Action(route="activity", entity_key=str(row["uuid"]), entity_type="venue"),
         entity_type="venue",
-        entity_id=row["uuid"],
+        entity_key=str(row["uuid"]),
         entity_name=row["name"],
         organization_id=row["org_uuid"],
         organization_name=row["organization_name"],

@@ -25,7 +25,7 @@ class QualityCounts(BaseModel):
     warnings: int
     info: int = 0
     rules: list[str] = ["venue_missing_geolocation"]
-    mode: Literal["live"] = "live"
+    mode: Literal["live", "persisted"] = "persisted"
 
 
 class DashboardSummary(BaseModel):
