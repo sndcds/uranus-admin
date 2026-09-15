@@ -166,3 +166,106 @@ async def test_url_venue_relevance_matches_geolocation(db_connection, settings, 
     rows, _ = await list_missing_geolocation(db_connection, settings, FindingFilters(), now)
     assert item.priority_score == map_venue(rows[0], now).priority_score
     assert item.priority_reasons == map_venue(rows[0], now).priority_reasons
+
+
+async def test_indexed_relevance_inheritance_and_publication(db_connection, settings, now):
+    from app.services.quality.core import QualityContext
+
+    sources = await load_sources(db_connection)
+    event = next(e for e in sources.rows["event"] if e["uuid"] == uid(30))
+    event["space_uuid"] = uid(25)
+    sources.rows["space"].append(
+        {"uuid": uid(26), "venue_uuid": uid(21), "name": "Override", "web_link": None}
+    )
+    override = next(d for d in sources.rows["event_date"] if d["uuid"] == uid(42))
+    override["space_uuid"] = uid(26)
+    context = QualityContext(sources, settings, now)
+    for kind, key in [
+        ("venue", 20),
+        ("venue", 21),
+        ("space", 25),
+        ("space", 26),
+        ("organization", 10),
+    ]:
+        row = next(r for r in sources.rows[kind] if r["uuid"] == uid(key))
+        assert context.relevance(kind, row) == {"published": True, "upcoming": True, "soon": True}
+    draft_venue = next(v for v in sources.rows["venue"] if v["uuid"] == uid(22))
+    assert context.relevance("venue", draft_venue) == {
+        "published": False,
+        "upcoming": True,
+        "soon": False,
+    }
+    for key, published, upcoming, soon in [
+        (40, True, True, True),
+        (41, True, False, False),
+        (44, False, True, False),
+        (45, False, True, False),
+        (46, False, True, False),
+        (47, False, True, False),
+        (48, True, True, False),
+        (49, True, True, False),
+    ]:
+        date = next(d for d in sources.rows["event_date"] if d["uuid"] == uid(key))
+        assert context.relevance("event_date", date) == {
+            "published": published,
+            "upcoming": upcoming,
+            "soon": soon,
+        }
+
+
+@pytest.mark.parametrize("size", [30, 100])
+def test_quality_scan_date_work_grows_linearly(settings, size):
+    from datetime import UTC, datetime
+
+    from app.repositories.quality_sources import SOURCE_QUERIES, Sources
+    from app.services.quality.core import QualityContext
+
+    class CountedDates(list):
+        visits = 0
+
+        def __iter__(self):
+            for row in super().__iter__():
+                self.visits += 1
+                yield row
+
+    now = datetime(2026, 9, 15, 12, tzinfo=UTC)
+    sources = Sources({kind: [] for kind in SOURCE_QUERIES})
+    dates = CountedDates()
+    sources.rows["event_date"] = dates
+    for n in range(size):
+        sources.rows["venue"].append(
+            dict(uuid=uid(n + 100), name="Venue", org_uuid=None, web_link="bad", ticket_link="bad")
+        )
+        sources.rows["event"].append(
+            dict(
+                uuid=uid(n + 1000),
+                name="Event",
+                org_uuid=None,
+                venue_uuid=uid(n + 100),
+                space_uuid=None,
+                release_status="released",
+                source_link=None,
+                online_link=None,
+                ticket_link=None,
+                registration_link=None,
+            )
+        )
+        dates.append(
+            dict(
+                uuid=uid(n + 2000),
+                event_uuid=uid(n + 1000),
+                venue_uuid=None,
+                space_uuid=None,
+                release_status="inherited",
+                start_date=now.date(),
+                start_time=None,
+                all_day=True,
+                ticket_link=None,
+            )
+        )
+    context = QualityContext(sources, settings, now)
+    results = [evaluate_core(rule, sources, settings, now, context) for rule in CORE_RULES]
+    urls = next(r for r in results if r.rule == "url_syntax")
+    assert len(urls.findings) == size * 2
+    assert all("published_soon" in f.priority_reasons for f in urls.findings)
+    assert dates.visits <= size * 5

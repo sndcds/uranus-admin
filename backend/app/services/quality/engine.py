@@ -8,7 +8,7 @@ from app.errors import APIError
 from app.repositories.quality_sources import load_sources
 from app.repositories.venues import QUALITY_SQL, RULE, query_parameters
 from app.schemas.finding import Finding, FindingFilters, FindingPage, Pagination
-from app.services.quality.core import CORE_RULES, RuleResult, evaluate_core
+from app.services.quality.core import CORE_RULES, QualityContext, RuleResult, evaluate_core
 from app.services.quality.venues import map_venue
 from app.services.queues import queue_findings
 
@@ -25,8 +25,9 @@ async def scan(connection: AsyncConnection, settings: Settings, now: datetime) -
             {("venue", str(row["uuid"])) for row in sources.rows["venue"]},
         )
     ]
+    context = QualityContext(sources, settings, now)
     for rule in CORE_RULES:
-        results.append(evaluate_core(rule, sources, settings, now))
+        results.append(evaluate_core(rule, sources, settings, now, context))
     results.extend(await queue_findings(connection, settings, now))
     return results
 

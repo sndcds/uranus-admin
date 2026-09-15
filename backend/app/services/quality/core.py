@@ -120,75 +120,96 @@ def make_finding(
     )
 
 
-def evaluate_core(rule: str, sources: Sources, settings: Settings, now: datetime) -> RuleResult:
-    result = RuleResult(rule)
-    orgs, venues, spaces, events = (
-        sources.index(kind) for kind in ("organization", "venue", "space", "event")
-    )
-    dates: dict[str, list[dict[str, Any]]] = {}
-    for row in sources.rows["event_date"]:
-        dates.setdefault(str(row["event_uuid"]), []).append(row)
-    local = now.astimezone(ZoneInfo(settings.event_timezone))
+class QualityContext:
+    """One immutable source snapshot's indexes and relevance aggregates, built in O(rows)."""
 
-    def relevance(kind: str, row: dict[str, Any]) -> dict[str, bool]:
-        event = row if kind == "event" else events.get(str(row.get("event_uuid")), {})
-        event_dates = [row] if kind == "event_date" else dates.get(str(event.get("uuid")), [])
-        if kind in {"venue", "space", "organization"}:
-            event_dates = []
-            for date in sources.rows["event_date"]:
-                parent = events.get(str(date["event_uuid"]), {})
-                if (
-                    (
-                        kind == "venue"
-                        and (date["venue_uuid"] or parent.get("venue_uuid")) == row["uuid"]
-                    )
-                    or (
-                        kind == "space"
-                        and (date["space_uuid"] or parent.get("space_uuid")) == row["uuid"]
-                    )
-                    or (kind == "organization" and parent.get("org_uuid") == row["uuid"])
-                ):
-                    event_dates.append(date)
-        upcoming_dates = [
-            d
-            for d in event_dates
-            if d["start_date"] > local.date()
-            or (
-                d["start_date"] == local.date()
+    def __init__(self, sources: Sources, settings: Settings, now: datetime) -> None:
+        self.indexes = {
+            kind: sources.index(kind)
+            for kind in ("organization", "venue", "space", "event", "image")
+        }
+        self.dates_by_event: dict[str, list[dict[str, Any]]] = {}
+        self.flags: dict[tuple[str, str], dict[str, bool]] = {}
+        local = now.astimezone(ZoneInfo(settings.event_timezone))
+        events = self.indexes["event"]
+        for key, event in events.items():
+            self.flags[("event", key)] = {
+                "published": event["release_status"] in {"released", "rescheduled"},
+                "upcoming": False,
+                "soon": False,
+            }
+        for date in sources.rows["event_date"]:
+            event_key = str(date["event_uuid"])
+            self.dates_by_event.setdefault(event_key, []).append(date)
+            parent = events.get(event_key, {})
+            upcoming = date["start_date"] > local.date() or (
+                date["start_date"] == local.date()
                 and (
-                    d["all_day"]
-                    or d["start_time"] is None
-                    or d["start_time"] >= local.time().replace(tzinfo=None)
+                    date["all_day"]
+                    or date["start_time"] is None
+                    or date["start_time"] >= local.time().replace(tzinfo=None)
                 )
             )
-        ]
-
-        def released(date: dict[str, Any]) -> bool:
-            parent = events.get(str(date["event_uuid"]), {})
-            return parent.get("release_status") in {"released", "rescheduled"} and date[
+            released = parent.get("release_status") in {"released", "rescheduled"} and date[
                 "release_status"
             ] in {"inherited", "released", "rescheduled", None}
+            soon = (
+                upcoming
+                and released
+                and date["start_date"] < (local.date() + timedelta(days=settings.upcoming_days))
+            )
+            self.flags[("event_date", str(date["uuid"]))] = {
+                "published": released,
+                "upcoming": upcoming,
+                "soon": soon,
+            }
+            for kind, key in (
+                ("event", event_key),
+                ("venue", str(date["venue_uuid"] or parent.get("venue_uuid"))),
+                ("space", str(date["space_uuid"] or parent.get("space_uuid"))),
+                ("organization", str(parent.get("org_uuid"))),
+            ):
+                flags = self.flags.setdefault(
+                    (kind, key),
+                    {
+                        "published": False,
+                        "upcoming": False,
+                        "soon": False,
+                    },
+                )
+                if kind != "event":
+                    flags["published"] |= upcoming and released
+                flags["upcoming"] |= upcoming
+                flags["soon"] |= soon
 
-        published = event.get("release_status") in {"released", "rescheduled"}
-        if kind == "event_date":
-            published = released(row)
-        elif kind in {"venue", "space", "organization"}:
-            published = any(released(date) for date in upcoming_dates)
-        return {
-            "published": published,
-            "upcoming": bool(upcoming_dates),
-            "soon": any(
-                released(date)
-                and date["start_date"] < local.date() + timedelta(days=settings.upcoming_days)
-                for date in upcoming_dates
-            ),
-        }
+    def relevance(self, kind: str, row: dict[str, Any]) -> dict[str, bool]:
+        if kind == "event_link":
+            kind, key = "event", str(row["event_uuid"])
+        else:
+            key = str(row.get("uuid"))
+        return self.flags.get((kind, key), {"published": False, "upcoming": False, "soon": False})
+
+
+def evaluate_core(
+    rule: str,
+    sources: Sources,
+    settings: Settings,
+    now: datetime,
+    scan_context: QualityContext | None = None,
+) -> RuleResult:
+    result = RuleResult(rule)
+    scan_context = scan_context or QualityContext(sources, settings, now)
+    orgs, venues, spaces, events = (
+        scan_context.indexes[kind] for kind in ("organization", "venue", "space", "event")
+    )
+    dates = scan_context.dates_by_event
+    relevance = scan_context.relevance
 
     def organization(kind: str, row: dict[str, Any]) -> dict[str, Any] | None:
         if kind == "image_link":
             target_kind = row["context"]
             if target_kind in {"organization", "venue", "event"}:
-                target = sources.index(target_kind).get(str(row["context_uuid"]))
+                target = scan_context.indexes[target_kind].get(str(row["context_uuid"]))
                 return organization(target_kind, target) if target else None
             return None
         if kind == "organization":
@@ -299,7 +320,7 @@ def evaluate_core(rule: str, sources: Sources, settings: Settings, now: datetime
                         },
                     )
     elif rule.startswith("image_link_"):
-        images = sources.index("image")
+        images = scan_context.indexes["image"]
         targets = {"organization": orgs, "venue": venues, "event": events}
         for row in sources.rows["image_link"]:
             kind = "image_link"
