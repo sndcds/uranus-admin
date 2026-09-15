@@ -19,6 +19,9 @@ from app.services.quality.priority import priority_details
 # Session lock survives the initial committed 'running' row. Scans and reviews serialize.
 LOCK_KEY = 723114905
 
+# Explicit labels keep result mappings independent of physical legacy column names.
+FINDING_COLUMNS = tuple(column.label(column.key) for column in finding.c)
+
 
 async def lock(connection: AsyncConnection) -> None:
     acquired = (
@@ -49,7 +52,7 @@ async def persist_results(
             row["id"]: dict(row)
             for row in (
                 await connection.execute(
-                    select(finding).where(finding.c.rule == result.rule).with_for_update()
+                    select(*FINDING_COLUMNS).where(finding.c.rule == result.rule).with_for_update()
                 )
             ).mappings()
         }
@@ -102,7 +105,7 @@ async def persist_results(
             for old in existing.values():
                 if (
                     old["id"] not in detected
-                    and (old["entity_type"], old["entity_id"]) in result.covered
+                    and (old["entity_type"], old["entity_key"]) in result.covered
                     and old["status"] != "resolved"
                 ):
                     await connection.execute(
@@ -135,7 +138,7 @@ async def run_check(
             )
         try:
             results = await scan(source, settings, started)
-            if not all(result.success for result in results):
+            if not results or not all(result.success for result in results):
                 raise RuntimeError("Incomplete scan")
             finished = datetime.now(UTC)
             async with admin.begin():
@@ -190,7 +193,7 @@ def stored_finding(row: dict[str, Any]) -> Finding:
     # Legacy foundation rows may not yet have display/relevance metadata.
     payload = {
         **priority_details(Severity(row["severity"]), published=False, soon=False, upcoming=False),
-        "entity_name": row["entity_id"],
+        "entity_name": row["entity_key"],
         "organization_id": None,
         "organization_name": None,
         **payload,
@@ -219,7 +222,7 @@ def stored_finding(row: dict[str, Any]) -> Finding:
             )
         }
     )
-    payload["entity_key"] = row["entity_id"]
+    payload["entity_key"] = row["entity_key"]
     return Finding.model_validate(payload)
 
 
@@ -228,7 +231,8 @@ async def persisted_page(
 ) -> FindingPage:
     async with admin.begin():
         items = [
-            stored_finding(dict(row)) for row in (await admin.execute(select(finding))).mappings()
+            stored_finding(dict(row))
+            for row in (await admin.execute(select(*FINDING_COLUMNS))).mappings()
         ]
     result = findings_page(items, filters, now)
     result.mode = "persisted"
@@ -256,7 +260,9 @@ async def review(
             current = (
                 (
                     await admin.execute(
-                        select(finding).where(finding.c.id == body.finding_id).with_for_update()
+                        select(*FINDING_COLUMNS)
+                        .where(finding.c.id == body.finding_id)
+                        .with_for_update()
                     )
                 )
                 .mappings()
@@ -285,7 +291,7 @@ async def review(
                         update(finding)
                         .where(finding.c.id == body.finding_id)
                         .values(**values)
-                        .returning(finding)
+                        .returning(*FINDING_COLUMNS)
                     )
                 )
                 .mappings()

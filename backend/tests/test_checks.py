@@ -15,6 +15,106 @@ from app.services.quality.core import RuleResult, make_finding
 from tests.conftest import uid
 
 
+@pytest.mark.parametrize(
+    "rule,kind,key,prepare,repair",
+    [
+        (
+            "venue_missing_geolocation",
+            "venue",
+            str(uid(20)),
+            None,
+            "UPDATE uranus.venue SET point=ST_GeomFromText('POINT(9 54)',4326)",
+        ),
+        (
+            "partner_long_pending",
+            "partner_request",
+            f"partner-request:{uid(10)}:{uid(11)}",
+            "UPDATE uranus.organization_partner_request SET created_at=:old",
+            "UPDATE uranus.organization_partner_request SET status='accepted'",
+        ),
+        (
+            "team_invitation_old",
+            "team_membership",
+            f"membership:{uid(10)}:{uid(1)}",
+            "UPDATE uranus.organization_member_link SET invited_at=:old",
+            "UPDATE uranus.organization_member_link SET has_joined=true",
+        ),
+    ],
+)
+async def test_persistence_lifecycle_for_source_keys(
+    admin_store, db_connection, settings, now, rule, kind, key, prepare, repair
+):
+    from app.services.quality.engine import scan
+
+    if prepare:
+        await db_connection.execute(
+            text(prepare), {"old": (now - timedelta(days=60)).replace(tzinfo=None)}
+        )
+    original = next(
+        f
+        for r in await scan(db_connection, settings, now)
+        for f in r.findings
+        if f.rule == rule and f.entity_key == key
+    )
+    assert (await run_check(db_connection, admin_store, settings)).status == "success"
+    filters = FindingFilters(rule=rule)
+    item = next(
+        f for f in (await persisted_page(admin_store, filters, now)).items if f.entity_key == key
+    )
+    excluded = {"first_seen_at", "last_seen_at", "entity_id"}
+    assert item.model_dump(exclude=excluded) == original.model_dump(exclude=excluded)
+    assert item.entity_type == kind
+    await review(
+        admin_store,
+        db_connection,
+        ReviewUpdate(
+            finding_id=item.id,
+            status="exception",
+            exception_reason="Checked",
+            comment="Keep",
+            assigned_to=uid(1),
+        ),
+        "reviewer",
+        now,
+    )
+    assert (await run_check(db_connection, admin_store, settings)).status == "success"
+    stored = next(
+        f for f in (await persisted_page(admin_store, filters, now)).items if f.id == item.id
+    )
+    assert stored.status == "exception" and stored.exception_reason == "Checked"
+    assert stored.reviewed_subject == "reviewer" and stored.assigned_to == uid(1)
+    assert stored.comment == "Keep" and stored.reviewed_at == now
+    await db_connection.execute(text(repair))
+    assert (await run_check(db_connection, admin_store, settings)).status == "success"
+    resolved = next(
+        f for f in (await persisted_page(admin_store, filters, now)).items if f.id == item.id
+    )
+    assert resolved.status == "resolved" and resolved.resolved_at
+    assert resolved.first_seen_at == item.first_seen_at
+
+
+@pytest.mark.parametrize("key", [str(uid(20)), f"membership:{uid(10)}:{uid(1)}"])
+async def test_foundation_row_reload_without_optional_metadata(admin_store, now, key):
+    async with admin_store.begin():
+        await admin_store.execute(
+            finding.insert().values(
+                id="legacy",
+                rule="legacy_rule",
+                severity="warning",
+                entity_type="legacy",
+                entity_key=key,
+                message="Legacy",
+                first_seen_at=now,
+                last_seen_at=now,
+            )
+        )
+    item = (await persisted_page(admin_store, FindingFilters(), now)).items[0]
+    assert item.entity_key == item.entity_name == key
+    assert item.action is None and item.organization_id is None and item.metadata == {}
+    assert item.priority_score > 0 and item.priority_reasons
+    assert item.status == "open" and item.snoozed_until is None
+
+
 async def test_runs_are_idempotent_and_resolve_only_covered_objects(
     admin_store, db_connection, settings, now
 ):
