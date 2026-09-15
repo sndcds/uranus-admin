@@ -98,10 +98,16 @@ async def test_completion_reopening_and_notes_keep_authors(admin_store, db_clien
     assert reopened["completed_at"] is None and reopened["completed_by"] is None
     assert [event["author"] for event in reopened["events"]] == ["alice", "bob", "bob", "carol"]
     assert reopened["events"][-1]["kind"] == "reopened"
+    assert reopened["events"][: len(noted["events"])] == noted["events"]
+    assert noted["events"][: len(done["events"])] == done["events"]
+    assert done["events"][: len(first["events"])] == first["events"]
     assert reopened["events"][1]["note"] == "Datum korrigiert"
     assert (await db_client.get(f"/api/v1/record-marks/{second['id']}")).json()["status"] == "open"
     final = (await db_client.patch(path, json=update(reopened, status="done"))).json()
     assert final["completed_by"] == "carol" and len(final["events"]) == 5
+    assert [event["version"] for event in final["events"]] == [1, 2, 3, 4, 5]
+    timestamps = [event["created_at"] for event in final["events"]]
+    assert timestamps == sorted(timestamps)
     persisted = (await db_client.get(path)).json()
     assert persisted == final
     active = (await db_client.get("/api/v1/record-marks")).json()
@@ -221,3 +227,30 @@ async def test_extra_quality_source_keys(admin_store, db_connection):
             "a",
         )
         assert result.entity_key == key
+
+
+async def test_runtime_history_is_append_only_and_version_unique(admin_store, db_connection):
+    from sqlalchemy.exc import DBAPIError, IntegrityError
+
+    from app.admin_tables import record_mark_event
+    from app.services.marks import detail_in_transaction
+
+    first = await create_mark(
+        admin_store, db_connection, MarkCreate(**creation(note="Original")), "a"
+    )
+    for sql in (
+        "UPDATE admin.record_mark_event SET note='rewritten'",
+        "DELETE FROM admin.record_mark_event",
+        "TRUNCATE admin.record_mark_event",
+    ):
+        with pytest.raises(DBAPIError):
+            async with admin_store.begin():
+                await admin_store.execute(text(sql))
+    event = first.events[0].model_dump()
+    event["id"] = uuid4()
+    event["mark_id"] = first.id
+    with pytest.raises(IntegrityError):
+        async with admin_store.begin():
+            await admin_store.execute(record_mark_event.insert().values(**event))
+    async with admin_store.begin():
+        assert await detail_in_transaction(admin_store, first.id) == first

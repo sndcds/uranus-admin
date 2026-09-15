@@ -228,21 +228,37 @@ async def admin_store(database, settings):
         )
         await connection.execute(text("GRANT USAGE ON SCHEMA admin TO admin_history_test"))
         await connection.execute(
-            text("GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA admin TO admin_history_test")
+            text(
+                "GRANT SELECT, INSERT, UPDATE ON admin.check_run, admin.finding, "
+                "admin.record_mark TO admin_history_test"
+            )
         )
-    settings.admin_database_url = SecretStr(
-        make_url(database[0])
-        .set(username="admin_history_test", password="fixture-history-only")
-        .render_as_string(hide_password=False)
-    )
-    engine = create_admin_engine(settings)
+        await connection.execute(
+            text("GRANT SELECT, INSERT ON admin.record_mark_event TO admin_history_test")
+        )
+        await connection.execute(text("GRANT USAGE ON SCHEMA uranus TO admin_history_test"))
+        await connection.execute(
+            text("GRANT SELECT ON ALL TABLES IN SCHEMA uranus TO admin_history_test")
+        )
+    engine = None
     try:
+        settings.admin_database_url = SecretStr(
+            make_url(database[0])
+            .set(username="admin_history_test", password="fixture-history-only")
+            .render_as_string(hide_password=False)
+        )
+        engine = create_admin_engine(settings)
         async with engine.connect() as connection:
             yield connection
     finally:
-        await engine.dispose()
+        if engine is not None:
+            await engine.dispose()
         async with setup.begin() as connection:
             await connection.run_sync(metadata.drop_all)
             await connection.execute(text("DROP SCHEMA admin"))
+            await connection.execute(
+                text("REVOKE SELECT ON ALL TABLES IN SCHEMA uranus FROM admin_history_test")
+            )
+            await connection.execute(text("REVOKE USAGE ON SCHEMA uranus FROM admin_history_test"))
             await connection.execute(text("DROP ROLE admin_history_test"))
         await setup.dispose()

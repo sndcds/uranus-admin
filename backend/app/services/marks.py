@@ -124,7 +124,7 @@ async def update_mark(
         changes = body.model_dump(exclude={"note", "version"})
         if all(row[key] == value for key, value in changes.items()) and not body.note:
             return await detail_in_transaction(admin, mark_id)
-        now = datetime.now(UTC)
+        now = max(datetime.now(UTC), row["updated_at"])
         kind = "updated"
         if row["status"] != "done" and body.status == "done":
             kind = "completed"
