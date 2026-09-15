@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { findingPageSchema, summarySchema } from '../../shared/contracts'
 import { summary, findings } from '../fixtures/api'
-import { dateTime, metric, recordRows } from '../../app/utils/presentation'
+import { recordRows } from '../../app/utils/activity'
+import { dateTime, metric } from '../../app/utils/presentation'
 import { parseFilters } from '../../app/utils/filters'
 
 describe('actual response contract', () => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { filtersSchema } from '#shared/contracts'
 import type { Severity, FindingFilters } from '#shared/contracts'
+import { recordRows } from '~/utils/activity'
 import { filterQuery } from '~/utils/filters'
 const dashboard = useDashboardStore()
 const findings = useFindingsStore()
@@ -182,16 +183,35 @@ function openFilters(filters: FindingFilters) {
           <h2 class="font-bold">Neu eingegangen</h2>
           <p class="mt-1 muted">Neue Datensätze und Termine im gewählten Zeitraum.</p>
         </div>
-        <dl class="grid grid-cols-2 gap-x-5 gap-y-4 p-5 sm:grid-cols-3">
-          <div
-            v-for="row in recordRows(dashboard.data)"
-            :key="row.key"
-            class="min-w-0 rounded-xl bg-slate-50 p-3"
-          >
-            <dt class="break-words text-xs text-slate-600">{{ row.label }}</dt>
-            <dd class="mt-1 text-lg font-bold">{{ row.value }}</dd>
-          </div>
-        </dl>
+        <ul class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 sm:p-5">
+          <li v-for="row in recordRows(dashboard.data)" :key="row.key" class="min-w-0">
+            <NuxtLink
+              :to="{
+                path: '/activity',
+                query: { period: dashboard.period, entity_type: row.type },
+              }"
+              :aria-label="`${row.plural}: ${row.value} · ${dashboard.period} · Neue Datensätze ansehen`"
+              class="group grid h-full grid-cols-[1fr_auto] gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
+            >
+              <span
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                :class="row.tone"
+                ><AppIcon :name="row.icon" :size="18"
+              /></span>
+              <div class="col-span-2 row-start-2 min-w-0">
+                <span
+                  class="block break-words text-xs text-slate-600 group-hover:text-fuchsia-800"
+                  >{{ row.plural }}</span
+                ><span class="mt-1 block text-xl font-bold tabular-nums">{{ row.value }}</span>
+              </div>
+              <AppIcon
+                name="arrow"
+                :size="14"
+                class="col-start-2 row-start-1 self-center text-slate-400 group-hover:text-fuchsia-700"
+              />
+            </NuxtLink>
+          </li>
+        </ul>
         <p class="px-5 pb-5 text-xs text-slate-500">
           <NuxtLink
             :to="{ path: '/activity', query: { period: dashboard.period } }"

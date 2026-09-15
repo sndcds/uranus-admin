@@ -14,6 +14,33 @@ const loading = ref(false)
 const entityType = ref('')
 const organization = ref('')
 const period = ref('24h')
+const selectedType = computed(() => {
+  const parsed = entityTypeSchema.safeParse(route.query.entity_type)
+  return parsed.success ? parsed.data : null
+})
+const title = computed(() =>
+  selectedType.value ? `Neue ${activityTypes[selectedType.value].plural}` : 'Neue Datensätze',
+)
+const description = computed(() => {
+  if (!data.value) return 'Neuanlagen nach Objektart und Erstellungszeitpunkt.'
+  const count = data.value.pagination.total
+  const label = selectedType.value
+    ? count === 1
+      ? activityTypes[selectedType.value].label
+      : activityTypes[selectedType.value].plural
+    : count === 1
+      ? 'Datensatz'
+      : 'Datensätze'
+  if (data.value.timestamp_state === 'unknown')
+    return `${count} ${label} ohne belegten Erstellungszeitpunkt.`
+  if (route.query.entity_key && !route.query.period && !route.query.from_at && !route.query.to_at)
+    return `${count} ${label} für diesen Objektschlüssel.`
+  const window =
+    data.value.from_at && data.value.to_at
+      ? `${dateTime(data.value.from_at)} – ${dateTime(data.value.to_at)}`
+      : 'gewählte Zeitgrenzen'
+  return `${count} ${label} · ${window}`
+})
 const groups = computed(() => (data.value ? activityGroups(data.value) : []))
 const counts = computed(() => activityCounts(data.value?.items ?? []))
 function syncFilters() {
@@ -79,8 +106,8 @@ onBeforeUnmount(() => {
 <template>
   <section class="space-y-4" aria-labelledby="activity-title">
     <div>
-      <h2 id="activity-title" class="text-2xl font-bold">Neue Datensätze</h2>
-      <p class="mt-1 text-sm text-slate-500">Neuanlagen nach Objektart und Erstellungszeitpunkt.</p>
+      <h2 id="activity-title" class="text-2xl font-bold">{{ title }}</h2>
+      <p class="mt-1 text-sm text-slate-500">{{ description }}</p>
     </div>
     <form
       class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-[minmax(10rem,1fr)_minmax(9rem,1fr)_minmax(14rem,1.5fr)_auto]"
