@@ -48,7 +48,8 @@ Die neue Admin-Schreibverbindung verwaltet ausschließlich eigene Metadaten; Ura
 Produktive globale Admin-Autorisierung muss weiterhin explizit in Uranus definiert werden.
 
 Die optionale Ablage erfordert Admin-Migration `0002` und einen separat eingeschränkten
-`ADMIN_DATABASE_URL`-Account. Ohne Ablage bleibt Live-Reporting nutzbar.
+`ADMIN_DATABASE_URL`-Account. Ohne Ablage bleibt explizites `mode=live`-Reporting nutzbar; normale Listen und Dashboard
+verwenden gespeicherte Findings und benötigen die Admin-Ablage.
 Details: [Backend-Verträge](backend/docs/contracts.md),
 [verifizierter Uranus-dev-Stand](backend/docs/source-verification.md).
 Frontend und Backend werden in getrennten CI-Jobs geprüft, einschließlich Frontend-Produktionsbuild

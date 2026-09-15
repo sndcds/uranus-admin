@@ -130,8 +130,9 @@ ein running-Lauf zurück; der nächste Lockinhaber markiert ihn als fehlgeschlag
 keine automatische Behebung. Ein HTTP-Timeout ist ebenfalls kein Beleg, dass ein Lauf abgeschlossen ist.
 
 Ein Scanfehler bricht die gesamte Übernahme ab. Bereits ausgewertete Teilregeln werden nicht als
-Gesamterfolg ausgegeben; bestehende Findings bleiben unverändert. Auch der Persistenzbaustein
-verweigert Resolution, sobald ein RuleResult fehlgeschlagen ist. Das ist bewusst konservativer
+Gesamterfolg ausgegeben; bestehende Findings bleiben unverändert. Ein Lauf muss genau die vollständige erwartete Regelmenge erfolgreich liefern; auch eine
+leere oder abgeschnittene Ergebnisliste gilt als fehlgeschlagen. Der Persistenzbaustein
+verweigert Resolution zusätzlich, sobald ein RuleResult fehlgeschlagen ist. Das ist bewusst konservativer
 als ein Teilabschluss einzelner Regeln.
 
 Ein Finding wird nur resolved, wenn der ganze Lauf erfolgreich war, seine konkrete Regel erfolgreich
@@ -141,8 +142,12 @@ Upsert anhand der stabilen ID bewahrt first_seen_at. last_seen_at wird bei erneu
 aktualisiert; resolved_at nur bei belegter Behebung. Wiederkehrende Fehler öffnen dieselbe ID erneut.
 Keine rückdatierte Historie, kein Ersatz von Source-Timestamps durch Scanzeitpunkte.
 
-`GET /api/v1/findings?mode=persisted` liefert gespeicherte Beobachtungen und Zustände; Standard
-bleibt `mode=live`. Historische Daten werden nicht als frischer Live-Scan ausgegeben. Es gibt
+`GET /api/v1/findings` verwendet standardmäßig `mode=persisted`: gespeicherte Beobachtungen
+und Zustände, mit SQL-seitigen Filtern, Sortierung, COUNT und Pagination. Nur explizites
+`mode=live` startet einen vollständigen Diagnose-Scan ohne Persistierung. Die UI nutzt
+gespeicherte Befunde; eine Live-Diagnose muss im Quellenfilter gewählt werden. Ohne
+`ADMIN_DATABASE_URL` liefert der Standardabruf 503 `admin_storage_unconfigured`, ohne
+stillschweigenden Live-Fallback. Historische Daten werden nicht als frischer Live-Scan ausgegeben. Es gibt
 aktuell eine Zeile pro Finding plus Run-Coverage, **kein vollständiges Ereignisjournal jeder
 Feldänderung oder jedes früheren Reviews**.
 
@@ -242,3 +247,41 @@ Speicherverbrauch und Scanzeit messen; ggf. persistente Listen bevorzugen und SQ
 weiter ausbauen. Keine spekulativen Uranus-Indizes oder Constraints werden angelegt.
 Scheduler, vollständiges Auditjournal, externe Erreichbarkeitschecks, Geocoding, Merges und
 fachliche Edit-Endpunkte sind nicht enthalten.
+
+
+## Operative GETs und Scan-Kosten
+
+Auch `GET /api/v1/dashboard/summary` verwendet standardmäßig gespeicherte Qualität; nur
+`mode=live` führt einen Vollscan aus. Die Neuanlagenzähler bleiben lesende Source-Aggregate.
+Gespeicherte Qualitätszähler enthalten alle noch nicht `resolved` gesetzten Befunde einschließlich
+Snooze/Exception; die Regelliste enthält die dort vertretenen Regeln. Ein leerer Speicher beweist
+keinen sauberen Datenbestand. Prüfläufe und deren Status sind unter `/check-runs` sichtbar.
+`observed_at` eines Listenabrufs ist dessen Abrufzeit, `last_seen_at` die tatsächliche Beobachtung.
+Snoozes werden erst beim nächsten erfolgreichen Recheck geöffnet, nicht durch einen GET.
+
+`POST /api/v1/check-runs` bleibt synchron (HTTP 200 mit abgeschlossenem Run). Der Proxy wartet
+für Schreibaufrufe bis zu 120 Sekunden; Timeout/Verbindungsabbruch garantiert weder Abschluss
+noch Abbruch. Vor erneutem Start den Laufstatus prüfen. Ein zusätzlicher aktiver Lauf/Review
+wird mit 409 abgewiesen. Session-Locks werden im finally freigegeben; bei I/O-Fehler oder
+Cancellation während Lock-Verwaltung wird die Verbindung aus dem Pool entfernt.
+
+Der Kernscan liest weiterhin explizit ausgewählte Spalten vollständiger Quelltabellen. UUID-Indizes,
+Termine je Event und aggregierte Relevanz je Event/Termin/effektivem Venue/Space/Organisation
+entstehen einmal pro Snapshot. Danach benötigen Relevanzabfragen konstante Zeit; insbesondere
+werden Termine nicht je Venue/Space/Organisation oder URL-Feld erneut durchlaufen. Indexaufbau, Relevanzarbeit
+und Speicherbedarf wachsen linear mit Quelle und Befunden bei fester Regelanzahl; Sortierung
+und Datenbankarbeit kommen hinzu. Im
+Aktivierungs-Scan werden Organisationszuordnungen einmal in SQL gruppiert und stabil sortiert.
+
+Work-Queue-GETs wenden Status-, Organisations-, Schlüssel- und Altersfilter, Sortierung,
+COUNT/LIMIT/OFFSET in PostgreSQL an. Python erhält nur die angeforderte Seite. Sortierung bleibt
+Alter in vollständigen Tagen absteigend, unbekanntes/zukünftiges Alter zuletzt, danach kanonischer
+Schlüssel (C-Kollation). `invited_at` bleibt die Altersbasis für Einladungen; `created_at` für
+Aktivierung beschreibt ausschließlich das Alter seit Erstellung. Grant-Richtung bleibt
+`src=to_org_uuid`, `dst=from_org_uuid`. Vollscans lesen auch saubere/erledigte Queue-Zeilen,
+damit deren Coverage für eine belegte Resolution erhalten bleibt.
+
+Ein Background Worker (`POST → 202 + run_id`, `GET /check-runs/{id}`), Streaming/Batches für
+sehr große Vollscans und produktive Lastmessungen sind Folgearbeit. Dieser PR führt weder
+Worker noch neue Uranus-Indizes ein. PostgreSQL kann für COUNT/Sortierung weiterhin viele
+Zeilen lesen; begrenzte API-Seitengröße ist keine konstante Datenbanklaufzeit.

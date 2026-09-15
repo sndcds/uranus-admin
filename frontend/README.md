@@ -39,7 +39,7 @@ invalidiert laufende Detailansichten. Das Development-Subject ist kein Uranus-Us
 | Seite | Backend |
 | --- | --- |
 | `/` und `/quality` | GET dashboard/summary und findings |
-| `/findings` | GET findings; live oder persisted, Filter/Pagination |
+| `/findings` | GET findings; Standard persisted, explizite Live-Diagnose, Filter/Pagination |
 | `/activity` | GET dashboard/activity; Typ/Organisation/Zeitraum oder separate undatierte Liste |
 | `/queues/partner_requests` | GET work-queues/partner_requests |
 | `/queues/team_invitations` | GET work-queues/team_invitations |

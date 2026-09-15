@@ -43,7 +43,7 @@ Der Bearer-Token ist kein Uranus-Benutzer. Development-Override ist in Productio
 | GET `/health`, `/ready` | Liveness / DB-Readiness; ohne Datenpreisgabe |
 | GET `/api/v1/dashboard/summary` | Neuanlagen today/24h/7d; Qualität aller implementierten Regeln |
 | GET `/api/v1/dashboard/activity` | Neuanlagenliste für neun Typen, Org-/Zeitfilter und Pagination; undatierte Bilder separat |
-| GET `/api/v1/findings` | `mode=live` oder `mode=persisted`, Severity/Typ/Regel/Org/Status/Pagination |
+| GET `/api/v1/findings` | Standard `mode=persisted`; explizite Diagnose `mode=live`, Severity/Typ/Regel/Org/Status/Pagination |
 | GET `/api/v1/quality/venues/missing-geolocation` | Bestehende Venue-Prüfung mit Adressen und Terminanzahlen |
 | GET `/api/v1/work-queues/{kind}` | partner_requests, team_invitations, user_activation |
 | GET `/api/v1/check-runs` | Persistierte Prüfläufe mit Regelabdeckung |
