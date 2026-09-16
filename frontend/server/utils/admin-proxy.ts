@@ -11,6 +11,8 @@ import {
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
+  '/api/v1/graph': ['root_type', 'root_key', 'depth', 'relation_type'],
+  '/api/v1/graph/search': ['q', 'entity_type', 'organization_id', 'limit'],
   '/auth/login': [],
   '/auth/logout': [],
   '/auth/session': [],

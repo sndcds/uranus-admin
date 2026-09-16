@@ -16,6 +16,7 @@ const links = [
   { label: 'Organisationen', icon: 'organization' },
   { label: 'Benutzer & Teams', icon: 'users' },
   { label: 'Bilder', icon: 'image' },
+  { label: 'Beziehungsgraph', icon: 'graph', to: '/graph' },
 ] as const
 </script>
 

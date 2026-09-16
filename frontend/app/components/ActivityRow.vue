@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import GraphLink from './GraphLink.vue'
 import type { ActivityItem } from '~/utils/activity'
 import { activityName, activityStatus, activityMapUrl } from '~/utils/activity'
 import { activityTime, dateTime, adminTimeZone } from '~/utils/presentation'
@@ -72,6 +73,7 @@ const status = computed(() => activityStatus(props.item.status))
           class="inline-flex items-center gap-1 rounded text-fuchsia-700 underline-offset-4 hover:underline"
           >Auf kulturbytes.de öffnen<AppIcon name="external" :size="13"
         /></a>
+        <GraphLink :entity-type="item.entity_type" :entity-key="item.entity_key" />
         <RecordMarkLink
           :entity-type="item.entity_type"
           :entity-key="item.entity_key"
