@@ -237,3 +237,16 @@ it('forwards only explicit authorization and omits ambient credentials', async (
   })
   expect(fetcher.mock.calls[0]?.[1].credentials).toBe('omit')
 })
+
+it('allows only GET on strict check job UUID detail paths', async () => {
+  const fetcher = vi.fn().mockResolvedValue(new Response('{}'))
+  const path = '/api/v1/check-runs/10000000-0000-4000-8000-000000000001'
+  expect((await forwardAdminRequest({ ...input, path }, base, fetcher)).status).toBe(200)
+  expect(
+    (await forwardAdminRequest({ ...input, path, method: 'POST' }, base, fetcher)).status,
+  ).toBe(405)
+  expect(
+    (await forwardAdminRequest({ ...input, path: '/api/v1/check-runs/not-a-uuid' }, base, fetcher))
+      .status,
+  ).toBe(404)
+})

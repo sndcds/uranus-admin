@@ -83,6 +83,7 @@ export const findingStatusLabels: Record<string, string> = {
 }
 
 export const checkStatusLabels = {
+  queued: 'Wartet auf Worker',
   running: 'Läuft',
   success: 'Erfolgreich',
   failed: 'Fehlgeschlagen',

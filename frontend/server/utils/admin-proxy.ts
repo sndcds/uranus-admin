@@ -107,11 +107,16 @@ export async function forwardAdminRequest(
     /^\/api\/v1\/record-marks\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
     )
-  const allowed = markDetail
-    ? []
-    : Object.hasOwn(routes, input.path)
-      ? routes[input.path]
-      : undefined
+  const checkDetail =
+    /^\/api\/v1\/check-runs\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      input.path,
+    )
+  const allowed =
+    markDetail || checkDetail
+      ? []
+      : Object.hasOwn(routes, input.path)
+        ? routes[input.path]
+        : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
   const authWrite = input.method === 'POST' && ['/auth/login', '/auth/logout'].includes(input.path)
   if (
@@ -212,7 +217,7 @@ export async function forwardAdminRequest(
       redirect: 'error',
       cache: 'no-store',
       credentials: 'omit',
-      signal: AbortSignal.timeout(write ? 120000 : 10000),
+      signal: AbortSignal.timeout(10000),
     })
     if (!response.ok) {
       if (response.headers.get('content-type')?.split(';')[0]?.trim() === 'application/json') {

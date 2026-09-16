@@ -11,7 +11,7 @@ class CheckRun(BaseModel):
     id: UUID
     started_at: datetime
     finished_at: datetime | None
-    status: Literal["running", "success", "failed"]
+    status: Literal["queued", "running", "success", "failed"]
     rule_count: int
     finding_count: int
     error_message: str | None

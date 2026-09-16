@@ -1106,8 +1106,8 @@
         "tags": [
           "Check runs and review"
         ],
-        "summary": "Run and persist all quality checks",
-        "description": "Runs synchronously and returns the completed run (HTTP 200). Reads a source snapshot; writes admin history only. Failed scans never resolve findings.",
+        "summary": "Queue a durable quality check",
+        "description": "Persists a queued job. A separate worker scans and commits results; poll the run for completion.",
         "operationId": "start_check_api_v1_check_runs_post",
         "security": [
           {
@@ -1115,7 +1115,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -1242,6 +1242,114 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CheckRunPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Concurrent check or review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/check-runs/{run_id}": {
+      "get": {
+        "tags": [
+          "Check runs and review"
+        ],
+        "summary": "Get check job status",
+        "operationId": "run_detail_api_v1_check_runs__run_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckRun"
                 }
               }
             }
@@ -2426,6 +2534,7 @@
           "status": {
             "type": "string",
             "enum": [
+              "queued",
               "running",
               "success",
               "failed"

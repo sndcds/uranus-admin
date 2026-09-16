@@ -15,10 +15,22 @@ check_run = sa.Table(
     sa.Column("rule_count", sa.Integer, nullable=False, server_default="0"),
     sa.Column("finding_count", sa.Integer, nullable=False, server_default="0"),
     sa.Column("error_message", sa.Text),
+    sa.Column("worker_id", UUID),
+    sa.Column("lease_until", sa.DateTime(timezone=True)),
     sa.Column("rule_results", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
-    sa.CheckConstraint("status IN ('running', 'success', 'failed')", name="check_run_status"),
+    sa.CheckConstraint(
+        "status IN ('queued', 'running', 'success', 'failed')", name="check_run_status"
+    ),
     sa.CheckConstraint("rule_count >= 0 AND finding_count >= 0", name="check_run_counts"),
     sa.CheckConstraint("finished_at >= started_at", name="check_run_timestamps"),
+)
+
+sa.Index(
+    "check_run_one_active_idx",
+    sa.literal_column("(true)"),
+    unique=True,
+    postgresql_where=check_run.c.status.in_(["queued", "running"]),
+    _table=check_run,
 )
 
 finding = sa.Table(
