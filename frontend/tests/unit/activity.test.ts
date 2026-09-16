@@ -69,11 +69,11 @@ it('keeps names prominent, organization fallback accurate, status compact and ta
   const links = wrapper.findAll('a')
   expect(links[0]!.attributes('href')).toBe(first.action!.href)
   expect(links[0]!.attributes('aria-label')).toContain(first.entity_name)
-  const mark = new URL(links[1]!.attributes('href'), 'http://test')
+  const mark = new URL(wrapper.get('a[href^="/marks"]').attributes('href'), 'http://test')
   expect(mark.pathname).toBe('/marks')
   expect(mark.searchParams.get('entity_type')).toBe(first.entity_type)
   expect(mark.searchParams.get('entity_key')).toBe(first.entity_key)
-  expect(links[1]!.text()).toBe('Markierungen & Notizen')
+  expect(wrapper.get('a[href^="/marks"]').text()).toBe('Markierungen & Notizen')
 })
 
 it('preserves a real organization and unknown status; omits unavailable action/time', () => {
@@ -82,7 +82,8 @@ it('preserves a real organization and unknown status; omits unavailable action/t
   expect(wrapper.text()).toContain('custom-source-status')
   expect(wrapper.text()).toContain('Ohne Zeitstempel')
   expect(wrapper.find('time').exists()).toBe(false)
-  expect(wrapper.findAll('a')).toHaveLength(1)
+  expect(wrapper.findAll('a')).toHaveLength(2)
+  expect(wrapper.get('a[href^="/graph"]').text()).toContain('Beziehungen anzeigen')
   expect(activityStatus(null)).toBeNull()
   for (const value of ['constructor', '__proto__', 'toString'])
     expect(activityStatus(value)).toBe(value)

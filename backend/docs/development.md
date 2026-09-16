@@ -732,3 +732,46 @@ Fehler liefern 503 ohne Roh-DB-Details. `/ready` gehört in Deployment-/Monitori
 Nur Development/Test mit aktiviertem Dev-Auth und ohne ADMIN_DATABASE_URL darf bewusst
 Source-only laufen. Staging/Production benötigt immer die vollständige Admin-Ablage.
 Eine Readiness-Prüfung authentifiziert kein Benutzerkonto und erteilt keine Admin-Rechte.
+
+## Durable quality-check worker (Migration 0006)
+
+Deploy-Reihenfolge: alte API-/Worker-Prozesse kontrolliert stoppen, Alembic mit Migrator auf
+Head bringen, Runtime-Grants prüfen, neue API und Worker starten. Keine Auto-Migration.
+0006 ergänzt queued, Worker-ID, Lease und einen Unique-Index für maximal einen aktiven Job.
+Beim Upgrade werden alte running-Zeilen failed; beim Downgrade werden queued/running-Zeilen
+failed und Lease-Metadaten entfernt. Erfolgreiche Historie/Findings bleiben erhalten. Uranus wird
+nicht verändert. 0005 ergänzt ausschließlich Retention-Indizes, Downgrade ohne Datenverlust.
+
+```bash
+cd backend
+uv run python -m app.check_worker
+# Einzelner Poll für kontrollierte Operator-/Integrationstests:
+uv run python -m app.check_worker --once
+```
+
+Der Worker benötigt dieselben getrennten DATABASE_URL (read-only) und ADMIN_DATABASE_URL
+(restricted DML) wie die API, **keinen** Migrator-/Auth-Operator-Zugang. CHECK_JOB_LEASE_SECONDS
+ist standardmäßig 120 (30–3600), Erneuerung alle lease/3 Sekunden; Poll-Intervall
+CHECK_WORKER_POLL_SECONDS standardmäßig 2. Erneuerung läuft als überwachte, vollständig
+abgewartete Worker-Aufgabe. Keine Fire-and-forget-Aufgabe im HTTP-Prozess.
+
+Mehrere Worker dürfen laufen, aber nur einer besitzt den aktiven Job. Während Scan/Heartbeat
+werden keine langfristigen DB-Locks gehalten. Bei Crash läuft die Lease ab; ein weiterer Poll
+markiert den Job failed. Ein pausierter alter Prozess könnte noch rechnen, ist jedoch durch
+Lease/Worker-ID von jeder Ergebnisspeicherung ausgeschlossen. Wiederholung bewusst neu starten.
+Bei Netzwerkfehlern endet die aktuelle Arbeit sicher; fehlen DB-Verbindungen für eine sofortige
+Fehlermarkierung, stellt der nächste Worker den Fehler nach Lease-Ablauf fest. Kein Phantom-Erfolg.
+
+Betriebsbeispiel (nur Vorlage, keine Live-Änderung):
+
+```ini
+[Service]
+WorkingDirectory=/srv/uranus-admin/backend
+EnvironmentFile=/etc/uranus-admin/worker.env
+ExecStart=/usr/local/bin/uv run python -m app.check_worker
+Restart=on-failure
+```
+
+Environment-Datei nur für den Dienst lesbar, ohne Migration-/Operator-Credentials.
+Worker-Prozess und Alter queued/running-Jobs separat überwachen: `/ready` prüft die DB-/Schema-
+Voraussetzungen der API, beweist aber nicht, dass ein externer Worker gerade läuft.

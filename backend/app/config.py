@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     uranus_timestamp_timezone: str | None = "UTC"
     admin_timezone: str = "Europe/Berlin"
     event_timezone: str = "Europe/Berlin"
+    check_job_lease_seconds: int = Field(default=120, ge=30, le=3600)
+    check_worker_poll_seconds: int = Field(default=2, ge=1, le=60)
     upcoming_days: int = Field(default=14, ge=1, le=365)
     image_orphan_grace_hours: int = Field(default=48, ge=1, le=8760)
     pending_age_days: int = Field(default=14, ge=1, le=3650)

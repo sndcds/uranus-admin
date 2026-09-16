@@ -118,16 +118,23 @@ Recheck auflösbar sind, obwohl sie nicht mehr in den offenen Vorgangslisten ste
 
 ## Check Run / Resolve Semantics
 
-`POST /api/v1/check-runs` führt einen vollständigen synchronen Scan durch. `GET /api/v1/check-runs`
-listet Läufe mit Start/Ende, Status, Regel-/Befundzahl und sanitisiertem Fehlertext. Erfolgreiche
-Läufe speichern pro Regel die konkret erfassten `(entity_type,entity_key)`-Paare in `rule_results`.
-Ein GET auf die Live-Findings speichert weiterhin nichts.
+`POST /api/v1/check-runs` committet einen `queued`-Job und liefert HTTP 202 mit dessen UUID.
+`GET /api/v1/check-runs` listet Läufe; `GET /api/v1/check-runs/{uuid}` liefert den aktuellen
+Status (`queued`, `running`, `success`, `failed`), Zeiten, Regel-/Befundzahl und sicheren Fehlertext.
+`started_at` ist die Einreihungszeit. Nur `success` belegt den atomar gespeicherten vollständigen
+Scan. Der separate Worker hält den Source-Snapshot read-only. Ein HTTP-Abbruch beendet keinen Job.
 
-Ablauf: exklusiven PostgreSQL-Advisory-Lock erwerben, running-Zeile committen, separate read-only
-Domain-Transaktion auswerten, dann Findings und erfolgreichen Laufabschluss in **einer**
-Admin-Transaktion committen. Gleichzeitige Scans/Reviews erhalten 409. Bei Prozessabbruch bleibt
-ein running-Lauf zurück; der nächste Lockinhaber markiert ihn als fehlgeschlagen. Daraus folgt
-keine automatische Behebung. Ein HTTP-Timeout ist ebenfalls kein Beleg, dass ein Lauf abgeschlossen ist.
+Claim und Queue-Zugriff sind kurze PostgreSQL-Transaktionen. Eine partielle Unique-Constraint
+(Index) erlaubt höchstens einen queued/running-Job. Der Worker erneuert eine befristete Lease;
+seine zufällige Worker-ID dient als Fencing-Token bei der finalen Ergebnisspeicherung. Kein
+Session-/Workflow-Lock wird während des Source-Scans gehalten. Erst die kurze Persistenzphase
+serialisiert mit Reviews und liest deren **aktuellen** Workflow-Zustand. Kommentare, Zuweisungen,
+Review-Autoren und Zeitstempel werden nicht durch Snapshotwerte überschrieben. Bestehende
+Snooze-/Exception-Reopen-Regeln bleiben erhalten. Bei Lease-Verlust darf ein alter Worker keine
+Findings speichern. Nach Crash markiert der nächste Worker abgelaufene running-Jobs als failed;
+ein bewusst neuer Start ist erforderlich. Queued-Jobs bleiben über Restarts ausführbar.
+Erfolgreiche Läufe speichern pro Regel die erfassten Entity-Schlüssel in `rule_results`.
+Live-Findings-GETs speichern weiterhin nichts.
 
 Ein Scanfehler bricht die gesamte Übernahme ab. Bereits ausgewertete Teilregeln werden nicht als
 Gesamterfolg ausgegeben; bestehende Findings bleiben unverändert. Ein Lauf muss genau die vollständige erwartete Regelmenge erfolgreich liefern; auch eine
@@ -237,7 +244,7 @@ Nuxt erlaubt nur die bekannten GET-Routen sowie POST check-runs und PATCH findin
 Reviewbodies werden strikt mit Zod validiert. Nur das vorgesehene Sitzungscookie sowie Auth-/Origin-/CSRF-Header werden kontrolliert
 weitergereicht; keine beliebigen Cookies/Headers, Redirects oder fremden Ziel-Origins. Bekannte API-Fehlercodes werden nur aus strengem JSON
 mit zum Code passendem Status übernommen, niemals Rohmeldungen/Tracebacks. Timeout: 10 Sekunden
-für Reads, 120 Sekunden für synchrone Admin-Schreibvorgänge; Browser wartet entsprechend länger.
+für alle Upstream-Aufrufe; Browser wartet maximal 12 Sekunden. Scans laufen im separaten Worker.
 CORS erlaubt diese Methoden nur für ausdrücklich konfigurierte Origins und Bearer-Header.
 Keine Domain-Schreiboperation, automatische URL-Reparatur oder externe Dateiabfrage entsteht daraus.
 
@@ -262,11 +269,11 @@ keinen sauberen Datenbestand. Prüfläufe und deren Status sind unter `/check-ru
 `observed_at` eines Listenabrufs ist dessen Abrufzeit, `last_seen_at` die tatsächliche Beobachtung.
 Snoozes werden erst beim nächsten erfolgreichen Recheck geöffnet, nicht durch einen GET.
 
-`POST /api/v1/check-runs` bleibt synchron (HTTP 200 mit abgeschlossenem Run). Der Proxy wartet
-für Schreibaufrufe bis zu 120 Sekunden; Timeout/Verbindungsabbruch garantiert weder Abschluss
-noch Abbruch. Vor erneutem Start den Laufstatus prüfen. Ein zusätzlicher aktiver Lauf/Review
-wird mit 409 abgewiesen. Session-Locks werden im finally freigegeben; bei I/O-Fehler oder
-Cancellation während Lock-Verwaltung wird die Verbindung aus dem Pool entfernt.
+Check-Start und Statusabfrage benötigen keinen langen HTTP-Timeout: Nitro 10 Sekunden,
+Browser 12 Sekunden. Doppelter Start liefert 409. Reviews sind während der Scanphase möglich;
+nur konkurrierende kurze Review/Persistenzphasen können einen Review-Konflikt erzeugen.
+Die UI pollt aktive Läufe alle zwei Sekunden und beendet Polling bei Abschluss, Fehler,
+Auth-Verlust oder Verlassen der Seite. Ein queued-Job ohne laufenden Worker bleibt queued.
 
 Der Kernscan liest weiterhin explizit ausgewählte Spalten vollständiger Quelltabellen. UUID-Indizes,
 Termine je Event und aggregierte Relevanz je Event/Termin/effektivem Venue/Space/Organisation
@@ -401,3 +408,18 @@ additional events, 5,000 dates and 1,000 linked images enriched 50 selected even
 `image_context_identifier_unique` and entity primary-key indexes. This is a synthetic
 preview-query measurement, not a production latency promise or a benchmark of the existing
 count/page queries. No production data or schema was changed.
+
+## Entity-Relationship Graph
+
+`GET /api/v1/graph/search` searches safe entity names/UUIDs (`q`: 2–120 trimmed characters,
+`limit`: 1–20, optional `entity_type` and `organization_id`). `GET /api/v1/graph` requires
+`root_type` and UUID `root_key`, accepts `depth=1..3` (default 2) and optional `relation_type`.
+Both use existing system-admin authorization, read-only transactions and statement timeouts.
+Graph responses contain `root`, typed `nodes`, typed `edges`, `truncated`, `max_nodes=100`,
+`max_edges=200`; search returns `items`. Identity is `type:uuid`. A missing root returns 404.
+No email, credentials or full entity records are exposed.
+
+See the [relationship contract and source table](../../frontend/docs/entity-relationship-graph.md)
+for all six node types, twelve relations, bounded traversal, public-link rules, and UI behavior.
+Pending invitations and partner requests are distinct from joined memberships and corroborated
+accepted partnerships. Effective date locations share the established Activity SQL semantics.

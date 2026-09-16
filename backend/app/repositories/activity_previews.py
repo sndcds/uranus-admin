@@ -12,11 +12,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
+from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
 
 # Only page identities enter this query. Lateral lookups use source keys and LIMIT,
 # not one application/database round trip per item. User email is explicitly admin-only;
 # credentials, activation tokens and other private fields are never selected.
-PREVIEW_SQL = """
+PREVIEW_SQL = f"""
 WITH requested AS (
  SELECT kind,key,CASE WHEN kind NOT IN ('partner_request','team_membership')
                      THEN key::uuid END id,
@@ -79,9 +80,8 @@ WITH requested AS (
         'event',e.uuid,NULL
  FROM requested r JOIN uranus.event_date d ON r.kind='event_date' AND d.uuid=r.id
  LEFT JOIN uranus.event e ON e.uuid=d.event_uuid
- LEFT JOIN uranus.venue v ON v.uuid=COALESCE(d.venue_uuid,e.venue_uuid)
- LEFT JOIN uranus.space s ON s.uuid=CASE WHEN d.venue_uuid IS NOT NULL THEN d.space_uuid
-                                       ELSE COALESCE(d.space_uuid,e.space_uuid) END
+ LEFT JOIN uranus.venue v ON v.uuid={EFFECTIVE_VENUE_SQL}
+ LEFT JOIN uranus.space s ON s.uuid={EFFECTIVE_SPACE_SQL}
  UNION ALL
  SELECT r.kind,r.key,
         CASE WHEN m.invited_at IS NOT NULL THEN 'Eingeladen: ' ||

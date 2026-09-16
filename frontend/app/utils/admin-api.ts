@@ -1,4 +1,6 @@
 import {
+  graphResponseSchema,
+  graphSearchResponseSchema,
   sessionSchema,
   logoutSchema,
   queuePageSchema,
@@ -51,7 +53,7 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
         },
         cache: 'no-store',
         credentials: credential ? 'omit' : 'same-origin',
-        signal: AbortSignal.timeout(method === 'GET' ? 12000 : 125000),
+        signal: AbortSignal.timeout(12000),
       })
     } catch {
       throw new AdminApiError(failure(502))
@@ -82,6 +84,10 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
     onAccessLost(callback: (status: number) => void) {
       accessLost = callback
     },
+    graph: (query: Record<string, string | number | undefined>) =>
+      request('/api/v1/graph', graphResponseSchema, query),
+    graphSearch: (query: Record<string, string | number | undefined>) =>
+      request('/api/v1/graph/search', graphSearchResponseSchema, query),
     session: () => request('/auth/session', sessionSchema),
     login: async (login: string, password: string) => {
       const identity = await request('/auth/login', sessionSchema, {}, 'POST', { login, password })
@@ -106,6 +112,8 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
     queue: (kind: string, query: Record<string, string | number | undefined>) =>
       request(`/api/v1/work-queues/${kind}`, queuePageSchema, query),
     checkRuns: (page = 1) => request('/api/v1/check-runs', checkRunPageSchema, { page }),
+    checkRun: (id: string) =>
+      request(`/api/v1/check-runs/${encodeURIComponent(id)}`, checkRunSchema),
     runCheck: () => request('/api/v1/check-runs', checkRunSchema, {}, 'POST', {}),
     review: (body: ReviewUpdate) =>
       request('/api/v1/finding-reviews', findingSchema, {}, 'PATCH', body),

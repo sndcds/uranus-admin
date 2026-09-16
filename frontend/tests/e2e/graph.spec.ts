@@ -1,0 +1,82 @@
+import { test, expect } from '@playwright/test'
+import { graphFixture, graphPath } from '../fixtures/graph'
+
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/admin/auth/session', (route) =>
+    route.fulfill({ json: { subject: 'admin:test-only-operator', system_admin: true } }),
+  )
+  await page.route('**/api/admin/api/v1/graph**', (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/search'))
+      return route.fulfill({ json: { items: [graphFixture.nodes[0]] } })
+    const type = url.searchParams.get('root_type') ?? 'organization'
+    const key = url.searchParams.get('root_key') ?? graphFixture.root.key
+    return route.fulfill({ json: { ...graphFixture, root: { type, key } } })
+  })
+})
+
+test('search, explore, select, filter and navigate back', async ({ page }, info) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.goto('/graph')
+  await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Zusammenhänge entdecken' })).toBeVisible()
+  await page.getByLabel('Nach Name oder UUID suchen', { exact: true }).fill('Rendsburg')
+  await page
+    .getByRole('button', { name: 'Kulturzentrum Rendsburg e.V. Organisation', exact: true })
+    .click()
+  await expect(page.locator('.graph-node')).toHaveCount(12)
+  await expect(page.getByRole('heading', { name: 'Kulturzentrum Rendsburg e.V.' })).toBeVisible()
+  const node = page.locator('.graph-node').filter({ hasText: 'Max Mustermann' })
+  await node.focus()
+  await page.keyboard.press('Enter')
+  const panel = page.getByRole('complementary', { name: 'Knotendetails' })
+  await expect(panel.getByRole('heading', { name: 'Max Mustermann' })).toBeVisible()
+  await panel.getByRole('button', { name: /Kulturzentrum Rendsburg e.V./ }).click()
+  await expect(panel.getByRole('heading', { name: 'Kulturzentrum Rendsburg e.V.' })).toBeVisible()
+  await page.getByRole('button', { name: 'Vergrößern', exact: true }).click()
+  await page.getByRole('button', { name: 'Ansicht einpassen', exact: true }).click()
+  await page.getByLabel('Entitätstypen', { exact: true }).selectOption('venue')
+  await page.getByRole('button', { name: 'Anwenden', exact: true }).click()
+  await expect(page.locator('.graph-node')).toHaveCount(3)
+  await page.goBack()
+  await expect(page.locator('.graph-node')).toHaveCount(12)
+  expect(errors).toEqual([])
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
+  await page.screenshot({ path: info.outputPath('relationship-graph.png'), fullPage: true })
+})
+
+test('deep link and selected node as new root', async ({ page }) => {
+  await page.goto(graphPath)
+  await expect(page.locator('.graph-node')).toHaveCount(12)
+  await page.locator('.graph-node').filter({ hasText: 'Max Mustermann' }).click()
+  await page.getByRole('button', { name: 'Als Ausgangspunkt verwenden', exact: true }).click()
+  await expect(page).toHaveURL(/root_type=user/)
+  await expect(
+    page
+      .getByRole('complementary', { name: 'Knotendetails' })
+      .getByRole('heading', { name: 'Max Mustermann' }),
+  ).toBeVisible()
+})
+
+test('truncation, failure and empty results are explicit', async ({ page }) => {
+  await page.route('**/api/admin/api/v1/graph?**', (route) =>
+    route.fulfill({ json: { ...graphFixture, truncated: true } }),
+  )
+  await page.goto(graphPath)
+  await expect(page.getByText(/Darstellung begrenzt:/)).toBeVisible()
+  await page.route('**/api/admin/api/v1/graph/search?**', (route) =>
+    route.fulfill({ json: { items: [] } }),
+  )
+  await page.getByLabel('Nach Name oder UUID suchen', { exact: true }).fill('missing')
+  await expect(page.getByText('Keine passenden Datensätze gefunden.')).toBeVisible()
+  await page.route('**/api/admin/api/v1/graph?**', (route) =>
+    route.fulfill({
+      status: 503,
+      json: { error: { code: 'database_unavailable', message: 'Unavailable' } },
+    }),
+  )
+  await page.reload()
+  await expect(page.getByRole('alert')).toContainText('Abruf fehlgeschlagen')
+  await expect(page.locator('.graph-node')).toHaveCount(0)
+})

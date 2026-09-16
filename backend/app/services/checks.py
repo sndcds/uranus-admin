@@ -1,7 +1,7 @@
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import case, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
@@ -19,8 +19,9 @@ from app.services.quality.engine import scan
 from app.services.quality.priority import priority_details
 from app.services.queues import QUEUE_RULES
 
-# Session lock survives the initial committed 'running' row. Scans and reviews serialize.
+# Short persistence/review critical section only; scanning never holds this lock.
 LOCK_KEY = 723114905
+QUEUE_LOCK_KEY = 723114906
 
 # Explicit labels keep result mappings independent of physical legacy column names.
 FINDING_COLUMNS = tuple(column.label(column.key) for column in finding.c)
@@ -127,82 +128,193 @@ async def persist_results(
                     )
 
 
+async def enqueue_check(admin: AsyncConnection) -> CheckRun:
+    async with admin.begin():
+        await admin.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": QUEUE_LOCK_KEY})
+        if (
+            await admin.execute(
+                select(check_run.c.id).where(check_run.c.status.in_(["queued", "running"]))
+            )
+        ).first():
+            raise APIError(409, "check_run_conflict", "A check is already queued or running.")
+        row = (
+            (
+                await admin.execute(
+                    insert(check_run)
+                    .values(id=uuid4(), started_at=datetime.now(UTC), status="queued")
+                    .returning(check_run)
+                )
+            )
+            .mappings()
+            .one()
+        )
+        return CheckRun.model_validate(dict(row))
+
+
+async def claim_check(admin: AsyncConnection, settings: Settings) -> tuple[UUID, UUID] | None:
+    async with admin.begin():
+        await admin.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": QUEUE_LOCK_KEY})
+        await admin.execute(
+            update(check_run)
+            .where(
+                check_run.c.status == "running",
+                check_run.c.lease_until <= func.clock_timestamp(),
+            )
+            .values(
+                status="failed",
+                finished_at=func.clock_timestamp(),
+                error_message="Worker interrupted; no findings resolved.",
+                lease_until=None,
+                worker_id=None,
+            )
+        )
+        run_id = (
+            await admin.execute(
+                select(check_run.c.id)
+                .where(check_run.c.status == "queued")
+                .order_by(check_run.c.started_at)
+                .limit(1)
+                .with_for_update(skip_locked=True)
+            )
+        ).scalar_one_or_none()
+        if run_id is None:
+            return None
+        worker_id = uuid4()
+        await admin.execute(
+            update(check_run)
+            .where(check_run.c.id == run_id)
+            .values(
+                status="running",
+                worker_id=worker_id,
+                lease_until=func.clock_timestamp()
+                + timedelta(seconds=settings.check_job_lease_seconds),
+            )
+        )
+        return run_id, worker_id
+
+
+async def renew_lease(
+    admin: AsyncConnection, settings: Settings, run_id: UUID, worker_id: UUID
+) -> bool:
+    async with admin.begin():
+        result = await admin.execute(
+            update(check_run)
+            .where(
+                check_run.c.id == run_id,
+                check_run.c.worker_id == worker_id,
+                check_run.c.status == "running",
+                check_run.c.lease_until > func.clock_timestamp(),
+            )
+            .values(
+                lease_until=func.clock_timestamp()
+                + timedelta(seconds=settings.check_job_lease_seconds)
+            )
+        )
+        return result.rowcount == 1
+
+
+async def fail_job(admin: AsyncConnection, run_id: UUID, worker_id: UUID) -> None:
+    if admin.in_transaction():
+        await admin.rollback()
+    async with admin.begin():
+        await admin.execute(
+            update(check_run)
+            .where(
+                check_run.c.id == run_id,
+                check_run.c.worker_id == worker_id,
+                check_run.c.status == "running",
+            )
+            .values(
+                status="failed",
+                finished_at=func.clock_timestamp(),
+                error_message="Check interrupted or failed; no findings resolved.",
+                worker_id=None,
+                lease_until=None,
+            )
+        )
+
+
+async def execute_check(
+    source: AsyncConnection,
+    admin: AsyncConnection,
+    settings: Settings,
+    run_id: UUID,
+    worker_id: UUID,
+) -> CheckRun:
+    try:
+        results = await scan(source, settings, datetime.now(UTC))
+        expected_rules = {RULE, *CORE_RULES, *QUEUE_RULES}
+        if (
+            len(results) != len(expected_rules)
+            or {result.rule for result in results} != expected_rules
+            or not all(result.success for result in results)
+        ):
+            raise RuntimeError("Incomplete scan")
+        async with admin.begin():
+            # Only this short transaction serializes with human review. The fresh rows
+            # read by persist_results retain reviews made while the source scan ran.
+            await admin.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": LOCK_KEY})
+            owned = (
+                await admin.execute(
+                    select(check_run.c.id)
+                    .where(
+                        check_run.c.id == run_id,
+                        check_run.c.worker_id == worker_id,
+                        check_run.c.status == "running",
+                        check_run.c.lease_until > func.clock_timestamp(),
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if owned is None:
+                raise RuntimeError("Worker lease lost")
+            finished = datetime.now(UTC)
+            await persist_results(admin, results, finished)
+            await admin.execute(
+                update(check_run)
+                .where(check_run.c.id == run_id)
+                .values(
+                    status="success",
+                    finished_at=finished,
+                    rule_count=len(results),
+                    finding_count=sum(len(result.findings) for result in results),
+                    worker_id=None,
+                    lease_until=None,
+                    rule_results={
+                        result.rule: {
+                            "success": True,
+                            "covered": [list(key) for key in sorted(result.covered)],
+                            "finding_count": len(result.findings),
+                        }
+                        for result in results
+                    },
+                )
+            )
+    except BaseException as exc:
+        logging.getLogger("admin.checks").error(
+            "check_failed", extra={"error_type": type(exc).__name__}
+        )
+        await fail_job(admin, run_id, worker_id)
+        if not isinstance(exc, Exception):
+            raise
+    async with admin.begin():
+        row = (
+            (await admin.execute(select(check_run).where(check_run.c.id == run_id)))
+            .mappings()
+            .one()
+        )
+        return CheckRun.model_validate(dict(row))
+
+
 async def run_check(
     source: AsyncConnection, admin: AsyncConnection, settings: Settings
 ) -> CheckRun:
-    await lock(admin)
-    run_id = uuid4()
-    started = datetime.now(UTC)
-    try:
-        async with admin.begin():
-            # An interrupted process left running rows. Lock ownership proves no active peer run.
-            await admin.execute(
-                update(check_run)
-                .where(check_run.c.status == "running")
-                .values(
-                    status="failed",
-                    finished_at=started,
-                    error_message="Check interrupted; no automatic resolution.",
-                )
-            )
-            await admin.execute(
-                insert(check_run).values(id=run_id, started_at=started, status="running")
-            )
-        try:
-            results = await scan(source, settings, started)
-            expected_rules = {RULE, *CORE_RULES, *QUEUE_RULES}
-            if (
-                len(results) != len(expected_rules)
-                or {result.rule for result in results} != expected_rules
-                or not all(result.success for result in results)
-            ):
-                raise RuntimeError("Incomplete scan")
-            finished = datetime.now(UTC)
-            async with admin.begin():
-                await persist_results(admin, results, finished)
-                await admin.execute(
-                    update(check_run)
-                    .where(check_run.c.id == run_id)
-                    .values(
-                        status="success",
-                        finished_at=finished,
-                        rule_count=len(results),
-                        finding_count=sum(len(result.findings) for result in results),
-                        rule_results={
-                            result.rule: {
-                                "success": True,
-                                "covered": [list(key) for key in sorted(result.covered)],
-                                "finding_count": len(result.findings),
-                            }
-                            for result in results
-                        },
-                    )
-                )
-        except Exception as exc:
-            logging.getLogger("admin.checks").error(
-                "check_failed", extra={"error_type": type(exc).__name__}
-            )
-            if admin.in_transaction():
-                await admin.rollback()
-            async with admin.begin():
-                await admin.execute(
-                    update(check_run)
-                    .where(check_run.c.id == run_id)
-                    .values(
-                        status="failed",
-                        finished_at=datetime.now(UTC),
-                        error_message="Check failed; no findings resolved.",
-                    )
-                )
-        async with admin.begin():
-            row = (
-                (await admin.execute(select(check_run).where(check_run.c.id == run_id)))
-                .mappings()
-                .one()
-            )
-            return CheckRun.model_validate(dict(row))
-    finally:
-        await unlock(admin)
+    """In-process worker entry used by integration tests; never called by an HTTP route."""
+    await enqueue_check(admin)
+    job = await claim_check(admin, settings)
+    if job is None:
+        raise APIError(409, "check_run_conflict", "Another worker claimed this check.")
+    return await execute_check(source, admin, settings, *job)
 
 
 def stored_finding(row: dict[str, Any]) -> Finding:

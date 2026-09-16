@@ -13,29 +13,40 @@ from app.schemas.finding import Pagination
 from app.services.periods import period_window
 
 # All source identifiers are constants. No projection, password, invitation or import tokens.
-ACTIVITY_SQL = """
+ENTITY_ACTIVITY_SQL = {
+    "organization": """
 SELECT 'organization'::text entity_type, o.uuid::text entity_key, o.name entity_name,
        o.uuid organization_id, o.name organization_name, o.created_at, NULL::text status
 FROM uranus.organization o
-UNION ALL
+""",
+    "venue": """
 SELECT 'venue', v.uuid::text, v.name, o.uuid, o.name, v.created_at, NULL
 FROM uranus.venue v LEFT JOIN uranus.organization o ON o.uuid=v.org_uuid
-UNION ALL
+""",
+    "space": """
 SELECT 'space', s.uuid::text, s.name, o.uuid, o.name, s.created_at, NULL
 FROM uranus.space s LEFT JOIN uranus.venue v ON v.uuid=s.venue_uuid
 LEFT JOIN uranus.organization o ON o.uuid=v.org_uuid
-UNION ALL
+""",
+    "event": """
 SELECT 'event', e.uuid::text, e.title, o.uuid, o.name, e.created_at, e.release_status::text
 FROM uranus.event e LEFT JOIN uranus.organization o ON o.uuid=e.org_uuid
-UNION ALL
+""",
+    "event_date": """
 SELECT 'event_date', d.uuid::text, COALESCE(e.title,d.uuid::text), o.uuid, o.name,
        d.created_at, COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text)
 FROM uranus.event_date d LEFT JOIN uranus.event e ON e.uuid=d.event_uuid
 LEFT JOIN uranus.organization o ON o.uuid=e.org_uuid
-UNION ALL
+""",
+    "user": """
 SELECT 'user', u.uuid::text, COALESCE(u.display_name,u.username,u.uuid::text), NULL, NULL,
        u.created_at, CASE WHEN u.is_active THEN 'active' ELSE 'inactive' END
 FROM uranus."user" u
+""",
+}
+ACTIVITY_SQL = (
+    "\nUNION ALL\n".join(ENTITY_ACTIVITY_SQL.values())
+    + """
 UNION ALL
 SELECT 'partner_request', 'partner-request:'||p.from_org_uuid||':'||p.to_org_uuid,
        COALESCE(f.name,p.from_org_uuid::text)||' → '||COALESCE(t.name,p.to_org_uuid::text),
@@ -53,6 +64,7 @@ UNION ALL
 SELECT 'image', i.uuid::text, COALESCE(i.alt_text,i.uuid::text), NULL,NULL,i.created_at,NULL
 FROM uranus.pluto_image i
 """
+)
 
 
 async def activity_page(

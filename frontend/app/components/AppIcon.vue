@@ -1,5 +1,11 @@
 <script setup lang="ts">
 import {
+  Network,
+  Search,
+  Minus,
+  Maximize,
+  Settings2,
+  Copy,
   House,
   DoorOpen,
   User,
@@ -25,6 +31,12 @@ import {
   LogOut,
 } from '@lucide/vue'
 const icons = {
+  graph: Network,
+  search: Search,
+  minus: Minus,
+  fit: Maximize,
+  settings: Settings2,
+  copy: Copy,
   home: House,
   space: DoorOpen,
   user: User,
