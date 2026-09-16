@@ -110,8 +110,9 @@ Auth-Verlust verworfen; erfolgreiche Neuanmeldung löst einen neuen Abruf aus.
 
 Argon2id verwendet 64 MiB, drei Durchläufe, Parallelität zwei. Kontoanlage verlangt 15–1024 Zeichen,
 keine stillschweigende Kürzung. Unbekannte Logins erhalten eine Dummy-Hash-Prüfung. Datenbank-
-Limits gelten pro normalisiertem Login (zehn Versuche/5 Minuten) und global (120/5 Minuten), auch
-über mehrere Worker. Je Worker sind maximal vier gleichzeitige Passwortprüfungen zugelassen.
+Limits gelten zuerst pro Quelle (20 Versuche/5 Minuten), dann pro normalisiertem Login
+(zehn/5 Minuten), zuletzt als Überlastsicherung global (1200/5 Minuten), über alle Worker.
+Abgewiesene Quellen verbrauchen keine weiteren Login- oder globalen Slots. Je Worker sind maximal vier gleichzeitige Passwortprüfungen zugelassen.
 Limits schützen die Hash-Prüfung, ersetzen aber kein vorgelagertes Request-/Body-Limit.
 
 Auth-Fehler enthalten keine Credentials, Roh-DB-Fehler oder verketteten Driver-Exceptions, auch
@@ -147,3 +148,30 @@ Kein MFA, SSO oder Self-Service-Passwortreset in dieser Umsetzung. Kontowiederhe
 es gibt keinen flüchtigen prozesslokalen Sitzungsspeicher. Abgelaufene Sitzungen und Limit-Buckets
 müssen betrieblich bereinigt werden. Absichtliche Loginversuche können das zeitlich begrenzte
 Limit eines Kontos auslösen; Betreiber können die Bucket-Zeile kontrolliert entfernen.
+
+## Login-Limits: Quelle, Proxy-Vertrauen und Speichergrenze
+
+FastAPI verwendet ausschließlich `Request.client.host`, keine selbst geparsten Forwarded-Header.
+Direkter Betrieb: Uvicorn mit `--no-proxy-headers`. Hinter Nitro: `--proxy-headers` und
+`--forwarded-allow-ips=<exakte Nitro-Peer-IP>`; niemals `*`. FastAPI nur für diesen Proxy
+bzw. das private Netz erreichbar machen. Nitro ersetzt X-Forwarded-For durch eine einzelne
+validierte IP aus dem Socket. Vom Browser gelieferte XFF-Ketten werden nie weitergereicht.
+
+Bei vorgeschaltetem Nginx muss `NUXT_TRUSTED_INGRESS_IPS` ausschließlich dessen tatsächliche
+Socket-Peer-IPs enthalten (kommagetrennt, inklusive IPv4-mapped IPv6 falls verwendet).
+Nur von diesen Peers übernimmt Nitro `X-Real-IP`. Der Ingress muss diesen Header mit der
+verifizierten Client-IP **überschreiben**, niemals einen Client-Header übernehmen. Ohne diese
+explizite Konfiguration teilen Nutzer hinter einem Proxy dessen Quellenlimit. Die Defaultliste
+ist leer. Diese Einstellung verändert keine Live-Proxy-Konfiguration.
+
+Login und Quelle werden unabhängig auf jeweils 65536 SHA-256-Partitionen abgebildet.
+Damit können neue Versuche höchstens 131073 Bucket-Zeilen erzeugen, auch ohne Cleanup.
+Kollisionen verschärfen Limits konservativ; sie umgehen keine Limits und verraten keine Konten.
+IPv6-Adressen zählen als einzelne Quellen; verteilte Angriffe trifft weiterhin die globale Grenze.
+Ein gezielter Angriff auf einen bekannten Login kann dessen Limit erreichen; andere Logins und
+Quellen bleiben bis zur echten globalen Überlastgrenze erreichbar.
+
+Abgelaufene Buckets dürfen mit `cleanup_login_buckets(connection, batch_size)` innerhalb einer
+Operator-Transaktion entfernt werden (1–5000 Zeilen, `SKIP LOCKED`, idempotent). Der Runtime
+werden dafür keine DELETE-Rechte erteilt. Regelmäßige Maintenance entfernt auch alte Buckets aus
+früheren Versionen; die feste Partitionierung begrenzt neues Wachstum unabhängig davon.

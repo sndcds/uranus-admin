@@ -8,6 +8,7 @@ import {
   markCreateSchema,
   markUpdateSchema,
 } from '#shared/contracts'
+import { isIP } from 'node:net'
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
@@ -80,6 +81,7 @@ export interface ProxyInput {
   path: string
   method: string
   query: URLSearchParams
+  clientIp?: string
   authorization?: string
   sessionCookie?: string
   origin?: string
@@ -197,6 +199,7 @@ export async function forwardAdminRequest(
   try {
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (requestBody) headers['Content-Type'] = 'application/json'
+    if (input.clientIp && isIP(input.clientIp)) headers['X-Forwarded-For'] = input.clientIp
     if (input.authorization) headers.Authorization = input.authorization
     if (cookie && (input.path.startsWith('/api/') || input.path.startsWith('/auth/')))
       headers.Cookie = cookie

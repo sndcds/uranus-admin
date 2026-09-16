@@ -1,3 +1,4 @@
+import { sourceIp } from '../../utils/source-ip'
 import { forwardAdminRequest } from '../../utils/admin-proxy'
 
 export default defineEventHandler(async (event) => {
@@ -23,6 +24,11 @@ export default defineEventHandler(async (event) => {
       method: event.method,
       body,
       query: getRequestURL(event).searchParams,
+      clientIp: sourceIp(
+        event.node.req.socket.remoteAddress,
+        getHeader(event, 'x-real-ip'),
+        config.trustedIngressIps,
+      ),
       authorization: getHeader(event, 'authorization'),
       sessionCookie: sessionToken ? `${cookieName}=${sessionToken}` : undefined,
       origin: getHeader(event, 'origin'),

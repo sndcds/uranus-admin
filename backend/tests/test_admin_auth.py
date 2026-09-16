@@ -339,3 +339,64 @@ def test_every_administrative_route_uses_the_same_authorization_dependency():
             assert any(
                 dependency.call is get_current_admin for dependency in route.dependant.dependencies
             ), route.path
+
+
+async def test_source_limit_precedes_global_and_bounds_unknown_buckets(auth_client):
+    from app.admin_tables import auth_login_bucket
+    from app.auth.service import rate_limit
+    from app.errors import APIError
+
+    _, owner, _ = auth_client
+    # Separate connections model separate workers. An exhausted source cannot consume
+    # additional login/global slots, even with arbitrary new account names.
+    for i in range(100):
+        async with owner.connect() as conn:
+            if i < 20:
+                await rate_limit(conn, f"unknown-{i}", "192.0.2.1")
+            else:
+                with pytest.raises(APIError) as error:
+                    await rate_limit(conn, f"unknown-{i}", "192.0.2.1")
+                assert error.value.status == 429
+    async with owner.connect() as conn:
+        await rate_limit(conn, "legitimate", "192.0.2.2")
+        rows = (await conn.execute(select(auth_login_bucket))).mappings().all()
+        assert len(rows) <= 24
+        assert next(row for row in rows if row["key"] == digest("global"))["attempts"] == 21
+
+
+async def test_shared_global_guard_and_bounded_bucket_cleanup(auth_client):
+    from app.admin_tables import auth_login_bucket
+    from app.auth.service import cleanup_login_buckets, rate_limit
+    from app.errors import APIError
+
+    _, owner, _ = auth_client
+    async with owner.begin() as conn:
+        await conn.execute(
+            insert(auth_login_bucket).values(
+                key=digest("global"),
+                attempts=1200,
+                window_end=datetime.now(UTC) + timedelta(minutes=5),
+            )
+        )
+
+    async def attempt(index):
+        async with owner.connect() as conn:
+            with pytest.raises(APIError):
+                await rate_limit(conn, f"distributed-{index}", f"192.0.2.{index}")
+
+    await asyncio.gather(*(attempt(i) for i in range(1, 5)))
+    async with owner.begin() as conn:
+        await conn.execute(
+            update(auth_login_bucket).values(window_end=datetime.now(UTC) - timedelta(seconds=1))
+        )
+        assert await cleanup_login_buckets(conn, 2) == 2
+        assert await cleanup_login_buckets(conn, 500) > 0
+        assert await cleanup_login_buckets(conn, 500) == 0
+
+
+def test_bucket_cardinality_is_fixed():
+    from app.auth.service import BUCKET_PARTITIONS, bucket_key
+
+    assert BUCKET_PARTITIONS == 65536
+    assert bucket_key("login", "operator") == bucket_key("login", "operator")
+    assert bucket_key("source", "operator") != bucket_key("login", "operator")
