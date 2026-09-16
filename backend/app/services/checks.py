@@ -197,6 +197,19 @@ async def renew_lease(
     admin: AsyncConnection, settings: Settings, run_id: UUID, worker_id: UUID
 ) -> bool:
     async with admin.begin():
+        owned = select(check_run.c.id).where(
+            check_run.c.id == run_id,
+            check_run.c.worker_id == worker_id,
+            check_run.c.status == "running",
+        )
+        available = (
+            await admin.execute(owned.with_for_update(skip_locked=True))
+        ).scalar_one_or_none()
+        if available is None:
+            # Final persistence holds the owned row lock until its atomic commit.
+            # Do not wait behind it and cancel a healthy worker on command timeout.
+            # This read never extends an expired lease or permits stale persistence.
+            return (await admin.execute(owned)).scalar_one_or_none() is not None
         result = await admin.execute(
             update(check_run)
             .where(

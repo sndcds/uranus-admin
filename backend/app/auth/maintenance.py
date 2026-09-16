@@ -5,9 +5,10 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, or_, select
-from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.admin_tables import auth_session
+from app.auth.diagnostics import operator_boundary, operator_engine, safe_error
 from app.auth.service import cleanup_login_buckets
 from app.config import Settings
 from app.storage_preflight import check_grants, check_schema
@@ -44,18 +45,12 @@ async def cleanup_batch(
 async def cleanup(settings: Settings, batch_size: int, max_batches: int) -> dict[str, int]:
     if not 1 <= max_batches <= 1000 or not 1 <= batch_size <= 5000:
         raise ValueError("Cleanup bounds invalid")
-    if settings.admin_auth_management_database_url is None:
-        raise ValueError("Set ADMIN_AUTH_MANAGEMENT_DATABASE_URL for maintenance")
-    engine = create_async_engine(
-        settings.admin_auth_management_database_url.get_secret_value(),
-        hide_parameters=True,
-        echo=False,
-        connect_args={"timeout": 10, "command_timeout": 30},
-    )
+    engine = operator_engine(settings)
     totals = {"sessions": 0, "buckets": 0}
     try:
         async with engine.begin() as conn:
             await check_schema(conn)
+            await operator_boundary(conn)
             await check_grants(
                 conn,
                 {
@@ -83,10 +78,8 @@ def main() -> None:
     args = parser.parse_args()
     try:
         totals = asyncio.run(cleanup(Settings(), args.batch_size, args.max_batches))
-    except Exception:
-        raise SystemExit(
-            "Auth cleanup failed; check maintenance grants, configuration and migrations."
-        ) from None
+    except Exception as error:
+        raise SystemExit(safe_error(error)) from None
     print(f"Removed sessions: {totals['sessions']}; buckets: {totals['buckets']}")
 
 

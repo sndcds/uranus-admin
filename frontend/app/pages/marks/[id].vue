@@ -111,7 +111,7 @@ onBeforeUnmount(() => {
           Erledigt am {{ dateTime(data.completed_at) }} · von {{ data.completed_by }}
         </p>
         <GraphLink :entity-type="data.entity_type" :entity-key="data.entity_key" />
-      <RecordMarkLink :entity-type="data.entity_type" :entity-key="data.entity_key" />
+        <RecordMarkLink :entity-type="data.entity_type" :entity-key="data.entity_key" />
       </div>
       <form class="rounded-2xl border border-slate-200 bg-white p-4" @submit.prevent="save">
         <fieldset :disabled="saving" class="space-y-4">

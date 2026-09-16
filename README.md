@@ -47,13 +47,20 @@ operative Arbeitslisten sowie optionale persistierte Prüfläufe und Reviews sin
 Die neue Admin-Schreibverbindung verwaltet ausschließlich eigene Metadaten; Uranus bleibt read-only.
 Globale Admin-Autorisierung wird ausdrücklich in der separaten Admin-Berechtigungstabelle vergeben.
 
-Die optionale Ablage erfordert Admin-Migration `0002` und einen separat eingeschränkten
+Die Admin-Ablage erfordert den aktuellen Alembic-Head und einen separat eingeschränkten
 `ADMIN_DATABASE_URL`-Account. Ohne Ablage bleibt explizites `mode=live`-Reporting mit lokalem Dev-Token nutzbar; normale Listen und Dashboard
 verwenden gespeicherte Findings und benötigen die Admin-Ablage.
 Details: [Backend-Verträge](backend/docs/contracts.md),
 [verifizierter Uranus-dev-Stand](backend/docs/source-verification.md).
 Frontend und Backend werden in getrennten CI-Jobs geprüft, einschließlich Frontend-Produktionsbuild
-und reproduzierbarer Chromium-Tests.
+und reproduzierbarer Chromium-Tests. Zusätzlich prüfen CodeQL (Python/JS/TS) und
+Dependency Review (neue high/critical Sicherheitslücken) Änderungen; siehe
+[CI-Gates und Berechtigungen](backend/docs/development.md#security-gates).
+
+Qualitätsprüfungen werden dauerhaft eingereiht (HTTP 202). Zusätzlich zur API muss der
+[Check-Worker](backend/docs/development.md#durable-quality-check-worker-migration-0006)
+mit `cd backend && uv run python -m app.check_worker` laufen. Migration 0006 und Runtime-Grants
+vor dem Start prüfen; ohne Worker bleiben neue Jobs in der Warteschlange.
 
 
 ## Markierungen und Notizen

@@ -712,3 +712,31 @@ async def test_worker_cancellation_marks_job_failed(admin_store, database, setti
     finally:
         await source.dispose()
         await admin.dispose()
+
+
+async def test_heartbeat_does_not_block_final_persistence(admin_store, settings):
+    import asyncio
+    from uuid import uuid4
+
+    from sqlalchemy import select
+
+    from app.admin_database import create_admin_engine
+    from app.admin_tables import check_run
+    from app.services.checks import claim_check, enqueue_check, renew_lease
+
+    await enqueue_check(admin_store)
+    job = await claim_check(admin_store, settings)
+    assert job
+    engine = create_admin_engine(settings)
+    try:
+        async with engine.connect() as peer:
+            async with admin_store.begin():
+                # execute_check holds this lock while saving all findings atomically.
+                await admin_store.execute(
+                    select(check_run.c.id).where(check_run.c.id == job[0]).with_for_update()
+                )
+                assert await asyncio.wait_for(renew_lease(peer, settings, *job), 1)
+                assert not await asyncio.wait_for(renew_lease(peer, settings, job[0], uuid4()), 1)
+            assert await renew_lease(peer, settings, *job)
+    finally:
+        await engine.dispose()

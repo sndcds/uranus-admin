@@ -74,7 +74,7 @@ const status = computed(() => activityStatus(props.item.status))
           >Auf kulturbytes.de öffnen<AppIcon name="external" :size="13"
         /></a>
         <GraphLink :entity-type="item.entity_type" :entity-key="item.entity_key" />
-      <RecordMarkLink
+        <RecordMarkLink
           :entity-type="item.entity_type"
           :entity-key="item.entity_key"
           :aria-label="`Markierungen & Notizen zu ${name}`"

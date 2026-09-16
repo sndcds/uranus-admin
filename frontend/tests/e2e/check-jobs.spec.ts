@@ -18,6 +18,7 @@ test('durable check goes from queued to running and success independently of sta
   await page.route('**/api/admin/api/v1/check-runs**', (route) => {
     if (route.request().method() === 'POST') {
       started = true
+      polls = 0
       return route.fulfill({ status: 202, json: job })
     }
     const status = polls++ < 2 ? 'queued' : polls < 4 ? 'running' : 'success'
@@ -29,6 +30,7 @@ test('durable check goes from queued to running and success independently of sta
     })
   })
   await page.goto('/checks')
+  await expect(page.getByText('Noch keine gespeicherten Prüfläufe.')).toBeVisible()
   await page.getByRole('button', { name: 'Prüflauf starten' }).click()
   await expect(page.getByText('Wartet auf Worker', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Prüfung läuft …' })).toBeDisabled()

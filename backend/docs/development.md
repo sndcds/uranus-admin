@@ -163,8 +163,8 @@ Umgebung: daraus keine Produktionslaufzeit ableiten. Für größere anonymisiert
 ## CI
 
 Der Workflow [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) läuft bei jedem
-Push und Pull Request. Vor einem Merge müssen alle vier Jobs für den aktuellen PR-Stand
-erfolgreich sein:
+Push und Pull Request. Vor einem Merge müssen alle vier funktionalen Jobs und die
+Security-Prüfungen für den aktuellen PR-Stand erfolgreich sein:
 
 | Job | Arbeitsverzeichnis | Prüfungen |
 | --- | --- | --- |
@@ -176,6 +176,36 @@ erfolgreich sein:
 Dies sind die im Workflow ausgeführten Merge-Prüfungen. Ob GitHub sie technisch als
 Required Status Checks erzwingt, wird separat durch Branch Protection bzw. Repository-Rulesets
 festgelegt; diese Einstellungen sind nicht in der Workflow-Datei definiert.
+
+### Security gates
+
+[security.yml](../../.github/workflows/security.yml) ist die maßgebliche CodeQL-Konfiguration.
+GitHub Default Setup wurde am 16.09.2026 über die Repository-API geprüft: `not-configured`.
+Deshalb eigener Workflow für Python und JavaScript/TypeScript, keine parallele Default-Konfiguration.
+Er läuft für PRs, Pushes auf main und wöchentlich. Beide Sprachen verwenden `build-mode: none`:
+keine Installation oder Ausführung fremder PR-Paketskripte mit dem CodeQL-Upload-Token.
+
+Dependency Review läuft für Pull Requests und scheitert bei neu eingeführten **high/critical**
+Vulnerabilities. Moderate/low werden nicht zum Gate erhoben. Das Repository ist öffentlich;
+[GitHub unterstützt Dependency Review dafür](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependency-review).
+Voraussetzung ist der aktivierte **Dependency graph** unter Repository Settings → Advanced
+Security. Meldet der Job „Dependency review is not supported … ensure that Dependency graph
+is enabled“, muss ein Repository-Administrator diese Einstellung aktivieren und den Job erneut
+starten. Aktivierte Dependabot-Alerts allein belegen diese Voraussetzung nicht. Die Anleitung
+[Dependency graph aktivieren](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/enable-dependency-graph)
+beschreibt die Repository-Einstellung. Fehlende Features/Berechtigungen werden nicht per
+`continue-on-error` verborgen; der PR bleibt bis zur erfolgreichen Prüfung nicht mergebereit.
+
+Alle Actions sind auf Commit-SHAs fixiert. Token standardmäßig nur `contents: read`; ausschließlich
+CodeQL darf Security-Ergebnisse hochladen (`security-events: write`). Dependency Review benötigt
+keine Schreibrechte oder PR-Kommentare. Kein `pull_request_target`, keine Production-Secrets,
+keine Production-DB und kein privilegierter Build aus einem Fork. Fork-PRs verwenden den normalen
+`pull_request`-Kontext mit GitHubs eingeschränkten Token-Rechten.
+
+Als erforderliche Checks in Branch Protection/Rulesets zusätzlich `CodeQL (python)`,
+`CodeQL (javascript-typescript)` und `Dependency review` auswählen. Workflow-Dateien ersetzen
+keine Repository-Rulesets. Konfiguration lokal mit actionlint prüfen; bestehende funktionale
+Jobs und deterministische Lockfile-Installationen bleiben unverändert.
 
 ### Backend
 
@@ -594,6 +624,7 @@ REVOKE CREATE ON SCHEMA admin, uranus FROM admin_auth_operator;
 GRANT SELECT, INSERT, UPDATE ON admin.auth_account TO admin_auth_operator;
 GRANT SELECT, INSERT, DELETE ON admin.auth_system_admin TO admin_auth_operator;
 GRANT SELECT, UPDATE ON admin.auth_session TO admin_auth_operator;
+GRANT SELECT ON admin.alembic_version TO admin_auth_operator;
 -- No membership in admin_migrator, no Uranus or record_mark_event write grants.
 ```
 
@@ -603,6 +634,8 @@ CLI-Prozess geben; nie dem FastAPI-/Nuxt-Dienst. Keine tatsächlichen Passwörte
 Konto-Passwörter werden zweimal verdeckt über `getpass` abgefragt, mit 15–1024 Zeichen:
 
 ```bash
+# Nach Migration und Operator-Grants zuerst Preflight:
+uv run python -m app.auth.manage doctor
 # Erster System-Administrator: beide Entscheidungen müssen ausdrücklich gesetzt sein.
 uv run python -m app.auth.manage create operator --active --system-admin
 # Ein normales Konto hat zunächst weder Aktivierung noch globale Rechte:
@@ -754,6 +787,10 @@ Der Worker benötigt dieselben getrennten DATABASE_URL (read-only) und ADMIN_DAT
 ist standardmäßig 120 (30–3600), Erneuerung alle lease/3 Sekunden; Poll-Intervall
 CHECK_WORKER_POLL_SECONDS standardmäßig 2. Erneuerung läuft als überwachte, vollständig
 abgewartete Worker-Aufgabe. Keine Fire-and-forget-Aufgabe im HTTP-Prozess.
+Während der abschließenden atomaren Speicherung schützt der Job-Zeilenlock die Eigentümerschaft.
+Der Heartbeat überspringt dann die gesperrte eigene Zeile, statt auf seine eigene Speicherung
+zu warten und durch einen DB-Timeout den Run abzubrechen. Eine abgelaufene, ungesperrte Lease
+kann nicht erneuert werden.
 
 Mehrere Worker dürfen laufen, aber nur einer besitzt den aktiven Job. Während Scan/Heartbeat
 werden keine langfristigen DB-Locks gehalten. Bei Crash läuft die Lease ab; ein weiterer Poll
@@ -775,3 +812,25 @@ Restart=on-failure
 Environment-Datei nur für den Dienst lesbar, ohne Migration-/Operator-Credentials.
 Worker-Prozess und Alter queued/running-Jobs separat überwachen: `/ready` prüft die DB-/Schema-
 Voraussetzungen der API, beweist aber nicht, dass ein externer Worker gerade läuft.
+
+## Auth operator diagnostics
+
+Bootstrap: **Migration → explizite Operator-Grants → doctor → create**. Doctor und jeder
+normale Account-Befehl prüfen vor einer Passwortabfrage Verbindung, Datenbank/Rolle, Admin-
+Schema, den zentral ermittelten Alembic-Head, alle erforderlichen Operator-Tabellen und jedes
+benötigte Recht einzeln. Owner-Mitgliedschaft (auch NOINHERIT), CREATE auf admin/uranus,
+Superuser/CREATEROLE/CREATEDB/BYPASSRLS/REPLICATION und Uranus-Schreibrechte werden abgelehnt.
+Doctor führt ausschließlich SELECTs aus, keine Reparatur, Migration oder Kontoänderung.
+
+```bash
+uv run python -m app.auth.manage doctor
+```
+
+Ausgabe: konfigurierte DSN ja/nein, Verbindungsstatus, DB-/Rollenname, Migration und Grants;
+keine DSN, Passwörter, Hashes, Tokens oder Roh-Exceptions. Fehler unterscheiden insbesondere
+`database authentication failed`, `database unreachable`, `admin schema missing`,
+`migration incompatible`, `operator privileges incomplete`, `unsafe operator role`,
+`account already exists` und `unknown account`. Abbruch mit nonzero Exit-Code.
+Kein Debug-Flag mit unredigierten Driver-Stacktraces. Erfolgreiche Kontoänderungen bleiben
+atomar einschließlich Credential-Version und Session-Widerruf. Der CLI-Operator darf nur im
+Operator-Prozess konfiguriert sein, nie als ADMIN_DATABASE_URL.

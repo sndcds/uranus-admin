@@ -138,7 +138,26 @@ transforms, filters, details, SVG keyboard selection and proxy restrictions. Pla
 small synthetic graph on desktop/mobile for search, selection, filters, deep links, errors,
 truncation and screenshots; the production CSP test renders and interacts with the graph.
 
-### Local verification (2026-09-16)
+### PR verification (2026-09-16)
+
+Verified in an isolated checkout based on `main`, containing only the relationship graph feature.
+
+- Backend: `uv sync --locked`, Ruff lint/format, strict mypy and all 280 tests passed
+  against disposable PostgreSQL/PostGIS.
+- Frontend: frozen lockfile install, ESLint, strict typecheck, all 114 unit tests and the
+  production build passed.
+- All 52 production Playwright cases passed on desktop/mobile, including the enforced CSP test.
+  Screenshots: [desktop](screenshots/entity-graph-desktop.png) and
+  [mobile](screenshots/entity-graph-mobile.png).
+- Modular D3 is part of the dynamically loaded graph route; the page does not require a CDN
+  or a relaxed script CSP. No production data, service or deployment was changed.
+
+### Additional local verification before PR integration (2026-09-16)
+
+These earlier observations were recorded in the combined local Graph/check-worker checkout.
+They describe that snapshot, not a fresh verification of the merged branch. The PR verification
+above describes the isolated Graph checkout. PR #32 subsequently updated the check-job browser
+test to wait for initial loading and reset its polling counter when starting a job.
 
 - Backend: 306 tests passed against disposable PostgreSQL/PostGIS; after the UUID lookup
   optimization, all 58 affected Graph/Activity tests passed again. Ruff and strict mypy passed.
