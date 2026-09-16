@@ -34,7 +34,7 @@
           "Health"
         ],
         "summary": "Database readiness",
-        "description": "Checks the database connection; does not certify auth or schema compatibility.",
+        "description": "Checks source and configured admin storage, migration compatibility and effective runtime grants.",
         "operationId": "ready_ready_get",
         "responses": {
           "200": {

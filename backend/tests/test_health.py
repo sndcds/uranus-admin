@@ -205,3 +205,72 @@ async def test_api_503_logs_code_and_debug_traceback(settings, capsys, monkeypat
         assert "traceback" not in error
         assert "debug-only-internal-cause" not in output
     assert "private-query" not in output and "private-token" not in output
+
+
+@pytest.mark.parametrize(
+    "damage", [None, "migration", "table", "grant", "unsafe", "schema", "down"]
+)
+async def test_admin_readiness_is_read_only_and_fail_closed(
+    admin_store, database, settings, damage
+):
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    if damage is None:
+        from app.storage_preflight import RUNTIME_GRANTS, check_grants, check_schema
+
+        async with admin_store.begin():
+            await check_schema(admin_store)
+            await check_grants(admin_store, RUNTIME_GRANTS)
+    owner = create_async_engine(database[0], hide_parameters=True)
+    settings.database_url = SecretStr(database[0])
+    settings.app_env = "production"
+    settings.dev_auth_enabled = False
+    settings.openapi_enabled = False
+    # Reversible committed changes are restored before fixture cleanup.
+    changes = {
+        "migration": ("UPDATE admin.alembic_version SET version_num='old'", None),
+        "table": (
+            "ALTER TABLE admin.auth_account RENAME TO hidden_account",
+            "ALTER TABLE admin.hidden_account RENAME TO auth_account",
+        ),
+        "grant": (
+            "REVOKE INSERT ON admin.auth_session FROM admin_history_test",
+            "GRANT INSERT ON admin.auth_session TO admin_history_test",
+        ),
+        "unsafe": (
+            "GRANT CREATE ON SCHEMA admin TO admin_history_test",
+            "REVOKE CREATE ON SCHEMA admin FROM admin_history_test",
+        ),
+        "schema": (
+            "ALTER SCHEMA admin RENAME TO hidden_admin",
+            "ALTER SCHEMA hidden_admin RENAME TO admin",
+        ),
+    }
+    if damage in changes:
+        async with owner.begin() as conn:
+            await conn.execute(text(changes[damage][0]))
+    if damage == "down":
+        settings.admin_database_url = SecretStr(
+            "postgresql+asyncpg://test:synthetic@127.0.0.1:1/unavailable"
+        )
+    try:
+        app = create_app(settings)
+        async with app.router.lifespan_context(app):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                result = await client.get("/ready")
+                assert result.status_code == (200 if damage is None else 503)
+                assert "synthetic" not in result.text
+                assert (await client.get("/health")).status_code == 200
+    finally:
+        if damage in changes and changes[damage][1]:
+            async with owner.begin() as conn:
+                await conn.execute(text(changes[damage][1]))
+        await owner.dispose()
+
+
+async def test_production_requires_admin_storage(db_client, settings):
+    settings.app_env = "production"
+    assert (await db_client.get("/ready")).status_code == 503

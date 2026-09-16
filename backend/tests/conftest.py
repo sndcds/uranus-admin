@@ -215,6 +215,7 @@ async def admin_store(database, settings):
 
     from app.admin_database import create_admin_engine
     from app.admin_tables import metadata
+    from app.storage_preflight import migration_head
 
     setup = create_async_engine(database[0], poolclass=NullPool)
     async with setup.begin() as connection:
@@ -224,9 +225,18 @@ async def admin_store(database, settings):
         await connection.execute(text("CREATE SCHEMA admin"))
         await connection.run_sync(metadata.create_all)
         await connection.execute(
+            text("CREATE TABLE admin.alembic_version(version_num varchar(32) PRIMARY KEY)")
+        )
+        await connection.execute(
+            text("INSERT INTO admin.alembic_version VALUES (:head)"), {"head": migration_head()}
+        )
+        await connection.execute(
             text("CREATE ROLE admin_history_test LOGIN PASSWORD 'fixture-history-only'")
         )
         await connection.execute(text("GRANT USAGE ON SCHEMA admin TO admin_history_test"))
+        await connection.execute(
+            text("GRANT SELECT ON admin.alembic_version TO admin_history_test")
+        )
         await connection.execute(
             text(
                 "GRANT SELECT, INSERT, UPDATE ON admin.check_run, admin.finding, "
@@ -266,6 +276,7 @@ async def admin_store(database, settings):
             await engine.dispose()
         async with setup.begin() as connection:
             await connection.run_sync(metadata.drop_all)
+            await connection.execute(text("DROP TABLE admin.alembic_version"))
             await connection.execute(text("DROP SCHEMA admin"))
             await connection.execute(
                 text("REVOKE SELECT ON ALL TABLES IN SCHEMA uranus FROM admin_history_test")

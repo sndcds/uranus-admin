@@ -149,8 +149,8 @@ Fehlercode, Status und Route. Mit `APP_DEBUG=true` in Development/Test enthält 
 zusätzlich den Traceback einschließlich verketteter Ursachen, beispielsweise bei abgelehnten
 Admin-Runtime-Rechten. Die HTTP-Antwort enthält weiterhin keinen Traceback; ohne Debug bleiben
 auch die Serverlogs frei davon. Nach Konfigurationsänderungen den Backend-Prozess neu starten.
-`/health` bleibt bei DB-Ausfall erreichbar; `/ready` prüft nur Verbindung, weder vollständiges
-Schema noch globale Auth. Ein 503 `source_timezone_unconfigured` erfordert den belegten
+`/health` bleibt bei DB-Ausfall erreichbar; `/ready` prüft Source-Verbindung und die
+konfigurierte Admin-/Auth-Ablage einschließlich Migrationstand, Boundary und positiven Grants. Ein 503 `source_timezone_unconfigured` erfordert den belegten
 Speichervertrag, ein 503 `admin_auth_unconfigured` die unabhängige Admin-Auth-Konfiguration (Origin und Admin-Ablage).
 
 Der Test `test_quality_query_explain` schreibt einen JSON-Plan ins pytest-Tempverzeichnis.
@@ -522,8 +522,8 @@ Uranus-Schreibrechte einschließlich Spaltengrants sowie schädliche Rechte/Owne
 `record_mark_event`, `auth_account` und `auth_system_admin`. Die Runtime darf insbesondere
 keine Identitäten ändern oder globale Rechte vergeben. Er ist **keine vollständige Installationsprüfung**: Er prüft nicht, ob
 alle erforderlichen positiven Grants oder Tabellen existieren, und testet CREATEDB/LOGIN nicht
-separat. Deshalb Rollenattribute, Owner und Rechte-Matrix zusätzlich prüfen. `/ready` prüft
-nur die Source-Verbindung, nicht diese Admin-Grenze.
+separat. Deshalb Rollenattribute, Owner und Rechte-Matrix zusätzlich prüfen. `/ready` prüft zusätzlich diese Admin-Grenze, den aktuellen Migrationstand und alle
+erforderlichen positiven Runtime-Grants.
 
 ### Fehlerbild: 503 admin_storage_unconfigured
 
@@ -699,3 +699,17 @@ Missing files or network errors retain the type icon and all row metadata/action
 No database migration or additional grant is required. The production Playwright test in
 `frontend/tests/e2e/activity-drilldown.spec.ts` enforces the targeted policy and intercepts
 images locally, so CI does not depend on the external image service.
+
+## Production Readiness
+
+`GET /health` ist reine Prozess-Liveness und bleibt bei Datenbankausfall 200.
+`GET /ready` prüft die Source-Verbindung sowie Admin-Verbindung, Restricted-Role-Boundary,
+alle neun Admin-Tabellen, effektive USAGE-/DML-Rechte und den exakten Alembic-Head aus den
+mitgelieferten Migrationen. Tabellenrechte werden einzeln geprüft, inklusive Auth-Account/
+Berechtigungs-SELECT und Session-/Bucket-SELECT/INSERT/UPDATE. Der tatsächlich verbundene
+DB-User zählt, nicht ein fest verdrahteter Rollenname. Keine DML, DDL oder Auto-Migration.
+Fehler liefern 503 ohne Roh-DB-Details. `/ready` gehört in Deployment-/Monitoring-Probes,
+`/health` in Prozess-Liveness-Probes. Nach Migrationen explizite Grants anwenden, dann Readiness prüfen.
+Nur Development/Test mit aktiviertem Dev-Auth und ohne ADMIN_DATABASE_URL darf bewusst
+Source-only laufen. Staging/Production benötigt immer die vollständige Admin-Ablage.
+Eine Readiness-Prüfung authentifiziert kein Benutzerkonto und erteilt keine Admin-Rechte.
