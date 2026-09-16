@@ -47,44 +47,52 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="space-y-5">
-    <h2 class="text-2xl font-bold">Prüfläufe</h2>
+  <section class="space-y-4">
+    <PageHeader title="Prüfläufe" description="Gespeicherte Prüfungen und Regelabdeckung.">
+      <button class="button-primary" :disabled="running || loading" @click="run">
+        {{ running ? 'Prüfung läuft …' : 'Prüflauf starten' }}
+      </button>
+      <NuxtLink class="button" to="/findings?mode=persisted">Gespeicherte Befunde</NuxtLink>
+    </PageHeader>
     <p class="muted">
       Ein Prüflauf speichert Befunde. Nur erfolgreiche Prüfungen können behobene Befunde schließen.
     </p>
-    <button class="button-primary" :disabled="running || loading" @click="run">
-      {{ running ? 'Prüfung läuft …' : 'Prüflauf starten' }}
-    </button>
     <RequestState :loading="loading" :error="error" @retry="load()" />
     <template v-if="data">
-      <article v-for="item in data.items" :key="item.id" class="card p-5">
-        <h3 class="font-bold">{{ dateTime(item.started_at) }} · {{ item.status }}</h3>
-        <p>
-          {{ item.rule_count }} Regeln · {{ item.finding_count }} Befunde · Ende:
-          {{ dateTime(item.finished_at) }}
-        </p>
-        <p v-if="item.status === 'failed'">
-          Prüfung fehlgeschlagen. Daraus wurde keine automatische Behebung abgeleitet.
-        </p>
-      </article>
-      <p v-if="!data.items.length">Noch keine gespeicherten Prüfläufe.</p>
-      <div class="flex gap-3">
-        <button
-          v-if="data.pagination.page > 1"
-          class="button"
-          @click="load(data.pagination.page - 1)"
-        >
-          Zurück
-        </button>
-        <button
-          v-if="data.pagination.page < data.pagination.pages"
-          class="button"
-          @click="load(data.pagination.page + 1)"
-        >
-          Weiter
-        </button>
-      </div>
+      <ResultSummary
+        :total="data.pagination.total"
+        :visible="data.items.length"
+        noun="Prüfläufe"
+        description="Gespeicherte Historie · unabhängig vom Dashboard-Zeitraum"
+      />
+      <ul v-if="data.items.length" class="data-list divide-y divide-slate-100" :aria-busy="loading">
+        <li v-for="item in data.items" :key="item.id" class="data-row">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold">Start: {{ dateTime(item.started_at) }}</h3>
+            <StatusBadge
+              :label="
+                { running: 'Läuft', success: 'Erfolgreich', failed: 'Fehlgeschlagen' }[item.status]
+              "
+              :tone="
+                item.status === 'failed'
+                  ? 'error'
+                  : item.status === 'success'
+                    ? 'success'
+                    : 'neutral'
+              "
+            />
+          </div>
+          <p class="mt-2 text-sm text-slate-600">
+            {{ item.rule_count }} Regeln · {{ item.finding_count }} Befunde · Ende:
+            {{ dateTime(item.finished_at) }}
+          </p>
+          <p v-if="item.status === 'failed'" class="mt-2 text-xs text-rose-700">
+            Prüfung fehlgeschlagen. Daraus wurde keine automatische Behebung abgeleitet.
+          </p>
+        </li>
+      </ul>
+      <EmptyState v-else message="Noch keine gespeicherten Prüfläufe." />
+      <PaginationBar :pagination="data.pagination" :loading="loading || running" @change="load" />
     </template>
-    <NuxtLink class="button" to="/findings?mode=persisted">Gespeicherte Befunde</NuxtLink>
   </section>
 </template>

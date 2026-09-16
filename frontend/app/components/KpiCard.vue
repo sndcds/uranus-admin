@@ -30,7 +30,11 @@ defineProps<{
       {{ metric(value) }}
     </div>
     <p class="mt-2 text-xs leading-5 text-slate-500">{{ description }}</p>
-    <NuxtLink v-if="to" :to="to" class="mt-2 inline-block text-xs font-semibold text-fuchsia-700"
+    <NuxtLink
+      v-if="to"
+      :to="to"
+      :aria-label="`${label} öffnen`"
+      class="mt-2 inline-block text-xs font-semibold text-fuchsia-700"
       >Öffnen →</NuxtLink
     >
   </div>

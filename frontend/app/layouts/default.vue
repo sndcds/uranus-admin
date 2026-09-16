@@ -10,13 +10,7 @@ const menu = useTemplateRef<HTMLDialogElement>('menu')
 const menuButton = useTemplateRef<HTMLButtonElement>('menuButton')
 const menuOpen = ref(false)
 const now = useState('header-date', () => new Date().toISOString())
-const heading = computed(() =>
-  route.path === '/findings'
-    ? 'Arbeitsliste'
-    : route.path === '/quality'
-      ? 'Datenqualität'
-      : 'Guten Tag 👋',
-)
+const heading = 'Kulturbytes Admin'
 function openMenu() {
   menu.value?.showModal()
   menuOpen.value = true
@@ -129,7 +123,7 @@ async function accessChanged() {
           </div>
         </div>
       </header>
-      <main id="main-content" tabindex="-1" class="mx-auto max-w-7xl space-y-7 p-5 sm:p-8">
+      <main id="main-content" tabindex="-1" class="mx-auto max-w-7xl space-y-5 p-5 sm:p-8">
         <LoginPanel @changed="accessChanged" /><AccessPanel @changed="accessChanged" /><slot />
       </main>
     </div>

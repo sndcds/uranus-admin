@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { filtersSchema } from '#shared/contracts'
 import type { Severity, FindingFilters } from '#shared/contracts'
+import { periodLabels } from '~/utils/presentation'
 import { recordRows } from '~/utils/activity'
 import { filterQuery } from '~/utils/filters'
 const dashboard = useDashboardStore()
 const findings = useFindingsStore()
 const { $adminApi } = useNuxtApp()
+const displayedPeriod = computed(() => dashboard.data?.period ?? dashboard.period)
 const previewFilters = filtersSchema.parse({ page_size: 4 })
 onMounted(() => {
   if (!dashboard.data) void dashboard.load($adminApi)
@@ -22,81 +24,133 @@ function openFilters(filters: FindingFilters) {
 </script>
 
 <template>
-  <div class="space-y-7">
-    <section>
-      <div class="mb-4 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 class="text-2xl font-bold tracking-tight">Was braucht heute Aufmerksamkeit?</h2>
-          <p class="mt-1 muted">Neue Inhalte, offene Vorgänge und Datenprobleme an einem Ort.</p>
-        </div>
-        <div class="text-xs text-slate-500">
-          Live-Befunde · gespeicherte Prüfungen unter „Prüfläufe“
-        </div>
+  <div class="space-y-5">
+    <PageHeader
+      title="Dashboard"
+      description="Neue Datensätze im Zeitraum und aktueller Arbeitsbestand."
+    >
+      <button class="button" :disabled="dashboard.loading" @click="dashboard.load($adminApi)">
+        <AppIcon name="refresh" :size="16" /> Zahlen aktualisieren
+      </button>
+    </PageHeader>
+    <RequestState
+      :loading="dashboard.loading"
+      :error="dashboard.error"
+      :has-data="!!dashboard.data"
+      :last-success="dashboard.lastSuccess"
+      @retry="dashboard.load($adminApi)"
+    />
+    <p
+      v-if="dashboard.data && dashboard.data.period !== dashboard.period"
+      class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+      role="status"
+    >
+      Die sichtbaren Zahlen gehören noch zum vorherigen Zeitraum. Die Links öffnen den neu gewählten
+      Zeitraum.
+    </p>
+    <section
+      id="new-records"
+      class="card scroll-mt-28"
+      :aria-busy="dashboard.loading"
+      aria-labelledby="new-records-title"
+    >
+      <div class="border-b border-slate-100 p-5">
+        <h2 id="new-records-title" class="text-xl font-bold">Neu eingegangen</h2>
+        <p class="mt-2 text-sm text-slate-600">
+          <strong class="text-2xl font-bold tabular-nums text-slate-900">{{
+            metric(dashboard.data?.new_records.total)
+          }}</strong>
+          neue Datensätze · {{ periodLabels[displayedPeriod] }}
+        </p>
+        <p v-if="dashboard.data" class="mt-1 text-xs text-slate-500">
+          {{ dateTime(dashboard.data.from_at) }} – {{ dateTime(dashboard.data.to_at) }} ·
+          {{ dashboard.data.admin_timezone }}
+        </p>
       </div>
-      <RequestState
-        :loading="dashboard.loading"
-        :error="dashboard.error"
-        :has-data="!!dashboard.data"
-        :last-success="dashboard.lastSuccess"
-        @retry="dashboard.load($adminApi)"
-      />
-      <p
-        v-if="dashboard.data && dashboard.data.period !== dashboard.period"
-        class="my-3 text-sm text-amber-800"
-        role="status"
-      >
-        Die sichtbaren Zahlen gehören noch zum vorherigen Zeitraum.
+      <ul class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 xl:grid-cols-5 sm:p-5">
+        <li v-for="row in recordRows(dashboard.data)" :key="row.key" class="min-w-0">
+          <NuxtLink
+            :to="{
+              path: '/activity',
+              query: { period: dashboard.period, entity_type: row.type },
+            }"
+            :aria-label="`${row.plural}: ${row.value} · ${periodLabels[displayedPeriod]} · Neue Datensätze ansehen`"
+            class="group grid h-full grid-cols-[1fr_auto] gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
+          >
+            <span
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+              :class="row.tone"
+              ><AppIcon :name="row.icon" :size="18"
+            /></span>
+            <div class="col-span-2 row-start-2 min-w-0">
+              <span class="block break-words text-xs text-slate-600 group-hover:text-fuchsia-800">{{
+                row.plural
+              }}</span
+              ><span class="mt-1 block text-xl font-bold tabular-nums">{{ row.value }}</span>
+            </div>
+            <AppIcon
+              name="arrow"
+              :size="14"
+              class="col-start-2 row-start-1 self-center text-slate-400 group-hover:text-fuchsia-700"
+            />
+          </NuxtLink>
+        </li>
+      </ul>
+      <p class="px-5 pb-5 text-xs text-slate-500">
+        <NuxtLink
+          :to="{ path: '/activity', query: { period: dashboard.period } }"
+          class="font-semibold text-fuchsia-700"
+          >Einzelne Neuanlagen anzeigen →</NuxtLink
+        >
       </p>
-      <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5" :aria-busy="dashboard.loading">
-        <KpiCard
-          label="Neu eingegangen"
-          :value="dashboard.data?.new_records.total"
-          description="Neue Datensätze im gewählten Zeitraum"
-          to="/#new-records"
-        />
+    </section>
+    <section id="attention" class="space-y-3" aria-labelledby="attention-title">
+      <div>
+        <h2 id="attention-title" class="text-xl font-bold">Was braucht Aufmerksamkeit?</h2>
+        <p class="mt-1 muted">
+          Aktuelle offene Vorgänge und Datenprobleme · unabhängig vom gewählten Zeitraum.
+        </p>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" :aria-busy="dashboard.loading">
         <KpiCard
           label="Dringend"
           :value="dashboard.data?.urgent_findings"
-          description="Veröffentlichte Fehler oder baldige veröffentlichte Termine"
+          description="Aktuell dringende Befunde · gesamte Arbeitsliste öffnen"
           tone="rose"
-        />
-        <KpiCard
-          label="Offene Vorgänge"
-          description="Partneranfragen in der Arbeitsliste"
-          to="/queues/partner_requests"
+          :to="`/findings?mode=${dashboard.data?.quality.mode ?? 'persisted'}`"
         />
         <KpiCard
           label="Datenqualität"
           :value="dashboard.data?.quality.total"
           :description="
             dashboard.data
-              ? `${metric(dashboard.data.quality.errors)} Fehler · ${metric(dashboard.data.quality.warnings)} Warnungen`
-              : 'Aktuelle Befunde der verfügbaren Regeln'
+              ? `${metric(dashboard.data.quality.errors)} Fehler · ${metric(dashboard.data.quality.warnings)} Warnungen · ${metric(dashboard.data.quality.info)} Hinweise`
+              : 'Aktuell nicht erledigte Befunde'
           "
           tone="fuchsia"
           to="/quality"
         />
         <KpiCard
+          label="Offene Vorgänge"
+          description="Aktueller Vorgangsbestand · keine Gesamtzahl verfügbar"
+          to="/#open-queues"
+        />
+        <KpiCard
           label="Prüfstatus"
-          description="Gespeicherte Prüfläufe und Regelabdeckung"
+          description="Status nur in den gespeicherten Prüfläufen verfügbar"
           to="/checks"
         />
       </div>
-      <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-        <span v-if="dashboard.data"
-          >{{ dateTime(dashboard.data.from_at) }} – {{ dateTime(dashboard.data.to_at) }} ·
-          {{ dashboard.data.admin_timezone }}</span
-        ><button
-          class="inline-flex items-center gap-1 font-semibold text-fuchsia-700"
-          :disabled="dashboard.loading"
-          @click="dashboard.load($adminApi)"
-        >
-          <AppIcon name="refresh" :size="14" /> Zahlen aktualisieren
-        </button>
-      </div>
+      <p class="text-xs text-slate-500">
+        {{
+          dashboard.data?.quality.mode === 'live'
+            ? 'Live-Diagnose'
+            : 'Gespeicherter Bestand ohne behobene Befunde; einschließlich Zurückstellungen und Ausnahmen'
+        }}. Dringend: Priorität 1/2 oder Bezug zu bald stattfindenden veröffentlichten Terminen.
+      </p>
     </section>
 
-    <section class="grid gap-6 xl:grid-cols-[1.55fr_.75fr]">
+    <section class="grid gap-4 xl:grid-cols-[1.55fr_.75fr]">
       <div class="card">
         <div
           class="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"
@@ -140,7 +194,7 @@ function openFilters(filters: FindingFilters) {
         <FindingsList v-if="findings.data?.items.length" :items="findings.data.items" />
         <p
           v-else-if="findings.data && !findings.loading"
-          class="p-8 text-center text-sm text-slate-500"
+          class="p-5 text-center text-sm text-slate-500"
         >
           Keine Befunde für diese Auswahl.
         </p>
@@ -160,66 +214,12 @@ function openFilters(filters: FindingFilters) {
           >
         </div>
       </div>
-      <div class="min-w-0 space-y-6">
+      <div class="min-w-0 space-y-4">
         <QualityOverview :data="dashboard.data" />
-        <section class="rounded-2xl bg-slate-900 p-5 text-white shadow-soft">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-sm text-slate-300">Nächste Veranstaltung</h2>
-              <p class="mt-1 text-xl font-bold">Noch nicht verfügbar</p>
-            </div>
-            <AppIcon name="calendar" :size="24" />
-          </div>
-          <p class="mt-5 rounded-xl bg-white/10 p-4 text-sm leading-6 text-slate-300">
-            Die Admin-API stellt noch keine nächste Veranstaltung bereit.
-          </p>
-        </section>
       </div>
     </section>
 
-    <section class="grid gap-6 lg:grid-cols-2">
-      <div id="new-records" class="card scroll-mt-28">
-        <div class="border-b border-slate-100 p-5">
-          <h2 class="font-bold">Neu eingegangen</h2>
-          <p class="mt-1 muted">Neue Datensätze und Termine im gewählten Zeitraum.</p>
-        </div>
-        <ul class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 sm:p-5">
-          <li v-for="row in recordRows(dashboard.data)" :key="row.key" class="min-w-0">
-            <NuxtLink
-              :to="{
-                path: '/activity',
-                query: { period: dashboard.period, entity_type: row.type },
-              }"
-              :aria-label="`${row.plural}: ${row.value} · ${dashboard.period} · Neue Datensätze ansehen`"
-              class="group grid h-full grid-cols-[1fr_auto] gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
-            >
-              <span
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                :class="row.tone"
-                ><AppIcon :name="row.icon" :size="18"
-              /></span>
-              <div class="col-span-2 row-start-2 min-w-0">
-                <span
-                  class="block break-words text-xs text-slate-600 group-hover:text-fuchsia-800"
-                  >{{ row.plural }}</span
-                ><span class="mt-1 block text-xl font-bold tabular-nums">{{ row.value }}</span>
-              </div>
-              <AppIcon
-                name="arrow"
-                :size="14"
-                class="col-start-2 row-start-1 self-center text-slate-400 group-hover:text-fuchsia-700"
-              />
-            </NuxtLink>
-          </li>
-        </ul>
-        <p class="px-5 pb-5 text-xs text-slate-500">
-          <NuxtLink
-            :to="{ path: '/activity', query: { period: dashboard.period } }"
-            class="font-semibold text-fuchsia-700"
-            >Einzelne Neuanlagen anzeigen →</NuxtLink
-          >
-        </p>
-      </div>
+    <section id="open-queues" class="scroll-mt-28">
       <div class="card">
         <div class="border-b border-slate-100 p-5">
           <h2 class="font-bold">Offene Vorgänge</h2>
@@ -240,7 +240,11 @@ function openFilters(filters: FindingFilters) {
     <section class="card p-5">
       <h2 class="font-bold">Schnellfilter</h2>
       <p class="mb-4 mt-1 muted">Arbeitslisten nach den verfügbaren Admin-Dimensionen aufrufen.</p>
-      <FilterForm :filters="filtersSchema.parse({})" @apply="openFilters" />
+      <FilterForm
+        :filters="filtersSchema.parse({})"
+        @apply="openFilters"
+        @reset="openFilters(filtersSchema.parse({}))"
+      />
     </section>
   </div>
 </template>

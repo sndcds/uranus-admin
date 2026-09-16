@@ -47,3 +47,12 @@
     @apply text-sm text-slate-500;
   }
 }
+
+@layer components {
+  .data-list {
+    @apply overflow-hidden rounded-2xl border border-slate-200 bg-white;
+  }
+  .data-row {
+    @apply min-w-0 break-words px-4 py-3 hover:bg-slate-50 sm:px-5;
+  }
+}

@@ -106,8 +106,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="space-y-5">
-    <h2 class="text-2xl font-bold">Markierungen</h2>
+  <section class="space-y-4">
+    <PageHeader title="Markierungen" description="Manuell markierte Datensätze und Notizen." />
     <div v-if="scope" class="card space-y-3 break-words p-5">
       <p class="font-semibold">
         {{ data?.items[0]?.entity_name ?? 'Markierungen zu diesem Datensatz' }}
@@ -146,7 +146,7 @@ onBeforeUnmount(() => {
       Markierungen und Notizen legst du direkt über einen Datensatz in der Aktivität, einer
       Arbeitsliste oder einem Prüfhinweis an.
     </p>
-    <form class="card flex flex-wrap items-end gap-3 p-5" @submit.prevent="apply">
+    <FilterBar @apply="apply">
       <label
         ><span class="label">Status</span
         ><select v-model="statusFilter" class="input">
@@ -182,56 +182,69 @@ onBeforeUnmount(() => {
           <option value="newest">Neueste zuerst</option>
         </select></label
       >
-      <button class="button-primary">Anwenden</button>
-    </form>
+      <div class="flex flex-wrap gap-2">
+        <button class="button-primary">Anwenden</button
+        ><button
+          type="button"
+          class="button"
+          @click="router.push({ query: scope ? { ...scope } : {} })"
+        >
+          Filter zurücksetzen
+        </button>
+      </div>
+    </FilterBar>
     <RequestState :loading="loading" :error="error" @retry="load" />
     <template v-if="data">
-      <p class="muted">{{ data.pagination.total }} Markierungen</p>
-      <article v-for="item in data.items" :key="item.id" class="card space-y-2 break-words p-5">
-        <h3 class="font-bold">
-          <NuxtLink :to="`/marks/${item.id}`" class="text-fuchsia-700">{{
-            item.entity_name
-          }}</NuxtLink>
-        </h3>
-        <div class="flex flex-wrap gap-2">
-          <span class="rounded-full bg-slate-100 px-3 py-1 text-sm">{{
-            markStatuses[item.status]
-          }}</span>
-          <span
-            class="rounded-full px-3 py-1 text-sm font-semibold"
-            :class="
-              item.urgency === 'urgent'
-                ? 'bg-red-100 text-red-800'
-                : item.urgency === 'high'
-                  ? 'bg-amber-100 text-amber-800'
-                  : 'bg-slate-100 text-slate-700'
-            "
-            >{{ markUrgencies[item.urgency] }}</span
+      <ResultSummary
+        :total="data.pagination.total"
+        :visible="data.items.length"
+        noun="Markierungen"
+        :description="
+          sort === 'urgency'
+            ? 'Dringlichkeit zuerst · aktueller Bestand'
+            : 'Neueste zuerst · aktueller Bestand'
+        "
+      />
+      <ul v-if="data.items.length" class="data-list divide-y divide-slate-100" :aria-busy="loading">
+        <li v-for="item in data.items" :key="item.id" class="data-row space-y-2 text-sm">
+          <h3 class="font-bold">
+            <NuxtLink :to="`/marks/${item.id}`" class="text-fuchsia-700">{{
+              item.entity_name
+            }}</NuxtLink>
+          </h3>
+          <div class="flex flex-wrap gap-2">
+            <EntityTypeBadge :type="item.entity_type" />
+            <StatusBadge :label="markStatuses[item.status]" />
+            <StatusBadge
+              :label="markUrgencies[item.urgency]"
+              :tone="
+                item.urgency === 'urgent'
+                  ? 'error'
+                  : item.urgency === 'high'
+                    ? 'warning'
+                    : 'neutral'
+              "
+            />
+          </div>
+          <p>{{ item.reasons.map((reason) => markReasons[reason]).join(' · ') }}</p>
+          <p v-if="item.reason_detail" class="whitespace-pre-wrap">{{ item.reason_detail }}</p>
+          <p class="muted">Angelegt: {{ dateTime(item.created_at) }} · {{ item.created_by }}</p>
+          <p v-if="item.completed_at">
+            Erledigt am {{ dateTime(item.completed_at) }} · von {{ item.completed_by }}
+          </p>
+          <NuxtLink
+            :to="`/marks/${item.id}`"
+            class="inline-block rounded text-xs font-semibold text-fuchsia-700 hover:underline"
+            >Notizen &amp; Verlauf öffnen</NuxtLink
           >
-        </div>
-        <p>{{ item.reasons.map((reason) => markReasons[reason]).join(' · ') }}</p>
-        <p v-if="item.reason_detail" class="whitespace-pre-wrap">{{ item.reason_detail }}</p>
-        <p class="muted">Angelegt: {{ dateTime(item.created_at) }} · {{ item.created_by }}</p>
-        <p v-if="item.completed_at">
-          Erledigt am {{ dateTime(item.completed_at) }} · von {{ item.completed_by }}
-        </p>
-        <NuxtLink :to="`/marks/${item.id}`" class="button">Notizen &amp; Verlauf öffnen</NuxtLink>
-      </article>
-      <p v-if="!data.items.length">Keine Markierungen für diese Auswahl.</p>
-      <div class="flex gap-3">
-        <NuxtLink
-          v-if="data.pagination.page > 1"
-          class="button"
-          :to="{ query: { ...route.query, page: data.pagination.page - 1 } }"
-          >Zurück</NuxtLink
-        >
-        <NuxtLink
-          v-if="data.pagination.page < data.pagination.pages"
-          class="button"
-          :to="{ query: { ...route.query, page: data.pagination.page + 1 } }"
-          >Weiter</NuxtLink
-        >
-      </div>
+        </li>
+      </ul>
+      <EmptyState v-if="!data.items.length" message="Keine Markierungen für diese Auswahl." />
+      <PaginationBar
+        :pagination="data.pagination"
+        :loading="loading"
+        :to="(page) => ({ query: { ...route.query, page } })"
+      />
     </template>
   </section>
 </template>

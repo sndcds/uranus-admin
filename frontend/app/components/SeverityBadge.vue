@@ -10,9 +10,7 @@ const styles: Record<Severity, string> = {
 </script>
 
 <template>
-  <span
-    class="inline-flex rounded-full px-2 py-1 text-xs font-semibold"
-    :class="styles[severity]"
-    >{{ severityLabels[severity] }}</span
-  >
+  <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium" :class="styles[severity]">{{
+    severityLabels[severity]
+  }}</span>
 </template>
