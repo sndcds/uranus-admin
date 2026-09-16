@@ -120,6 +120,13 @@ def make_finding(
     )
 
 
+def effective_location(date: dict[str, Any], event: dict[str, Any]) -> tuple[Any, Any]:
+    """Return effective venue/space; a date venue override stops event-space inheritance."""
+    if date["venue_uuid"] is not None:
+        return date["venue_uuid"], date["space_uuid"]
+    return event.get("venue_uuid"), date["space_uuid"] or event.get("space_uuid")
+
+
 class QualityContext:
     """One immutable source snapshot's indexes and relevance aggregates, built in O(rows)."""
 
@@ -163,10 +170,11 @@ class QualityContext:
                 "upcoming": upcoming,
                 "soon": soon,
             }
+            effective_venue, effective_space = effective_location(date, parent)
             for kind, key in (
                 ("event", event_key),
-                ("venue", str(date["venue_uuid"] or parent.get("venue_uuid"))),
-                ("space", str(date["space_uuid"] or parent.get("space_uuid"))),
+                ("venue", str(effective_venue)),
+                ("space", str(effective_space)),
                 ("organization", str(parent.get("org_uuid"))),
             ):
                 flags = self.flags.setdefault(
@@ -288,12 +296,7 @@ def evaluate_core(
             result.covered.add(("event_date", entity_key("event_date", row)))
             event = events.get(str(row["event_uuid"]), {})
 
-            if row["venue_uuid"] is not None:
-                venue = row["venue_uuid"]
-                space = row["space_uuid"]
-            else:
-                venue = event.get("venue_uuid")
-                space = row["space_uuid"] or event.get("space_uuid")
+            venue, space = effective_location(row, event)
 
             severity = (
                 Severity.error if relevance("event_date", row)["published"] else Severity.warning
@@ -322,7 +325,7 @@ def evaluate_core(
                         {
                             "effective_venue": str(venue),
                             "effective_space": str(space),
-                            "inheritance": "public_projection_coalesce",
+                            "inheritance": "event_date_location_override",
                         },
                     )
     elif rule.startswith("image_link_"):
