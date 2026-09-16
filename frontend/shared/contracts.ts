@@ -209,7 +209,7 @@ export const activityPageSchema = z.object({
       image_url: z
         .string()
         .regex(
-          /^https:\/\/api\.kulturbytes\.de\/api\/image\/[0-9a-f-]{36}\?width=160&ratio=1%3A1$/i,
+          /^https:\/\/api\.kulturbytes\.de\/api\/image\/[0-9a-f-]{36}\?(?:width=320&ratio=16%3A9|width=160&ratio=1%3A1)$/i,
         )
         .nullable()
         .optional(),

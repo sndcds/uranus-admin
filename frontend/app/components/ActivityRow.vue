@@ -11,7 +11,7 @@ const status = computed(() => activityStatus(props.item.status))
 
 <template>
   <li
-    class="grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-slate-50 sm:px-5 md:grid-cols-[5rem_minmax(0,1fr)_auto_7rem]"
+    class="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-slate-50 sm:px-5 md:grid-cols-[8rem_minmax(0,1fr)_auto_7rem]"
   >
     <ActivityThumbnail :item="item" />
     <div class="min-w-0">

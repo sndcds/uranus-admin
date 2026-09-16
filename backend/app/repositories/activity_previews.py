@@ -3,6 +3,7 @@
 import re
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlencode
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -105,6 +106,18 @@ PUBLIC_SITE = "https://kulturbytes.de"
 PUBLIC_API = "https://api.kulturbytes.de"
 
 
+def image_url(image_uuid: UUID | str | None, api_url: str) -> str | None:
+    """Public Pluto thumbnail; never expose private origins or stored URL strings."""
+    if image_uuid is None or api_url.rstrip("/") != PUBLIC_API:
+        return None
+    try:
+        identifier = UUID(str(image_uuid))
+    except ValueError:
+        return None
+    query = urlencode({"width": 320, "ratio": "16:9"})
+    return f"{PUBLIC_API}/api/image/{identifier}?{query}"
+
+
 def public_url(row: dict[str, Any]) -> str | None:
     if row["kind"] == "venue":
         slug = row["venue_slug"]
@@ -164,11 +177,7 @@ async def activity_previews(
         previews[(row["kind"], row["key"])] = {
             "subtitle": " · ".join(part for part in parts if part) or None,
             "address": row["address"],
-            "image_url": (
-                f"{PUBLIC_API}/api/image/{row['image_uuid']}?width=160&ratio=1%3A1"
-                if public_instance and row["image_uuid"]
-                else None
-            ),
+            "image_url": image_url(row["image_uuid"], settings.uranus_api_url),
             "public_url": public_url(row) if public_instance else None,
         }
     return previews

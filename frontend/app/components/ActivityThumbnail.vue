@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { activityTypes } from '~/utils/activity'
+import { activityName, activityTypes } from '~/utils/activity'
 import type { ActivityItem } from '~/utils/activity'
 const props = defineProps<{ item: ActivityItem }>()
 const failed = ref(false)
@@ -15,15 +15,15 @@ const presentation = computed(() => activityTypes[props.item.entity_type])
 
 <template>
   <div
-    class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 md:h-20 md:w-20"
+    class="flex aspect-video w-24 shrink-0 self-start items-center justify-center overflow-hidden rounded-xl border border-slate-100 md:w-32"
     :class="presentation.tone"
   >
     <img
       v-if="item.image_url && !failed"
       :src="item.image_url"
-      alt=""
-      width="80"
-      height="80"
+      :alt="activityName(item)"
+      width="320"
+      height="180"
       loading="lazy"
       decoding="async"
       crossorigin="anonymous"

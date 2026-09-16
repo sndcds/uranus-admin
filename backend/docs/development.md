@@ -662,6 +662,33 @@ Activity response. Keep the local URL for unrelated test datasets. This does not
 DB grants or introduce outbound API calls. See [the preview contract](contracts.md#activity-previews-and-public-links)
 for source evidence and unsupported entity routes.
 
-The web deployment CSP needs `img-src 'self' https://api.kulturbytes.de` (plus any already
-required sources). Public image responses must allow anonymous CORS. No `unsafe-eval`, proxy
-credential forwarding, nginx edit or database migration is needed for this feature.
+### Image CSP and deployment verification
+
+The CSP on the HTML response must allow the public image origin. Retain existing required
+image sources and add only `https://api.kulturbytes.de`, for example:
+
+```text
+img-src 'self' data: blob: https://api.kulturbytes.de;
+```
+
+A read-only check of `https://admin.kulturbytes.de/activity` on 2026-09-16 returned
+`img-src 'self' data: blob:`. That policy **blocks these thumbnails**: an operator must deploy
+the targeted `img-src` addition in the configuration that owns this response header.
+Adding another permissive CSP header in Nuxt cannot relax an existing stricter policy;
+all policies apply. No live nginx/systemd changes were made for this implementation.
+Leave `script-src` unchanged for this feature; image loading needs no `unsafe-eval`.
+Public image responses must allow anonymous CORS; the public image endpoint was verified
+with `Access-Control-Allow-Origin: *`. Images send no cross-origin cookies or referrer.
+
+Deploy the frontend contract update before the backend thumbnail change: the updated client
+accepts both the former 160px square and new 320px/16:9 URLs; the former client only accepts
+the square format. There are no new required response fields.
+
+After deployment, verify the response CSP in browser DevTools, check that the Activity
+response contains a 320px/16:9 `image_url`, and check that the image loads without CSP or
+CORS errors. If URLs are null, first verify the server-side `URANUS_API_URL` assertion above;
+do not switch unrelated datasets to the public instance just to show a picture.
+Missing files or network errors retain the type icon and all row metadata/actions.
+No database migration or additional grant is required. The production Playwright test in
+`frontend/tests/e2e/activity-drilldown.spec.ts` enforces the targeted policy and intercepts
+images locally, so CI does not depend on the external image service.

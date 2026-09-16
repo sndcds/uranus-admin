@@ -315,12 +315,33 @@ Public URL generation is enabled only when `URANUS_API_URL` identifies
 `https://api.kulturbytes.de` (a trailing slash is accepted). This is an operator assertion that
 the source data belongs to this public instance; local/unrelated snapshots get null URLs.
 No network introspection or per-row HTTP requests are made. Missing/stale files use the UI's
-icon fallback. Public images use `https://api.kulturbytes.de/api/image/<uuid>?width=160&ratio=1%3A1`.
+icon fallback. Public images use `https://api.kulturbytes.de/api/image/<uuid>?width=320&ratio=16%3A9`.
+For image rows, `entity_key` is exactly `pluto_image.uuid`; the preview selects the same UUID
+without requiring an image-link row. A null or malformed image UUID yields `image_url = null`.
+The central `image_url()` helper validates UUIDs and encodes the 16:9 ratio with `urlencode`.
 Only established image identifiers are selected, not arbitrary stored URLs or file names.
+The 320×180 thumbnails are displayed at 96px wide on mobile and 128px on desktop, with
+`loading="lazy"`, `decoding="async"`, a descriptive alt label and an icon fallback on errors.
+The frontend also accepts the former 160px square URLs during a rolling deployment;
+new responses always use 320px/16:9. No additional JSON requests are made per row.
+
+### Public route matrix
+
+| Entity type | `public_url` |
+| --- | --- |
+| venue | `https://kulturbytes.de/de/ort/<slug-or-UUIDv7>` |
+| event | `https://kulturbytes.de/de/veranstaltung/<event_uuid>/<next-public-date-UUIDv7>`; null without a supported upcoming public date |
+| event_date | `https://kulturbytes.de/de/veranstaltung/<event_uuid>/<date-UUIDv7>` when event and effective date status are public |
+| organization, space, user, partner_request, team_membership, image | null; no standalone public detail route in the verified client |
+
+There is no single-identifier `/event/<uuid>` detail page in this client. The German locale
+prefix and date identifier are required. The image API URL is a thumbnail, not a public
+HTML detail page. A unique linked object is shown as image context; ambiguous links do not
+invent an owner or primary object. Missing `created_at` remains unknown.
 
 Routing evidence inspected at implementation time:
 
-- [Kulturbytes client ec8c059](https://github.com/sndcds/kulturbytes-client/tree/ec8c0597598d3ba0e404bc276493ba96cb25b8b2):
+- [Kulturbytes client 0971931 (verified 2026-09-16)](https://github.com/sndcds/kulturbytes-client/tree/0971931d586416a3bab701e02c8c188022a40e2e):
   `nuxt.config.ts` (`strategy: prefix`, German locale),
   `app/pages/venue/[venue_identifier].vue` → `/de/ort/<identifier>`,
   `app/pages/event/[event_uuid]/[date_identifier].vue` → `/de/veranstaltung/<event>/<date>`.

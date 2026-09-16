@@ -113,7 +113,7 @@ async def test_activity_rich_previews_are_batched_and_safe(db_connection, settin
     finally:
         event.remove(db_connection.sync_connection, "before_cursor_execute", capture)
     rows = {(x.entity_type, x.entity_key): x for x in result.items}
-    image_url = f"https://api.kulturbytes.de/api/image/{uid(60)}?width=160&ratio=1%3A1"
+    image_url = f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320&ratio=16%3A9"
     assert rows["organization", str(uid(10))].subtitle == "Flensburg"
     assert rows["organization", str(uid(10))].image_url == image_url
     assert rows["organization", str(uid(10))].public_url is None
@@ -128,6 +128,8 @@ async def test_activity_rich_previews_are_batched_and_safe(db_connection, settin
     assert "Venue 21" in rows["event_date", str(uid(42))].subtitle
     assert "Saal" not in rows["event_date", str(uid(42))].subtitle  # own venue clears event space
     assert "Saal" in rows["event_date", str(uid(40))].subtitle
+    assert rows["image", str(uid(60))].image_url == image_url
+    assert rows["user", str(uid(1))].image_url is None
     assert rows["image", str(uid(60))].subtitle is None  # ambiguous relationship
     serialized = result.model_dump_json()
     for field in (
@@ -209,7 +211,9 @@ async def test_activity_unknown_image_with_unique_target_and_invitation_time(
     item = page.items[0]
     assert page.pagination.total == 1
     assert item.subtitle == "Organization 10"
-    assert item.image_url == f"https://api.kulturbytes.de/api/image/{uid(61)}?width=160&ratio=1%3A1"
+    assert (
+        item.image_url == f"https://api.kulturbytes.de/api/image/{uid(61)}?width=320&ratio=16%3A9"
+    )
     assert item.created_at is None and item.public_url is None
     invited = await activity_page(
         db_connection, settings, ActivityFilters(entity_type="team_membership"), now
@@ -224,3 +228,55 @@ async def test_activity_unknown_image_with_unique_target_and_invitation_time(
     )
     assert joined.items[0].subtitle is None
     assert joined.items[0].status == "joined"
+
+
+@pytest.mark.parametrize(
+    "identifier", [uid(60), str(uid(60)), None, "", "../secret", "https://evil.test/image"]
+)
+def test_public_image_url_validates_identifier(identifier):
+    from urllib.parse import parse_qs, urlsplit
+
+    from app.repositories.activity_previews import image_url
+
+    result = image_url(identifier, "https://api.kulturbytes.de/")
+    if identifier in (uid(60), str(uid(60))):
+        assert result == f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320&ratio=16%3A9"
+        assert parse_qs(urlsplit(result).query) == {"width": ["320"], "ratio": ["16:9"]}
+    else:
+        assert result is None
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://localhost:8080",
+        "http://api.kulturbytes.de",
+        "https://api.kulturbytes.de.evil.test",
+        "https://secret@api.kulturbytes.de",
+        "https://api.kulturbytes.de?token=secret",
+        "https://api.kulturbytes.de/private",
+    ],
+)
+def test_image_urls_never_expose_untrusted_origins_or_credentials(origin):
+    from app.repositories.activity_previews import image_url
+
+    assert image_url(uid(60), origin) is None
+
+
+@pytest.mark.parametrize(
+    "kind", ["organization", "space", "user", "image", "partner_request", "team_membership"]
+)
+def test_unsupported_public_pages_are_absent(kind):
+    from app.repositories.activity_previews import public_url
+
+    assert public_url({"kind": kind, "key": str(uid(60))}) is None
+
+
+def test_public_venue_identifier_uses_verified_slug_or_uuid7():
+    from app.repositories.activity_previews import public_url
+
+    identifier = "019954ea-0000-7000-8000-000000000042"
+    assert public_url({"kind": "venue", "key": identifier, "venue_slug": None}) == (
+        f"https://kulturbytes.de/de/ort/{identifier}"
+    )
+    assert public_url({"kind": "venue", "key": str(uid(20)), "venue_slug": None}) is None
