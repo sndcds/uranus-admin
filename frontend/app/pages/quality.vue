@@ -7,11 +7,16 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-7">
-    <section>
-      <h2 class="text-2xl font-bold tracking-tight">Datenqualität im Blick</h2>
-      <p class="mt-1 muted">Aktuelle Befunde aus den tatsächlich verfügbaren Qualitätsregeln.</p>
-    </section>
+  <div class="space-y-4">
+    <PageHeader
+      title="Datenqualität"
+      description="Regelbasierte Datenprobleme prüfen und priorisieren."
+      ><NuxtLink to="/checks" class="button">Prüfläufe öffnen</NuxtLink></PageHeader
+    >
+    <p class="muted">
+      Aktueller Bestand · unabhängig vom Dashboard-Zeitraum. Gespeicherte Zahlen schließen behobene
+      Befunde aus, enthalten aber Zurückstellungen und Ausnahmen.
+    </p>
     <RequestState
       :loading="store.loading"
       :error="store.error"
@@ -19,10 +24,10 @@ onMounted(() => {
       :last-success="store.lastSuccess"
       @retry="store.load($adminApi)"
     />
-    <div class="grid gap-6 lg:grid-cols-2">
+    <div class="grid gap-4 lg:grid-cols-2">
       <QualityOverview :data="store.data" />
       <section class="card p-5">
-        <h2 class="font-bold">Venue ohne Geoposition</h2>
+        <h2 class="font-bold">Orte ohne Geoposition</h2>
         <p class="mt-3 text-sm leading-6 text-slate-600">
           Ein fehlender oder leerer Punkt ist eine Warnung. Kommende Termine erhöhen die Priorität;
           baldige veröffentlichte Termine stehen innerhalb der Warnungen zuerst.

@@ -29,10 +29,13 @@ defineProps<{ data: DashboardSummary | null }>()
         <dd>{{ metric(data?.quality.info) }}</dd>
       </div>
     </dl>
-    <ul v-if="data?.quality.rules" class="space-y-2 break-words text-sm">
-      <li v-for="rule in data.quality.rules" :key="rule">
+    <ul
+      v-if="data?.quality.rules"
+      class="divide-y divide-slate-100 border-y border-slate-100 text-sm"
+    >
+      <li v-for="rule in data.quality.rules" :key="rule" class="break-words py-3">
         <NuxtLink
-          :to="{ path: '/findings', query: { rule } }"
+          :to="{ path: '/findings', query: { rule, mode: data.quality.mode } }"
           class="text-fuchsia-700 hover:underline"
           >{{ rule }}</NuxtLink
         >

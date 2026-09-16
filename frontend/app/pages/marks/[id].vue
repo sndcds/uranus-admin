@@ -86,13 +86,25 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="space-y-5">
-    <h2 class="text-2xl font-bold">Markierung &amp; Notizen</h2>
+  <section class="space-y-4">
+    <PageHeader
+      title="Markierung &amp; Notizen"
+      description="Status, Notizen und unveränderlicher Verlauf."
+    />
     <RequestState :loading="loading" :error="error" @retry="load" />
     <template v-if="data">
       <div class="card space-y-3 break-words p-5">
         <h3 class="text-xl font-bold">{{ data.entity_name }}</h3>
-        <p>{{ markStatuses[data.status] }} · {{ markUrgencies[data.urgency] }}</p>
+        <div class="flex flex-wrap gap-2">
+          <EntityTypeBadge :type="data.entity_type" /><StatusBadge
+            :label="markStatuses[data.status]"
+          /><StatusBadge
+            :label="markUrgencies[data.urgency]"
+            :tone="
+              data.urgency === 'urgent' ? 'error' : data.urgency === 'high' ? 'warning' : 'neutral'
+            "
+          />
+        </div>
         <p class="muted">{{ data.entity_type }} · {{ data.entity_key }}</p>
         <p>Angelegt am {{ dateTime(data.created_at) }} · von {{ data.created_by }}</p>
         <p v-if="data.completed_at" class="rounded-lg bg-emerald-50 p-3 text-emerald-900">
@@ -147,7 +159,7 @@ onBeforeUnmount(() => {
       </form>
       <section class="card p-5" aria-label="Notizen und Verlauf">
         <h3 class="mb-4 text-lg font-bold">Notizen und Verlauf</h3>
-        <ol class="space-y-5">
+        <ol class="space-y-4">
           <li
             v-for="entry in data.events"
             :key="entry.id"

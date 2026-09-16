@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { dateTime } from '~/utils/presentation'
+import { dateTime, findingStatusLabels } from '~/utils/presentation'
 import type { Finding } from '#shared/contracts'
 defineProps<{ items: Finding[] }>()
 const detail = useTemplateRef('detail')
 </script>
 
 <template>
-  <div class="divide-y divide-slate-100">
-    <article
+  <ul class="divide-y divide-slate-100" aria-label="Befunde">
+    <li
       v-for="finding in items"
       :key="finding.id"
-      class="grid min-w-0 gap-4 p-5 md:grid-cols-[auto_1fr_auto] md:items-center"
+      class="data-row grid gap-3 md:grid-cols-[auto_minmax(0,1fr)]"
     >
       <span
         aria-hidden="true"
@@ -26,24 +26,38 @@ const detail = useTemplateRef('detail')
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
           <h3 class="break-words font-semibold">{{ finding.entity_name }}</h3>
-          <SeverityBadge :severity="finding.severity" /><span
-            class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600"
-            >{{ finding.entity_type === 'venue' ? 'Venue' : finding.entity_type }}</span
-          >
+          <SeverityBadge :severity="finding.severity" /><EntityTypeBadge
+            :type="finding.entity_type"
+          />
+          <StatusBadge
+            v-if="finding.status"
+            :label="findingStatusLabels[finding.status] ?? finding.status"
+          />
         </div>
         <p class="mt-1 break-words text-sm text-slate-600">{{ finding.message }}</p>
         <p class="mt-2 text-xs text-slate-500">
           {{ finding.organization_name }} · beobachtet {{ dateTime(finding.last_seen_at) }}
         </p>
+        <div
+          class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs [&_a]:mt-0 [&_a]:p-0 [&_a]:border-0 [&_a]:text-xs"
+        >
+          <button
+            class="rounded font-semibold text-fuchsia-700 hover:underline"
+            :aria-label="`Befund zu ${finding.entity_name} ansehen`"
+            @click="detail?.open(finding)"
+          >
+            Ansehen
+          </button>
+          <NuxtLink
+            v-if="finding.action"
+            :to="finding.action.href"
+            class="rounded text-fuchsia-700 hover:underline"
+            >Im Admin ansehen</NuxtLink
+          >
+          <RecordMarkLink :entity-type="finding.entity_type" :entity-key="finding.entity_key" />
+        </div>
       </div>
-      <button
-        class="button"
-        :aria-label="`Befund zu ${finding.entity_name} ansehen`"
-        @click="detail?.open(finding)"
-      >
-        Ansehen <AppIcon name="arrow" :size="15" />
-      </button>
-    </article>
-  </div>
+    </li>
+  </ul>
   <FindingDetail ref="detail" />
 </template>

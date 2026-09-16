@@ -168,7 +168,7 @@ test('marks retain notes, completion authors and reopening history across naviga
   await page.getByRole('button', { name: 'Als erledigt markieren', exact: true }).click()
   await expect(page.getByText(/Erledigt am .* von Boris/)).toBeVisible()
   await page.goto('/marks')
-  await expect(page.getByText('1 Markierungen', { exact: true })).toBeVisible()
+  await expect(page.getByText('1 Markierungen insgesamt', { exact: true })).toBeVisible()
   await page.getByRole('combobox', { name: 'Status', exact: true }).selectOption('done')
   await page
     .getByRole('combobox', { name: 'Dringlichkeit filtern', exact: true })

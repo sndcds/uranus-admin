@@ -86,6 +86,12 @@ test('queue shows actual invitation age and preserves unknown values', async ({ 
   await page.getByLabel('Mindestalter (Tage)').fill('14')
   await page.getByRole('button', { name: 'Anwenden' }).click()
   await expect(page).toHaveURL(/min_age_days=14/)
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Eingeladener User' })).toBeVisible()
+  await expect(page.getByLabel('Mindestalter (Tage)')).toHaveValue('14')
+  await page.getByRole('button', { name: 'Filter zurücksetzen', exact: true }).click()
+  await expect(page).toHaveURL(/\/queues\/team_invitations$/)
+  await expect(page.getByLabel('Mindestalter (Tage)')).toHaveValue('')
 })
 
 test('persisted finding accepts a reasoned exception but offers no manual resolve', async ({

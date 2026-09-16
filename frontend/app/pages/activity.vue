@@ -105,14 +105,8 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="space-y-4" aria-labelledby="activity-title">
-    <div>
-      <h2 id="activity-title" class="text-2xl font-bold">{{ title }}</h2>
-      <p class="mt-1 text-sm text-slate-500">{{ description }}</p>
-    </div>
-    <form
-      class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-[minmax(10rem,1fr)_minmax(9rem,1fr)_minmax(14rem,1.5fr)_auto]"
-      @submit.prevent="apply"
-    >
+    <PageHeader :title="title" :description="description" title-id="activity-title" />
+    <FilterBar @apply="apply">
       <label
         ><span class="label">Objektart</span>
         <select v-model="entityType" class="input">
@@ -151,48 +145,39 @@ onBeforeUnmount(() => {
           Filter zurücksetzen
         </button>
       </div>
-    </form>
+    </FilterBar>
     <RequestState :loading="loading" :error="error" @retry="load" />
     <template v-if="data">
-      <div class="space-y-2" aria-label="Zusammenfassung der Aktivität">
-        <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <p class="text-sm font-semibold">{{ data.pagination.total }} Datensätze insgesamt</p>
-          <p class="text-xs text-slate-500">
-            {{ data.unknown_timestamp_count }} ohne belegten Erstellungszeitpunkt
-            <span v-if="data.timestamp_state === 'known'"> · separate Auswahl</span>
-          </p>
-        </div>
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-          <span class="font-medium text-slate-600"
-            >Auf dieser Seite: {{ data.items.length }} Einträge</span
-          >
-          <span
-            v-for="entry in counts"
-            :key="entry.type"
-            class="rounded-md px-2 py-0.5"
-            :class="activityTypes[entry.type].tone"
-          >
-            {{ entry.count }}
-            {{
-              entry.count === 1 ? activityTypes[entry.type].label : activityTypes[entry.type].plural
-            }}
-          </span>
-        </div>
+      <ResultSummary
+        :total="data.pagination.total"
+        :visible="data.items.length"
+        noun="Datensätze"
+        label="Zusammenfassung der Aktivität"
+        :description="`${data.unknown_timestamp_count} ohne belegten Erstellungszeitpunkt${data.timestamp_state === 'known' ? ' · separate Auswahl' : ''}`"
+      >
+        <span
+          v-for="entry in counts"
+          :key="entry.type"
+          class="rounded-md px-2 py-0.5"
+          :class="activityTypes[entry.type].tone"
+        >
+          {{ entry.count }}
+          {{
+            entry.count === 1 ? activityTypes[entry.type].label : activityTypes[entry.type].plural
+          }}
+        </span>
         <p v-if="data.timestamp_state === 'known'" class="text-xs text-slate-500">
           Tagesgruppen auf dieser Seite · Zeiten in {{ adminTimeZone }} · Stand:
           {{ dateTime(data.observed_at) }}
         </p>
-      </div>
+      </ResultSummary>
       <p
         v-if="data.timestamp_state === 'unknown'"
         class="rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-600"
       >
         Nach Objektschlüssel geordnet; eine zeitliche Reihenfolge ist nicht bekannt.
       </p>
-      <div
-        v-if="data.items.length"
-        class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
-      >
+      <div v-if="data.items.length" class="data-list" :aria-busy="loading">
         <section
           v-for="group in groups"
           :key="group.key"
@@ -222,41 +207,14 @@ onBeforeUnmount(() => {
           </ul>
         </section>
       </div>
-      <p
-        v-else
-        class="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center text-sm text-slate-500"
-      >
-        Keine Datensätze für diese Filter.
-      </p>
-      <nav
+      <EmptyState v-else message="Keine Datensätze für diese Filter." />
+      <PaginationBar
         v-if="data.pagination.pages > 0"
-        class="flex flex-wrap items-center justify-between gap-3"
-        aria-label="Activity-Seitennavigation"
-      >
-        <p class="text-sm text-slate-600">
-          Seite {{ data.pagination.page }} von {{ data.pagination.pages }}
-        </p>
-        <div class="flex gap-2">
-          <NuxtLink
-            v-if="data.pagination.page > 1"
-            class="button"
-            rel="prev"
-            :to="{ query: { ...route.query, page: data.pagination.page - 1 } }"
-            ><AppIcon name="previous" :size="16" />Zurück</NuxtLink
-          >
-          <button v-else class="button" disabled>
-            <AppIcon name="previous" :size="16" />Zurück
-          </button>
-          <NuxtLink
-            v-if="data.pagination.page < data.pagination.pages"
-            class="button"
-            rel="next"
-            :to="{ query: { ...route.query, page: data.pagination.page + 1 } }"
-            >Weiter<AppIcon name="next" :size="16"
-          /></NuxtLink>
-          <button v-else class="button" disabled>Weiter<AppIcon name="next" :size="16" /></button>
-        </div>
-      </nav>
+        :pagination="data.pagination"
+        :loading="loading"
+        label="Activity-Seitennavigation"
+        :to="(page) => ({ query: { ...route.query, page } })"
+      />
     </template>
   </section>
 </template>

@@ -18,9 +18,19 @@ const titles = {
   team_invitations: 'Teameinladungen',
   user_activation: 'Benutzeraktivierung',
 }
+const descriptions = {
+  partner_requests: 'Gerichtete Anfragen zwischen Organisationen; Alter seit Erstellung.',
+  team_invitations: 'Offene Teameinladungen; Alter seit dem belegten Einladungsdatum.',
+  user_activation:
+    'Noch nicht aktivierte Benutzer; Alter seit Erstellung, keine Aussage zur letzten Aktivität.',
+}
 const kind = computed(() => queueKindSchema.safeParse(route.params.kind))
 let requestId = 0
 async function load() {
+  organization.value =
+    typeof route.query.organization_id === 'string' ? route.query.organization_id : ''
+  age.value = typeof route.query.min_age_days === 'string' ? route.query.min_age_days : ''
+  status.value = typeof route.query.status === 'string' ? route.query.status : ''
   const id = ++requestId
   loading.value = true
   data.value = null
@@ -62,11 +72,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="space-y-5">
-    <h2 class="text-2xl font-bold">
-      {{ kind.success ? titles[kind.data] : 'Unbekannte Arbeitsliste' }}
-    </h2>
-    <form class="card flex flex-wrap items-end gap-3 p-5" @submit.prevent="apply">
+  <section class="space-y-4">
+    <PageHeader
+      :title="kind.success ? titles[kind.data] : 'Unbekannte Arbeitsliste'"
+      :description="kind.success ? descriptions[kind.data] : undefined"
+    />
+    <FilterBar @apply="apply">
       <label
         ><span class="label">Organisation (UUID)</span><input v-model="organization" class="input"
       /></label>
@@ -75,55 +86,77 @@ onBeforeUnmount(() => {
         ><input v-model="age" type="number" min="0" max="36500" class="input"
       /></label>
       <label><span class="label">Status</span><input v-model="status" class="input" /></label>
-      <button class="button-primary">Anwenden</button>
-    </form>
+      <div class="flex flex-wrap gap-2">
+        <button class="button-primary">Anwenden</button
+        ><button type="button" class="button" @click="router.push({ query: {} })">
+          Filter zurücksetzen
+        </button>
+      </div>
+    </FilterBar>
     <RequestState :loading="loading" :error="error" @retry="load" />
     <template v-if="data">
-      <p class="muted">{{ data.pagination.total }} Vorgänge</p>
-      <article v-for="item in data.items" :key="item.entity_key" class="card break-words p-5">
-        <h3 class="font-bold">{{ item.user_name ?? item.user_id }}</h3>
-        <RecordMarkLink
-          :entity-type="
-            data.kind === 'partner_requests'
-              ? 'partner_request'
-              : data.kind === 'team_invitations'
-                ? 'team_membership'
-                : 'user'
-          "
-          :entity-key="item.entity_key"
-        />
-        <p v-if="data.kind === 'partner_requests'">
-          {{ item.from_organization_name ?? item.from_organization_id }} →
-          {{ item.to_organization_name ?? item.to_organization_id }}
-        </p>
-        <p v-else>{{ item.organization_name ?? 'Keine eindeutige Organisation' }}</p>
-        <p>
-          Status: {{ item.status }} · Alter:
-          {{ item.age_days == null ? 'Nicht verfügbar' : `${item.age_days} Tage` }}
-        </p>
-        <p>Erstellt: {{ dateTime(item.created_at) }}</p>
-        <p v-if="data.kind === 'team_invitations'">
-          Eingeladen: {{ dateTime(item.invited_at) }} · Beigetreten:
-          {{ item.has_joined ? 'Ja' : 'Nein' }}
-        </p>
-        <p v-for="check in item.checks" :key="check" class="text-amber-800">{{ check }}</p>
-        <NuxtLink :to="item.action.href" class="text-fuchsia-700">Vorgang ansehen</NuxtLink>
-      </article>
-      <p v-if="!data.items.length">Keine Vorgänge für diese Filter.</p>
-      <div class="flex gap-3">
-        <NuxtLink
-          v-if="data.pagination.page > 1"
-          class="button"
-          :to="{ query: { ...route.query, page: data.pagination.page - 1 } }"
-          >Zurück</NuxtLink
-        >
-        <NuxtLink
-          v-if="data.pagination.page < data.pagination.pages"
-          class="button"
-          :to="{ query: { ...route.query, page: data.pagination.page + 1 } }"
-          >Weiter</NuxtLink
-        >
-      </div>
+      <ResultSummary
+        :total="data.pagination.total"
+        :visible="data.items.length"
+        noun="Vorgänge"
+        :observed-at="data.observed_at"
+        description="Aktueller Bestand"
+      />
+      <ul v-if="data.items.length" class="data-list divide-y divide-slate-100" :aria-busy="loading">
+        <li v-for="item in data.items" :key="item.entity_key" class="data-row space-y-2">
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <h3 class="min-w-0 text-sm font-semibold">
+              <template v-if="data.kind === 'partner_requests'"
+                >{{ item.from_organization_name ?? item.from_organization_id }} →
+                {{ item.to_organization_name ?? item.to_organization_id }}</template
+              ><template v-else>{{ item.user_name ?? item.user_id }}</template>
+            </h3>
+            <StatusBadge :label="item.status" />
+          </div>
+          <p class="text-xs text-slate-500">
+            {{
+              data.kind === 'partner_requests'
+                ? (item.user_name ?? item.user_id)
+                : (item.organization_name ?? 'Keine eindeutige Organisation')
+            }}
+          </p>
+          <p class="text-sm text-slate-600">
+            Alter: {{ item.age_days == null ? 'Nicht verfügbar' : `${item.age_days} Tage` }} ·
+            Basis: {{ item.age_basis === 'invited_at' ? 'Einladungsdatum' : 'Erstellungsdatum' }}
+          </p>
+          <p class="text-xs text-slate-500">Erstellt: {{ dateTime(item.created_at) }}</p>
+          <p v-if="data.kind === 'team_invitations'" class="text-xs text-slate-500">
+            Eingeladen: {{ dateTime(item.invited_at) }} · Beigetreten:
+            {{ item.has_joined == null ? 'Nicht verfügbar' : item.has_joined ? 'Ja' : 'Nein' }}
+          </p>
+          <p v-for="check in item.checks" :key="check" class="text-xs text-amber-800">
+            {{ check }}
+          </p>
+          <div
+            class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs [&_a]:mt-0 [&_a]:p-0 [&_a]:border-0 [&_a]:text-xs"
+          >
+            <NuxtLink :to="item.action.href" class="rounded text-fuchsia-700 hover:underline"
+              >Vorgang ansehen</NuxtLink
+            >
+            <RecordMarkLink
+              :entity-type="
+                data.kind === 'partner_requests'
+                  ? 'partner_request'
+                  : data.kind === 'team_invitations'
+                    ? 'team_membership'
+                    : 'user'
+              "
+              :entity-key="item.entity_key"
+            />
+          </div>
+        </li>
+      </ul>
+      <EmptyState v-else message="Keine Vorgänge für diese Filter." />
+      <PaginationBar
+        :pagination="data.pagination"
+        :loading="loading"
+        :to="(page) => ({ query: { ...route.query, page } })"
+      />
     </template>
   </section>
 </template>

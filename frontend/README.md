@@ -187,3 +187,10 @@ Verbindliche Fach-/Sicherheitsverträge: [Backend-Verträge](../backend/docs/con
 Uranus-SSO, MFA und Self-Service-Kontowiederherstellung, fachliches Editieren, persönlicher Sichtungsstand,
 vollständiges Auditjournal, automatische Geocodierung/Merges und externe URL-/Dateiabfragen.
 Portal-Bildziele sowie Space-Feature-Zuordnungen bleiben bis zur eindeutigen Quellklärung offen.
+
+## Gemeinsame Datenansichten
+
+[Informationsarchitektur, Kennzahlen-Semantik, UI-Bausteine und Seiten-Audit](docs/data-pages.md)
+beschreiben die gemeinsame Designsprache. „Neu eingegangen“ ist periodengebunden;
+Dringlichkeit und Qualitätszahlen sind Bestandswerte. Ergebnisübersichten trennen stets
+API-Gesamtzahlen von Aufschlüsselungen der sichtbaren Seite.
