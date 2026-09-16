@@ -196,11 +196,20 @@ export const entityTypeSchema = z.enum([
   'image',
 ])
 // Accept earlier thumbnail formats during deployment; new URLs omit cropping ratios.
-export const activityImageUrlSchema = z
-  .string()
-  .regex(
-    /^https:\/\/api\.kulturbytes\.de\/api\/image\/[0-9a-f-]{36}\?(?:width=320(?:&ratio=16%3A9)?|width=160&ratio=1%3A1)$/i,
-  )
+export const activityImageUrlSchema = z.union([
+  z
+    .string()
+    .regex(
+      /^https:\/\/api\.kulturbytes\.de\/api\/image\/[0-9a-f-]{36}\?(?:width=320(?:&ratio=16%3A9)?|width=160&ratio=1%3A1)$/i,
+    ),
+  z.string().regex(/^https:\/\/api\.kulturbytes\.de\/api\/user\/[0-9a-f-]{36}\/avatar\/128$/i),
+])
+export const activityLocationSchema = z
+  .object({
+    latitude: z.number().finite().min(-90).max(90),
+    longitude: z.number().finite().min(-180).max(180),
+  })
+  .strict()
 
 export const activityPageSchema = z.object({
   items: z.array(
@@ -223,6 +232,8 @@ export const activityPageSchema = z.object({
         .optional(),
       subtitle: z.string().nullable().optional(),
       address: z.string().nullable().optional(),
+      email: z.string().nullable().optional(),
+      location: activityLocationSchema.nullable().optional(),
     }),
   ),
   pagination: findingPageSchema.shape.pagination,

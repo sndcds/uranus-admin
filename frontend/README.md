@@ -194,3 +194,13 @@ Portal-Bildziele sowie Space-Feature-Zuordnungen bleiben bis zur eindeutigen Que
 beschreiben die gemeinsame Designsprache. „Neu eingegangen“ ist periodengebunden;
 Dringlichkeit und Qualitätszahlen sind Bestandswerte. Ergebnisübersichten trennen stets
 API-Gesamtzahlen von Aufschlüsselungen der sichtbaren Seite.
+
+### Activity: Benutzer und Organisationen
+
+Benutzereinträge zeigen ihre E-Mail nur im geschützten Admin-Response. Vorhandene Avatare
+werden direkt vom öffentlichen Uranus-Avatar-Endpunkt geladen (128px, Modal 512px);
+fehlende Dateien fallen auf das Benutzer-Icon zurück. Organisationslogos und Ortsbilder behalten ihr
+Seitenverhältnis und bekommen denselben Innenabstand. Vorhandene Adressbestandteile und geprüfte
+WGS84-Koordinaten werden angezeigt; der OpenStreetMap-Link lädt erst beim Öffnen die Karte.
+Es gibt keine zusätzlichen JSON-Metadatenanfragen pro Zeile und kein Geocoding.
+Siehe [Activity-Vertrag](../backend/docs/contracts.md#user-avatars-and-organization-locations).

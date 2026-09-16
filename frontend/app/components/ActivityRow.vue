@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ActivityItem } from '~/utils/activity'
-import { activityName, activityStatus } from '~/utils/activity'
+import { activityName, activityStatus, activityMapUrl } from '~/utils/activity'
 import { activityTime, dateTime, adminTimeZone } from '~/utils/presentation'
 const props = defineProps<{ item: ActivityItem; observedAt: string; grouped?: boolean }>()
 const name = computed(() => activityName(props.item))
+const mapUrl = computed(() => activityMapUrl(props.item.location))
 const status = computed(() => activityStatus(props.item.status))
 </script>
 
@@ -27,10 +28,30 @@ const status = computed(() => activityStatus(props.item.status))
       <p class="mt-0.5 break-words text-xs text-slate-500">
         {{ item.organization_name?.trim() || 'Keine eindeutige Organisation' }}
       </p>
+      <p
+        v-if="item.entity_type === 'user' && item.email"
+        class="mt-1 break-words text-xs text-slate-600"
+      >
+        <span class="font-medium">E-Mail:</span> {{ item.email }}
+      </p>
       <p v-if="item.subtitle" class="mt-1 break-words text-xs leading-5 text-slate-600">
         {{ item.subtitle }}
       </p>
       <p v-if="item.address" class="mt-1 break-words text-xs text-slate-600">{{ item.address }}</p>
+      <p v-if="mapUrl && item.location" class="mt-1 text-xs text-slate-500">
+        <a
+          :href="mapUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          referrerpolicy="no-referrer"
+          :aria-label="`${name} auf OpenStreetMap öffnen (neuer Tab)`"
+          class="inline-flex flex-wrap items-center gap-1 rounded text-fuchsia-700 hover:underline"
+        >
+          <AppIcon name="pin" :size="13" />
+          {{ item.location.latitude }}, {{ item.location.longitude }} · OpenStreetMap
+          <AppIcon name="external" :size="13" />
+        </a>
+      </p>
       <div
         class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs [&_a]:mt-0 [&_a]:border-0 [&_a]:bg-transparent [&_a]:p-0 [&_a]:text-xs"
       >

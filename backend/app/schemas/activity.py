@@ -43,6 +43,11 @@ class ActivityFilters(BaseModel):
         return self
 
 
+class ActivityLocation(BaseModel):
+    latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
+
+
 class Activity(BaseModel):
     entity_type: EntityType
     entity_key: str
@@ -56,6 +61,8 @@ class Activity(BaseModel):
     public_url: str | None = None
     subtitle: str | None = None
     address: str | None = None
+    email: str | None = None
+    location: ActivityLocation | None = None
 
 
 class ActivityPage(BaseModel):

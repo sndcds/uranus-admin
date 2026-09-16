@@ -15,6 +15,7 @@ import {
   activityCounts,
   activityImagePreviewUrl,
   activityStatus,
+  activityMapUrl,
 } from '../../app/utils/activity'
 import { calendarDay, dayLabel, activityTime, dateTime } from '../../app/utils/presentation'
 import { activityFixture, activityObservedAt } from '../fixtures/activity'
@@ -242,4 +243,87 @@ it('only derives uncropped modal previews from validated public thumbnails', () 
   ]) {
     expect(activityImagePreviewUrl(source)).toBeNull()
   }
+})
+
+it('shows user email and verified avatar while preserving the image fallback', async () => {
+  const image_url = `https://api.kulturbytes.de/api/user/${first.entity_key}/avatar/128`
+  const item = {
+    ...first,
+    entity_type: 'user' as const,
+    email: 'operator@example.invalid',
+    image_url,
+  }
+  expect(activityPageSchema.safeParse({ ...activityFixture, items: [item] }).success).toBe(true)
+  const wrapper = row(item)
+  expect(wrapper.text()).toContain('E-Mail: operator@example.invalid')
+  expect(wrapper.get('img').attributes('src')).toBe(image_url)
+  expect(wrapper.get('img').attributes('loading')).toBe('lazy')
+  expect(activityImagePreviewUrl(image_url)).toBe(image_url.replace('/128', '/512'))
+  await wrapper.get('img').trigger('error')
+  expect(wrapper.find('img').exists()).toBe(false)
+  expect(wrapper.text()).toContain('operator@example.invalid')
+  expect(wrapper.text()).toContain('Markierungen')
+})
+
+it('adds organization logo padding, source address and a safe OSM coordinate link', () => {
+  const item = {
+    ...first,
+    entity_type: 'organization' as const,
+    image_url: `https://api.kulturbytes.de/api/image/${first.entity_key}?width=320`,
+    address: 'Hafenstraße 3, 24937 Flensburg',
+    location: { latitude: 54.79, longitude: 9.43 },
+  }
+  const wrapper = row(item)
+  expect(wrapper.get('button[aria-haspopup="dialog"]').classes()).toContain('p-3')
+  expect(wrapper.get('img').classes()).toContain('h-auto')
+  expect(
+    row({ ...item, entity_type: 'venue' })
+      .get('button[aria-haspopup="dialog"]')
+      .classes(),
+  ).toContain('p-3')
+  expect(wrapper.text()).toContain(item.address)
+  const link = wrapper.get('a[href^="https://www.openstreetmap.org/"]')
+  expect(link.attributes('href')).toBe(
+    'https://www.openstreetmap.org/?mlat=54.79&mlon=9.43#map=17/54.79/9.43',
+  )
+  expect(link.attributes('target')).toBe('_blank')
+  expect(link.attributes('rel')).toBe('noopener noreferrer')
+  expect(link.attributes('referrerpolicy')).toBe('no-referrer')
+  expect(
+    row({ ...item, entity_type: 'image' })
+      .get('button[aria-haspopup="dialog"]')
+      .classes(),
+  ).not.toContain('p-3')
+  expect(
+    row({ ...item, location: null })
+      .find('a[href^="https://www.openstreetmap.org/"]')
+      .exists(),
+  ).toBe(false)
+})
+
+it('rejects unsafe avatar endpoints and invalid map coordinates', () => {
+  for (const image_url of [
+    `https://api.kulturbytes.de/api/user/${first.entity_key}/avatar/128?token=secret`,
+    `https://evil.test/api/user/${first.entity_key}/avatar/128`,
+    `https://api.kulturbytes.de/api/user/${first.entity_key}/avatar/999`,
+  ]) {
+    expect(
+      activityPageSchema.safeParse({ ...activityFixture, items: [{ ...first, image_url }] })
+        .success,
+    ).toBe(false)
+    expect(activityImagePreviewUrl(image_url)).toBeNull()
+  }
+  for (const location of [
+    null,
+    undefined,
+    { latitude: 91, longitude: 0 },
+    { latitude: 0, longitude: Infinity },
+    { latitude: NaN, longitude: 0 },
+  ]) {
+    expect(activityMapUrl(location)).toBeNull()
+  }
+  expect(activityMapUrl({ latitude: 0, longitude: 0 })).toBe(
+    'https://www.openstreetmap.org/?mlat=0&mlon=0#map=17/0/0',
+  )
+  expect(row({ ...first, email: null }).text()).not.toContain('E-Mail:')
 })

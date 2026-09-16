@@ -129,7 +129,10 @@ async def test_activity_rich_previews_are_batched_and_safe(db_connection, settin
     assert "Saal" not in rows["event_date", str(uid(42))].subtitle  # own venue clears event space
     assert "Saal" in rows["event_date", str(uid(40))].subtitle
     assert rows["image", str(uid(60))].image_url == image_url
-    assert rows["user", str(uid(1))].image_url is None
+    user = rows["user", str(uid(1))]
+    assert user.image_url == f"https://api.kulturbytes.de/api/user/{uid(1)}/avatar/128"
+    assert user.email == "fixture@example.invalid"
+    assert all(item.email is None for item in result.items if item.entity_type != "user")
     assert rows["image", str(uid(60))].subtitle is None  # ambiguous relationship
     serialized = result.model_dump_json()
     for field in (
@@ -139,7 +142,6 @@ async def test_activity_rich_previews_are_batched_and_safe(db_connection, settin
         "api_import_token",
         "file_name",
         "exif",
-        "fixture@example.invalid",
     ):
         assert field not in serialized
 
@@ -278,3 +280,82 @@ def test_public_venue_identifier_uses_verified_slug_or_uuid7():
         f"https://kulturbytes.de/de/ort/{identifier}"
     )
     assert public_url({"kind": "venue", "key": str(uid(20)), "venue_slug": None}) is None
+
+
+async def test_organization_address_and_location_use_only_actual_source_fields(
+    db_connection, settings, now
+):
+    from sqlalchemy import text
+
+    await db_connection.execute(
+        text("""
+        UPDATE uranus.organization SET street=' Hafenstraße ', house_number='3',
+          address_addition='Hinterhaus', postal_code='24937', city='Flensburg',
+          country='Deutschland',
+          point=public.ST_SetSRID(public.ST_MakePoint(9.43,54.79),4326) WHERE uuid=:id
+    """),
+        {"id": uid(10)},
+    )
+    filters = ActivityFilters(entity_type="organization", entity_key=str(uid(10)))
+    item = (await activity_page(db_connection, settings, filters, now)).items[0]
+    assert item.address == "Hafenstraße 3, Hinterhaus, 24937 Flensburg, Deutschland"
+    assert item.location.model_dump() == {"latitude": 54.79, "longitude": 9.43}
+    assert item.email is None
+    assert item.public_url is None  # A map is not a fabricated public organization page.
+    for point in [None, "POINT EMPTY", "POINT(181 91)"]:
+        await db_connection.execute(
+            text("""
+            UPDATE uranus.organization SET street=' ',house_number=NULL,address_addition=NULL,
+              postal_code=NULL,city=NULL,country=NULL,
+              point=public.ST_GeomFromText(:point,4326) WHERE uuid=:id
+        """),
+            {"point": point, "id": uid(10)},
+        )
+        item = (await activity_page(db_connection, settings, filters, now)).items[0]
+        assert item.location is None
+        assert item.address is None
+
+
+async def test_user_email_is_admin_metadata_without_external_hosts_or_organization_location(
+    db_connection, settings, now
+):
+    from sqlalchemy import text
+
+    filters = ActivityFilters(entity_type="user")
+    settings.uranus_api_url = "http://localhost:8080"
+    item = (await activity_page(db_connection, settings, filters, now)).items[0]
+    assert item.email == "fixture@example.invalid"
+    assert item.image_url is None  # No cross-instance avatar URL.
+    assert item.location is None and item.address is None
+    await db_connection.execute(text('UPDATE uranus."user" SET email=:email'), {"email": "  "})
+    assert (await activity_page(db_connection, settings, filters, now)).items[0].email is None
+
+
+@pytest.mark.parametrize(
+    "identifier", [uid(1), str(uid(1)), None, "", "../secret", "https://evil.test"]
+)
+def test_avatar_uses_only_verified_public_route(identifier):
+    from app.repositories.activity_previews import avatar_url
+
+    expected = f"https://api.kulturbytes.de/api/user/{uid(1)}/avatar/128"
+    assert avatar_url(identifier, "https://api.kulturbytes.de/") == (
+        expected if identifier in (uid(1), str(uid(1))) else None
+    )
+    assert avatar_url(identifier, "https://secret@api.kulturbytes.de") is None
+    assert avatar_url(identifier, "https://api.kulturbytes.de.evil.test") is None
+
+
+@pytest.mark.parametrize(
+    "lat,lon",
+    [(None, 9.43), (54.79, None), (float("nan"), 0), (0, float("inf")), (91, 0), (0, -181)],
+)
+def test_location_omits_invalid_or_missing_coordinates(lat, lon):
+    from app.repositories.activity_previews import location
+
+    assert location(lat, lon) is None
+
+
+def test_location_keeps_zero_coordinates():
+    from app.repositories.activity_previews import location
+
+    assert location(0, 0) == {"latitude": 0, "longitude": 0}

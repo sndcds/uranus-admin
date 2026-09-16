@@ -29,6 +29,7 @@ function openPreview() {
       v-if="item.image_url && !failed"
       type="button"
       class="block w-full overflow-hidden rounded-xl border border-slate-100 transition-shadow hover:ring-2 hover:ring-fuchsia-300"
+      :class="['organization', 'venue'].includes(item.entity_type) ? 'bg-white p-3' : ''"
       :aria-label="`Bild vergrößern: ${name}`"
       aria-haspopup="dialog"
       @click="openPreview"
