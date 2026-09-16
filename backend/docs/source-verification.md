@@ -55,3 +55,30 @@ event.source_link/online_link/ticket_link/registration_link; event_date.ticket_l
 event_link.url; license.url. Das sind elf explizit benannte Felder. Optional leere Links sind
 kein Syntaxfehler; Schema, Host, eingebettete Whitespaces und Parserfehler werden unterschieden.
 Kein pauschales Voranstellen von https://, keine Netzwerkabfrage.
+
+## Live schema verification (operator command)
+
+Run deliberately against the authoritative read-only source connection:
+
+```bash
+cd backend
+uv run python -m app.source_schema_verify --json > source-schema-report.json
+```
+
+The command uses `DATABASE_URL` with a repeatable-read, read-only transaction and
+statement timeout. It reports columns/defaults/types, constraints (including foreign
+keys/checks/unique pairs), indexes, bounded observed `venue.scope` and partner-request
+status values, plus missing tables. It never selects account credentials or user rows.
+Catalog visibility depends on the reader's grants; missing information is not proof
+that a constraint does not exist. A configured timezone is reported, not inferred:
+`timestamp without time zone` alone establishes no storage timezone.
+
+Review scope/default/check consistency; the integer space-feature key versus space
+identity; partner directions/FKs/status; membership and permission pair uniqueness;
+and all timestamp types. Preserve the report with the deployment's verification date
+and operator-confirmed storage timezone. Only then enable rules relying on newly
+confirmed semantics.
+
+**Status:** the command is tested against disposable schema fixtures. No live
+production verification was performed for this change. Issue #13 remains open until
+an operator runs it on the authoritative source and records the reviewed findings.
