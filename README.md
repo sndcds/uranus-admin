@@ -53,7 +53,9 @@ verwenden gespeicherte Findings und benötigen die Admin-Ablage.
 Details: [Backend-Verträge](backend/docs/contracts.md),
 [verifizierter Uranus-dev-Stand](backend/docs/source-verification.md).
 Frontend und Backend werden in getrennten CI-Jobs geprüft, einschließlich Frontend-Produktionsbuild
-und reproduzierbarer Chromium-Tests.
+und reproduzierbarer Chromium-Tests. Zusätzlich prüfen CodeQL (Python/JS/TS) und
+Dependency Review (neue high/critical Sicherheitslücken) Änderungen; siehe
+[CI-Gates und Berechtigungen](backend/docs/development.md#security-gates).
 
 Qualitätsprüfungen werden dauerhaft eingereiht (HTTP 202). Zusätzlich zur API muss der
 [Check-Worker](backend/docs/development.md#durable-quality-check-worker-migration-0006)

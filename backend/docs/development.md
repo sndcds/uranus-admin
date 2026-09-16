@@ -163,8 +163,8 @@ Umgebung: daraus keine Produktionslaufzeit ableiten. Für größere anonymisiert
 ## CI
 
 Der Workflow [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) läuft bei jedem
-Push und Pull Request. Vor einem Merge müssen alle vier Jobs für den aktuellen PR-Stand
-erfolgreich sein:
+Push und Pull Request. Vor einem Merge müssen alle vier funktionalen Jobs und die
+Security-Prüfungen für den aktuellen PR-Stand erfolgreich sein:
 
 | Job | Arbeitsverzeichnis | Prüfungen |
 | --- | --- | --- |
@@ -176,6 +176,36 @@ erfolgreich sein:
 Dies sind die im Workflow ausgeführten Merge-Prüfungen. Ob GitHub sie technisch als
 Required Status Checks erzwingt, wird separat durch Branch Protection bzw. Repository-Rulesets
 festgelegt; diese Einstellungen sind nicht in der Workflow-Datei definiert.
+
+### Security gates
+
+[security.yml](../../.github/workflows/security.yml) ist die maßgebliche CodeQL-Konfiguration.
+GitHub Default Setup wurde am 16.09.2026 über die Repository-API geprüft: `not-configured`.
+Deshalb eigener Workflow für Python und JavaScript/TypeScript, keine parallele Default-Konfiguration.
+Er läuft für PRs, Pushes auf main und wöchentlich. Beide Sprachen verwenden `build-mode: none`:
+keine Installation oder Ausführung fremder PR-Paketskripte mit dem CodeQL-Upload-Token.
+
+Dependency Review läuft für Pull Requests und scheitert bei neu eingeführten **high/critical**
+Vulnerabilities. Moderate/low werden nicht zum Gate erhoben. Das Repository ist öffentlich;
+[GitHub unterstützt Dependency Review dafür](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependency-review).
+Voraussetzung ist der aktivierte **Dependency graph** unter Repository Settings → Advanced
+Security. Meldet der Job „Dependency review is not supported … ensure that Dependency graph
+is enabled“, muss ein Repository-Administrator diese Einstellung aktivieren und den Job erneut
+starten. Aktivierte Dependabot-Alerts allein belegen diese Voraussetzung nicht. Die Anleitung
+[Dependency graph aktivieren](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/enable-dependency-graph)
+beschreibt die Repository-Einstellung. Fehlende Features/Berechtigungen werden nicht per
+`continue-on-error` verborgen; der PR bleibt bis zur erfolgreichen Prüfung nicht mergebereit.
+
+Alle Actions sind auf Commit-SHAs fixiert. Token standardmäßig nur `contents: read`; ausschließlich
+CodeQL darf Security-Ergebnisse hochladen (`security-events: write`). Dependency Review benötigt
+keine Schreibrechte oder PR-Kommentare. Kein `pull_request_target`, keine Production-Secrets,
+keine Production-DB und kein privilegierter Build aus einem Fork. Fork-PRs verwenden den normalen
+`pull_request`-Kontext mit GitHubs eingeschränkten Token-Rechten.
+
+Als erforderliche Checks in Branch Protection/Rulesets zusätzlich `CodeQL (python)`,
+`CodeQL (javascript-typescript)` und `Dependency review` auswählen. Workflow-Dateien ersetzen
+keine Repository-Rulesets. Konfiguration lokal mit actionlint prüfen; bestehende funktionale
+Jobs und deterministische Lockfile-Installationen bleiben unverändert.
 
 ### Backend
 
