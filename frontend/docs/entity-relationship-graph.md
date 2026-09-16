@@ -151,3 +151,25 @@ Verified in an isolated checkout based on `main`, containing only the relationsh
   [mobile](screenshots/entity-graph-mobile.png).
 - Modular D3 is part of the dynamically loaded graph route; the page does not require a CDN
   or a relaxed script CSP. No production data, service or deployment was changed.
+
+### Additional local verification before PR integration (2026-09-16)
+
+These earlier observations were recorded in the combined local Graph/check-worker checkout.
+They describe that snapshot, not a fresh verification of the merged branch. The PR verification
+above describes the isolated Graph checkout. PR #32 subsequently updated the check-job browser
+test to wait for initial loading and reset its polling counter when starting a job.
+
+- Backend: 306 tests passed against disposable PostgreSQL/PostGIS; after the UUID lookup
+  optimization, all 58 affected Graph/Activity tests passed again. Ruff and strict mypy passed.
+- Frontend: frozen lockfile install, ESLint, strict typecheck, 120 unit tests and production
+  build passed. All 54 production Playwright cases passed on desktop/mobile, including CSP.
+- The production graph route is a dynamic entry. Its JavaScript chunk (UI and modular D3)
+  measured 84,512 bytes, 29,171 bytes gzip; the shared graph presentation helper measured
+  1,949 / 954 bytes. These are chunk sizes, not a measured total baseline bundle increase.
+- Browser verification used isolated localhost ports 3101/31903 because another test run
+  occupied the standard ports. Temporary runner/fixture copies are not part of the feature.
+- Development Playwright: all six graph cases passed. The full run had 45 passes, four
+  production-only skips and five failures. A serial retry passed three failures; the two
+  `check-jobs.spec.ts` cases still failed waiting for “Wartet auf Worker”. Their traces
+  contain no start POST after the click, consistent with a pre-hydration interaction.
+  Those separate, already-in-progress check-job changes were not modified for this feature.
