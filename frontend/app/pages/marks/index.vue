@@ -212,6 +212,12 @@ onBeforeUnmount(() => {
         :aria-busy="loading"
       >
         <li v-for="item in data.items" :key="item.id" class="data-row space-y-2 text-sm">
+          <NuxtLink
+            v-if="item.action"
+            :to="item.action.href"
+            class="text-sm font-semibold text-fuchsia-700"
+            >Datensatz öffnen</NuxtLink
+          >
           <h3 class="font-bold">
             <NuxtLink :to="`/marks/${item.id}`" class="text-fuchsia-700">{{
               item.entity_name

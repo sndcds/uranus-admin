@@ -515,3 +515,8 @@ persisted finding stream. 401/403/429, SSRF rejection, excessive bodies and redi
 limits remain diagnostic observations, not definitive broken-link findings. A later
 2xx resolves only that source field. The current core check-run count still describes
 core rules; asynchronous URL observations have their own timestamps and TTLs.
+
+Record-mark list/detail responses additionally expose optional `action` using the
+same canonical Action model for the six domain sections. Historical notes stay on
+`/marks/{id}`; “Datensatz öffnen” links back to the source detail. Unsupported mark
+entity types have no invented domain target.

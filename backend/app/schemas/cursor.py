@@ -63,6 +63,16 @@ def decode[T: (ActivityCursor, FindingCursor)](raw: str, model: type[T], expecte
             raise ValueError()
         data = base64.b64decode(raw + "=" * (-len(raw) % 4), altchars=b"-_", validate=True)
         result = model.model_validate_json(data)
+        identity = result.entity_key if isinstance(result, ActivityCursor) else result.id
+        if chr(0) in identity:
+            raise ValueError()
+        if (
+            isinstance(result, ActivityCursor)
+            and result.from_at
+            and result.to_at
+            and result.from_at >= result.to_at
+        ):
+            raise ValueError()
         if result.scope != expected_scope:
             raise ValueError()
         return result

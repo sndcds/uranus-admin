@@ -132,6 +132,8 @@ def test_cursor_endpoint_type_and_scope_validation(now):
         {"version": 2},
         {"scope": "a" * 64},
         {"secret": "x"},
+        {"entity_key": chr(0)},
+        {"from_at": now.isoformat(), "to_at": now.isoformat()},
     ):
         token = base64.urlsafe_b64encode(json.dumps({**bad, **change}).encode()).decode()
         with pytest.raises(APIError):

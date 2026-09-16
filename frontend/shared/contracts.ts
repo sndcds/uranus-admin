@@ -391,6 +391,7 @@ export const markUpdateSchema = z
   .strict()
   .refine(hasExplanation)
 export const markSchema = z.object({
+  action: actionSchema.nullable().optional(),
   id: z.uuid(),
   entity_type: markEntityTypeSchema,
   entity_key: z.string(),

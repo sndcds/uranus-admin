@@ -6416,6 +6416,17 @@
               }
             ],
             "title": "Completed By"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Action"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "readOnly": true
           }
         },
         "type": "object",
@@ -6433,7 +6444,8 @@
           "created_by",
           "updated_at",
           "completed_at",
-          "completed_by"
+          "completed_by",
+          "action"
         ],
         "title": "Mark"
       },
@@ -6678,6 +6690,17 @@
             },
             "type": "array",
             "title": "Events"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Action"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "readOnly": true
           }
         },
         "type": "object",
@@ -6696,7 +6719,8 @@
           "updated_at",
           "completed_at",
           "completed_by",
-          "events"
+          "events",
+          "action"
         ],
         "title": "MarkDetail"
       },
