@@ -2,6 +2,8 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { computed, defineComponent, h } from 'vue'
 import ActivityRow from '../../app/components/ActivityRow.vue'
+import ActivityThumbnail from '../../app/components/ActivityThumbnail.vue'
+import { activityPageSchema } from '../../shared/contracts'
 import AppIcon from '../../app/components/AppIcon.vue'
 import RecordMarkLink from '../../app/components/RecordMarkLink.vue'
 import {
@@ -35,7 +37,7 @@ function row(item = first) {
   vi.stubGlobal('computed', computed)
   return mount(ActivityRow, {
     props: { item, observedAt: activityObservedAt, grouped: true },
-    global: { components: { AppIcon, RecordMarkLink }, stubs: { NuxtLink } },
+    global: { components: { AppIcon, RecordMarkLink, ActivityThumbnail }, stubs: { NuxtLink } },
   })
 }
 afterEach(() => vi.unstubAllGlobals())
@@ -132,4 +134,50 @@ it('does not promote partner UUID pairs to names or discard a known partner name
   expect(activityName({ ...item, entity_name: `Kulturverein → ${id}` })).toBe(
     `Kulturverein → ${id}`,
   )
+})
+
+it('shows public previews, secured external links and image failure fallback', async () => {
+  const item = {
+    ...first,
+    image_url:
+      'https://api.kulturbytes.de/api/image/20000000-0000-7000-8000-000000000001?width=160&ratio=1%3A1',
+    public_url: 'https://kulturbytes.de/de/ort/hafenbuehne',
+    subtitle: 'Termin: 15.09.2026 · 19:00 · Hafenbühne',
+    address: 'Hafenstraße 3, Flensburg',
+  }
+  const wrapper = row(item)
+  expect(wrapper.text()).toContain(item.subtitle)
+  expect(wrapper.text()).toContain(item.address)
+  expect(wrapper.text()).toContain('Im Admin ansehen')
+  const external = wrapper.get('a[target="_blank"]')
+  expect(external.attributes('href')).toBe(item.public_url)
+  expect(external.attributes('rel')).toBe('noopener noreferrer')
+  expect(external.attributes('aria-label')).toContain('neuer Tab')
+  const image = wrapper.get('img')
+  expect(image.attributes('src')).toBe(item.image_url)
+  expect(image.attributes('loading')).toBe('lazy')
+  expect(image.attributes('referrerpolicy')).toBe('no-referrer')
+  expect(image.attributes('crossorigin')).toBe('anonymous')
+  await image.trigger('error')
+  expect(wrapper.find('img').exists()).toBe(false)
+  expect(wrapper.find('svg').exists()).toBe(true)
+})
+
+it('rejects unsafe external preview URLs and accepts absent previews', () => {
+  expect(activityPageSchema.safeParse(activityFixture).success).toBe(true)
+  for (const url of [
+    'javascript:alert(1)',
+    'https://evil.test/x',
+    'https://kulturbytes.de.evil.test/de/ort/foo',
+    'https://kulturbytes.de/de/ort/foo?token=secret',
+  ]) {
+    expect(
+      activityPageSchema.safeParse({ ...activityFixture, items: [{ ...first, public_url: url }] })
+        .success,
+    ).toBe(false)
+    expect(
+      activityPageSchema.safeParse({ ...activityFixture, items: [{ ...first, image_url: url }] })
+        .success,
+    ).toBe(false)
+  }
 })

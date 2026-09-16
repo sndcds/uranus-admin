@@ -32,7 +32,7 @@ test('compact activity groups, visible-page summary, accessible targets and pagi
   await expect(row.getByText('Termin', { exact: true })).toBeVisible()
   await expect(row.getByText('Veröffentlicht', { exact: true })).toBeVisible()
   await expect(
-    row.getByRole('link', { name: 'Datensatz Lesung am Hafen ansehen' }),
+    row.getByRole('link', { name: 'Im Admin ansehen: Lesung am Hafen' }),
   ).toHaveAttribute('href', activityFixture.items[0]!.action!.href)
   await expect(
     row.getByRole('link', { name: 'Markierungen & Notizen zu Lesung am Hafen' }),

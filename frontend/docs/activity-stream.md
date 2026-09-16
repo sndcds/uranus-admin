@@ -78,3 +78,15 @@ Tests: `tests/unit/activity.test.ts` prüft Labels, Links, Status-/Namens-Fallba
 Sommerzeit, Gruppierung und Seitenzahlen. `tests/e2e/activity-stream.spec.ts` prüft den echten
 Production-/Development-Client mit kontrollierten API-Antworten, einschließlich Filter, History,
 Pagination, Leerzustand, Ladezustand, Fehler und Retry.
+
+## Rich dashboard drill-down
+
+All nine new-record metric cards link to Activity with their `entity_type` and the selected
+Dashboard period. Activity shows a type-specific heading and the API total/window, independent
+of current page size. The existing type mapping supplies icons, German labels and colors.
+
+Rows include a 64px mobile / 80px desktop lazy preview, an icon on absent/failed images,
+optional API subtitle/address, the existing internal target and a public link when provided.
+The API supplies all previews in its page response; the browser makes no entity lookup calls.
+Images use anonymous CORS and no referrer. Public links open in a new tab with explicit labels.
+See the backend preview contract for verified routes, instance configuration and limitations.

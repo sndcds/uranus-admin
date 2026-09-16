@@ -288,3 +288,60 @@ Ein Background Worker (`POST → 202 + run_id`, `GET /check-runs/{id}`), Streami
 sehr große Vollscans und produktive Lastmessungen sind Folgearbeit. Dieser PR führt weder
 Worker noch neue Uranus-Indizes ein. PostgreSQL kann für COUNT/Sortierung weiterhin viele
 Zeilen lesen; begrenzte API-Seitengröße ist keine konstante Datenbanklaufzeit.
+
+## Activity previews and public links
+
+Activity items optionally add `image_url`, `public_url`, `subtitle`, and `address` (nullable
+strings). No full entity objects, email addresses, file paths or credentials are embedded.
+The existing filters, pagination, `created_at`, `action.href` and unknown-timestamp semantics
+are unchanged. Preview enrichment runs **after SQL pagination**, with one batch query for
+all page identities: three existing count/page queries plus one enrichment query (zero for an
+empty page). UUID joins retain the source UUID indexes; next-date lookup uses the existing
+`event_date(event_uuid)` index. Reverse image contexts are aggregated once for the page.
+
+| Type | Preview |
+| --- | --- |
+| organization | City and `main_logo`; no standalone public organization route is established |
+| venue | Address, `main_photo` then `main_logo`, public venue link |
+| space | Parent venue name; no invented image relation or standalone public route |
+| event | Subtitle, next upcoming public-status date, `main` image; public link only when a supported date exists |
+| event_date | Actual event date/time (unknown time stays unknown), effective venue/space, parent event image |
+| user | Existing display name/username and activation status only |
+| partner_request | Existing directed from/to names and status |
+| team_membership | Existing user/organization, invited/joined status; optional explicitly labelled `invited_at`, never a fabricated joined timestamp |
+| image | Image itself; linked name only if exactly one distinct context/target exists |
+
+Public URL generation is enabled only when `URANUS_API_URL` identifies
+`https://api.kulturbytes.de` (a trailing slash is accepted). This is an operator assertion that
+the source data belongs to this public instance; local/unrelated snapshots get null URLs.
+No network introspection or per-row HTTP requests are made. Missing/stale files use the UI's
+icon fallback. Public images use `https://api.kulturbytes.de/api/image/<uuid>?width=160&ratio=1%3A1`.
+Only established image identifiers are selected, not arbitrary stored URLs or file names.
+
+Routing evidence inspected at implementation time:
+
+- [Kulturbytes client ec8c059](https://github.com/sndcds/kulturbytes-client/tree/ec8c0597598d3ba0e404bc276493ba96cb25b8b2):
+  `nuxt.config.ts` (`strategy: prefix`, German locale),
+  `app/pages/venue/[venue_identifier].vue` → `/de/ort/<identifier>`,
+  `app/pages/event/[event_uuid]/[date_identifier].vue` → `/de/veranstaltung/<event>/<date>`.
+- [Uranus 12ec760](https://github.com/sndcds/uranus/tree/12ec7608d55aed3cf86724ce47d275f9d49e46b2):
+  `sql/get-venue.sql` accepts a slug or UUIDv7; `api/api_utils.go` accepts UUIDv7 date identifiers.
+  To avoid ambiguous/generated time slugs, unsupported date identifiers get no public link.
+  `api/get_event.go` establishes public statuses released/cancelled/deferred/rescheduled;
+  both event and effective date status must be public. Events without an upcoming public date
+  get no link. Date time selection uses `EVENT_TIMEZONE`, not creation time.
+- Uranus `api/api_image_helper.go`, `sql/get-event.sql` and Pluto v0.5.6 `RegisterRoutes`:
+  organization/venue/event image links, UUID-based public GET route without auth middleware.
+  No public space image relationship is assumed. Event-date venue overrides stop inheritance
+  of the event-level space, matching the requested effective-location contract.
+
+The frontend accepts only these fixed public origins/path shapes, uses lazy thumbnails with
+anonymous CORS and no referrer, and opens public pages with `noopener noreferrer`. Internal
+admin links continue to use `action.href`; RecordMarkLink remains available for every row.
+
+A local `EXPLAIN (ANALYZE, BUFFERS)` on disposable PostgreSQL 17/PostGIS 3.5 with 1,000
+additional events, 5,000 dates and 1,000 linked images enriched 50 selected events in
+1.714 ms (planning 2.684 ms). The plan used `idx_event_date_event_uuid`,
+`image_context_identifier_unique` and entity primary-key indexes. This is a synthetic
+preview-query measurement, not a production latency promise or a benchmark of the existing
+count/page queries. No production data or schema was changed.

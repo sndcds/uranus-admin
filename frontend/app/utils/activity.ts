@@ -1,5 +1,5 @@
-import type { ActivityPage } from '#shared/contracts'
-import { calendarDay, dayLabel } from './presentation'
+import type { ActivityPage, DashboardSummary } from '#shared/contracts'
+import { calendarDay, dayLabel, metric } from './presentation'
 
 export type ActivityItem = ActivityPage['items'][number]
 export const activityTypes = {
@@ -91,4 +91,24 @@ export function activityCounts(items: ActivityItem[]) {
     .map((type) => ({ type, count: items.filter((item) => item.entity_type === type).length }))
     .filter((item) => item.count > 0)
     .sort((a, b) => b.count - a.count)
+}
+
+export function recordRows(data: DashboardSummary | null) {
+  const mapping = {
+    organizations: 'organization',
+    venues: 'venue',
+    spaces: 'space',
+    events: 'event',
+    event_dates: 'event_date',
+    users: 'user',
+    partner_requests: 'partner_request',
+    team_memberships: 'team_membership',
+    images: 'image',
+  } as const
+  return Object.entries(mapping).map(([key, type]) => ({
+    key,
+    type,
+    ...activityTypes[type],
+    value: metric(data?.new_records[key as keyof typeof mapping]),
+  }))
 }

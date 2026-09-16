@@ -1,4 +1,4 @@
-import type { DashboardSummary, Severity } from '#shared/contracts'
+import type { Severity } from '#shared/contracts'
 
 export const adminTimeZone = 'Europe/Berlin'
 const fullDateTime = new Intl.DateTimeFormat('de-DE', {
@@ -37,24 +37,6 @@ export const severityLabels: Record<Severity, string> = {
   warning: 'Warnung',
   info: 'Hinweis',
 }
-export function recordRows(data: DashboardSummary | null) {
-  const labels = {
-    organizations: 'Organisationen',
-    venues: 'Orte',
-    spaces: 'Räume',
-    events: 'Events',
-    event_dates: 'Termine',
-    users: 'Benutzer',
-    partner_requests: 'Partneranfragen',
-    team_memberships: 'Teammitgliedschaften',
-    images: 'Bilder',
-  }
-  return Object.entries(labels).map(([key, label]) => {
-    const entries = data ? Object.entries(data.new_records) : []
-    return { key, label, value: metric(entries.find(([name]) => name === key)?.[1]) }
-  })
-}
-
 // Activity does not expose admin_timezone; use the same zone as all existing date displays.
 const dayFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: adminTimeZone,

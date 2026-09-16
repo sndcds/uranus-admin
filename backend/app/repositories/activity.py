@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.errors import APIError
+from app.repositories.activity_previews import activity_previews
 from app.schemas.action import Action
 from app.schemas.activity import Activity, ActivityFilters, ActivityPage
 from app.schemas.finding import Pagination
@@ -112,18 +113,25 @@ async def activity_page(
         (await connection.execute(text(f"SELECT COUNT(*) FROM ({base}) q"), params)).scalar_one()
     )
     rows = (
-        await connection.execute(
-            text(
-                f"SELECT entity_type, entity_key, entity_name, organization_id, organization_name, "
-                f"status, created_at AT TIME ZONE :tz AS created_at FROM ({base}) q "
-                f"ORDER BY {order} LIMIT :limit OFFSET :offset"
-            ),
-            params,
+        (
+            await connection.execute(
+                text(
+                    "SELECT entity_type, entity_key, entity_name, "
+                    "organization_id, organization_name, "
+                    f"status, created_at AT TIME ZONE :tz AS created_at FROM ({base}) q "
+                    f"ORDER BY {order} LIMIT :limit OFFSET :offset"
+                ),
+                params,
+            )
         )
-    ).mappings()
+        .mappings()
+        .all()
+    )
+    source_items = [dict(row) for row in rows]
+    previews = await activity_previews(connection, settings, source_items, now)
     items = []
-    for row in rows:
-        data = dict(row)
+    for data in source_items:
+        data.update(previews.get((data["entity_type"], data["entity_key"]), {}))
         data["action"] = (
             Action(route="activity", entity_key=data["entity_key"], entity_type=data["entity_type"])
             if data["created_at"] is not None

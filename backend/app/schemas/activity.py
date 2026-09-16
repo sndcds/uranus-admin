@@ -52,6 +52,10 @@ class Activity(BaseModel):
     created_at: datetime | None
     status: str | None
     action: Action | None = None
+    image_url: str | None = None
+    public_url: str | None = None
+    subtitle: str | None = None
+    address: str | None = None
 
 
 class ActivityPage(BaseModel):

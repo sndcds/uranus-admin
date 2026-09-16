@@ -11,11 +11,9 @@ const status = computed(() => activityStatus(props.item.status))
 
 <template>
   <li
-    class="grid min-w-0 grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-slate-50 sm:px-5 md:grid-cols-[2.25rem_minmax(0,1fr)_auto_7rem]"
+    class="grid min-w-0 grid-cols-[4rem_minmax(0,1fr)] gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-slate-50 sm:px-5 md:grid-cols-[5rem_minmax(0,1fr)_auto_7rem]"
   >
-    <span class="flex h-9 w-9 items-center justify-center rounded-xl" :class="presentation.tone">
-      <AppIcon :name="presentation.icon" :size="19" />
-    </span>
+    <ActivityThumbnail :item="item" />
     <div class="min-w-0">
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
         <component
@@ -34,16 +32,30 @@ const status = computed(() => activityStatus(props.item.status))
       <p class="mt-0.5 break-words text-xs text-slate-500">
         {{ item.organization_name?.trim() || 'Keine eindeutige Organisation' }}
       </p>
+      <p v-if="item.subtitle" class="mt-1 break-words text-xs leading-5 text-slate-600">
+        {{ item.subtitle }}
+      </p>
+      <p v-if="item.address" class="mt-1 break-words text-xs text-slate-600">{{ item.address }}</p>
       <div
         class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs [&_a]:mt-0 [&_a]:border-0 [&_a]:bg-transparent [&_a]:p-0 [&_a]:text-xs"
       >
         <NuxtLink
           v-if="item.action"
           :to="item.action.href"
-          :aria-label="`Datensatz ${name} ansehen`"
+          :aria-label="`Im Admin ansehen: ${name}`"
           class="rounded text-fuchsia-700 underline-offset-4 hover:underline"
-          >Ansehen</NuxtLink
+          >Im Admin ansehen</NuxtLink
         >
+        <a
+          v-if="item.public_url"
+          :href="item.public_url"
+          target="_blank"
+          rel="noopener noreferrer"
+          referrerpolicy="no-referrer"
+          :aria-label="`${name} auf kulturbytes.de öffnen (neuer Tab)`"
+          class="inline-flex items-center gap-1 rounded text-fuchsia-700 underline-offset-4 hover:underline"
+          >Auf kulturbytes.de öffnen<AppIcon name="external" :size="13"
+        /></a>
         <RecordMarkLink
           :entity-type="item.entity_type"
           :entity-key="item.entity_key"
