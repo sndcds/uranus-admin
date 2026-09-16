@@ -594,6 +594,7 @@ REVOKE CREATE ON SCHEMA admin, uranus FROM admin_auth_operator;
 GRANT SELECT, INSERT, UPDATE ON admin.auth_account TO admin_auth_operator;
 GRANT SELECT, INSERT, DELETE ON admin.auth_system_admin TO admin_auth_operator;
 GRANT SELECT, UPDATE ON admin.auth_session TO admin_auth_operator;
+GRANT SELECT ON admin.alembic_version TO admin_auth_operator;
 -- No membership in admin_migrator, no Uranus or record_mark_event write grants.
 ```
 
@@ -603,6 +604,8 @@ CLI-Prozess geben; nie dem FastAPI-/Nuxt-Dienst. Keine tatsächlichen Passwörte
 Konto-Passwörter werden zweimal verdeckt über `getpass` abgefragt, mit 15–1024 Zeichen:
 
 ```bash
+# Nach Migration und Operator-Grants zuerst Preflight:
+uv run python -m app.auth.manage doctor
 # Erster System-Administrator: beide Entscheidungen müssen ausdrücklich gesetzt sein.
 uv run python -m app.auth.manage create operator --active --system-admin
 # Ein normales Konto hat zunächst weder Aktivierung noch globale Rechte:
@@ -779,3 +782,25 @@ Restart=on-failure
 Environment-Datei nur für den Dienst lesbar, ohne Migration-/Operator-Credentials.
 Worker-Prozess und Alter queued/running-Jobs separat überwachen: `/ready` prüft die DB-/Schema-
 Voraussetzungen der API, beweist aber nicht, dass ein externer Worker gerade läuft.
+
+## Auth operator diagnostics
+
+Bootstrap: **Migration → explizite Operator-Grants → doctor → create**. Doctor und jeder
+normale Account-Befehl prüfen vor einer Passwortabfrage Verbindung, Datenbank/Rolle, Admin-
+Schema, den zentral ermittelten Alembic-Head, alle erforderlichen Operator-Tabellen und jedes
+benötigte Recht einzeln. Owner-Mitgliedschaft (auch NOINHERIT), CREATE auf admin/uranus,
+Superuser/CREATEROLE/CREATEDB/BYPASSRLS/REPLICATION und Uranus-Schreibrechte werden abgelehnt.
+Doctor führt ausschließlich SELECTs aus, keine Reparatur, Migration oder Kontoänderung.
+
+```bash
+uv run python -m app.auth.manage doctor
+```
+
+Ausgabe: konfigurierte DSN ja/nein, Verbindungsstatus, DB-/Rollenname, Migration und Grants;
+keine DSN, Passwörter, Hashes, Tokens oder Roh-Exceptions. Fehler unterscheiden insbesondere
+`database authentication failed`, `database unreachable`, `admin schema missing`,
+`migration incompatible`, `operator privileges incomplete`, `unsafe operator role`,
+`account already exists` und `unknown account`. Abbruch mit nonzero Exit-Code.
+Kein Debug-Flag mit unredigierten Driver-Stacktraces. Erfolgreiche Kontoänderungen bleiben
+atomar einschließlich Credential-Version und Session-Widerruf. Der CLI-Operator darf nur im
+Operator-Prozess konfiguriert sein, nie als ADMIN_DATABASE_URL.

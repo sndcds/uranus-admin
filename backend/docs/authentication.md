@@ -117,7 +117,8 @@ Limits schützen die Hash-Prüfung, ersetzen aber kein vorgelagertes Request-/Bo
 
 Auth-Fehler enthalten keine Credentials, Roh-DB-Fehler oder verketteten Driver-Exceptions, auch
 bei APP_DEBUG. Keine Header-/Body-/Cookie-Logs an Proxy oder FastAPI aktivieren. Private Hashes
-und DB-Zugänge bleiben ausschließlich serverseitig. Betreiberaktionen geben nur Aktion/UUID aus.
+und DB-Zugänge bleiben ausschließlich serverseitig. Kontoänderungen geben nur Aktion/UUID aus. `app.auth.manage doctor` zeigt zusätzlich
+sichere DB-/Rollen- und Preflight-Statusinformationen, niemals die DSN.
 
 Grundlagen: [Argon2 PasswordHasher](https://argon2-cffi.readthedocs.io/en/stable/api.html),
 [OWASP Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).

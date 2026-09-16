@@ -3,13 +3,15 @@
 import argparse
 import asyncio
 import getpass
+import json
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import delete, insert, select, text, update
-from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.admin_tables import auth_account, auth_session, auth_system_admin
+from app.auth.diagnostics import operator_engine, preflight, safe_error
 from app.auth.service import hasher, normalize_login
 from app.config import Settings
 
@@ -84,12 +86,45 @@ async def manage_account(
     return str(identifier)
 
 
+async def run_command(
+    settings: Settings,
+    action: str,
+    login: str | None = None,
+    active: bool = False,
+    system_admin: bool = False,
+) -> None:
+    engine = operator_engine(settings)
+    try:
+
+        def report(label: str, value: str) -> None:
+            print(f"{label:<32}{json.dumps(value, ensure_ascii=True)}")
+
+        if action == "doctor":
+            report("Management DSN configured", "OK")
+        async with engine.begin() as connection:
+            await preflight(connection, report if action == "doctor" else None)
+        if action == "doctor":
+            return
+        password = None
+        if action in {"create", "password"}:
+            password = getpass.getpass("New password (15–1024 characters): ")
+            if password != getpass.getpass("Repeat password: "):
+                raise ValueError("Passwords do not match")
+        async with engine.begin() as connection:
+            identifier = await manage_account(
+                connection, action, login or "", password, active, system_admin
+            )
+        print(f"{action}: admin:{identifier}")
+    finally:
+        await engine.dispose()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "action", choices=["create", "password", "activate", "disable", "grant", "revoke"]
+        "action", choices=["doctor", "create", "password", "activate", "disable", "grant", "revoke"]
     )
-    parser.add_argument("login")
+    parser.add_argument("login", nargs="?")
     parser.add_argument("--active", action="store_true", help="Activate a new account explicitly")
     parser.add_argument(
         "--system-admin", action="store_true", help="Grant a new account global access explicitly"
@@ -97,35 +132,14 @@ def main() -> None:
     args = parser.parse_args()
     if args.action != "create" and (args.active or args.system_admin):
         parser.error("Creation flags are only valid with create")
-    password = None
-    if args.action in {"create", "password"}:
-        password = getpass.getpass("New password (15–1024 characters): ")
-        if password != getpass.getpass("Repeat password: "):
-            raise SystemExit("Passwords do not match")
-
-    async def run() -> None:
-        settings = Settings()
-        url = settings.admin_auth_management_database_url
-        if url is None:
-            raise ValueError("Set ADMIN_AUTH_MANAGEMENT_DATABASE_URL for the operator process")
-        engine = create_async_engine(url.get_secret_value(), hide_parameters=True, echo=False)
-        try:
-            async with engine.begin() as connection:
-                identifier = await manage_account(
-                    connection, args.action, args.login, password, args.active, args.system_admin
-                )
-            print(f"{args.action}: admin:{identifier}")
-        finally:
-            await engine.dispose()
-
+    if (args.action == "doctor") != (args.login is None):
+        parser.error("Doctor takes no login; account operations require a login")
     try:
-        asyncio.run(run())
-    except ValueError as error:
-        raise SystemExit(str(error)) from None
-    except Exception:
-        raise SystemExit(
-            "Account operation failed; check operator grants and migrations."
-        ) from None
+        asyncio.run(
+            run_command(Settings(), args.action, args.login, args.active, args.system_admin)
+        )
+    except Exception as error:
+        raise SystemExit(safe_error(error)) from None
 
 
 if __name__ == "__main__":
