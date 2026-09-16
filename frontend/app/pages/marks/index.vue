@@ -108,7 +108,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="space-y-4">
     <PageHeader title="Markierungen" description="Manuell markierte Datensätze und Notizen." />
-    <div v-if="scope" class="card space-y-3 break-words p-5">
+    <div v-if="scope" class="space-y-3 rounded-xl border border-slate-200 bg-white p-4 break-words">
       <p class="font-semibold">
         {{ data?.items[0]?.entity_name ?? 'Markierungen zu diesem Datensatz' }}
       </p>
@@ -205,7 +205,12 @@ onBeforeUnmount(() => {
             : 'Neueste zuerst · aktueller Bestand'
         "
       />
-      <ul v-if="data.items.length" class="data-list divide-y divide-slate-100" :aria-busy="loading">
+      <DataListShell
+        v-if="data.items.length"
+        as="ul"
+        class="divide-y divide-slate-100"
+        :aria-busy="loading"
+      >
         <li v-for="item in data.items" :key="item.id" class="data-row space-y-2 text-sm">
           <h3 class="font-bold">
             <NuxtLink :to="`/marks/${item.id}`" class="text-fuchsia-700">{{
@@ -238,7 +243,7 @@ onBeforeUnmount(() => {
             >Notizen &amp; Verlauf öffnen</NuxtLink
           >
         </li>
-      </ul>
+      </DataListShell>
       <EmptyState v-if="!data.items.length" message="Keine Markierungen für diese Auswahl." />
       <PaginationBar
         :pagination="data.pagination"

@@ -5,6 +5,7 @@ import RequestState from '../../app/components/RequestState.vue'
 import { failure } from '../../shared/errors'
 
 config.global.stubs.NuxtLink = true
+config.global.stubs.AppIcon = true
 
 describe('dashboard display states', () => {
   it('renders zero and missing as different states', () => {

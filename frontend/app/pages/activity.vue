@@ -177,17 +177,14 @@ onBeforeUnmount(() => {
       >
         Nach Objektschlüssel geordnet; eine zeitliche Reihenfolge ist nicht bekannt.
       </p>
-      <div v-if="data.items.length" class="data-list" :aria-busy="loading">
+      <DataListShell v-if="data.items.length" :aria-busy="loading">
         <section
           v-for="group in groups"
           :key="group.key"
           :aria-labelledby="group.label ? `activity-day-${group.key}` : undefined"
           :aria-label="group.label ? undefined : 'Datensätze ohne bekannte Reihenfolge'"
         >
-          <div
-            v-if="group.label"
-            class="flex items-center gap-3 border-y border-slate-200 bg-slate-50 px-4 py-2 first:border-t-0 sm:px-5"
-          >
+          <div v-if="group.label" class="list-group-header">
             <h3 :id="`activity-day-${group.key}`" class="text-xs font-semibold text-slate-700">
               {{ group.label }}
             </h3>
@@ -206,7 +203,7 @@ onBeforeUnmount(() => {
             />
           </ul>
         </section>
-      </div>
+      </DataListShell>
       <EmptyState v-else message="Keine Datensätze für diese Filter." />
       <PaginationBar
         v-if="data.pagination.pages > 0"

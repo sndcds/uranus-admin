@@ -23,9 +23,9 @@ const detail = useTemplateRef('detail')
               : 'bg-sky-400'
         "
       />
-      <div class="min-w-0">
+      <div class="min-w-0 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-x-4">
         <div class="flex flex-wrap items-center gap-2">
-          <h3 class="break-words font-semibold">{{ finding.entity_name }}</h3>
+          <h3 class="break-words text-sm font-semibold">{{ finding.entity_name }}</h3>
           <SeverityBadge :severity="finding.severity" /><EntityTypeBadge
             :type="finding.entity_type"
           />
@@ -34,12 +34,13 @@ const detail = useTemplateRef('detail')
             :label="findingStatusLabels[finding.status] ?? finding.status"
           />
         </div>
-        <p class="mt-1 break-words text-sm text-slate-600">{{ finding.message }}</p>
-        <p class="mt-2 text-xs text-slate-500">
-          {{ finding.organization_name }} · beobachtet {{ dateTime(finding.last_seen_at) }}
+        <p class="mt-1 break-words text-sm text-slate-600 lg:col-start-1">{{ finding.message }}</p>
+        <p class="mt-1 text-xs text-slate-500 lg:col-start-1">
+          {{ finding.organization_name || 'Keine eindeutige Organisation' }} · beobachtet
+          {{ dateTime(finding.last_seen_at) }}
         </p>
         <div
-          class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs [&_a]:mt-0 [&_a]:p-0 [&_a]:border-0 [&_a]:text-xs"
+          class="mt-2 flex flex-wrap items-center lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0 lg:max-w-40 lg:justify-end gap-x-4 gap-y-2 text-xs [&_a]:mt-0 [&_a]:p-0 [&_a]:border-0 [&_a]:text-xs"
         >
           <button
             class="rounded font-semibold text-fuchsia-700 hover:underline"

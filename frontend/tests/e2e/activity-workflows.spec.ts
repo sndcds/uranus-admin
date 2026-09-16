@@ -43,7 +43,7 @@ test('activity keeps unknown times separate and sends filters', async ({ page })
   ).toBeVisible()
 })
 
-test('queue shows actual invitation age and preserves unknown values', async ({ page }) => {
+test('queue shows actual invitation age and preserves unknown values', async ({ page }, info) => {
   await page.route('**/api/admin/api/v1/work-queues/team_invitations**', (route) =>
     route.fulfill({
       json: {
@@ -83,6 +83,9 @@ test('queue shows actual invitation age and preserves unknown values', async ({ 
   await expect(page.getByRole('heading', { name: 'Eingeladener User' })).toBeVisible()
   await expect(page.getByText('Eingeladen: Nicht verfügbar', { exact: false })).toBeVisible()
   await expect(page.getByText('Alter: Nicht verfügbar', { exact: false })).toBeVisible()
+  await expect(page.getByText('Eingeladen', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('queue.png'), fullPage: true })
   await page.getByLabel('Mindestalter (Tage)').fill('14')
   await page.getByRole('button', { name: 'Anwenden' }).click()
   await expect(page).toHaveURL(/min_age_days=14/)

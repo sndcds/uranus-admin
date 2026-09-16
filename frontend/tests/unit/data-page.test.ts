@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
+import DataListShell from '../../app/components/DataListShell.vue'
 import PageHeader from '../../app/components/PageHeader.vue'
 import FilterBar from '../../app/components/FilterBar.vue'
 import ResultSummary from '../../app/components/ResultSummary.vue'
@@ -81,6 +82,31 @@ describe('shared data-page primitives', () => {
     expect(wrapper.get('a').attributes('href')).toBe('/activity?page=1&period=7d')
     expect(wrapper.get('a').attributes('rel')).toBe('prev')
     expect(wrapper.get('button').attributes('disabled')).toBeDefined()
+  })
+  it('preserves list semantics, busy state and labelled grouping in the shared surface', () => {
+    const list = mount(DataListShell, {
+      props: { as: 'ul' },
+      attrs: { 'aria-label': 'Prüfläufe', 'aria-busy': 'true' },
+      slots: { default: '<li>Erfolgreich</li>' },
+    })
+    expect(list.element.tagName).toBe('UL')
+    expect(list.get('li').text()).toBe('Erfolgreich')
+    expect(list.attributes('aria-busy')).toBe('true')
+    expect(list.attributes('aria-label')).toBe('Prüfläufe')
+    const groups = mount(DataListShell, {
+      slots: { default: '<section><h3>Heute</h3><ul><li>Termin</li></ul></section>' },
+    })
+    expect(groups.get('section h3').text()).toBe('Heute')
+    expect(groups.findAll('li')).toHaveLength(1)
+  })
+  it('does not claim a visible-page distribution for an aggregate summary', () => {
+    const wrapper = mount(ResultSummary, {
+      props: { total: 298, noun: 'Befunde' },
+      slots: { default: '178 Fehler' },
+    })
+    expect(wrapper.text()).toContain('298 Befunde insgesamt')
+    expect(wrapper.text()).toContain('178 Fehler')
+    expect(wrapper.text()).not.toContain('Auf dieser Seite')
   })
   it('shows helpful empty states and readable badge labels independent of color', () => {
     expect(

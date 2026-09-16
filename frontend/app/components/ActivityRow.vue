@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ActivityItem } from '~/utils/activity'
-import { activityTypes, activityName, activityStatus } from '~/utils/activity'
+import { activityName, activityStatus } from '~/utils/activity'
 import { activityTime, dateTime, adminTimeZone } from '~/utils/presentation'
 const props = defineProps<{ item: ActivityItem; observedAt: string; grouped?: boolean }>()
-const presentation = computed(() => activityTypes[props.item.entity_type])
 const name = computed(() => activityName(props.item))
 const status = computed(() => activityStatus(props.item.status))
 </script>
 
 <template>
   <li
-    class="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-slate-50 sm:px-5 md:grid-cols-[8rem_minmax(0,1fr)_auto_7rem]"
+    class="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-2 data-row transition-colors md:grid-cols-[8rem_minmax(0,1fr)_auto_7rem]"
   >
     <ActivityThumbnail :item="item" />
     <div class="min-w-0">
@@ -23,11 +22,7 @@ const status = computed(() => activityStatus(props.item.status))
         >
           {{ name }}
         </component>
-        <span
-          class="inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium"
-          :class="presentation.tone"
-          >{{ presentation.label }}</span
-        >
+        <EntityTypeBadge :type="item.entity_type" />
       </div>
       <p class="mt-0.5 break-words text-xs text-slate-500">
         {{ item.organization_name?.trim() || 'Keine eindeutige Organisation' }}
@@ -66,11 +61,11 @@ const status = computed(() => activityStatus(props.item.status))
     <div
       class="col-start-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 md:contents"
     >
-      <span
+      <StatusBadge
         v-if="status"
-        class="inline-flex max-w-full break-words rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 md:col-start-3 md:row-start-1 md:max-w-40 md:self-start md:justify-self-end"
-        >{{ status }}</span
-      >
+        :label="status"
+        class="md:col-start-3 md:row-start-1 md:max-w-40 md:self-start md:justify-self-end"
+      />
       <time
         v-if="item.created_at"
         class="tabular-nums md:col-start-4 md:row-start-1 md:justify-self-end"

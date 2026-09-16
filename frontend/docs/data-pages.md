@@ -38,20 +38,41 @@ Findings, aber der Summary-Vertrag enthält dafür keine aggregierte Zeitfenster
 Eine aktuelle Findings-Seite darf weder zu einer Gesamtzahl hochgerechnet noch `last_seen_at`
 als Erstfund interpretiert werden. Eine zusätzliche Backend-Metrik bleibt Folgearbeit.
 
+## Activity als Gestaltungsreferenz
+
+Das Muster lautet **Page Header → Filter Bar → Result Summary → Data List → Pagination**.
+Kurze Titel und Beschreibungen führen in die Aufgabe; Filter bleiben flache Formulare.
+API-Gesamtzahlen und sichtbare Seitencounts werden getrennt benannt. Farbige Chips ergänzen
+lesbare Labels, ersetzen sie aber nicht. Pro Liste gibt es eine weiße, umrandete Fläche;
+Gruppenheader und `divide-y` gliedern sie ohne verschachtelte Karten. Titel stehen vor
+sekundären Metadaten, Aktionen bleiben am Datensatz. Nur Activity bekommt Tagesgruppen:
+Finding-Beobachtungszeiten, Einladungsalter und Prüflaufhistorie haben andere Semantik.
+
+Das Dashboard wendet dasselbe Muster auf Abschnitte an. Die Neuanlagen verwenden kleine
+Icon-/Zahl-Kacheln ohne zusätzliche äußere Karte. Bestands-KPIs stehen als kompakte
+Summary-Kacheln darunter. Vorgänge sind Linkzeilen; die Schnellfilter nutzen direkt die
+FilterBar. Die Datenqualitätsvorschau zeigt höchstens fünf Regeln und verlinkt bei weiteren
+Regeln auf `/quality`, wo alle vom API gelieferten Regeln angezeigt werden. Es handelt sich
+um eine Vorschau, nicht um eine neue Regelpriorisierung oder clientseitige Pagination.
+
 ## Wiederverwendbare Bausteine
 
 - `PageHeader`: Titel, Beschreibung, optionale Aktionen; einheitliche Heading-Ebene.
 - `FilterBar`: semantisches Formular mit kompaktem responsivem Raster und Hilfe-Slot.
   Fachliche Filter, Validierung und URL-Synchronisation bleiben in Seite/FilterForm.
 - `ResultSummary`: API-Gesamtzahl, sichtbare Einträge, optional Quelle/Stand und Aufschlüsselung.
-  Slot-Zahlen betreffen ausdrücklich die sichtbare Seite. Findings liefern keine aggregierten
+  Mit `visible` betreffen Slot-Zahlen ausdrücklich die sichtbare Seite. Für echte aggregierte
+  Qualitätszahlen entfällt `visible`, damit keine Seitenverteilung behauptet wird. Findings liefern keine aggregierten
   Schweregradzahlen für die vollständige gefilterte Liste.
 - `PaginationBar`: „Seite X von Y“, benannte Navigation, deaktivierte Rand-/Ladezustände;
   URL-Links für Activity/Marks/Queues, Change-Events für Findings/Checks, Slot für Seitengröße.
 - `EmptyState`: kurzer hilfreicher Text in derselben Listenfläche.
 - `EntityTypeBadge`: Activity-Typdefinition plus Veranstaltungslink, Lizenz und Bildverknüpfung;
   unbekannte Typen bleiben lesbar. `StatusBadge` und `SeverityBadge`: Text plus Farbe.
-- `data-list` / `data-row`: gemeinsame Tailwind-Muster für weiße Listenflächen und kompakte
+- `DataListShell`: gemeinsame Listenfläche mit semantischem `div`, `ul` oder `section`;
+  Datenfelder, Gruppen und Aktionen bleiben in fachlichen Komponenten. `aria-busy` und
+  Beschriftungen werden an das Root-Element weitergereicht.
+- `data-list` / `data-row` und `list-group-header`: gemeinsame Tailwind-Muster für weiße Listenflächen und kompakte
   Zeilen. Keine universelle Komponente, die fachlich unterschiedliche Datenfelder vermischt.
 
 Die Hauptseiten nutzen `space-y-4/5`, Filter `p-4`, Zeilen `px-4/5 py-3`, slate-Neutralfarben
@@ -62,25 +83,33 @@ und fuchsia-Akzente. Filter und Aktionen umbrechen mobil. Fokusmarkierungen, Ski
 
 | Seite | Umsetzung / fachliche Besonderheit |
 | --- | --- |
-| `/` | Zeitraum-Primärbereich vor Bestands-KPIs; serverseitig priorisierte Vorschau |
+| `/` | Kompakter Zeitraum-Primärbereich vor Bestands-KPIs; serverseitig priorisierte Vorschau, begrenzte Regelvorschau, Vorgangszeilen und flache Schnellfilter |
 | `/activity` | Referenzstil auf gemeinsame Header/Filter/Summary/Pagination/EmptyState umgestellt; Tagesgruppen, unknown timestamps, Bilder/Modal und Actions unverändert |
 | `/findings` | Kompakte Filter ohne zusätzliche Filterüberschrift; Gesamtzahl/Seitencounts; kompakte Rows mit Severity-, Entity- und Status-Badges, Details, Action und Markierungen; alle Filter und page_size bleiben |
-| `/quality` | Gemeinsamer Header, belegte Bestandszahlen und kompakte Regelzeilen; keine künstliche Pagination |
+| `/quality` | Header, echte aggregierte ResultSummary mit Severity-Chips, vollständige Regelzeilen in DataListShell; keine Filter oder Pagination ohne API-Unterstützung |
 | `/checks` | Kompakte Historie mit Start/Ende, Regeln, Befunden und deutschen Status-Badges; gemeinsame Pagination |
 | `/marks` | Gemeinsame Filter, Summary, Badges, Rows und Pagination; Filter-Reset behält einen gezielt gewählten Datensatz bei |
 | `/marks/:id` | Gemeinsamer Header und Badges; Bearbeitungsformular und chronologischer Audit-Verlauf bleiben absichtlich Detailansichten |
 | `/queues/:kind` | Gemeinsame Shell mit echten fachlichen Unterschieden: gerichtete Partneranfragen, Einladungsalter aus `invited_at`, Aktivierungsalter aus `created_at`; keine letzte Aktivität abgeleitet. URL-Filter werden bei Navigation ins Formular zurückgespiegelt |
 
 Alle existierenden Seiten sind berücksichtigt. Größere bewusst eigenständige Bereiche sind
-Login/Access, Navigation und die Bearbeitungsformulare/Modals: sie sind keine paginierten
-Datenlisten und behalten ihre funktionsgerechte Struktur. Keine neuen Backend-Felder,
+Navigation und die Bearbeitungsformulare/Modals: sie sind keine paginierten
+Datenlisten und behalten ihre funktionsgerechte Struktur. Der Markierungsverlauf nutzt trotzdem
+die gemeinsame Listenfläche; das Editierformular bleibt eine eigene Fläche. Das Loginpanel
+zeigt nach erfolgreicher Anmeldung nur eine kompakte Status-/Abmelden-Zeile, bei fehlender
+Identität weiterhin das vollständige Formular. Der lokale Entwicklungszugang bleibt geschlossen.
+Der globale Header zeigt nur die App-Identität, Seitentitel stehen im PageHeader.
+Keine datenorientierte Route bleibt bei einer separaten Kartensprache. Keine neuen Backend-Felder,
 Migrationen oder Live-Server-Einstellungen werden benötigt.
 
 ## Verifikation
 
 `tests/unit/data-page.test.ts` prüft die gemeinsamen Bausteine; `tests/e2e/unified-ui.spec.ts`
-prüft Zeitraum-/Bestandssemantik, Stale-Daten, Findings-Filter und Zusammenfassungen sowie
-Prüflaufhistorie. Bestehende E2E-Tests decken alle neun Activity-Drill-downs, Unknown-Zeitpunkte,
+prüft Zeitraum-/Bestandssemantik, Stale-Daten, Findings-Filter, Zusammenfassungen,
+Prüflaufhistorie, begrenzte Regelvorschau, vollständige Qualitätsliste und Tablet-Layout.
+Die bestehenden Playwright-Ausgaben enthalten Screenshots für Dashboard, Activity, Findings,
+Quality, Checks, Marks und Queues auf Desktop und Mobile (synthetische Testdaten).
+Bestehende E2E-Tests decken alle neun Activity-Drill-downs, Unknown-Zeitpunkte,
 Thumbnails/Modal, Auth-Verlust, Reviews, Markierungshistorie und Queue-Altersbasis weiterhin ab.
 
 ### Zeitstempel in den Listen

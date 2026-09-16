@@ -93,7 +93,7 @@ onBeforeUnmount(() => {
     />
     <RequestState :loading="loading" :error="error" @retry="load" />
     <template v-if="data">
-      <div class="card space-y-3 break-words p-5">
+      <div class="space-y-2 break-words text-sm">
         <h3 class="text-xl font-bold">{{ data.entity_name }}</h3>
         <div class="flex flex-wrap gap-2">
           <EntityTypeBadge :type="data.entity_type" /><StatusBadge
@@ -112,7 +112,7 @@ onBeforeUnmount(() => {
         </p>
         <RecordMarkLink :entity-type="data.entity_type" :entity-key="data.entity_key" />
       </div>
-      <form class="card p-5" @submit.prevent="save">
+      <form class="rounded-2xl border border-slate-200 bg-white p-4" @submit.prevent="save">
         <fieldset :disabled="saving" class="space-y-4">
           <legend class="mb-3 font-bold">Markierung bearbeiten</legend>
           <MarkFields
@@ -157,14 +157,12 @@ onBeforeUnmount(() => {
           >
         </div>
       </form>
-      <section class="card p-5" aria-label="Notizen und Verlauf">
-        <h3 class="mb-4 text-lg font-bold">Notizen und Verlauf</h3>
-        <ol class="space-y-4">
-          <li
-            v-for="entry in data.events"
-            :key="entry.id"
-            class="break-words border-l-2 border-fuchsia-200 pl-4"
-          >
+      <DataListShell as="section" aria-label="Notizen und Verlauf">
+        <div class="list-group-header">
+          <h3 class="text-xs font-semibold">Notizen und Verlauf</h3>
+        </div>
+        <ol class="divide-y divide-slate-100">
+          <li v-for="entry in data.events" :key="entry.id" class="data-row text-sm">
             <p class="font-semibold">{{ markEventLabels[entry.kind] }}</p>
             <p class="muted">{{ dateTime(entry.created_at) }} · {{ entry.author }}</p>
             <p>
@@ -175,7 +173,7 @@ onBeforeUnmount(() => {
             <p v-if="entry.note" class="mt-2 whitespace-pre-wrap">{{ entry.note }}</p>
           </li>
         </ol>
-      </section>
+      </DataListShell>
     </template>
   </section>
 </template>

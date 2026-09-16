@@ -61,7 +61,12 @@ async function signOut() {
 </script>
 
 <template>
-  <section class="card p-4 text-sm" aria-labelledby="admin-login-title">
+  <section
+    class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+    :class="identity ? 'flex flex-wrap items-center gap-x-4 gap-y-2' : ''"
+    :aria-busy="busy"
+    aria-labelledby="admin-login-title"
+  >
     <h2 id="admin-login-title" class="font-semibold">Admin-Anmeldung</h2>
     <form v-if="!identity" class="mt-3 flex flex-wrap items-end gap-3" @submit.prevent="signIn">
       <div>
@@ -91,8 +96,8 @@ async function signOut() {
       </div>
       <button class="button-primary" :disabled="!ready || busy">Anmelden</button>
     </form>
-    <div v-else class="mt-3 flex items-center gap-3">
-      <p>
+    <div v-else class="flex flex-1 flex-wrap items-center justify-between gap-3">
+      <p class="text-xs text-slate-500">
         {{
           identity.system_admin
             ? 'Als System-Administrator angemeldet.'
@@ -101,6 +106,6 @@ async function signOut() {
       </p>
       <button class="button" :disabled="busy" @click="signOut">Abmelden</button>
     </div>
-    <p v-if="message" class="mt-3" role="status">{{ message }}</p>
+    <p v-if="message" class="w-full text-sm" role="status">{{ message }}</p>
   </section>
 </template>

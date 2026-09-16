@@ -3,7 +3,7 @@ import type { z } from '#shared/zod'
 import type { checkRunPageSchema } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
 import type { ApiFailure } from '#shared/errors'
-import { dateTime } from '~/utils/presentation'
+import { dateTime, checkStatusLabels } from '~/utils/presentation'
 const { $adminApi } = useNuxtApp()
 const data = ref<z.infer<typeof checkRunPageSchema> | null>(null)
 const error = ref<ApiFailure | null>(null)
@@ -65,14 +65,17 @@ onBeforeUnmount(() => {
         noun="Prüfläufe"
         description="Gespeicherte Historie · unabhängig vom Dashboard-Zeitraum"
       />
-      <ul v-if="data.items.length" class="data-list divide-y divide-slate-100" :aria-busy="loading">
+      <DataListShell
+        v-if="data.items.length"
+        as="ul"
+        class="divide-y divide-slate-100"
+        :aria-busy="loading"
+      >
         <li v-for="item in data.items" :key="item.id" class="data-row">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h3 class="text-sm font-semibold">Start: {{ dateTime(item.started_at) }}</h3>
             <StatusBadge
-              :label="
-                { running: 'Läuft', success: 'Erfolgreich', failed: 'Fehlgeschlagen' }[item.status]
-              "
+              :label="checkStatusLabels[item.status]"
               :tone="
                 item.status === 'failed'
                   ? 'error'
@@ -90,7 +93,7 @@ onBeforeUnmount(() => {
             Prüfung fehlgeschlagen. Daraus wurde keine automatische Behebung abgeleitet.
           </p>
         </li>
-      </ul>
+      </DataListShell>
       <EmptyState v-else message="Noch keine gespeicherten Prüfläufe." />
       <PaginationBar :pagination="data.pagination" :loading="loading || running" @change="load" />
     </template>

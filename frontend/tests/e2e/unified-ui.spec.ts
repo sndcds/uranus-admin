@@ -120,7 +120,9 @@ test('findings keep URL filters, page totals, badges, page size and empty/error 
   const results = page.getByRole('region', { name: 'Ergebnisübersicht' })
   await expect(results).toContainText('298 Befunde insgesamt')
   await expect(results).toContainText('Auf dieser Seite: 1 Einträge')
-  await expect(results).toContainText('0 Fehler · 1 Warnungen · 0 Hinweise · auf dieser Seite')
+  for (const label of ['0 Fehler', '1 Warnungen', '0 Hinweise', '· auf dieser Seite']) {
+    await expect(results.getByText(label, { exact: true })).toBeVisible()
+  }
   const row = page.getByRole('list', { name: 'Befunde' }).getByRole('listitem')
   await expect(row.getByText('Warnung', { exact: true })).toBeVisible()
   await expect(row.getByText('Ort', { exact: true })).toBeVisible()
@@ -150,7 +152,7 @@ test('findings keep URL filters, page totals, badges, page size and empty/error 
 
 test('check history shares pagination, empty states and readable result badges', async ({
   page,
-}) => {
+}, info) => {
   await page.route('**/api/admin/api/v1/check-runs**', (route) =>
     route.fulfill({
       json: {
@@ -175,9 +177,68 @@ test('check history shares pagination, empty states and readable result badges',
   await expect(page.getByText('1 Prüfläufe insgesamt')).toBeVisible()
   await expect(page.getByText('Erfolgreich', { exact: true })).toBeVisible()
   await expect(page.getByText('22 Regeln · 298 Befunde', { exact: false })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('checks.png'), fullPage: true })
   await expect(
     page
       .getByRole('navigation', { name: 'Seitennavigation' })
       .getByRole('button', { name: 'Weiter' }),
   ).toBeDisabled()
+})
+
+test('quality has honest aggregate counts, bounded dashboard rules and a full rule list', async ({
+  page,
+}, info) => {
+  const rules = [
+    'venue_missing_geolocation',
+    'event_date_without_location',
+    'event_date_space_venue_mismatch',
+    'event_without_dates',
+    'event_without_location',
+    'image_orphaned_upload',
+  ]
+  await page.route('**/api/admin/auth/session', (route) =>
+    route.fulfill({ json: { subject: 'admin:test-operator', system_admin: true } }),
+  )
+  await page.route('**/api/admin/api/v1/**', (route) =>
+    route.fulfill({
+      json: new URL(route.request().url()).pathname.endsWith('/summary')
+        ? { ...summary, quality: { ...summary.quality, rules, mode: 'persisted' } }
+        : findings,
+    }),
+  )
+  await page.goto('/')
+  const preview = page.getByRole('region', { name: 'Datenqualitätsübersicht' })
+  await expect(
+    preview.getByRole('list', { name: 'Qualitätsregeln' }).getByRole('listitem'),
+  ).toHaveCount(5)
+  const login = page.getByRole('region', { name: 'Admin-Anmeldung' })
+  await expect(login.getByRole('button', { name: 'Abmelden' })).toBeVisible()
+  await expect(login.getByRole('textbox')).toHaveCount(0)
+  await expect(page.locator('#open-queues li')).toHaveCount(3)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('dashboard.png'), fullPage: true })
+  await preview.getByRole('link', { name: 'Alle Regeln anzeigen' }).click()
+  await expect(page).toHaveURL(/\/quality$/)
+  const aggregate = page.getByRole('region', { name: 'Qualitätsbestand' })
+  await expect(aggregate).toContainText('2 Befunde insgesamt')
+  await expect(aggregate).toContainText('2 Warnungen')
+  await expect(aggregate).not.toContainText('Auf dieser Seite')
+  const list = page.getByRole('list', { name: 'Qualitätsregeln' })
+  await expect(list.getByRole('listitem')).toHaveCount(6)
+  await expect(list.getByRole('link').first()).toHaveAttribute(
+    'href',
+    '/findings?rule=venue_missing_geolocation&mode=persisted',
+  )
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('quality.png'), fullPage: true })
+  await list.getByRole('link').first().click()
+  await expect(page).toHaveURL(/rule=venue_missing_geolocation&mode=persisted/)
+  await expect(
+    page.getByRole('button', { name: 'Befund zu Test-Hafenbühne ansehen' }),
+  ).toBeVisible()
+  // The same surfaces must also fit between mobile and desktop breakpoints.
+  await page.setViewportSize({ width: 820, height: 1180 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('findings-tablet.png'), fullPage: true })
 })
