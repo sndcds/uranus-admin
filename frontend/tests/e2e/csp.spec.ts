@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { summary, findings } from '../fixtures/api'
+import { statisticsFixture } from '../fixtures/statistics'
 import { graphFixture, graphPath } from '../fixtures/graph'
 
 test('production schemas work under an enforced CSP without unsafe-eval', async ({ page }) => {
@@ -50,6 +51,13 @@ test('production schemas work under an enforced CSP without unsafe-eval', async 
   await page.goto(graphPath)
   await expect(page.locator('.graph-node')).toHaveCount(12)
   await page.getByRole('button', { name: 'Vergrößern', exact: true }).click()
+  await page.route('**/api/admin/api/v1/statistics/entities**', (route) =>
+    route.fulfill({ json: statisticsFixture() }),
+  )
+  await page.goto('/statistics')
+  await expect(page.locator('.statistics-series')).toHaveCount(7)
+  await page.locator('.statistics-legend button').first().click()
+  await expect(page.locator('.statistics-series')).toHaveCount(6)
   expect(errors).toEqual([])
   expect(
     await page.evaluate(

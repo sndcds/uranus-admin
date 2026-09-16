@@ -655,6 +655,20 @@
         ],
         "parameters": [
           {
+            "name": "creation_basis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "record",
+                "statistics"
+              ],
+              "type": "string",
+              "default": "record",
+              "title": "Creation Basis"
+            }
+          },
+          {
             "name": "entity_type",
             "in": "query",
             "required": false,
@@ -1146,6 +1160,196 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GraphResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/statistics/entities": {
+      "get": {
+        "tags": [
+          "Statistics"
+        ],
+        "summary": "Entity creation time series",
+        "description": "Seven creation metrics in an exact half-open range. Teameinladungen uses invited_at; other types use created_at. Natural local bucket boundaries, zero-filled counts, at most 500 buckets and 365 days. Optional previous-range totals and seven recent entities share the same read-only snapshot. No inferred authors or history.",
+        "operationId": "entities_api_v1_statistics_entities_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "24h",
+                    "7d",
+                    "30d",
+                    "90d",
+                    "custom"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period"
+            }
+          },
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "auto",
+                "15m",
+                "1h",
+                "6h",
+                "1d"
+              ],
+              "type": "string",
+              "default": "auto",
+              "title": "Interval"
+            }
+          },
+          {
+            "name": "compare",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "previous",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Compare"
+            }
+          },
+          {
+            "name": "from_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From At"
+            }
+          },
+          {
+            "name": "to_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To At"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityStatisticsResponse"
                 }
               }
             }
@@ -2990,6 +3194,179 @@
         ],
         "title": "DashboardSummary"
       },
+      "EntityStatisticsResponse": {
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "24h",
+              "7d",
+              "30d",
+              "90d",
+              "custom"
+            ],
+            "title": "Period"
+          },
+          "from_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "From At"
+          },
+          "to_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "To At"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "interval": {
+            "type": "string",
+            "enum": [
+              "15m",
+              "1h",
+              "6h",
+              "1d"
+            ],
+            "title": "Interval"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "previous_from_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous From At"
+          },
+          "previous_to_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous To At"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/EntityTimeSeries"
+            },
+            "type": "array",
+            "title": "Series"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/RecentEntity"
+            },
+            "type": "array",
+            "title": "Recent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period",
+          "from_at",
+          "to_at",
+          "timezone",
+          "interval",
+          "observed_at",
+          "series",
+          "recent"
+        ],
+        "title": "EntityStatisticsResponse"
+      },
+      "EntityTimePoint": {
+        "properties": {
+          "start_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start At"
+          },
+          "end_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End At"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_at",
+          "end_at",
+          "count"
+        ],
+        "title": "EntityTimePoint"
+      },
+      "EntityTimeSeries": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "user",
+              "organization",
+              "event",
+              "venue",
+              "space",
+              "partner_request",
+              "team_invitation"
+            ],
+            "title": "Entity Type"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          },
+          "previous_total": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Total"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/EntityTimePoint"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_type",
+          "label",
+          "total",
+          "points"
+        ],
+        "title": "EntityTimeSeries"
+      },
       "ErrorDetail": {
         "properties": {
           "code": {
@@ -4562,6 +4939,60 @@
           "observed_at"
         ],
         "title": "QueuePage"
+      },
+      "RecentEntity": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "user",
+              "organization",
+              "event",
+              "venue",
+              "space",
+              "partner_request",
+              "team_invitation"
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "title": "Entity Key"
+          },
+          "entity_name": {
+            "type": "string",
+            "title": "Entity Name"
+          },
+          "organization_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "action": {
+            "$ref": "#/components/schemas/Action"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_key",
+          "entity_name",
+          "organization_name",
+          "created_at",
+          "action"
+        ],
+        "title": "RecentEntity"
       },
       "ReviewUpdate": {
         "properties": {

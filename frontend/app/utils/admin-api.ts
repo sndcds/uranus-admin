@@ -1,4 +1,5 @@
 import {
+  entityStatisticsResponseSchema,
   graphResponseSchema,
   graphSearchResponseSchema,
   sessionSchema,
@@ -84,6 +85,8 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
     onAccessLost(callback: (status: number) => void) {
       accessLost = callback
     },
+    statistics: (query: Record<string, string | number | undefined>) =>
+      request('/api/v1/statistics/entities', entityStatisticsResponseSchema, query),
     graph: (query: Record<string, string | number | undefined>) =>
       request('/api/v1/graph', graphResponseSchema, query),
     graphSearch: (query: Record<string, string | number | undefined>) =>

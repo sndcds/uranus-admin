@@ -12,6 +12,7 @@ import { isIP } from 'node:net'
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
+  '/api/v1/statistics/entities': ['period', 'interval', 'compare', 'from_at', 'to_at'],
   '/api/v1/graph': ['root_type', 'root_key', 'depth', 'relation_type'],
   '/api/v1/graph/search': ['q', 'entity_type', 'organization_id', 'limit'],
   '/auth/login': [],
@@ -57,6 +58,7 @@ const routes: Record<string, readonly string[]> = {
   '/ready': [],
   '/api/v1/dashboard/summary': ['period', 'mode'],
   '/api/v1/dashboard/activity': [
+    'creation_basis',
     'entity_type',
     'entity_key',
     'organization_id',

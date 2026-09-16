@@ -22,6 +22,7 @@ EntityType = Literal[
 
 
 class ActivityFilters(BaseModel):
+    creation_basis: Literal["record", "statistics"] = "record"
     entity_type: EntityType | None = None
     entity_key: str | None = Field(default=None, min_length=1, max_length=1024)
     organization_id: UUID | None = None

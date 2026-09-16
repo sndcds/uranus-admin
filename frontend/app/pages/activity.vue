@@ -50,9 +50,11 @@ function syncFilters() {
   period.value =
     route.query.timestamp_state === 'unknown'
       ? 'unknown'
-      : typeof route.query.period === 'string'
-        ? route.query.period
-        : '24h'
+      : route.query.from_at || route.query.to_at
+        ? 'custom'
+        : typeof route.query.period === 'string'
+          ? route.query.period
+          : '24h'
 }
 syncFilters()
 let requestId = 0
@@ -78,9 +80,12 @@ async function load() {
 function apply() {
   void router.push({
     query: {
+      creation_basis: route.query.creation_basis === 'statistics' ? 'statistics' : undefined,
       entity_type: entityType.value || undefined,
       organization_id: organization.value || undefined,
-      period: period.value === 'unknown' ? undefined : period.value,
+      period: ['unknown', 'custom'].includes(period.value) ? undefined : period.value,
+      from_at: period.value === 'custom' ? route.query.from_at : undefined,
+      to_at: period.value === 'custom' ? route.query.to_at : undefined,
       timestamp_state: period.value === 'unknown' ? 'unknown' : 'known',
       page: '1',
     },
@@ -119,6 +124,9 @@ onBeforeUnmount(() => {
       <label
         ><span class="label">Zeitraum</span>
         <select v-model="period" class="input">
+          <option v-if="route.query.from_at || route.query.to_at" value="custom">
+            Benutzerdefiniert
+          </option>
           <option value="today">Heute</option>
           <option value="24h">24 Stunden</option>
           <option value="7d">7 Tage</option>
@@ -146,6 +154,9 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </FilterBar>
+    <p v-if="route.query.creation_basis === 'statistics'" class="muted">
+      Neuanlagen der sieben Statistiktypen; Teammitgliedschaften nach Einladungszeitpunkt.
+    </p>
     <RequestState :loading="loading" :error="error" @retry="load" />
     <template v-if="data">
       <ResultSummary

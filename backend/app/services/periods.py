@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from app.schemas.dashboard import Period
@@ -11,7 +12,9 @@ class PeriodWindow:
     end: datetime
 
 
-def period_window(period: Period, now: datetime, timezone: str) -> PeriodWindow:
+def period_window(
+    period: Period | Literal["30d", "90d"], now: datetime, timezone: str
+) -> PeriodWindow:
     if now.tzinfo is None:
         raise ValueError("now must be timezone-aware")
     end = now.astimezone(UTC)
@@ -21,5 +24,5 @@ def period_window(period: Period, now: datetime, timezone: str) -> PeriodWindow:
     elif period == "24h":
         start = end - timedelta(hours=24)
     else:
-        start = end - timedelta(days=7)
+        start = end - timedelta(days={"7d": 7, "30d": 30, "90d": 90}[period])
     return PeriodWindow(start=start, end=end)

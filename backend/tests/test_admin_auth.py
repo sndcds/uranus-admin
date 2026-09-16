@@ -112,6 +112,7 @@ async def test_ordinary_and_uranus_organization_identity_never_grant_access(auth
     assert (await sign_in(client, "ordinary")).status_code == 200
     assert (await client.get("/api/v1/auth-probe")).status_code == 403
     assert (await client.get("/api/v1/graph")).status_code == 403
+    assert (await client.get("/api/v1/statistics/entities")).status_code == 403
     assert (await client.get("/api/v1/graph/search?q=ab")).status_code == 403
     # Existing Uranus fixture users/org memberships have no independent admin account.
     assert (await sign_in(client, str(uid(1)))).status_code == 401

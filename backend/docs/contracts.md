@@ -423,3 +423,17 @@ See the [relationship contract and source table](../../frontend/docs/entity-rela
 for all six node types, twelve relations, bounded traversal, public-link rules, and UI behavior.
 Pending invitations and partner requests are distinct from joined memberships and corroborated
 accepted partnerships. Effective date locations share the established Activity SQL semantics.
+
+## Entity creation statistics
+
+`GET /api/v1/statistics/entities` is admin-only and uses the existing read-only snapshot.
+It returns seven zero-filled time series, current/optional previous totals, exact half-open
+bounds and seven recent entities. Default `period=24h&interval=auto`; presets also support
+`7d`, `30d`, `90d`. Custom requires offset-aware `from_at` and `to_at` (at most 365 days).
+Intervals are `auto`, `15m`, `1h`, `6h`, `1d`, bounded at 500 buckets. Optional `compare=previous`
+uses the immediately preceding equal-duration range. Invitations use the latest stored
+`invited_at`, which can move on reinvitation; they are not a historical send log. Dashboard
+membership creation retains `created_at`. Activity's opt-in `creation_basis=statistics`
+restricts its sources to the same seven types and uses invitation timestamps for memberships.
+Default `creation_basis=record` is unchanged. Exact timestamp matrix, DST behavior, response,
+NULL handling and performance limitations: [Statistics](../../frontend/docs/statistics.md).

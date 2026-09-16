@@ -84,3 +84,8 @@ Runtime-Grants und Betreiber-CLI: [Auth-Vertrag](backend/docs/authentication.md)
 Der [Entity-Relationship Graph](frontend/docs/entity-relationship-graph.md) unter `/graph`
 zeigt belegte Beziehungen zwischen Organisationen, Orten, Räumen, Veranstaltungen, Terminen
 und Benutzern als interaktiven, begrenzten D3-Graph.
+
+## Statistiken
+
+`/statistics` zeigt Neuanlagen im Zeitverlauf mit D3, sieben Kennzahlen, Zeitraumvergleich und
+neuesten Entitäten. Zeitstempel, Grenzen und Einladungssemantik: [Statistik-Dokumentation](frontend/docs/statistics.md).

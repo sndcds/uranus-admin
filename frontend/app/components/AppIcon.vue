@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import {
+  ChartNoAxesCombined,
+  Mail,
+  Info,
   Network,
   Search,
   Minus,
@@ -34,6 +37,9 @@ import {
   LogOut,
 } from '@lucide/vue'
 const icons = {
+  chart: ChartNoAxesCombined,
+  mail: Mail,
+  info: Info,
   graph: Network,
   search: Search,
   minus: Minus,
