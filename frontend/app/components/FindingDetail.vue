@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppModal from './AppModal.vue'
 import { dateTime } from '~/utils/presentation'
 import type { Finding, ReviewUpdate } from '#shared/contracts'
 const finding = ref<Finding | null>(null)
@@ -36,10 +37,8 @@ async function saveReview() {
     if (revision === detailRevision) saving.value = false
   }
 }
-const dialog = useTemplateRef<HTMLDialogElement>('detail')
-let trigger: HTMLElement | null = null
+const dialog = useTemplateRef<InstanceType<typeof AppModal>>('detail')
 function open(value: Finding) {
-  trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
   detailRevision++
   finding.value = value
   reviewStatus.value =
@@ -52,12 +51,10 @@ function open(value: Finding) {
   snooze.value = ''
   feedback.value = ''
   saving.value = false
-  dialog.value?.showModal()
+  void dialog.value?.open()
 }
 function close() {
-  detailRevision++
   dialog.value?.close()
-  trigger?.focus()
 }
 watch(
   useState('admin-access-revision', () => 0),
@@ -70,19 +67,13 @@ defineExpose({ open })
 </script>
 
 <template>
-  <dialog
+  <AppModal
     ref="detail"
-    aria-labelledby="finding-title"
-    class="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl border-0 bg-white p-6 shadow-soft backdrop:bg-slate-900/40"
-    @cancel.prevent="close"
+    :title="finding?.entity_name ?? 'Befund'"
+    close-label="Details schließen"
+    @close="detailRevision++"
   >
     <template v-if="finding">
-      <div class="flex items-start justify-between gap-4">
-        <h2 id="finding-title" class="break-words text-xl font-bold">{{ finding.entity_name }}</h2>
-        <button class="rounded-lg p-2" aria-label="Details schließen" @click="close">
-          <AppIcon name="close" />
-        </button>
-      </div>
       <div class="mt-3"><SeverityBadge :severity="finding.severity" /></div>
       <p class="mt-4 text-sm text-slate-700">{{ finding.message }}</p>
       <dl class="mt-5 grid gap-4 text-sm">
@@ -196,5 +187,5 @@ defineExpose({ open })
       />
       <button class="button mt-4" @click="close">Schließen</button>
     </template>
-  </dialog>
+  </AppModal>
 </template>

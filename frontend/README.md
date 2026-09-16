@@ -82,6 +82,16 @@ Responses werden zur Laufzeit validiert. Keine Demo-Daten außerhalb der Tests.
 Die Activity-Seite verwendet kompakte Zeilen, deutsche Typ-Badges und Berliner Tagesgruppen.
 Typzahlen zählen ausschließlich die sichtbare Seite; undatierte Einträge bleiben ohne Chronologie.
 [Darstellung, Grenzen und Vorher-/Nachher-Screenshots](docs/activity-stream.md).
+Öffentliche Links und Bild-URLs kommen ausschließlich aus dem Activity-Response.
+Bild-Einträge zeigen 320px-Vorschauen im Original-Seitenverhältnis, dargestellt mit 96/128px
+Breite, lazy/async geladen;
+bei Ladefehlern bleibt das Typ-Icon. Ein Klick lädt eine größere, unbeschnittene Bildansicht
+im gemeinsamen `AppModal` (auch für Befunddetails). Escape/Schließen stellt den Fokus zurück.
+Interne Actions und Markierungen bleiben erhalten.
+[Öffentliche Routen und Preview-Vertrag](../backend/docs/contracts.md#activity-previews-and-public-links)
+sowie [CSP-/Deployment-Voraussetzungen](../backend/docs/development.md#image-csp-and-deployment-verification)
+sind zentral dokumentiert. Insbesondere muss `img-src` die öffentliche Image-API erlauben;
+eine zusätzliche Nuxt-CSP kann eine strengere Proxy-CSP nicht lockern.
 
 ## Semantik und Bedienung
 
