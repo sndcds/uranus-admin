@@ -73,3 +73,7 @@ System-Admin-Rechte. Es gibt keine Uranus-Authentifizierung oder Statusabfrage. 
 HttpOnly-Sitzungscookies über Nitro. Einrichtung einschließlich Migration 0004, eingeschränkter
 Runtime-Grants und Betreiber-CLI: [Auth-Vertrag](backend/docs/authentication.md) und
 [Provisionierung](backend/docs/development.md#eigenständige-admin-authentifizierung-migration-0004).
+
+Der [Entity-Relationship Graph](frontend/docs/entity-relationship-graph.md) unter `/graph`
+zeigt belegte Beziehungen zwischen Organisationen, Orten, Räumen, Veranstaltungen, Terminen
+und Benutzern als interaktiven, begrenzten D3-Graph.

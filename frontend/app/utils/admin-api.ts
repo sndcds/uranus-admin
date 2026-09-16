@@ -1,4 +1,6 @@
 import {
+  graphResponseSchema,
+  graphSearchResponseSchema,
   sessionSchema,
   logoutSchema,
   queuePageSchema,
@@ -82,6 +84,10 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
     onAccessLost(callback: (status: number) => void) {
       accessLost = callback
     },
+    graph: (query: Record<string, string | number | undefined>) =>
+      request('/api/v1/graph', graphResponseSchema, query),
+    graphSearch: (query: Record<string, string | number | undefined>) =>
+      request('/api/v1/graph/search', graphSearchResponseSchema, query),
     session: () => request('/auth/session', sessionSchema),
     login: async (login: string, password: string) => {
       const identity = await request('/auth/login', sessionSchema, {}, 'POST', { login, password })

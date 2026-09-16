@@ -405,3 +405,76 @@ export const sessionSchema = z
   .strict()
 export const logoutSchema = z.object({ status: z.literal('ok') }).strict()
 export type AdminSession = z.infer<typeof sessionSchema>
+
+export const graphEntityTypeSchema = z.enum([
+  'organization',
+  'venue',
+  'space',
+  'event',
+  'event_date',
+  'user',
+])
+export const graphRelationTypeSchema = z.enum([
+  'organization_has_venue',
+  'venue_has_space',
+  'organization_has_event',
+  'event_has_date',
+  'event_uses_venue',
+  'event_uses_space',
+  'event_date_uses_venue',
+  'event_date_uses_space',
+  'user_member_of_organization',
+  'user_invited_to_organization',
+  'organization_partner_request',
+  'organization_partner_of',
+])
+export const graphNodeSchema = z
+  .object({
+    id: z.string(),
+    type: graphEntityTypeSchema,
+    key: z.uuid(),
+    label: z.string(),
+    subtitle: z.string().nullable(),
+    status: z.string().nullable(),
+    public_url: activityPageSchema.shape.items.element.shape.public_url,
+    admin_url: z.string().nullable(),
+  })
+  .refine(
+    (n) =>
+      n.id === `${n.type}:${n.key}` &&
+      (n.admin_url === null ||
+        n.admin_url === `/activity?entity_key=${n.key}&entity_type=${n.type}`),
+    'Invalid graph identity or target',
+  )
+export const graphEdgeSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  target: z.string(),
+  type: graphRelationTypeSchema,
+  label: z.string(),
+  direction: z.enum(['directed', 'undirected']),
+})
+export const graphResponseSchema = z
+  .object({
+    root: z.object({ type: graphEntityTypeSchema, key: z.uuid() }),
+    nodes: z.array(graphNodeSchema).max(100),
+    edges: z.array(graphEdgeSchema).max(200),
+    truncated: z.boolean(),
+    max_nodes: z.number().int().positive().max(100),
+    max_edges: z.number().int().positive().max(200),
+  })
+  .refine((g) => {
+    const ids = new Set(g.nodes.map((n) => n.id))
+    return (
+      ids.size === g.nodes.length &&
+      ids.has(`${g.root.type}:${g.root.key}`) &&
+      new Set(g.edges.map((e) => e.id)).size === g.edges.length &&
+      g.edges.every((e) => ids.has(e.source) && ids.has(e.target))
+    )
+  }, 'Invalid graph endpoints')
+export const graphSearchResponseSchema = z.object({ items: z.array(graphNodeSchema).max(20) })
+export type GraphEntityType = z.infer<typeof graphEntityTypeSchema>
+export type GraphRelationType = z.infer<typeof graphRelationTypeSchema>
+export type GraphNode = z.infer<typeof graphNodeSchema>
+export type GraphEdge = z.infer<typeof graphEdgeSchema>
+export type GraphResponse = z.infer<typeof graphResponseSchema>

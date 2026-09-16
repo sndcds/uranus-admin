@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { summary, findings } from '../fixtures/api'
+import { graphFixture, graphPath } from '../fixtures/graph'
 
 test('production schemas work under an enforced CSP without unsafe-eval', async ({ page }) => {
   test.skip(process.env.TEST_PRODUCTION !== '1', 'Requires the production client build')
@@ -45,6 +46,10 @@ test('production schemas work under an enforced CSP without unsafe-eval', async 
   await expect(page).toHaveURL(/severity=warning/)
   await page.getByRole('button', { name: 'Befund zu Test-Hafenbühne ansehen' }).click()
   await expect(page.getByRole('dialog', { name: 'Test-Hafenbühne' })).toBeVisible()
+  await page.route('**/api/admin/api/v1/graph?**', (route) => route.fulfill({ json: graphFixture }))
+  await page.goto(graphPath)
+  await expect(page.locator('.graph-node')).toHaveCount(12)
+  await page.getByRole('button', { name: 'Vergrößern', exact: true }).click()
   expect(errors).toEqual([])
   expect(
     await page.evaluate(

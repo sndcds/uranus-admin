@@ -401,3 +401,18 @@ additional events, 5,000 dates and 1,000 linked images enriched 50 selected even
 `image_context_identifier_unique` and entity primary-key indexes. This is a synthetic
 preview-query measurement, not a production latency promise or a benchmark of the existing
 count/page queries. No production data or schema was changed.
+
+## Entity-Relationship Graph
+
+`GET /api/v1/graph/search` searches safe entity names/UUIDs (`q`: 2–120 trimmed characters,
+`limit`: 1–20, optional `entity_type` and `organization_id`). `GET /api/v1/graph` requires
+`root_type` and UUID `root_key`, accepts `depth=1..3` (default 2) and optional `relation_type`.
+Both use existing system-admin authorization, read-only transactions and statement timeouts.
+Graph responses contain `root`, typed `nodes`, typed `edges`, `truncated`, `max_nodes=100`,
+`max_edges=200`; search returns `items`. Identity is `type:uuid`. A missing root returns 404.
+No email, credentials or full entity records are exposed.
+
+See the [relationship contract and source table](../../frontend/docs/entity-relationship-graph.md)
+for all six node types, twelve relations, bounded traversal, public-link rules, and UI behavior.
+Pending invitations and partner requests are distinct from joined memberships and corroborated
+accepted partnerships. Effective date locations share the established Activity SQL semantics.
