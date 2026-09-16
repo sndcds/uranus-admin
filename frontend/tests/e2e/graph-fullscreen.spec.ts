@@ -29,13 +29,18 @@ test('native fullscreen reuses the graph and survives root/history navigation', 
   const svg = await workspace.locator('svg[role="group"]').elementHandle()
   const before = await workspace.locator('svg[role="group"]').getAttribute('viewBox')
   await page.screenshot({ path: info.outputPath('graph-normal.png'), fullPage: true })
-  await enter.click()
-  await expect
-    .poll(() =>
-      page.evaluate(() => document.fullscreenElement?.classList.contains('graph-workspace')),
-    )
-    .toBe(true)
-  await expect(page.getByRole('button', { name: 'Vollbild beenden', exact: true })).toBeVisible()
+  async function enterFullscreen() {
+    await enter.click()
+    // A click does not await requestFullscreen()/fullscreenchange. In mobile mode
+    // that transition closes details, so finish it before selecting another node.
+    await expect
+      .poll(() => workspace.evaluate((element) => document.fullscreenElement === element))
+      .toBe(true)
+    const exit = page.getByRole('button', { name: 'Vollbild beenden', exact: true })
+    await expect(exit).toBeVisible()
+    await expect(exit).toHaveAttribute('aria-pressed', 'true')
+  }
+  await enterFullscreen()
   await expect(workspace.locator('svg[role="group"]')).not.toHaveAttribute('viewBox', before!)
   expect(await svg!.evaluate((element) => element.isConnected)).toBe(true)
   await expect(workspace.locator('svg[role="group"]')).toHaveCount(1)
@@ -62,9 +67,10 @@ test('native fullscreen reuses the graph and survives root/history navigation', 
   await page.getByRole('button', { name: 'Vollbild beenden', exact: true }).click()
   await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true)
   await expect(enter).toBeFocused()
-  await enter.click()
+  await enterFullscreen()
   await workspace.locator('.graph-node').filter({ hasText: 'Max Mustermann' }).focus()
   await page.keyboard.press('Enter')
+  await expect(panel.getByRole('heading', { name: 'Max Mustermann' })).toBeVisible()
   await panel.getByRole('button', { name: 'Als Ausgangspunkt verwenden', exact: true }).click()
   await expect(page).toHaveURL(/root_type=user/)
   await expect(panel.getByRole('heading', { name: 'Max Mustermann' })).toBeVisible()
@@ -81,7 +87,7 @@ test('native fullscreen reuses the graph and survives root/history navigation', 
   await page.evaluate(() => document.exitFullscreen())
   await expect(enter).toHaveAttribute('aria-pressed', 'false')
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
-  await enter.click()
+  await enterFullscreen()
   await workspace.locator('.graph-node').first().focus()
   await page.keyboard.press('Enter')
   await panel.getByRole('link', { name: 'Im Admin ansehen', exact: true }).click()
