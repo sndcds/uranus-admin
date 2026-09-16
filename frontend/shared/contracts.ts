@@ -479,3 +479,99 @@ export type GraphRelationType = z.infer<typeof graphRelationTypeSchema>
 export type GraphNode = z.infer<typeof graphNodeSchema>
 export type GraphEdge = z.infer<typeof graphEdgeSchema>
 export type GraphResponse = z.infer<typeof graphResponseSchema>
+
+export const statisticsPeriodSchema = z.enum(['24h', '7d', '30d', '90d', 'custom'])
+export const statisticsIntervalSchema = z.enum(['15m', '1h', '6h', '1d'])
+export const statisticsEntitySchema = z.enum([
+  'user',
+  'organization',
+  'event',
+  'venue',
+  'space',
+  'partner_request',
+  'team_invitation',
+])
+export const entityStatisticsPointSchema = z
+  .object({
+    start_at: timestamp,
+    end_at: timestamp,
+    count,
+  })
+  .refine((point) => Date.parse(point.start_at) < Date.parse(point.end_at), 'Invalid bucket')
+export const entityStatisticsSeriesSchema = z
+  .object({
+    entity_type: statisticsEntitySchema,
+    label: z.string(),
+    total: count,
+    previous_total: count.nullable(),
+    points: z.array(entityStatisticsPointSchema).min(1).max(500),
+  })
+  .refine(
+    (series) => series.total === series.points.reduce((sum, point) => sum + point.count, 0),
+    'Invalid total',
+  )
+export const entityStatisticsResponseSchema = z
+  .object({
+    period: statisticsPeriodSchema,
+    from_at: timestamp,
+    to_at: timestamp,
+    timezone: z.string().refine((zone) => {
+      try {
+        new Intl.DateTimeFormat('de', { timeZone: zone })
+        return true
+      } catch {
+        return false
+      }
+    }),
+    interval: statisticsIntervalSchema,
+    observed_at: timestamp,
+    previous_from_at: timestamp.nullable(),
+    previous_to_at: timestamp.nullable(),
+    series: z.array(entityStatisticsSeriesSchema).length(7),
+    recent: z
+      .array(
+        z.object({
+          entity_type: statisticsEntitySchema,
+          entity_key: z.string(),
+          entity_name: z.string(),
+          organization_name: z.string().nullable(),
+          created_at: timestamp,
+          action: actionSchema,
+        }),
+      )
+      .max(7),
+  })
+  .refine((data) => {
+    const start = Date.parse(data.from_at),
+      end = Date.parse(data.to_at)
+    const reference = data.series[0]!.points
+    const comparing = data.previous_from_at !== null && data.previous_to_at !== null
+    return (
+      start < end &&
+      end - start <= 365 * 86400000 &&
+      new Set(data.series.map((s) => s.entity_type)).size === 7 &&
+      (comparing || (data.previous_from_at === null && data.previous_to_at === null)) &&
+      (!comparing ||
+        (Date.parse(data.previous_to_at!) === start &&
+          start - Date.parse(data.previous_from_at!) === end - start)) &&
+      data.series.every(
+        (series) =>
+          (comparing ? series.previous_total !== null : series.previous_total === null) &&
+          series.points.length === reference.length &&
+          series.points.every(
+            (point, i) =>
+              Date.parse(point.start_at) ===
+                (i ? Date.parse(series.points[i - 1]!.end_at) : start) &&
+              Date.parse(point.start_at) === Date.parse(reference[i]!.start_at) &&
+              Date.parse(point.end_at) === Date.parse(reference[i]!.end_at) &&
+              (i !== series.points.length - 1 || Date.parse(point.end_at) === end),
+          ),
+      ) &&
+      data.recent.every(
+        (item) => Date.parse(item.created_at) >= start && Date.parse(item.created_at) < end,
+      )
+    )
+  }, 'Inconsistent statistics range or series')
+export type StatisticsEntity = z.infer<typeof statisticsEntitySchema>
+export type EntityStatistics = z.infer<typeof entityStatisticsResponseSchema>
+export type StatisticsSeries = z.infer<typeof entityStatisticsSeriesSchema>

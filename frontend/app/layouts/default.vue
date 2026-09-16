@@ -3,6 +3,7 @@ import { dateTime } from '~/utils/presentation'
 import { failure } from '#shared/errors'
 import { periodSchema } from '#shared/contracts'
 const route = useRoute()
+const statisticsLayout = computed(() => route.path === '/statistics')
 const dashboard = useDashboardStore()
 const findings = useFindingsStore()
 const { $adminApi } = useNuxtApp()
@@ -53,7 +54,8 @@ async function accessChanged() {
       >Zum Inhalt</a
     >
     <aside
-      class="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex"
+      :class="statisticsLayout ? 'w-[200px]' : 'w-64'"
+      class="fixed inset-y-0 left-0 z-20 hidden flex-col border-r border-slate-200 bg-white lg:flex"
     >
       <AppNavigation />
     </aside>
@@ -74,7 +76,7 @@ async function accessChanged() {
         ><AppNavigation @navigate="closeMenu" />
       </div>
     </dialog>
-    <div class="min-h-screen min-w-0 lg:pl-64">
+    <div class="min-h-screen min-w-0" :class="statisticsLayout ? 'lg:pl-[200px]' : 'lg:pl-64'">
       <header class="sticky top-0 z-10 border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div class="flex min-h-16 flex-wrap items-center justify-between gap-3 px-5 py-3 sm:px-8">
           <div class="flex min-w-0 items-center gap-3">
@@ -91,7 +93,9 @@ async function accessChanged() {
               <div class="text-[11px] font-medium uppercase tracking-wider text-slate-500">
                 {{ dateTime(now) }} · Berlin
               </div>
-              <h1 class="text-base font-semibold">{{ heading }}</h1>
+              <h1 class="text-base font-semibold">
+                {{ statisticsLayout ? 'Guten Tag 👋' : heading }}
+              </h1>
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-3">
@@ -113,7 +117,9 @@ async function accessChanged() {
                 <option value="7d">Letzte 7 Tage</option>
               </select></label
             >
+            <LoginPanel v-if="statisticsLayout" compact @changed="accessChanged" />
             <button
+              v-else
               disabled
               class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white opacity-60"
               title="Datensatz anlegen ist noch nicht verfügbar"
@@ -123,8 +129,15 @@ async function accessChanged() {
           </div>
         </div>
       </header>
-      <main id="main-content" tabindex="-1" class="mx-auto max-w-7xl space-y-5 p-5 sm:p-8">
-        <LoginPanel @changed="accessChanged" /><AccessPanel @changed="accessChanged" /><slot />
+      <main
+        id="main-content"
+        tabindex="-1"
+        class="mx-auto space-y-5 p-5"
+        :class="statisticsLayout ? 'max-w-[1700px] sm:p-6' : 'max-w-7xl sm:p-8'"
+      >
+        <LoginPanel v-if="!statisticsLayout" @changed="accessChanged" /><AccessPanel
+          @changed="accessChanged"
+        /><slot />
       </main>
     </div>
   </div>
