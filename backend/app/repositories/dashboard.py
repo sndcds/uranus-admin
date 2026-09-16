@@ -3,20 +3,9 @@ from datetime import UTC
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.repositories.creation_sources import RECORD_TABLES
 from app.services.periods import PeriodWindow
 
-# Identifiers are fixed source-code constants, never request/configuration values.
-RECORD_TABLES = {
-    "organizations": "organization",
-    "venues": "venue",
-    "spaces": "space",
-    "events": "event",
-    "event_dates": "event_date",
-    "users": '"user"',
-    "partner_requests": "organization_partner_request",
-    "team_memberships": "organization_member_link",
-    "images": "pluto_image",
-}
 NEW_RECORDS_UTC_SQL = " UNION ALL ".join(
     f"SELECT '{key}' AS kind, COUNT(*) AS count FROM uranus.{table} "
     "WHERE created_at >= :start_at AND created_at < :end_at"

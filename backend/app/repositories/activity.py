@@ -67,6 +67,20 @@ FROM uranus.pluto_image i
 )
 
 
+# Reuse the existing safe name/context projections. Invitation statistics deliberately
+# use invited_at, while default Activity and dashboard keep membership row creation.
+STATISTICS_ACTIVITY_SQL = ACTIVITY_SQL.replace("m.created_at", "m.invited_at")
+
+
+def creation_activity_sql(statistics: bool = False) -> str:
+    if statistics:
+        return (
+            f"SELECT * FROM ({STATISTICS_ACTIVITY_SQL}) creations "
+            "WHERE entity_type NOT IN ('event_date','image')"
+        )
+    return ACTIVITY_SQL
+
+
 async def activity_page(
     connection: AsyncConnection, settings: Settings, filters: ActivityFilters, now: datetime
 ) -> ActivityPage:
@@ -105,7 +119,8 @@ async def activity_page(
             ((l.context='organization' AND l.context_uuid=:org)
              OR v.org_uuid=:org OR e.org_uuid=:org))))
     """
-    base = f"WITH a AS ({ACTIVITY_SQL}) SELECT * FROM a {where}"
+    source_sql = creation_activity_sql(filters.creation_basis == "statistics")
+    base = f"WITH a AS ({source_sql}) SELECT * FROM a {where}"
     unknown = int(
         (
             await connection.execute(

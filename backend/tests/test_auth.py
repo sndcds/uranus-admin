@@ -6,6 +6,7 @@ from app.config import Settings
 from app.main import create_app
 
 ADMIN_PATHS = [
+    "/api/v1/statistics/entities",
     "/api/v1/dashboard/summary",
     "/api/v1/findings",
     "/api/v1/quality/venues/missing-geolocation",
