@@ -1,5 +1,6 @@
 """Bounded page enrichment; public routes verified against Kulturbytes client and Pluto."""
 
+import math
 import re
 from datetime import datetime
 from typing import Any
@@ -13,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.config import Settings
 
 # Only page identities enter this query. Lateral lookups use source keys and LIMIT,
-# not one application/database round trip per item. No private fields are selected.
+# not one application/database round trip per item. User email is explicitly admin-only;
+# credentials, activation tokens and other private fields are never selected.
 PREVIEW_SQL = """
 WITH requested AS (
  SELECT kind,key,CASE WHEN kind NOT IN ('partner_request','team_membership')
@@ -31,7 +33,12 @@ WITH requested AS (
  LEFT JOIN uranus.event e ON l.context='event' AND e.uuid=l.context_uuid
  GROUP BY l.pluto_image_uuid
 ), details AS (
- SELECT r.kind, r.key, o.city subtitle, NULL::text address,
+ SELECT r.kind, r.key, o.city subtitle,
+        NULLIF(concat_ws(', ',
+          NULLIF(concat_ws(' ',NULLIF(btrim(o.street),''),NULLIF(btrim(o.house_number),'')),''),
+          NULLIF(btrim(o.address_addition),''),
+          NULLIF(concat_ws(' ',NULLIF(btrim(o.postal_code),''),NULLIF(btrim(o.city),'')),''),
+          NULLIF(btrim(o.country),'')),'') address,
         NULL::text venue_slug, NULL::uuid event_id, NULL::uuid date_id,
         NULL::date start_date, NULL::time start_time, NULL::boolean all_day,
         NULL::text venue_name, NULL::text space_name, NULL::text event_status,
@@ -88,9 +95,17 @@ WITH requested AS (
         NULL,NULL,i.uuid
  FROM requested r JOIN uranus.pluto_image i ON r.kind='image' AND i.uuid=r.id
  LEFT JOIN image_contexts linked ON linked.pluto_image_uuid=i.uuid
+ UNION ALL
+ SELECT r.kind,r.key,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+ FROM requested r JOIN uranus."user" u ON r.kind='user' AND u.uuid=r.id
 )
-SELECT d.*, COALESCE(d.direct_image,img.uuid) image_uuid
+SELECT d.*, COALESCE(d.direct_image,img.uuid) image_uuid,
+       NULLIF(btrim(u.email),'') email,
+       public.ST_Y(o.point) latitude, public.ST_X(o.point) longitude
 FROM details d
+LEFT JOIN uranus."user" u ON d.kind='user' AND u.uuid=CASE WHEN d.kind='user' THEN d.key::uuid END
+LEFT JOIN uranus.organization o ON d.kind='organization'
+ AND o.uuid=CASE WHEN d.kind='organization' THEN d.key::uuid END
 LEFT JOIN LATERAL (
  SELECT i.uuid FROM uranus.pluto_image_link l
  JOIN uranus.pluto_image i ON i.uuid=l.pluto_image_uuid
@@ -118,6 +133,30 @@ def image_url(image_uuid: UUID | str | None, api_url: str) -> str | None:
     return f"{PUBLIC_API}/api/image/{identifier}?{query}"
 
 
+def avatar_url(user_uuid: str | UUID | None, api_url: str) -> str | None:
+    """Public Uranus avatar candidate; a missing file returns 404 and the UI falls back."""
+    if user_uuid is None or api_url.rstrip("/") != PUBLIC_API:
+        return None
+    try:
+        identifier = UUID(str(user_uuid))
+    except ValueError:
+        return None
+    return f"{PUBLIC_API}/api/user/{identifier}/avatar/128"
+
+
+def location(latitude: float | None, longitude: float | None) -> dict[str, float] | None:
+    if (
+        latitude is None
+        or longitude is None
+        or not math.isfinite(latitude)
+        or not math.isfinite(longitude)
+        or not -90 <= latitude <= 90
+        or not -180 <= longitude <= 180
+    ):
+        return None
+    return {"latitude": latitude, "longitude": longitude}
+
+
 def public_url(row: dict[str, Any]) -> str | None:
     if row["kind"] == "venue":
         slug = row["venue_slug"]
@@ -138,7 +177,7 @@ def public_url(row: dict[str, Any]) -> str | None:
 
 async def activity_previews(
     connection: AsyncConnection, settings: Settings, items: list[dict[str, Any]], now: datetime
-) -> dict[tuple[str, str], dict[str, str | None]]:
+) -> dict[tuple[str, str], dict[str, Any]]:
     if not items:
         return {}
     local = now.astimezone(ZoneInfo(settings.event_timezone))
@@ -177,7 +216,13 @@ async def activity_previews(
         previews[(row["kind"], row["key"])] = {
             "subtitle": " · ".join(part for part in parts if part) or None,
             "address": row["address"],
-            "image_url": image_url(row["image_uuid"], settings.uranus_api_url),
+            "image_url": (
+                avatar_url(row["key"], settings.uranus_api_url)
+                if row["kind"] == "user"
+                else image_url(row["image_uuid"], settings.uranus_api_url)
+            ),
+            "email": row["email"],
+            "location": location(row["latitude"], row["longitude"]),
             "public_url": public_url(row) if public_instance else None,
         }
     return previews

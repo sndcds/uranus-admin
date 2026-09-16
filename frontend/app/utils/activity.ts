@@ -1,4 +1,4 @@
-import { activityImageUrlSchema } from '#shared/contracts'
+import { activityImageUrlSchema, activityLocationSchema } from '#shared/contracts'
 import type { ActivityPage, DashboardSummary } from '#shared/contracts'
 import { calendarDay, dayLabel, metric } from './presentation'
 
@@ -119,7 +119,8 @@ export function activityImagePreviewUrl(value: string | null | undefined): strin
   const validated = activityImageUrlSchema.safeParse(value)
   if (!validated.success) return null
   const url = new URL(validated.data)
-  url.search = new URLSearchParams({ width: '1280' }).toString()
+  if (url.pathname.endsWith('/avatar/128')) url.pathname = url.pathname.replace(/128$/, '512')
+  else url.search = new URLSearchParams({ width: '1280' }).toString()
   return url.toString()
 }
 
@@ -131,4 +132,12 @@ export function entityPresentation(type: string) {
     image_link: 'Bildverknüpfung',
   }
   return { label: extra[type] ?? type, tone: 'bg-slate-100 text-slate-600' }
+}
+
+/** Validated source coordinates only; no geocoding or requests to map services. */
+export function activityMapUrl(value: ActivityItem['location']): string | null {
+  const parsed = activityLocationSchema.safeParse(value)
+  if (!parsed.success) return null
+  const { latitude, longitude } = parsed.data
+  return `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=17/${latitude}/${longitude}`
 }

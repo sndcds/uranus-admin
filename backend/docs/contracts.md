@@ -292,7 +292,13 @@ Zeilen lesen; begrenzte API-Seitengröße ist keine konstante Datenbanklaufzeit.
 ## Activity previews and public links
 
 Activity items optionally add `image_url`, `public_url`, `subtitle`, and `address` (nullable
-strings). No full entity objects, email addresses, file paths or credentials are embedded.
+strings). `email` is an additional nullable string, deliberately exposed **only for user
+items in this system-admin-protected response**, as requested for account administration.
+Other entity types do not expose user email, including membership rows. No full user objects,
+password hashes, activation tokens, file paths or credentials are embedded.
+`location` is an optional nullable `{latitude, longitude}` object for organizations, read
+from their WGS84 `point` (`ST_Y` = latitude, `ST_X` = longitude). Missing, empty, non-finite
+or out-of-range coordinates yield null; addresses are never geocoded.
 The existing filters, pagination, `created_at`, `action.href` and unknown-timestamp semantics
 are unchanged. Preview enrichment runs **after SQL pagination**, with one batch query for
 all page identities: three existing count/page queries plus one enrichment query (zero for an
@@ -301,15 +307,37 @@ empty page). UUID joins retain the source UUID indexes; next-date lookup uses th
 
 | Type | Preview |
 | --- | --- |
-| organization | City and `main_logo`; no standalone public organization route is established |
+| organization | City, available street/house number/address addition/postal code/city/country, WGS84 location and `main_logo`; no standalone public organization route is established |
 | venue | Address, `main_photo` then `main_logo`, public venue link |
 | space | Parent venue name; no invented image relation or standalone public route |
 | event | Subtitle, next upcoming public-status date, `main` image; public link only when a supported date exists |
 | event_date | Actual event date/time (unknown time stays unknown), effective venue/space, parent event image |
-| user | Existing display name/username and activation status only |
+| user | Display name/username, activation status, email and a public avatar candidate URL; no Pluto image relationship is assumed |
 | partner_request | Existing directed from/to names and status |
 | team_membership | Existing user/organization, invited/joined status; optional explicitly labelled `invited_at`, never a fabricated joined timestamp |
 | image | Image itself; linked name only if exactly one distinct context/target exists |
+
+### User avatars and organization locations
+
+Uranus stores avatars in its profile-image directory, not in `uranus.user` or a Pluto link.
+The verified public route is `/api/user/:userUuid/avatar/:size`
+(`uranus/uranus-api.go`, `api/get_user_avatar.go`, `api/admin_update_user_avatar.go`).
+Allowed sizes are 64, 128, 256 and 512; a missing file returns 404. For user items,
+`image_url` uses `https://api.kulturbytes.de/api/user/<user_uuid>/avatar/128`.
+The browser loads it lazily and falls back to the user icon on error. The existing modal
+uses the 512px version. No per-user profile/HEAD request or filesystem lookup is added;
+the returned URL is a candidate, not proof that an avatar exists. As with Pluto URLs,
+only the configured public instance enables avatar URLs. Zod permits this exact route;
+no arbitrary image hosts or token query parameters are accepted.
+
+Organization logos and venue thumbnails get the same padding inside their thumbnail button and retain their native ratio.
+Their source coordinates become an OpenStreetMap marker link through the single frontend
+`activityMapUrl()` helper, following the documented
+[OpenStreetMap marker URL format](https://wiki.openstreetmap.org/wiki/Browsing#Other_URL_tricks).
+Only validated numeric coordinates enter the fixed `https://www.openstreetmap.org/` URL.
+The link opens a new tab with `noopener noreferrer`; no map tiles, geocoding, or map scripts
+are loaded. Existing image CSP permissions for `https://api.kulturbytes.de` also cover avatars;
+no CSP expansion is required.
 
 Public URL generation is enabled only when `URANUS_API_URL` identifies
 `https://api.kulturbytes.de` (a trailing slash is accepted). This is an operator assertion that
@@ -318,17 +346,17 @@ No network introspection or per-row HTTP requests are made. Missing/stale files 
 icon fallback. Public images use `https://api.kulturbytes.de/api/image/<uuid>?width=320`.
 For image rows, `entity_key` is exactly `pluto_image.uuid`; the preview selects the same UUID
 without requiring an image-link row. A null or malformed image UUID yields `image_url = null`.
-The central `image_url()` helper validates UUIDs and encodes only `width=320` with `urlencode`.
+The central Pluto `image_url()` helper validates UUIDs and encodes only `width=320` with `urlencode`.
 No `ratio` or height is sent: Pluto preserves the original aspect ratio.
 Only established image identifiers are selected, not arbitrary stored URLs or file names.
 The 320px-wide thumbnails are displayed at 96px wide on mobile and 128px on desktop, with
 `loading="lazy"`, `decoding="async"`, a descriptive alt label and an icon fallback on errors.
 The frontend also accepts the former 160px square and 320px/16:9 URLs during a rolling deployment;
-new responses always use width=320 without cropping. No additional JSON requests are made per row.
+new Pluto URLs use width=320 without cropping. No additional JSON requests are made per row.
 Clicking a thumbnail opens the shared `AppModal` dialog, also used by finding details.
-Only then does the browser load a 1280px-wide, uncropped image. The central frontend
+Only then does the browser load a 1280px-wide, uncropped Pluto image (512px for avatars). The central frontend
 `activityImagePreviewUrl()` helper accepts only validated public thumbnail URLs and changes
-the width without exposing an arbitrary image host. Escape or the close button dismisses
+the width or permitted avatar size without exposing an arbitrary image host. Escape or the close button dismisses
 the modal and restores keyboard focus to its trigger. Images fit the viewport without cropping;
 a failed large preview shows an error while preserving the rest of the Activity row.
 
