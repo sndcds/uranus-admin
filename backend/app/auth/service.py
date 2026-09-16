@@ -212,6 +212,7 @@ async def session_identity(request: Request, settings: Settings, token: str) -> 
                 await connection.execute(
                     select(
                         auth_account.c.id,
+                        auth_session.c.last_seen_at,
                         exists()
                         .where(auth_system_admin.c.account_id == auth_account.c.id)
                         .label("system_admin"),
@@ -237,11 +238,20 @@ async def session_identity(request: Request, settings: Settings, token: str) -> 
         )
         if row is None:
             raise invalid()
-        await connection.execute(
-            update(auth_session)
-            .where(auth_session.c.token_hash == digest(token))
-            .values(last_seen_at=now)
-        )
+        cutoff = now - timedelta(seconds=settings.auth_session_heartbeat_seconds)
+        if row["last_seen_at"] <= cutoff:
+            await connection.execute(
+                update(auth_session)
+                .where(
+                    auth_session.c.token_hash == digest(token),
+                    auth_session.c.last_seen_at <= cutoff,
+                    auth_session.c.last_seen_at
+                    > now - timedelta(seconds=settings.auth_idle_seconds),
+                    auth_session.c.revoked_at.is_(None),
+                    auth_session.c.expires_at > now,
+                )
+                .values(last_seen_at=now)
+            )
         return AdminPrincipal(subject=f"admin:{row['id']}", system_admin=row["system_admin"])
 
 

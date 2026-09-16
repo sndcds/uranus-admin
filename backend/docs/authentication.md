@@ -187,3 +187,12 @@ Danach ist der Wert über beide Transporte ungültig. Bearer-only benötigt kein
 Header; Cookie-Requests weiterhin schon. Das Antwort-Cookie wird immer gelöscht.
 Der explizite development/test-Token ist kein persistentes Credential: Logout widerruft ihn nicht
 und öffnet dafür keine DB-Verbindung. Staging/Production akzeptiert ihn weiterhin niemals.
+
+## Heartbeat und Retention
+
+Jeder Request validiert weiterhin Sitzung und Berechtigung. `last_seen_at` wird nur nach
+`AUTH_SESSION_HEARTBEAT_SECONDS` (Default 60) erneut geschrieben, mit atomarem SQL-Vergleich
+gegen die alte Schwelle. Parallel eintreffende Requests erzeugen höchstens ein Update.
+Absolute expiry bleibt unverändert; Idle-Aktivität wird konservativ in Intervallen erfasst.
+Maintenance: `python -m app.auth.maintenance cleanup`, siehe [Betrieb](development.md#bereinigung).
+Keine impliziten Deletes durch API-Requests und keine DELETE-Rechte für die Runtime.

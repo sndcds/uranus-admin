@@ -159,3 +159,7 @@ auth_login_bucket = sa.Table(
     sa.Column("attempts", sa.Integer, nullable=False),
     sa.CheckConstraint("attempts > 0", name="auth_login_bucket_attempts"),
 )
+
+sa.Index("auth_session_idle_idx", auth_session.c.last_seen_at)
+sa.Index("auth_session_revoked_idx", auth_session.c.revoked_at)
+sa.Index("auth_login_bucket_expiry_idx", auth_login_bucket.c.window_end)

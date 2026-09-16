@@ -642,17 +642,36 @@ Production-/Staging-Flags können weder Dev-Auth noch unverschlüsselte Cookie-O
 
 ### Bereinigung
 
-Sitzungen laufen absolut ab; Rate-Limit-Fenster erneuern sich ohne Scheduler. Abgelaufene
-Metadaten benötigen dennoch periodische Bereinigung durch einen berechtigten Wartungsprozess.
-Dafür keine DELETE-Rechte an die API-Runtime vergeben. Beispiel für einen Wartungsaccount mit
-gezielten DELETE-Rechten ausschließlich auf diesen beiden Tabellen:
+Nach Migration 0005 stehen zusätzliche Ablauf-/Widerruf-Indizes bereit (Downgrade entfernt nur
+Indizes, keine Daten). Maintenance läuft explizit mit dem CLI-Operator, nie im Request-Pfad.
+Zusätzliche Rechte nur für diesen Prozess, **nicht** für admin_user:
 
 ```sql
-DELETE FROM admin.auth_session WHERE expires_at < now() OR revoked_at IS NOT NULL;
-DELETE FROM admin.auth_login_bucket WHERE window_end < now();
+GRANT SELECT ON admin.alembic_version TO admin_auth_operator;
+GRANT DELETE ON admin.auth_session TO admin_auth_operator;
+GRANT SELECT, UPDATE, DELETE ON admin.auth_login_bucket TO admin_auth_operator;
 ```
 
-`record_mark_event` bleibt hiervon vollständig unberührt und append-only.
+UPDATE wird für `FOR UPDATE SKIP LOCKED` benötigt; Cleanup aktualisiert keine Sitzungen.
+
+```bash
+uv run python -m app.auth.maintenance cleanup --batch-size 500 --max-batches 10
+```
+
+Regelmäßig, beispielsweise stündlich, extern planen. Pro Transaktion maximal batch-size
+Sitzungen und Buckets, maximal max-batches Transaktionen. Mehrere Wartungsprozesse überspringen
+bereits gesperrte Zeilen. Wiederholung ist sicher. Entfernt werden absolut oder per Idle-Timeout
+abgelaufene Sitzungen, ausreichend alte Widerrufe und abgelaufene Buckets. Noch gültige aktive
+Sitzungen bleiben erhalten. `AUTH_REVOKED_RETENTION_SECONDS=86400` hält reine Widerrufe bis zu
+einem Tag; absolute/Idle-Abläufe dürfen früher gelöscht werden. Ausgabe enthält nur Mengen.
+Bei großem Rückstand öfter aufrufen, keine unbeschränkten Deletes in normalen Requests.
+`record_mark_event` bleibt vollständig unberührt und append-only.
+
+`AUTH_SESSION_HEARTBEAT_SECONDS=60` schreibt Aktivität höchstens einmal pro Minute.
+Der Wert muss positiv, höchstens 300 und kleiner als AUTH_IDLE_SECONDS sein. Ein SQL-Prädikat
+verhindert doppelte Heartbeats paralleler Requests. Der Idle-Nachweis ist konservativ: letzte
+Aktivität wird mit höchstens einem Intervall Verzögerung gespeichert; eine Sitzung kann entsprechend
+früher erneut Login verlangen. Die absolute Lebensdauer wird niemals verlängert.
 
 ## Activity previews
 
