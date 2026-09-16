@@ -485,3 +485,23 @@ missing authorized Uranus connection. Issue #15 remains open for that integratio
 A future adapter needs a deliberately established delegated Uranus authorization
 contract, typed allowed bodies, safe upstream error mapping, and no browser-visible
 upstream credentials. It must not mint an identity or substitute source SQL writes.
+
+### Additive cursor pagination
+
+Activity and persisted findings support `cursor=start&page_size=25`, followed by
+`cursor=<next_cursor>` with the same filters. Do not send `page` with `cursor`.
+Offset navigation remains the frontend default. `cursor_pagination` contains
+`page_size`, `has_more`, `next_cursor`; a null next cursor ends the stream. Legacy
+`pagination` counts remain present for compatibility; its page number is not a
+cursor page counter. Live findings do not support cursors.
+
+Cursors are versioned base64url JSON with endpoint and filter-scope validation.
+Activity includes UTC created time plus entity type/key (descending time, ascending
+identity); unknown timestamps use identity only. The original time window is carried
+forward, even when the clock advances. Persisted findings use descending effective
+priority score and ascending C-collated finding ID, exactly as offset ordering.
+Invalid encoding, version, endpoint, filters or values returns sanitized 422.
+No cursor grants permission: normal auth and every filter apply to every page.
+Inserts before the cursor do not duplicate/skip unchanged original rows. This is not
+a database snapshot across HTTP requests: deletions and changed ordering attributes
+(such as reprioritized findings) can change the stream and require restarting it.

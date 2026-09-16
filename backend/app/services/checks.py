@@ -12,6 +12,7 @@ from app.config import Settings
 from app.errors import APIError
 from app.repositories.venues import RULE
 from app.schemas.checks import CheckRun, ReviewUpdate
+from app.schemas.cursor import CursorPagination, FindingCursor, decode, encode, scope
 from app.schemas.dashboard import QualityCounts
 from app.schemas.finding import Finding, FindingFilters, FindingPage, Pagination, Severity
 from app.services.quality.core import CORE_RULES, RuleResult
@@ -386,6 +387,13 @@ def stored_priority_score() -> Any:
 async def persisted_page(
     admin: AsyncConnection, filters: FindingFilters, now: datetime
 ) -> FindingPage:
+    cursor_mode = filters.cursor is not None
+    expected_scope = scope(filters)
+    position = (
+        decode(filters.cursor, FindingCursor, expected_scope)
+        if filters.cursor is not None and filters.cursor != "start"
+        else None
+    )
     conditions = []
     for key in ("severity", "entity_type", "entity_key", "rule", "status"):
         if (value := getattr(filters, key)) is not None:
@@ -402,17 +410,40 @@ async def persisted_page(
                 await admin.execute(select(func.count()).select_from(finding).where(*conditions))
             ).scalar_one()
         )
+        if position:
+            score = stored_priority_score()
+            conditions.append(
+                (score < position.priority_score)
+                | ((score == position.priority_score) & (finding.c.id.collate("C") > position.id))
+            )
         rows = (
             await admin.execute(
                 select(*FINDING_COLUMNS)
                 .where(*conditions)
                 .order_by(stored_priority_score().desc(), finding.c.id.collate("C"))
-                .limit(filters.page_size)
-                .offset((filters.page - 1) * filters.page_size)
+                .limit(filters.page_size + int(cursor_mode))
+                .offset(0 if cursor_mode else (filters.page - 1) * filters.page_size)
             )
         ).mappings()
+        items = [stored_finding(dict(row)) for row in rows]
+        has_more = cursor_mode and len(items) > filters.page_size
+        items = items[: filters.page_size]
+        next_cursor = (
+            encode(
+                FindingCursor(
+                    scope=expected_scope, priority_score=items[-1].priority_score, id=items[-1].id
+                )
+            )
+            if has_more
+            else None
+        )
         return FindingPage(
-            items=[stored_finding(dict(row)) for row in rows],
+            items=items,
+            cursor_pagination=CursorPagination(
+                page_size=filters.page_size, next_cursor=next_cursor, has_more=has_more
+            )
+            if cursor_mode
+            else None,
             mode="persisted",
             observed_at=now,
             pagination=Pagination(

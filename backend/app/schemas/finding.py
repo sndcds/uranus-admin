@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import AliasChoices, BaseModel, Field, computed_field
 
 from app.schemas.action import Action
+from app.schemas.cursor import CursorPagination
 
 
 class Severity(StrEnum):
@@ -32,6 +33,7 @@ class FindingFilters(BaseModel):
     rule: str | None = Field(default=None, max_length=100)
     organization_id: UUID | None = None
     status: FindingStatus | None = None
+    cursor: str | None = Field(default=None, max_length=16384)
     page: int = Field(default=1, ge=1, le=100_000)
     page_size: int = Field(default=50, ge=1, le=100)
 
@@ -95,6 +97,7 @@ class Pagination(BaseModel):
 
 
 class FindingPage(BaseModel):
+    cursor_pagination: CursorPagination | None = None
     items: list[Finding]
     pagination: Pagination
     observed_at: datetime

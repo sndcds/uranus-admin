@@ -145,7 +145,13 @@ export const findingSchema = z.object({
   upcoming_published_event_date_count: count,
   soon_published_event_date_count: count,
 })
+export const cursorPaginationSchema = z.object({
+  page_size: count,
+  next_cursor: z.string().nullable(),
+  has_more: z.boolean(),
+})
 export const findingPageSchema = z.object({
+  cursor_pagination: cursorPaginationSchema.nullable().optional(),
   items: z.array(findingSchema),
   pagination: z.object({
     page: count.min(1),
@@ -244,6 +250,7 @@ export const activityLocationSchema = z
   .strict()
 
 export const activityPageSchema = z.object({
+  cursor_pagination: cursorPaginationSchema.nullable().optional(),
   items: z.array(
     z.object({
       entity_type: entityTypeSchema,

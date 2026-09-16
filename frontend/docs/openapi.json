@@ -410,6 +410,23 @@
             }
           },
           {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 16384
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -2552,6 +2569,23 @@
             }
           },
           {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 16384
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -4649,6 +4683,16 @@
       },
       "ActivityPage": {
         "properties": {
+          "cursor_pagination": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CursorPagination"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/Activity"
@@ -4883,6 +4927,36 @@
           "pagination"
         ],
         "title": "CheckRunPage"
+      },
+      "CursorPagination": {
+        "properties": {
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page_size",
+          "next_cursor",
+          "has_more"
+        ],
+        "title": "CursorPagination"
       },
       "DashboardCheckRun": {
         "properties": {
@@ -5882,6 +5956,16 @@
       },
       "FindingPage": {
         "properties": {
+          "cursor_pagination": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CursorPagination"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/Finding"

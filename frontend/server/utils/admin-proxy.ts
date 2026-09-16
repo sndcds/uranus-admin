@@ -58,6 +58,7 @@ const routes: Record<string, readonly string[]> = {
   '/ready': [],
   '/api/v1/dashboard/summary': ['period', 'mode'],
   '/api/v1/dashboard/activity': [
+    'cursor',
     'creation_basis',
     'entity_type',
     'entity_key',
@@ -70,6 +71,7 @@ const routes: Record<string, readonly string[]> = {
     'page_size',
   ],
   '/api/v1/findings': [
+    'cursor',
     'mode',
     'severity',
     'entity_type',

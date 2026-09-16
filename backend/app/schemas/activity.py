@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
 from app.schemas.action import Action
+from app.schemas.cursor import CursorPagination
 from app.schemas.dashboard import Period
 from app.schemas.finding import Pagination
 
@@ -30,6 +31,7 @@ class ActivityFilters(BaseModel):
     from_at: AwareDatetime | None = None
     to_at: AwareDatetime | None = None
     timestamp_state: Literal["known", "unknown"] = "known"
+    cursor: str | None = Field(default=None, max_length=16384)
     page: int = Field(default=1, ge=1, le=100_000)
     page_size: int = Field(default=50, ge=1, le=100)
 
@@ -67,6 +69,7 @@ class Activity(BaseModel):
 
 
 class ActivityPage(BaseModel):
+    cursor_pagination: CursorPagination | None = None
     items: list[Activity]
     pagination: Pagination
     observed_at: datetime
