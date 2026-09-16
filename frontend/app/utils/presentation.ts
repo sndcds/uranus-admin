@@ -70,3 +70,14 @@ export function activityTime(value: string | null, observedAt: string): string {
   const day = shortDay.format(date)
   return `${day} · ${time}`
 }
+
+export const periodLabels = { today: 'Heute', '24h': 'Letzte 24 Stunden', '7d': 'Letzte 7 Tage' }
+export const findingStatusLabels: Record<string, string> = {
+  open: 'Offen',
+  in_progress: 'In Bearbeitung',
+  snoozed: 'Zurückgestellt',
+  exception: 'Ausnahme',
+  reviewed: 'Geprüft',
+  ignored: 'Ignoriert',
+  resolved: 'Behoben',
+}

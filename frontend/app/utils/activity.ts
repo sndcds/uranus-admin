@@ -122,3 +122,13 @@ export function activityImagePreviewUrl(value: string | null | undefined): strin
   url.search = new URLSearchParams({ width: '1280' }).toString()
   return url.toString()
 }
+
+export function entityPresentation(type: string) {
+  if (Object.hasOwn(activityTypes, type)) return activityTypes[type as keyof typeof activityTypes]
+  const extra: Record<string, string> = {
+    event_link: 'Veranstaltungslink',
+    license: 'Lizenz',
+    image_link: 'Bildverknüpfung',
+  }
+  return { label: extra[type] ?? type, tone: 'bg-slate-100 text-slate-600' }
+}
