@@ -400,3 +400,38 @@ def test_bucket_cardinality_is_fixed():
     assert BUCKET_PARTITIONS == 65536
     assert bucket_key("login", "operator") == bucket_key("login", "operator")
     assert bucket_key("source", "operator") != bucket_key("login", "operator")
+
+
+@pytest.mark.parametrize("transport", ["bearer", "both", "conflict", "malformed"])
+async def test_logout_uses_same_credential_policy_as_authentication(auth_client, transport, capsys):
+    client, _, settings = auth_client
+    assert (await sign_in(client)).status_code == 200
+    token = client.cookies.get(settings.session_cookie)
+    headers = {"Authorization": f"Bearer {token}"}
+    if transport == "bearer":
+        client.cookies.clear()
+    elif transport == "conflict":
+        headers["Authorization"] = f"Bearer {secrets.token_urlsafe(32)}"
+    elif transport == "malformed":
+        headers["Authorization"] = "Basic secret-malformed-marker"
+    else:
+        # Supplying the same token twice does not bypass cookie CSRF.
+        assert (await client.post("/auth/logout", headers=headers)).status_code == 403
+        headers.update(CSRF)
+    response = await client.post("/auth/logout", headers=headers)
+    denied = transport in {"conflict", "malformed"}
+    assert response.status_code == (401 if denied else 200)
+    client.cookies.clear()
+    assert (
+        await client.get("/auth/session", headers={"Authorization": f"Bearer {token}"})
+    ).status_code == (200 if denied else 401)
+    output = capsys.readouterr().err
+    assert token not in output + response.text and "secret-malformed-marker" not in output
+
+
+async def test_dev_logout_never_opens_session_storage(settings):
+    app = create_app(settings)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url=ORIGIN) as client:
+        headers = {"Authorization": f"Bearer {settings.dev_admin_token.get_secret_value()}"}
+        assert (await client.post("/auth/logout", headers=headers)).status_code == 200
+        assert (await client.get("/auth/session", headers=headers)).status_code == 200

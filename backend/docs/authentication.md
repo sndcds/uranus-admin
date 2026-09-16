@@ -64,7 +64,7 @@ Browser → /api/admin/api/v1/... → Nitro → FastAPI
   HttpOnly-Cookie, niemals im JSON, HTML, SSR-State oder einem Browser-Speicherobjekt an.
 - `GET /auth/session`: eigene Identität/Berechtigung; keine Passworthashes oder Sitzungswerte.
 - `POST /auth/logout`: widerruft die aktuelle Sitzung in der Datenbank und löscht das Cookie.
-  Ohne Cookie idempotent 200; DB-Fehler melden keinen erfolgreichen Widerruf.
+  Ohne Credential (mit Origin/CSRF) idempotent 200; DB-Fehler melden keinen erfolgreichen Widerruf.
 - Ohne Credential: 401 `authentication_required`. Ungültig/manipuliert/abgelaufen oder inaktives/
   gelöschtes Konto: 401 `invalid_credentials`. 401 behält `WWW-Authenticate: Bearer`.
 - Aktives Konto ohne Vergabe: 403 `admin_access_denied`. Fehlerhafte Browser-Provenienz:
@@ -175,3 +175,15 @@ Abgelaufene Buckets dürfen mit `cleanup_login_buckets(connection, batch_size)` 
 Operator-Transaktion entfernt werden (1–5000 Zeilen, `SKIP LOCKED`, idempotent). Der Runtime
 werden dafür keine DELETE-Rechte erteilt. Regelmäßige Maintenance entfernt auch alte Buckets aus
 früheren Versionen; die feste Partitionierung begrenzt neues Wachstum unabhängig davon.
+
+## Credential-Auswahl und Logout
+
+Authentication und Logout verwenden dieselbe zentrale Auswahl: Cookie-only oder Bearer-only
+identifiziert jeweils genau eine Sitzung. Gleiche Cookie- und Bearer-Werte sind erlaubt und
+behalten Cookie-CSRF/Origin-Prüfungen; unterschiedliche Werte oder malformed Authorization
+liefern 401, ohne eine der Sitzungen zu widerrufen. Kein stiller Vorrang eines Transports.
+Bearer-only Logout widerruft den Bearer-Session-Digest; Cookie-only Logout den Cookie-Digest.
+Danach ist der Wert über beide Transporte ungültig. Bearer-only benötigt keine Browser-CSRF-
+Header; Cookie-Requests weiterhin schon. Das Antwort-Cookie wird immer gelöscht.
+Der explizite development/test-Token ist kein persistentes Credential: Logout widerruft ihn nicht
+und öffnet dafür keine DB-Verbindung. Staging/Production akzeptiert ihn weiterhin niemals.
