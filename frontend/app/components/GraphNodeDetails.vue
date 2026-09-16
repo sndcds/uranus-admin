@@ -9,6 +9,7 @@ const props = defineProps<{
   nodes: GraphNode[]
   edges: GraphEdge[]
   root: string
+  fullscreen?: boolean
 }>()
 defineEmits<{ close: []; select: [id: string]; root: [node: GraphNode] }>()
 const tab = ref('all')
@@ -51,6 +52,7 @@ async function copy() {
 </script>
 <template>
   <aside
+    :class="{ 'graph-details-fullscreen': fullscreen }"
     class="graph-details flex min-w-0 flex-col border-t border-slate-200 bg-white xl:border-l xl:border-t-0"
     aria-label="Knotendetails"
   >
@@ -202,6 +204,28 @@ async function copy() {
     flex-shrink: 0;
     max-height: min(72vh, 800px);
     min-height: 520px;
+  }
+}
+.graph-details-fullscreen {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 88%);
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+  border-top: 0;
+  border-left: 1px solid #e2e8f0;
+  box-shadow: -4px 0 16px rgb(15 23 42 / 0.08);
+}
+@media (min-width: 1024px) {
+  .graph-details-fullscreen {
+    position: static;
+    width: 360px;
+    flex-shrink: 0;
+    box-shadow: none;
   }
 }
 </style>

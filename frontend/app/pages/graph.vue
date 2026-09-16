@@ -3,7 +3,7 @@ import type { GraphNode, GraphResponse } from '#shared/contracts'
 import { graphEntityTypeSchema, graphRelationTypeSchema } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
 import type { ApiFailure } from '#shared/errors'
-import { filterGraph, nodePresentation } from '~/utils/graph'
+import { filterGraph } from '~/utils/graph'
 const route = useRoute()
 const router = useRouter()
 const { $adminApi } = useNuxtApp()
@@ -35,7 +35,6 @@ const visible = computed(() =>
     root.value,
   ),
 )
-const selectedNode = computed(() => visible.value.nodes.find((n) => n.id === selected.value))
 let requestId = 0
 let searchId = 0
 let debounce: ReturnType<typeof setTimeout> | undefined
@@ -208,82 +207,22 @@ onBeforeUnmount(() => {
         Ausgangspunkt bei.
       </p>
     </div>
-    <RequestState :loading="loading" :error="error" @retry="load" />
     <p v-if="searchError" role="alert" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
       Suche fehlgeschlagen: {{ searchError.message }}
     </p>
-    <p
-      v-if="data?.truncated"
-      role="status"
-      class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
-    >
-      Darstellung begrenzt: maximal {{ data.max_nodes }} Knoten und
-      {{ data.max_edges }} Beziehungen. Wähle einen anderen Ausgangspunkt oder reduziere die Tiefe.
-    </p>
-    <div
-      v-if="data"
-      class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 xl:flex-row"
-    >
-      <EntityGraph
-        :nodes="visible.nodes"
-        :edges="visible.edges"
-        :root="root"
-        :selected="selected"
-        :depth="Number(route.query.depth || 2)"
-        :show-labels="showLabels"
-        @select="selected = $event"
-      />
-      <GraphNodeDetails
-        v-if="selectedNode"
-        :node="selectedNode"
-        :nodes="visible.nodes"
-        :edges="visible.edges"
-        :root="root"
-        @close="selected = ''"
-        @select="selected = $event"
-        @root="choose"
-      />
-    </div>
-    <div
-      v-else-if="!loading && !error"
-      class="grid min-h-[540px] place-items-center rounded-xl border border-slate-200 bg-white p-8 text-center"
-    >
-      <div class="max-w-md">
-        <span
-          class="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-3xl bg-fuchsia-50 text-fuchsia-600"
-          ><AppIcon name="graph" :size="36"
-        /></span>
-        <h3 class="text-lg font-semibold">Zusammenhänge entdecken</h3>
-        <p class="mt-2 text-sm leading-6 text-slate-500">
-          Suche nach einem Namen oder einer UUID und wähle einen Datensatz als Ausgangspunkt. Von
-          dort erkundest du seine Orte, Veranstaltungen und weiteren Beziehungen.
-        </p>
-        <p class="mt-4 text-xs text-slate-400">Mindestens 2 Zeichen · Bis zu 3 Ebenen</p>
-      </div>
-    </div>
-    <footer class="flex flex-wrap items-center justify-between gap-3">
-      <ul
-        aria-label="Graphlegende"
-        class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-white px-3 py-2 text-[10px] text-slate-500"
-      >
-        <li v-for="item in nodePresentation" :key="item.label" class="flex items-center gap-1.5">
-          <span
-            class="grid h-5 w-5 place-items-center rounded-full"
-            :style="{
-              background: item.fill,
-              color: item.color,
-              border: `1px solid ${item.border}`,
-            }"
-            ><AppIcon :name="item.icon" :size="12" /></span
-          >{{ item.label }}
-        </li>
-        <li class="flex items-center gap-1.5">
-          <span class="w-6 border-t border-slate-400" />Beziehung
-        </li>
-        <li class="flex items-center gap-1.5">
-          <span class="w-6 border-t border-violet-500" />Ausgewählt
-        </li>
-      </ul>
-    </footer>
+    <GraphWorkspace
+      :data="data"
+      :nodes="visible.nodes"
+      :edges="visible.edges"
+      :root="root"
+      :selected="selected"
+      :depth="Number(route.query.depth || 2)"
+      :show-labels="showLabels"
+      :loading="loading"
+      :error="error"
+      @select="selected = $event"
+      @root="choose"
+      @retry="load"
+    />
   </section>
 </template>

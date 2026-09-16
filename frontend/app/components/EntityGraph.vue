@@ -28,6 +28,8 @@ const props = defineProps<{
   selected: string
   depth: number
   showLabels: boolean
+  fullscreen?: boolean
+  workspaceControls?: boolean
 }>()
 const emit = defineEmits<{ select: [id: string] }>()
 const svg = ref<SVGSVGElement>()
@@ -36,6 +38,17 @@ const links = shallowRef<GraphSimulationLink[]>([])
 const transform = ref('translate(450,350)')
 const dimensions = ref({ width: 900, height: 700 })
 let observer: ResizeObserver | undefined
+let fitFrame: number | undefined
+function fitAfterResize() {
+  if (fitFrame !== undefined) cancelAnimationFrame(fitFrame)
+  // Two frames allow the fullscreen layout and ResizeObserver to settle first.
+  fitFrame = requestAnimationFrame(() => {
+    fitFrame = requestAnimationFrame(() => {
+      fitFrame = undefined
+      fit()
+    })
+  })
+}
 const markerId = `graph-arrow-${useId().replace(/:/g, '')}`
 let simulation: Simulation<GraphSimulationNode, GraphSimulationLink> | undefined
 let zoomBehavior: ZoomBehavior<SVGSVGElement, unknown> | undefined
@@ -160,10 +173,15 @@ onMounted(() => {
       transform.value = event.transform.toString()
     })
   select(svg.value).call(zoomBehavior).on('dblclick.zoom', null)
+  let measured = false
   observer = new ResizeObserver(([entry]) => {
     if (!entry?.contentRect.width || !entry.contentRect.height) return
     dimensions.value = { width: entry.contentRect.width, height: entry.contentRect.height }
-    fit()
+    if (!measured) {
+      measured = true
+      fit()
+    }
+    // Preserve manual zoom/pan on ordinary resizes. Fullscreen explicitly fits once.
   })
   observer.observe(svg.value)
   void start()
@@ -175,6 +193,7 @@ watch(
   },
 )
 onBeforeUnmount(() => {
+  if (fitFrame !== undefined) cancelAnimationFrame(fitFrame)
   observer?.disconnect()
   simulation?.stop()
   if (svg.value) {
@@ -182,11 +201,15 @@ onBeforeUnmount(() => {
     select(svg.value).selectAll('.graph-node').on('.drag', null)
   }
 })
-defineExpose({ fit, reset: start })
+defineExpose({ fit, fitAfterResize, reset: start })
 </script>
 <template>
-  <div class="graph-canvas relative min-w-0 flex-1 overflow-hidden bg-white">
+  <div
+    :class="{ 'graph-canvas-fullscreen': fullscreen }"
+    class="graph-canvas relative min-w-0 flex-1 overflow-hidden bg-white"
+  >
     <div
+      v-if="!workspaceControls"
       class="absolute left-4 top-4 z-[1] flex items-center gap-5 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-sm"
     >
       <div>
@@ -336,7 +359,12 @@ defineExpose({ fit, reset: start })
       >
         <AppIcon name="minus" :size="16" />
       </button>
-      <button class="p-2 hover:bg-slate-50" aria-label="Ansicht zurücksetzen" @click="start">
+      <button
+        v-if="!workspaceControls"
+        class="p-2 hover:bg-slate-50"
+        aria-label="Ansicht zurücksetzen"
+        @click="start"
+      >
         <AppIcon name="refresh" :size="15" />
       </button>
     </div>
@@ -357,5 +385,12 @@ defineExpose({ fit, reset: start })
   .graph-canvas {
     height: 520px;
   }
+}
+.graph-canvas-fullscreen {
+  height: 100%;
+  min-height: 0;
+}
+.graph-canvas-fullscreen > svg {
+  min-height: 0;
 }
 </style>
