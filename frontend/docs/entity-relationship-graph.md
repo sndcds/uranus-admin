@@ -173,3 +173,44 @@ test to wait for initial loading and reset its polling counter when starting a j
   `check-jobs.spec.ts` cases still failed waiting for “Wartet auf Worker”. Their traces
   contain no start POST after the click, consistent with a pre-hydration interaction.
   Those separate, already-in-progress check-job changes were not modified for this feature.
+
+## Native browser fullscreen
+
+The **Vollbild** button uses `requestFullscreen()` directly from the user's click on the existing
+`GraphWorkspace` element. Only this workspace enters fullscreen: toolbar, graph, details, status,
+loading/errors and legend. The application navigation, page header and search filters remain
+outside it. No modal, second SVG, second active simulation, dependency or API change is involved.
+
+`useFullscreen` detects both `document.fullscreenEnabled` and the element API after mounting.
+Unsupported browsers hide the control. The state always compares `document.fullscreenElement`
+with this exact workspace and follows `fullscreenchange`, including browser Escape. Rejected
+requests show a short generic message. Controls remain keyboard accessible, focus returns to the
+entry button on exit, and removing the workspace (including route leave) exits only its own
+fullscreen and removes the listener. There is no focus trap or application Escape handler.
+Browser APIs are never accessed during SSR. Browser/embedding policy can still deny fullscreen;
+there is deliberately no fake fullscreen fallback or query parameter.
+
+The existing SVG ResizeObserver updates dimensions and the zoom extent. Simulation coordinates
+remain centered at `(0, 0)`; the viewport is positioned through the zoom transform, so resizing
+needs no new center force or simulation. On entry and exit, fitting runs once after Vue layout
+and two animation frames. Ordinary resize (including hiding details) preserves manual zoom/pan.
+The explicit reset control retains its existing simulation-reset behavior.
+
+Desktop fullscreen details use a 360px side panel; below 1024px they are an optional overlay,
+initially closed on entry. Selecting a node opens details. The compact legend stays in a footer;
+counts/depth and truncation remain visible. Query-only root/history navigation keeps the workspace
+mounted even while its data reloads. Root selection uses the existing Nuxt router and API contract.
+SVG `<title>` tooltips and details live inside the workspace; no body teleport is needed.
+
+Unit tests mock browser state, rejection, Escape, unsupported APIs, cleanup, focus, SSR and resize.
+Playwright exercises the **real Chromium Fullscreen API**, on desktop and mobile-sized Chromium,
+including root/back navigation, detail toggles and screenshots. Mobile emulation does not prove
+support on every mobile browser: actual support is determined exclusively by feature detection.
+CSP is unchanged; the existing production test without `unsafe-eval` remains required.
+
+Fullscreen verification: frozen install, lint, typecheck, **131 unit tests**, production build,
+**52 development E2E tests** (four existing production-only cases) and **56 production E2E tests**
+passed. Production includes the existing enforced CSP tests without `unsafe-eval`.
+Screenshots with synthetic test data: [normal](screenshots/graph-fullscreen-normal.png),
+[desktop fullscreen](screenshots/graph-fullscreen-desktop.png),
+[mobile fullscreen/details](screenshots/graph-fullscreen-mobile.png).
