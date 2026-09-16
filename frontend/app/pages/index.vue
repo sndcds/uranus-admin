@@ -50,14 +50,14 @@ function openFilters(filters: FindingFilters) {
     </p>
     <section
       id="new-records"
-      class="card scroll-mt-28"
+      class="scroll-mt-28 space-y-3"
       :aria-busy="dashboard.loading"
       aria-labelledby="new-records-title"
     >
-      <div class="border-b border-slate-100 p-5">
-        <h2 id="new-records-title" class="text-xl font-bold">Neu eingegangen</h2>
-        <p class="mt-2 text-sm text-slate-600">
-          <strong class="text-2xl font-bold tabular-nums text-slate-900">{{
+      <div class="space-y-1">
+        <h2 id="new-records-title" class="text-lg font-semibold">Neu eingegangen</h2>
+        <p class="text-sm text-slate-600">
+          <strong class="font-semibold tabular-nums text-slate-900">{{
             metric(dashboard.data?.new_records.total)
           }}</strong>
           neue Datensätze · {{ periodLabels[displayedPeriod] }}
@@ -67,7 +67,7 @@ function openFilters(filters: FindingFilters) {
           {{ dashboard.data.admin_timezone }}
         </p>
       </div>
-      <ul class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 xl:grid-cols-5 sm:p-5">
+      <ul class="grid grid-cols-2 gap-2 md:grid-cols-3">
         <li v-for="row in recordRows(dashboard.data)" :key="row.key" class="min-w-0">
           <NuxtLink
             :to="{
@@ -75,28 +75,28 @@ function openFilters(filters: FindingFilters) {
               query: { period: dashboard.period, entity_type: row.type },
             }"
             :aria-label="`${row.plural}: ${row.value} · ${periodLabels[displayedPeriod]} · Neue Datensätze ansehen`"
-            class="group grid h-full grid-cols-[1fr_auto] gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
+            class="group grid h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
           >
             <span
               class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
               :class="row.tone"
               ><AppIcon :name="row.icon" :size="18"
             /></span>
-            <div class="col-span-2 row-start-2 min-w-0">
+            <div class="min-w-0">
               <span class="block break-words text-xs text-slate-600 group-hover:text-fuchsia-800">{{
                 row.plural
               }}</span
-              ><span class="mt-1 block text-xl font-bold tabular-nums">{{ row.value }}</span>
+              ><span class="block text-lg font-semibold tabular-nums">{{ row.value }}</span>
             </div>
             <AppIcon
               name="arrow"
               :size="14"
-              class="col-start-2 row-start-1 self-center text-slate-400 group-hover:text-fuchsia-700"
+              class="self-center text-slate-400 group-hover:text-fuchsia-700"
             />
           </NuxtLink>
         </li>
       </ul>
-      <p class="px-5 pb-5 text-xs text-slate-500">
+      <p class="text-xs text-slate-500">
         <NuxtLink
           :to="{ path: '/activity', query: { period: dashboard.period } }"
           class="font-semibold text-fuchsia-700"
@@ -106,7 +106,7 @@ function openFilters(filters: FindingFilters) {
     </section>
     <section id="attention" class="space-y-3" aria-labelledby="attention-title">
       <div>
-        <h2 id="attention-title" class="text-xl font-bold">Was braucht Aufmerksamkeit?</h2>
+        <h2 id="attention-title" class="text-lg font-semibold">Was braucht Aufmerksamkeit?</h2>
         <p class="mt-1 muted">
           Aktuelle offene Vorgänge und Datenprobleme · unabhängig vom gewählten Zeitraum.
         </p>
@@ -151,10 +151,8 @@ function openFilters(filters: FindingFilters) {
     </section>
 
     <section class="grid gap-4 xl:grid-cols-[1.55fr_.75fr]">
-      <div class="card">
-        <div
-          class="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"
-        >
+      <div class="min-w-0 space-y-3">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 class="font-bold">Priorisierte Arbeitsliste</h2>
             <p class="mt-1 muted">
@@ -191,14 +189,14 @@ function openFilters(filters: FindingFilters) {
             @retry="findings.load($adminApi)"
           />
         </div>
-        <FindingsList v-if="findings.data?.items.length" :items="findings.data.items" />
-        <p
+        <DataListShell v-if="findings.data?.items.length"
+          ><FindingsList :items="findings.data.items"
+        /></DataListShell>
+        <EmptyState
           v-else-if="findings.data && !findings.loading"
-          class="p-5 text-center text-sm text-slate-500"
-        >
-          Keine Befunde für diese Auswahl.
-        </p>
-        <div class="border-t border-slate-100 p-4 text-center">
+          message="Keine Befunde für diese Auswahl."
+        />
+        <div class="text-sm">
           <NuxtLink
             :to="{
               path: '/findings',
@@ -215,31 +213,35 @@ function openFilters(filters: FindingFilters) {
         </div>
       </div>
       <div class="min-w-0 space-y-4">
-        <QualityOverview :data="dashboard.data" />
+        <QualityOverview :data="dashboard.data" :limit="5" />
       </div>
     </section>
 
-    <section id="open-queues" class="scroll-mt-28">
-      <div class="card">
-        <div class="border-b border-slate-100 p-5">
-          <h2 class="font-bold">Offene Vorgänge</h2>
-          <p class="mt-1 muted">Partneranfragen, Teameinladungen und Aktivierungen.</p>
-        </div>
-        <div class="p-5">
-          <div class="space-y-3">
-            <NuxtLink to="/queues/partner_requests" class="button w-full">Partneranfragen</NuxtLink>
-            <NuxtLink to="/queues/team_invitations" class="button w-full">Teameinladungen</NuxtLink>
-            <NuxtLink to="/queues/user_activation" class="button w-full">Aktivierungen</NuxtLink>
-          </div>
-          <p class="mt-4 text-xs text-slate-500">
-            Die Arbeitslisten zeigen tatsächliche Zustände und belegtes Alter.
-          </p>
-        </div>
+    <section id="open-queues" class="scroll-mt-28 space-y-3" aria-labelledby="queues-title">
+      <div>
+        <h2 id="queues-title" class="text-base font-semibold">Offene Vorgänge</h2>
+        <p class="mt-1 muted">Arbeitslisten mit tatsächlichem Zustand und belegtem Alter.</p>
       </div>
+      <DataListShell as="ul" class="divide-y divide-slate-100">
+        <li
+          v-for="queue in [
+            { path: 'partner_requests', label: 'Partneranfragen' },
+            { path: 'team_invitations', label: 'Teameinladungen' },
+            { path: 'user_activation', label: 'Aktivierungen' },
+          ]"
+          :key="queue.path"
+        >
+          <NuxtLink
+            :to="`/queues/${queue.path}`"
+            class="data-row flex items-center justify-between gap-3 text-sm font-semibold text-slate-700 hover:text-fuchsia-700"
+          >
+            {{ queue.label }}<AppIcon name="arrow" :size="16" class="text-fuchsia-700" />
+          </NuxtLink>
+        </li>
+      </DataListShell>
     </section>
-    <section class="card p-5">
-      <h2 class="font-bold">Schnellfilter</h2>
-      <p class="mb-4 mt-1 muted">Arbeitslisten nach den verfügbaren Admin-Dimensionen aufrufen.</p>
+    <section class="space-y-3" aria-labelledby="quick-filters-title">
+      <h2 id="quick-filters-title" class="text-base font-semibold">Schnellfilter</h2>
       <FilterForm
         :filters="filtersSchema.parse({})"
         @apply="openFilters"

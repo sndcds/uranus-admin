@@ -1,6 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { computed, defineComponent, h } from 'vue'
+import EntityTypeBadge from '../../app/components/EntityTypeBadge.vue'
+import StatusBadge from '../../app/components/StatusBadge.vue'
 import ActivityRow from '../../app/components/ActivityRow.vue'
 import ActivityThumbnail from '../../app/components/ActivityThumbnail.vue'
 import { activityPageSchema } from '../../shared/contracts'
@@ -38,7 +40,10 @@ function row(item = first) {
   vi.stubGlobal('computed', computed)
   return mount(ActivityRow, {
     props: { item, observedAt: activityObservedAt, grouped: true },
-    global: { components: { AppIcon, RecordMarkLink, ActivityThumbnail }, stubs: { NuxtLink } },
+    global: {
+      components: { AppIcon, RecordMarkLink, ActivityThumbnail, EntityTypeBadge, StatusBadge },
+      stubs: { NuxtLink },
+    },
   })
 }
 afterEach(() => vi.unstubAllGlobals())

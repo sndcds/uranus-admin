@@ -4,6 +4,7 @@ import type { QueuePage } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
 import type { ApiFailure } from '#shared/errors'
 import { dateTime } from '~/utils/presentation'
+import { activityStatus } from '~/utils/activity'
 const route = useRoute()
 const router = useRouter()
 const { $adminApi } = useNuxtApp()
@@ -102,7 +103,12 @@ onBeforeUnmount(() => {
         :observed-at="data.observed_at"
         description="Aktueller Bestand"
       />
-      <ul v-if="data.items.length" class="data-list divide-y divide-slate-100" :aria-busy="loading">
+      <DataListShell
+        v-if="data.items.length"
+        as="ul"
+        class="divide-y divide-slate-100"
+        :aria-busy="loading"
+      >
         <li v-for="item in data.items" :key="item.entity_key" class="data-row space-y-2">
           <div class="flex flex-wrap items-start justify-between gap-2">
             <h3 class="min-w-0 text-sm font-semibold">
@@ -111,7 +117,7 @@ onBeforeUnmount(() => {
                 {{ item.to_organization_name ?? item.to_organization_id }}</template
               ><template v-else>{{ item.user_name ?? item.user_id }}</template>
             </h3>
-            <StatusBadge :label="item.status" />
+            <StatusBadge :label="activityStatus(item.status) ?? item.status" />
           </div>
           <p class="text-xs text-slate-500">
             {{
@@ -150,7 +156,7 @@ onBeforeUnmount(() => {
             />
           </div>
         </li>
-      </ul>
+      </DataListShell>
       <EmptyState v-else message="Keine Vorgänge für diese Filter." />
       <PaginationBar
         :pagination="data.pagination"

@@ -3,13 +3,13 @@ import { dateTime, metric } from '~/utils/presentation'
 withDefaults(
   defineProps<{
     total: number
-    visible: number
+    visible?: number
     noun: string
     description?: string
     observedAt?: string
     label?: string
   }>(),
-  { label: 'Ergebnisübersicht', description: undefined, observedAt: undefined },
+  { visible: undefined, label: 'Ergebnisübersicht', description: undefined, observedAt: undefined },
 )
 </script>
 <template>
@@ -19,7 +19,9 @@ withDefaults(
       <p v-if="description" class="text-xs text-slate-500">{{ description }}</p>
     </div>
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-slate-600">
-      <span class="font-medium">Auf dieser Seite: {{ visible }} Einträge</span><slot />
+      <span v-if="visible !== undefined" class="font-medium"
+        >Auf dieser Seite: {{ visible }} Einträge</span
+      ><slot />
     </div>
     <p v-if="observedAt" class="text-xs text-slate-500">
       Stand: {{ dateTime(observedAt) }} · Europe/Berlin

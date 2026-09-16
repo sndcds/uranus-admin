@@ -81,3 +81,9 @@ export const findingStatusLabels: Record<string, string> = {
   ignored: 'Ignoriert',
   resolved: 'Behoben',
 }
+
+export const checkStatusLabels = {
+  running: 'Läuft',
+  success: 'Erfolgreich',
+  failed: 'Fehlgeschlagen',
+}

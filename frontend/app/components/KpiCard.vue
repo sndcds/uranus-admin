@@ -10,32 +10,25 @@ defineProps<{
 </script>
 
 <template>
-  <div class="card p-5" :class="tone === 'rose' ? 'border-rose-200' : ''">
-    <div class="flex items-center justify-between gap-2">
-      <span class="text-sm font-medium text-slate-500">{{ label }}</span
-      ><span
-        v-if="tone"
-        aria-hidden="true"
-        :class="tone === 'rose' ? 'text-rose-500' : 'text-fuchsia-600'"
-        >●</span
+  <div class="min-w-0 rounded-xl border border-slate-200 bg-white p-4">
+    <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <strong
+        class="tabular-nums"
+        :class="[
+          value == null ? 'text-sm text-slate-500' : 'text-xl',
+          tone === 'rose' && value != null ? 'text-rose-700' : '',
+        ]"
+        >{{ metric(value) }}</strong
       >
+      <span class="text-sm font-semibold">{{ label }}</span>
+      <NuxtLink
+        v-if="to"
+        :to="to"
+        :aria-label="`${label} öffnen`"
+        class="ml-auto rounded text-fuchsia-700"
+        ><AppIcon name="arrow" :size="16" />
+      </NuxtLink>
     </div>
-    <div
-      class="mt-3 font-black"
-      :class="[
-        value == null ? 'text-lg leading-9 text-slate-500' : 'text-3xl',
-        tone === 'rose' && value != null ? 'text-rose-600' : '',
-      ]"
-    >
-      {{ metric(value) }}
-    </div>
-    <p class="mt-2 text-xs leading-5 text-slate-500">{{ description }}</p>
-    <NuxtLink
-      v-if="to"
-      :to="to"
-      :aria-label="`${label} öffnen`"
-      class="mt-2 inline-block text-xs font-semibold text-fuchsia-700"
-      >Öffnen →</NuxtLink
-    >
+    <p class="mt-1 text-xs leading-5 text-slate-500">{{ description }}</p>
   </div>
 </template>

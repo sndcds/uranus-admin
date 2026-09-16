@@ -9,7 +9,23 @@ const { $adminApi } = useNuxtApp()
 const invalidQuery = ref(false)
 const severityCounts = computed(() => {
   const items = store.data?.items ?? []
-  return `${items.filter((item) => item.severity === 'error').length} Fehler · ${items.filter((item) => item.severity === 'warning').length} Warnungen · ${items.filter((item) => item.severity === 'info').length} Hinweise`
+  return [
+    {
+      label: 'Fehler',
+      count: items.filter((item) => item.severity === 'error').length,
+      tone: 'error' as const,
+    },
+    {
+      label: 'Warnungen',
+      count: items.filter((item) => item.severity === 'warning').length,
+      tone: 'warning' as const,
+    },
+    {
+      label: 'Hinweise',
+      count: items.filter((item) => item.severity === 'info').length,
+      tone: 'neutral' as const,
+    },
+  ]
 })
 async function loadRoute() {
   const parsed = parseFilters(route.query)
@@ -68,11 +84,16 @@ function page(value: number) {
         noun="Befunde"
         :description="`${(store.data.mode ?? store.filters.mode) === 'persisted' ? 'Gespeicherte Befunde' : 'Live-Auswertung'} · serverseitig priorisiert`"
         :observed-at="store.data.observed_at"
-        ><span>{{ severityCounts }} · auf dieser Seite</span></ResultSummary
+        ><StatusBadge
+          v-for="entry in severityCounts"
+          :key="entry.label"
+          :label="`${entry.count} ${entry.label}`"
+          :tone="entry.tone"
+        /><span>· auf dieser Seite</span></ResultSummary
       >
-      <div v-if="store.data.items.length" class="data-list" :aria-busy="store.loading">
+      <DataListShell v-if="store.data.items.length" :aria-busy="store.loading">
         <FindingsList :items="store.data.items" />
-      </div>
+      </DataListShell>
       <EmptyState
         v-else
         message="Keine Befunde auf dieser Seite. Filter ändern oder zur ersten Seite wechseln."

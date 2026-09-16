@@ -6,7 +6,7 @@ const stamp = '2026-09-14T12:00:00Z'
 
 test('marks retain notes, completion authors and reopening history across navigation', async ({
   page,
-}) => {
+}, info) => {
   const records: MarkDetail[] = []
   await page.route('**/api/admin/api/v1/dashboard/activity**', (route) =>
     route.fulfill({
@@ -169,6 +169,11 @@ test('marks retain notes, completion authors and reopening history across naviga
   await expect(page.getByText(/Erledigt am .* von Boris/)).toBeVisible()
   await page.goto('/marks')
   await expect(page.getByText('1 Markierungen insgesamt', { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('main').getByRole('listitem').getByText('Offen', { exact: true }),
+  ).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('marks.png'), fullPage: true })
   await page.getByRole('combobox', { name: 'Status', exact: true }).selectOption('done')
   await page
     .getByRole('combobox', { name: 'Dringlichkeit filtern', exact: true })

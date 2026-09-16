@@ -76,7 +76,7 @@ async function accessChanged() {
     </dialog>
     <div class="min-h-screen min-w-0 lg:pl-64">
       <header class="sticky top-0 z-10 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-        <div class="flex min-h-20 flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-8">
+        <div class="flex min-h-16 flex-wrap items-center justify-between gap-3 px-5 py-3 sm:px-8">
           <div class="flex min-w-0 items-center gap-3">
             <button
               ref="menuButton"
@@ -91,7 +91,7 @@ async function accessChanged() {
               <div class="text-[11px] font-medium uppercase tracking-wider text-slate-500">
                 {{ dateTime(now) }} · Berlin
               </div>
-              <h1 class="text-xl font-bold">{{ heading }}</h1>
+              <h1 class="text-base font-semibold">{{ heading }}</h1>
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-3">
