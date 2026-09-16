@@ -505,3 +505,13 @@ No cursor grants permission: normal auth and every filter apply to every page.
 Inserts before the cursor do not duplicate/skip unchanged original rows. This is not
 a database snapshot across HTTP requests: deletions and changed ordering attributes
 (such as reprioritized findings) can change the stream and require restarting it.
+
+### URL observations
+
+The optional `app.url_check_worker` maintains `admin.url_check`; syntax checks remain
+local and deterministic. No new browser network endpoint is exposed. Repeated real
+network/HTTP failures can create warning rule `url_unreachable` in the existing
+persisted finding stream. 401/403/429, SSRF rejection, excessive bodies and redirect
+limits remain diagnostic observations, not definitive broken-link findings. A later
+2xx resolves only that source field. The current core check-run count still describes
+core rules; asynchronous URL observations have their own timestamps and TTLs.

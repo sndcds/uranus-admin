@@ -96,3 +96,8 @@ links. Creation remains unavailable until authorized Uranus API delegation exist
 The dashboard distinguishes the latest check run from the latest successful run.
 Operators can audit source metadata with `python -m app.source_schema_verify --json`;
 see [source verification](backend/docs/source-verification.md).
+
+Optional public URL observations run separately with
+`python -m app.url_check_worker --once` (migration 0007 and explicit runtime grants).
+They never run during normal list requests or the deterministic syntax scan.
+See [worker operations and SSRF safeguards](backend/docs/development.md).

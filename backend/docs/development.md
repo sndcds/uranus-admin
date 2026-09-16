@@ -435,7 +435,7 @@ REVOKE admin_migrator FROM admin_user;
 
 -- Optional: reproduces the verified read-only diagnostic access.
 GRANT SELECT ON admin.alembic_version TO admin_user;
-GRANT SELECT, INSERT, UPDATE ON admin.check_run, admin.finding, admin.record_mark TO admin_user;
+GRANT SELECT, INSERT, UPDATE ON admin.check_run, admin.finding, admin.record_mark, admin.url_check TO admin_user;
 GRANT SELECT, INSERT ON admin.record_mark_event TO admin_user;
 -- Migration 0004: runtime cannot create accounts or grant itself global access.
 GRANT SELECT ON admin.auth_account, admin.auth_system_admin TO admin_user;
@@ -843,3 +843,72 @@ required live review and timezone confirmation. Do not treat fixture tests as li
 verification. Domain list/detail APIs use the same read-only source connection and
 existing explicit admin metadata grants; no new grant or migration is required.
 Create operations remain blocked pending a delegated Uranus write-auth contract.
+
+## Optional asynchronous URL reachability worker (migration 0007)
+
+Deploy the migration as `admin_migrator`, then explicitly grant the runtime role:
+
+```sql
+GRANT SELECT, INSERT, UPDATE ON admin.url_check TO admin_user;
+```
+
+No DELETE/TRUNCATE/TRIGGER/ownership/DDL or Uranus write privilege is required.
+Readiness verifies the new table, migration head and positive runtime grants.
+The documented full provisioning block above includes this table. Default privileges
+remain restrictive. Stop workers before downgrading: `0007 → 0006` removes URL
+observations, TTLs and leases, while retained URL findings stay in `admin.finding`.
+
+Start only when public outbound checks are desired:
+
+```bash
+cd backend
+uv run python -m app.url_check_worker --once
+# Or run continuously under the deployment's process supervisor:
+uv run python -m app.url_check_worker
+```
+
+This separate worker reuses restricted source/admin connections and existing finding
+persistence; neither normal GETs, `url_syntax`, nor the core quality-check worker
+perform HTTP requests. Source URLs are discovered in 200-row keyset pages. At most
+`URL_CHECK_BATCH_SIZE` due URLs are processed per cycle (default 100), with at most
+`URL_CHECK_CONCURRENCY` simultaneous chains (default 8), one chain per source host
+per worker and a one-second spacing. Multiple workers coordinate individual URL
+claims through PostgreSQL. Per-host pacing is local to each worker, so use one worker
+unless the aggregate outbound budget is intentionally increased.
+
+`admin.url_check` uses unique source type/key/field identity, explicit URL, timestamps
+of last attempt/success, HTTP code, final redirected target, failure type/count,
+next-due time, owner UUID and a 120-second lease. Claims and results are fenced;
+a crashed worker's claim can be reclaimed after expiry. A changed source URL resets
+observations and invalidates old claims. No deleted source is scheduled again.
+Network work never holds the finding/review lock. Only the final short transaction
+shares the review lock and preserves human review fields. Old observations are
+retained as history; no request-path cleanup or implicit destructive retention runs.
+
+Success TTL defaults to 24 hours, other observations to one hour. Two consecutive
+failed scheduled observations produce a `url_unreachable` warning. 401/403 mean
+blocked; 429 means rate-limited; neither creates a broken-link warning nor resolves
+an existing one. Only a bounded successful 2xx response resolves the exact URL field's
+finding. Other fields on the entity remain untouched. Evidence includes a URL hash,
+not the URL itself, and no response body is stored.
+
+### SSRF boundary
+
+Only HTTP(S), public addresses and ports 80/443 are accepted. Credential-bearing URLs
+and known sensitive query keys are excluded. Every DNS answer must be public; private,
+loopback, link-local, metadata, multicast, reserved and IPv6 transition addresses are
+rejected. The [HTTPCore network backend](https://www.encode.io/httpcore/network-backends/)
+connects to the validated numeric IP while retaining the original Host/TLS identity.
+There is no second hostname resolution for the connection, no environment proxy,
+no cookies/authorization and no automatic redirect following. Each redirect is parsed
+again and each fresh connection resolves/validates again; maximum five redirects.
+TLS certificate/hostname verification stays enabled.
+
+A streamed, identity-encoded range GET handles sites that reject HEAD. The total
+budget is 20 seconds including DNS/redirects, with four-second connect and six-second
+read limits; at most 256 KiB of body is accepted (one transport chunk may cross the
+threshold before cancellation). Bodies are discarded, never decoded or persisted.
+Oversized responses are inconclusive, not broken-link findings. This is an observation
+from this worker, not proof of browser availability. Network egress restrictions remain
+useful defense in depth; redirects/WAFs/robots policies can cause inconclusive results.
+No production credentials or live configuration changes are part of deployment here.

@@ -140,6 +140,7 @@ SELECT has_schema_privilege(current_user,'admin','USAGE'),
                 )
             ).one() == (True, False, False, False, False, False)
             expected = {
+                "url_check": (True, True, True, False, False, False),
                 "auth_account": (True, False, False, False, False, False),
                 "auth_system_admin": (True, False, False, False, False, False),
                 "auth_session": (True, True, True, False, False, False),

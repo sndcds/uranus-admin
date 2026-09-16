@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     event_timezone: str = "Europe/Berlin"
     check_job_lease_seconds: int = Field(default=120, ge=30, le=3600)
     check_worker_poll_seconds: int = Field(default=2, ge=1, le=60)
+    url_check_concurrency: int = Field(default=8, ge=1, le=16)
+    url_check_batch_size: int = Field(default=100, ge=1, le=1000)
+    url_check_success_ttl_seconds: int = Field(default=86400, ge=3600, le=604800)
+    url_check_failure_ttl_seconds: int = Field(default=3600, ge=300, le=86400)
     upcoming_days: int = Field(default=14, ge=1, le=365)
     image_orphan_grace_hours: int = Field(default=48, ge=1, le=8760)
     pending_age_days: int = Field(default=14, ge=1, le=3650)
