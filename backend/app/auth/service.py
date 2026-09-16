@@ -13,7 +13,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Request
 from pydantic import BaseModel
-from sqlalchemy import case, exists, select, update
+from sqlalchemy import case, delete, exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
@@ -71,14 +71,44 @@ async def storage(request: Request) -> AsyncIterator[AsyncConnection]:
         ) from None
 
 
-async def rate_limit(connection: AsyncConnection, login: str) -> None:
+# Fixed hash partitions bound storage even if cleanup is temporarily unavailable.
+# Collisions only make throttling more conservative; never bypass a limit.
+BUCKET_PARTITIONS = 65536
+
+
+def bucket_key(kind: str, value: str) -> str:
+    return digest(f"{kind}:{int(digest(value), 16) % BUCKET_PARTITIONS}")
+
+
+async def cleanup_login_buckets(connection: AsyncConnection, batch_size: int = 500) -> int:
+    """One bounded batch; caller owns transaction and needs maintenance DELETE grants."""
+    if not 1 <= batch_size <= 5000:
+        raise ValueError("Batch size must be between 1 and 5000")
+    keys = (
+        select(auth_login_bucket.c.key)
+        .where(auth_login_bucket.c.window_end <= datetime.now(UTC))
+        .order_by(auth_login_bucket.c.key)
+        .limit(batch_size)
+        .with_for_update(skip_locked=True)
+    )
+    result = await connection.execute(
+        delete(auth_login_bucket).where(auth_login_bucket.c.key.in_(keys))
+    )
+    return result.rowcount
+
+
+async def rate_limit(connection: AsyncConnection, login: str, source: str) -> None:
     now = datetime.now(UTC)
     limited = False
     # Shared across workers. Count unknown accounts as well, before expensive hashing.
     async with connection.begin():
-        for key, limit in (("global", 120), ("login:" + normalize_login(login), 10)):
+        for key, limit in (
+            (bucket_key("source", source), 20),
+            (bucket_key("login", normalize_login(login)), 10),
+            (digest("global"), 1200),
+        ):
             statement = insert(auth_login_bucket).values(
-                key=digest(key), window_end=now + timedelta(minutes=5), attempts=1
+                key=key, window_end=now + timedelta(minutes=5), attempts=1
             )
             expired = auth_login_bucket.c.window_end <= now
             count = (
@@ -90,7 +120,10 @@ async def rate_limit(connection: AsyncConnection, login: str) -> None:
                                 (expired, statement.excluded.window_end),
                                 else_=auth_login_bucket.c.window_end,
                             ),
-                            "attempts": case((expired, 1), else_=auth_login_bucket.c.attempts + 1),
+                            "attempts": case(
+                                (expired, 1),
+                                else_=func.least(auth_login_bucket.c.attempts + 1, limit + 1),
+                            ),
                         },
                     ).returning(auth_login_bucket.c.attempts)
                 )
@@ -113,7 +146,7 @@ async def login(
     request: Request, settings: Settings, name: str, password: str
 ) -> tuple[str, AdminPrincipal]:
     async with storage(request) as connection:
-        await rate_limit(connection, name)
+        await rate_limit(connection, name, request.client.host if request.client else "unknown")
         async with connection.begin():
             row = (
                 (
@@ -179,6 +212,7 @@ async def session_identity(request: Request, settings: Settings, token: str) -> 
                 await connection.execute(
                     select(
                         auth_account.c.id,
+                        auth_session.c.last_seen_at,
                         exists()
                         .where(auth_system_admin.c.account_id == auth_account.c.id)
                         .label("system_admin"),
@@ -204,11 +238,20 @@ async def session_identity(request: Request, settings: Settings, token: str) -> 
         )
         if row is None:
             raise invalid()
-        await connection.execute(
-            update(auth_session)
-            .where(auth_session.c.token_hash == digest(token))
-            .values(last_seen_at=now)
-        )
+        cutoff = now - timedelta(seconds=settings.auth_session_heartbeat_seconds)
+        if row["last_seen_at"] <= cutoff:
+            await connection.execute(
+                update(auth_session)
+                .where(
+                    auth_session.c.token_hash == digest(token),
+                    auth_session.c.last_seen_at <= cutoff,
+                    auth_session.c.last_seen_at
+                    > now - timedelta(seconds=settings.auth_idle_seconds),
+                    auth_session.c.revoked_at.is_(None),
+                    auth_session.c.expires_at > now,
+                )
+                .values(last_seen_at=now)
+            )
         return AdminPrincipal(subject=f"admin:{row['id']}", system_admin=row["system_admin"])
 
 

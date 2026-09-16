@@ -341,3 +341,195 @@ def test_every_administrative_route_uses_the_same_authorization_dependency():
             assert any(
                 dependency.call is get_current_admin for dependency in route.dependant.dependencies
             ), route.path
+
+
+async def test_source_limit_precedes_global_and_bounds_unknown_buckets(auth_client):
+    from app.admin_tables import auth_login_bucket
+    from app.auth.service import rate_limit
+    from app.errors import APIError
+
+    _, owner, _ = auth_client
+    # Separate connections model separate workers. An exhausted source cannot consume
+    # additional login/global slots, even with arbitrary new account names.
+    for i in range(100):
+        async with owner.connect() as conn:
+            if i < 20:
+                await rate_limit(conn, f"unknown-{i}", "192.0.2.1")
+            else:
+                with pytest.raises(APIError) as error:
+                    await rate_limit(conn, f"unknown-{i}", "192.0.2.1")
+                assert error.value.status == 429
+    async with owner.connect() as conn:
+        await rate_limit(conn, "legitimate", "192.0.2.2")
+        rows = (await conn.execute(select(auth_login_bucket))).mappings().all()
+        assert len(rows) <= 24
+        assert next(row for row in rows if row["key"] == digest("global"))["attempts"] == 21
+
+
+async def test_shared_global_guard_and_bounded_bucket_cleanup(auth_client):
+    from app.admin_tables import auth_login_bucket
+    from app.auth.service import cleanup_login_buckets, rate_limit
+    from app.errors import APIError
+
+    _, owner, _ = auth_client
+    async with owner.begin() as conn:
+        await conn.execute(
+            insert(auth_login_bucket).values(
+                key=digest("global"),
+                attempts=1200,
+                window_end=datetime.now(UTC) + timedelta(minutes=5),
+            )
+        )
+
+    async def attempt(index):
+        async with owner.connect() as conn:
+            with pytest.raises(APIError):
+                await rate_limit(conn, f"distributed-{index}", f"192.0.2.{index}")
+
+    await asyncio.gather(*(attempt(i) for i in range(1, 5)))
+    async with owner.begin() as conn:
+        await conn.execute(
+            update(auth_login_bucket).values(window_end=datetime.now(UTC) - timedelta(seconds=1))
+        )
+        assert await cleanup_login_buckets(conn, 2) == 2
+        assert await cleanup_login_buckets(conn, 500) > 0
+        assert await cleanup_login_buckets(conn, 500) == 0
+
+
+def test_bucket_cardinality_is_fixed():
+    from app.auth.service import BUCKET_PARTITIONS, bucket_key
+
+    assert BUCKET_PARTITIONS == 65536
+    assert bucket_key("login", "operator") == bucket_key("login", "operator")
+    assert bucket_key("source", "operator") != bucket_key("login", "operator")
+
+
+@pytest.mark.parametrize("transport", ["bearer", "both", "conflict", "malformed"])
+async def test_logout_uses_same_credential_policy_as_authentication(auth_client, transport, capsys):
+    client, _, settings = auth_client
+    assert (await sign_in(client)).status_code == 200
+    token = client.cookies.get(settings.session_cookie)
+    headers = {"Authorization": f"Bearer {token}"}
+    if transport == "bearer":
+        client.cookies.clear()
+    elif transport == "conflict":
+        headers["Authorization"] = f"Bearer {secrets.token_urlsafe(32)}"
+    elif transport == "malformed":
+        headers["Authorization"] = "Basic secret-malformed-marker"
+    else:
+        # Supplying the same token twice does not bypass cookie CSRF.
+        assert (await client.post("/auth/logout", headers=headers)).status_code == 403
+        headers.update(CSRF)
+    response = await client.post("/auth/logout", headers=headers)
+    denied = transport in {"conflict", "malformed"}
+    assert response.status_code == (401 if denied else 200)
+    client.cookies.clear()
+    assert (
+        await client.get("/auth/session", headers={"Authorization": f"Bearer {token}"})
+    ).status_code == (200 if denied else 401)
+    output = capsys.readouterr().err
+    assert token not in output + response.text and "secret-malformed-marker" not in output
+
+
+async def test_dev_logout_never_opens_session_storage(settings):
+    app = create_app(settings)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url=ORIGIN) as client:
+        headers = {"Authorization": f"Bearer {settings.dev_admin_token.get_secret_value()}"}
+        assert (await client.post("/auth/logout", headers=headers)).status_code == 200
+        assert (await client.get("/auth/session", headers=headers)).status_code == 200
+
+
+async def test_heartbeat_avoids_writes_and_serializes_concurrent_updates(auth_client):
+    from sqlalchemy import event
+
+    client, owner, settings = auth_client
+    assert (await sign_in(client)).status_code == 200
+    changes = []
+    engine = client._transport.app.state.admin_engine
+
+    def updated(conn, cursor, statement, parameters, context, executemany):
+        if statement.startswith("UPDATE admin.auth_session"):
+            changes.append(cursor.rowcount)
+
+    event.listen(engine.sync_engine, "after_cursor_execute", updated)
+    try:
+        async with owner.begin() as conn:
+            expiry = (await conn.execute(select(auth_session.c.expires_at))).scalar_one()
+        for _ in range(4):
+            assert (await client.get("/auth/session")).status_code == 200
+        assert changes == []
+        async with owner.begin() as conn:
+            await conn.execute(
+                update(auth_session).values(
+                    last_seen_at=datetime.now(UTC)
+                    - timedelta(seconds=settings.auth_session_heartbeat_seconds + 1)
+                )
+            )
+        responses = await asyncio.gather(*(client.get("/auth/session") for _ in range(6)))
+        assert all(response.status_code == 200 for response in responses)
+        assert sum(changes) == 1
+        async with owner.begin() as conn:
+            assert (await conn.execute(select(auth_session.c.expires_at))).scalar_one() == expiry
+    finally:
+        event.remove(engine.sync_engine, "after_cursor_execute", updated)
+
+
+async def test_auth_cleanup_is_bounded_and_keeps_active_sessions(auth_client):
+    from app.admin_tables import auth_login_bucket
+    from app.auth.maintenance import cleanup_batch
+
+    _, owner, settings = auth_client
+    now = datetime.now(UTC)
+    async with owner.begin() as conn:
+        for name in ("expired", "idle", "revoked-old", "revoked-recent", "active"):
+            await conn.execute(
+                insert(auth_session).values(
+                    token_hash=digest(name),
+                    account_id=uid(810),
+                    credential_version=1,
+                    created_at=now - timedelta(days=3),
+                    last_seen_at=now - timedelta(hours=1) if name == "idle" else now,
+                    expires_at=now - timedelta(seconds=1)
+                    if name == "expired"
+                    else now + timedelta(hours=1),
+                    revoked_at=(now - timedelta(days=2) if name == "revoked-old" else now)
+                    if name.startswith("revoked")
+                    else None,
+                )
+            )
+        await conn.execute(
+            insert(auth_login_bucket).values(
+                key=digest("expired"), attempts=1, window_end=now - timedelta(seconds=1)
+            )
+        )
+        await conn.execute(
+            insert(auth_login_bucket).values(
+                key=digest("active"), attempts=1, window_end=now + timedelta(minutes=5)
+            )
+        )
+    removed = 0
+    for _ in range(5):
+        async with owner.begin() as conn:
+            counts = await cleanup_batch(conn, settings, 1)
+            assert counts["sessions"] <= 1 and counts["buckets"] <= 1
+            removed += counts["sessions"]
+    assert removed == 3
+    async with owner.begin() as conn:
+        assert set((await conn.execute(select(auth_session.c.token_hash))).scalars()) == {
+            digest("active"),
+            digest("revoked-recent"),
+        }
+        assert (await conn.execute(select(auth_login_bucket.c.key))).scalar_one() == digest(
+            "active"
+        )
+        assert await cleanup_batch(conn, settings, 1) == {"sessions": 0, "buckets": 0}
+
+
+@pytest.mark.parametrize("heartbeat", [0, -1, 301, 900])
+def test_heartbeat_settings_are_validated(heartbeat):
+    from pydantic import ValidationError
+
+    from app.config import Settings
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, auth_session_heartbeat_seconds=heartbeat)

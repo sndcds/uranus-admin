@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
+from app.auth.credentials import extract_admin_credential
 from app.auth.dependencies import get_identity
 from app.auth.service import AdminPrincipal, cookie_options, login, require_origin, revoke
 from app.database import SettingsDep
@@ -35,7 +36,10 @@ async def session(principal: Annotated[AdminPrincipal, Depends(get_identity)]) -
 
 @router.post("/logout")
 async def sign_out(request: Request, response: Response, settings: SettingsDep) -> dict[str, str]:
-    require_origin(request, settings)
-    await revoke(request, request.cookies.get(settings.session_cookie))
+    credential = extract_admin_credential(request, settings)
+    if credential is None or credential.source == "cookie":
+        require_origin(request, settings)
+    if credential is not None and credential.revocable:
+        await revoke(request, credential.token)
     response.delete_cookie(**cookie_options(settings))
     return {"status": "ok"}

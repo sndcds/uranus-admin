@@ -71,8 +71,9 @@ Proxy-Allowlist: exakte bekannte Routen, GET sowie POST für Login/Logout, check
 record-marks; PATCH ausschließlich für finding-reviews und streng validierte Markierungs-UUIDs. Keine Domain-Updates. Begrenzte Querynamen, keine doppelten Parameter,
 feste konfigurierte Origin ohne Pfade/Credentials, keine Redirects. Nur explizites Authorization, das vorgesehene Sitzungscookie und Origin/CSRF werden
 weitergeleitet; keine fremden Cookies/Headers. Antworten `private, no-store`.
-Reviews verwenden einen strikt Zod-validierten Body. Reads haben 10 Sekunden Upstream-Timeout,
-synchrone Prüfläufe/Reviews 120 Sekunden; ein Timeout beweist keinen erfolgreichen Abschluss.
+Reviews verwenden einen strikt Zod-validierten Body. Alle Aufrufe haben 10 Sekunden Upstream-Timeout. Prüfläufe werden mit HTTP 202 eingereiht;
+ein separater Worker verarbeitet sie. Die Check-Seite pollt queued/running-Läufe alle zwei Sekunden
+und beendet Polling bei Abschluss, Fehler, Auth-Verlust oder Unmount.
 
 Bekannte Fehlercodes werden ausschließlich aus streng validiertem JSON mit passendem HTTP-Status
 erhalten. Fehlermeldungen werden lokal erzeugt; Tracebacks und beliebige Upstream-Daten bleiben

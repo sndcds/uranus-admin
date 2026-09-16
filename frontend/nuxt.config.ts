@@ -9,6 +9,7 @@ export default defineNuxtConfig({
   typescript: { strict: true },
   runtimeConfig: {
     adminApiBase: 'http://127.0.0.1:8000',
+    trustedIngressIps: '',
     public: { allowDevTokenEntry: false },
   },
   app: {

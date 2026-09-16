@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     admin_database_url: SecretStr | None = None
     auth_public_origin: str | None = None
     auth_session_seconds: int = Field(default=3600, ge=300, le=28800)
+    auth_session_heartbeat_seconds: int = Field(default=60, ge=1, le=300)
+    auth_revoked_retention_seconds: int = Field(default=86400, ge=0, le=2592000)
     auth_idle_seconds: int = Field(default=900, ge=60, le=3600)
     admin_auth_management_database_url: SecretStr | None = None
     uranus_api_url: str = "http://localhost:8080"
@@ -24,6 +26,8 @@ class Settings(BaseSettings):
     uranus_timestamp_timezone: str | None = "UTC"
     admin_timezone: str = "Europe/Berlin"
     event_timezone: str = "Europe/Berlin"
+    check_job_lease_seconds: int = Field(default=120, ge=30, le=3600)
+    check_worker_poll_seconds: int = Field(default=2, ge=1, le=60)
     upcoming_days: int = Field(default=14, ge=1, le=365)
     image_orphan_grace_hours: int = Field(default=48, ge=1, le=8760)
     pending_age_days: int = Field(default=14, ge=1, le=3650)
@@ -110,6 +114,8 @@ class Settings(BaseSettings):
                 or "*" in origin
             ):
                 raise ValueError("CORS_ORIGINS must contain explicit HTTP(S) origins")
+        if self.auth_session_heartbeat_seconds >= self.auth_idle_seconds:
+            raise ValueError("Session heartbeat must be smaller than idle timeout")
         if self.auth_idle_seconds > self.auth_session_seconds:
             raise ValueError("Idle timeout must not exceed session lifetime")
         if self.app_env not in {"development", "test"}:

@@ -269,10 +269,18 @@ async def test_changed_exception_and_expired_snooze_reopen(admin_store, now):
     assert (await persisted_page(admin_store, FindingFilters(status="open"), now)).items
 
 
-async def test_check_and_review_api(admin_store, db_client, headers):
+async def test_check_and_review_api(admin_store, db_client, headers, db_connection, settings):
     response = await db_client.post("/api/v1/check-runs", headers=headers)
-    assert response.status_code == 200, response.text
-    assert response.json()["status"] == "success"
+    assert response.status_code == 202, response.text
+    assert response.json()["status"] == "queued"
+    identifier = response.json()["id"]
+    from app.services.checks import claim_check, execute_check
+
+    job = await claim_check(admin_store, settings)
+    assert job is not None
+    assert (await execute_check(db_connection, admin_store, settings, *job)).status == "success"
+    response = await db_client.get(f"/api/v1/check-runs/{identifier}", headers=headers)
+    assert response.status_code == 200 and response.json()["status"] == "success"
     response = await db_client.get("/api/v1/findings?mode=persisted", headers=headers)
     assert response.status_code == 200, response.text
     item = response.json()["items"][0]
@@ -289,17 +297,12 @@ async def test_check_and_review_api(admin_store, db_client, headers):
 
 
 async def test_concurrent_run_lock(admin_store, db_connection, settings):
-    from app.services.checks import LOCK_KEY
+    from app.services.checks import enqueue_check
 
-    await admin_store.execute(text("SELECT pg_advisory_lock(:key)"), {"key": LOCK_KEY})
-    await admin_store.commit()
-    try:
-        with pytest.raises(APIError) as error:
-            await run_check(db_connection, db_connection, settings)
-        assert error.value.code == "check_run_conflict"
-    finally:
-        await admin_store.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": LOCK_KEY})
-        await admin_store.commit()
+    await enqueue_check(admin_store)
+    with pytest.raises(APIError) as error:
+        await run_check(db_connection, admin_store, settings)
+    assert error.value.code == "check_run_conflict"
 
 
 async def test_persisted_history_survives_source_outage(admin_store, db_client, headers):
@@ -441,18 +444,26 @@ async def test_parallel_checks_and_reviews_release_lock(
             with pytest.raises(APIError) as error:
                 await run_check(db_connection, peer, settings)
             assert error.value.code == "check_run_conflict"
-            with pytest.raises(APIError) as error:
-                await review(
-                    peer,
-                    db_connection,
-                    ReviewUpdate(finding_id=item.id, status="in_progress"),
-                    "peer",
-                    now,
-                )
-            assert error.value.code == "check_run_conflict"
+            during = await review(
+                peer,
+                db_connection,
+                ReviewUpdate(
+                    finding_id=item.id,
+                    status="in_progress",
+                    comment="During scan",
+                    assigned_to=uid(1),
+                ),
+                "peer",
+                now,
+            )
+            assert during.status == "in_progress"
             proceed.set()
             run = await asyncio.wait_for(task, timeout=5)
             assert run.status == ("failed" if fail else "success")
+            preserved = (await persisted_page(peer, FindingFilters(), now)).items
+            reviewed = next(f for f in preserved if f.id == item.id)
+            assert reviewed.status == "in_progress" and reviewed.comment == "During scan"
+            assert reviewed.assigned_to == uid(1) and reviewed.reviewed_subject == "peer"
             # A different physical connection can immediately acquire the released lock.
             updated = await review(
                 peer,
@@ -586,5 +597,146 @@ async def test_cancelled_scan_releases_session_lock(admin_store, db_connection, 
         async with engine.connect() as peer:
             await lock(peer)
             await unlock(peer)
+    finally:
+        await engine.dispose()
+
+
+async def test_claim_lease_recovery_and_fencing(admin_store, db_connection, settings, now):
+    from app.admin_tables import check_run
+    from app.services.checks import claim_check, enqueue_check, execute_check, renew_lease
+
+    queued = await enqueue_check(admin_store)
+    job = await claim_check(admin_store, settings)
+    assert job and str(job[0]) == str(queued.id)
+    assert await claim_check(admin_store, settings) is None
+    assert await renew_lease(admin_store, settings, *job)
+    async with admin_store.begin():
+        await admin_store.execute(check_run.update().values(lease_until=now - timedelta(seconds=1)))
+    assert not await renew_lease(admin_store, settings, *job)
+    assert await claim_check(admin_store, settings) is None
+    # A stale process cannot commit, even if its scan eventually completes successfully.
+    result = await execute_check(db_connection, admin_store, settings, *job)
+    assert result.status == "failed" and result.finding_count == 0
+    assert not (await persisted_page(admin_store, FindingFilters(), now)).items
+    assert (await run_check(db_connection, admin_store, settings)).status == "success"
+
+
+async def test_worker_processes_durable_job_once(admin_store, database, settings, monkeypatch):
+    import asyncio
+
+    from pydantic import SecretStr
+
+    from app.admin_database import create_admin_engine
+    from app.check_worker import work_once
+    from app.database import create_engine
+    from app.services.checks import enqueue_check
+    from app.services.quality.engine import scan as real_scan
+
+    settings.database_url = SecretStr(database[0])
+    source, admin = create_engine(settings), create_admin_engine(settings)
+    await enqueue_check(admin_store)
+    entered, proceed = asyncio.Event(), asyncio.Event()
+
+    async def paused(*args):
+        entered.set()
+        await proceed.wait()
+        return await real_scan(*args)
+
+    monkeypatch.setattr("app.services.checks.scan", paused)
+    task = asyncio.create_task(work_once(source, admin, settings))
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        assert not await work_once(source, admin, settings)
+        proceed.set()
+        assert await asyncio.wait_for(task, 10)
+        from sqlalchemy import select
+
+        from app.admin_tables import check_run
+
+        async with admin_store.begin():
+            assert (await admin_store.execute(select(check_run.c.status))).scalar_one() == "success"
+    finally:
+        proceed.set()
+        await task
+        await source.dispose()
+        await admin.dispose()
+
+
+async def test_enqueue_never_reads_source_or_scans(admin_store, db_client, headers, monkeypatch):
+    from app.database import get_connection
+
+    async def forbidden(*args):
+        raise AssertionError("HTTP must only enqueue")
+
+    db_client._transport.app.dependency_overrides[get_connection] = forbidden
+    monkeypatch.setattr("app.services.checks.scan", forbidden)
+    response = await db_client.post("/api/v1/check-runs", headers=headers)
+    assert response.status_code == 202 and response.json()["status"] == "queued"
+    assert (await db_client.post("/api/v1/check-runs", headers=headers)).status_code == 409
+    assert (
+        await db_client.get(f"/api/v1/check-runs/{uid(999)}", headers=headers)
+    ).status_code == 404
+
+
+async def test_worker_cancellation_marks_job_failed(admin_store, database, settings, monkeypatch):
+    import asyncio
+
+    from pydantic import SecretStr
+    from sqlalchemy import select
+
+    from app.admin_database import create_admin_engine
+    from app.admin_tables import check_run
+    from app.check_worker import work_once
+    from app.database import create_engine
+    from app.services.checks import enqueue_check
+
+    settings.database_url = SecretStr(database[0])
+    source, admin = create_engine(settings), create_admin_engine(settings)
+    await enqueue_check(admin_store)
+    entered = asyncio.Event()
+
+    async def interrupted(*args):
+        entered.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr("app.services.checks.scan", interrupted)
+    task = asyncio.create_task(work_once(source, admin, settings))
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        async with admin_store.begin():
+            assert (await admin_store.execute(select(check_run.c.status))).scalar_one() == "failed"
+            assert (await admin_store.execute(select(finding.c.id))).first() is None
+    finally:
+        await source.dispose()
+        await admin.dispose()
+
+
+async def test_heartbeat_does_not_block_final_persistence(admin_store, settings):
+    import asyncio
+    from uuid import uuid4
+
+    from sqlalchemy import select
+
+    from app.admin_database import create_admin_engine
+    from app.admin_tables import check_run
+    from app.services.checks import claim_check, enqueue_check, renew_lease
+
+    await enqueue_check(admin_store)
+    job = await claim_check(admin_store, settings)
+    assert job
+    engine = create_admin_engine(settings)
+    try:
+        async with engine.connect() as peer:
+            async with admin_store.begin():
+                # execute_check holds this lock while saving all findings atomically.
+                await admin_store.execute(
+                    select(check_run.c.id).where(check_run.c.id == job[0]).with_for_update()
+                )
+                assert await asyncio.wait_for(renew_lease(peer, settings, *job), 1)
+                assert not await asyncio.wait_for(renew_lease(peer, settings, job[0], uuid4()), 1)
+            assert await renew_lease(peer, settings, *job)
     finally:
         await engine.dispose()

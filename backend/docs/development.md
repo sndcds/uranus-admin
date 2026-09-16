@@ -149,8 +149,8 @@ Fehlercode, Status und Route. Mit `APP_DEBUG=true` in Development/Test enthält 
 zusätzlich den Traceback einschließlich verketteter Ursachen, beispielsweise bei abgelehnten
 Admin-Runtime-Rechten. Die HTTP-Antwort enthält weiterhin keinen Traceback; ohne Debug bleiben
 auch die Serverlogs frei davon. Nach Konfigurationsänderungen den Backend-Prozess neu starten.
-`/health` bleibt bei DB-Ausfall erreichbar; `/ready` prüft nur Verbindung, weder vollständiges
-Schema noch globale Auth. Ein 503 `source_timezone_unconfigured` erfordert den belegten
+`/health` bleibt bei DB-Ausfall erreichbar; `/ready` prüft Source-Verbindung und die
+konfigurierte Admin-/Auth-Ablage einschließlich Migrationstand, Boundary und positiven Grants. Ein 503 `source_timezone_unconfigured` erfordert den belegten
 Speichervertrag, ein 503 `admin_auth_unconfigured` die unabhängige Admin-Auth-Konfiguration (Origin und Admin-Ablage).
 
 Der Test `test_quality_query_explain` schreibt einen JSON-Plan ins pytest-Tempverzeichnis.
@@ -163,8 +163,8 @@ Umgebung: daraus keine Produktionslaufzeit ableiten. Für größere anonymisiert
 ## CI
 
 Der Workflow [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) läuft bei jedem
-Push und Pull Request. Vor einem Merge müssen alle vier Jobs für den aktuellen PR-Stand
-erfolgreich sein:
+Push und Pull Request. Vor einem Merge müssen alle vier funktionalen Jobs und die
+Security-Prüfungen für den aktuellen PR-Stand erfolgreich sein:
 
 | Job | Arbeitsverzeichnis | Prüfungen |
 | --- | --- | --- |
@@ -176,6 +176,36 @@ erfolgreich sein:
 Dies sind die im Workflow ausgeführten Merge-Prüfungen. Ob GitHub sie technisch als
 Required Status Checks erzwingt, wird separat durch Branch Protection bzw. Repository-Rulesets
 festgelegt; diese Einstellungen sind nicht in der Workflow-Datei definiert.
+
+### Security gates
+
+[security.yml](../../.github/workflows/security.yml) ist die maßgebliche CodeQL-Konfiguration.
+GitHub Default Setup wurde am 16.09.2026 über die Repository-API geprüft: `not-configured`.
+Deshalb eigener Workflow für Python und JavaScript/TypeScript, keine parallele Default-Konfiguration.
+Er läuft für PRs, Pushes auf main und wöchentlich. Beide Sprachen verwenden `build-mode: none`:
+keine Installation oder Ausführung fremder PR-Paketskripte mit dem CodeQL-Upload-Token.
+
+Dependency Review läuft für Pull Requests und scheitert bei neu eingeführten **high/critical**
+Vulnerabilities. Moderate/low werden nicht zum Gate erhoben. Das Repository ist öffentlich;
+[GitHub unterstützt Dependency Review dafür](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependency-review).
+Voraussetzung ist der aktivierte **Dependency graph** unter Repository Settings → Advanced
+Security. Meldet der Job „Dependency review is not supported … ensure that Dependency graph
+is enabled“, muss ein Repository-Administrator diese Einstellung aktivieren und den Job erneut
+starten. Aktivierte Dependabot-Alerts allein belegen diese Voraussetzung nicht. Die Anleitung
+[Dependency graph aktivieren](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/enable-dependency-graph)
+beschreibt die Repository-Einstellung. Fehlende Features/Berechtigungen werden nicht per
+`continue-on-error` verborgen; der PR bleibt bis zur erfolgreichen Prüfung nicht mergebereit.
+
+Alle Actions sind auf Commit-SHAs fixiert. Token standardmäßig nur `contents: read`; ausschließlich
+CodeQL darf Security-Ergebnisse hochladen (`security-events: write`). Dependency Review benötigt
+keine Schreibrechte oder PR-Kommentare. Kein `pull_request_target`, keine Production-Secrets,
+keine Production-DB und kein privilegierter Build aus einem Fork. Fork-PRs verwenden den normalen
+`pull_request`-Kontext mit GitHubs eingeschränkten Token-Rechten.
+
+Als erforderliche Checks in Branch Protection/Rulesets zusätzlich `CodeQL (python)`,
+`CodeQL (javascript-typescript)` und `Dependency review` auswählen. Workflow-Dateien ersetzen
+keine Repository-Rulesets. Konfiguration lokal mit actionlint prüfen; bestehende funktionale
+Jobs und deterministische Lockfile-Installationen bleiben unverändert.
 
 ### Backend
 
@@ -522,8 +552,8 @@ Uranus-Schreibrechte einschließlich Spaltengrants sowie schädliche Rechte/Owne
 `record_mark_event`, `auth_account` und `auth_system_admin`. Die Runtime darf insbesondere
 keine Identitäten ändern oder globale Rechte vergeben. Er ist **keine vollständige Installationsprüfung**: Er prüft nicht, ob
 alle erforderlichen positiven Grants oder Tabellen existieren, und testet CREATEDB/LOGIN nicht
-separat. Deshalb Rollenattribute, Owner und Rechte-Matrix zusätzlich prüfen. `/ready` prüft
-nur die Source-Verbindung, nicht diese Admin-Grenze.
+separat. Deshalb Rollenattribute, Owner und Rechte-Matrix zusätzlich prüfen. `/ready` prüft zusätzlich diese Admin-Grenze, den aktuellen Migrationstand und alle
+erforderlichen positiven Runtime-Grants.
 
 ### Fehlerbild: 503 admin_storage_unconfigured
 
@@ -594,6 +624,7 @@ REVOKE CREATE ON SCHEMA admin, uranus FROM admin_auth_operator;
 GRANT SELECT, INSERT, UPDATE ON admin.auth_account TO admin_auth_operator;
 GRANT SELECT, INSERT, DELETE ON admin.auth_system_admin TO admin_auth_operator;
 GRANT SELECT, UPDATE ON admin.auth_session TO admin_auth_operator;
+GRANT SELECT ON admin.alembic_version TO admin_auth_operator;
 -- No membership in admin_migrator, no Uranus or record_mark_event write grants.
 ```
 
@@ -603,6 +634,8 @@ CLI-Prozess geben; nie dem FastAPI-/Nuxt-Dienst. Keine tatsächlichen Passwörte
 Konto-Passwörter werden zweimal verdeckt über `getpass` abgefragt, mit 15–1024 Zeichen:
 
 ```bash
+# Nach Migration und Operator-Grants zuerst Preflight:
+uv run python -m app.auth.manage doctor
 # Erster System-Administrator: beide Entscheidungen müssen ausdrücklich gesetzt sein.
 uv run python -m app.auth.manage create operator --active --system-admin
 # Ein normales Konto hat zunächst weder Aktivierung noch globale Rechte:
@@ -642,17 +675,36 @@ Production-/Staging-Flags können weder Dev-Auth noch unverschlüsselte Cookie-O
 
 ### Bereinigung
 
-Sitzungen laufen absolut ab; Rate-Limit-Fenster erneuern sich ohne Scheduler. Abgelaufene
-Metadaten benötigen dennoch periodische Bereinigung durch einen berechtigten Wartungsprozess.
-Dafür keine DELETE-Rechte an die API-Runtime vergeben. Beispiel für einen Wartungsaccount mit
-gezielten DELETE-Rechten ausschließlich auf diesen beiden Tabellen:
+Nach Migration 0005 stehen zusätzliche Ablauf-/Widerruf-Indizes bereit (Downgrade entfernt nur
+Indizes, keine Daten). Maintenance läuft explizit mit dem CLI-Operator, nie im Request-Pfad.
+Zusätzliche Rechte nur für diesen Prozess, **nicht** für admin_user:
 
 ```sql
-DELETE FROM admin.auth_session WHERE expires_at < now() OR revoked_at IS NOT NULL;
-DELETE FROM admin.auth_login_bucket WHERE window_end < now();
+GRANT SELECT ON admin.alembic_version TO admin_auth_operator;
+GRANT DELETE ON admin.auth_session TO admin_auth_operator;
+GRANT SELECT, UPDATE, DELETE ON admin.auth_login_bucket TO admin_auth_operator;
 ```
 
-`record_mark_event` bleibt hiervon vollständig unberührt und append-only.
+UPDATE wird für `FOR UPDATE SKIP LOCKED` benötigt; Cleanup aktualisiert keine Sitzungen.
+
+```bash
+uv run python -m app.auth.maintenance cleanup --batch-size 500 --max-batches 10
+```
+
+Regelmäßig, beispielsweise stündlich, extern planen. Pro Transaktion maximal batch-size
+Sitzungen und Buckets, maximal max-batches Transaktionen. Mehrere Wartungsprozesse überspringen
+bereits gesperrte Zeilen. Wiederholung ist sicher. Entfernt werden absolut oder per Idle-Timeout
+abgelaufene Sitzungen, ausreichend alte Widerrufe und abgelaufene Buckets. Noch gültige aktive
+Sitzungen bleiben erhalten. `AUTH_REVOKED_RETENTION_SECONDS=86400` hält reine Widerrufe bis zu
+einem Tag; absolute/Idle-Abläufe dürfen früher gelöscht werden. Ausgabe enthält nur Mengen.
+Bei großem Rückstand öfter aufrufen, keine unbeschränkten Deletes in normalen Requests.
+`record_mark_event` bleibt vollständig unberührt und append-only.
+
+`AUTH_SESSION_HEARTBEAT_SECONDS=60` schreibt Aktivität höchstens einmal pro Minute.
+Der Wert muss positiv, höchstens 300 und kleiner als AUTH_IDLE_SECONDS sein. Ein SQL-Prädikat
+verhindert doppelte Heartbeats paralleler Requests. Der Idle-Nachweis ist konservativ: letzte
+Aktivität wird mit höchstens einem Intervall Verzögerung gespeichert; eine Sitzung kann entsprechend
+früher erneut Login verlangen. Die absolute Lebensdauer wird niemals verlängert.
 
 ## Activity previews
 
@@ -699,3 +751,86 @@ Missing files or network errors retain the type icon and all row metadata/action
 No database migration or additional grant is required. The production Playwright test in
 `frontend/tests/e2e/activity-drilldown.spec.ts` enforces the targeted policy and intercepts
 images locally, so CI does not depend on the external image service.
+
+## Production Readiness
+
+`GET /health` ist reine Prozess-Liveness und bleibt bei Datenbankausfall 200.
+`GET /ready` prüft die Source-Verbindung sowie Admin-Verbindung, Restricted-Role-Boundary,
+alle neun Admin-Tabellen, effektive USAGE-/DML-Rechte und den exakten Alembic-Head aus den
+mitgelieferten Migrationen. Tabellenrechte werden einzeln geprüft, inklusive Auth-Account/
+Berechtigungs-SELECT und Session-/Bucket-SELECT/INSERT/UPDATE. Der tatsächlich verbundene
+DB-User zählt, nicht ein fest verdrahteter Rollenname. Keine DML, DDL oder Auto-Migration.
+Fehler liefern 503 ohne Roh-DB-Details. `/ready` gehört in Deployment-/Monitoring-Probes,
+`/health` in Prozess-Liveness-Probes. Nach Migrationen explizite Grants anwenden, dann Readiness prüfen.
+Nur Development/Test mit aktiviertem Dev-Auth und ohne ADMIN_DATABASE_URL darf bewusst
+Source-only laufen. Staging/Production benötigt immer die vollständige Admin-Ablage.
+Eine Readiness-Prüfung authentifiziert kein Benutzerkonto und erteilt keine Admin-Rechte.
+
+## Durable quality-check worker (Migration 0006)
+
+Deploy-Reihenfolge: alte API-/Worker-Prozesse kontrolliert stoppen, Alembic mit Migrator auf
+Head bringen, Runtime-Grants prüfen, neue API und Worker starten. Keine Auto-Migration.
+0006 ergänzt queued, Worker-ID, Lease und einen Unique-Index für maximal einen aktiven Job.
+Beim Upgrade werden alte running-Zeilen failed; beim Downgrade werden queued/running-Zeilen
+failed und Lease-Metadaten entfernt. Erfolgreiche Historie/Findings bleiben erhalten. Uranus wird
+nicht verändert. 0005 ergänzt ausschließlich Retention-Indizes, Downgrade ohne Datenverlust.
+
+```bash
+cd backend
+uv run python -m app.check_worker
+# Einzelner Poll für kontrollierte Operator-/Integrationstests:
+uv run python -m app.check_worker --once
+```
+
+Der Worker benötigt dieselben getrennten DATABASE_URL (read-only) und ADMIN_DATABASE_URL
+(restricted DML) wie die API, **keinen** Migrator-/Auth-Operator-Zugang. CHECK_JOB_LEASE_SECONDS
+ist standardmäßig 120 (30–3600), Erneuerung alle lease/3 Sekunden; Poll-Intervall
+CHECK_WORKER_POLL_SECONDS standardmäßig 2. Erneuerung läuft als überwachte, vollständig
+abgewartete Worker-Aufgabe. Keine Fire-and-forget-Aufgabe im HTTP-Prozess.
+Während der abschließenden atomaren Speicherung schützt der Job-Zeilenlock die Eigentümerschaft.
+Der Heartbeat überspringt dann die gesperrte eigene Zeile, statt auf seine eigene Speicherung
+zu warten und durch einen DB-Timeout den Run abzubrechen. Eine abgelaufene, ungesperrte Lease
+kann nicht erneuert werden.
+
+Mehrere Worker dürfen laufen, aber nur einer besitzt den aktiven Job. Während Scan/Heartbeat
+werden keine langfristigen DB-Locks gehalten. Bei Crash läuft die Lease ab; ein weiterer Poll
+markiert den Job failed. Ein pausierter alter Prozess könnte noch rechnen, ist jedoch durch
+Lease/Worker-ID von jeder Ergebnisspeicherung ausgeschlossen. Wiederholung bewusst neu starten.
+Bei Netzwerkfehlern endet die aktuelle Arbeit sicher; fehlen DB-Verbindungen für eine sofortige
+Fehlermarkierung, stellt der nächste Worker den Fehler nach Lease-Ablauf fest. Kein Phantom-Erfolg.
+
+Betriebsbeispiel (nur Vorlage, keine Live-Änderung):
+
+```ini
+[Service]
+WorkingDirectory=/srv/uranus-admin/backend
+EnvironmentFile=/etc/uranus-admin/worker.env
+ExecStart=/usr/local/bin/uv run python -m app.check_worker
+Restart=on-failure
+```
+
+Environment-Datei nur für den Dienst lesbar, ohne Migration-/Operator-Credentials.
+Worker-Prozess und Alter queued/running-Jobs separat überwachen: `/ready` prüft die DB-/Schema-
+Voraussetzungen der API, beweist aber nicht, dass ein externer Worker gerade läuft.
+
+## Auth operator diagnostics
+
+Bootstrap: **Migration → explizite Operator-Grants → doctor → create**. Doctor und jeder
+normale Account-Befehl prüfen vor einer Passwortabfrage Verbindung, Datenbank/Rolle, Admin-
+Schema, den zentral ermittelten Alembic-Head, alle erforderlichen Operator-Tabellen und jedes
+benötigte Recht einzeln. Owner-Mitgliedschaft (auch NOINHERIT), CREATE auf admin/uranus,
+Superuser/CREATEROLE/CREATEDB/BYPASSRLS/REPLICATION und Uranus-Schreibrechte werden abgelehnt.
+Doctor führt ausschließlich SELECTs aus, keine Reparatur, Migration oder Kontoänderung.
+
+```bash
+uv run python -m app.auth.manage doctor
+```
+
+Ausgabe: konfigurierte DSN ja/nein, Verbindungsstatus, DB-/Rollenname, Migration und Grants;
+keine DSN, Passwörter, Hashes, Tokens oder Roh-Exceptions. Fehler unterscheiden insbesondere
+`database authentication failed`, `database unreachable`, `admin schema missing`,
+`migration incompatible`, `operator privileges incomplete`, `unsafe operator role`,
+`account already exists` und `unknown account`. Abbruch mit nonzero Exit-Code.
+Kein Debug-Flag mit unredigierten Driver-Stacktraces. Erfolgreiche Kontoänderungen bleiben
+atomar einschließlich Credential-Version und Session-Widerruf. Der CLI-Operator darf nur im
+Operator-Prozess konfiguriert sein, nie als ADMIN_DATABASE_URL.

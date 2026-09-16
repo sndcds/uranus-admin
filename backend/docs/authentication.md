@@ -64,7 +64,7 @@ Browser → /api/admin/api/v1/... → Nitro → FastAPI
   HttpOnly-Cookie, niemals im JSON, HTML, SSR-State oder einem Browser-Speicherobjekt an.
 - `GET /auth/session`: eigene Identität/Berechtigung; keine Passworthashes oder Sitzungswerte.
 - `POST /auth/logout`: widerruft die aktuelle Sitzung in der Datenbank und löscht das Cookie.
-  Ohne Cookie idempotent 200; DB-Fehler melden keinen erfolgreichen Widerruf.
+  Ohne Credential (mit Origin/CSRF) idempotent 200; DB-Fehler melden keinen erfolgreichen Widerruf.
 - Ohne Credential: 401 `authentication_required`. Ungültig/manipuliert/abgelaufen oder inaktives/
   gelöschtes Konto: 401 `invalid_credentials`. 401 behält `WWW-Authenticate: Bearer`.
 - Aktives Konto ohne Vergabe: 403 `admin_access_denied`. Fehlerhafte Browser-Provenienz:
@@ -110,13 +110,15 @@ Auth-Verlust verworfen; erfolgreiche Neuanmeldung löst einen neuen Abruf aus.
 
 Argon2id verwendet 64 MiB, drei Durchläufe, Parallelität zwei. Kontoanlage verlangt 15–1024 Zeichen,
 keine stillschweigende Kürzung. Unbekannte Logins erhalten eine Dummy-Hash-Prüfung. Datenbank-
-Limits gelten pro normalisiertem Login (zehn Versuche/5 Minuten) und global (120/5 Minuten), auch
-über mehrere Worker. Je Worker sind maximal vier gleichzeitige Passwortprüfungen zugelassen.
+Limits gelten zuerst pro Quelle (20 Versuche/5 Minuten), dann pro normalisiertem Login
+(zehn/5 Minuten), zuletzt als Überlastsicherung global (1200/5 Minuten), über alle Worker.
+Abgewiesene Quellen verbrauchen keine weiteren Login- oder globalen Slots. Je Worker sind maximal vier gleichzeitige Passwortprüfungen zugelassen.
 Limits schützen die Hash-Prüfung, ersetzen aber kein vorgelagertes Request-/Body-Limit.
 
 Auth-Fehler enthalten keine Credentials, Roh-DB-Fehler oder verketteten Driver-Exceptions, auch
 bei APP_DEBUG. Keine Header-/Body-/Cookie-Logs an Proxy oder FastAPI aktivieren. Private Hashes
-und DB-Zugänge bleiben ausschließlich serverseitig. Betreiberaktionen geben nur Aktion/UUID aus.
+und DB-Zugänge bleiben ausschließlich serverseitig. Kontoänderungen geben nur Aktion/UUID aus. `app.auth.manage doctor` zeigt zusätzlich
+sichere DB-/Rollen- und Preflight-Statusinformationen, niemals die DSN.
 
 Grundlagen: [Argon2 PasswordHasher](https://argon2-cffi.readthedocs.io/en/stable/api.html),
 [OWASP Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
@@ -147,3 +149,51 @@ Kein MFA, SSO oder Self-Service-Passwortreset in dieser Umsetzung. Kontowiederhe
 es gibt keinen flüchtigen prozesslokalen Sitzungsspeicher. Abgelaufene Sitzungen und Limit-Buckets
 müssen betrieblich bereinigt werden. Absichtliche Loginversuche können das zeitlich begrenzte
 Limit eines Kontos auslösen; Betreiber können die Bucket-Zeile kontrolliert entfernen.
+
+## Login-Limits: Quelle, Proxy-Vertrauen und Speichergrenze
+
+FastAPI verwendet ausschließlich `Request.client.host`, keine selbst geparsten Forwarded-Header.
+Direkter Betrieb: Uvicorn mit `--no-proxy-headers`. Hinter Nitro: `--proxy-headers` und
+`--forwarded-allow-ips=<exakte Nitro-Peer-IP>`; niemals `*`. FastAPI nur für diesen Proxy
+bzw. das private Netz erreichbar machen. Nitro ersetzt X-Forwarded-For durch eine einzelne
+validierte IP aus dem Socket. Vom Browser gelieferte XFF-Ketten werden nie weitergereicht.
+
+Bei vorgeschaltetem Nginx muss `NUXT_TRUSTED_INGRESS_IPS` ausschließlich dessen tatsächliche
+Socket-Peer-IPs enthalten (kommagetrennt, inklusive IPv4-mapped IPv6 falls verwendet).
+Nur von diesen Peers übernimmt Nitro `X-Real-IP`. Der Ingress muss diesen Header mit der
+verifizierten Client-IP **überschreiben**, niemals einen Client-Header übernehmen. Ohne diese
+explizite Konfiguration teilen Nutzer hinter einem Proxy dessen Quellenlimit. Die Defaultliste
+ist leer. Diese Einstellung verändert keine Live-Proxy-Konfiguration.
+
+Login und Quelle werden unabhängig auf jeweils 65536 SHA-256-Partitionen abgebildet.
+Damit können neue Versuche höchstens 131073 Bucket-Zeilen erzeugen, auch ohne Cleanup.
+Kollisionen verschärfen Limits konservativ; sie umgehen keine Limits und verraten keine Konten.
+IPv6-Adressen zählen als einzelne Quellen; verteilte Angriffe trifft weiterhin die globale Grenze.
+Ein gezielter Angriff auf einen bekannten Login kann dessen Limit erreichen; andere Logins und
+Quellen bleiben bis zur echten globalen Überlastgrenze erreichbar.
+
+Abgelaufene Buckets dürfen mit `cleanup_login_buckets(connection, batch_size)` innerhalb einer
+Operator-Transaktion entfernt werden (1–5000 Zeilen, `SKIP LOCKED`, idempotent). Der Runtime
+werden dafür keine DELETE-Rechte erteilt. Regelmäßige Maintenance entfernt auch alte Buckets aus
+früheren Versionen; die feste Partitionierung begrenzt neues Wachstum unabhängig davon.
+
+## Credential-Auswahl und Logout
+
+Authentication und Logout verwenden dieselbe zentrale Auswahl: Cookie-only oder Bearer-only
+identifiziert jeweils genau eine Sitzung. Gleiche Cookie- und Bearer-Werte sind erlaubt und
+behalten Cookie-CSRF/Origin-Prüfungen; unterschiedliche Werte oder malformed Authorization
+liefern 401, ohne eine der Sitzungen zu widerrufen. Kein stiller Vorrang eines Transports.
+Bearer-only Logout widerruft den Bearer-Session-Digest; Cookie-only Logout den Cookie-Digest.
+Danach ist der Wert über beide Transporte ungültig. Bearer-only benötigt keine Browser-CSRF-
+Header; Cookie-Requests weiterhin schon. Das Antwort-Cookie wird immer gelöscht.
+Der explizite development/test-Token ist kein persistentes Credential: Logout widerruft ihn nicht
+und öffnet dafür keine DB-Verbindung. Staging/Production akzeptiert ihn weiterhin niemals.
+
+## Heartbeat und Retention
+
+Jeder Request validiert weiterhin Sitzung und Berechtigung. `last_seen_at` wird nur nach
+`AUTH_SESSION_HEARTBEAT_SECONDS` (Default 60) erneut geschrieben, mit atomarem SQL-Vergleich
+gegen die alte Schwelle. Parallel eintreffende Requests erzeugen höchstens ein Update.
+Absolute expiry bleibt unverändert; Idle-Aktivität wird konservativ in Intervallen erfasst.
+Maintenance: `python -m app.auth.maintenance cleanup`, siehe [Betrieb](development.md#bereinigung).
+Keine impliziten Deletes durch API-Requests und keine DELETE-Rechte für die Runtime.
