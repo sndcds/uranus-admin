@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
 from app.admin_database import create_admin_engine
-from app.api import activity, checks, dashboard, findings, health, marks, quality, queues
+from app.api import activity, checks, dashboard, findings, graph, health, marks, quality, queues
 from app.auth.body_limit import AuthBodyLimitMiddleware
 from app.auth.dependencies import get_current_admin
 from app.auth.routes import router as auth_router
@@ -102,6 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         findings.router,
         quality.router,
         activity.router,
+        graph.router,
         queues.router,
         checks.router,
         marks.router,
