@@ -437,3 +437,13 @@ membership creation retains `created_at`. Activity's opt-in `creation_basis=stat
 restricts its sources to the same seven types and uses invitation timestamps for memberships.
 Default `creation_basis=record` is unchanged. Exact timestamp matrix, DST behavior, response,
 NULL handling and performance limitations: [Statistics](../../frontend/docs/statistics.md).
+
+### Dashboard check history
+
+Persisted dashboard responses include `check_status.latest_run` and
+`check_status.last_successful_run`, each nullable. These summaries expose run UUID,
+status, start/finish timestamps, rule count and finding count. Latest run is ordered
+by start time then UUID descending; last success by finish time then UUID descending.
+A later failed/queued/running run never hides the previous success. These are current
+history values, independent of the selected new-record period. With no stored runs,
+both are null; explicit live diagnostic mode returns `check_status: null`.

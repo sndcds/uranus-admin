@@ -1,9 +1,11 @@
 from datetime import UTC
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.admin_tables import check_run
 from app.repositories.creation_sources import RECORD_TABLES
+from app.schemas.dashboard import DashboardCheckRun, DashboardCheckStatus
 from app.services.periods import PeriodWindow
 
 NEW_RECORDS_UTC_SQL = " UNION ALL ".join(
@@ -42,3 +44,34 @@ async def new_records(
         ).scalar_one()
     )
     return counts, unknown
+
+
+async def check_status(connection: AsyncConnection) -> DashboardCheckStatus:
+    """Two bounded lookups; status is current stock, independent of the dashboard period."""
+    latest = (
+        (
+            await connection.execute(
+                select(check_run)
+                .order_by(check_run.c.started_at.desc(), check_run.c.id.desc())
+                .limit(1)
+            )
+        )
+        .mappings()
+        .first()
+    )
+    successful = (
+        (
+            await connection.execute(
+                select(check_run)
+                .where(check_run.c.status == "success")
+                .order_by(check_run.c.finished_at.desc().nulls_last(), check_run.c.id.desc())
+                .limit(1)
+            )
+        )
+        .mappings()
+        .first()
+    )
+    return DashboardCheckStatus(
+        latest_run=DashboardCheckRun.model_validate(latest) if latest else None,
+        last_successful_run=DashboardCheckRun.model_validate(successful) if successful else None,
+    )

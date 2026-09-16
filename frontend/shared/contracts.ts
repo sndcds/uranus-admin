@@ -15,6 +15,14 @@ export const statusSchema = z.enum([
   'ignored',
   'resolved',
 ])
+const dashboardCheckRunSchema = z.object({
+  id: z.uuid(),
+  status: z.enum(['queued', 'running', 'success', 'failed']),
+  started_at: timestamp,
+  finished_at: timestamp.nullable(),
+  finding_count: count,
+  rule_count: count,
+})
 export const summarySchema = z.object({
   period: periodSchema,
   from_at: timestamp,
@@ -43,7 +51,13 @@ export const summarySchema = z.object({
     rules: z.array(z.string()).optional(),
     mode: z.enum(['live', 'persisted']).optional(),
   }),
-  check_status: z.null().optional(),
+  check_status: z
+    .object({
+      latest_run: dashboardCheckRunSchema.nullable(),
+      last_successful_run: dashboardCheckRunSchema.nullable(),
+    })
+    .nullable()
+    .optional(),
 })
 export const actionSchema = z
   .object({

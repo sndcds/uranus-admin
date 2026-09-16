@@ -135,11 +135,7 @@ function openFilters(filters: FindingFilters) {
           description="Aktueller Vorgangsbestand · keine Gesamtzahl verfügbar"
           to="/#open-queues"
         />
-        <KpiCard
-          label="Prüfstatus"
-          description="Status nur in den gespeicherten Prüfläufen verfügbar"
-          to="/checks"
-        />
+        <DashboardCheckStatus :status="dashboard.data?.check_status" />
       </div>
       <p class="text-xs text-slate-500">
         {{

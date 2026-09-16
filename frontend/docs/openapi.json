@@ -158,7 +158,7 @@
           "Dashboard"
         ],
         "summary": "Dashboard summary",
-        "description": "Source-table creations in [from_at, to_at), plus stored unresolved findings. Only explicit mode=live runs a diagnostic scan. Today starts at midnight in ADMIN_TIMEZONE. Historical check status is unavailable.",
+        "description": "Source-table creations in [from_at, to_at), plus stored unresolved findings. Only explicit mode=live runs a diagnostic scan. Today starts at midnight in ADMIN_TIMEZONE. Persisted mode includes latest and last successful check runs, independent of period.",
         "operationId": "summary_api_v1_dashboard_summary_get",
         "security": [
           {
@@ -3132,6 +3132,90 @@
         ],
         "title": "CheckRunPage"
       },
+      "DashboardCheckRun": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "success",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "finding_count": {
+            "type": "integer",
+            "title": "Finding Count"
+          },
+          "rule_count": {
+            "type": "integer",
+            "title": "Rule Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "started_at",
+          "finished_at",
+          "finding_count",
+          "rule_count"
+        ],
+        "title": "DashboardCheckRun"
+      },
+      "DashboardCheckStatus": {
+        "properties": {
+          "latest_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardCheckRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_successful_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardCheckRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "latest_run",
+          "last_successful_run"
+        ],
+        "title": "DashboardCheckStatus"
+      },
       "DashboardSummary": {
         "properties": {
           "period": {
@@ -3176,8 +3260,14 @@
             "$ref": "#/components/schemas/QualityCounts"
           },
           "check_status": {
-            "type": "null",
-            "title": "Check Status"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardCheckStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

@@ -56,3 +56,63 @@ async def test_naive_source_timezone_and_half_open_boundaries(db_connection):
     assert counts["images"] == 1
     counts, _ = await new_records(db_connection, PeriodWindow(start, end), "UTC")
     assert counts["images"] == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("status", ["success", "failed", "running", "queued"])
+async def test_dashboard_persisted_check_status(admin_store, db_client, headers, now, status):
+    from app.admin_tables import check_run
+
+    async with admin_store.begin():
+        await admin_store.execute(
+            check_run.insert(),
+            [
+                dict(
+                    id=uid(801),
+                    started_at=now - timedelta(hours=2),
+                    finished_at=now - timedelta(hours=1),
+                    status="success",
+                    rule_count=19,
+                    finding_count=7,
+                ),
+                dict(
+                    id=uid(802),
+                    started_at=now,
+                    finished_at=now if status in {"failed", "success"} else None,
+                    status=status,
+                    rule_count=19,
+                    finding_count=9,
+                ),
+            ],
+        )
+    response = await db_client.get("/api/v1/dashboard/summary", headers=headers)
+    assert response.status_code == 200, response.text
+    state = response.json()["check_status"]
+    assert state["latest_run"]["id"] == str(uid(802))
+    assert state["latest_run"]["status"] == status
+    assert state["latest_run"]["finding_count"] == 9
+    assert state["last_successful_run"]["id"] == str(uid(802 if status == "success" else 801))
+
+
+@pytest.mark.integration
+async def test_dashboard_check_status_empty_and_deterministic(admin_store, now):
+    from app.admin_tables import check_run
+    from app.repositories.dashboard import check_status
+
+    async with admin_store.begin():
+        empty = await check_status(admin_store)
+        assert empty.latest_run is None and empty.last_successful_run is None
+        for key in (803, 801, 802):
+            await admin_store.execute(
+                check_run.insert().values(
+                    id=uid(key),
+                    started_at=now,
+                    finished_at=now,
+                    status="success",
+                    rule_count=2,
+                    finding_count=1,
+                )
+            )
+        state = await check_status(admin_store)
+        assert state.latest_run.id == uid(803)
+        assert state.last_successful_run.id == uid(803)
