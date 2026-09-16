@@ -662,6 +662,13 @@ Activity response. Keep the local URL for unrelated test datasets. This does not
 DB grants or introduce outbound API calls. See [the preview contract](contracts.md#activity-previews-and-public-links)
 for source evidence and unsupported entity routes.
 
+This also applies when the dashboard runs at `http://localhost:3000`: for the Kulturbytes
+source database, set `URANUS_API_URL=https://api.kulturbytes.de` in `backend/.env`, then
+restart the backend (settings are loaded at application startup). The browser origin does
+not determine the image host. With the default `http://localhost:8080`, `image_url` and
+`public_url` are deliberately null, so the UI shows placeholders. Keep
+`NUXT_ADMIN_API_BASE=http://127.0.0.1:8000`; only the public images load from Kulturbytes.
+
 ### Image CSP and deployment verification
 
 The CSP on the HTML response must allow the public image origin. Retain existing required
@@ -681,11 +688,11 @@ Public image responses must allow anonymous CORS; the public image endpoint was 
 with `Access-Control-Allow-Origin: *`. Images send no cross-origin cookies or referrer.
 
 Deploy the frontend contract update before the backend thumbnail change: the updated client
-accepts both the former 160px square and new 320px/16:9 URLs; the former client only accepts
-the square format. There are no new required response fields.
+accepts the former cropped URLs and the new 320px URLs without a ratio; older clients
+only accept their previous cropped formats. There are no new required response fields.
 
 After deployment, verify the response CSP in browser DevTools, check that the Activity
-response contains a 320px/16:9 `image_url`, and check that the image loads without CSP or
+response contains a 320px `image_url` without a `ratio` parameter, and check that the image loads without CSP or
 CORS errors. If URLs are null, first verify the server-side `URANUS_API_URL` assertion above;
 do not switch unrelated datasets to the public instance just to show a picture.
 Missing files or network errors retain the type icon and all row metadata/actions.

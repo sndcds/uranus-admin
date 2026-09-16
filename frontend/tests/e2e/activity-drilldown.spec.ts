@@ -4,7 +4,7 @@ import { activityFixture } from '../fixtures/activity'
 import { activityTypes } from '../../app/utils/activity'
 
 const imageUrl =
-  'https://api.kulturbytes.de/api/image/20000000-0000-7000-8000-000000000001?width=320&ratio=16%3A9'
+  'https://api.kulturbytes.de/api/image/20000000-0000-7000-8000-000000000001?width=320'
 
 test('all nine metric links preserve periods and support keyboard drill-down', async ({
   page,
@@ -111,7 +111,7 @@ test('image activity loads public thumbnails under a targeted CSP without metada
     })
   })
   const item = activityFixture.items.find((item) => item.entity_type === 'image')!
-  const thumbnail = `https://api.kulturbytes.de/api/image/${item.entity_key}?width=320&ratio=16%3A9`
+  const thumbnail = `https://api.kulturbytes.de/api/image/${item.entity_key}?width=320`
   await page.route('**/api/admin/auth/session', (route) =>
     route.fulfill({ json: { subject: 'admin:test-only-operator', system_admin: true } }),
   )
@@ -128,7 +128,7 @@ test('image activity loads public thumbnails under a targeted CSP without metada
     route.fulfill({
       contentType: 'image/svg+xml',
       headers: { 'access-control-allow-origin': '*' },
-      body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="#f5d0fe"/></svg>',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="480"><rect width="320" height="480" fill="#f5d0fe"/></svg>',
     }),
   )
   await page.goto('/activity?entity_type=image&period=7d')
@@ -148,6 +148,29 @@ test('image activity loads public thumbnails under a targeted CSP without metada
   await expect(row.getByRole('link', { name: /Markierungen & Notizen/ })).toBeVisible()
   await expect(row.getByRole('link', { name: /auf kulturbytes.de öffnen/ })).toHaveCount(0)
   expect(externalRequests).toEqual(['image'])
+  const dimensions = await image.boundingBox()
+  expect(dimensions!.height / dimensions!.width).toBeCloseTo(1.5, 1)
+  const trigger = row.getByRole('button', { name: `Bild vergrößern: ${item.entity_name}` })
+  await trigger.focus()
+  await page.keyboard.press('Enter')
+  const dialog = page.getByRole('dialog', { name: item.entity_name })
+  await expect(dialog).toBeVisible()
+  const enlarged = dialog.getByRole('img', { name: item.entity_name })
+  await expect(enlarged).toHaveAttribute('src', thumbnail.replace('width=320', 'width=1280'))
+  await expect(enlarged).toHaveJSProperty('naturalHeight', 480)
+  const enlargedDimensions = await enlarged.boundingBox()
+  expect(enlargedDimensions!.height / enlargedDimensions!.width).toBeCloseTo(1.5, 1)
+  expect(externalRequests).toEqual(['image', 'image'])
+  await page.keyboard.press('Escape')
+  await expect(dialog).not.toBeVisible()
+  await expect(trigger).toBeFocused()
+  await trigger.click()
+  await dialog.getByRole('img').dispatchEvent('error')
+  await expect(dialog.getByRole('alert')).toContainText('Das Bild konnte nicht geladen werden')
+  await expect(dialog.getByRole('img')).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Bildansicht schließen' }).click()
+  await expect(dialog).not.toBeVisible()
+  await expect(trigger).toBeFocused()
   expect(violations).toEqual([])
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
   await page.screenshot({ path: info.outputPath('image-activity.png'), fullPage: true })

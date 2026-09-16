@@ -1,3 +1,4 @@
+import { activityImageUrlSchema } from '#shared/contracts'
 import type { ActivityPage, DashboardSummary } from '#shared/contracts'
 import { calendarDay, dayLabel, metric } from './presentation'
 
@@ -111,4 +112,13 @@ export function recordRows(data: DashboardSummary | null) {
     ...activityTypes[type],
     value: metric(data?.new_records[key as keyof typeof mapping]),
   }))
+}
+
+/** Enlarge only a validated public thumbnail, preserving the image's native ratio. */
+export function activityImagePreviewUrl(value: string | null | undefined): string | null {
+  const validated = activityImageUrlSchema.safeParse(value)
+  if (!validated.success) return null
+  const url = new URL(validated.data)
+  url.search = new URLSearchParams({ width: '1280' }).toString()
+  return url.toString()
 }

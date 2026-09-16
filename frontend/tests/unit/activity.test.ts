@@ -11,6 +11,7 @@ import {
   activityGroups,
   activityName,
   activityCounts,
+  activityImagePreviewUrl,
   activityStatus,
 } from '../../app/utils/activity'
 import { calendarDay, dayLabel, activityTime, dateTime } from '../../app/utils/presentation'
@@ -140,7 +141,7 @@ it('shows public previews, secured external links and image failure fallback', a
   const item = {
     ...first,
     image_url:
-      'https://api.kulturbytes.de/api/image/20000000-0000-7000-8000-000000000001?width=320&ratio=16%3A9',
+      'https://api.kulturbytes.de/api/image/20000000-0000-7000-8000-000000000001?width=320',
     public_url: 'https://kulturbytes.de/de/ort/hafenbuehne',
     subtitle: 'Termin: 15.09.2026 · 19:00 · Hafenbühne',
     address: 'Hafenstraße 3, Flensburg',
@@ -196,7 +197,7 @@ it('keeps image metadata and actions without a preview or public page', () => {
 
 it('retries a changed image source after an image error', async () => {
   const item = activityFixture.items.find((item) => item.entity_type === 'image')!
-  const imageUrl = `https://api.kulturbytes.de/api/image/${item.entity_key}?width=320&ratio=16%3A9`
+  const imageUrl = `https://api.kulturbytes.de/api/image/${item.entity_key}?width=320`
   const wrapper = row({ ...item, image_url: imageUrl })
   await wrapper.get('img').trigger('error')
   expect(wrapper.find('img').exists()).toBe(false)
@@ -207,18 +208,33 @@ it('retries a changed image source after an image error', async () => {
 })
 
 it('validates new thumbnail URLs and supports existing square URLs during rollout', () => {
-  for (const query of ['width=320&ratio=16%3A9', 'width=160&ratio=1%3A1']) {
+  for (const query of ['width=320', 'width=320&ratio=16%3A9', 'width=160&ratio=1%3A1']) {
     const image_url = `https://api.kulturbytes.de/api/image/${first.entity_key}?${query}`
     expect(
       activityPageSchema.safeParse({ ...activityFixture, items: [{ ...first, image_url }] })
         .success,
     ).toBe(true)
   }
-  for (const query of ['width=960&ratio=16%3A9', 'width=320&ratio=16%3A9&token=secret']) {
+  for (const query of ['width=960&ratio=16%3A9', 'width=320&token=secret']) {
     const image_url = `https://api.kulturbytes.de/api/image/${first.entity_key}?${query}`
     expect(
       activityPageSchema.safeParse({ ...activityFixture, items: [{ ...first, image_url }] })
         .success,
     ).toBe(false)
+  }
+})
+
+it('only derives uncropped modal previews from validated public thumbnails', () => {
+  const base = `https://api.kulturbytes.de/api/image/${first.entity_key}`
+  for (const query of ['width=320', 'width=320&ratio=16%3A9', 'width=160&ratio=1%3A1']) {
+    expect(activityImagePreviewUrl(`${base}?${query}`)).toBe(`${base}?width=1280`)
+  }
+  for (const source of [
+    undefined,
+    null,
+    'https://evil.test/image',
+    `${base}?width=320&token=secret`,
+  ]) {
+    expect(activityImagePreviewUrl(source)).toBeNull()
   }
 })
