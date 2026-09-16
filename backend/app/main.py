@@ -16,6 +16,7 @@ from app.api import (
     activity,
     checks,
     dashboard,
+    entities,
     findings,
     graph,
     health,
@@ -111,6 +112,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for router in (
         dashboard.router,
         findings.router,
+        entities.router,
         quality.router,
         activity.router,
         graph.router,

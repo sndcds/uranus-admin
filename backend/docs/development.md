@@ -834,3 +834,12 @@ keine DSN, Passwörter, Hashes, Tokens oder Roh-Exceptions. Fehler unterscheiden
 Kein Debug-Flag mit unredigierten Driver-Stacktraces. Erfolgreiche Kontoänderungen bleiben
 atomar einschließlich Credential-Version und Session-Widerruf. Der CLI-Operator darf nur im
 Operator-Prozess konfiguriert sein, nie als ADMIN_DATABASE_URL.
+
+### Read-only source verification and domain pages
+
+`uv run python -m app.source_schema_verify --json` is an operator-invoked catalog
+report using `DATABASE_URL`. See [source verification](source-verification.md) for
+required live review and timezone confirmation. Do not treat fixture tests as live
+verification. Domain list/detail APIs use the same read-only source connection and
+existing explicit admin metadata grants; no new grant or migration is required.
+Create operations remain blocked pending a delegated Uranus write-auth contract.

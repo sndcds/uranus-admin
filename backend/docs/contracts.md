@@ -447,3 +447,41 @@ by start time then UUID descending; last success by finish time then UUID descen
 A later failed/queued/running run never hides the previous success. These are current
 history values, independent of the selected new-record period. With no stored runs,
 both are null; explicit live diagnostic mode returns `check_status: null`.
+
+### Domain record lists and details
+
+`GET /api/v1/{section}` and `GET /api/v1/{section}/{uuid}` exist for six explicit
+sections: `events`, `venues`, `spaces`, `organizations`, `users`, `images`.
+Lists accept `q` (literal substring, maximum 200 characters), `organization_id`,
+`status`, `page`, `page_size` (1–100); order is case-folded name with C collation,
+then UUID. Details accept `related_page` (25 related rows per page). Missing UUIDs
+return `404 record_not_found`. All endpoints share the system-admin dependency.
+
+Responses reuse safe Activity fields and public preview URLs, with an explicit
+`facts` model for source counts/context. Optional `finding_count` excludes resolved
+findings; `mark_count` counts stored marks. Both are null when admin storage is not
+configured, never fabricated zeroes. Source counts include the complete source
+state, not a selected time window. Relations reuse verified graph relationships
+and image contexts; counts/pages come from SQL. A bounded number of batch queries
+serves each page; no per-row API requests or per-row database round trips.
+
+Canonical Action hrefs now target these six detail routes, including images without
+creation timestamps. Existing structured `route=activity` remains compatible; older
+clients should upgrade their internal URL validator before deploying the new backend.
+Composite keys and event dates retain existing Activity/queue targets. Findings accept
+an exact `entity_key` filter in addition to `entity_type`.
+
+### Domain create authorization prerequisite (#15)
+
+Read-only inspection of `sndcds/uranus` at `12ec7608d55aed3cf86724ce47d275f9d49e46b2`
+confirmed `/api/admin` uses `app.JWTMiddleware` (`uranus-api.go`). Create endpoints
+include `/org/create`, `/venue/create`, `/space/create`, `/event/create`; their handlers
+use Uranus user UUIDs and organization/venue permission checks (for example
+`api/admin_create_event.go`, `api/admin_create_venue.go`). An independent admin session
+is not a Uranus JWT or an organization grant. No delegated write credential/authorized
+identity mapping is configured in this application. Therefore this change adds no
+write adapter or create form, and the global create control explicitly explains the
+missing authorized Uranus connection. Issue #15 remains open for that integration.
+A future adapter needs a deliberately established delegated Uranus authorization
+contract, typed allowed bodies, safe upstream error mapping, and no browser-visible
+upstream credentials. It must not mint an identity or substitute source SQL writes.

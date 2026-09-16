@@ -82,6 +82,22 @@ export const actionSchema = z
   })
   .refine((action) => {
     if (action.route === 'activity' && !action.entity_type) return false
+    const sections: Record<string, string> = {
+      event: 'events',
+      venue: 'venues',
+      space: 'spaces',
+      organization: 'organizations',
+      user: 'users',
+      image: 'images',
+    }
+    if (
+      action.route === 'activity' &&
+      action.entity_type &&
+      sections[action.entity_type] &&
+      z.uuid().safeParse(action.entity_key).success &&
+      action.href === `/${sections[action.entity_type]}/${action.entity_key.toLowerCase()}`
+    )
+      return true
     const path = action.route === 'activity' ? '/activity' : `/queues/${action.route}`
     const key = encodeURIComponent(action.entity_key).replace(
       /[!'()*]/g,
@@ -152,6 +168,7 @@ export const filtersSchema = z.object({
   mode: z.enum(['live', 'persisted']).default('persisted'),
   severity: severitySchema.optional(),
   entity_type: z.string().max(64).optional(),
+  entity_key: z.string().min(1).max(1024).optional(),
   rule: z.string().max(100).optional(),
   organization_id: z.uuid().optional(),
   status: statusSchema.optional(),
@@ -589,3 +606,46 @@ export const entityStatisticsResponseSchema = z
 export type StatisticsEntity = z.infer<typeof statisticsEntitySchema>
 export type EntityStatistics = z.infer<typeof entityStatisticsResponseSchema>
 export type StatisticsSeries = z.infer<typeof entityStatisticsSeriesSchema>
+
+export const entitySectionSchema = z.enum([
+  'events',
+  'venues',
+  'spaces',
+  'organizations',
+  'users',
+  'images',
+])
+export type EntitySection = z.infer<typeof entitySectionSchema>
+export const entityFactsSchema = z.object({
+  username: z.string().nullable(),
+  description: z.string().nullable(),
+  venue_name: z.string().nullable(),
+  space_name: z.string().nullable(),
+  event_dates: count.nullable(),
+  venues: count.nullable(),
+  spaces: count.nullable(),
+  events: count.nullable(),
+  memberships: count.nullable(),
+  image_links: count.nullable(),
+  orphan: z.boolean().nullable(),
+})
+export const entityRecordSchema = activityPageSchema.shape.items.element.extend({
+  facts: entityFactsSchema,
+  finding_count: count.nullable(),
+  mark_count: count.nullable(),
+})
+export const entityPageSchema = z.object({
+  items: z.array(entityRecordSchema),
+  pagination: findingPageSchema.shape.pagination,
+  observed_at: timestamp,
+})
+export const entityDetailSchema = z.object({
+  item: entityRecordSchema,
+  related: z.object({
+    items: activityPageSchema.shape.items,
+    pagination: findingPageSchema.shape.pagination,
+  }),
+  observed_at: timestamp,
+})
+export type EntityPage = z.infer<typeof entityPageSchema>
+export type EntityDetail = z.infer<typeof entityDetailSchema>

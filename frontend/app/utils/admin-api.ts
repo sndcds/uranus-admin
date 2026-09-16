@@ -1,4 +1,6 @@
 import {
+  entityPageSchema,
+  entityDetailSchema,
   entityStatisticsResponseSchema,
   graphResponseSchema,
   graphSearchResponseSchema,
@@ -85,6 +87,12 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
     onAccessLost(callback: (status: number) => void) {
       accessLost = callback
     },
+    entities: (section: string, query: Record<string, string | number | undefined>) =>
+      request(`/api/v1/${section}`, entityPageSchema, query),
+    entity: (section: string, id: string, relatedPage = 1) =>
+      request(`/api/v1/${section}/${encodeURIComponent(id)}`, entityDetailSchema, {
+        related_page: relatedPage,
+      }),
     statistics: (query: Record<string, string | number | undefined>) =>
       request('/api/v1/statistics/entities', entityStatisticsResponseSchema, query),
     graph: (query: Record<string, string | number | undefined>) =>

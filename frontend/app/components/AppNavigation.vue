@@ -12,11 +12,11 @@ const links = [
   { label: 'Aktivität', icon: 'history', to: '/activity' },
   { label: 'Arbeitsliste', icon: 'list', to: '/findings' },
   { label: 'Markierungen', icon: 'list', to: '/marks' },
-  { label: 'Veranstaltungen', icon: 'calendar' },
-  { label: 'Orte & Räume', icon: 'pin' },
-  { label: 'Organisationen', icon: 'organization' },
-  { label: 'Benutzer & Teams', icon: 'users' },
-  { label: 'Bilder', icon: 'image' },
+  { label: 'Veranstaltungen', icon: 'calendar', to: '/events' },
+  { label: 'Orte & Räume', icon: 'pin', to: '/venues' },
+  { label: 'Organisationen', icon: 'organization', to: '/organizations' },
+  { label: 'Benutzer & Teams', icon: 'users', to: '/users' },
+  { label: 'Bilder', icon: 'image', to: '/images' },
   { label: 'Beziehungsgraph', icon: 'graph', to: '/graph' },
   { label: 'Statistiken', icon: 'chart', to: '/statistics' },
 ] as const
@@ -45,7 +45,6 @@ const links = [
   >
     <template v-for="link in links" :key="link.label">
       <NuxtLink
-        v-if="'to' in link"
         :to="link.to"
         class="flex items-center gap-3 rounded-xl px-4"
         :style="{ paddingBlock: compact ? '8px' : '12px' }"
@@ -63,18 +62,6 @@ const links = [
           >{{ dashboard.data.quality.total }}</span
         >
       </NuxtLink>
-      <div
-        v-else
-        class="flex items-center gap-3 rounded-xl px-4 text-slate-500"
-        :style="{ paddingBlock: compact ? '8px' : '12px' }"
-        aria-disabled="true"
-        :title="`${link.label}: noch nicht verfügbar`"
-      >
-        <AppIcon :name="link.icon" /><span
-          >{{ link.label
-          }}<span v-if="!compact" class="block text-[10px]">Noch nicht verfügbar</span></span
-        >
-      </div>
     </template>
     <div class="pt-5 text-xs font-semibold uppercase tracking-wider text-slate-500">Qualität</div>
     <NuxtLink

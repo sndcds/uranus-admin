@@ -73,6 +73,7 @@ const routes: Record<string, readonly string[]> = {
     'mode',
     'severity',
     'entity_type',
+    'entity_key',
     'rule',
     'organization_id',
     'status',
@@ -107,6 +108,13 @@ export async function forwardAdminRequest(
   base: string,
   fetcher: typeof fetch = fetch,
 ): Promise<ProxyResult> {
+  const entityList = /^\/api\/v1\/(events|venues|spaces|organizations|users|images)$/.test(
+    input.path,
+  )
+  const entityDetail =
+    /^\/api\/v1\/(events|venues|spaces|organizations|users|images)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      input.path,
+    )
   const markDetail =
     /^\/api\/v1\/record-marks\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
@@ -115,12 +123,15 @@ export async function forwardAdminRequest(
     /^\/api\/v1\/check-runs\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
     )
-  const allowed =
-    markDetail || checkDetail
-      ? []
-      : Object.hasOwn(routes, input.path)
-        ? routes[input.path]
-        : undefined
+  const allowed = entityList
+    ? ['q', 'organization_id', 'status', 'page', 'page_size']
+    : entityDetail
+      ? ['related_page']
+      : markDetail || checkDetail
+        ? []
+        : Object.hasOwn(routes, input.path)
+          ? routes[input.path]
+          : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
   const authWrite = input.method === 'POST' && ['/auth/login', '/auth/logout'].includes(input.path)
   if (

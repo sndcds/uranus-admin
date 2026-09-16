@@ -122,9 +122,11 @@ async function accessChanged() {
               v-else
               disabled
               class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white opacity-60"
-              title="Datensatz anlegen ist noch nicht verfügbar"
+              title="Anlegen benötigt eine autorisierte Uranus-Verbindung; die Admin-Anmeldung erteilt keine Domain-Schreibrechte."
             >
-              + Datensatz<span class="block text-[10px] font-normal">Noch nicht verfügbar</span>
+              + Datensatz<span class="block text-[10px] font-normal"
+                >Uranus-Schreibzugriff nicht eingerichtet</span
+              >
             </button>
           </div>
         </div>

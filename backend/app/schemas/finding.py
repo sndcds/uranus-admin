@@ -28,6 +28,7 @@ class FindingFilters(BaseModel):
     mode: Literal["live", "persisted"] = "persisted"
     severity: Severity | None = None
     entity_type: str | None = Field(default=None, max_length=64)
+    entity_key: str | None = Field(default=None, min_length=1, max_length=1024)
     rule: str | None = Field(default=None, max_length=100)
     organization_id: UUID | None = None
     status: FindingStatus | None = None

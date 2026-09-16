@@ -28,6 +28,7 @@ function apply() {
     severity: severity.value || undefined,
     organization_id: organization.value || undefined,
     entity_type: entityType.value || undefined,
+    entity_key: props.filters.entity_key,
     rule: rule.value || undefined,
     mode: mode.value,
     status: status.value || undefined,

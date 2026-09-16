@@ -53,6 +53,7 @@ const status = computed(() => activityStatus(props.item.status))
           <AppIcon name="external" :size="13" />
         </a>
       </p>
+      <slot name="context" />
       <div
         class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs [&_a]:mt-0 [&_a]:border-0 [&_a]:bg-transparent [&_a]:p-0 [&_a]:text-xs"
       >

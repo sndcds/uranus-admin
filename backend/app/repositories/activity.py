@@ -161,7 +161,7 @@ async def activity_page(
         data.update(previews.get((data["entity_type"], data["entity_key"]), {}))
         data["action"] = (
             Action(route="activity", entity_key=data["entity_key"], entity_type=data["entity_type"])
-            if data["created_at"] is not None
+            if data["created_at"] is not None or data["entity_type"] == "image"
             else None
         )
         items.append(Activity.model_validate(data))

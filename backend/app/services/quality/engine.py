@@ -38,6 +38,7 @@ def findings_page(items: list[Finding], filters: FindingFilters, now: datetime) 
         for item in items
         if (filters.severity is None or item.severity == filters.severity)
         and (filters.entity_type is None or item.entity_type == filters.entity_type)
+        and (filters.entity_key is None or item.entity_key == filters.entity_key)
         and (filters.rule is None or item.rule == filters.rule)
         and (filters.organization_id is None or item.organization_id == filters.organization_id)
         and (filters.status is None or item.status == filters.status)

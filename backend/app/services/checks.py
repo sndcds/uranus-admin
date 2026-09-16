@@ -387,7 +387,7 @@ async def persisted_page(
     admin: AsyncConnection, filters: FindingFilters, now: datetime
 ) -> FindingPage:
     conditions = []
-    for key in ("severity", "entity_type", "rule", "status"):
+    for key in ("severity", "entity_type", "entity_key", "rule", "status"):
         if (value := getattr(filters, key)) is not None:
             conditions.append(finding.c[key] == value)
     if filters.organization_id is not None:
