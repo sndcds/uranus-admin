@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { useFilterPreferencesStore } from '../../app/stores/filter-preferences'
 import { useAuthStore } from '../../app/stores/auth'
 import { useDashboardStore } from '../../app/stores/dashboard'
 import { useFindingsStore } from '../../app/stores/findings'
@@ -55,6 +56,11 @@ it.each([false, true])('logout clears caches and navigates even on failure: %s',
   await auth.checkSession()
   const dashboard = useDashboardStore(),
     list = useFindingsStore()
+  const preferences = useFilterPreferencesStore()
+  preferences.entities.events.q = 'email@example.org'
+  preferences.entities.events.status = 'released'
+  preferences.graph.organization = 'private-org'
+  preferences.sharedPeriod = '90d'
   dashboard.data = summary
   list.data = findings
   if (fails) api.logout = vi.fn().mockRejectedValue(new Error('private details'))
@@ -63,6 +69,9 @@ it.each([false, true])('logout clears caches and navigates even on failure: %s',
   expect(auth.status).toBe('anonymous')
   expect(dashboard.data).toBeNull()
   expect(list.data).toBeNull()
+  expect(preferences.entities.events).toEqual({ q: '', status: '', temporal: '' })
+  expect(preferences.graph.organization).toBe('')
+  expect(preferences.sharedPeriod).toBe('24h')
   expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
   expect(Boolean(auth.logoutWarning)).toBe(fails)
   expect(auth.logoutWarning).not.toContain('private details')

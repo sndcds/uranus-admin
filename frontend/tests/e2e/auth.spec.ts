@@ -69,7 +69,7 @@ test('login, reload, authenticated login redirect, logout and browser Back', asy
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('/')
   await login(page)
-  await expect(page).toHaveURL('http://127.0.0.1:3100/')
+  await expect(page).toHaveURL('http://127.0.0.1:3100/?period=24h')
   await expect(page.getByText('Test-Hafenbühne')).toBeVisible()
   await expect(page.locator('#main-content')).toBeVisible()
   await page.screenshot({
@@ -108,7 +108,7 @@ test('login, reload, authenticated login redirect, logout and browser Back', asy
   await page.reload()
   await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
   await page.goto('/login')
-  await expect(page).toHaveURL('http://127.0.0.1:3100/')
+  await expect(page).toHaveURL('http://127.0.0.1:3100/?period=24h')
   await page.goto('/findings')
   await page.getByRole('button', { name: 'Abmelden', exact: true }).click()
   await expect(page).toHaveURL('http://127.0.0.1:3100/login')
@@ -149,7 +149,7 @@ test('invalid credentials stay on login; external redirect is rejected', async (
   await expect(page.getByRole('alert')).toHaveText('Anmeldung fehlgeschlagen.')
   await noShell(page)
   await login(page)
-  await expect(page).toHaveURL('http://127.0.0.1:3100/')
+  await expect(page).toHaveURL('http://127.0.0.1:3100/?period=24h')
 })
 test('ordinary accounts cannot enter the shell, including after reload', async ({ page }) => {
   await page.goto('/login')
@@ -193,7 +193,7 @@ test('protected 403 shows access denied without logout or login redirect', async
   )
   await page.getByLabel('Zeitraum', { exact: true }).selectOption('today')
   await expect(page.getByText('Zugriff gesperrt').first()).toBeVisible()
-  await expect(page).toHaveURL('http://127.0.0.1:3100/')
+  await expect(page).toHaveURL('http://127.0.0.1:3100/?period=today')
   await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
 })
 test('failed server logout clears the shell and reports failed revocation', async ({ page }) => {

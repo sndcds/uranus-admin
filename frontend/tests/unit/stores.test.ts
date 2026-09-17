@@ -40,7 +40,7 @@ describe('dashboard store', () => {
     }
     const store = useDashboardStore()
     const first = store.load(api)
-    await store.setPeriod('7d', api)
+    await store.load(api, '7d')
     resolveOld(summary)
     await first
     expect(store.data?.period).toBe('7d')

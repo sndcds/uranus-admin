@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { useFilterPreferencesStore } from '../../app/stores/filter-preferences'
 import { mount, flushPromises } from '@vue/test-utils'
 import { reactive, ref, nextTick } from 'vue'
 import EntitySearch from '../../app/components/EntitySearch.vue'
@@ -16,7 +18,8 @@ const api = {
     entity: vi.fn(),
     entitySearch: vi.fn().mockResolvedValue({ items: [] }),
   },
-  push = vi.fn()
+  push = vi.fn(),
+  replace = vi.fn()
 const route = reactive({
   query: {} as Record<string, string>,
   params: { id: entityFixture('events').items[0]!.entity_key },
@@ -37,9 +40,10 @@ const global = {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  setActivePinia(createPinia())
   route.query = {}
   vi.stubGlobal('useRoute', () => route)
-  vi.stubGlobal('useRouter', () => ({ push }))
+  vi.stubGlobal('useRouter', () => ({ push, replace }))
   vi.stubGlobal('useNuxtApp', () => ({ $adminApi: api }))
   vi.stubGlobal('useState', () => ref(0))
 })
@@ -232,6 +236,84 @@ it.each(['events', 'organizations', 'venues', 'spaces'] as const)(
     await flushPromises()
     expect((select.element as HTMLSelectElement).value).toBe('past')
     expect(list.getComponent(EntitySearch).props('temporal')).toBe('past')
+    list.unmount()
+  },
+)
+
+it('restores scoped preferences on entry and updates both memory and route on apply/reset', async () => {
+  const store = useFilterPreferencesStore()
+  store.entities.events = { q: 'sommer', status: 'released', temporal: 'upcoming' }
+  store.entities.users = { q: 'max', status: 'active' }
+  store.sharedPeriod = '90d'
+  store.statistics.compare = true
+  api.entities.mockResolvedValue(entityFixture('events'))
+  const list = mount(EntityListPage, { props: { section: 'events' }, global })
+  await flushPromises()
+  expect(replace).toHaveBeenCalledWith({
+    query: { q: 'sommer', status: 'released', temporal: 'upcoming', page: '1' },
+  })
+  expect(list.getComponent(EntitySearch).props('modelValue')).toBe('sommer')
+  expect(api.entities).toHaveBeenCalledWith('events', {
+    q: 'sommer',
+    status: 'released',
+    temporal: 'upcoming',
+    page: '1',
+  })
+  await list.get('input[type="search"]').setValue('neu')
+  await list.get('form').trigger('submit')
+  expect(store.entities.events.q).toBe('neu')
+  await list
+    .findAll('button')
+    .find((b) => b.text() === 'Filter zurücksetzen')!
+    .trigger('click')
+  expect(store.entities.events).toEqual({ q: '', status: '', temporal: '' })
+  expect(store.entities.users).toEqual({ q: 'max', status: 'active' })
+  expect(store.sharedPeriod).toBe('90d')
+  expect(store.statistics.compare).toBe(true)
+  list.unmount()
+})
+
+it('gives explicit fields priority, fills missing entry fields, and restores complete history snapshots', async () => {
+  const store = useFilterPreferencesStore()
+  store.entities.events = { q: 'stored', status: 'released', temporal: 'upcoming' }
+  route.query = { status: 'draft' }
+  api.entities.mockResolvedValue(entityFixture('events'))
+  const list = mount(EntityListPage, { props: { section: 'events' }, global })
+  await flushPromises()
+  expect(replace).toHaveBeenCalledWith({
+    query: { q: 'stored', status: 'draft', temporal: 'upcoming', page: '1' },
+  })
+  expect(store.entities.events).toEqual({ q: 'stored', status: 'draft', temporal: 'upcoming' })
+  for (const status of ['released', 'draft', '']) {
+    route.query = status ? { status, page: '1' } : { page: '1' }
+    await flushPromises()
+    expect(store.entities.events.status).toBe(status)
+    expect((list.findAll('select')[1]!.element as HTMLSelectElement).value).toBe(status)
+  }
+  list.unmount()
+})
+
+it.each(entitySectionSchema.options)(
+  'restores only supported %s preferences on re-entry',
+  async (section) => {
+    const preferences = useFilterPreferencesStore()
+    preferences.hydrateEntity(section, {
+      q: 'remembered',
+      status: section === 'users' ? 'active' : 'released',
+      temporal: 'upcoming',
+    })
+    api.entities.mockResolvedValue(entityFixture(section))
+    const list = mount(EntityListPage, { props: { section }, global })
+    await flushPromises()
+    expect(api.entities).toHaveBeenLastCalledWith(section, {
+      ...preferences.entities[section],
+      page: '1',
+    })
+    expect(list.getComponent(EntitySearch).props('modelValue')).toBe('remembered')
+    if (section === 'users' || section === 'images')
+      expect(preferences.entities[section]).not.toHaveProperty('temporal')
+    if (!['events', 'users'].includes(section))
+      expect(preferences.entities[section]).not.toHaveProperty('status')
     list.unmount()
   },
 )
