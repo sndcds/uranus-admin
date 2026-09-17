@@ -186,3 +186,34 @@ it('keeps a rejected post-login session check anonymous', async () => {
   expect(auth.status).toBe('anonymous')
   expect(auth.isAdmin).toBe(false)
 })
+
+it('does not let an in-flight 401 add a return target during explicit logout', async () => {
+  vi.stubGlobal('defineNuxtPlugin', (plugin: unknown) => plugin)
+  const auth = useAuthStore()
+  await auth.checkSession()
+  vi.stubGlobal('useAuthStore', () => auth)
+  vi.stubGlobal('useRouter', () => ({
+    currentRoute: { value: { path: '/findings', fullPath: '/findings' } },
+  }))
+  const register = vi.spyOn(api, 'onAccessLost')
+  const { default: plugin } = await import('../../app/plugins/auth')
+  ;(plugin as unknown as { setup: (app: unknown) => void }).setup({
+    $adminApi: api,
+    runWithContext: (fn: () => unknown) => fn(),
+  })
+  let resolve!: (value: { status: 'ok' }) => void
+  api.logout = vi.fn().mockReturnValue(
+    new Promise((r) => {
+      resolve = r
+    }),
+  )
+  const pending = auth.logout()
+  expect(auth.loggingOut).toBe(true)
+  register.mock.calls[0]![0](401)
+  expect(navigate).not.toHaveBeenCalled()
+  resolve({ status: 'ok' })
+  await pending
+  expect(navigate).toHaveBeenCalledExactlyOnceWith('/login', { replace: true })
+  expect(auth.loggingOut).toBe(false)
+  expect(auth.status).toBe('anonymous')
+})

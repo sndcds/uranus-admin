@@ -91,7 +91,17 @@ test('login, reload, authenticated login redirect, logout and browser Back', asy
     headers: { Cookie: `${cookie.name}=${cookie.value}` },
   })
   expect(await ssr.text()).toContain('main-content')
-  expect(await ssr.text()).toMatch(/<button[^>]*disabled[^>]*>Abmelden<\/button>/)
+  expect(
+    await page.evaluate(
+      (html) => {
+        const document = new DOMParser().parseFromString(html, 'text/html')
+        return [...document.querySelectorAll('button')].find(
+          (button) => button.textContent?.trim() === 'Abmelden',
+        )?.disabled
+      },
+      await ssr.text(),
+    ),
+  ).toBe(true)
   expect(await ssr.text()).not.toContain(cookie.value)
   await page.reload()
   await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()

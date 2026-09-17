@@ -1,16 +1,10 @@
 <script setup lang="ts">
 import { dateTime } from '~/utils/presentation'
 const auth = useAuthStore()
-const loggingOut = ref(false)
 const interactive = ref(false)
 onMounted(() => {
   interactive.value = true
 })
-async function signOut() {
-  loggingOut.value = true
-  await auth.logout()
-  loggingOut.value = false
-}
 const menu = useTemplateRef<HTMLDialogElement>('menu')
 const menuButton = useTemplateRef<HTMLButtonElement>('menuButton')
 const menuOpen = ref(false)
@@ -80,7 +74,11 @@ function closeMenu() {
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-sm text-slate-600">Systemadministrator</span>
-            <button class="button" :disabled="!interactive || loggingOut" @click="signOut">
+            <button
+              class="button"
+              :disabled="!interactive || auth.loggingOut"
+              @click="auth.logout()"
+            >
               Abmelden
             </button>
             <button

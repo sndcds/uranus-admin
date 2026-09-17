@@ -13,6 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
   const session = ref<AdminSession | null>(null)
   const error = ref<ApiFailure | null>(null)
   const logoutWarning = ref('')
+  const loggingOut = ref(false)
   const revision = ref(0)
   const isAdmin = computed(
     () => status.value === 'authenticated' && session.value?.system_admin === true,
@@ -69,6 +70,8 @@ export const useAuthStore = defineStore('auth', () => {
       throw new AdminApiError(error.value ?? failure(status.value === 'authenticated' ? 403 : 401))
   }
   async function logout() {
+    if (loggingOut.value) return
+    loggingOut.value = true
     try {
       await $adminApi.logout()
       logoutWarning.value = ''
@@ -77,7 +80,11 @@ export const useAuthStore = defineStore('auth', () => {
         'Die Serversitzung konnte nicht beendet werden. Bitte erneut anmelden und die Abmeldung wiederholen.'
     } finally {
       clear()
-      await navigateTo('/login', { replace: true })
+      try {
+        await navigateTo('/login', { replace: true })
+      } finally {
+        loggingOut.value = false
+      }
     }
   }
   return {
@@ -85,6 +92,7 @@ export const useAuthStore = defineStore('auth', () => {
     session,
     error,
     logoutWarning,
+    loggingOut,
     revision,
     isAdmin,
     checkSession,

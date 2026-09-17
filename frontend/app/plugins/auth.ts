@@ -7,7 +7,7 @@ export default defineNuxtPlugin({
     const router = useRouter()
     // Register once per Nuxt app, independent of layout mounts.
     nuxtApp.$adminApi.onAccessLost(() => {
-      if (auth.status === 'anonymous') return
+      if (auth.status === 'anonymous' || auth.loggingOut) return
       const target = router.currentRoute.value
       auth.clear()
       if (target.path !== '/login')
