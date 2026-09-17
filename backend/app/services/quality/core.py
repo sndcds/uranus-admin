@@ -51,6 +51,8 @@ IMAGE_IDENTIFIERS = {
     },
     "portal": {"web_logo", "background_image", "footer_logo", "main_image"},
 }
+LOGO_IDENTIFIERS = {"main_logo", "dark_theme_logo", "light_theme_logo"}
+LOGO_MIME_TYPES = ("image/png", "image/webp")
 CORE_RULES = (
     "url_syntax",
     "event_without_dates",
@@ -62,6 +64,9 @@ CORE_RULES = (
     "image_link_invalid_identifier",
     "image_link_missing_target",
     "image_orphaned_upload",
+    "venue_missing_logo",
+    "organization_missing_logo",
+    "logo_unsupported_format",
 )
 
 
@@ -328,6 +333,58 @@ def evaluate_core(
                             "inheritance": "event_date_location_override",
                         },
                     )
+    elif rule in {"venue_missing_logo", "organization_missing_logo"}:
+        kind = "venue" if rule == "venue_missing_logo" else "organization"
+        images = scan_context.indexes["image"]
+        with_logo = {
+            str(link["context_uuid"])
+            for link in sources.rows["image_link"]
+            if link["context"] == kind
+            and link["identifier"] == "main_logo"
+            and str(link["pluto_image_uuid"]) in images
+        }
+        for row in sources.rows[kind]:
+            key = entity_key(kind, row)
+            result.covered.add((kind, key))
+            if key not in with_logo:
+                emit(
+                    kind,
+                    row,
+                    "main_logo",
+                    "Ort hat kein Hauptlogo."
+                    if kind == "venue"
+                    else "Organisation hat kein Hauptlogo.",
+                    metadata={"expected_identifier": "main_logo"},
+                )
+    elif rule == "logo_unsupported_format":
+        # Cover the owners even when a logo link was removed, so old variants resolve.
+        targets = {"venue": venues, "organization": orgs}
+        for kind, index in targets.items():
+            result.covered.update((kind, key) for key in index)
+        for link in sources.rows["image_link"]:
+            kind, identifier = link["context"], link["identifier"]
+            if kind not in targets or identifier not in LOGO_IDENTIFIERS:
+                continue
+            target = targets[kind].get(str(link["context_uuid"]))
+            image = scan_context.indexes["image"].get(str(link["pluto_image_uuid"]))
+            if target is None or image is None:
+                continue
+            mime_type = image.get("mime_type")
+            normalized_mime_type = mime_type.strip().lower() if mime_type else ""
+            if normalized_mime_type and normalized_mime_type not in LOGO_MIME_TYPES:
+                emit(
+                    kind,
+                    target,
+                    f"{identifier}.mime_type",
+                    "Logo verwendet kein PNG- oder WebP-Format.",
+                    Severity.info,
+                    {
+                        "identifier": identifier,
+                        "mime_type": mime_type,
+                        "allowed_mime_types": list(LOGO_MIME_TYPES),
+                        "image_uuid": str(image["uuid"]),
+                    },
+                )
     elif rule.startswith("image_link_"):
         images = scan_context.indexes["image"]
         targets = {"organization": orgs, "venue": venues, "event": events}

@@ -41,6 +41,7 @@ async def get_summary(
             errors=sum(item.severity == "error" for item in items),
             info=sum(item.severity == "info" for item in items),
             rules=[result.rule for result in results],
+            rule_counts={result.rule: len(result.findings) for result in results},
             mode="live",
         )
     return DashboardSummary(

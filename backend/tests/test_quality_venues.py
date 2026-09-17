@@ -98,7 +98,14 @@ async def test_quality_api(db_client, headers, path):
     response = await db_client.get(
         path,
         headers=headers,
-        params={"page_size": 1, **({"mode": "live"} if path.endswith("findings") else {})},
+        params={
+            "page_size": 1,
+            **(
+                {"mode": "live", "rule": "venue_missing_geolocation"}
+                if path.endswith("findings")
+                else {}
+            ),
+        },
     )
     assert response.status_code == 200, response.text
     body = response.json()

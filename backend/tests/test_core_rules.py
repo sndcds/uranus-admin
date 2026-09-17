@@ -226,6 +226,16 @@ async def test_image_rules_and_grace_period(db_connection, settings, now):
 
 async def test_rules_cover_clean_objects_and_source_sql(db_connection, settings, now):
     sources = await load_sources(db_connection)
+    sources.rows["image_link"] = [
+        {
+            "context": kind,
+            "context_uuid": row["uuid"],
+            "identifier": "main_logo",
+            "pluto_image_uuid": uid(60),
+        }
+        for kind in ("venue", "organization")
+        for row in sources.rows[kind]
+    ]
     for rule in CORE_RULES:
         result = evaluate_core(rule, sources, settings, now)
         assert result.success and not result.findings
