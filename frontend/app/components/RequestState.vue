@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InlineAlert from '~/components/InlineAlert.vue'
 import { dateTime } from '~/utils/presentation'
 import type { ApiFailure } from '#shared/errors'
 defineProps<{
@@ -11,11 +12,7 @@ defineEmits<{ retry: [] }>()
 </script>
 
 <template>
-  <div
-    v-if="error"
-    class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
-    role="alert"
-  >
+  <InlineAlert v-if="error" tone="warning">
     <p class="font-semibold">
       {{
         error.status === 401
@@ -36,7 +33,7 @@ defineEmits<{ retry: [] }>()
     <button class="button mt-3" :disabled="loading" @click="$emit('retry')">
       Erneut versuchen
     </button>
-  </div>
+  </InlineAlert>
   <p v-if="loading" role="status" class="text-sm text-slate-600">
     {{ hasData ? 'Daten werden aktualisiert …' : 'Daten werden geladen …' }}
   </p>

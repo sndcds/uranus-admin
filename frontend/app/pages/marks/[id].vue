@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SectionHeader from '~/components/SectionHeader.vue'
 import { markUpdateSchema } from '#shared/contracts'
 import type { MarkDetail, MarkUpdate } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
@@ -86,7 +87,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="space-y-4">
+  <section class="space-y-5">
     <PageHeader
       title="Markierung &amp; Notizen"
       description="Status, Notizen und unveränderlicher Verlauf."
@@ -94,7 +95,7 @@ onBeforeUnmount(() => {
     <RequestState :loading="loading" :error="error" @retry="load" />
     <template v-if="data">
       <div class="space-y-2 break-words text-sm">
-        <h3 class="text-xl font-bold">{{ data.entity_name }}</h3>
+        <SectionHeader :title="data.entity_name" />
         <div class="flex flex-wrap gap-2">
           <EntityTypeBadge :type="data.entity_type" /><StatusBadge
             :label="markStatuses[data.status]"

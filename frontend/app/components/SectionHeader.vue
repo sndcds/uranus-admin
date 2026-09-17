@@ -1,14 +1,15 @@
 <script setup lang="ts">
-defineProps<{ title: string; description?: string; titleId?: string }>()
+withDefaults(
+  defineProps<{ title: string; description?: string; titleId?: string; as?: 'h2' | 'h3' }>(),
+  { as: 'h3', description: undefined, titleId: undefined },
+)
 </script>
 <template>
   <header class="flex flex-wrap items-start justify-between gap-3">
     <div class="min-w-0">
-      <div class="flex flex-wrap items-center gap-3">
-        <h2 :id="titleId" class="text-2xl font-bold tracking-tight">{{ title }}</h2>
-        <slot name="badge" />
-      </div>
+      <component :is="as" :id="titleId" class="text-lg font-semibold">{{ title }}</component>
       <p v-if="description" class="mt-1 text-sm text-slate-500">{{ description }}</p>
+      <slot name="meta" />
     </div>
     <div v-if="$slots.default" class="flex flex-wrap items-center gap-2"><slot /></div>
   </header>

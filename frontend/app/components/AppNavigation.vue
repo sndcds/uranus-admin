@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { isNavigationActive } from '~/utils/navigation'
 defineEmits<{ navigate: [] }>()
 const route = useRoute()
-const compact = computed(() => route.path === '/statistics')
 const dashboard = useDashboardStore()
 const links = [
   { label: 'Übersicht', icon: 'home', to: '/' },
@@ -23,14 +23,8 @@ const links = [
 </script>
 
 <template>
-  <div
-    class="flex shrink-0 items-center gap-3 border-b border-slate-100"
-    :class="compact ? 'h-16 px-4 text-xs' : 'h-20 px-6'"
-  >
-    <div
-      class="grid place-items-center bg-fuchsia-600 font-black text-white"
-      :class="compact ? 'h-8 w-8 rounded-full' : 'h-10 w-10 rounded-2xl'"
-    >
+  <div class="flex shrink-0 items-center gap-3 border-b border-slate-100 h-20 px-6">
+    <div class="grid place-items-center bg-fuchsia-600 font-black text-white h-10 w-10 rounded-2xl">
       K
     </div>
     <div>
@@ -38,18 +32,14 @@ const links = [
       <div class="text-xs text-slate-500">Administration</div>
     </div>
   </div>
-  <nav
-    aria-label="Hauptnavigation"
-    class="flex-1 space-y-1 overflow-y-auto"
-    :class="compact ? 'p-2 text-[11px]' : 'p-4 text-sm'"
-  >
+  <nav aria-label="Hauptnavigation" class="flex-1 space-y-1 overflow-y-auto p-4 text-sm">
     <template v-for="link in links" :key="link.label">
       <NuxtLink
         :to="link.to"
-        class="flex items-center gap-3 rounded-xl px-4"
-        :style="{ paddingBlock: compact ? '8px' : '12px' }"
+        :aria-current="isNavigationActive(route.path, link.to) ? 'page' : undefined"
+        class="flex items-center gap-3 rounded-xl px-4 py-3"
         :class="
-          route.path === link.to
+          isNavigationActive(route.path, link.to)
             ? 'bg-fuchsia-50 font-semibold text-fuchsia-700'
             : 'text-slate-600 hover:bg-slate-50'
         "
@@ -66,10 +56,10 @@ const links = [
     <div class="pt-5 text-xs font-semibold uppercase tracking-wider text-slate-500">Qualität</div>
     <NuxtLink
       to="/quality"
-      class="flex items-center gap-3 rounded-xl px-4"
-      :style="{ paddingBlock: compact ? '8px' : '12px' }"
+      :aria-current="isNavigationActive(route.path, '/quality') ? 'page' : undefined"
+      class="flex items-center gap-3 rounded-xl px-4 py-3"
       :class="
-        route.path === '/quality'
+        isNavigationActive(route.path, '/quality')
           ? 'bg-fuchsia-50 font-semibold text-fuchsia-700'
           : 'text-slate-600 hover:bg-slate-50'
       "
@@ -77,21 +67,14 @@ const links = [
       ><AppIcon name="quality" />Datenqualität</NuxtLink
     >
   </nav>
-  <div class="shrink-0 border-t border-slate-100" :class="compact ? 'p-2' : 'p-4'">
-    <div
-      class="flex items-center rounded-xl bg-slate-50"
-      :class="compact ? 'gap-2 p-2' : 'gap-3 p-3'"
-    >
+  <div class="shrink-0 border-t border-slate-100 p-4">
+    <div class="flex items-center rounded-xl bg-slate-50 gap-3 p-3">
       <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-900 text-white">
         <AppIcon name="lock" :size="16" />
       </div>
       <div>
-        <div :class="compact ? 'text-[11px] font-semibold' : 'text-sm font-semibold'">
-          Interner Bereich
-        </div>
-        <div :class="compact ? 'text-[9px] text-slate-500' : 'text-xs text-slate-500'">
-          Zugriff durch API geprüft
-        </div>
+        <div class="text-sm font-semibold">Interner Bereich</div>
+        <div class="text-xs text-slate-500">Zugriff durch API geprüft</div>
       </div>
     </div>
   </div>

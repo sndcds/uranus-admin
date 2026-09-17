@@ -109,7 +109,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="space-y-4" aria-labelledby="activity-title">
+  <section class="space-y-5" aria-labelledby="activity-title">
     <PageHeader :title="title" :description="description" title-id="activity-title" />
     <FilterBar @apply="apply">
       <label

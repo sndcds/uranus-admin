@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SectionHeader from '~/components/SectionHeader.vue'
 const store = useDashboardStore()
 const { $adminApi } = useNuxtApp()
 onMounted(() => {
@@ -7,7 +8,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-5">
     <PageHeader
       title="Datenqualität"
       description="Regelbasierte Datenprobleme prüfen und priorisieren."
@@ -26,8 +27,8 @@ onMounted(() => {
     />
     <div class="space-y-4">
       <QualityOverview :data="store.data" />
-      <section class="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 class="font-bold">Orte ohne Geoposition</h2>
+      <section class="rounded-2xl border border-slate-200 bg-white p-4">
+        <SectionHeader title="Orte ohne Geoposition" />
         <p class="mt-2 text-sm text-slate-600">
           Ein fehlender oder leerer Punkt ist eine Warnung. Kommende Termine erhöhen die Priorität;
           baldige veröffentlichte Termine stehen innerhalb der Warnungen zuerst.

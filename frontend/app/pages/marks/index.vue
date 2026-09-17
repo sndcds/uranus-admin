@@ -106,9 +106,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="space-y-4">
+  <section class="space-y-5">
     <PageHeader title="Markierungen" description="Manuell markierte Datensätze und Notizen." />
-    <div v-if="scope" class="space-y-3 rounded-xl border border-slate-200 bg-white p-4 break-words">
+    <div
+      v-if="scope"
+      class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 break-words"
+    >
       <p class="font-semibold">
         {{ data?.items[0]?.entity_name ?? 'Markierungen zu diesem Datensatz' }}
       </p>

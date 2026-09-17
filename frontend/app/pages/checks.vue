@@ -73,7 +73,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="space-y-4">
+  <section class="space-y-5">
     <PageHeader title="Prüfläufe" description="Gespeicherte Prüfungen und Regelabdeckung.">
       <button class="button-primary" :disabled="running || loading || pending" @click="run">
         {{ running || pending ? 'Prüfung läuft …' : 'Prüflauf starten' }}

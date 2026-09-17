@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { filtersSchema } from '#shared/contracts'
+import InlineAlert from '~/components/InlineAlert.vue'
+import SectionHeader from '~/components/SectionHeader.vue'
+import { filtersSchema, periodSchema } from '#shared/contracts'
 import type { Severity, FindingFilters } from '#shared/contracts'
 import { periodLabels } from '~/utils/presentation'
 import { recordRows } from '~/utils/activity'
@@ -29,6 +31,25 @@ function openFilters(filters: FindingFilters) {
       title="Dashboard"
       description="Neue Datensätze im Zeitraum und aktueller Arbeitsbestand."
     >
+      <label class="text-sm"
+        ><span class="sr-only">Zeitraum</span
+        ><select
+          :value="dashboard.period"
+          class="input"
+          aria-label="Zeitraum"
+          @change="
+            dashboard.setPeriod(
+              periodSchema.parse(($event.target as HTMLSelectElement).value),
+              $adminApi,
+            )
+          "
+        >
+          <option value="today">Heute</option>
+          <option value="24h">Letzte 24 Stunden</option>
+          <option value="7d">Letzte 7 Tage</option>
+        </select></label
+      >
+
       <button class="button" :disabled="dashboard.loading" @click="dashboard.load($adminApi)">
         <AppIcon name="refresh" :size="16" /> Zahlen aktualisieren
       </button>
@@ -40,14 +61,14 @@ function openFilters(filters: FindingFilters) {
       :last-success="dashboard.lastSuccess"
       @retry="dashboard.load($adminApi)"
     />
-    <p
+    <InlineAlert
       v-if="dashboard.data && dashboard.data.period !== dashboard.period"
-      class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+      tone="warning"
       role="status"
     >
       Die sichtbaren Zahlen gehören noch zum vorherigen Zeitraum. Die Links öffnen den neu gewählten
       Zeitraum.
-    </p>
+    </InlineAlert>
     <section
       id="new-records"
       class="scroll-mt-28 space-y-3"
@@ -55,7 +76,7 @@ function openFilters(filters: FindingFilters) {
       aria-labelledby="new-records-title"
     >
       <div class="space-y-1">
-        <h2 id="new-records-title" class="text-lg font-semibold">Neu eingegangen</h2>
+        <SectionHeader title-id="new-records-title" title="Neu eingegangen" />
         <p class="text-sm text-slate-600">
           <strong class="font-semibold tabular-nums text-slate-900">{{
             metric(dashboard.data?.new_records.total)
@@ -75,7 +96,7 @@ function openFilters(filters: FindingFilters) {
               query: { period: dashboard.period, entity_type: row.type },
             }"
             :aria-label="`${row.plural}: ${row.value} · ${periodLabels[displayedPeriod]} · Neue Datensätze ansehen`"
-            class="group grid h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
+            class="group grid h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
           >
             <span
               class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
@@ -106,7 +127,7 @@ function openFilters(filters: FindingFilters) {
     </section>
     <section id="attention" class="space-y-3" aria-labelledby="attention-title">
       <div>
-        <h2 id="attention-title" class="text-lg font-semibold">Was braucht Aufmerksamkeit?</h2>
+        <SectionHeader title-id="attention-title" title="Was braucht Aufmerksamkeit?" />
         <p class="mt-1 muted">
           Aktuelle offene Vorgänge und Datenprobleme · unabhängig vom gewählten Zeitraum.
         </p>
@@ -150,7 +171,7 @@ function openFilters(filters: FindingFilters) {
       <div class="min-w-0 space-y-3">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 class="font-bold">Priorisierte Arbeitsliste</h2>
+            <SectionHeader title="Priorisierte Arbeitsliste" />
             <p class="mt-1 muted">
               Zuerst Probleme an veröffentlichten oder bald stattfindenden Inhalten.
             </p>
@@ -215,7 +236,7 @@ function openFilters(filters: FindingFilters) {
 
     <section id="open-queues" class="scroll-mt-28 space-y-3" aria-labelledby="queues-title">
       <div>
-        <h2 id="queues-title" class="text-base font-semibold">Offene Vorgänge</h2>
+        <SectionHeader title-id="queues-title" title="Offene Vorgänge" />
         <p class="mt-1 muted">Arbeitslisten mit tatsächlichem Zustand und belegtem Alter.</p>
       </div>
       <DataListShell as="ul" class="divide-y divide-slate-100">
@@ -237,7 +258,7 @@ function openFilters(filters: FindingFilters) {
       </DataListShell>
     </section>
     <section class="space-y-3" aria-labelledby="quick-filters-title">
-      <h2 id="quick-filters-title" class="text-base font-semibold">Schnellfilter</h2>
+      <SectionHeader title-id="quick-filters-title" title="Schnellfilter" />
       <FilterForm
         :filters="filtersSchema.parse({})"
         @apply="openFilters"

@@ -122,3 +122,12 @@ describe('shared data-page primitives', () => {
     expect(mount(EntityTypeBadge, { props: { type: 'new_kind' } }).text()).toBe('new_kind')
   })
 })
+
+it('keeps header badges separate from heading text', () => {
+  const view = mount(PageHeader, {
+    props: { title: 'Beziehungsgraph' },
+    slots: { badge: '<span>Beta</span>' },
+  })
+  expect(view.get('h2').text()).toBe('Beziehungsgraph')
+  expect(view.text()).toContain('Beta')
+})

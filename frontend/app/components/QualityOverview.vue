@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SectionHeader from '~/components/SectionHeader.vue'
 import { computed } from 'vue'
 import type { DashboardSummary } from '#shared/contracts'
 const props = defineProps<{ data: DashboardSummary | null; limit?: number }>()
@@ -8,7 +9,7 @@ const visibleRules = computed(() => (props.limit ? rules.value.slice(0, props.li
 
 <template>
   <section class="min-w-0 space-y-3" aria-label="Datenqualitätsübersicht">
-    <h2 v-if="limit" class="text-base font-semibold">Datenqualität</h2>
+    <SectionHeader v-if="limit" title="Datenqualität" />
     <ResultSummary
       v-if="data"
       :total="data.quality.total"

@@ -11,6 +11,7 @@
   button,
   a,
   input,
+  textarea,
   select,
   summary {
     @apply outline-offset-4;
@@ -35,7 +36,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50;
   }
   .button-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-700 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-800 disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-transparent bg-fuchsia-700 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-800 disabled:opacity-50;
   }
   .input {
     @apply w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400;
@@ -60,5 +61,26 @@
 @layer components {
   .list-group-header {
     @apply flex items-center gap-3 border-y border-slate-200 bg-slate-50 px-4 py-2 first:border-t-0 sm:px-5;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply min-w-0 rounded-2xl border border-slate-200 bg-white;
+  }
+  .admin-table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+  .admin-table th {
+    @apply bg-slate-50 font-semibold text-slate-600;
+  }
+  .admin-table :is(th, td) {
+    @apply border-b border-slate-100 px-4 py-3 align-top;
+  }
+  .admin-table tbody tr:hover {
+    @apply bg-slate-50;
+  }
+  .admin-table a {
+    @apply font-semibold text-fuchsia-700 hover:underline;
   }
 }

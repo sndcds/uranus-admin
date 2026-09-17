@@ -73,7 +73,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="space-y-4">
+  <section class="space-y-5">
     <PageHeader
       :title="kind.success ? titles[kind.data] : 'Unbekannte Arbeitsliste'"
       :description="kind.success ? descriptions[kind.data] : undefined"

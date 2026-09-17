@@ -6,7 +6,7 @@ defineProps<{ status?: z.infer<typeof summarySchema>['check_status'] }>()
 </script>
 <template>
   <section
-    class="space-y-2 rounded-xl border border-slate-200 bg-white p-4"
+    class="space-y-2 rounded-2xl border border-slate-200 bg-white p-4"
     aria-label="Prüfstatus"
   >
     <h3 class="text-sm font-semibold">Prüfstatus</h3>
