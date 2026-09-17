@@ -95,9 +95,11 @@ test('login, reload, authenticated login redirect, logout and browser Back', asy
     await page.evaluate(
       (html) => {
         const document = new DOMParser().parseFromString(html, 'text/html')
-        return [...document.querySelectorAll('button')].find(
+        const logout = [...document.querySelectorAll('button')].find(
           (button) => button.textContent?.trim() === 'Abmelden',
-        )?.disabled
+        )
+        const menu = document.querySelector<HTMLButtonElement>('[aria-label="Navigation öffnen"]')
+        return logout?.disabled === true && menu?.disabled === true
       },
       await ssr.text(),
     ),

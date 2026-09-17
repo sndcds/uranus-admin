@@ -58,6 +58,7 @@ function closeMenu() {
               ref="menuButton"
               class="rounded-xl border border-slate-200 p-2 lg:hidden"
               aria-label="Navigation öffnen"
+              :disabled="!interactive"
               :aria-expanded="menuOpen"
               @click="openMenu"
             >
