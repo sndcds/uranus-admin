@@ -25,7 +25,7 @@ Redirect targets preserve query and fragment, permit internal absolute paths
 only, and reject external URLs, control characters, backslashes and login
 loops. An inherited browser fragment is restored after an SSR redirect because
 HTTP requests cannot carry fragments. Navigation uses history replacement.
-The login form becomes interactive only after hydration.
+The login form and logout button become interactive only after hydration.
 
 A single auth plugin handles protected API 401 responses, resets both data
 stores (including filters and pending response generations), and redirects to

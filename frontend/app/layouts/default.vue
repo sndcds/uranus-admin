@@ -2,6 +2,10 @@
 import { dateTime } from '~/utils/presentation'
 const auth = useAuthStore()
 const loggingOut = ref(false)
+const interactive = ref(false)
+onMounted(() => {
+  interactive.value = true
+})
 async function signOut() {
   loggingOut.value = true
   await auth.logout()
@@ -76,7 +80,9 @@ function closeMenu() {
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-sm text-slate-600">Systemadministrator</span>
-            <button class="button" :disabled="loggingOut" @click="signOut">Abmelden</button>
+            <button class="button" :disabled="!interactive || loggingOut" @click="signOut">
+              Abmelden
+            </button>
             <button
               disabled
               class="button"
