@@ -7050,6 +7050,14 @@
               "venue_missing_geolocation"
             ]
           },
+          "rule_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Rule Counts",
+            "default": {}
+          },
           "mode": {
             "type": "string",
             "enum": [

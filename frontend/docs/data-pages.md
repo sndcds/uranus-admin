@@ -120,3 +120,14 @@ Activity gruppiert nur belegtes `created_at`; fehlende Zeitstempel bleiben auße
 Chronologie. Prüfläufe zeigen tatsächlichen Start und Abschluss. Markierungen zeigen
 Erstellung/Erledigung sowie die unveränderten Zeitpunkte ihrer Historie. Einladungen verwenden
 `invited_at` für ihr Alter; Benutzeraktivierung und Partneranfragen `created_at`.
+
+### Logo quality
+
+`/quality` uses `QualityOverview` for a “Logos & Bilder” group with “Orte ohne Logo”,
+“Organisationen ohne Logo” and “Logos in anderem Format”. Shared list rows and
+SeverityBadge distinguish warning (schlechte Datenqualität) from info (Hinweis).
+The additive `quality.rule_counts` map supplies counts, including zero; missing metrics
+remain “Nicht verfügbar”. Each row links to the corresponding finding rule and, for
+missing logos, the venue/organization entity filter, preserving the source mode.
+Finding Actions and entity details use the existing canonical routes. Core policy,
+identity and scan coverage are documented in [contracts](../../backend/docs/contracts.md).

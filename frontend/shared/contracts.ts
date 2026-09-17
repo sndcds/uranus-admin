@@ -49,6 +49,7 @@ export const summarySchema = z.object({
     errors: count.optional(),
     info: count.optional(),
     rules: z.array(z.string()).optional(),
+    rule_counts: z.record(z.string(), count).optional(),
     mode: z.enum(['live', 'persisted']).optional(),
   }),
   check_status: z

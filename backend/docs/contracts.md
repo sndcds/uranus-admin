@@ -610,3 +610,52 @@ Record-mark list/detail responses additionally expose optional `action` using th
 same canonical Action model for the six domain sections. Historical notes stay on
 `/marks/{id}`; “Datensatz öffnen” links back to the source detail. Unsupported mark
 entity types have no invented domain target.
+
+### Logo quality rules and overview counts
+
+| rule | entity | severity | Bedeutung |
+| --- | --- | --- | --- |
+| venue_missing_logo | venue | warning | Kein main_logo vorhanden |
+| organization_missing_logo | organization | warning | Kein main_logo vorhanden |
+| logo_unsupported_format | venue/organization | info | Logo ist weder PNG noch WebP |
+
+`main_logo` is the required logo. `dark_theme_logo` / `light_theme_logo` are optional
+variants. A matching `pluto_image_link` must use the owner's context and UUID and
+reference an existing `pluto_image`. A dangling main-logo link yields one missing-logo
+warning per owner plus the separate existing broken-image finding. It never yields a
+format finding. Avatar, main_photo, gallery photos, events and portals are excluded.
+
+Allowed MIME types: `image/png`, `image/webp`. The authoritative source is
+`pluto_image.mime_type`, never `file_name` / `gen_file_name`. NULL, empty and whitespace-only
+MIME values are unknown and generate no format finding. Other nonempty values generate
+info, with `field=mime_type`, `identifier`, `mime_type`, `allowed_mime_types`, `image_uuid`
+and the existing source fingerprint in metadata.
+
+Missing-logo identity retains `<rule>:<entity_type>:<uuid>:main_logo`, with
+`field=main_logo` and metadata `expected_identifier=main_logo`. Format identity uses
+`logo_unsupported_format:<entity_type>:<uuid>:<identifier>` while field stays
+`mime_type`; the identity's last component distinguishes all three logo variants.
+The owner is the Finding entity, so canonical Actions use `/venues/<uuid>` or
+`/organizations/<uuid>` and existing entity finding filters/counts work unchanged.
+The shared priority model uses publication/upcoming relevance without severity
+escalation: missing logos are warning, formats info.
+
+All owner rows enter rule coverage, even when no logo link remains. A successful
+complete registered scan resolves repaired missing logos, corrected formats and
+removed bad variants. Failed/incomplete runs resolve nothing. Review states and
+stable identity follow existing persistence semantics. No source writes or migrations
+are introduced.
+
+Dashboard `quality.rule_counts` is an additive map of rule code to nonnegative count.
+Live mode counts the current scan; persisted mode groups existing findings by rule,
+excluding resolved entries but including other review states. Registered rules without
+current findings have zero counts. The map includes any additional stored rules;
+`quality.rules` keeps its existing semantics (all scanned rules in live mode, rules with
+active stored findings in persisted mode). Counts describe current inventory, not proof
+that a new rule has already run; consult `check_status` for scan history.
+
+`QualityOverview` groups the three rules under “Logos & Bilder”, using shared list rows
+and severity badges. Counts link to `/findings?rule=...`, additionally `entity_type` for
+missing-logo rules, preserving live/persisted mode. A missing map from an older backend
+is displayed as unavailable, never as zero. Empty inventory retains the three zero-count
+links. Loading, stale-data errors and retry use the existing dashboard store/RequestState.

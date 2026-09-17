@@ -152,3 +152,41 @@ connection or reviewed live report was supplied; no credential search was perfor
   The older COALESCE description above is historical, not the current rule contract.
 
 No quality-rule behavior was changed based on this repository-only audit.
+
+## Logo quality audit — 2026-09-17
+
+Before implementation, `uranus-admin` remote `main` was fetched and checked at
+`8439992` (the working tree had the same HEAD). The existing core-rule evaluator,
+Finding/Action contract, priority model and check-run persistence are reused.
+
+Uranus remote `main` was fetched and inspected at
+[`6fcdb489637001e12c676a9f5a7222cfbf75d4e7`](https://github.com/sndcds/uranus/tree/6fcdb489637001e12c676a9f5a7222cfbf75d4e7):
+
+- [`api/api_image_helper.go`](https://github.com/sndcds/uranus/blob/6fcdb489637001e12c676a9f5a7222cfbf75d4e7/api/api_image_helper.go)
+  confirms `main_logo`, `dark_theme_logo`, `light_theme_logo`, `avatar` for both
+  organization and venue. Venue additionally supports `main_photo` and
+  `gallery_photo_1/2/3`.
+- [`ddl/pluto_image.ddl`](https://github.com/sndcds/uranus/blob/6fcdb489637001e12c676a9f5a7222cfbf75d4e7/ddl/pluto_image.ddl)
+  confirms UUID identity, `file_name`, `gen_file_name` and nullable text `mime_type`.
+  The source reader now selects `mime_type` explicitly.
+
+| rule | entity | severity | Bedeutung |
+| --- | --- | --- | --- |
+| venue_missing_logo | venue | warning | Kein gültiges main_logo vorhanden |
+| organization_missing_logo | organization | warning | Kein gültiges main_logo vorhanden |
+| logo_unsupported_format | venue/organization | info | Logo ist weder PNG noch WebP |
+
+The requested quality policy makes **main_logo the required logo**;
+**dark_theme_logo / light_theme_logo are optional variants**. This requirement and
+format preference are quality policy, not an inferred upstream database constraint.
+Allowed formats: **image/png, image/webp**. MIME is authoritative; filename extensions
+are never evidence. NULL/empty/whitespace-only MIME produces no format finding.
+No existing general missing-MIME rule exists, so no separate one is introduced.
+Avatar, photos, galleries, events and portal logos are excluded from this policy.
+A missing image does not satisfy the main-logo requirement and still produces the
+separate `image_link_without_image` finding. Missing owners stay with the existing
+`image_link_missing_target` rule.
+
+Verification uses synthetic fixtures in a disposable local PostgreSQL/PostGIS database;
+repository evidence is not a claim about the deployed schema. These checks only SELECT
+source data; persistence writes remain confined to the existing admin storage.
