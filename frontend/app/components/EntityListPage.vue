@@ -2,7 +2,14 @@
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useFilterPreferencesStore } from '~/stores/filter-preferences'
 import { usePreferenceQuery } from '~/composables/usePreferenceQuery'
-import type { EntitySection, EntityPage, TemporalFilter } from '#shared/contracts'
+import {
+  sharedPeriodSchema,
+  type EntitySection,
+  type EntityPage,
+  type TemporalFilter,
+  type SharedPeriod,
+} from '#shared/contracts'
+import { entityPeriods } from '~/utils/periods'
 import { asFailure, type ApiFailure } from '#shared/errors'
 import {
   entitySections,
@@ -15,10 +22,15 @@ const props = defineProps<{ section: EntitySection }>()
 const preferences = useFilterPreferencesStore()
 const route = useRoute()
 // Applied list URLs include page and represent complete history snapshots.
-const remembered = route.query.page ? {} : preferences.entities[props.section]
+const remembered = route.query.page ? {} : preferences.entityDefaults(props.section)
 const query = usePreferenceQuery(
   { ...remembered, ...(Object.values(remembered).some(Boolean) ? { page: '1' } : {}) },
-  (value) => preferences.hydrateEntity(props.section, value),
+  (value, previous) =>
+    preferences.hydrateEntity(
+      props.section,
+      value,
+      previous ? value.period !== previous.period : Object.hasOwn(route.query, 'period'),
+    ),
   true,
 )
 const router = useRouter()
@@ -30,10 +42,22 @@ const q = ref(''),
   organization = ref(''),
   status = ref('')
 const temporal = ref<TemporalFilter | ''>('')
+const period = ref<SharedPeriod | ''>('')
 const hasTemporal = computed(() => entityFilterCapabilities[props.section].temporal)
 const appliedTemporal = computed(() =>
   hasTemporal.value ? temporalFromQuery(query.value.temporal) : '',
 )
+const resultDescription = computed(() => {
+  const created = sharedPeriodSchema.safeParse(query.value.period)
+  return (
+    [
+      created.success ? `Erstellt: ${entityPeriods[created.data]}` : '',
+      appliedTemporal.value ? `Terminlage: ${temporalLabels[appliedTemporal.value]}` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ') || undefined
+  )
+})
 let generation = 0
 async function load() {
   const id = ++generation
@@ -44,6 +68,8 @@ async function load() {
   organization.value =
     typeof query.value.organization_id === 'string' ? query.value.organization_id : ''
   status.value = typeof query.value.status === 'string' ? query.value.status : ''
+  const parsedPeriod = sharedPeriodSchema.safeParse(query.value.period)
+  period.value = parsedPeriod.success ? parsedPeriod.data : ''
   temporal.value = hasTemporal.value ? temporalFromQuery(query.value.temporal) : ''
   try {
     const requestQuery: Record<string, string> = {}
@@ -60,14 +86,20 @@ async function load() {
   }
 }
 function apply() {
-  preferences.hydrateEntity(props.section, {
-    q: q.value,
-    status: status.value,
-    temporal: temporal.value,
-  })
+  preferences.hydrateEntity(
+    props.section,
+    {
+      q: q.value,
+      status: status.value,
+      temporal: temporal.value,
+      period: period.value,
+    },
+    period.value !== (query.value.period ?? ''),
+  )
   void router.push({
     query: {
       q: q.value || undefined,
+      period: period.value || undefined,
       organization_id: organization.value || undefined,
       status: status.value || undefined,
       temporal: hasTemporal.value ? temporal.value || undefined : undefined,
@@ -77,7 +109,7 @@ function apply() {
 }
 function reset() {
   preferences.resetEntity(props.section)
-  q.value = status.value = organization.value = temporal.value = ''
+  q.value = status.value = organization.value = temporal.value = period.value = ''
   void router.push({ query: { page: '1' } })
 }
 onMounted(load)
@@ -103,12 +135,22 @@ onBeforeUnmount(() => {
         :entity-type="entitySections[section].type"
         :organization-id="organization"
         :status="status"
+        :period="period"
         :temporal="hasTemporal ? temporal : undefined"
         @apply="apply"
         @select="router.push($event.action.href)"
       />
+      <label v-if="entityFilterCapabilities[section].period">
+        <span class="label">Erstellt</span>
+        <select v-model="period" class="input" @change="apply">
+          <option value="">Alle</option>
+          <option v-for="(label, value) in entityPeriods" :key="value" :value="value">
+            {{ label }}
+          </option>
+        </select>
+      </label>
       <label v-if="hasTemporal">
-        <span class="label">Zeitraum</span>
+        <span class="label">Terminlage</span>
         <select v-model="temporal" class="input" @change="apply">
           <option value="">Alle</option>
           <option v-for="(label, value) in temporalLabels" :key="value" :value="value">
@@ -144,7 +186,7 @@ onBeforeUnmount(() => {
         :total="data.pagination.total"
         :visible="data.items.length"
         noun="Datensätze"
-        :description="appliedTemporal ? `Zeitraum: ${temporalLabels[appliedTemporal]}` : undefined"
+        :description="resultDescription"
         :observed-at="data.observed_at"
       />
       <DataListShell v-if="data.items.length" as="ul"

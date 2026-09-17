@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
-from typing import Literal
 from zoneinfo import ZoneInfo
 
-from app.schemas.dashboard import Period
+from app.schemas.periods import PresetPeriod
 
 
 @dataclass(frozen=True)
@@ -12,9 +11,7 @@ class PeriodWindow:
     end: datetime
 
 
-def period_window(
-    period: Period | Literal["30d", "90d"], now: datetime, timezone: str
-) -> PeriodWindow:
+def period_window(period: PresetPeriod, now: datetime, timezone: str) -> PeriodWindow:
     if now.tzinfo is None:
         raise ValueError("now must be timezone-aware")
     end = now.astimezone(UTC)

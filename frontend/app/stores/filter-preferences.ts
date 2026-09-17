@@ -19,23 +19,34 @@ import {
 
 const q = z.string().max(120).default('')
 const temporal = temporalFilterSchema.or(z.literal('')).default('')
+const period = sharedPeriodSchema.or(z.literal('')).default('')
 const entitySchemas = {
   events: z.object({
     q,
+    period,
     status: z
       .enum(['', 'released', 'draft', 'review', 'cancelled', 'deferred', 'rescheduled'])
       .default(''),
     temporal,
   }),
-  users: z.object({ q, status: z.enum(['', 'active', 'inactive']).default('') }),
-  organizations: z.object({ q, temporal }),
-  venues: z.object({ q, temporal }),
-  spaces: z.object({ q, temporal }),
-  images: z.object({ q }),
+  users: z.object({ q, period, status: z.enum(['', 'active', 'inactive']).default('') }),
+  organizations: z.object({ q, temporal, period }),
+  venues: z.object({ q, temporal, period }),
+  spaces: z.object({ q, temporal, period }),
+  images: z.object({ q, period }),
 }
 export type EntityPreferences = { [S in EntitySection]: z.infer<(typeof entitySchemas)[S]> }
 const defaults = () => ({
   sharedPeriod: '24h' as SharedPeriod,
+  sharedPeriodChosen: false,
+  entityPeriodsSet: {
+    events: false,
+    users: false,
+    organizations: false,
+    venues: false,
+    spaces: false,
+    images: false,
+  },
   entities: {
     events: entitySchemas.events.parse({}),
     users: entitySchemas.users.parse({}),
@@ -69,7 +80,10 @@ export const useFilterPreferencesStore = defineStore('filter-preferences', {
     },
     setSharedPeriod(value: unknown) {
       const parsed = sharedPeriodSchema.safeParse(value)
-      if (parsed.success) this.sharedPeriod = parsed.data
+      if (parsed.success) {
+        this.sharedPeriod = parsed.data
+        this.sharedPeriodChosen = true
+      }
     },
     resolvePeriodForPage<P extends PeriodPage>(page: P) {
       return resolvePeriod(page, this.sharedPeriod)
@@ -83,12 +97,24 @@ export const useFilterPreferencesStore = defineStore('filter-preferences', {
     commitEntityFilters<S extends EntitySection>(section: S, value: EntityPreferences[S]) {
       this.hydrateEntity(section, value)
     },
-    hydrateEntity(section: EntitySection, query: Record<string, unknown>) {
+    entityDefaults(section: EntitySection) {
+      if (!this.entityPeriodsSet[section] && this.sharedPeriodChosen) {
+        this.entities[section].period = this.sharedPeriod
+        this.entityPeriodsSet[section] = true
+      }
+      return this.entities[section]
+    },
+    hydrateEntity(section: EntitySection, query: Record<string, unknown>, publishPeriod = true) {
       const parsed = entitySchemas[section].safeParse(query)
       // Invalid URL values remain visible as API validation errors, never as preferences.
-      if (parsed.success) Object.assign(this.entities, { [section]: parsed.data })
+      if (parsed.success) {
+        Object.assign(this.entities, { [section]: parsed.data })
+        this.entityPeriodsSet[section] = true
+        if (publishPeriod && parsed.data.period) this.setSharedPeriod(parsed.data.period)
+      }
     },
     resetEntity(section: EntitySection) {
+      this.entityPeriodsSet[section] = true
       Object.assign(this.entities, { [section]: entitySchemas[section].parse({}) })
     },
     hydrateActivity(query: Record<string, unknown>) {

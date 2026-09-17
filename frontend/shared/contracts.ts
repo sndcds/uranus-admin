@@ -4,6 +4,8 @@ import { z } from './zod'
 // Missing optional metrics stay undefined; they are never replaced with mock numbers.
 const count = z.number().int().nonnegative()
 const timestamp = z.string().datetime({ offset: true })
+export const sharedPeriodSchema = z.enum(['today', '24h', '7d', '30d', '90d'])
+export type SharedPeriod = z.infer<typeof sharedPeriodSchema>
 export const periodSchema = z.enum(['today', '24h', '7d'])
 export const severitySchema = z.enum(['error', 'warning', 'info'])
 export const statusSchema = z.enum([
@@ -700,6 +702,7 @@ export type TemporalFilter = z.infer<typeof temporalFilterSchema>
 export type EntitySearchQuery = {
   q: string
   entity_type: EntitySearchType
+  period?: SharedPeriod
   temporal?: TemporalFilter
   organization_id?: string
   status?: string

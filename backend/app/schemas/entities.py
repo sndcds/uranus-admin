@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.schemas.action import Action
 from app.schemas.activity import Activity
 from app.schemas.finding import Pagination
+from app.schemas.periods import PresetPeriod
 
 EntitySection = Literal["events", "venues", "spaces", "organizations", "users", "images"]
 
@@ -18,6 +19,7 @@ class EntityFilters(BaseModel):
     q: str = Field(default="", max_length=200)
     organization_id: UUID | None = None
     temporal: TemporalFilter | None = None
+    period: PresetPeriod | None = None
     status: str | None = Field(default=None, max_length=32)
     page: int = Field(default=1, ge=1, le=100_000)
     page_size: int = Field(default=25, ge=1, le=100)
@@ -70,6 +72,7 @@ class EntitySearchFilters(BaseModel):
     entity_type: EntitySearchType
     organization_id: UUID | None = None
     temporal: TemporalFilter | None = None
+    period: PresetPeriod | None = None
     status: str | None = Field(default=None, max_length=32)
     limit: int = Field(default=10, ge=1, le=20)
 

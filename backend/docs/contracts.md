@@ -798,3 +798,44 @@ Autocomplete remains bounded to 20 rows. Broad temporal scans and effective-loca
 expressions may need query-plan analysis on large sources; existing event_date.event_uuid
 indexes can help. Any additional FK/expression indexes belong in Uranus migrations,
 not this read-only admin repository. No source writes, migrations or new public routes.
+
+
+### Entity creation periods
+
+All six entity list endpoints and authenticated `GET /api/v1/entity-search` accept
+optional `period=today|24h|7d|30d|90d`. Omission retains all records, including images
+with NULL created_at; empty, all, custom, unknown and other values return 422.
+The frontend labels this **Erstellt**, while **Terminlage** continues to mean
+`temporal=upcoming|past`. The two filters have independent AND semantics, also with
+q, organization_id and status. Counts, pagination and autocomplete use the same predicate.
+
+| Entity | Source timestamp |
+| --- | --- |
+| event | uranus.event.created_at |
+| user | uranus."user".created_at |
+| organization | uranus.organization.created_at |
+| venue | uranus.venue.created_at |
+| space | uranus.space.created_at |
+| image | uranus.pluto_image.created_at |
+
+The existing timestamp-without-time-zone projections are interpreted with
+`settings.uranus_timestamp_timezone`, including the search projection. Missing source
+timezone produces the existing 503 source_timezone_unconfigured error when a creation
+period is requested. No alternative server/session-local timezone is assumed.
+`repositories/created_period.py` supplies fixed, bound SQL to list and search:
+`created_at AT TIME ZONE :created_tz >= :period_start` and `< :period_end`.
+No timestamp text parsing or request-owned SQL identifiers are introduced.
+
+`services/periods.py` remains the single period-window calculation. Each request captures
+an aware UTC now. Today starts at local midnight in `settings.admin_timezone`
+(`ADMIN_TIMEZONE`, default Europe/Berlin), through now exclusively. Other presets span
+exactly 24 hours or 7/30/90 days backward from now in UTC, including across DST changes.
+The start is inclusive, now is exclusive. NULL and future created_at are excluded by a
+period. An event created two days ago with a date next year can satisfy both period=7d
+and temporal=upcoming; created_at is never replaced by event_date or modified_at.
+
+The source remains SELECT-only; no schema/index changes or public API are added.
+Autocomplete still limits output to 20. Timestamp conversion may prevent an ordinary
+created_at index from serving the predicate directly, and broad scans remain possible.
+Production query-plan analysis and any suitable expression indexes belong to the Uranus
+migration repository. No production-scale latency claim is made.

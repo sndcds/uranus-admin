@@ -60,7 +60,7 @@ it.each([false, true])('logout clears caches and navigates even on failure: %s',
   preferences.entities.events.q = 'email@example.org'
   preferences.entities.events.status = 'released'
   preferences.graph.organization = 'private-org'
-  preferences.sharedPeriod = '90d'
+  preferences.hydrateEntity('events', { q: 'email@example.org', status: 'released', period: '90d' })
   dashboard.data = summary
   list.data = findings
   if (fails) api.logout = vi.fn().mockRejectedValue(new Error('private details'))
@@ -69,9 +69,11 @@ it.each([false, true])('logout clears caches and navigates even on failure: %s',
   expect(auth.status).toBe('anonymous')
   expect(dashboard.data).toBeNull()
   expect(list.data).toBeNull()
-  expect(preferences.entities.events).toEqual({ q: '', status: '', temporal: '' })
+  expect(preferences.entities.events).toEqual({ q: '', status: '', temporal: '', period: '' })
   expect(preferences.graph.organization).toBe('')
   expect(preferences.sharedPeriod).toBe('24h')
+  expect(preferences.sharedPeriodChosen).toBe(false)
+  expect(Object.values(preferences.entityPeriodsSet).some(Boolean)).toBe(false)
   expect(navigate).toHaveBeenCalledWith('/login', { replace: true })
   expect(Boolean(auth.logoutWarning)).toBe(fails)
   expect(auth.logoutWarning).not.toContain('private details')

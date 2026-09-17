@@ -45,7 +45,7 @@ for (const section of ['events', 'organizations', 'venues', 'spaces'] as const) 
     await page.goto(`/${section}?organization_id=${org}&page=2`)
     await expect(page.getByText('All fixtures', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Organisation UUID', { exact: true })).toHaveCount(0)
-    const temporal = page.getByRole('combobox', { name: 'Zeitraum', exact: true })
+    const temporal = page.getByRole('combobox', { name: 'Terminlage', exact: true })
     await temporal.selectOption({ label: 'Mit bevorstehenden Terminen' })
     await expect(page).toHaveURL(
       (url) =>
@@ -54,7 +54,7 @@ for (const section of ['events', 'organizations', 'venues', 'spaces'] as const) 
         url.searchParams.get('organization_id') === org,
     )
     await expect(page.getByText('Upcoming fixture', { exact: true })).toBeVisible()
-    await expect(page.getByText('Zeitraum: Mit bevorstehenden Terminen')).toBeVisible()
+    await expect(page.getByText('Terminlage: Mit bevorstehenden Terminen')).toBeVisible()
     const search = page.getByRole('combobox', { name: 'Suche', exact: true })
     await search.fill('hacks')
     await expect(page.getByRole('option', { name: /Upcoming fixture/ })).toBeVisible()
@@ -112,7 +112,7 @@ for (const section of ['users', 'images'] as const) {
     await page.goto(`/${section}`)
     await expect(page.getByText(`Fixture ${section}`, { exact: true })).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Suche', exact: true })).toBeVisible()
-    await expect(page.getByRole('combobox', { name: 'Zeitraum', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('combobox', { name: 'Terminlage', exact: true })).toHaveCount(0)
     await expect(page.getByLabel('Organisation UUID', { exact: true })).toHaveCount(0)
   })
 }

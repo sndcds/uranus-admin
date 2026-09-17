@@ -49,10 +49,10 @@ export function temporalFromQuery(value: unknown): TemporalFilter | '' {
 }
 
 export const entityFilterCapabilities = {
-  events: { status: true, temporal: true },
-  users: { status: true, temporal: false },
-  organizations: { status: false, temporal: true },
-  venues: { status: false, temporal: true },
-  spaces: { status: false, temporal: true },
-  images: { status: false, temporal: false },
-} as const satisfies Record<EntitySection, { status: boolean; temporal: boolean }>
+  events: { period: true, status: true, temporal: true },
+  users: { period: true, status: true, temporal: false },
+  organizations: { period: true, status: false, temporal: true },
+  venues: { period: true, status: false, temporal: true },
+  spaces: { period: true, status: false, temporal: true },
+  images: { period: true, status: false, temporal: false },
+} as const satisfies Record<EntitySection, { period: boolean; status: boolean; temporal: boolean }>
