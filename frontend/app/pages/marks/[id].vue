@@ -110,6 +110,9 @@ onBeforeUnmount(() => {
         <p v-if="data.completed_at" class="rounded-lg bg-emerald-50 p-3 text-emerald-900">
           Erledigt am {{ dateTime(data.completed_at) }} · von {{ data.completed_by }}
         </p>
+        <NuxtLink v-if="data.action" :to="data.action.href" class="button"
+          >Datensatz öffnen</NuxtLink
+        >
         <GraphLink :entity-type="data.entity_type" :entity-key="data.entity_key" />
         <RecordMarkLink :entity-type="data.entity_type" :entity-key="data.entity_key" />
       </div>

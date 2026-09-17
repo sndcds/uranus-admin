@@ -437,3 +437,86 @@ membership creation retains `created_at`. Activity's opt-in `creation_basis=stat
 restricts its sources to the same seven types and uses invitation timestamps for memberships.
 Default `creation_basis=record` is unchanged. Exact timestamp matrix, DST behavior, response,
 NULL handling and performance limitations: [Statistics](../../frontend/docs/statistics.md).
+
+### Dashboard check history
+
+Persisted dashboard responses include `check_status.latest_run` and
+`check_status.last_successful_run`, each nullable. These summaries expose run UUID,
+status, start/finish timestamps, rule count and finding count. Latest run is ordered
+by start time then UUID descending; last success by finish time then UUID descending.
+A later failed/queued/running run never hides the previous success. These are current
+history values, independent of the selected new-record period. With no stored runs,
+both are null; explicit live diagnostic mode returns `check_status: null`.
+
+### Domain record lists and details
+
+`GET /api/v1/{section}` and `GET /api/v1/{section}/{uuid}` exist for six explicit
+sections: `events`, `venues`, `spaces`, `organizations`, `users`, `images`.
+Lists accept `q` (literal substring, maximum 200 characters), `organization_id`,
+`status`, `page`, `page_size` (1–100); order is case-folded name with C collation,
+then UUID. Details accept `related_page` (25 related rows per page). Missing UUIDs
+return `404 record_not_found`. All endpoints share the system-admin dependency.
+
+Responses reuse safe Activity fields and public preview URLs, with an explicit
+`facts` model for source counts/context. Optional `finding_count` excludes resolved
+findings; `mark_count` counts stored marks. Both are null when admin storage is not
+configured, never fabricated zeroes. Source counts include the complete source
+state, not a selected time window. Relations reuse verified graph relationships
+and image contexts; counts/pages come from SQL. A bounded number of batch queries
+serves each page; no per-row API requests or per-row database round trips.
+
+Canonical Action hrefs now target these six detail routes, including images without
+creation timestamps. Existing structured `route=activity` remains compatible; older
+clients should upgrade their internal URL validator before deploying the new backend.
+Composite keys and event dates retain existing Activity/queue targets. Findings accept
+an exact `entity_key` filter in addition to `entity_type`.
+
+### Domain create authorization prerequisite (#15)
+
+Read-only inspection of `sndcds/uranus` at `12ec7608d55aed3cf86724ce47d275f9d49e46b2`
+confirmed `/api/admin` uses `app.JWTMiddleware` (`uranus-api.go`). Create endpoints
+include `/org/create`, `/venue/create`, `/space/create`, `/event/create`; their handlers
+use Uranus user UUIDs and organization/venue permission checks (for example
+`api/admin_create_event.go`, `api/admin_create_venue.go`). An independent admin session
+is not a Uranus JWT or an organization grant. No delegated write credential/authorized
+identity mapping is configured in this application. Therefore this change adds no
+write adapter or create form, and the global create control explicitly explains the
+missing authorized Uranus connection. Issue #15 remains open for that integration.
+A future adapter needs a deliberately established delegated Uranus authorization
+contract, typed allowed bodies, safe upstream error mapping, and no browser-visible
+upstream credentials. It must not mint an identity or substitute source SQL writes.
+
+### Additive cursor pagination
+
+Activity and persisted findings support `cursor=start&page_size=25`, followed by
+`cursor=<next_cursor>` with the same filters. Do not send `page` with `cursor`.
+Offset navigation remains the frontend default. `cursor_pagination` contains
+`page_size`, `has_more`, `next_cursor`; a null next cursor ends the stream. Legacy
+`pagination` counts remain present for compatibility; its page number is not a
+cursor page counter. Live findings do not support cursors.
+
+Cursors are versioned base64url JSON with endpoint and filter-scope validation.
+Activity includes UTC created time plus entity type/key (descending time, ascending
+identity); unknown timestamps use identity only. The original time window is carried
+forward, even when the clock advances. Persisted findings use descending effective
+priority score and ascending C-collated finding ID, exactly as offset ordering.
+Invalid encoding, version, endpoint, filters or values returns sanitized 422.
+No cursor grants permission: normal auth and every filter apply to every page.
+Inserts before the cursor do not duplicate/skip unchanged original rows. This is not
+a database snapshot across HTTP requests: deletions and changed ordering attributes
+(such as reprioritized findings) can change the stream and require restarting it.
+
+### URL observations
+
+The optional `app.url_check_worker` maintains `admin.url_check`; syntax checks remain
+local and deterministic. No new browser network endpoint is exposed. Repeated real
+network/HTTP failures can create warning rule `url_unreachable` in the existing
+persisted finding stream. 401/403/429, SSRF rejection, excessive bodies and redirect
+limits remain diagnostic observations, not definitive broken-link findings. A later
+2xx resolves only that source field. The current core check-run count still describes
+core rules; asynchronous URL observations have their own timestamps and TTLs.
+
+Record-mark list/detail responses additionally expose optional `action` using the
+same canonical Action model for the six domain sections. Historical notes stay on
+`/marks/{id}`; “Datensatz öffnen” links back to the source detail. Unsupported mark
+entity types have no invented domain target.

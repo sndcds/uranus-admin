@@ -17,7 +17,8 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
     summary="Dashboard summary",
     description="Source-table creations in [from_at, to_at), plus stored unresolved findings. "
     "Only explicit mode=live runs a diagnostic scan. "
-    "Today starts at midnight in ADMIN_TIMEZONE. Historical check status is unavailable.",
+    "Today starts at midnight in ADMIN_TIMEZONE. "
+    "Persisted mode includes latest and last successful check runs, independent of period.",
 )
 async def summary(
     request: Request,

@@ -89,3 +89,15 @@ und Benutzern als interaktiven, begrenzten D3-Graph.
 
 `/statistics` zeigt Neuanlagen im Zeitverlauf mit D3, sieben Kennzahlen, Zeitraumvergleich und
 neuesten Entitäten. Zeitstempel, Grenzen und Einladungssemantik: [Statistik-Dokumentation](frontend/docs/statistics.md).
+
+Domain inspection now includes events, venues/spaces, organizations, users/teams,
+and images with searchable lists, paginated relations, graph links and workflow
+links. Creation remains unavailable until authorized Uranus API delegation exists.
+The dashboard distinguishes the latest check run from the latest successful run.
+Operators can audit source metadata with `python -m app.source_schema_verify --json`;
+see [source verification](backend/docs/source-verification.md).
+
+Optional public URL observations run separately with
+`python -m app.url_check_worker --once` (migration 0007 and explicit runtime grants).
+They never run during normal list requests or the deterministic syntax scan.
+See [worker operations and SSRF safeguards](backend/docs/development.md).

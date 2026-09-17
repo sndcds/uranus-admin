@@ -9,6 +9,7 @@ from app.errors import APIError
 from app.repositories.activity_previews import activity_previews
 from app.schemas.action import Action
 from app.schemas.activity import Activity, ActivityFilters, ActivityPage
+from app.schemas.cursor import ActivityCursor, CursorPagination, decode, encode, scope
 from app.schemas.finding import Pagination
 from app.services.periods import period_window
 
@@ -86,10 +87,21 @@ async def activity_page(
 ) -> ActivityPage:
     if settings.uranus_timestamp_timezone is None:
         raise APIError(503, "source_timezone_unconfigured", "Source timezone must be configured.")
+    cursor_mode = filters.cursor is not None
+    expected_scope = scope(filters, timezone=settings.uranus_timestamp_timezone)
+    position = (
+        decode(filters.cursor, ActivityCursor, expected_scope)
+        if filters.cursor is not None and filters.cursor != "start"
+        else None
+    )
+    if position and ((position.created_at is None) != (filters.timestamp_state == "unknown")):
+        raise APIError(422, "invalid_input", "Cursor timestamp state does not match.")
     start, end = filters.from_at, filters.to_at
     if filters.timestamp_state == "known" and not (start or end or filters.entity_key):
         window = period_window(filters.period or "24h", now, settings.admin_timezone)
         start, end = window.start, window.end
+    if position:
+        start, end = position.from_at, position.to_at
     params: dict[str, Any] = {
         "entity_type": filters.entity_type,
         "entity_key": filters.entity_key,
@@ -97,8 +109,8 @@ async def activity_page(
         "start": start,
         "end": end,
         "tz": settings.uranus_timestamp_timezone,
-        "limit": filters.page_size,
-        "offset": (filters.page - 1) * filters.page_size,
+        "limit": filters.page_size + int(cursor_mode),
+        "offset": 0 if cursor_mode else (filters.page - 1) * filters.page_size,
     }
     where = """
     WHERE (CAST(:entity_type AS text) IS NULL OR entity_type=:entity_type)
@@ -139,13 +151,30 @@ async def activity_page(
     total = int(
         (await connection.execute(text(f"SELECT COUNT(*) FROM ({base}) q"), params)).scalar_one()
     )
+    cursor_where = ""
+    if position:
+        params.update(
+            cursor_type=position.entity_type,
+            cursor_key=position.entity_key,
+            cursor_time=position.created_at,
+        )
+        identity_after = "(entity_type,entity_key) > (:cursor_type,:cursor_key)"
+        cursor_where = (
+            f"WHERE {identity_after}"
+            if position.created_at is None
+            else (
+                "WHERE (created_at < :cursor_time OR "
+                f"(created_at = :cursor_time AND {identity_after}))"
+            )
+        )
     rows = (
         (
             await connection.execute(
                 text(
-                    "SELECT entity_type, entity_key, entity_name, "
+                    "SELECT * FROM (SELECT entity_type, entity_key, entity_name, "
                     "organization_id, organization_name, "
-                    f"status, created_at AT TIME ZONE :tz AS created_at FROM ({base}) q "
+                    f"status, created_at AT TIME ZONE :tz AS created_at FROM ({base}) q) projected "
+                    f"{cursor_where} "
                     f"ORDER BY {order} LIMIT :limit OFFSET :offset"
                 ),
                 params,
@@ -154,6 +183,21 @@ async def activity_page(
         .mappings()
         .all()
     )
+    has_more = cursor_mode and len(rows) > filters.page_size
+    rows = rows[: filters.page_size]
+    next_cursor = None
+    if has_more and rows:
+        last = rows[-1]
+        next_cursor = encode(
+            ActivityCursor(
+                scope=expected_scope,
+                entity_type=last["entity_type"],
+                entity_key=last["entity_key"],
+                created_at=last["created_at"],
+                from_at=start,
+                to_at=end,
+            )
+        )
     source_items = [dict(row) for row in rows]
     previews = await activity_previews(connection, settings, source_items, now)
     items = []
@@ -161,12 +205,17 @@ async def activity_page(
         data.update(previews.get((data["entity_type"], data["entity_key"]), {}))
         data["action"] = (
             Action(route="activity", entity_key=data["entity_key"], entity_type=data["entity_type"])
-            if data["created_at"] is not None
+            if data["created_at"] is not None or data["entity_type"] == "image"
             else None
         )
         items.append(Activity.model_validate(data))
     return ActivityPage(
         items=items,
+        cursor_pagination=CursorPagination(
+            page_size=filters.page_size, next_cursor=next_cursor, has_more=has_more
+        )
+        if cursor_mode
+        else None,
         observed_at=now,
         from_at=start,
         to_at=end,

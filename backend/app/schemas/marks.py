@@ -3,8 +3,9 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, computed_field, model_validator
 
+from app.schemas.action import Action
 from app.schemas.activity import EntityType
 from app.schemas.finding import Pagination
 
@@ -69,6 +70,19 @@ class Mark(BaseModel):
     updated_at: AwareDatetime
     completed_at: AwareDatetime | None
     completed_by: str | None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def action(self) -> Action | None:
+        if self.entity_type in {"event", "venue", "space", "organization", "user", "image"}:
+            return Action.model_validate(
+                {
+                    "route": "activity",
+                    "entity_type": self.entity_type,
+                    "entity_key": self.entity_key,
+                }
+            )
+        return None
 
 
 class MarkEvent(BaseModel):

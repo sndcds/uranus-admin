@@ -205,3 +205,12 @@ Seitenverhältnis und bekommen denselben Innenabstand. Vorhandene Adressbestandt
 WGS84-Koordinaten werden angezeigt; der OpenStreetMap-Link lädt erst beim Öffnen die Karte.
 Es gibt keine zusätzlichen JSON-Metadatenanfragen pro Zeile und kein Geocoding.
 Siehe [Activity-Vertrag](../backend/docs/contracts.md#user-avatars-and-organization-locations).
+
+## Domain inspection
+
+Events, venues, spaces, organizations, users and images have paginated list and
+UUID detail pages, using the Activity visual language. Search/filter/page state is
+URL-based. Detail relations are independently paginated; graph, marks and exact
+finding links remain available. Source timestamps retain their actual meaning.
+The global create action remains disabled until an authorized Uranus write adapter
+exists; the independent admin login does not grant Uranus domain write permissions.

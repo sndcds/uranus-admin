@@ -175,3 +175,28 @@ auth_login_bucket = sa.Table(
 sa.Index("auth_session_idle_idx", auth_session.c.last_seen_at)
 sa.Index("auth_session_revoked_idx", auth_session.c.revoked_at)
 sa.Index("auth_login_bucket_expiry_idx", auth_login_bucket.c.window_end)
+
+
+url_check = sa.Table(
+    "url_check",
+    metadata,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("source_type", sa.Text, nullable=False),
+    sa.Column("source_key", sa.Text, nullable=False),
+    sa.Column("field", sa.Text, nullable=False),
+    sa.Column("url", sa.Text, nullable=False),
+    sa.Column("last_checked_at", sa.DateTime(timezone=True)),
+    sa.Column("last_success_at", sa.DateTime(timezone=True)),
+    sa.Column("status", sa.Text, nullable=False, server_default="pending"),
+    sa.Column("status_code", sa.Integer),
+    sa.Column("redirect_target", sa.Text),
+    sa.Column("failure_type", sa.Text),
+    sa.Column("failure_count", sa.Integer, nullable=False, server_default="0"),
+    sa.Column(
+        "next_check_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+    ),
+    sa.Column("worker_id", UUID),
+    sa.Column("lease_until", sa.DateTime(timezone=True)),
+    sa.UniqueConstraint("source_type", "source_key", "field", name="url_check_source"),
+)
+sa.Index("url_check_due_idx", url_check.c.next_check_at)

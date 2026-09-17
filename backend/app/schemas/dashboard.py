@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -28,6 +29,20 @@ class QualityCounts(BaseModel):
     mode: Literal["live", "persisted"] = "persisted"
 
 
+class DashboardCheckRun(BaseModel):
+    id: UUID
+    status: Literal["queued", "running", "success", "failed"]
+    started_at: datetime
+    finished_at: datetime | None
+    finding_count: int
+    rule_count: int
+
+
+class DashboardCheckStatus(BaseModel):
+    latest_run: DashboardCheckRun | None
+    last_successful_run: DashboardCheckRun | None
+
+
 class DashboardSummary(BaseModel):
     period: Period
     from_at: datetime
@@ -38,5 +53,4 @@ class DashboardSummary(BaseModel):
     images_without_created_at: int
     urgent_findings: int
     quality: QualityCounts
-    # No persisted runs exist in milestone 1. A request is not a historical check run.
-    check_status: None = None
+    check_status: DashboardCheckStatus | None = None

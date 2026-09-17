@@ -104,6 +104,10 @@ async def test_migrations_only_manage_admin(database, monkeypatch):
         )
         await asyncio.to_thread(command.upgrade, config, "0004")
         await asyncio.to_thread(command.upgrade, config, "head")
+        assert await conn.fetchval("SELECT to_regclass('admin.url_check')") is not None
+        await asyncio.to_thread(command.downgrade, config, "0006")
+        assert await conn.fetchval("SELECT to_regclass('admin.url_check')") is None
+        await asyncio.to_thread(command.upgrade, config, "head")
         await asyncio.to_thread(command.check, config)
         assert await conn.fetchval("SELECT to_regclass('admin.auth_session_idle_idx')") is not None
         await asyncio.to_thread(command.downgrade, config, "0004")

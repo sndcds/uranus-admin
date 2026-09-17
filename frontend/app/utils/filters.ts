@@ -6,6 +6,7 @@ export function parseFilters(query: Record<string, unknown>) {
     'mode',
     'severity',
     'entity_type',
+    'entity_key',
     'rule',
     'organization_id',
     'status',

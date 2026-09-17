@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.errors import APIError
-from app.repositories.dashboard import new_records
+from app.repositories.dashboard import check_status, new_records
 from app.schemas.dashboard import DashboardSummary, NewRecords, Period, QualityCounts
 from app.services.checks import persisted_counts
 from app.services.periods import period_window
@@ -53,4 +53,5 @@ async def get_summary(
         images_without_created_at=unknown,
         urgent_findings=urgent,
         quality=quality,
+        check_status=await check_status(admin) if admin is not None else None,
     )

@@ -42,6 +42,13 @@ test('marks retain notes, completion authors and reopening history across naviga
         id: `20000000-0000-4000-8000-${String(records.length + 1).padStart(12, '0')}`,
         entity_type: body.entity_type,
         entity_key: body.entity_key,
+        action: {
+          type: 'view',
+          route: 'activity',
+          entity_type: 'venue',
+          entity_key: body.entity_key,
+          href: `/venues/${body.entity_key}`,
+        },
         entity_name: 'Hafenbühne',
         reasons: body.reasons,
         reason_detail: body.reason_detail ?? null,
@@ -137,6 +144,10 @@ test('marks retain notes, completion authors and reopening history across naviga
   await page.getByLabel('Notiz (optional)', { exact: true }).fill('Datum beim Veranstalter prüfen')
   await page.getByRole('button', { name: 'Markierung speichern', exact: true }).click()
   await expect(page).toHaveURL(/\/marks\/20000000-/)
+  await expect(page.getByRole('link', { name: 'Datensatz öffnen', exact: true })).toHaveAttribute(
+    'href',
+    `/venues/${entityKey}`,
+  )
   const detailURL = page.url()
   await expect(page.getByRole('region', { name: 'Notizen und Verlauf' })).toContainText('Anna')
   await page.getByLabel('Neue Notiz / Abschlussnotiz (optional)').fill('Veranstalter kontaktiert')

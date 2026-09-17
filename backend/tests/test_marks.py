@@ -254,3 +254,10 @@ async def test_runtime_history_is_append_only_and_version_unique(admin_store, db
             await admin_store.execute(record_mark_event.insert().values(**event))
     async with admin_store.begin():
         assert await detail_in_transaction(admin_store, first.id) == first
+
+
+async def test_mark_canonical_domain_target(admin_store, db_connection):
+    item = await create_mark(admin_store, db_connection, MarkCreate(**creation()), "admin:test")
+    assert item.action.href == f"/venues/{uid(20)}"
+    page = await mark_page(admin_store, MarkFilters())
+    assert page.items[0].action.href == item.action.href
