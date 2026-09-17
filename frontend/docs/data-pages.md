@@ -192,24 +192,24 @@ Benutzer-Suchdropdown; Secrets/Tokens werden weder durchsucht noch ausgegeben.
 Die Source bleibt read-only. Große ILIKE-Scans können künftig pg_trgm-Indizes im
 Uranus-Repo benötigen; dieser Task führt keine Source-Migrationen aus.
 
-### Zeitraum in den Entity-Listen
+### Terminlage in den Entity-Listen
 
 Das sichtbare Eingabefeld „Organisation UUID“ entfällt auf allen sechs Listen.
 `organization_id` bleibt für Deep Links, interne Navigation und API-Consumer erhalten;
 Anwenden, Live-Suche und Pagination übernehmen den vorhandenen URL-Wert weiterhin.
 
-Auf events, organizations, venues und spaces steht nach der Suche der Filter **Zeitraum**:
+Auf events, organizations, venues und spaces steht der Filter **Terminlage**:
 
 - Alle: kein temporal-Parameter.
 - Mit bevorstehenden Terminen: `temporal=upcoming`.
 - Mit vergangenen Terminen: `temporal=past`.
 
-Users und images zeigen keinen Zeitraumfilter und senden ihn nicht im Autocomplete.
+Users und images zeigen keinen Terminlage-Filter und senden ihn nicht im Autocomplete.
 Explizite API-Anfragen für diese Typen mit temporal werden mit 422 abgewiesen.
 Die Auswahl wendet den Filter sofort an und setzt page=1. Enter/Anwenden kombinieren
 q, temporal und Status mit einem bestehenden organization_id. Pagination behält alle
 Parameter; Reload und Browser Back/Forward stellen die Steuerelemente wieder her.
-Die Ergebnisübersicht zeigt den angewendeten Zeitraum über das vorhandene
+Die Ergebnisübersicht zeigt den angewendete Terminlage über das vorhandene
 ResultSummary-description-Pattern. Auf kleinen Viewports bricht die Filterleiste um.
 
 EntitySearch reicht temporal an den zentralen Admin-API-Client durch und invalidiert
@@ -244,10 +244,10 @@ Präferenzen im anwendungs-/SSR-request-lokalen Pinia-Speicher:
 | Bereich | Gemerkte Werte |
 | --- | --- |
 | `sharedPeriod` | `today`, `24h`, `7d`, `30d`, `90d` |
-| `entities.events` | `q`, Event-`status`, `temporal` |
-| `entities.users` | `q`, User-`status` |
-| `entities.organizations/venues/spaces` | `q`, `temporal` |
-| `entities.images` | `q` |
+| `entities.events` | `q`, Event-`status`, `temporal`, `period` |
+| `entities.users` | `q`, User-`status`, `period` |
+| `entities.organizations/venues/spaces` | `q`, `temporal`, `period` |
+| `entities.images` | `q`, `period` |
 | `activity` | Objektart und zuletzt explizit gewähltes normales Preset |
 | `statistics` | normales Preset, Intervall, Vergleich, ausgewählte Serien |
 | `graph` | Entitätstyp, Beziehungstyp, Suchorganisation, Tiefe |
@@ -286,7 +286,7 @@ die Query. Nicht angewendete Suchentwürfe werden nicht als letzte Filter gespei
 Reset löscht nur die aktuelle Entity und ihren URL-Kontext, keine anderen Bereiche.
 `organization_id` bleibt für Deep Links unterstützt, wird aber nicht als globale
 Präferenz gespeichert. Die typisierten Entity-Schemas verhindern eine Vermischung
-von Event- und User-Status sowie Zeitfilter für Users/Images.
+von Event- und User-Status sowie Terminlage-Filter für Users/Images.
 
 DashboardStore besitzt jetzt nur Daten, Lade-/Fehlerzustand, `lastSuccess` und
 Request-Koordination. Der zu ladende Zeitraum ist ein Argument, keine zweite
@@ -299,3 +299,40 @@ Suchbegriffe können personenbezogene Daten enthalten und bleiben ausschließlic
 Session-Arbeitsspeicher. Der bestehende Auth-Reset löscht mit `resetAll()` alle
 Präferenzen bei Logout (auch bei Serverfehler), Session-Verlust und erneutem Login.
 Backend, Auth-Grenzen und Source-Read-only-Vertrag bleiben unverändert.
+
+
+## Erstellt und Terminlage
+
+Alle sechs Entity-Listen unterstützen **Erstellt** (`period`): Alle, Heute,
+Letzte 24 Stunden, Letzte 7 Tage, Letzte 30 Tage und Letzte 90 Tage. Die Labels
+und Presets stammen aus `pagePeriods.entities` und den gemeinsamen Period-Helpers.
+`period` filtert den eigenen `created_at`-Zeitpunkt, nicht Änderungen oder Event-Termine.
+Der bisherige `temporal`-Filter heißt jetzt **Terminlage** und bleibt auf Events,
+Organisationen, Orte und Räume beschränkt. Beide Filter sind unabhängig und werden
+serverseitig mit Suche, Status und Organisationskontext per AND kombiniert.
+
+Ohne bewusste Zeitraumwahl bleiben Entity-Listen zunächst auf **Alle**; das globale
+Default-Preset `24h` verkürzt die bisherigen Listen nicht automatisch. Es gilt:
+**explizite URL > eigene gemerkte Entity-Auswahl > bewusst gewählte sharedPeriod > Alle**.
+`sharedPeriodChosen` unterscheidet einen gewählten globalen Zeitraum vom Initialwert.
+`entityPeriodsSet` unterscheidet unbesuchte/unbestimmte Entity-Auswahlen von bewusstem
+Alle (`period: ''`). Normale Presets aus Dashboard, Activity, Statistics oder einer
+Entity können daher bisher unbestimmte Entity-Seiten vorbelegen. Eine Entity mit eigener
+Auswahl behält diese; deren Wiederherstellung überschreibt nicht den zuletzt global
+gewählten Zeitraum. Explizite URL-Perioden und spätere Periodenwechsel aktualisieren
+dagegen sowohl die Entity-Präferenz als auch `sharedPeriod`.
+
+Alle und Reset löschen nur den Zeitraum der jeweiligen Entity, nicht sharedPeriod.
+Alle wird ohne period-Parameter und mit `page=1` als vollständiger URL-Snapshot
+serialisiert. Die bestehende `usePreferenceQuery`-Architektur bleibt unverändert;
+Pagination, Reload und Browser-Navigation bewahren bzw. rekonstruieren den Filter.
+Logout/resetAll löscht auch die beiden Auswahl-Metadaten. Alles bleibt ausschließlich
+im request-/session-lokalen Pinia-Speicher; es gibt keine Browser-Persistenz.
+
+EntitySearch erhält denselben period-Filter über den zentralen API-Client. Ein Wechsel
+invalidiert noch laufende Antworten; keine lokale Datumsfilterung. ResultSummary zeigt
+z. B. „Erstellt: Letzte 7 Tage · Terminlage: Mit bevorstehenden Terminen“.
+Backend-Zeitgrenzen sind inklusive Anfang/exklusive Jetzt. Heute beginnt um Mitternacht
+in `ADMIN_TIMEZONE` (Standard Europe/Berlin), die anderen Presets sind rollierende
+UTC-Dauern. Source-Zeitstempel werden entsprechend `URANUS_TIMESTAMP_TIMEZONE`
+interpretiert. Fehlende created_at-Werte sind bei Alle sichtbar, bei period ausgeschlossen.

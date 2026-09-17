@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
-import type { EntitySearchItem, EntitySearchType, TemporalFilter } from '#shared/contracts'
+import type {
+  EntitySearchItem,
+  EntitySearchType,
+  TemporalFilter,
+  SharedPeriod,
+} from '#shared/contracts'
 import { entityTypes } from '~/utils/entityPresentation'
 import { entitySearchPlaceholders, supportsTemporal } from '~/utils/entities'
 
@@ -10,6 +15,7 @@ const props = defineProps<{
   organizationId?: string
   status?: string
   temporal?: TemporalFilter | ''
+  period?: SharedPeriod | ''
 }>()
 const emit = defineEmits<{ apply: []; select: [item: EntitySearchItem] }>()
 const { $adminApi } = useNuxtApp()
@@ -51,6 +57,7 @@ function schedule() {
   const request = generation
   const params = {
     q: query.value.trim(),
+    period: props.period || undefined,
     entity_type: props.entityType,
     organization_id: props.organizationId || undefined,
     status: props.status || undefined,
@@ -75,6 +82,7 @@ watch(
     () => props.organizationId,
     () => props.status,
     () => props.temporal,
+    () => props.period,
   ],
   schedule,
 )

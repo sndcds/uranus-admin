@@ -1,8 +1,12 @@
-import { z } from '#shared/zod'
-import { periodSchema, statisticsPeriodSchema } from '#shared/contracts'
+import type { z } from '#shared/zod'
+import {
+  periodSchema,
+  statisticsPeriodSchema,
+  sharedPeriodSchema,
+  type SharedPeriod,
+} from '#shared/contracts'
 
-export const sharedPeriodSchema = z.enum(['today', '24h', '7d', '30d', '90d'])
-export type SharedPeriod = z.infer<typeof sharedPeriodSchema>
+export { sharedPeriodSchema, type SharedPeriod } from '#shared/contracts'
 export const sharedPeriodLabels: Record<SharedPeriod, string> = {
   today: 'Heute',
   '24h': 'Letzte 24 Stunden',
@@ -11,13 +15,19 @@ export const sharedPeriodLabels: Record<SharedPeriod, string> = {
   '90d': 'Letzte 90 Tage',
 }
 export const pagePeriods = {
+  entities: sharedPeriodSchema,
   dashboard: periodSchema,
   activity: periodSchema,
   statistics: statisticsPeriodSchema.exclude(['custom']),
 }
 export type PeriodPage = keyof typeof pagePeriods
 export type PagePeriod<P extends PeriodPage> = z.infer<(typeof pagePeriods)[P]>
-export const pageDefaultPeriod = { dashboard: '24h', activity: '24h', statistics: '24h' } as const
+export const pageDefaultPeriod = {
+  dashboard: '24h',
+  activity: '24h',
+  statistics: '24h',
+  entities: '24h',
+} as const
 export function supportsPeriod<P extends PeriodPage>(
   page: P,
   value: unknown,
@@ -35,3 +45,5 @@ export function periodOptions<P extends PeriodPage>(page: P) {
 export const dashboardPeriods = periodOptions('dashboard')
 export const activityPeriods = periodOptions('activity')
 export const statisticsPeriods = periodOptions('statistics')
+
+export const entityPeriods = periodOptions('entities')
