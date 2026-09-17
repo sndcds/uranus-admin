@@ -1,7 +1,7 @@
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, text
 
-from app.repositories.entities import entity_page
+from app.repositories.entities import entity_detail, entity_page
 from app.schemas.entities import EntityFilters
 from tests.conftest import uid
 
@@ -120,3 +120,63 @@ async def test_domain_workflow_counts_and_exact_finding_filter(admin_store, db_c
     assert findings.status_code == 200
     assert findings.json()["items"]
     assert all(item["entity_key"] == str(uid(20)) for item in findings.json()["items"])
+
+
+@pytest.mark.integration
+async def test_user_search_includes_username_without_inventing_activity(
+    db_connection, settings, now
+):
+    await db_connection.execute(
+        text(
+            'UPDATE uranus."user" SET username=:name, display_name=:display, is_active=false '
+            "WHERE uuid=:id"
+        ),
+        {"name": "catalog_7", "display": "Different display", "id": uid(1)},
+    )
+    result = await entity_page(
+        db_connection, settings, "users", EntityFilters(q="CATALOG_7", status="inactive"), now
+    )
+    assert result.pagination.total == 1
+    assert result.items[0].entity_name == "Different display"
+    assert result.items[0].facts.username == "catalog_7"
+    for query in ({"q": "catalog%"}, {"q": "catalog_7", "status": "active"}):
+        assert (
+            await entity_page(db_connection, settings, "users", EntityFilters(**query), now)
+        ).items == []
+
+
+@pytest.mark.integration
+async def test_detail_preserves_invitation_time_and_join_state(db_connection, settings, now):
+    await db_connection.execute(
+        text(
+            "UPDATE uranus.organization_member_link SET created_at='2026-01-01', "
+            "invited_at='2026-02-02 12:00:00', has_joined=false "
+            "WHERE org_uuid=:org AND user_uuid=:user"
+        ),
+        {"org": uid(10), "user": uid(1)},
+    )
+
+    async def membership():
+        data = (await entity_detail(db_connection, settings, "users", uid(1), 1, now)).model_dump(
+            mode="json"
+        )
+        return next(
+            row for row in data["related"]["items"] if row["entity_type"] == "team_membership"
+        )
+
+    invited = await membership()
+    assert invited["created_at"].startswith("2026-01-01")
+    assert "Eingeladen: 02.02.2026 13:00 (Europe/Berlin)" in invited["subtitle"]
+    assert invited["status"] == "invited"
+    assert "joined_at" not in invited
+    await db_connection.execute(
+        text(
+            "UPDATE uranus.organization_member_link SET invited_at=NULL,has_joined=true "
+            "WHERE org_uuid=:org AND user_uuid=:user"
+        ),
+        {"org": uid(10), "user": uid(1)},
+    )
+    joined = await membership()
+    assert joined["status"] == "joined"
+    assert joined["subtitle"] is None
+    assert joined["created_at"] == invited["created_at"]

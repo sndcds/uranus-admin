@@ -86,6 +86,11 @@ it.each(entitySectionSchema.options)(
     const detail = mount(EntityDetailPage, { props: { section }, global })
     await flushPromises()
     expect(detail.text()).toContain(`Fixture ${section}`)
+    if (section === 'events') {
+      expect(detail.text()).toContain('Standardort')
+      expect(detail.text()).toContain('Standardraum')
+      expect(detail.text()).toContain('Standardbühne')
+    }
     expect(detail.findAll('a').some((a) => a.attributes('data-to')?.includes('entity_key'))).toBe(
       true,
     )
