@@ -7,6 +7,7 @@ import FilterBar from '../../app/components/FilterBar.vue'
 import PaginationBar from '../../app/components/PaginationBar.vue'
 import ResultSummary from '../../app/components/ResultSummary.vue'
 import PageHeader from '../../app/components/PageHeader.vue'
+import DetailFacts from '../../app/components/DetailFacts.vue'
 import { entitySectionSchema, entityPageSchema } from '../../shared/contracts'
 import { entityFixture, detailFixture } from '../fixtures/entities'
 const api = { entities: vi.fn(), entity: vi.fn() },
@@ -86,6 +87,14 @@ it.each(entitySectionSchema.options)(
     const detail = mount(EntityDetailPage, { props: { section }, global })
     await flushPromises()
     expect(detail.text()).toContain(`Fixture ${section}`)
+    expect(detail.findAllComponents(PageHeader)).toHaveLength(1)
+    expect(detail.findAllComponents(DetailFacts)).toHaveLength(1)
+    expect(detail.findAll('dl')).toHaveLength(1)
+    const header = detail.getComponent(PageHeader)
+    expect(header.get('a').text()).toBe('Zur Liste')
+    expect(header.get('a').attributes('data-to')).toBe(JSON.stringify(`/${section}`))
+    expect(header.text()).toContain('Befunde zu diesem Datensatz')
+    expect(header.find('ul').exists()).toBe(false)
     if (section === 'events') {
       expect(detail.text()).toContain('Standardort')
       expect(detail.text()).toContain('Standardraum')
