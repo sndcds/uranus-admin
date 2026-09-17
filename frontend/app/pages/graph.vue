@@ -146,17 +146,6 @@ watch([query, entityType, organization], () => {
 })
 onMounted(load)
 watch(() => route.fullPath, load)
-watch(
-  useState('admin-access-revision', () => 0),
-  () => {
-    searchId++
-    clearTimeout(debounce)
-    results.value = []
-    query.value = ''
-    searching.value = false
-    void load()
-  },
-)
 onBeforeUnmount(() => {
   requestId++
   searchId++

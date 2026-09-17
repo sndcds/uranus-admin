@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import type { z } from '#shared/zod'
 import type { checkRunPageSchema } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
@@ -58,13 +58,6 @@ async function run() {
   }
 }
 onMounted(() => load())
-watch(
-  useState('admin-access-revision', () => 0),
-  () => {
-    running.value = false
-    void load()
-  },
-)
 onBeforeUnmount(() => {
   disposed = true
   requestId++

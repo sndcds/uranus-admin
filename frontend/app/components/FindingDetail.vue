@@ -56,13 +56,6 @@ function open(value: Finding) {
 function close() {
   dialog.value?.close()
 }
-watch(
-  useState('admin-access-revision', () => 0),
-  () => {
-    close()
-    finding.value = null
-  },
-)
 defineExpose({ open })
 </script>
 

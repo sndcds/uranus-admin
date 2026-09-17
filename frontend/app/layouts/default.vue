@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { dateTime } from '~/utils/presentation'
-import { failure } from '#shared/errors'
-const dashboard = useDashboardStore()
-const findings = useFindingsStore()
-const { $adminApi } = useNuxtApp()
+const auth = useAuthStore()
+const loggingOut = ref(false)
+async function signOut() {
+  loggingOut.value = true
+  await auth.logout()
+  loggingOut.value = false
+}
 const menu = useTemplateRef<HTMLDialogElement>('menu')
 const menuButton = useTemplateRef<HTMLButtonElement>('menuButton')
 const menuOpen = ref(false)
@@ -18,33 +21,10 @@ function closeMenu() {
   menuOpen.value = false
   menuButton.value?.focus()
 }
-const accessRevision = useState('admin-access-revision', () => 0)
-function clearAccess() {
-  accessRevision.value++
-  dashboard.reset()
-  findings.reset()
-}
-const authStatus = useState('admin-auth-status', () => 0)
-let cleared = false
-$adminApi.onAccessLost((status) => {
-  authStatus.value = status
-  if (!cleared) {
-    cleared = true
-    clearAccess()
-    dashboard.error = failure(status)
-    findings.error = failure(status)
-  }
-})
-async function accessChanged() {
-  authStatus.value = 0
-  cleared = false
-  clearAccess()
-  await Promise.all([dashboard.load($adminApi), findings.load($adminApi)])
-}
 </script>
 
 <template>
-  <div>
+  <div v-if="auth.isAdmin" :key="auth.revision">
     <a
       href="#main-content"
       class="fixed left-4 top-2 z-50 -translate-y-24 rounded-xl bg-white p-3 font-semibold focus:translate-y-0"
@@ -95,6 +75,8 @@ async function accessChanged() {
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-3">
+            <span class="text-sm text-slate-600">Systemadministrator</span>
+            <button class="button" :disabled="loggingOut" @click="signOut">Abmelden</button>
             <button
               disabled
               class="button"
@@ -108,7 +90,7 @@ async function accessChanged() {
         </div>
       </header>
       <main id="main-content" tabindex="-1" class="mx-auto max-w-7xl space-y-5 p-5 sm:p-8">
-        <LoginPanel @changed="accessChanged" /><AccessPanel @changed="accessChanged" /><slot />
+        <slot />
       </main>
     </div>
   </div>
