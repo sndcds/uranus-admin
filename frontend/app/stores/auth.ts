@@ -4,6 +4,7 @@ import type { AdminSession } from '#shared/contracts'
 import { AdminApiError, asFailure, failure, type ApiFailure } from '#shared/errors'
 import { useDashboardStore } from './dashboard'
 import { useFindingsStore } from './findings'
+import { useFilterPreferencesStore } from './filter-preferences'
 
 export const useAuthStore = defineStore('auth', () => {
   const { $adminApi } = useNuxtApp()
@@ -24,6 +25,7 @@ export const useAuthStore = defineStore('auth', () => {
     revision.value++
     dashboard.reset()
     findings.reset()
+    useFilterPreferencesStore().resetAll()
   }
   function clear() {
     status.value = 'anonymous'

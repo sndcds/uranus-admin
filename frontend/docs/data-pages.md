@@ -6,7 +6,7 @@ Das Dashboard trennt periodengebundene Neuanlagen vom aktuellen Arbeitsbestand:
 
 1. Anmeldung/Zugang (Layout), Dashboard-Header; ein zentraler Zeitraumselector im Layout.
 2. **Neu eingegangen**: Gesamtzahl, benannter Zeitraum, `from_at`/`to_at` aus der Antwort,
-   neun klickbare Objektarten; die Links verwenden weiterhin `dashboard.period`.
+   neun klickbare Objektarten; die Links verwenden den aktuell gewählten Zeitraum der Dashboard-Seite.
 3. **Was braucht Aufmerksamkeit?**: aktueller Bestand, ausdrücklich unabhängig vom Zeitraum.
 4. Priorisierte Arbeitsliste und Datenqualität.
 5. Offene Vorgänge und Schnellfilter.
@@ -227,3 +227,75 @@ Europe/Berlin) interpretiert und mit einem UTC-Zeitpunkt verglichen. Enddatum oh
 Endzeit und all_day gelten bis Tagesende; Endzeit ohne Enddatum gehört zum Starttag.
 Ohne Endangaben zählt der Startzeitpunkt (fehlende Startzeit: Tagesbeginn).
 Weitere Details, DST- und Performance-Grenzen stehen im Backend-Contract.
+
+## Filterpräferenzen und Zuständigkeiten
+
+Vor dieser Änderung lagen Entity-, Activity-, Statistics- und Graph-Filter in lokalen
+Seiten-Refs bzw. direkt in der Route; Dashboard besaß zusätzlich einen eigenen
+`period`-State. Findings hat bereits einen eigenständigen Store für validierte Filter
+und Ergebnisdaten. Diese Ownership wird nicht dupliziert: Findings bleibt unverändert.
+Checks hat nur Pagination/Polling, Quality zeigt aktuellen Bestand. Die Queue-Filter
+(Organisationskontext, Mindestalter und je Queue unterschiedliche Status) bleiben
+URL-basiert; sie teilen weder Event-Termine noch Neuanlagen-Zeiträume.
+
+`useFilterPreferencesStore` (`app/stores/filter-preferences.ts`) hält ausschließlich
+Präferenzen im anwendungs-/SSR-request-lokalen Pinia-Speicher:
+
+| Bereich | Gemerkte Werte |
+| --- | --- |
+| `sharedPeriod` | `today`, `24h`, `7d`, `30d`, `90d` |
+| `entities.events` | `q`, Event-`status`, `temporal` |
+| `entities.users` | `q`, User-`status` |
+| `entities.organizations/venues/spaces` | `q`, `temporal` |
+| `entities.images` | `q` |
+| `activity` | Objektart und zuletzt explizit gewähltes normales Preset |
+| `statistics` | normales Preset, Intervall, Vergleich, ausgewählte Serien |
+| `graph` | Entitätstyp, Beziehungstyp, Suchorganisation, Tiefe |
+
+`app/utils/periods.ts` zentralisiert Schema, Labels und Unterstützung. Dashboard und
+Activity unterstützen Heute/24 Stunden/7 Tage; Statistics 24 Stunden/7/30/90 Tage.
+Ein nicht unterstützter gemeinsamer Zeitraum verwendet lokal `24h` und **ändert die
+globale Präferenz nicht**. `custom`, Activity `unknown`, eigene Datumsgrenzen,
+Chart-Highlight und geöffnete Dialoge bleiben lokale bzw. explizite URL-Zustände.
+Passt ein gemerktes Statistikintervall nach Wechsel des gemeinsamen Zeitraums nicht
+mehr in die bestehende 500-Bucket-Grenze, verwendet die Seite lokal `auto`.
+Graph speichert weder Suchtext noch Root. Die Suchorganisation bleibt lokal zur
+Graph-Präferenz; ein gespeicherter Organisationsfilter wird auch vor Laden des
+nächsten Graphs als Auswahl angezeigt.
+
+Es gilt **URL > Store > Default**. Bei Entity-Einstiegen gewinnen explizite Felder
+(z. B. `status=draft`); fehlende Felder werden einmal aus der jeweiligen Präferenz
+ergänzt. Die vervollständigte Query wird mit `router.replace` einschließlich `page=1`
+teilbar gemacht. Bereits angewendete Entity-URLs mit `page` sind vollständige
+Snapshots: Fehlende Werte bedeuten dort leere Filter. So reaktiviert insbesondere
+Reload oder Zurück/Vorwärts keine zuvor gelöschten Filter.
+
+Activity, Statistics und Graph erhalten ihre bisherigen vollständigen Query-Verträge:
+Ein expliziter Query-Link gewinnt insgesamt. Das schützt insbesondere Activity-Links
+zu einzelnen Objektschlüsseln oder Custom-Ranges vor zusätzlichen Zeitgrenzen sowie
+Graph-Root-Links vor gespeicherten Einschränkungen. Ohne Query werden die
+Präferenzen einmal übernommen und in der URL sichtbar gemacht. `usePreferenceQuery`
+trennt diese Wiederherstellung von späteren URL-Änderungen. Zurück/Vorwärts liest
+ausschließlich den jeweiligen URL-Zustand ein und aktualisiert den scoped Store.
+Es gibt keine Rückkopplung vom Store zum Router. Auch ungültige explizite API-Filter
+werden nicht durch gespeicherte Werte ersetzt.
+
+Entity-Filter werden bei Anwenden oder Enter gespeichert, mit `page=1` in die URL
+übernommen und durch die bestehende API serverseitig angewendet. Pagination erhält
+die Query. Nicht angewendete Suchentwürfe werden nicht als letzte Filter gespeichert.
+Reset löscht nur die aktuelle Entity und ihren URL-Kontext, keine anderen Bereiche.
+`organization_id` bleibt für Deep Links unterstützt, wird aber nicht als globale
+Präferenz gespeichert. Die typisierten Entity-Schemas verhindern eine Vermischung
+von Event- und User-Status sowie Zeitfilter für Users/Images.
+
+DashboardStore besitzt jetzt nur Daten, Lade-/Fehlerzustand, `lastSuccess` und
+Request-Koordination. Der zu ladende Zeitraum ist ein Argument, keine zweite
+Preference-Quelle. Dashboard-Links übernehmen den auf der Seite gewählten Zeitraum.
+Der bereits sichtbare Hinweis bei älteren Daten während eines Zeitraumwechsels bleibt.
+
+Es gibt **kein Persist-Plugin und keine Speicherung in localStorage, sessionStorage,
+IndexedDB oder Cookies**. Ein voller Reload rekonstruiert nur den URL-Zustand.
+Suchbegriffe können personenbezogene Daten enthalten und bleiben ausschließlich im
+Session-Arbeitsspeicher. Der bestehende Auth-Reset löscht mit `resetAll()` alle
+Präferenzen bei Logout (auch bei Serverfehler), Session-Verlust und erneutem Login.
+Backend, Auth-Grenzen und Source-Read-only-Vertrag bleiben unverändert.

@@ -1,16 +1,26 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useFilterPreferencesStore } from '~/stores/filter-preferences'
+import { usePreferenceQuery } from '~/composables/usePreferenceQuery'
 import type { EntitySection, EntityPage, TemporalFilter } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
 import {
   entitySections,
   entityFactLabel,
-  supportsTemporal,
+  entityFilterCapabilities,
   temporalLabels,
   temporalFromQuery,
 } from '~/utils/entities'
 const props = defineProps<{ section: EntitySection }>()
+const preferences = useFilterPreferencesStore()
 const route = useRoute()
+// Applied list URLs include page and represent complete history snapshots.
+const remembered = route.query.page ? {} : preferences.entities[props.section]
+const query = usePreferenceQuery(
+  { ...remembered, ...(Object.values(remembered).some(Boolean) ? { page: '1' } : {}) },
+  (value) => preferences.hydrateEntity(props.section, value),
+  true,
+)
 const router = useRouter()
 const { $adminApi } = useNuxtApp()
 const data = ref<EntityPage | null>(null)
@@ -20,9 +30,9 @@ const q = ref(''),
   organization = ref(''),
   status = ref('')
 const temporal = ref<TemporalFilter | ''>('')
-const hasTemporal = computed(() => supportsTemporal(entitySections[props.section].type))
+const hasTemporal = computed(() => entityFilterCapabilities[props.section].temporal)
 const appliedTemporal = computed(() =>
-  hasTemporal.value ? temporalFromQuery(route.query.temporal) : '',
+  hasTemporal.value ? temporalFromQuery(query.value.temporal) : '',
 )
 let generation = 0
 async function load() {
@@ -30,18 +40,18 @@ async function load() {
   loading.value = true
   data.value = null
   error.value = null
-  q.value = typeof route.query.q === 'string' ? route.query.q : ''
+  q.value = typeof query.value.q === 'string' ? query.value.q : ''
   organization.value =
-    typeof route.query.organization_id === 'string' ? route.query.organization_id : ''
-  status.value = typeof route.query.status === 'string' ? route.query.status : ''
-  temporal.value = hasTemporal.value ? temporalFromQuery(route.query.temporal) : ''
+    typeof query.value.organization_id === 'string' ? query.value.organization_id : ''
+  status.value = typeof query.value.status === 'string' ? query.value.status : ''
+  temporal.value = hasTemporal.value ? temporalFromQuery(query.value.temporal) : ''
   try {
-    const query: Record<string, string> = {}
-    for (const [key, value] of Object.entries(route.query)) {
+    const requestQuery: Record<string, string> = {}
+    for (const [key, value] of Object.entries(query.value)) {
       if (typeof value !== 'string') throw new Error('Invalid query')
-      query[key] = value
+      requestQuery[key] = value
     }
-    const result = await $adminApi.entities(props.section, query)
+    const result = await $adminApi.entities(props.section, requestQuery)
     if (id === generation) data.value = result
   } catch (cause) {
     if (id === generation) error.value = asFailure(cause)
@@ -50,6 +60,11 @@ async function load() {
   }
 }
 function apply() {
+  preferences.hydrateEntity(props.section, {
+    q: q.value,
+    status: status.value,
+    temporal: temporal.value,
+  })
   void router.push({
     query: {
       q: q.value || undefined,
@@ -60,8 +75,13 @@ function apply() {
     },
   })
 }
+function reset() {
+  preferences.resetEntity(props.section)
+  q.value = status.value = organization.value = temporal.value = ''
+  void router.push({ query: { page: '1' } })
+}
 onMounted(load)
-watch(() => route.query, load)
+watch(() => query.value, load)
 onBeforeUnmount(() => {
   generation++
 })
@@ -96,7 +116,7 @@ onBeforeUnmount(() => {
           </option>
         </select>
       </label>
-      <label v-if="section === 'events' || section === 'users'"
+      <label v-if="entityFilterCapabilities[section].status"
         ><span class="label">Status</span
         ><select v-model="status" class="input">
           <option value="">Alle</option>
@@ -115,7 +135,7 @@ onBeforeUnmount(() => {
       >
       <div class="flex flex-wrap items-end gap-2">
         <button class="button-primary" type="submit">Anwenden</button
-        ><NuxtLink :to="`/${section}`" class="button">Filter zurücksetzen</NuxtLink>
+        ><button type="button" class="button" @click="reset">Filter zurücksetzen</button>
       </div>
     </FilterBar>
     <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
@@ -147,7 +167,7 @@ onBeforeUnmount(() => {
       <PaginationBar
         :pagination="data.pagination"
         :loading="loading"
-        :to="(page) => ({ query: { ...route.query, page: String(page) } })"
+        :to="(page) => ({ query: { ...query, page: String(page) } })"
       />
     </template>
   </div>

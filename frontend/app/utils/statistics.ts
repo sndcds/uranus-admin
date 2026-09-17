@@ -33,18 +33,32 @@ export function statisticsRecentLink(href: string): string {
   return `${url.pathname}${url.search}${url.hash}`
 }
 export const statisticsOrder = Object.keys(statisticsTypes) as StatisticsEntity[]
-export const statisticsPeriods = {
-  '24h': '24 Stunden',
-  '7d': '7 Tage',
-  '30d': '30 Tage',
-  '90d': '90 Tage',
-} as const
 export const statisticsIntervals = {
   '15m': '15 Minuten',
   '1h': 'Stündlich',
   '6h': '6 Stunden',
   '1d': 'Täglich',
 } as const
+/** Same bucket bound used by the selector, including an inherited interval on entry. */
+export function statisticsIntervalAllowed(
+  period: string,
+  interval: string,
+  from?: string,
+  to?: string,
+) {
+  if (interval === 'auto') return true
+  const duration =
+    period === 'custom' && from && to
+      ? Date.parse(to) - Date.parse(from)
+      : ({ '24h': 1, '7d': 7, '30d': 30, '90d': 90 }[period] ?? 1) * 86400000
+  return (
+    Math.ceil(
+      duration / ({ '15m': 900000, '1h': 3600000, '6h': 21600000, '1d': 86400000 }[interval] ?? 1),
+    ) +
+      2 <=
+    500
+  )
+}
 export function statisticsDelta(current: number, previous: number) {
   const difference = current - previous
   const sign = difference > 0 ? '+' : difference < 0 ? '−' : ''

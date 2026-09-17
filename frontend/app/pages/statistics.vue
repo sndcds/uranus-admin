@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useFilterPreferencesStore } from '~/stores/filter-preferences'
+import { statisticsPeriods } from '~/utils/periods'
+import { usePreferenceQuery } from '~/composables/usePreferenceQuery'
 import InlineAlert from '~/components/InlineAlert.vue'
 import SectionHeader from '~/components/SectionHeader.vue'
 import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
@@ -10,8 +13,8 @@ import { metric } from '~/utils/presentation'
 import {
   statisticsTypes,
   statisticsOrder,
-  statisticsPeriods,
   statisticsIntervals,
+  statisticsIntervalAllowed,
   statisticsDate,
   statisticsActivityLink,
   statisticsRecentLink,
@@ -20,30 +23,46 @@ import {
 import EntityTimelineChart from '~/components/statistics/EntityTimelineChart.vue'
 import EntityMetricCard from '~/components/statistics/EntityMetricCard.vue'
 import EntityDistributionChart from '~/components/statistics/EntityDistributionChart.vue'
-const route = useRoute(),
-  router = useRouter()
+const preferences = useFilterPreferencesStore()
+const preferredPeriod = preferences.resolvePeriodForPage('statistics')
+const query = usePreferenceQuery(
+  {
+    period: preferredPeriod,
+    interval: statisticsIntervalAllowed(preferredPeriod, preferences.statistics.interval)
+      ? preferences.statistics.interval
+      : 'auto',
+    compare: preferences.statistics.compare ? 'previous' : undefined,
+  },
+  (value, previous) => preferences.hydrateStatistics(value, previous),
+)
+const router = useRouter()
 const { $adminApi } = useNuxtApp()
 const data = ref<EntityStatistics | null>(null),
   loading = ref(false),
   error = ref<ApiFailure | null>(null)
 const knownTimezone = ref<string | null>(null)
-const selected = ref<StatisticsEntity[]>([...statisticsOrder]),
+const selected = computed({
+    get: () => preferences.statistics.selectedTypes,
+    set: (value: StatisticsEntity[]) => {
+      preferences.statistics.selectedTypes = value
+    },
+  }),
   highlighted = ref<StatisticsEntity | null>(null)
 const customOpen = ref(false),
   customFrom = ref(''),
   customTo = ref(''),
   customError = ref('')
 const period = computed(() =>
-  route.query.from_at
+  query.value.from_at
     ? 'custom'
-    : typeof route.query.period === 'string'
-      ? route.query.period
+    : typeof query.value.period === 'string'
+      ? query.value.period
       : '24h',
 )
 const interval = computed(() =>
-  typeof route.query.interval === 'string' ? route.query.interval : 'auto',
+  typeof query.value.interval === 'string' ? query.value.interval : 'auto',
 )
-const compare = computed(() => route.query.compare === 'previous')
+const compare = computed(() => query.value.compare === 'previous')
 const total = computed(() => data.value?.series.reduce((sum, s) => sum + s.total, 0) ?? 0)
 const ordered = computed(() =>
   statisticsOrder
@@ -58,16 +77,16 @@ async function load() {
   data.value = null
   highlighted.value = null
   try {
-    const query: Record<string, string> = {}
-    for (const [key, value] of Object.entries(route.query)) {
+    const requestQuery: Record<string, string> = {}
+    for (const [key, value] of Object.entries(query.value)) {
       if (
         !['period', 'interval', 'compare', 'from_at', 'to_at'].includes(key) ||
         typeof value !== 'string'
       )
         throw new Error('Invalid query')
-      query[key] = value
+      requestQuery[key] = value
     }
-    const result = await $adminApi.statistics(query)
+    const result = await $adminApi.statistics(requestQuery)
     if (current === generation) {
       data.value = result
       knownTimezone.value = result.timezone
@@ -79,13 +98,14 @@ async function load() {
   }
 }
 function setPeriod(value: string) {
+  preferences.hydratePeriod('statistics', value)
   customOpen.value = false
   void router.push({
     query: { period: value, interval: 'auto', compare: compare.value ? 'previous' : undefined },
   })
 }
 function setQuery(key: string, value: string | undefined) {
-  void router.push({ query: { ...route.query, [key]: value } })
+  void router.push({ query: { ...query.value, [key]: value } })
 }
 function toggle(type: StatisticsEntity) {
   selected.value = selected.value.includes(type)
@@ -119,22 +139,16 @@ function applyCustom() {
   }
 }
 function intervalAllowed(value: string) {
-  const duration =
-    period.value === 'custom' &&
-    typeof route.query.from_at === 'string' &&
-    typeof route.query.to_at === 'string'
-      ? Date.parse(route.query.to_at) - Date.parse(route.query.from_at)
-      : ({ '24h': 1, '7d': 7, '30d': 30, '90d': 90 }[period.value] ?? 1) * 86400000
-  return (
-    Math.ceil(
-      duration / ({ '15m': 900000, '1h': 3600000, '6h': 21600000, '1d': 86400000 }[value] ?? 1),
-    ) +
-      2 <=
-    500
+  return statisticsIntervalAllowed(
+    period.value,
+    value,
+    typeof query.value.from_at === 'string' ? query.value.from_at : undefined,
+    typeof query.value.to_at === 'string' ? query.value.to_at : undefined,
   )
 }
+
 onMounted(load)
-watch(() => route.query, load)
+watch(() => query.value, load)
 onBeforeUnmount(() => {
   generation++
 })

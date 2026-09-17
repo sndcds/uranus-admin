@@ -71,7 +71,7 @@ export function activityTime(value: string | null, observedAt: string): string {
   return `${day} · ${time}`
 }
 
-export const periodLabels = { today: 'Heute', '24h': 'Letzte 24 Stunden', '7d': 'Letzte 7 Tage' }
+export { dashboardPeriods as periodLabels } from './periods'
 export const findingStatusLabels: Record<string, string> = {
   open: 'Offen',
   in_progress: 'In Bearbeitung',

@@ -88,6 +88,12 @@ defineEmits<{ select: [node: GraphNode]; apply: []; reset: []; settings: [] }>()
     </select>
     <select v-model="organization" class="input" aria-label="Organisation für Suche">
       <option value="">Alle Organisationen</option>
+      <option
+        v-if="organization && !organizations.some((node) => node.key === organization)"
+        :value="organization"
+      >
+        Gespeicherte Organisation
+      </option>
       <option v-for="node in organizations" :key="node.id" :value="node.key">
         {{ node.label }}
       </option>
