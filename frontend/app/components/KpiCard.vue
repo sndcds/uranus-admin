@@ -10,7 +10,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="min-w-0 rounded-xl border border-slate-200 bg-white p-4">
+  <div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4">
     <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
       <strong
         class="tabular-nums"

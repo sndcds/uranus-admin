@@ -20,7 +20,7 @@ function clear() {
 </script>
 
 <template>
-  <details v-if="enabled" class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+  <details v-if="enabled" class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
     <summary class="font-semibold text-slate-700">Lokaler Entwicklungszugang</summary>
     <p class="my-3 text-slate-600">
       Manuell bereitgestellten Development-Token verwenden. Die API prüft jeden Aufruf. Nach einem

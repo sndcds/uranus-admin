@@ -58,7 +58,7 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <div class="space-y-4">
+  <div class="space-y-5">
     <PageHeader
       :title="entitySections[section].title"
       description="Datensätze durchsuchen, Beziehungen und Arbeitsstand prüfen."

@@ -3,7 +3,6 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 import type { AdminSession } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
 
-defineProps<{ compact?: boolean }>()
 const emit = defineEmits<{ changed: [] }>()
 const { $adminApi } = useNuxtApp()
 const revision = useState('admin-auth-status', () => 0)
@@ -63,17 +62,12 @@ async function signOut() {
 
 <template>
   <section
-    class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
-    :class="[
-      identity ? 'flex flex-wrap items-center gap-x-4 gap-y-2' : '',
-      { 'statistics-login': compact && identity },
-    ]"
+    class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+    :class="identity ? 'flex flex-wrap items-center gap-x-4 gap-y-2' : ''"
     :aria-busy="busy"
     aria-labelledby="admin-login-title"
   >
-    <h2 id="admin-login-title" :class="compact && identity ? 'sr-only' : 'font-semibold'">
-      Admin-Anmeldung
-    </h2>
+    <h2 id="admin-login-title" class="font-semibold">Admin-Anmeldung</h2>
     <form v-if="!identity" class="mt-3 flex flex-wrap items-end gap-3" @submit.prevent="signIn">
       <div>
         <label for="admin-login" class="label">Benutzername</label>
@@ -106,9 +100,7 @@ async function signOut() {
       <p class="text-xs text-slate-500">
         {{
           identity.system_admin
-            ? compact
-              ? 'System-Administrator'
-              : 'Als System-Administrator angemeldet.'
+            ? 'Als System-Administrator angemeldet.'
             : 'Keine System-Admin-Berechtigung.'
         }}
       </p>
@@ -117,16 +109,3 @@ async function signOut() {
     <p v-if="message" class="w-full text-sm" role="status">{{ message }}</p>
   </section>
 </template>
-
-<style scoped>
-.statistics-login {
-  border: 0;
-  padding: 0;
-  background: transparent;
-}
-.statistics-login button {
-  font-size: 11px;
-  padding: 6px 10px;
-  border-radius: 7px;
-}
-</style>

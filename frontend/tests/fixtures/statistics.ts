@@ -59,7 +59,7 @@ export function statisticsFixture(query = new URLSearchParams()): EntityStatisti
     series,
     recent: statisticsOrder.map((type, i) => {
       const activityType = type === 'team_invitation' ? 'team_membership' : type
-      const key = `00000000-0000-0000-0000-${String(i + 1).padStart(12, '0')}`
+      const key = `20000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`
       return {
         entity_type: type,
         entity_key: key,
@@ -71,7 +71,10 @@ export function statisticsFixture(query = new URLSearchParams()): EntityStatisti
           route: 'activity' as const,
           entity_key: key,
           entity_type: activityType,
-          href: `/activity?entity_key=${key}&entity_type=${activityType}`,
+          href:
+            type === 'event'
+              ? `/events/${key}`
+              : `/activity?entity_key=${key}&entity_type=${activityType}`,
         },
       }
     }),

@@ -1,44 +1,15 @@
+import { entityTypes } from './entityPresentation'
 import type { SimulationNodeDatum, SimulationLinkDatum } from 'd3-force'
 import type { GraphNode, GraphEdge, GraphEntityType, GraphRelationType } from '#shared/contracts'
 import { graphEntityTypeSchema } from '#shared/contracts'
 
 export const nodePresentation = {
-  organization: {
-    label: 'Organisation',
-    icon: 'organization',
-    color: '#9333ea',
-    fill: '#f3e8ff',
-    border: '#e9d5ff',
-  },
-  venue: {
-    label: 'Ort / Venue',
-    icon: 'pin',
-    color: '#059669',
-    fill: '#ecfdf5',
-    border: '#d1fae5',
-  },
-  space: {
-    label: 'Raum / Space',
-    icon: 'space',
-    color: '#0891b2',
-    fill: '#ecfeff',
-    border: '#cffafe',
-  },
-  event: {
-    label: 'Veranstaltung',
-    icon: 'calendar',
-    color: '#f43f5e',
-    fill: '#fff1f2',
-    border: '#ffe4e6',
-  },
-  event_date: {
-    label: 'Termin',
-    icon: 'calendar',
-    color: '#8b5cf6',
-    fill: '#f5f3ff',
-    border: '#ede9fe',
-  },
-  user: { label: 'Benutzer', icon: 'user', color: '#2563eb', fill: '#eff6ff', border: '#dbeafe' },
+  organization: { ...entityTypes.organization, fill: '#f3e8ff', border: '#e9d5ff' },
+  venue: { ...entityTypes.venue, fill: '#ecfdf5', border: '#d1fae5' },
+  space: { ...entityTypes.space, fill: '#ecfeff', border: '#cffafe' },
+  event: { ...entityTypes.event, fill: '#fff1f2', border: '#ffe4e6' },
+  event_date: { ...entityTypes.event_date, fill: '#f5f3ff', border: '#ede9fe' },
+  user: { ...entityTypes.user, fill: '#eff6ff', border: '#dbeafe' },
 } as const satisfies Record<
   GraphEntityType,
   { label: string; icon: string; color: string; fill: string; border: string }

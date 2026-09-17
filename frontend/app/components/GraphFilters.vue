@@ -24,11 +24,11 @@ defineEmits<{ select: [node: GraphNode]; apply: []; reset: []; settings: [] }>()
 </script>
 <template>
   <form
-    class="graph-filters rounded-xl border border-slate-200 bg-white p-3"
+    class="panel grid items-center gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4"
     aria-label="Graphfilter"
     @submit.prevent="$emit('apply')"
   >
-    <div class="relative min-w-0">
+    <div class="relative min-w-0 sm:col-span-2">
       <AppIcon
         name="search"
         :size="16"
@@ -97,44 +97,18 @@ defineEmits<{ select: [node: GraphNode]; apply: []; reset: []; settings: [] }>()
         Max. {{ n }} {{ n === 1 ? 'Ebene' : 'Ebenen' }}
       </option>
     </select>
-    <button class="button-primary" :disabled="loading || !hasRoot">Anwenden</button>
-    <button type="button" class="button" @click="$emit('reset')">Zurücksetzen</button>
-    <button
-      type="button"
-      class="button !px-2.5"
-      aria-label="Darstellung"
-      :aria-expanded="settingsOpen"
-      @click="$emit('settings')"
-    >
-      <AppIcon name="settings" :size="15" />
-    </button>
+    <div class="flex flex-wrap items-center gap-2 sm:col-span-2">
+      <button class="button-primary" :disabled="loading || !hasRoot">Anwenden</button>
+      <button type="button" class="button" @click="$emit('reset')">Zurücksetzen</button>
+      <button
+        type="button"
+        class="button !px-2.5"
+        aria-label="Darstellung"
+        :aria-expanded="settingsOpen"
+        @click="$emit('settings')"
+      >
+        <AppIcon name="settings" :size="15" />
+      </button>
+    </div>
   </form>
 </template>
-<style scoped>
-.graph-filters {
-  display: grid;
-  grid-template-columns:
-    minmax(200px, 1.5fr) repeat(3, minmax(115px, 1fr)) minmax(115px, 0.8fr)
-    auto auto auto;
-  gap: 10px;
-  align-items: center;
-}
-.graph-filters :is(.input, .button, .button-primary) {
-  font-size: 12px;
-  border-radius: 8px;
-  min-height: 38px;
-}
-@media (max-width: 1350px) {
-  .graph-filters {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .graph-filters > :first-child {
-    grid-column: span 2;
-  }
-}
-@media (max-width: 640px) {
-  .graph-filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-</style>

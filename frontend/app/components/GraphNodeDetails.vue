@@ -81,7 +81,7 @@ async function copy() {
           <p class="text-xs font-medium">{{ nodePresentation[node.type].label }}</p>
           <p
             v-if="node.status"
-            class="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600"
+            class="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
           >
             {{ activityStatus(node.status) }}
           </p>
@@ -92,7 +92,7 @@ async function copy() {
         <dd>{{ node.label }}</dd>
         <dt class="text-slate-500">UUID</dt>
         <dd class="flex min-w-0 items-start gap-1">
-          <span class="break-all text-[10px]">{{ node.key }}</span
+          <span class="break-all text-xs">{{ node.key }}</span
           ><button
             class="shrink-0 rounded p-1 text-slate-500"
             aria-label="UUID kopieren"
@@ -108,10 +108,7 @@ async function copy() {
       </dl>
       <p v-if="copied" role="status" class="mt-2 text-xs text-slate-500">{{ copied }}</p>
       <div class="mt-5 flex flex-wrap gap-2">
-        <NuxtLink
-          v-if="node.admin_url"
-          :to="node.admin_url"
-          class="flex items-center gap-2 rounded-lg bg-fuchsia-50 px-3 py-2 text-[11px] font-medium text-fuchsia-700"
+        <NuxtLink v-if="node.admin_url" :to="node.admin_url" class="button"
           ><AppIcon name="external" :size="13" />Im Admin ansehen</NuxtLink
         ><a
           v-if="node.public_url"
@@ -119,13 +116,13 @@ async function copy() {
           target="_blank"
           rel="noopener noreferrer"
           referrerpolicy="no-referrer"
-          class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-[11px]"
+          class="button"
           ><AppIcon name="external" :size="13" />Zur Live-Seite</a
         >
       </div>
     </div>
     <div
-      class="flex border-b border-slate-100 px-3 text-[10px]"
+      class="flex flex-wrap border-b border-slate-100 px-3 text-xs"
       role="group"
       aria-label="Beziehungen filtern"
     >
@@ -148,7 +145,7 @@ async function copy() {
         {{ item.label }} ({{ item.count }})
       </button>
     </div>
-    <p class="px-4 pt-3 text-[10px] text-slate-400">Direkte Beziehungen im geladenen Graph</p>
+    <p class="px-4 pt-3 text-xs text-slate-400">Direkte Beziehungen im geladenen Graph</p>
     <ul class="min-h-24 flex-1 overflow-auto px-4 py-1" aria-label="Direkte Beziehungen">
       <li
         v-for="item in visible"
@@ -167,12 +164,12 @@ async function copy() {
             }"
             ><AppIcon :name="nodePresentation[item.node.type].icon" :size="17" /></span
           ><span class="min-w-0 flex-1"
-            ><span class="block text-[11px] font-semibold leading-4">{{ item.node.label }}</span
-            ><span class="text-[10px] text-slate-500">{{
+            ><span class="block text-xs font-semibold leading-4">{{ item.node.label }}</span
+            ><span class="text-xs text-slate-500">{{
               nodePresentation[item.node.type].label
             }}</span></span
           ><span
-            class="max-w-24 rounded bg-slate-100 px-1.5 py-1 text-[9px] text-slate-500"
+            class="max-w-24 rounded bg-slate-100 px-1.5 py-1 text-xs text-slate-500"
             :title="`${item.edge.source === node.id ? node.label : item.node.label} → ${item.edge.label} → ${item.edge.target === node.id ? node.label : item.node.label}`"
             >{{ item.edge.source === node.id ? '→' : '←' }} {{ item.edge.label }}</span
           >
@@ -184,11 +181,7 @@ async function copy() {
     </p>
     <div class="space-y-3 border-t border-slate-100 p-4">
       <p class="text-xs font-medium">Weiter erkunden</p>
-      <button
-        class="button w-full !rounded-lg !text-xs"
-        :disabled="node.id === root"
-        @click="$emit('root', node)"
-      >
+      <button class="button w-full" :disabled="node.id === root" @click="$emit('root', node)">
         <AppIcon name="graph" :size="14" />Als Ausgangspunkt verwenden
       </button>
     </div>

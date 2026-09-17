@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InlineAlert from '~/components/InlineAlert.vue'
 import type { FindingFilters } from '#shared/contracts'
 import { filtersSchema } from '#shared/contracts'
 import { parseFilters, filterQuery } from '~/utils/filters'
@@ -48,7 +49,7 @@ function page(value: number) {
 </script>
 
 <template>
-  <section class="space-y-4">
+  <section class="space-y-5">
     <PageHeader
       title="Priorisierte Arbeitsliste"
       description="Befunde filtern, einordnen und bearbeiten."
@@ -62,14 +63,10 @@ function page(value: number) {
       </button>
     </PageHeader>
     <FilterForm :filters="store.filters" @apply="apply" @reset="router.push({ query: {} })" />
-    <div
-      v-if="invalidQuery"
-      role="alert"
-      class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
-    >
+    <InlineAlert v-if="invalidQuery" tone="error">
       Die URL enthält ungültige Filter oder Seitenzahlen.
       <NuxtLink to="/findings" class="font-semibold underline">Filter zurücksetzen</NuxtLink>
-    </div>
+    </InlineAlert>
     <RequestState
       :loading="store.loading"
       :error="store.error"

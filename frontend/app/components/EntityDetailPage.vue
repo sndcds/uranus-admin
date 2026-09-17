@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import DetailFacts from '~/components/DetailFacts.vue'
+import SectionHeader from '~/components/SectionHeader.vue'
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import type { EntitySection, EntityDetail } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
@@ -39,32 +41,14 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <div class="space-y-4">
+  <div class="space-y-5">
     <PageHeader
       :title="data?.item.entity_name ?? entitySections[section].title"
       description="Datensatz und verknüpfte Inhalte."
-      ><NuxtLink :to="`/${section}`" class="button">Zur Liste</NuxtLink></PageHeader
     >
-    <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
-    <template v-if="data">
-      <DataListShell as="ul"
-        ><ActivityRow :item="data.item" :observed-at="data.observed_at"
-      /></DataListShell>
-      <dl class="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
-        <div>
-          <dt class="text-xs text-slate-500">UUID</dt>
-          <dd class="break-all text-sm">{{ data.item.entity_key }}</dd>
-        </div>
-        <template v-for="(value, field) in data.item.facts" :key="field"
-          ><div v-if="value !== null">
-            <dt class="text-xs text-slate-500">{{ entityFactLabel(section, field) }}</dt>
-            <dd class="whitespace-pre-wrap break-words text-sm">
-              {{ typeof value === 'boolean' ? (value ? 'Ja' : 'Nein') : value }}
-            </dd>
-          </div></template
-        >
-      </dl>
+      <NuxtLink :to="`/${section}`" class="button">Zur Liste</NuxtLink>
       <NuxtLink
+        v-if="data"
         :to="{
           path: '/findings',
           query: {
@@ -76,7 +60,22 @@ onBeforeUnmount(() => {
         class="button"
         >Befunde zu diesem Datensatz</NuxtLink
       >
-      <h2 class="text-base font-semibold">Verknüpfte Datensätze</h2>
+    </PageHeader>
+    <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
+    <template v-if="data">
+      <DataListShell as="ul"
+        ><ActivityRow :item="data.item" :observed-at="data.observed_at"
+      /></DataListShell>
+      <DetailFacts
+        :items="[
+          { label: 'UUID', value: data.item.entity_key },
+          ...Object.entries(data.item.facts).map(([field, value]) => ({
+            label: entityFactLabel(section, field as keyof EntityDetail['item']['facts']),
+            value,
+          })),
+        ]"
+      />
+      <SectionHeader title="Verknüpfte Datensätze" />
       <p v-if="section === 'users' || section === 'organizations'" class="text-xs text-slate-500">
         Einladungen verwenden invited_at; der Mitgliedsstatus folgt has_joined. Ein
         Beitrittszeitpunkt ist nicht belegt.

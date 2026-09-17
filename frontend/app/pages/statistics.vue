@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import InlineAlert from '~/components/InlineAlert.vue'
+import SectionHeader from '~/components/SectionHeader.vue'
 import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import type { EntityStatistics, StatisticsEntity } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
 import type { ApiFailure } from '#shared/errors'
+import { entityTypes, invitationPresentation } from '~/utils/entityPresentation'
 import { metric } from '~/utils/presentation'
 import {
   statisticsTypes,
@@ -11,6 +14,7 @@ import {
   statisticsIntervals,
   statisticsDate,
   statisticsActivityLink,
+  statisticsRecentLink,
   statisticsDateBoundary,
 } from '~/utils/statistics'
 import EntityTimelineChart from '~/components/statistics/EntityTimelineChart.vue'
@@ -140,35 +144,40 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <section class="statistics-page" aria-labelledby="statistics-title">
+  <section class="statistics-page space-y-5" aria-labelledby="statistics-title">
     <PageHeader
       title="Neue Entitäten"
       title-id="statistics-title"
       description="Übersicht über neu angelegte Benutzer, Organisationen, Veranstaltungsorte, Räume, Veranstaltungen sowie Partneranfragen und Teameinladungen."
     />
-    <div class="statistics-period-bar">
-      <div class="statistics-periods" aria-label="Statistikzeitraum">
+    <div class="statistics-period-bar panel flex flex-wrap items-center gap-3 p-4">
+      <div
+        class="statistics-periods flex flex-wrap items-center gap-2"
+        aria-label="Statistikzeitraum"
+      >
         <button
           v-for="(label, value) in statisticsPeriods"
           :key="value"
           :aria-pressed="period === value"
-          :class="{ selected: period === value }"
+          :class="period === value ? 'button-primary' : 'button'"
           @click="setPeriod(value)"
         >
           {{ label }}
         </button>
         <button
           :aria-expanded="customOpen"
-          :class="{ selected: period === 'custom' }"
+          :class="period === 'custom' ? 'button-primary' : 'button'"
           @click="customOpen = !customOpen"
         >
           Benutzerdefiniert <AppIcon name="calendar" :size="15" />
         </button>
       </div>
-      <label class="statistics-compare"
+      <label
+        class="statistics-compare inline-flex flex-wrap items-center gap-2 text-sm text-slate-600"
         ><span>Zeitraum vergleichen</span
         ><input
           type="checkbox"
+          class="h-4 w-4 accent-fuchsia-700"
           role="switch"
           :checked="compare"
           @change="
@@ -177,16 +186,16 @@ onBeforeUnmount(() => {
               ($event.target as HTMLInputElement).checked ? 'previous' : undefined,
             )
           "
-        /><span class="statistics-switch" aria-hidden="true" /><span
-          class="statistics-previous-label"
+        /><span class="statistics-previous-label text-xs text-slate-500"
           >Vorheriger Zeitraum</span
         ></label
       >
-      <div class="statistics-period-actions">
+      <div class="statistics-period-actions flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
         <label
           ><span class="sr-only">Intervall</span
           ><select
             :value="interval"
+            class="input"
             aria-label="Intervall"
             @change="setQuery('interval', ($event.target as HTMLSelectElement).value)"
           >
@@ -204,7 +213,7 @@ onBeforeUnmount(() => {
           </select></label
         >
         <button
-          class="statistics-refresh"
+          class="statistics-refresh button"
           aria-label="Zahlen aktualisieren"
           title="Zahlen aktualisieren"
           :disabled="loading"
@@ -216,7 +225,7 @@ onBeforeUnmount(() => {
     </div>
     <form
       v-if="customOpen"
-      class="statistics-custom statistics-panel"
+      class="statistics-custom statistics-panel flex flex-wrap items-end gap-3 panel p-4 sm:p-5"
       @submit.prevent="applyCustom"
     >
       <label
@@ -229,18 +238,18 @@ onBeforeUnmount(() => {
       /></label>
       <button class="button-primary" :disabled="!knownTimezone">Zeitraum anwenden</button
       ><span class="muted">{{ knownTimezone ?? 'Zeitzone wird geladen …' }}</span>
-      <p v-if="customError" role="alert">{{ customError }}</p>
+      <InlineAlert v-if="customError" tone="error">{{ customError }}</InlineAlert>
     </form>
     <RequestState :loading="loading" :error="error" @retry="load" />
-    <p v-if="error" class="muted">Statistiken konnten nicht geladen werden.</p>
-    <div v-if="loading" class="statistics-loading" aria-hidden="true">
-      <div />
-      <div class="statistics-loading-cards"><i v-for="n in 7" :key="n" /></div>
+
+    <div v-if="loading" class="space-y-3" aria-hidden="true">
+      <div class="h-80 rounded-2xl bg-slate-100" />
+      <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div v-for="n in 4" :key="n" class="h-32 rounded-2xl bg-slate-100" />
+      </div>
     </div>
     <template v-if="data">
-      <p v-if="!total" class="statistics-empty statistics-panel">
-        Keine neuen Entitäten in diesem Zeitraum.
-      </p>
+      <EmptyState v-if="!total" message="Keine neuen Entitäten in diesem Zeitraum." />
       <EntityTimelineChart
         :series="ordered"
         :from-at="data.from_at"
@@ -251,7 +260,10 @@ onBeforeUnmount(() => {
         @toggle="toggle"
         @highlight="highlighted = $event"
       />
-      <div class="statistics-metrics" aria-label="Kennzahlen">
+      <div
+        class="statistics-metrics grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4"
+        aria-label="Kennzahlen"
+      >
         <EntityMetricCard
           v-for="series in ordered"
           :key="series.entity_type"
@@ -262,11 +274,20 @@ onBeforeUnmount(() => {
           @unhighlight="highlighted = null"
         />
       </div>
-      <div class="statistics-bottom">
-        <section class="statistics-panel statistics-recent" aria-labelledby="recent-title">
-          <h3 id="recent-title">Neueste Entitäten</h3>
-          <div v-if="data.recent.length" class="statistics-table-scroll">
-            <table>
+      <div class="statistics-bottom grid min-w-0 gap-5 xl:grid-cols-2">
+        <section
+          class="statistics-panel statistics-recent panel p-4 sm:p-5"
+          aria-labelledby="recent-title"
+        >
+          <SectionHeader title-id="recent-title" title="Neueste Entitäten" />
+          <div
+            v-if="data.recent.length"
+            class="statistics-table-scroll mt-3 max-w-full overflow-x-auto"
+          >
+            <table class="admin-table">
+              <caption class="sr-only">
+                Zuletzt angelegte Entitäten
+              </caption>
               <thead>
                 <tr>
                   <th>Zeitpunkt</th>
@@ -280,7 +301,12 @@ onBeforeUnmount(() => {
                   <td>{{ statisticsDate(item.created_at, data.timezone) }}</td>
                   <td>
                     <span
-                      class="statistics-type-badge"
+                      class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs"
+                      :class="
+                        item.entity_type === 'team_invitation'
+                          ? invitationPresentation.tone
+                          : entityTypes[item.entity_type].tone
+                      "
                       :style="{ '--series-color': statisticsTypes[item.entity_type].color }"
                       ><AppIcon :name="statisticsTypes[item.entity_type].icon" :size="13" />{{
                         statisticsTypes[item.entity_type].singular
@@ -288,7 +314,7 @@ onBeforeUnmount(() => {
                     >
                   </td>
                   <td>
-                    <NuxtLink :to="`${item.action.href}&creation_basis=statistics`">{{
+                    <NuxtLink :to="statisticsRecentLink(item.action.href)">{{
                       item.entity_name
                     }}</NuxtLink>
                   </td>
@@ -297,14 +323,16 @@ onBeforeUnmount(() => {
               </tbody>
             </table>
           </div>
-          <p v-else class="statistics-empty">Keine neuen Entitäten in diesem Zeitraum.</p>
-          <NuxtLink :to="statisticsActivityLink(data)" class="statistics-all-link"
+          <EmptyState v-else message="Keine neuen Entitäten in diesem Zeitraum." />
+          <NuxtLink
+            :to="statisticsActivityLink(data)"
+            class="statistics-all-link mt-4 inline-flex items-center gap-2 text-sm font-semibold text-fuchsia-700 hover:underline"
             >Alle neuen Entitäten anzeigen <AppIcon name="arrow" :size="15"
           /></NuxtLink>
         </section>
         <EntityDistributionChart :series="ordered" />
       </div>
-      <div class="statistics-footnote">
+      <div class="statistics-footnote flex flex-wrap justify-between gap-2 text-xs text-slate-500">
         <span
           >{{ statisticsDate(data.from_at, data.timezone) }} –
           {{ statisticsDate(data.to_at, data.timezone) }} · {{ data.timezone }}</span
@@ -313,14 +341,16 @@ onBeforeUnmount(() => {
           {{ statisticsDate(data.observed_at, data.timezone) }}</span
         >
       </div>
-      <p class="statistics-footnote">
+      <p class="statistics-footnote flex flex-wrap justify-between gap-2 text-xs text-slate-500">
         Teameinladungen zählen nach dem zuletzt gespeicherten Einladungszeitpunkt; erneute
         Einladungen sind keine separate Versandhistorie.
       </p>
-      <details class="statistics-data-table">
-        <summary>Daten als Tabelle · {{ metric(total) }} neue Entitäten</summary>
-        <div class="statistics-table-scroll">
-          <table>
+      <details class="statistics-data-table panel p-4 text-sm text-slate-600">
+        <summary class="cursor-pointer font-semibold">
+          Daten als Tabelle · {{ metric(total) }} neue Entitäten
+        </summary>
+        <div class="statistics-table-scroll mt-3 max-w-full overflow-x-auto">
+          <table class="admin-table">
             <caption class="sr-only">
               Anzahl pro Zeitintervall, Zeitzone
               {{
