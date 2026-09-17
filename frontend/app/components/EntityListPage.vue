@@ -65,10 +65,14 @@ onBeforeUnmount(() => {
       >
     </PageHeader>
     <FilterBar @apply="apply">
-      <label
-        ><span class="label">Suche</span
-        ><input v-model="q" maxlength="200" class="input" type="search"
-      /></label>
+      <EntitySearch
+        v-model="q"
+        :entity-type="entitySections[section].type"
+        :organization-id="organization"
+        :status="status"
+        @apply="apply"
+        @select="router.push($event.action.href)"
+      />
       <label
         ><span class="label">Organisation UUID</span><input v-model="organization" class="input"
       /></label>
