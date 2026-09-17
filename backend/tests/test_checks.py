@@ -119,7 +119,7 @@ async def test_runs_are_idempotent_and_resolve_only_covered_objects(
     admin_store, db_connection, settings, now
 ):
     one = await run_check(db_connection, admin_store, settings)
-    assert one.status == "success" and one.finding_count == 7 and one.rule_count == 22
+    assert one.status == "success" and one.finding_count == 7 and one.rule_count == 23
     two = await run_check(db_connection, admin_store, settings)
     page = await persisted_page(admin_store, FindingFilters(), now)
     assert page.pagination.total == 7 and page.items[0].first_seen_at <= page.items[0].last_seen_at

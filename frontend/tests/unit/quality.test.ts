@@ -43,7 +43,7 @@ describe('logo quality overview', () => {
     expect(rows[1]!.text()).toContain('4')
     expect(rows[2]!.text()).toContain('Logos in anderem Format')
     expect(rows[2]!.text()).toContain('7')
-    const badges = view.findAllComponents(SeverityBadge)
+    const badges = group.findAllComponents(SeverityBadge)
     expect(badges.map((badge) => badge.props('severity'))).toEqual(['warning', 'warning', 'info'])
     expect(badges[0]!.classes()).toContain('bg-amber-50')
     expect(badges[2]!.classes()).toContain('bg-sky-50')
@@ -89,7 +89,7 @@ describe('logo quality overview', () => {
   it('honors dashboard limits without duplicate logo rules', () => {
     expect(render(data, 2).findAll('li')).toHaveLength(2)
     const view = render({ ...data, quality: { ...data.quality, rules: Object.keys(ruleCounts) } })
-    expect(view.findAll('li')).toHaveLength(3)
+    expect(view.get('ul[aria-label="Logos & Bilder"]').findAll('li')).toHaveLength(3)
   })
   it('validates additive counts without fabricating old-server metrics', () => {
     expect(summarySchema.parse(data).quality.rule_counts).toEqual(ruleCounts)
@@ -100,5 +100,40 @@ describe('logo quality overview', () => {
         quality: { ...data.quality, rule_counts: { venue_missing_logo: -1 } },
       }).success,
     ).toBe(false)
+  })
+})
+
+describe('postal code quality overview', () => {
+  it.each(['live', 'persisted'] as const)('links both entity types in %s mode', (mode) => {
+    const view = render({
+      ...data,
+      quality: {
+        ...data.quality,
+        mode,
+        rules: ['postal_code_whitespace'],
+        rule_counts: { postal_code_whitespace: 2 },
+      },
+    })
+    const group = view.get('ul[aria-label="Adressqualität"]')
+    expect(group.findAll('li')).toHaveLength(1)
+    expect(group.text()).toContain('Postleitzahlen mit Leerzeichen')
+    expect(group.text()).toContain('Warnung')
+    expect(group.text()).toContain('Schlechte Datenqualität')
+    expect(group.text()).toContain('2')
+    expect(group.text()).not.toContain('postal_code_whitespace')
+    expect(group.getComponent({ name: 'NuxtLink' }).props('to')).toEqual({
+      path: '/findings',
+      query: { rule: 'postal_code_whitespace', entity_type: undefined, mode },
+    })
+  })
+  it('shows zero counts and distinguishes unavailable counts', () => {
+    const view = render({
+      ...data,
+      quality: { ...data.quality, rule_counts: { postal_code_whitespace: 0 } },
+    })
+    expect(view.get('ul[aria-label="Adressqualität"]').text()).toContain('0')
+    expect(render(summary).get('ul[aria-label="Adressqualität"]').text()).toContain(
+      'Nicht verfügbar',
+    )
   })
 })

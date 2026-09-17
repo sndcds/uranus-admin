@@ -32,6 +32,7 @@ async def test_dashboard_real_counts(db_client, headers):
     assert body["quality"]["rule_counts"]["venue_missing_logo"] == 3
     assert body["quality"]["rule_counts"]["organization_missing_logo"] == 2
     assert body["quality"]["rule_counts"]["logo_unsupported_format"] == 0
+    assert body["quality"]["rule_counts"]["postal_code_whitespace"] == 0
     assert body["check_status"] is None
 
 

@@ -208,3 +208,31 @@ The regression test exercises `run_check()` and real `admin.finding` rows for bo
 venue and organization, each with three existing images (JPEG/JPEG/SVG). It verifies
 three persisted variants, idempotent rescans, resolution of only the repaired dark logo,
 resolution of a removed light-logo link, and unchanged states after failed/incomplete scans.
+
+### Postal code whitespace source scope
+
+| rule | entity | severity | Bedeutung |
+| --- | --- | --- | --- |
+| postal_code_whitespace | organization/venue | warning | Führende oder abschließende Whitespaces in postal_code |
+
+Quality source queries add only `postal_code` from `uranus.organization` and
+`uranus.venue`; both columns already exist in the repository's synthetic source DDL
+(`tests/fixtures/uranus.sql`). No additional sensitive fields are loaded. This is local
+repository/test verification, not a fresh audit of the deployed database.
+
+The check uses `postal_code is not None and postal_code != postal_code.strip()`.
+Only boundary whitespace is reported; tabs/newlines at the boundaries are included as
+requested (`btrim()` without an explicit character set only removes ordinary spaces).
+Internal spaces and tabs remain allowed, including international codes such as `SW1A 1AA`.
+No country-specific postal-code format or length is validated and no source value is changed.
+
+The existing quality loader deliberately excludes projections. There is no dedicated
+postal-code projection consistency architecture to extend here. Therefore
+`event_projection.venue_postal_code` and `event_date_projection.venue_postal_code` are
+not scanned or counted separately: their copies must not multiply a venue's finding.
+Projection/source divergence diagnostics remain outside this rule.
+
+Synthetic unit tests cover both owner types and the boundary/internal whitespace matrix.
+Integration tests run the registered engine and persist findings in `admin.finding`,
+checking relevance, one finding per owner despite referencing events/dates, repeated scans,
+resolution after correction, counts, and preservation after failed/incomplete scans.

@@ -668,3 +668,39 @@ and severity badges. Counts link to `/findings?rule=...`, additionally `entity_t
 missing-logo rules, preserving live/persisted mode. A missing map from an older backend
 is displayed as unavailable, never as zero. Empty inventory retains the three zero-count
 links. Loading, stale-data errors and retry use the existing dashboard store/RequestState.
+
+### Postal code whitespace quality
+
+| rule | entity | severity | Bedeutung |
+| --- | --- | --- | --- |
+| postal_code_whitespace | organization/venue | warning | Führende oder abschließende Whitespaces in postal_code |
+
+The registered core rule reads only `uranus.organization.postal_code` and
+`uranus.venue.postal_code`. It detects non-NULL values where
+`postal_code != postal_code.strip()`. This follows the manual `postal_code <> btrim(postal_code)`
+check's boundary-only intent, with the requested inclusion of leading/trailing tabs,
+newlines and other whitespace recognized by Python `strip()`. PostgreSQL's default
+`btrim()` removes ordinary spaces only. NULL and empty strings produce no finding;
+nonempty whitespace-only values do. Internal whitespace is allowed, including the
+space in international postal codes such as `SW1A 1AA`. No country-specific format,
+length or regex validation is performed. Source values are never normalized or written.
+
+The finding field is `postal_code`, with message “Postleitzahl enthält führende oder
+abschließende Leerzeichen.” Metadata contains `reason=leading_or_trailing_whitespace`
+and the existing source fingerprint, without copying the raw postal code. Identity is
+`postal_code_whitespace:<entity_type>:<uuid>:postal_code` under the existing URL-encoded
+identity contract. Canonical Actions lead to `/organizations/<uuid>` or `/venues/<uuid>`.
+Severity stays warning (schlechte Datenqualität); existing publication/upcoming relevance
+controls priority without a postal-code-specific override.
+
+The existing fingerprint hashes the complete loaded source row. Adding `postal_code`
+therefore also changes evidence fingerprints of existing organization/venue core findings
+on the first new scan. Existing `exception`/`ignored` findings may reopen under the normal
+evidence-change semantics; their identities remain unchanged.
+
+Every scanned organization and venue enters coverage, including clean values. A repaired
+value resolves the persisted finding only after a successful complete scan. Failed or
+incomplete scans leave it open. `event_projection.venue_postal_code` and
+`event_date_projection.venue_postal_code` are derived copies and do not create separate
+findings, so events/dates cannot multiply one venue defect. No new projection consistency
+rule is introduced. The existing `quality.rule_counts` map supplies the overview count.

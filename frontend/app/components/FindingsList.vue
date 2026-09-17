@@ -36,6 +36,7 @@ const detail = useTemplateRef('detail')
         </div>
         <p class="mt-1 break-words text-sm text-slate-600 lg:col-start-1">{{ finding.message }}</p>
         <p class="mt-1 text-xs text-slate-500 lg:col-start-1">
+          Feld: {{ finding.field }} ·
           {{ finding.organization_name || 'Keine eindeutige Organisation' }} · beobachtet
           {{ dateTime(finding.last_seen_at) }}
         </p>
