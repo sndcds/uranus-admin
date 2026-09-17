@@ -59,7 +59,8 @@ async def test_entity_list_detail_and_boundaries(db_client, headers, section, ke
 
 
 @pytest.mark.integration
-async def test_entity_pagination_deterministic_batch_queries(db_connection, settings, now):
+@pytest.mark.parametrize("period", [None, "7d"])
+async def test_entity_pagination_deterministic_batch_queries(db_connection, settings, now, period):
     statements = []
 
     def capture(conn, cursor, statement, parameters, context, executemany):
@@ -68,17 +69,21 @@ async def test_entity_pagination_deterministic_batch_queries(db_connection, sett
     event.listen(db_connection.sync_connection, "before_cursor_execute", capture)
     try:
         first = await entity_page(
-            db_connection, settings, "venues", EntityFilters(page_size=1), now
+            db_connection, settings, "venues", EntityFilters(page_size=1, period=period), now
         )
         queries_per_page = len(statements)
         statements.clear()
         second = await entity_page(
-            db_connection, settings, "venues", EntityFilters(page=2, page_size=1), now
+            db_connection,
+            settings,
+            "venues",
+            EntityFilters(page=2, page_size=1, period=period),
+            now,
         )
         assert first.items[0].entity_key != second.items[0].entity_key
         statements.clear()
         all_items = await entity_page(
-            db_connection, settings, "venues", EntityFilters(page_size=100), now
+            db_connection, settings, "venues", EntityFilters(page_size=100, period=period), now
         )
         assert len(statements) == queries_per_page
         assert all(s.startswith("SELECT") or s.startswith("WITH") for s in statements)

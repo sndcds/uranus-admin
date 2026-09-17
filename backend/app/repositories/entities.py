@@ -12,6 +12,7 @@ from app.config import Settings
 from app.errors import APIError
 from app.repositories.activity import ACTIVITY_SQL, ENTITY_ACTIVITY_SQL
 from app.repositories.activity_previews import activity_previews
+from app.repositories.created_period import created_period_filter, require_timezone
 from app.repositories.entity_search import ORGANIZATION_FILTER, SEARCH_DEFINITIONS, escape_search
 from app.repositories.graph import RELATIONS
 from app.repositories.temporal import temporal_predicate
@@ -119,12 +120,6 @@ async def records(
     ]
 
 
-def require_timezone(settings: Settings) -> str:
-    if settings.uranus_timestamp_timezone is None:
-        raise APIError(503, "source_timezone_unconfigured", "Source timezone must be configured.")
-    return settings.uranus_timestamp_timezone
-
-
 async def entity_page(
     connection: AsyncConnection,
     settings: Settings,
@@ -134,8 +129,10 @@ async def entity_page(
 ) -> EntityPage:
     kind = SECTIONS[section]
     temporal = temporal_predicate(kind, filters.temporal)
+    period_sql, period_params = created_period_filter(filters.period, settings, now)
     q = escape_search(filters.q)
     params = {
+        **period_params,
         "q": f"%{q}%",
         "kind": kind,
         "event_tz": settings.event_timezone,
@@ -156,7 +153,7 @@ async def entity_page(
     base = f"""SELECT a.* FROM ({SOURCES[kind]}) a
         WHERE {search}
         AND (CAST(:status AS text) IS NULL OR status=:status)
-        AND {ORGANIZATION_FILTER} AND {temporal}"""
+        AND {ORGANIZATION_FILTER} AND {temporal} AND {period_sql}"""
     total = int(
         (await connection.execute(text(f"SELECT count(*) FROM ({base}) a"), params)).scalar_one()
     )

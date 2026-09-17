@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-Period = Literal["today", "24h", "7d"]
+from app.schemas.periods import Period as Period
 
 
 class NewRecords(BaseModel):
