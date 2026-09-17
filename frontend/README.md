@@ -215,8 +215,13 @@ finding links remain available. Source timestamps retain their actual meaning.
 The global create action remains disabled until an authorized Uranus write adapter
 exists; the independent admin login does not grant Uranus domain write permissions.
 
-## UI patterns
+### Remaining domain-management prerequisites
 
-Use the shared Activity-based page patterns described in
-[the admin design system](docs/design-system.md). Statistics and Graph retain their
-specialized visualizations inside the same shell, controls and surface language.
+The six list/detail sections remain read-only. User search includes username as well
+as display name/UUID. Event location facts are labeled Standardort/Standardraum;
+related event dates retain their own effective locations. Invitation timestamps and
+membership creation timestamps remain distinct; no joined-at/last-login history is
+inferred. The global create control stays disabled until a verified server-side
+Uranus delegation and per-operation authorization contract exists. There is no client
+capability override or browser-visible Uranus credential. See the current audit in
+`backend/docs/open-issues-audit.md` and the write-contract matrix in `backend/docs/contracts.md`.

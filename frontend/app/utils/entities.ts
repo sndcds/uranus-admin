@@ -21,3 +21,9 @@ export const factLabels = {
   image_links: 'Bildverknüpfungen',
   orphan: 'Ohne Verknüpfung',
 }
+
+export function entityFactLabel(section: EntitySection, field: keyof typeof factLabels): string {
+  if (section === 'events' && field === 'venue_name') return 'Standardort'
+  if (section === 'events' && field === 'space_name') return 'Standardraum'
+  return factLabels[field]
+}

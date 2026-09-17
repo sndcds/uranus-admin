@@ -87,24 +87,31 @@ async def verify(connection: AsyncConnection, settings: Settings) -> dict[str, A
                 (
                     await connection.execute(
                         text(
-                            f'SELECT DISTINCT left("{field}"::text,80) AS value '
-                            f'FROM uranus."{table}" '
+                            f'SELECT left("{field}"::text,80) AS value, '
+                            f'coalesce(bool_or(length("{field}"::text)>80),false) '
+                            "AS value_truncated "
+                            f'FROM uranus."{table}" GROUP BY left("{field}"::text,80) '
                             "ORDER BY value NULLS LAST LIMIT 101"
                         )
                     )
                 )
-                .scalars()
+                .mappings()
                 .all()
             )
             observations[f"{table}.{field}"] = {
-                "values": values[:100],
+                "values": [row["value"] for row in values[:100]],
                 "truncated": len(values) > 100,
+                "values_truncated": any(row["value_truncated"] for row in values[:100]),
             }
         else:
             observations[f"{table}.{field}"] = {"missing": True}
     return {
         "database": (await connection.execute(text("SELECT current_database()"))).scalar_one(),
         "verified_at": datetime.now(UTC).isoformat(),
+        "transaction_read_only": (
+            await connection.execute(text("SELECT current_setting('transaction_read_only')"))
+        ).scalar_one()
+        == "on",
         "uranus_timestamp_timezone": settings.uranus_timestamp_timezone,
         "timestamp_note": (
             "Database type does not establish storage timezone; operator confirmation required."

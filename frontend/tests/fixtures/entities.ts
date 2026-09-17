@@ -28,8 +28,8 @@ export function entityFixture(section: EntitySection): EntityPage {
         facts: {
           username: section === 'users' ? 'fixture-user' : null,
           description: null,
-          venue_name: null,
-          space_name: null,
+          venue_name: section === 'events' ? 'Standardbühne' : null,
+          space_name: section === 'events' ? 'Saal A' : null,
           event_dates: null,
           venues: null,
           spaces: null,
@@ -46,9 +46,24 @@ export function entityFixture(section: EntitySection): EntityPage {
 }
 export function detailFixture(section: EntitySection): EntityDetail {
   const page = entityFixture(section)
+  const membership = activityFixture.items.find((item) => item.entity_type === 'team_membership')!
+  const related =
+    section === 'users'
+      ? [
+          {
+            ...membership,
+            created_at: '2026-01-01T00:00:00Z',
+            subtitle: 'Eingeladen: 02.02.2026 13:00 (Europe/Berlin)',
+            status: 'invited',
+          },
+        ]
+      : []
   return {
     item: page.items[0]!,
-    related: { items: [], pagination: { page: 1, page_size: 25, total: 0, pages: 0 } },
+    related: {
+      items: related,
+      pagination: { page: 1, page_size: 25, total: related.length, pages: related.length ? 1 : 0 },
+    },
     observed_at: page.observed_at,
   }
 }

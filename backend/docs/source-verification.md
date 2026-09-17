@@ -15,7 +15,7 @@ Die Integrationstests verwenden ausschließlich synthetische Daten auf lokalem P
 | Membership | [organization_member_link.ddl](https://github.com/sndcds/uranus/blob/733c54133362460353400eb96c60a0cdb9f8450a/ddl/organization_member_link.ddl): UNIQUE(org,user), echte FKs, invited_at nullable, has_joined | Keine Doppel-Membership-Regel gegen bereits erzwungenes Unique; invited_at statt created_at als Einladungsalter |
 | Rechtepaare | [user_organization_link.ddl](https://github.com/sndcds/uranus/blob/733c54133362460353400eb96c60a0cdb9f8450a/ddl/user_organization_link.ddl): kein Unique-Paar; user_venue/user_space/user_event ebenfalls ohne Paar-Unique | Keine Hochstufung von Org-/Objektrechten zu globalem Admin; keine neue Rechte-/Nullrechte-Regel |
 | Zeitfelder | DDL: überwiegend timestamp without time zone; pluto_image.created_at nullable, Bildlinks/Grants ohne Zeiten | Source-Zeitzone explizit; keine Login-, Beitritts-, Entscheidungs- oder Bildverwendungshistorie erfinden |
-| Space-Vererbung | [öffentliche Projektion](https://github.com/sndcds/uranus/blob/733c54133362460353400eb96c60a0cdb9f8450a/sql/get-events-projected.sql) verwendet COALESCE für Space; [Terminabfrage](https://github.com/sndcds/uranus/blob/733c54133362460353400eb96c60a0cdb9f8450a/sql/get-event-dates.sql) verwendet bedingte Vererbung nach Venue-Override | Regel benennt ausdrücklich die öffentliche COALESCE-Semantik in Meldung und metadata.inheritance; Quelltabellen bleiben Prüfbasis |
+| Space-Vererbung | [öffentliche Projektion](https://github.com/sndcds/uranus/blob/733c54133362460353400eb96c60a0cdb9f8450a/sql/get-events-projected.sql) verwendet COALESCE für Space; [Terminabfrage](https://github.com/sndcds/uranus/blob/733c54133362460353400eb96c60a0cdb9f8450a/sql/get-event-dates.sql) verwendet bedingte Vererbung nach Venue-Override | Historischer Befund; aktuelle Regel verwendet `event_date_location_override` und unterdrückt Event-Space bei Termin-Venue-Override (siehe aktueller Audit unten) |
 | Bildkontexte/Identifier | [api_image_helper.go](https://github.com/sndcds/uranus/blob/733c54133362460353400eb96c60a0cdb9f8450a/api/api_image_helper.go), [admin_pluto_image.go](https://github.com/sndcds/uranus/blob/733c54133362460353400eb96c60a0cdb9f8450a/api/admin_pluto_image.go): organization/venue/event/portal; Space auskommentiert; konkrete Identifier-Listen | Genau diese Listen prüfen; kein pauschales Space-Pflichtbild |
 | Portal-Ziel | Portal-Handler verwenden Tabelle portal, DDL exportiert portal2/portal_temp; keine eindeutige aktuelle Zielauflösung | Portal-Identifier prüfen, Portal-Zielexistenz und Orgzuordnung aussetzen; kein Erraten einer Tabelle |
 | Wikidata/Wikipedia | Kein einheitlicher URL-vs-Identifier-Vertrag durch die geprüften Quellen belegt | Beide Felder bewusst aus URL-Regel ausgeschlossen |
@@ -82,3 +82,73 @@ confirmed semantics.
 **Status:** the command is tested against disposable schema fixtures. No live
 production verification was performed for this change. Issue #13 remains open until
 an operator runs it on the authoritative source and records the reviewed findings.
+
+## Current audit: 2026-09-17 — repository evidence, no live access
+
+Admin baseline: `7428b455f68316c2b116798ac1138d70eeeb3d2c`.
+Uranus default branch is **main**, reviewed at
+[`74fef734ca916ecd04aef9d7d3013c1cd918d6dc`](https://github.com/sndcds/uranus/tree/74fef734ca916ecd04aef9d7d3013c1cd918d6dc).
+The dated dev review above is historical evidence. The current review used a source
+archive from GitHub, **not a database connection**. No explicitly authorized live
+connection or reviewed live report was supplied; no credential search was performed.
+
+| Bereich | Repo-Befund (current main) | Live-Befund | Status | Konsequenz |
+| --- | --- | --- | --- | --- |
+| Venue scope | `ddl/venue.ddl`: text, default `standard`, CHECK `organization/shared` | Nicht verifiziert | Offen | Export-Widerspruch nicht als aktuellen Live-Fehler ausgeben; keine neue Scope-Regel |
+| Space feature | `ddl/space_feature_link.ddl`: integer `space_id`, PK `(space_id,key)`; FK nur von `key` zu `space_feature.key`, keiner zu `space.uuid` | Nicht verifiziert | Offen | Keine integer→UUID-Zuordnung erraten |
+| Partner request | `ddl/organization_partner_request.ddl`: text status/default pending; Unique `(from_org_uuid,to_org_uuid)`; keine Org-/User-FKs | Nicht verifiziert | Offen | Missing-reference-Regeln beibehalten, aber Live-Abgleich vor Abschluss erforderlich |
+| Partner direction | `api/admin_insert_org_partner_request.go`: A→B acceptance erzeugt B→A grant; rejection löscht Request | Nicht verifiziert | Repo-Handler bestätigt | Accepted ohne passenden Grant bleibt Hinweis; keine Entscheidungshistorie |
+| Membership | `ddl/organization_member_link.ddl`: Unique `(org_uuid,user_uuid)`, FKs; `invited_at` und `has_joined` | Nicht verifiziert | Offen | Keine redundante Duplicate-Regel; Einladung und Beitritt getrennt halten |
+| Permission pairs | `user_organization_link`, `user_venue_link`, `user_space_link`, `user_event_link`: kein Paar-Unique im jeweiligen Export | Nicht verifiziert | Offen | Live-Constraints/Unique-Indizes einschließlich Bedingungen prüfen; keine globale Berechtigung ableiten |
+| Timestamp types/storage | Export enthält naive timestamps. Die frühere Betreiberbestätigung in `uranus-analysis.md` gilt für den dort genannten Backup; Konfigurationsdefault ist UTC | Aktuelle Storage-Konvention nicht neu bestätigt | Offen / historische Betreiberquelle vorhanden | Aktuelle Deployment-Konfiguration und Betreiberbestätigung separat erfassen; Typ allein beweist keine Zeitzone |
+
+### Operator-ready execution and evidence review
+
+1. Obtain explicit authorization for the authoritative source, including scope and
+   deployment identity. Use the existing **SELECT-only reader** via `DATABASE_URL`.
+   Possessing a DSN, localhost forwarding or a database snapshot is not proof of live
+   authorization or freshness. Do not supply migration/runtime credentials instead.
+2. Have the operator confirm `URANUS_TIMESTAMP_TIMEZONE` against the actual writers
+   and deployment documentation. Record confirmation date/source; do not infer it from
+   the connection timezone or the PostgreSQL column type.
+3. Run the existing command in an environment where the authorized connection is
+   already provided securely. Do not put a DSN into shell history or the report name:
+
+   ```bash
+   cd backend
+   umask 077
+   report_dir=$(mktemp -d "${TMPDIR:-/tmp}/uranus-schema.XXXXXX")
+   uv run python -m app.source_schema_verify --json > "$report_dir/report.json"
+   # Continue only after exit code 0; validate JSON without printing its contents:
+   python -m json.tool "$report_dir/report.json" > /dev/null
+   ```
+
+4. Check `transaction_read_only=true`, `missing_tables`, column visibility and both
+   completeness flags on observed values: `truncated` means over 100 values;
+   `values_truncated` means a displayed value exceeded 80 characters. Neither a
+   partial catalog nor truncated observations can establish a complete allowed-value
+   contract. Confirm missing constraints using an authorized catalog reviewer, not
+   by granting more runtime privileges automatically.
+5. Review the private report before sharing. Database names, defaults, constraint
+   definitions/index expressions and unexpected status values can reveal internal
+   details. Do not commit the raw JSON. Publish only the facts needed in the table
+   above, with verification date, source provenance and operator confirmation.
+6. Audit the affected rules against those facts, add a regression only for a proven
+   discrepancy, and record unchanged rules too. Close #13 only when all seven
+   acceptance criteria have evidence. A successful tool run alone is insufficient.
+
+### Rule dependency audit (code only)
+
+- No rule maps `space_feature_link.space_id` to `space.uuid`, validates the disputed
+  venue scope enum, or invents membership duplicates despite a Unique constraint.
+- `services/queues.py` and `repositories/queues.py` retain A→B request / B→A accepted-grant
+  semantics. Pending requests and accepted partnerships are different relationships.
+- Invitation age uses `invited_at` and membership state uses `has_joined`; user
+  activation age uses creation, never modified-at as last login.
+- Source timestamps are converted using the configured source timezone. Existing
+  backup confirmation does not substitute for confirmation of the current live writer.
+- Current effective-location logic is centralized in `quality/core.py` and the shared
+  SQL location expressions: a date venue override suppresses inherited event space.
+  The older COALESCE description above is historical, not the current rule contract.
+
+No quality-rule behavior was changed based on this repository-only audit.
