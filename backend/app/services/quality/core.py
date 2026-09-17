@@ -55,6 +55,7 @@ LOGO_IDENTIFIERS = {"main_logo", "dark_theme_logo", "light_theme_logo"}
 LOGO_MIME_TYPES = ("image/png", "image/webp")
 CORE_RULES = (
     "url_syntax",
+    "postal_code_whitespace",
     "event_without_dates",
     "event_date_without_location",
     "event_without_location",
@@ -276,6 +277,22 @@ def evaluate_core(
                             f"URL-Syntax ungültig: {problem}.",
                             metadata={"reason": problem},
                         )
+    elif rule == "postal_code_whitespace":
+        # Authoritative owners only: projections would multiply the same venue issue.
+        for kind in ("organization", "venue"):
+            for row in sources.rows[kind]:
+                result.covered.add((kind, entity_key(kind, row)))
+                postal_code = row["postal_code"]
+                # Internal spaces are valid in international postal codes.
+                if postal_code is not None and postal_code != postal_code.strip():
+                    emit(
+                        kind,
+                        row,
+                        "postal_code",
+                        "Postleitzahl enthält führende oder abschließende Leerzeichen.",
+                        Severity.warning,
+                        {"reason": "leading_or_trailing_whitespace"},
+                    )
     elif rule in {"event_without_dates", "event_without_location"}:
         for row in sources.rows["event"]:
             result.covered.add(("event", entity_key("event", row)))
