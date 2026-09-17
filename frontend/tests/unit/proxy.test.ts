@@ -325,9 +325,33 @@ it.each([
   '/api/v1/entity-search',
 ])('forwards temporal and existing organization filters for %s', async (path) => {
   const fetcher = vi.fn().mockResolvedValue(new Response('{"items":[]}'))
-  const query = new URLSearchParams({ temporal: 'upcoming', organization_id: 'org', q: 'hacks' })
+  const query = new URLSearchParams({
+    temporal: 'upcoming',
+    period: '7d',
+    organization_id: 'org',
+    q: 'hacks',
+  })
   expect((await forwardAdminRequest({ ...input, path, query }, base, fetcher)).status).toBe(200)
   const url = new URL(String(fetcher.mock.calls[0]?.[0]))
   expect(url.searchParams.get('temporal')).toBe('upcoming')
+  expect(url.searchParams.get('period')).toBe('7d')
   expect(url.searchParams.get('organization_id')).toBe('org')
 })
+
+it.each(['events', 'users', 'organizations', 'venues', 'spaces', 'images', 'entity-search'])(
+  'forwards created period on %s without weakening the query allowlist',
+  async (section) => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ items: [] }))
+    const request = {
+      ...input,
+      path: `/api/v1/${section}`,
+      query: new URLSearchParams({ period: '90d', q: 'max' }),
+    }
+    expect((await forwardAdminRequest(request, base, fetcher)).status).toBe(200)
+    const url = new URL(String(fetcher.mock.calls[0]?.[0]))
+    expect(Object.fromEntries(url.searchParams)).toEqual({ period: '90d', q: 'max' })
+    request.query.append('period', '7d')
+    expect((await forwardAdminRequest(request, base, fetcher)).status).toBe(422)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  },
+)

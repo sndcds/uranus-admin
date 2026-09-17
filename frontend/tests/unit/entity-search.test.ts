@@ -62,6 +62,7 @@ it('debounces trimmed input from two characters and shows loading, labels and AR
     organization_id: undefined,
     status: undefined,
     temporal: undefined,
+    period: undefined,
   })
   expect(wrapper.text()).toContain('Max Mustermann')
   expect(wrapper.text()).toContain('@max · max@example.org')
@@ -254,4 +255,31 @@ it.each(['user', 'image'] as const)('never sends temporal for %s', async (entity
   expect(api.entitySearch).toHaveBeenLastCalledWith(
     expect.objectContaining({ entity_type: entityType, temporal: undefined }),
   )
+})
+
+it('sends period, restarts on changes and rejects stale period responses', async () => {
+  let resolveOld!: (value: { items: (typeof item)[] }) => void
+  api.entitySearch
+    .mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveOld = resolve
+      }),
+    )
+    .mockResolvedValue({ items: [] })
+  const wrapper = setup()
+  await wrapper.setProps({ period: '7d' })
+  await wrapper.get('input').trigger('focus')
+  await wrapper.get('input').setValue('max')
+  await vi.advanceTimersByTimeAsync(275)
+  expect(api.entitySearch).toHaveBeenLastCalledWith(expect.objectContaining({ period: '7d' }))
+  await wrapper.setProps({ period: '30d' })
+  await vi.advanceTimersByTimeAsync(275)
+  expect(api.entitySearch).toHaveBeenLastCalledWith(expect.objectContaining({ period: '30d' }))
+  resolveOld({ items: [item] })
+  await flushPromises()
+  expect(wrapper.find('[role="option"]').exists()).toBe(false)
+  await wrapper.setProps({ period: '' })
+  await vi.advanceTimersByTimeAsync(275)
+  expect(api.entitySearch).toHaveBeenLastCalledWith(expect.objectContaining({ period: undefined }))
+  wrapper.unmount()
 })

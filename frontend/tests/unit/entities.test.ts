@@ -79,6 +79,7 @@ it.each(entitySectionSchema.options)(
         organization_id: undefined,
         status: undefined,
         temporal: undefined,
+        period: undefined,
         page: '1',
       },
     })
@@ -171,7 +172,7 @@ it.each(entitySectionSchema.options)(
     expect(list.text()).not.toContain('Organisation UUID')
     expect(list.find('input:not([type="search"])').exists()).toBe(false)
     const supported = !['users', 'images'].includes(section)
-    expect(list.findAll('label').some((label) => label.text().startsWith('Zeitraum'))).toBe(
+    expect(list.findAll('label').some((label) => label.text().startsWith('Terminlage'))).toBe(
       supported,
     )
     expect(list.getComponent(EntitySearch).props('organizationId')).toBe(org)
@@ -183,6 +184,7 @@ it.each(entitySectionSchema.options)(
         organization_id: org,
         status: undefined,
         temporal: undefined,
+        period: undefined,
         page: '1',
       },
     })
@@ -205,7 +207,10 @@ it.each(['events', 'organizations', 'venues', 'spaces'] as const)(
     api.entities.mockResolvedValue(entityFixture(section))
     const list = mount(EntityListPage, { props: { section }, global })
     await flushPromises()
-    const select = list.get('select')
+    const select = list
+      .findAll('label')
+      .find((label) => label.text().startsWith('Terminlage'))!
+      .get('select')
     expect(select.findAll('option').map((o) => o.text())).toEqual([
       'Alle',
       'Mit bevorstehenden Terminen',
@@ -213,11 +218,11 @@ it.each(['events', 'organizations', 'venues', 'spaces'] as const)(
     ])
     expect((select.element as HTMLSelectElement).value).toBe('past')
     expect(list.getComponent(EntitySearch).props('temporal')).toBe('past')
-    expect(list.text()).toContain('Zeitraum: Mit vergangenen Terminen')
+    expect(list.text()).toContain('Terminlage: Mit vergangenen Terminen')
     for (const temporal of ['upcoming', 'past', '']) {
       await select.setValue(temporal)
       expect(push).toHaveBeenLastCalledWith({
-        query: { ...initial, temporal: temporal || undefined, page: '1' },
+        query: { ...initial, temporal: temporal || undefined, period: undefined, page: '1' },
       })
       route.query = { ...initial, page: '1', ...(temporal ? { temporal } : {}) }
       if (!temporal) delete route.query.temporal
@@ -242,8 +247,8 @@ it.each(['events', 'organizations', 'venues', 'spaces'] as const)(
 
 it('restores scoped preferences on entry and updates both memory and route on apply/reset', async () => {
   const store = useFilterPreferencesStore()
-  store.entities.events = { q: 'sommer', status: 'released', temporal: 'upcoming' }
-  store.entities.users = { q: 'max', status: 'active' }
+  store.entities.events = { q: 'sommer', status: 'released', temporal: 'upcoming', period: '' }
+  store.entities.users = { q: 'max', status: 'active', period: '' }
   store.sharedPeriod = '90d'
   store.statistics.compare = true
   api.entities.mockResolvedValue(entityFixture('events'))
@@ -266,8 +271,8 @@ it('restores scoped preferences on entry and updates both memory and route on ap
     .findAll('button')
     .find((b) => b.text() === 'Filter zurücksetzen')!
     .trigger('click')
-  expect(store.entities.events).toEqual({ q: '', status: '', temporal: '' })
-  expect(store.entities.users).toEqual({ q: 'max', status: 'active' })
+  expect(store.entities.events).toEqual({ q: '', status: '', temporal: '', period: '' })
+  expect(store.entities.users).toEqual({ q: 'max', status: 'active', period: '' })
   expect(store.sharedPeriod).toBe('90d')
   expect(store.statistics.compare).toBe(true)
   list.unmount()
@@ -275,7 +280,7 @@ it('restores scoped preferences on entry and updates both memory and route on ap
 
 it('gives explicit fields priority, fills missing entry fields, and restores complete history snapshots', async () => {
   const store = useFilterPreferencesStore()
-  store.entities.events = { q: 'stored', status: 'released', temporal: 'upcoming' }
+  store.entities.events = { q: 'stored', status: 'released', temporal: 'upcoming', period: '' }
   route.query = { status: 'draft' }
   api.entities.mockResolvedValue(entityFixture('events'))
   const list = mount(EntityListPage, { props: { section: 'events' }, global })
@@ -283,12 +288,17 @@ it('gives explicit fields priority, fills missing entry fields, and restores com
   expect(replace).toHaveBeenCalledWith({
     query: { q: 'stored', status: 'draft', temporal: 'upcoming', page: '1' },
   })
-  expect(store.entities.events).toEqual({ q: 'stored', status: 'draft', temporal: 'upcoming' })
+  expect(store.entities.events).toEqual({
+    q: 'stored',
+    status: 'draft',
+    temporal: 'upcoming',
+    period: '',
+  })
   for (const status of ['released', 'draft', '']) {
     route.query = status ? { status, page: '1' } : { page: '1' }
     await flushPromises()
     expect(store.entities.events.status).toBe(status)
-    expect((list.findAll('select')[1]!.element as HTMLSelectElement).value).toBe(status)
+    expect((list.findAll('select')[2]!.element as HTMLSelectElement).value).toBe(status)
   }
   list.unmount()
 })
@@ -306,7 +316,9 @@ it.each(entitySectionSchema.options)(
     const list = mount(EntityListPage, { props: { section }, global })
     await flushPromises()
     expect(api.entities).toHaveBeenLastCalledWith(section, {
-      ...preferences.entities[section],
+      ...Object.fromEntries(
+        Object.entries(preferences.entities[section]).filter(([, value]) => value !== ''),
+      ),
       page: '1',
     })
     expect(list.getComponent(EntitySearch).props('modelValue')).toBe('remembered')
@@ -314,6 +326,56 @@ it.each(entitySectionSchema.options)(
       expect(preferences.entities[section]).not.toHaveProperty('temporal')
     if (!['events', 'users'].includes(section))
       expect(preferences.entities[section]).not.toHaveProperty('status')
+    list.unmount()
+  },
+)
+
+it.each(entitySectionSchema.options)(
+  '%s exposes all creation presets independently of Terminlage',
+  async (section) => {
+    api.entities.mockResolvedValue(entityFixture(section))
+    const list = mount(EntityListPage, { props: { section }, global })
+    await flushPromises()
+    const created = list
+      .findAll('label')
+      .find((label) => label.text().startsWith('Erstellt'))!
+      .get('select')
+    expect(created.findAll('option').map((option) => option.text())).toEqual([
+      'Alle',
+      'Heute',
+      'Letzte 24 Stunden',
+      'Letzte 7 Tage',
+      'Letzte 30 Tage',
+      'Letzte 90 Tage',
+    ])
+    expect((created.element as HTMLSelectElement).value).toBe('')
+    await created.setValue('7d')
+    expect(push).toHaveBeenLastCalledWith({
+      query: expect.objectContaining({ period: '7d', page: '1' }),
+    })
+    const store = useFilterPreferencesStore()
+    expect(store.entities[section].period).toBe('7d')
+    expect(store.sharedPeriod).toBe('7d')
+    route.query = { period: '30d', q: 'fixture', page: '2' }
+    await flushPromises()
+    expect(store.entities[section].period).toBe('30d')
+    expect(store.sharedPeriod).toBe('30d')
+    expect(list.getComponent(EntitySearch).props('period')).toBe('30d')
+    expect(list.text()).toContain('Erstellt: Letzte 30 Tage')
+    const next = list.findAll('a').find((a) => a.text() === 'Weiter')!
+    expect(JSON.parse(next.attributes('data-to')!)).toEqual({
+      query: { period: '30d', q: 'fixture', page: '2' },
+    })
+    route.query = { period: '7d', page: '1' }
+    await flushPromises()
+    expect((created.element as HTMLSelectElement).value).toBe('7d')
+    expect(store.sharedPeriod).toBe('7d')
+    await created.setValue('')
+    expect(store.entityDefaults(section).period).toBe('')
+    expect(store.sharedPeriod).toBe('7d')
+    expect(push).toHaveBeenLastCalledWith({
+      query: expect.objectContaining({ period: undefined, page: '1' }),
+    })
     list.unmount()
   },
 )

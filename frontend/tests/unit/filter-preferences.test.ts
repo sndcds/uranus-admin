@@ -7,8 +7,8 @@ beforeEach(() => setActivePinia(createPinia()))
 it('has fresh, scoped defaults and resolves supported page periods', () => {
   const store = useFilterPreferencesStore()
   expect(store.sharedPeriod).toBe('24h')
-  expect(store.entities.users).toEqual({ q: '', status: '' })
-  expect(store.entities.images).toEqual({ q: '' })
+  expect(store.entities.users).toEqual({ q: '', status: '', period: '' })
+  expect(store.entities.images).toEqual({ q: '', period: '' })
   expect(store.statistics.selectedTypes).toHaveLength(7)
   store.setSharedPeriod('7d')
   for (const page of ['dashboard', 'activity', 'statistics'] as const) {
@@ -23,17 +23,22 @@ it('has fresh, scoped defaults and resolves supported page periods', () => {
 })
 it('validates entity scopes, synchronizes URL values and resets only the requested entity', () => {
   const store = useFilterPreferencesStore()
-  store.commitEntityFilters('events', { q: 'sommer', status: 'released', temporal: 'upcoming' })
-  store.commitEntityFilters('users', { q: 'max@example.org', status: 'active' })
+  store.commitEntityFilters('events', {
+    q: 'sommer',
+    status: 'released',
+    temporal: 'upcoming',
+    period: '',
+  })
+  store.commitEntityFilters('users', { q: 'max@example.org', status: 'active', period: '' })
   store.hydrateEntity('events', { status: 'draft', page: '2' })
-  expect(store.entities.events).toEqual({ q: '', status: 'draft', temporal: '' })
+  expect(store.entities.events).toEqual({ q: '', status: 'draft', temporal: '', period: '' })
   store.hydrateEntity('users', { status: 'released', temporal: 'past' })
-  expect(store.entities.users).toEqual({ q: 'max@example.org', status: 'active' })
+  expect(store.entities.users).toEqual({ q: 'max@example.org', status: 'active', period: '' })
   store.setSharedPeriod('90d')
   store.graph.depth = 3
   store.statistics.compare = true
   store.resetEntity('events')
-  expect(store.entities.events).toEqual({ q: '', status: '', temporal: '' })
+  expect(store.entities.events).toEqual({ q: '', status: '', temporal: '', period: '' })
   expect(store.entities.users.q).toBe('max@example.org')
   expect(store.sharedPeriod).toBe('90d')
   expect(store.graph.depth).toBe(3)
@@ -87,4 +92,39 @@ it('isolates preferences between app/SSR Pinia instances', () => {
   const second = useFilterPreferencesStore(createPinia())
   expect(second.entities.users.q).toBe('')
   expect(second.sharedPeriod).toBe('24h')
+})
+
+it('starts with All and inherits shared periods only after a conscious choice', () => {
+  const store = useFilterPreferencesStore()
+  expect(store.entityDefaults('events').period).toBe('')
+  expect(store.sharedPeriodChosen).toBe(false)
+  store.hydrateEntity('events', { period: '7d' })
+  expect(store.sharedPeriod).toBe('7d')
+  expect(store.entityDefaults('venues').period).toBe('7d')
+  store.hydrateEntity('venues', { period: '30d' })
+  expect(store.entityDefaults('events').period).toBe('7d')
+  expect(store.sharedPeriod).toBe('30d')
+  expect(store.entityDefaults('spaces').period).toBe('30d')
+  store.hydrateEntity('events', { period: '90d' })
+  expect(store.entities.events.period).toBe('90d')
+  expect(store.sharedPeriod).toBe('90d')
+  store.hydrateEntity('events', { period: '' })
+  expect(store.sharedPeriod).toBe('90d')
+  expect(store.entityDefaults('events').period).toBe('')
+  store.resetEntity('venues')
+  expect(store.entityDefaults('venues').period).toBe('')
+  expect(store.sharedPeriod).toBe('90d')
+  store.resetAll()
+  expect(store.entityDefaults('events').period).toBe('')
+  expect(store.sharedPeriodChosen).toBe(false)
+})
+
+it('inherits a conscious Dashboard period but ignores custom and unknown', () => {
+  const store = useFilterPreferencesStore()
+  store.setSharedPeriod('custom')
+  store.setSharedPeriod('unknown')
+  expect(store.entityDefaults('users').period).toBe('')
+  store.hydratePeriod('dashboard', '7d')
+  expect(store.resolvePeriodForPage('entities')).toBe('7d')
+  expect(store.entityDefaults('users').period).toBe('7d')
 })

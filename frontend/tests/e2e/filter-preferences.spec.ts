@@ -41,7 +41,7 @@ test('entity memory, URL priority, history and scoped reset survive SPA navigati
 }) => {
   await page.goto('/events')
   const status = page.getByRole('combobox', { name: 'Status', exact: true })
-  const temporal = page.getByRole('combobox', { name: 'Zeitraum', exact: true })
+  const temporal = page.getByRole('combobox', { name: 'Terminlage', exact: true })
   await expect(page.getByText('Fixture events', { exact: true })).toBeVisible()
   await status.selectOption('released')
   await temporal.selectOption('upcoming')
