@@ -627,14 +627,23 @@ format finding. Avatar, main_photo, gallery photos, events and portals are exclu
 
 Allowed MIME types: `image/png`, `image/webp`. The authoritative source is
 `pluto_image.mime_type`, never `file_name` / `gen_file_name`. NULL, empty and whitespace-only
-MIME values are unknown and generate no format finding. Other nonempty values generate
-info, with `field=mime_type`, `identifier`, `mime_type`, `allowed_mime_types`, `image_uuid`
-and the existing source fingerprint in metadata.
+MIME values are unknown and generate no format finding. Comparison uses
+`mime_type.strip().lower()`, so `IMAGE/PNG` and ` image/webp ` are accepted. Other
+nonempty normalized values generate info, with `field=<identifier>.mime_type`. Metadata
+contains `identifier`, the original `mime_type`, `allowed_mime_types`, `image_uuid`
+and the existing source fingerprint.
 
 Missing-logo identity retains `<rule>:<entity_type>:<uuid>:main_logo`, with
-`field=main_logo` and metadata `expected_identifier=main_logo`. Format identity uses
-`logo_unsupported_format:<entity_type>:<uuid>:<identifier>` while field stays
-`mime_type`; the identity's last component distinguishes all three logo variants.
+`field=main_logo` and metadata `expected_identifier=main_logo`. Format findings use
+`main_logo.mime_type`, `dark_theme_logo.mime_type` or `light_theme_logo.mime_type`
+as their field. Identity follows the normal `rule:entity_type:entity_key:field` contract,
+with each component URL-encoded as before. Example:
+`logo_unsupported_format:venue:<uuid>:main_logo.mime_type`.
+This keeps the ID consistent with the existing database uniqueness constraint
+`UNIQUE(rule, entity_type, entity_key, field)`; there is no separate identity override.
+Each problematic variant contributes one finding to `rule_counts`, even for the same owner.
+No migration is needed for this unmerged rule; old local experimental findings are not
+part of the production compatibility contract.
 The owner is the Finding entity, so canonical Actions use `/venues/<uuid>` or
 `/organizations/<uuid>` and existing entity finding filters/counts work unchanged.
 The shared priority model uses publication/upcoming relevance without severity

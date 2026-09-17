@@ -180,7 +180,9 @@ The requested quality policy makes **main_logo the required logo**;
 **dark_theme_logo / light_theme_logo are optional variants**. This requirement and
 format preference are quality policy, not an inferred upstream database constraint.
 Allowed formats: **image/png, image/webp**. MIME is authoritative; filename extensions
-are never evidence. NULL/empty/whitespace-only MIME produces no format finding.
+are never evidence. Comparison trims whitespace and lowercases MIME via
+`mime_type.strip().lower()`; `IMAGE/PNG` and ` image/webp ` are allowed. Metadata
+retains the original MIME value. NULL/empty/whitespace-only MIME produces no format finding.
 No existing general missing-MIME rule exists, so no separate one is introduced.
 Avatar, photos, galleries, events and portal logos are excluded from this policy.
 A missing image does not satisfy the main-logo requirement and still produces the
@@ -190,3 +192,19 @@ separate `image_link_without_image` finding. Missing owners stay with the existi
 Verification uses synthetic fixtures in a disposable local PostgreSQL/PostGIS database;
 repository evidence is not a claim about the deployed schema. These checks only SELECT
 source data; persistence writes remain confined to the existing admin storage.
+
+
+### PR #42 identity correction
+
+Format findings use variant-specific persisted fields: `main_logo.mime_type`,
+`dark_theme_logo.mime_type`, `light_theme_logo.mime_type`. IDs follow the existing
+URL-encoded `rule:entity_type:entity_key:field` contract, for example
+`logo_unsupported_format:venue:<uuid>:main_logo.mime_type`. The separate identity override
+has been removed, preserving `admin.finding`'s existing unique identity constraint.
+Missing-logo fields/IDs, owner Actions, info severity and rule counts retain their semantics.
+No schema migration is introduced for this unmerged rule.
+
+The regression test exercises `run_check()` and real `admin.finding` rows for both
+venue and organization, each with three existing images (JPEG/JPEG/SVG). It verifies
+three persisted variants, idempotent rescans, resolution of only the repaired dark logo,
+resolution of a removed light-logo link, and unchanged states after failed/incomplete scans.

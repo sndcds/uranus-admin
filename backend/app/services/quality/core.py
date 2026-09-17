@@ -101,7 +101,6 @@ def make_finding(
     soon: bool = False,
     upcoming: bool = False,
     metadata: dict[str, Any] | None = None,
-    identity_field: str | None = None,
 ) -> Finding:
     action = None
     if kind in {"organization", "venue", "space", "event", "event_date", "user", "image"}:
@@ -110,9 +109,7 @@ def make_finding(
         )
     return Finding(
         action=action,
-        id=":".join(
-            quote(part, safe="") for part in (rule, kind, key, identity_field or field_name)
-        ),
+        id=":".join(quote(part, safe="") for part in (rule, kind, key, field_name)),
         rule=rule,
         entity_type=kind,
         entity_key=key,
@@ -243,7 +240,6 @@ def evaluate_core(
         message: str,
         severity: Severity = Severity.warning,
         metadata: dict[str, Any] | None = None,
-        identity_field: str | None = None,
     ) -> None:
         result.findings.append(
             make_finding(
@@ -256,7 +252,6 @@ def evaluate_core(
                 severity=severity,
                 name=row.get("name") or events.get(str(row.get("event_uuid")), {}).get("name"),
                 organization=organization(kind, row),
-                identity_field=identity_field,
                 metadata={
                     **(metadata or {}),
                     "source_fingerprint": hashlib.sha256(
@@ -375,11 +370,12 @@ def evaluate_core(
             if target is None or image is None:
                 continue
             mime_type = image.get("mime_type")
-            if mime_type and mime_type.strip() and mime_type not in LOGO_MIME_TYPES:
+            normalized_mime_type = mime_type.strip().lower() if mime_type else ""
+            if normalized_mime_type and normalized_mime_type not in LOGO_MIME_TYPES:
                 emit(
                     kind,
                     target,
-                    "mime_type",
+                    f"{identifier}.mime_type",
                     "Logo verwendet kein PNG- oder WebP-Format.",
                     Severity.info,
                     {
@@ -388,7 +384,6 @@ def evaluate_core(
                         "allowed_mime_types": list(LOGO_MIME_TYPES),
                         "image_uuid": str(image["uuid"]),
                     },
-                    identity_field=identifier,
                 )
     elif rule.startswith("image_link_"):
         images = scan_context.indexes["image"]

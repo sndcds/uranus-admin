@@ -31,6 +31,7 @@ const cases = [
 for (const entry of cases) {
   test(`logo quality drilldown: ${entry.rule}`, async ({ page }, testInfo) => {
     const entityKey = findings.items[0]!.entity_key
+    const field = entry.rule === 'logo_unsupported_format' ? 'main_logo.mime_type' : 'main_logo'
     let receivedFilters: URLSearchParams | undefined
     await page.route('**/api/admin/api/v1/**', async (route) => {
       const url = new URL(route.request().url())
@@ -56,7 +57,8 @@ for (const entry of cases) {
             items: [
               {
                 ...findings.items[0],
-                id: `${entry.rule}:${entry.entity}:${entityKey}:main_logo`,
+                id: `${entry.rule}:${entry.entity}:${entityKey}:${field}`,
+                field,
                 rule: entry.rule,
                 entity_type: entry.entity,
                 severity: entry.severity,
@@ -104,6 +106,10 @@ for (const entry of cases) {
     await expect(row.getByRole('link', { name: 'Im Admin ansehen' })).toHaveAttribute(
       'href',
       `/${entry.section}/${entityKey}`,
+    )
+    await row.getByRole('button', { name: 'Befund zu Logo-Testdatensatz ansehen' }).click()
+    await expect(page.getByRole('dialog', { name: 'Logo-Testdatensatz' })).toContainText(
+      `${entry.rule} / ${field}`,
     )
     expect(receivedFilters?.get('rule')).toBe(entry.rule)
     expect(receivedFilters?.get('entity_type')).toBe(

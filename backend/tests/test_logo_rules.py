@@ -36,6 +36,9 @@ def logo_sources(kind, identifier="main_logo", mime_type="image/png", *, danglin
     [
         ("main_logo", "image/png", False, False, False),
         ("main_logo", "image/webp", False, False, False),
+        ("main_logo", "IMAGE/PNG", False, False, False),
+        ("main_logo", " image/webp ", False, False, False),
+        ("main_logo", " IMAGE/JPEG ", False, False, True),
         (None, "image/png", False, True, False),
         ("avatar", "image/jpeg", False, True, False),
         ("dark_theme_logo", "image/png", False, True, False),
@@ -73,8 +76,8 @@ def test_logo_contract(settings, kind, identifier, mime_type, dangling, missing,
     assert result.covered == {(kind, str(uid(20)))}
     if unsupported:
         finding = result.findings[0]
-        assert finding.id == f"logo_unsupported_format:{kind}:{uid(20)}:{identifier}"
-        assert finding.field == "mime_type" and finding.severity == "info"
+        assert finding.id == f"logo_unsupported_format:{kind}:{uid(20)}:{identifier}.mime_type"
+        assert finding.field == f"{identifier}.mime_type" and finding.severity == "info"
         assert finding.message == "Logo verwendet kein PNG- oder WebP-Format."
         assert finding.metadata["identifier"] == identifier
         assert finding.metadata["mime_type"] == mime_type
@@ -226,3 +229,119 @@ async def test_logo_summary_counts_filters_and_entity_details(
             await source.execute(text("DELETE FROM uranus.pluto_image_link"))
             await source.execute(text("UPDATE uranus.pluto_image SET mime_type=NULL"))
         await engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "kind,key,section", [("venue", 20, "venues"), ("organization", 10, "organizations")]
+)
+async def test_multiple_logo_variants_persist_and_resolve_independently(
+    admin_store, db_connection, settings, now, monkeypatch, kind, key, section
+):
+    from sqlalchemy import select
+
+    from app.admin_tables import finding
+    from app.services.checks import persisted_counts
+    from app.services.quality.engine import scan
+
+    rule = "logo_unsupported_format"
+    variants = {
+        "main_logo": (uid(1060), "image/jpeg"),
+        "dark_theme_logo": (uid(1061), "image/jpeg"),
+        "light_theme_logo": (uid(1062), "image/svg+xml"),
+    }
+    for identifier, (image_id, mime_type) in variants.items():
+        await db_connection.execute(
+            text(
+                "INSERT INTO uranus.pluto_image (uuid,file_name,mime_type) VALUES (:id,:name,:mime)"
+            ),
+            {"id": image_id, "name": f"{identifier}.png", "mime": mime_type},
+        )
+        await db_connection.execute(
+            text(
+                "INSERT INTO uranus.pluto_image_link "
+                "(context,context_uuid,identifier,pluto_image_uuid) "
+                "VALUES (:kind,:key,:variant,:image)"
+            ),
+            {"kind": kind, "key": uid(key), "variant": identifier, "image": image_id},
+        )
+    filters = FindingFilters(rule=rule, entity_type=kind, entity_key=str(uid(key)))
+
+    async def stored_rows():
+        async with admin_store.begin():
+            return (
+                (
+                    await admin_store.execute(
+                        select(finding).where(
+                            finding.c.rule == rule,
+                            finding.c.entity_type == kind,
+                            finding.c.entity_key == str(uid(key)),
+                        )
+                    )
+                )
+                .mappings()
+                .all()
+            )
+
+    async def assert_states(expected):
+        rows = await stored_rows()
+        assert len(rows) == 3
+        assert {row["field"]: row["status"] for row in rows} == expected
+        for row in rows:
+            assert row["id"] == f"{rule}:{kind}:{uid(key)}:{row['field']}"
+            assert row["severity"] == "info"
+            assert (row["resolved_at"] is not None) == (row["status"] == "resolved")
+        counts, _ = await persisted_counts(admin_store)
+        assert counts.rule_counts[rule] == sum(state == "open" for state in expected.values())
+
+    # This must insert three real rows under the existing finding_identity constraint.
+    assert (await run_check(db_connection, admin_store, settings)).status == "success"
+    expected = {f"{identifier}.mime_type": "open" for identifier in variants}
+    await assert_states(expected)
+    original = (await persisted_page(admin_store, filters, now)).items
+    assert len(original) == 3
+    assert all(item.action.href == f"/{section}/{uid(key)}" for item in original)
+    first_seen = {item.id: item.first_seen_at for item in original}
+    assert (await run_check(db_connection, admin_store, settings)).status == "success"
+    await assert_states(expected)
+
+    async def failed(*args):
+        raise RuntimeError("Synthetic source scan failure")
+
+    async def incomplete(*args):
+        return (await scan(*args))[:-1]
+
+    async def unsuccessful_rule(*args):
+        results = await scan(*args)
+        results[-1].success = False
+        return results
+
+    async def assert_failed_scans_preserve_states():
+        for replacement in (failed, incomplete, unsuccessful_rule):
+            with monkeypatch.context() as patch:
+                patch.setattr("app.services.checks.scan", replacement)
+                assert (await run_check(db_connection, admin_store, settings)).status == "failed"
+            await assert_states(expected)
+
+    await db_connection.execute(
+        text("UPDATE uranus.pluto_image SET mime_type='image/webp' WHERE uuid=:image"),
+        {"image": variants["dark_theme_logo"][0]},
+    )
+    await assert_failed_scans_preserve_states()
+    assert (await run_check(db_connection, admin_store, settings)).status == "success"
+    expected["dark_theme_logo.mime_type"] = "resolved"
+    await assert_states(expected)
+
+    await db_connection.execute(
+        text(
+            "DELETE FROM uranus.pluto_image_link WHERE context=:kind AND context_uuid=:key "
+            "AND identifier='light_theme_logo'"
+        ),
+        {"kind": kind, "key": uid(key)},
+    )
+    await assert_failed_scans_preserve_states()
+    assert (await run_check(db_connection, admin_store, settings)).status == "success"
+    expected["light_theme_logo.mime_type"] = "resolved"
+    await assert_states(expected)
+    final = (await persisted_page(admin_store, filters, now)).items
+    assert {item.id: item.first_seen_at for item in final} == first_seen
