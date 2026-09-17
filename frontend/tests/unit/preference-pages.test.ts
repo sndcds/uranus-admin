@@ -17,7 +17,7 @@ import { activityFixture } from '../fixtures/activity'
 import { statisticsFixture } from '../fixtures/statistics'
 import { graphFixture } from '../fixtures/graph'
 
-const route = vue.reactive({ query: {} as Record<string, string> })
+const route = vue.reactive({ query: {} as Record<string, string>, hash: '' })
 const navigate = vi.fn(({ query }) => {
   route.query = Object.fromEntries(
     Object.entries(query)
@@ -50,6 +50,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   setActivePinia(createPinia())
   route.query = {}
+  route.hash = ''
   for (const key of [
     'ref',
     'shallowRef',
@@ -211,4 +212,11 @@ it('uses auto when the remembered interval exceeds the new shared period bucket 
   expect(api.statistics).toHaveBeenLastCalledWith({ period: '7d', interval: 'auto' })
   expect(statistics.get('[aria-label="Intervall"]').element.value).toBe('auto')
   expect(preferences.statistics.interval).toBe('15m')
+})
+
+it('preserves deep-link anchors when serializing the initial preference', async () => {
+  route.hash = '#open-queues'
+  page(Dashboard)
+  await flushPromises()
+  expect(navigate).toHaveBeenCalledWith({ query: { period: '24h' }, hash: '#open-queues' })
 })

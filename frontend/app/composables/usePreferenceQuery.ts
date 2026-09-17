@@ -31,7 +31,7 @@ export function usePreferenceQuery(
   )
   onMounted(() => {
     if (JSON.stringify(initial) !== JSON.stringify(route.query))
-      void router.replace({ query: initial })
+      void router.replace({ query: initial, ...(route.hash ? { hash: route.hash } : {}) })
   })
   return query
 }
