@@ -1,11 +1,12 @@
+import { entityTypes } from './entityPresentation'
 import type { EntitySection } from '#shared/contracts'
 export const entitySections = {
-  events: { type: 'event', title: 'Veranstaltungen' },
-  venues: { type: 'venue', title: 'Orte' },
-  spaces: { type: 'space', title: 'Räume' },
-  organizations: { type: 'organization', title: 'Organisationen' },
+  events: { type: 'event', title: entityTypes.event.plural },
+  venues: { type: 'venue', title: entityTypes.venue.plural },
+  spaces: { type: 'space', title: entityTypes.space.plural },
+  organizations: { type: 'organization', title: entityTypes.organization.plural },
   users: { type: 'user', title: 'Benutzer & Teams' },
-  images: { type: 'image', title: 'Bilder' },
+  images: { type: 'image', title: entityTypes.image.plural },
 } as const satisfies Record<EntitySection, { type: string; title: string }>
 export const factLabels = {
   username: 'Benutzername',
