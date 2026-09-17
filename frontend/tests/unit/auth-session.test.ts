@@ -226,3 +226,17 @@ it('does not let an in-flight 401 add a return target during explicit logout', a
   expect(auth.loggingOut).toBe(false)
   expect(auth.status).toBe('anonymous')
 })
+
+it('resets only the preferences belonging to the auth store instance', () => {
+  const firstPinia = createPinia()
+  const firstAuth = useAuthStore(firstPinia)
+  const firstPreferences = useFilterPreferencesStore(firstPinia)
+  firstPreferences.entities.users.q = 'first@example.org'
+  const secondPinia = createPinia()
+  setActivePinia(secondPinia)
+  const secondPreferences = useFilterPreferencesStore(secondPinia)
+  secondPreferences.entities.users.q = 'second@example.org'
+  firstAuth.clear()
+  expect(firstPreferences.entities.users.q).toBe('')
+  expect(secondPreferences.entities.users.q).toBe('second@example.org')
+})

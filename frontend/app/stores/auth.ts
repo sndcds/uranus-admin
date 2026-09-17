@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
   const { $adminApi } = useNuxtApp()
   const dashboard = useDashboardStore()
   const findings = useFindingsStore()
+  const filterPreferences = useFilterPreferencesStore()
   const status = ref<'unknown' | 'checking' | 'authenticated' | 'anonymous'>('unknown')
   const session = ref<AdminSession | null>(null)
   const error = ref<ApiFailure | null>(null)
@@ -25,7 +26,7 @@ export const useAuthStore = defineStore('auth', () => {
     revision.value++
     dashboard.reset()
     findings.reset()
-    useFilterPreferencesStore().resetAll()
+    filterPreferences.resetAll()
   }
   function clear() {
     status.value = 'anonymous'
