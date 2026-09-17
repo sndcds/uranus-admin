@@ -694,3 +694,14 @@ export type EntitySearchItem = z.infer<typeof entitySearchItemSchema>
 export const entitySearchResponseSchema = z.object({
   items: z.array(entitySearchItemSchema).max(20),
 })
+
+export const temporalFilterSchema = z.enum(['upcoming', 'past'])
+export type TemporalFilter = z.infer<typeof temporalFilterSchema>
+export type EntitySearchQuery = {
+  q: string
+  entity_type: EntitySearchType
+  temporal?: TemporalFilter
+  organization_id?: string
+  status?: string
+  limit?: number
+}

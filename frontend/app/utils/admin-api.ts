@@ -22,6 +22,7 @@ import {
 import type { z } from '#shared/zod'
 import type {
   FindingFilters,
+  EntitySearchQuery,
   Period,
   ReviewUpdate,
   MarkCreate,
@@ -86,7 +87,7 @@ export function createAdminApi(
     onAccessLost(callback: (status: number) => void) {
       accessLost = callback
     },
-    entitySearch: (query: Record<string, string | number | undefined>) =>
+    entitySearch: (query: EntitySearchQuery) =>
       request('/api/v1/entity-search', entitySearchResponseSchema, query),
     entities: (section: string, query: Record<string, string | number | undefined>) =>
       request(`/api/v1/${section}`, entityPageSchema, query),

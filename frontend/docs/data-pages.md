@@ -191,3 +191,39 @@ Semantik, auch bei `%`, `_` und `\`. E-Mail-Adressen erscheinen im geschützten
 Benutzer-Suchdropdown; Secrets/Tokens werden weder durchsucht noch ausgegeben.
 Die Source bleibt read-only. Große ILIKE-Scans können künftig pg_trgm-Indizes im
 Uranus-Repo benötigen; dieser Task führt keine Source-Migrationen aus.
+
+### Zeitraum in den Entity-Listen
+
+Das sichtbare Eingabefeld „Organisation UUID“ entfällt auf allen sechs Listen.
+`organization_id` bleibt für Deep Links, interne Navigation und API-Consumer erhalten;
+Anwenden, Live-Suche und Pagination übernehmen den vorhandenen URL-Wert weiterhin.
+
+Auf events, organizations, venues und spaces steht nach der Suche der Filter **Zeitraum**:
+
+- Alle: kein temporal-Parameter.
+- Mit bevorstehenden Terminen: `temporal=upcoming`.
+- Mit vergangenen Terminen: `temporal=past`.
+
+Users und images zeigen keinen Zeitraumfilter und senden ihn nicht im Autocomplete.
+Explizite API-Anfragen für diese Typen mit temporal werden mit 422 abgewiesen.
+Die Auswahl wendet den Filter sofort an und setzt page=1. Enter/Anwenden kombinieren
+q, temporal und Status mit einem bestehenden organization_id. Pagination behält alle
+Parameter; Reload und Browser Back/Forward stellen die Steuerelemente wieder her.
+Die Ergebnisübersicht zeigt den angewendeten Zeitraum über das vorhandene
+ResultSummary-description-Pattern. Auf kleinen Viewports bricht die Filterleiste um.
+
+EntitySearch reicht temporal an den zentralen Admin-API-Client durch und invalidiert
+bei Änderungen alte Antworten. Debounce, Tastaturbedienung und Fehlerzustände bleiben
+bestehen; es findet keine lokale zeitliche Filterung statt. Die Proxy-Allowlist umfasst
+den neuen Parameter sowohl für Listen als auch für entity-search.
+
+Die zentrale Backend-Semantik verwendet das effektive **Terminende**, nicht created_at.
+Ein Event/Organisation/effektiver Ort/effektiver Raum braucht mindestens einen passenden
+Termin. Laufende und heute ganztägige Termine sind noch bevorstehend; gemischte Termine
+können beide Filter erfüllen. Ohne Termine bleibt ein Event nur unter „Alle“ sichtbar.
+Venue-/Space-Vererbung folgt location.py, einschließlich der aufgehobenen Space-Vererbung
+bei einem Venue-Override am Termin. Datum/Uhrzeit werden in EVENT_TIMEZONE (Standard
+Europe/Berlin) interpretiert und mit einem UTC-Zeitpunkt verglichen. Enddatum ohne
+Endzeit und all_day gelten bis Tagesende; Endzeit ohne Enddatum gehört zum Starttag.
+Ohne Endangaben zählt der Startzeitpunkt (fehlende Startzeit: Tagesbeginn).
+Weitere Details, DST- und Performance-Grenzen stehen im Backend-Contract.
