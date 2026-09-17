@@ -458,7 +458,7 @@ async def persisted_page(
 async def persisted_counts(admin: AsyncConnection) -> tuple[QualityCounts, int]:
     # Resolved records remain in history, but no longer count as current quality concerns.
     async with admin.begin():
-        row = (
+        rows = (
             (
                 await admin.execute(
                     select(
@@ -474,23 +474,28 @@ async def persisted_counts(admin: AsyncConnection) -> tuple[QualityCounts, int]:
                             )
                         )
                         .label("urgent"),
-                        func.array_agg(func.distinct(finding.c.rule)).label("rules"),
+                        finding.c.rule,
                     )
                     .select_from(finding)
                     .where(finding.c.status != "resolved")
+                    .group_by(finding.c.rule)
                 )
             )
             .mappings()
-            .one()
+            .all()
         )
         return QualityCounts(
-            total=row["total"],
-            errors=row["errors"],
-            warnings=row["warnings"],
-            info=row["info"],
-            rules=sorted(row["rules"] or []),
+            total=sum(row["total"] for row in rows),
+            errors=sum(row["errors"] for row in rows),
+            warnings=sum(row["warnings"] for row in rows),
+            info=sum(row["info"] for row in rows),
+            rules=sorted(row["rule"] for row in rows),
+            rule_counts={
+                **dict.fromkeys((RULE, *CORE_RULES, *QUEUE_RULES), 0),
+                **{row["rule"]: row["total"] for row in rows},
+            },
             mode="persisted",
-        ), row["urgent"]
+        ), sum(row["urgent"] for row in rows)
 
 
 async def review(

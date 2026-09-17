@@ -26,9 +26,12 @@ async def test_dashboard_real_counts(db_client, headers):
         "images": 1,
     }
     assert body["images_without_created_at"] == 1
-    assert body["quality"]["total"] == 2
-    assert body["quality"]["warnings"] == 2
-    assert body["urgent_findings"] == 1
+    assert body["quality"]["total"] == 7
+    assert body["quality"]["warnings"] == 7
+    assert body["urgent_findings"] == 4
+    assert body["quality"]["rule_counts"]["venue_missing_logo"] == 3
+    assert body["quality"]["rule_counts"]["organization_missing_logo"] == 2
+    assert body["quality"]["rule_counts"]["logo_unsupported_format"] == 0
     assert body["check_status"] is None
 
 

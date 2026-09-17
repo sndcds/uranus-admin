@@ -16,7 +16,7 @@ SOURCE_QUERIES = {
     "start_date, start_time, all_day, ticket_link FROM uranus.event_date",
     "event_link": "SELECT id, event_uuid, url FROM uranus.event_link",
     "license": "SELECT key, url FROM uranus.license",
-    "image": "SELECT uuid, created_at FROM uranus.pluto_image",
+    "image": "SELECT uuid, created_at, mime_type FROM uranus.pluto_image",
     "image_link": "SELECT context, context_uuid, identifier, pluto_image_uuid "
     "FROM uranus.pluto_image_link",
 }

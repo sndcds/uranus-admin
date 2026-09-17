@@ -119,17 +119,17 @@ async def test_runs_are_idempotent_and_resolve_only_covered_objects(
     admin_store, db_connection, settings, now
 ):
     one = await run_check(db_connection, admin_store, settings)
-    assert one.status == "success" and one.finding_count == 2 and one.rule_count == 19
+    assert one.status == "success" and one.finding_count == 7 and one.rule_count == 22
     two = await run_check(db_connection, admin_store, settings)
     page = await persisted_page(admin_store, FindingFilters(), now)
-    assert page.pagination.total == 2 and page.items[0].first_seen_at <= page.items[0].last_seen_at
+    assert page.pagination.total == 7 and page.items[0].first_seen_at <= page.items[0].last_seen_at
     first_seen = {f.id: f.first_seen_at for f in page.items}
     await db_connection.execute(
         text("UPDATE uranus.venue SET point=ST_GeomFromText('POINT(9 54)',4326) WHERE uuid=:id"),
         {"id": uid(20)},
     )
     three = await run_check(db_connection, admin_store, settings)
-    assert three.status == "success" and three.finding_count == 1
+    assert three.status == "success" and three.finding_count == 6
     page = await persisted_page(admin_store, FindingFilters(status="resolved"), now)
     assert page.pagination.total == 1 and page.items[0].entity_key == str(uid(20))
     assert page.items[0].first_seen_at == first_seen[page.items[0].id]
