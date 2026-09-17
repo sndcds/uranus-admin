@@ -37,7 +37,8 @@ store owns the only session revision. API request generations prevent an old
 session and use the view's existing access-denied error UI.
 
 Logout calls the existing endpoint, clears local state even on failure, and
-navigates to `/login` without a return target. On server failure, login displays
+navigates to `/login` without a return target. Concurrent protected 401 responses
+cannot override an explicit logout with a return target. On server failure, login displays
 a safe warning: the browser cannot revoke an HttpOnly server session itself.
 A reload can therefore restore a still-valid server session after failed
 logout. No success is claimed for server revocation in that case.
@@ -46,6 +47,13 @@ Backend development credentials remain development-only. There is no injected
 credential or automatic frontend development bypass. The old embedded manual
 credential/login panels are not mounted in the admin shell. Readiness, CSP and
 global `noindex, nofollow` are unchanged.
+
+## Branding
+
+The auth layout and desktop/mobile navigation share `KulturbytesLogo.vue` with
+the supplied SVG geometry and `currentColor`. The supplied favicon from
+`https://app.kulturbytes.de/favicon.ico` is stored unchanged in `public/favicon.ico`
+and linked globally. The standalone dashboard mockup uses the same branding.
 
 ## Validation
 
