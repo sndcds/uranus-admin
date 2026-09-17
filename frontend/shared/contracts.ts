@@ -664,3 +664,33 @@ export const entityDetailSchema = z.object({
 })
 export type EntityPage = z.infer<typeof entityPageSchema>
 export type EntityDetail = z.infer<typeof entityDetailSchema>
+
+export const entitySearchTypeSchema = z.enum([
+  'user',
+  'organization',
+  'venue',
+  'space',
+  'event',
+  'image',
+])
+export type EntitySearchType = z.infer<typeof entitySearchTypeSchema>
+export const entitySearchItemSchema = z
+  .object({
+    entity_type: entitySearchTypeSchema,
+    entity_key: z.uuid(),
+    label: z.string(),
+    subtitle: z.string().nullable(),
+    status: z.string().nullable(),
+    action: actionSchema,
+  })
+  .refine(
+    (item) =>
+      item.action.route === 'activity' &&
+      item.action.entity_type === item.entity_type &&
+      item.action.entity_key === item.entity_key,
+    'Mismatched search action',
+  )
+export type EntitySearchItem = z.infer<typeof entitySearchItemSchema>
+export const entitySearchResponseSchema = z.object({
+  items: z.array(entitySearchItemSchema).max(20),
+})

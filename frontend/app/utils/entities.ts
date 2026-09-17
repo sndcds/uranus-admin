@@ -1,5 +1,5 @@
 import { entityTypes } from './entityPresentation'
-import type { EntitySection } from '#shared/contracts'
+import type { EntitySection, EntitySearchType } from '#shared/contracts'
 export const entitySections = {
   events: { type: 'event', title: entityTypes.event.plural },
   venues: { type: 'venue', title: entityTypes.venue.plural },
@@ -26,4 +26,13 @@ export function entityFactLabel(section: EntitySection, field: keyof typeof fact
   if (section === 'events' && field === 'venue_name') return 'Standardort'
   if (section === 'events' && field === 'space_name') return 'Standardraum'
   return factLabels[field]
+}
+
+export const entitySearchPlaceholders: Record<EntitySearchType, string> = {
+  user: 'Nach Name, Benutzername, E-Mail oder UUID suchen …',
+  organization: 'Nach Organisation, E-Mail, Ort, PLZ oder UUID suchen …',
+  venue: 'Nach Ort, Adresse, E-Mail oder UUID suchen …',
+  space: 'Nach Raum, Ort oder UUID suchen …',
+  event: 'Nach Veranstaltung, Untertitel, externer ID oder UUID suchen …',
+  image: 'Nach Bild, Dateiname, Alt-Text oder UUID suchen …',
 }

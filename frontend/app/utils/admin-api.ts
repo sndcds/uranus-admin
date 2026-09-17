@@ -1,5 +1,6 @@
 import {
   entityPageSchema,
+  entitySearchResponseSchema,
   entityDetailSchema,
   entityStatisticsResponseSchema,
   graphResponseSchema,
@@ -85,6 +86,8 @@ export function createAdminApi(
     onAccessLost(callback: (status: number) => void) {
       accessLost = callback
     },
+    entitySearch: (query: Record<string, string | number | undefined>) =>
+      request('/api/v1/entity-search', entitySearchResponseSchema, query),
     entities: (section: string, query: Record<string, string | number | undefined>) =>
       request(`/api/v1/${section}`, entityPageSchema, query),
     entity: (section: string, id: string, relatedPage = 1) =>

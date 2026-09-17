@@ -281,3 +281,38 @@ it.each(['events', 'venues', 'spaces', 'organizations', 'users', 'images'])(
     ).toBe(404)
   },
 )
+
+it('allows authenticated read-only entity search with only its declared filters', async () => {
+  const request = {
+    ...input,
+    path: '/api/v1/entity-search',
+    query: new URLSearchParams({
+      q: '100%_\\',
+      entity_type: 'user',
+      organization_id: 'org',
+      status: 'active',
+      limit: '20',
+    }),
+  }
+  const fetcher = vi.fn().mockResolvedValue(new Response('{"items":[]}'))
+  expect((await forwardAdminRequest(request, base, fetcher)).status).toBe(200)
+  const url = new URL(String(fetcher.mock.calls[0]?.[0]))
+  expect(url.searchParams.get('q')).toBe('100%_\\')
+  expect(url.pathname).toBe('/api/v1/entity-search')
+  expect(
+    (await forwardAdminRequest({ ...request, authorization: undefined }, base, fetcher)).status,
+  ).toBe(401)
+  expect((await forwardAdminRequest({ ...request, method: 'POST' }, base, fetcher)).status).toBe(
+    405,
+  )
+  expect(
+    (
+      await forwardAdminRequest(
+        { ...request, query: new URLSearchParams('q=max&token=secret') },
+        base,
+        fetcher,
+      )
+    ).status,
+  ).toBe(422)
+  expect(fetcher).toHaveBeenCalledTimes(1)
+})

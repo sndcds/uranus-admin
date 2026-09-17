@@ -51,3 +51,88 @@ for (const section of entitySectionSchema.options) {
     ).toBe(true)
   })
 }
+
+for (const section of entitySectionSchema.options) {
+  test(`${section} contextual autocomplete, apply and URL pagination`, async ({ page }) => {
+    const fixture = entityFixture(section)
+    const item = fixture.items[0]!
+    const label = section === 'users' ? 'Max Mustermann' : `Search ${section}`
+    const subtitle = section === 'users' ? '@max · max@example.org' : 'Flensburg'
+    const requests: URL[] = []
+    await page.route('**/api/admin/api/v1/**', (route) => {
+      const url = new URL(route.request().url())
+      requests.push(url)
+      if (url.pathname.endsWith('/entity-search')) {
+        expect(url.searchParams.get('entity_type')).toBe(item.entity_type)
+        return route.fulfill({
+          json: {
+            items: [
+              {
+                entity_type: item.entity_type,
+                entity_key: item.entity_key,
+                label,
+                subtitle,
+                status: item.status,
+                action: item.action,
+              },
+            ],
+          },
+        })
+      }
+      if (url.pathname.includes(`/${section}/`))
+        return route.fulfill({ json: detailFixture(section) })
+      return route.fulfill({
+        json: {
+          ...fixture,
+          items: [
+            {
+              ...item,
+              entity_name: url.searchParams.has('q') ? 'Filtered result' : item.entity_name,
+            },
+          ],
+          pagination: { ...fixture.pagination, page: Number(url.searchParams.get('page') || 1) },
+        },
+      })
+    })
+    await page.goto(`/${section}`)
+    await expect(page.getByText(`Fixture ${section}`, { exact: true })).toBeVisible()
+    const search = page.getByRole('combobox', { name: 'Suche', exact: true })
+    await search.fill('max')
+    const option = page.getByRole('option', { name: new RegExp(label) })
+    await expect(option).toBeVisible()
+    await expect(option).toContainText(subtitle)
+    await expect(page).toHaveURL(new RegExp(`/${section}$`))
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await option.click()
+    await expect(page).toHaveURL(new RegExp(`/${section}/${item.entity_key}$`))
+    await page.goto(`/${section}?page=2`)
+    await expect(search).toBeVisible()
+    await expect(page.getByText('Seite 2 von 2', { exact: false })).toBeVisible()
+    await search.fill('max@example.org')
+    await expect(option).toBeVisible()
+    await search.press('Enter')
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === `/${section}` &&
+        url.searchParams.get('q') === 'max@example.org' &&
+        url.searchParams.get('page') === '1',
+    )
+    await expect(page.getByText('Filtered result', { exact: true })).toBeVisible()
+    await page.getByRole('link', { name: 'Weiter' }).click()
+    await expect(page).toHaveURL(
+      (url) =>
+        url.searchParams.get('q') === 'max@example.org' && url.searchParams.get('page') === '2',
+    )
+    await expect(search).toHaveValue('max@example.org')
+    await page.reload()
+    await expect(search).toHaveValue('max@example.org')
+    expect(
+      requests.some(
+        (url) =>
+          url.pathname.endsWith(`/${section}`) &&
+          url.searchParams.get('q') === 'max@example.org' &&
+          url.searchParams.get('page') === '2',
+      ),
+    ).toBe(true)
+  })
+}

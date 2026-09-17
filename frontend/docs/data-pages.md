@@ -155,3 +155,39 @@ können; kein landesspezifisches PLZ-Format wird validiert. Rand-Tabs und -Zeile
 werden ebenfalls erkannt. Die Prüfung bleibt lesend und korrigiert keine Quelldaten.
 `tests/e2e/postal-code-quality.spec.ts` prüft Gruppe, Count, Severity, beide Entity-Actions
 und den gemeinsamen Rule-Drilldown in Live- und Persisted-Modus auf Desktop und Mobile.
+
+### Gemeinsame Entity-Live-Suche
+
+`EntitySearch.vue` ersetzt das einfache Suchfeld auf users, organizations, venues,
+spaces, events und images. Das Layout verwendet dieselben Design-Tokens wie GraphFilters
+sowie AppIcon und die vorhandenen `entityTypes`; Graph-Verhalten bleibt unverändert.
+Der zentrale `$adminApi.entitySearch` verwendet den authentifizierten Proxy und prüft
+Antworten samt Action-Links über den gemeinsamen Runtime-Contract.
+
+Ab zwei getrimmten Zeichen startet nach 275 ms die Suche; maximal 20 Treffer sind erlaubt
+(Standard im UI/API: 10). Query-, Typ-, Organisations- und Statuswechsel invalidieren
+laufende Antworten sofort. Loading-, Fehler- und Leerzustände bleiben im Dropdown.
+Es gibt keine clientseitige Vollsuche. Escape leert und schließt, Außenklick/Tab schließen.
+ArrowDown/ArrowUp wählen zyklisch, Enter öffnet einen explizit gewählten Treffer über
+`action.href`. Ohne Auswahl wendet Enter den q-Filter der Liste an. Combobox, Listbox,
+Option, aria-controls/expanded/activedescendant und aria-selected vermitteln den Zustand.
+Die Dropdown-Breite folgt dem Eingabefeld, die Höhe ist begrenzt und scrollbar.
+
+Autocomplete-Eingaben ändern die URL nicht. Erst Enter ohne Auswahl oder Anwenden
+setzt q/organization_id/status und page=1. Pagination erhält q und die übrigen Filter;
+Reload und Browser-Navigation stellen den Zustand aus der URL wieder her.
+
+Durchsuchte Felder (jeweils einschließlich UUID/Teil-UUID):
+
+- Benutzer: username, display_name, email, first_name, last_name.
+- Organisationen: name, contact_email, city, postal_code.
+- Orte: name, contact_email, street, house_number, postal_code, city.
+- Räume: name, venue.name, space_type.
+- Veranstaltungen: title, subtitle, external_id; kein unbestätigtes search_text.
+- Bilder: tatsächlich vorhandene file_name, alt_text, creator_name, mime_type.
+
+Autocomplete und paginierte q-Suche haben dieselbe case-insensitive Literal-Substring-
+Semantik, auch bei `%`, `_` und `\`. E-Mail-Adressen erscheinen im geschützten
+Benutzer-Suchdropdown; Secrets/Tokens werden weder durchsucht noch ausgegeben.
+Die Source bleibt read-only. Große ILIKE-Scans können künftig pg_trgm-Indizes im
+Uranus-Repo benötigen; dieser Task führt keine Source-Migrationen aus.

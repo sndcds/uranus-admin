@@ -704,3 +704,45 @@ incomplete scans leave it open. `event_projection.venue_postal_code` and
 `event_date_projection.venue_postal_code` are derived copies and do not create separate
 findings, so events/dates cannot multiply one venue defect. No new projection consistency
 rule is introduced. The existing `quality.rule_counts` map supplies the overview count.
+
+### Contextual entity search
+
+Authenticated `GET /api/v1/entity-search` accepts required `entity_type` (`user`,
+`organization`, `venue`, `space`, `event`, `image`) and trimmed `q` (2–200 characters),
+optional `organization_id` UUID and `status`, and `limit` (default 10, range 1–20).
+It returns `{ items: [{ entity_type, entity_key, label, subtitle, status, action }] }`.
+`action` uses the existing validated Action contract; `action.href` is the detail URL.
+No separate frontend URL construction is needed. Global multi-type search is not supported.
+
+Autocomplete and the paginated entity endpoints share fixed SQL search definitions:
+
+| Type | Search fields |
+| --- | --- |
+| User | uuid, username, display_name, email, first_name, last_name |
+| Organization | uuid, name, contact_email, city, postal_code |
+| Venue | uuid, name, contact_email, street, house_number, postal_code, city |
+| Space | uuid, name, venue.name, space_type |
+| Event | uuid, title, subtitle, external_id |
+| Image | uuid, file_name, alt_text, creator_name, mime_type |
+
+Image fields are verified against `tests/fixtures/uranus.sql`, the schema-only source
+snapshot. Event `search_text` is excluded: maintenance depends on external trigger
+functions absent from that snapshot; its reliability cannot be established here.
+Descriptions, EXIF, generated storage filenames and credentials are never search fields.
+
+`q` remains case-insensitive literal substring search (`ILIKE`): backslash, percent
+and underscore are escaped. Partial UUIDs match `uuid::text`, without casting the query
+to UUID. Existing list queries can still use fewer than two characters or an empty q.
+Autocomplete ranks exact matches, then prefixes, then substrings, followed by
+`lower(label)` and UUID with a stable C collation. All searched fields participate in ranking.
+Organization filtering retains membership (including invitations) and image-link semantics;
+status filtering is also supported. User email is included in authenticated search results;
+the existing general row renderer remains unchanged. Responses explicitly project safe fields;
+password hashes, activation/import/invitation/session tokens and internal credentials are absent.
+
+The endpoint uses the existing authenticated admin router and read-only source connection.
+It executes one SELECT with a SQL LIMIT, with no N+1 hydration and at most 20 results.
+It introduces no source writes, migrations or indexes. The result limit does not bound
+PostgreSQL scan/sort work: large tables and broad two-character searches may need
+`pg_trgm` indexes, owned by Uranus's schema migration system. Existing statement timeouts
+remain effective. No production-scale benchmark is claimed.

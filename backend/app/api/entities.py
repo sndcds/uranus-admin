@@ -7,9 +7,25 @@ from fastapi import APIRouter, Query, Request
 from app.admin_database import connect_admin
 from app.database import ConnectionDep, SettingsDep
 from app.repositories.entities import entity_detail, entity_page, workflow_counts
-from app.schemas.entities import EntityDetail, EntityFilters, EntityPage, EntitySection
+from app.repositories.entity_search import entity_search
+from app.schemas.entities import (
+    EntityDetail,
+    EntityFilters,
+    EntityPage,
+    EntitySearchFilters,
+    EntitySearchResponse,
+    EntitySection,
+)
 
 router = APIRouter(tags=["Domain records"])
+
+
+@router.get("/entity-search", response_model=EntitySearchResponse)
+async def search(
+    connection: ConnectionDep,
+    filters: Annotated[EntitySearchFilters, Query()],
+) -> EntitySearchResponse:
+    return await entity_search(connection, filters)
 
 
 # Register six explicit endpoints; no catch-all source table or arbitrary projection.

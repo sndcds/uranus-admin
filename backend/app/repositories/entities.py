@@ -12,6 +12,7 @@ from app.config import Settings
 from app.errors import APIError
 from app.repositories.activity import ACTIVITY_SQL, ENTITY_ACTIVITY_SQL
 from app.repositories.activity_previews import activity_previews
+from app.repositories.entity_search import ORGANIZATION_FILTER, SEARCH_DEFINITIONS, escape_search
 from app.repositories.graph import RELATIONS
 from app.schemas.action import Action
 from app.schemas.activity import Activity
@@ -131,33 +132,27 @@ async def entity_page(
     now: datetime,
 ) -> EntityPage:
     kind = SECTIONS[section]
-    q = filters.q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    q = escape_search(filters.q)
     params = {
         "q": f"%{q}%",
+        "kind": kind,
         "org": filters.organization_id,
         "status": filters.status,
         "size": filters.page_size,
         "offset": (filters.page - 1) * filters.page_size,
         "tz": require_timezone(settings),
     }
-    search = "entity_name ILIKE :q OR entity_key ILIKE :q"
-    if kind == "user":
-        search += (
-            ' OR EXISTS (SELECT 1 FROM uranus."user" u '
-            "WHERE u.uuid::text=a.entity_key AND u.username ILIKE :q)"
-        )
-    base = f"""SELECT * FROM ({SOURCES[kind]}) a
-        WHERE ({search})
+    definition = SEARCH_DEFINITIONS[kind]
+    search = (
+        f"entity_key IN (SELECT entity_key FROM ({definition.projection()}) search "
+        f"WHERE {definition.matches()})"
+        if q
+        else "TRUE"
+    )
+    base = f"""SELECT a.* FROM ({SOURCES[kind]}) a
+        WHERE {search}
         AND (CAST(:status AS text) IS NULL OR status=:status)
-        AND (CAST(:org AS uuid) IS NULL OR organization_id=:org
-          OR (entity_type='user' AND EXISTS (SELECT 1 FROM uranus.organization_member_link m
-              WHERE m.user_uuid::text=a.entity_key AND m.org_uuid=:org))
-          OR (entity_type='image' AND EXISTS (SELECT 1 FROM uranus.pluto_image_link l
-              LEFT JOIN uranus.venue v ON l.context='venue' AND v.uuid=l.context_uuid
-              LEFT JOIN uranus.event e ON l.context='event' AND e.uuid=l.context_uuid
-              WHERE l.pluto_image_uuid::text=a.entity_key AND
-                ((l.context='organization' AND l.context_uuid=:org) OR v.org_uuid=:org
-                 OR e.org_uuid=:org))))"""
+        AND {ORGANIZATION_FILTER}"""
     total = int(
         (await connection.execute(text(f"SELECT count(*) FROM ({base}) a"), params)).scalar_one()
     )

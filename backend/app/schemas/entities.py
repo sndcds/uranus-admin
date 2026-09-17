@@ -2,8 +2,9 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.action import Action
 from app.schemas.activity import Activity
 from app.schemas.finding import Pagination
 
@@ -53,3 +54,34 @@ class EntityDetail(BaseModel):
     item: EntityRecord
     related: EntityRelations
     observed_at: datetime
+
+
+EntitySearchType = Literal["user", "organization", "venue", "space", "event", "image"]
+
+
+class EntitySearchFilters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    q: str = Field(min_length=2, max_length=200)
+    entity_type: EntitySearchType
+    organization_id: UUID | None = None
+    status: str | None = Field(default=None, max_length=32)
+    limit: int = Field(default=10, ge=1, le=20)
+
+    @field_validator("q", mode="before")
+    @classmethod
+    def trim_query(cls, value: str) -> str:
+        return value.strip()
+
+
+class EntitySearchItem(BaseModel):
+    entity_type: EntitySearchType
+    entity_key: str
+    label: str
+    subtitle: str | None
+    status: str | None
+    action: Action
+
+
+class EntitySearchResponse(BaseModel):
+    items: list[EntitySearchItem]

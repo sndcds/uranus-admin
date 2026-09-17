@@ -10,6 +10,7 @@ from app.config import Settings
 from app.errors import APIError
 from app.repositories.activity import ENTITY_ACTIVITY_SQL
 from app.repositories.activity_previews import activity_previews
+from app.repositories.entity_search import escape_search
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
 from app.schemas.action import Action
 from app.schemas.graph import (
@@ -175,7 +176,7 @@ def node(row: dict[str, Any]) -> GraphNode:
 
 async def search(connection: AsyncConnection, filters: GraphSearchFilters) -> GraphSearchResponse:
     # Literal substring matching: % and _ in names are not wildcard instructions.
-    query = filters.q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    query = escape_search(filters.q)
     rows = (
         await connection.execute(
             text(f"""
