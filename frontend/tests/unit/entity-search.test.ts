@@ -61,6 +61,7 @@ it('debounces trimmed input from two characters and shows loading, labels and AR
     limit: 10,
     organization_id: undefined,
     status: undefined,
+    temporal: undefined,
   })
   expect(wrapper.text()).toContain('Max Mustermann')
   expect(wrapper.text()).toContain('@max · max@example.org')
@@ -208,4 +209,49 @@ it('keeps the newest results when an older request succeeds last', async () => {
   await flushPromises()
   expect(wrapper.text()).toContain('Latest')
   expect(wrapper.text()).not.toContain('Max Mustermann')
+})
+
+it('restarts with the new temporal filter and discards the previous response', async () => {
+  let resolve!: (value: unknown) => void
+  api.entitySearch
+    .mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          resolve = r
+        }),
+    )
+    .mockResolvedValue({ items: [{ ...item, label: 'Past match' }] })
+  const wrapper = setup(),
+    input = wrapper.get('input')
+  await wrapper.setProps({ entityType: 'event', temporal: 'upcoming' })
+  await input.trigger('focus')
+  await input.setValue('hacks')
+  await vi.advanceTimersByTimeAsync(275)
+  expect(api.entitySearch).toHaveBeenLastCalledWith(
+    expect.objectContaining({ temporal: 'upcoming' }),
+  )
+  await wrapper.setProps({ temporal: 'past' })
+  await vi.advanceTimersByTimeAsync(275)
+  expect(api.entitySearch).toHaveBeenLastCalledWith(expect.objectContaining({ temporal: 'past' }))
+  resolve({ items: [item] })
+  await flushPromises()
+  expect(wrapper.text()).toContain('Past match')
+  expect(wrapper.text()).not.toContain('Max Mustermann')
+  await wrapper.setProps({ temporal: '' })
+  await vi.advanceTimersByTimeAsync(275)
+  expect(api.entitySearch).toHaveBeenLastCalledWith(
+    expect.objectContaining({ temporal: undefined }),
+  )
+})
+
+it.each(['user', 'image'] as const)('never sends temporal for %s', async (entityType) => {
+  const wrapper = setup(),
+    input = wrapper.get('input')
+  await wrapper.setProps({ entityType, temporal: 'upcoming' })
+  await input.trigger('focus')
+  await input.setValue('fixture')
+  await vi.advanceTimersByTimeAsync(275)
+  expect(api.entitySearch).toHaveBeenLastCalledWith(
+    expect.objectContaining({ entity_type: entityType, temporal: undefined }),
+  )
 })
