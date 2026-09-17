@@ -16,6 +16,7 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'de' },
       title: 'Kulturbytes · Administration',
+      link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
       meta: [{ name: 'robots', content: 'noindex, nofollow' }],
     },
   },
