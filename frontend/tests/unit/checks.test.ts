@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import { ref } from 'vue'
 import Checks from '../../app/pages/checks.vue'
 import PageHeader from '../../app/components/PageHeader.vue'
 import DataListShell from '../../app/components/DataListShell.vue'
@@ -27,7 +26,6 @@ function page(status?: string) {
   }
 }
 const api = { checkRuns: vi.fn(), runCheck: vi.fn() }
-let revision = ref(0)
 function render() {
   return mount(Checks, {
     global: {
@@ -46,8 +44,6 @@ function render() {
 beforeEach(() => {
   vi.useFakeTimers()
   vi.clearAllMocks()
-  revision = ref(0)
-  vi.stubGlobal('useState', () => revision)
   vi.stubGlobal('useNuxtApp', () => ({ $adminApi: api }))
 })
 afterEach(() => {
@@ -95,7 +91,7 @@ describe('durable check status', () => {
       .mockRejectedValue(new AdminApiError(failure(401)))
     const wrapper = render()
     await flushPromises()
-    revision.value++
+    await vi.advanceTimersByTimeAsync(2000)
     await flushPromises()
     expect(wrapper.findAll('li')).toHaveLength(0)
     await vi.advanceTimersByTimeAsync(10000)

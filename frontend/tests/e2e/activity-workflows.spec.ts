@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/authenticated'
 import { findings } from '../fixtures/api'
 
 const stamp = '2026-09-14T12:00:00Z'

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/authenticated'
 import { summary, findings } from '../fixtures/api'
 import { statisticsFixture } from '../fixtures/statistics'
 import { graphFixture, graphPath } from '../fixtures/graph'

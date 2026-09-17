@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/authenticated'
 import { summary, findings } from '../fixtures/api'
 
 test('dashboard, responsive navigation, filtering, pagination and detail', async ({
@@ -59,29 +59,21 @@ test('dashboard, responsive navigation, filtering, pagination and detail', async
   expect(errors).toEqual([])
 })
 
-test('locked access and unavailable backend have honest errors', async ({ page }) => {
-  await page.route('**/api/admin/api/v1/**', (route) =>
-    route.fulfill({
-      status: 401,
-      json: { error: { code: 'authentication_required', message: 'required' } },
-    }),
-  )
-  await page.goto('/')
-  await expect(page.getByText('Zugang erforderlich').first()).toBeVisible()
-  await expect(page.getByText('Lokaler Entwicklungszugang', { exact: true })).toHaveCount(0)
-  await expect(page.getByText('Nicht verfügbar', { exact: true }).first()).toBeVisible()
-  await page.unroute('**/api/admin/api/v1/**')
+test('unavailable backend has an honest error without logging out', async ({ page }) => {
   await page.route('**/api/admin/api/v1/**', (route) =>
     route.fulfill({
       status: 503,
       json: { error: { code: 'unavailable', message: 'private-details' } },
     }),
   )
-  await page.getByRole('button', { name: 'Erneut versuchen' }).first().click()
+  await page.goto('/')
   await expect(
-    page.getByText('Die Admin-API ist derzeit nicht bereit. Bitte später erneut versuchen.'),
+    page
+      .getByText('Die Admin-API ist derzeit nicht bereit. Bitte später erneut versuchen.')
+      .first(),
   ).toBeVisible()
   await expect(page.getByText('private-details')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
 })
 
 test('real Nitro proxy denies absent auth, unknown routes and write methods', async ({

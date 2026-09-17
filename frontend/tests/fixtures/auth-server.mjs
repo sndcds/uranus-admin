@@ -56,8 +56,8 @@ http
     }
     const principal = sessions.get(token)
     if (!principal) return deny(401, token ? 'invalid_credentials' : 'authentication_required')
-    if (path === '/auth/session') return send(200, principal)
     if (!principal.system_admin) return deny(403, 'admin_access_denied')
+    if (path === '/auth/session') return send(200, principal)
     if (path === '/api/v1/dashboard/summary') return send(200, summary)
     if (path === '/api/v1/findings') return send(200, findings)
     return deny(404, 'route_not_allowed')

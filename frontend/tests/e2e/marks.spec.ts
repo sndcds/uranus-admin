@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/authenticated'
 import type { MarkDetail, MarkCreate, MarkUpdate } from '../../shared/contracts'
 
 const entityKey = '10000000-0000-4000-8000-000000000020'

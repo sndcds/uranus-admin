@@ -42,13 +42,15 @@ diese Origin exakt enthalten. Lokal muss sie zur verwendeten Browseradresse pass
 `http://127.0.0.1:3000`. Der lokale Sitzungscookiename gilt nur für `pnpm dev` und
 FastAPI development/test; ein Production-Build erwartet das Secure-Cookie.
 
-Nur lokale Entwicklung: FastAPI muss ihren Development-Override aktivieren. Im Frontend
-`NUXT_PUBLIC_ALLOW_DEV_TOKEN_ENTRY=true` setzen, `pnpm dev` starten und unter
-„Lokaler Entwicklungszugang“ den selbst bereitgestellten DEV_ADMIN_TOKEN eingeben.
-Der Token bleibt ausschließlich in einer Closure der aktuellen Nuxt-App: kein localStorage,
-Cookie, Pinia-State, SSR-Payload, URL oder Log. Reload entfernt ihn. Ein Production-Build entfernt
-die Eingabe unabhängig vom Flag. Ein Zugangwechsel verwirft geladene Verwaltungsdaten und
-invalidiert laufende Detailansichten. Das Development-Subject ist kein Uranus-User.
+`/login` ist die einzige öffentliche Seite. Alle anderen Routen erfordern vor dem
+SSR-/Client-Render eine vom Backend bestätigte Systemadmin-Sitzung. Nach Login wird das
+validierte interne Ziel einschließlich Query/Hash wiederhergestellt. 401 beendet den lokalen
+Admin-Zustand; 403 zeigt einen Berechtigungsfehler ohne Logout. Die Login-Seite verwendet ein
+eigenes Layout ohne Admin-Shell. Architektur und Testfälle: [Route-Authentifizierung](docs/auth-routing.md).
+
+Auch lokal wird die dedizierte Login-Seite verwendet. Der Backend-Development-Override bleibt
+auf development/test beschränkt; die Oberfläche injiziert keine Development-Credentials.
+Die frühere manuelle Token-Eingabe wird nicht mehr global eingebunden.
 
 ## Seiten und API
 
