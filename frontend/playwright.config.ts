@@ -4,7 +4,9 @@ const production = process.env.TEST_PRODUCTION === '1'
 
 export default defineConfig({
   testDir: './tests/e2e',
-  expect: { timeout: 20000 },
+  // A cold Vite server compiles pages and dependencies on demand.
+  timeout: production ? 30000 : 90000,
+  expect: { timeout: production ? 20000 : 45000 },
   use: { baseURL: 'http://127.0.0.1:3100', trace: 'retain-on-failure' },
   projects: [
     {

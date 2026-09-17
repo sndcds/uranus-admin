@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import KulturbytesLogo from '~/components/KulturbytesLogo.vue'
 import { isNavigationActive } from '~/utils/navigation'
 defineEmits<{ navigate: [] }>()
 const route = useRoute()
@@ -25,7 +26,7 @@ const links = [
 <template>
   <div class="flex shrink-0 items-center gap-3 border-b border-slate-100 h-20 px-6">
     <div class="grid place-items-center bg-fuchsia-600 font-black text-white h-10 w-10 rounded-2xl">
-      K
+      <KulturbytesLogo class="h-7 w-7" />
     </div>
     <div>
       <div class="font-bold">Kulturbytes</div>

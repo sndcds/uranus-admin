@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from app.auth.credentials import extract_admin_credential
-from app.auth.dependencies import get_identity
+from app.auth.dependencies import get_current_admin
 from app.auth.service import AdminPrincipal, cookie_options, login, require_origin, revoke
 from app.database import SettingsDep
 
@@ -30,7 +30,9 @@ async def sign_in(
 
 
 @router.get("/session", response_model=AdminPrincipal)
-async def session(principal: Annotated[AdminPrincipal, Depends(get_identity)]) -> AdminPrincipal:
+async def session(
+    principal: Annotated[AdminPrincipal, Depends(get_current_admin)],
+) -> AdminPrincipal:
     return principal
 
 

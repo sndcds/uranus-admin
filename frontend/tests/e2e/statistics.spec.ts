@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/authenticated'
 import { statisticsFixture } from '../fixtures/statistics'
 
 test.beforeEach(async ({ page }) => {
@@ -166,6 +166,7 @@ test('late responses cannot overwrite a newer period or restore data after acces
     }),
   )
   await page.getByRole('button', { name: 'Zahlen aktualisieren' }).click()
-  await expect(page.getByRole('alert')).toContainText('Zugang erforderlich')
+  await expect(page).toHaveURL(/\/login\?redirect=/)
+  await expect(page.getByRole('button', { name: 'Anmelden', exact: true })).toBeVisible()
   await expect(page.locator('.statistics-series')).toHaveCount(0)
 })

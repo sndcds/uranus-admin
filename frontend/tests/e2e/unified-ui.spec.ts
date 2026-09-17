@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/authenticated'
 import { summary, findings } from '../fixtures/api'
 
 test('dashboard separates period metrics from inventory and labels stale periods honestly', async ({
@@ -197,9 +197,6 @@ test('quality has honest aggregate counts, bounded dashboard rules and a full ru
     'event_without_location',
     'image_orphaned_upload',
   ]
-  await page.route('**/api/admin/auth/session', (route) =>
-    route.fulfill({ json: { subject: 'admin:test-operator', system_admin: true } }),
-  )
   await page.route('**/api/admin/api/v1/**', (route) =>
     route.fulfill({
       json: new URL(route.request().url()).pathname.endsWith('/summary')
@@ -212,9 +209,8 @@ test('quality has honest aggregate counts, bounded dashboard rules and a full ru
   await expect(
     preview.getByRole('list', { name: 'Qualitätsregeln' }).getByRole('listitem'),
   ).toHaveCount(5)
-  const login = page.getByRole('region', { name: 'Admin-Anmeldung' })
-  await expect(login.getByRole('button', { name: 'Abmelden' })).toBeVisible()
-  await expect(login.getByRole('textbox')).toHaveCount(0)
+  await expect(page.locator('header').getByRole('button', { name: 'Abmelden' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Admin-Anmeldung' })).toHaveCount(0)
   await expect(page.locator('#open-queues li')).toHaveCount(3)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: info.outputPath('dashboard.png'), fullPage: true })

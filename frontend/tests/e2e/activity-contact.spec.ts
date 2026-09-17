@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/authenticated'
 import { activityFixture } from '../fixtures/activity'
 
 const userId = '20000000-0000-7000-8000-000000000003'

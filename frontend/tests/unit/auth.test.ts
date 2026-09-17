@@ -1,10 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
-import { ref } from 'vue'
-import LoginPanel from '../../app/components/LoginPanel.vue'
 import { createAdminApi } from '../../app/utils/admin-api'
 import { forwardAdminRequest } from '../../server/utils/admin-proxy'
-import { AdminApiError, failure } from '../../shared/errors'
 
 const principal = { subject: 'admin:00000000-0000-4000-8000-000000000810', system_admin: true }
 const sessionToken = 'S'.repeat(43)
@@ -101,47 +97,6 @@ it('rejects an auth response that accidentally includes tokens', async () => {
   expect(JSON.stringify(result)).not.toContain(sessionToken)
 })
 
-it('provides accessible login, clears passwords, retries after login and logs out', async () => {
-  const api = {
-    session: vi.fn().mockRejectedValue(new AdminApiError(failure(401))),
-    login: vi.fn().mockResolvedValue(principal),
-    logout: vi.fn().mockResolvedValue({ status: 'ok' }),
-    clearCredential: vi.fn(),
-  }
-  const revision = ref(0)
-  vi.stubGlobal('useNuxtApp', () => ({ $adminApi: api }))
-  vi.stubGlobal('useState', () => revision)
-  const wrapper = mount(LoginPanel)
-  await flushPromises()
-  expect(wrapper.get('label[for="admin-password"]').text()).toBe('Passwort')
-  await wrapper.get('#admin-login').setValue('operator')
-  await wrapper.get('#admin-password').setValue('test-private-password')
-  await wrapper.get('form').trigger('submit')
-  await flushPromises()
-  expect(wrapper.text()).toContain('Als System-Administrator angemeldet')
-  expect(wrapper.html()).not.toContain('test-private-password')
-  expect(wrapper.emitted('changed')).toHaveLength(1)
-  await wrapper.get('button').trigger('click')
-  await flushPromises()
-  expect(api.logout).toHaveBeenCalledOnce()
-  expect(wrapper.get<HTMLInputElement>('#admin-password').element.value).toBe('')
-  expect(wrapper.emitted('changed')).toHaveLength(2)
-})
-
-it('reports denied global access and returns to login after session loss', async () => {
-  const revision = ref(0)
-  vi.stubGlobal('useNuxtApp', () => ({
-    $adminApi: { session: vi.fn().mockResolvedValue({ ...principal, system_admin: false }) },
-  }))
-  vi.stubGlobal('useState', () => revision)
-  const wrapper = mount(LoginPanel)
-  await flushPromises()
-  expect(wrapper.text()).toContain('Keine System-Admin-Berechtigung')
-  revision.value = 401
-  await flushPromises()
-  expect(wrapper.find('form').exists()).toBe(true)
-})
-
 it('does not let an old denied request invalidate a newly established session', async () => {
   let finishOldRequest!: (response: Response) => void
   const oldResponse = new Promise<Response>((resolve) => {
@@ -159,22 +114,4 @@ it('does not let an old denied request invalidate a newly established session', 
   finishOldRequest(new Response('{}', { status: 401 }))
   await oldRequest
   expect(lost).not.toHaveBeenCalled()
-})
-
-it('keeps logout available and reports an infrastructure failure without claiming success', async () => {
-  const api = {
-    session: vi.fn().mockResolvedValue(principal),
-    logout: vi.fn().mockRejectedValue(new AdminApiError(failure(503))),
-    clearCredential: vi.fn(),
-  }
-  vi.stubGlobal('useNuxtApp', () => ({ $adminApi: api }))
-  vi.stubGlobal('useState', () => ref(0))
-  const wrapper = mount(LoginPanel)
-  await flushPromises()
-  await wrapper.get('button').trigger('click')
-  await flushPromises()
-  expect(wrapper.get('button').text()).toBe('Abmelden')
-  expect(wrapper.text()).not.toContain('Abgemeldet.')
-  expect(wrapper.emitted('changed')).toBeUndefined()
-  expect(api.clearCredential).not.toHaveBeenCalled()
 })

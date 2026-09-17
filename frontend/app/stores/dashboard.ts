@@ -31,6 +31,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
   function reset() {
+    period.value = '24h'
     requestId++
     data.value = null
     error.value = null

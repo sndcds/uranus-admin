@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/authenticated'
 import { graphFixture, graphPath } from '../fixtures/graph'
 
 test.beforeEach(async ({ page }) => {

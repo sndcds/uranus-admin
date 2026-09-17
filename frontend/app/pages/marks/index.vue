@@ -91,15 +91,6 @@ async function create() {
 }
 onMounted(load)
 watch(() => route.query, load)
-watch(
-  useState('admin-access-revision', () => 0),
-  () => {
-    showCreate.value = false
-    reasons.value = []
-    reasonDetail.value = note.value = ''
-    void load()
-  },
-)
 onBeforeUnmount(() => {
   requestId++
 })

@@ -46,8 +46,9 @@ lesen. Ausschließlich der getrennte Betreiberzugang verwaltet Konten und Vergab
 
 `get_identity()` authentifiziert eine Sitzung. `get_current_admin()` verlangt anschließend das
 separat geprüfte Recht. Sämtliche `/api/v1`-Routen verwenden diese zentrale Dependency.
-`/auth/session` darf ein aktives normales Konto erkennen und `system_admin=false` melden;
-geschützte Verwaltungsrouten liefern dafür 403.
+`/auth/session` verwendet ebenfalls `get_current_admin()`: aktive normale Konten erhalten
+403, gültige Systemadmin-Sitzungen 200. Der Login darf weiterhin eine normale Identität
+mit `system_admin=false` bestätigen; dies gewährt keinen Zugang zur Admin-Oberfläche.
 
 ## Production-Flow und HTTP-Vertrag
 
@@ -62,7 +63,9 @@ Browser → /api/admin/api/v1/... → Nitro → FastAPI
 - `POST /auth/login`: JSON `{login, password}`. Erfolg 200; Antwort enthält ausschließlich
   `subject` und `system_admin`. Ein neuer zufälliger Sitzungswert kommt ausschließlich als
   HttpOnly-Cookie, niemals im JSON, HTML, SSR-State oder einem Browser-Speicherobjekt an.
-- `GET /auth/session`: eigene Identität/Berechtigung; keine Passworthashes oder Sitzungswerte.
+- `GET /auth/session`: servervalidierte Systemadmin-Identität, 200 mit `subject` und
+  `system_admin`; 401 ohne gültige Sitzung, 403 ohne Systemadmin-Vergabe.
+  `Cache-Control: private, no-store`; keine Passworthashes oder Sitzungswerte.
 - `POST /auth/logout`: widerruft die aktuelle Sitzung in der Datenbank und löscht das Cookie.
   Ohne Credential (mit Origin/CSRF) idempotent 200; DB-Fehler melden keinen erfolgreichen Widerruf.
 - Ohne Credential: 401 `authentication_required`. Ungültig/manipuliert/abgelaufen oder inaktives/

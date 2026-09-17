@@ -69,9 +69,15 @@ async def sign_in(client, name="operator", password=PASSWORD):
 async def test_production_identity_and_separate_authorization(auth_client):
     client, owner, settings = auth_client
     assert (await client.get("/api/v1/auth-probe")).status_code == 401
+    assert (await client.get("/auth/session")).status_code == 401
     response = await sign_in(client)
     assert response.status_code == 200
     assert response.json() == {"subject": f"admin:{uid(810)}", "system_admin": True}
+    session = await client.get("/auth/session")
+    assert session.status_code == 200
+    assert session.json() == response.json()
+    assert set(session.json()) == {"subject", "system_admin"}
+    assert "no-store" in session.headers["cache-control"]
     cookie = response.headers["set-cookie"]
     assert "HttpOnly" in cookie and "Secure" in cookie and "SameSite=strict" in cookie
     assert "Domain=" not in cookie and "Path=/" in cookie
@@ -86,7 +92,7 @@ async def test_production_identity_and_separate_authorization(auth_client):
         )
     denied = await client.get("/api/v1/auth-probe")
     assert denied.status_code == 403 and denied.json()["error"]["code"] == "admin_access_denied"
-    assert (await client.get("/auth/session")).json()["system_admin"] is False
+    assert (await client.get("/auth/session")).status_code == 403
 
 
 @pytest.mark.parametrize(
@@ -153,6 +159,7 @@ async def test_sessions_deny_expiration_revocation_and_account_changes(auth_clie
         else:
             await conn.execute(update(auth_account).values(credential_version=2))
     assert (await client.get("/api/v1/auth-probe")).status_code == 401
+    assert (await client.get("/auth/session")).status_code == 401
 
 
 async def test_logout_and_csrf_boundaries(auth_client):
@@ -245,16 +252,19 @@ async def test_operator_cli_account_and_grant_lifecycle(auth_client):
     async with owner.begin() as conn:
         await manage_account(conn, "grant", "new-account")
     assert (await client.get("/api/v1/auth-probe")).status_code == 401
+    assert (await client.get("/auth/session")).status_code == 401
     assert (await sign_in(client, "new-account")).status_code == 200
     assert (await client.get("/api/v1/auth-probe")).status_code == 200
     async with owner.begin() as conn:
         await manage_account(conn, "password", "new-account", PASSWORD + "new")
     assert (await client.get("/api/v1/auth-probe")).status_code == 401
+    assert (await client.get("/auth/session")).status_code == 401
     assert (await sign_in(client, "new-account")).status_code == 401
     assert (await sign_in(client, "new-account", PASSWORD + "new")).status_code == 200
     async with owner.begin() as conn:
         await manage_account(conn, "revoke", "new-account")
     assert (await client.get("/api/v1/auth-probe")).status_code == 401
+    assert (await client.get("/auth/session")).status_code == 401
 
 
 async def test_login_body_limit_without_content_length(client):

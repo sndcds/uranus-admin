@@ -49,10 +49,6 @@ function apply() {
 }
 onMounted(load)
 watch(() => route.query, load)
-watch(
-  useState('admin-access-revision', () => 0),
-  load,
-)
 onBeforeUnmount(() => {
   generation++
 })

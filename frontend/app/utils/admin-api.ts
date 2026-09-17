@@ -28,7 +28,9 @@ import type {
 } from '#shared/contracts'
 import { AdminApiError, failure } from '#shared/errors'
 
-export function createAdminApi(fetcher: typeof fetch = fetch) {
+export function createAdminApi(
+  fetcher: (path: string, options: RequestInit) => Promise<Response> = fetch,
+) {
   // Per Nuxt app instance. Never a module-level credential or serializable store field.
   let credential = ''
   let accessLost: ((status: number) => void) | undefined
@@ -61,11 +63,7 @@ export function createAdminApi(fetcher: typeof fetch = fetch) {
     } catch {
       throw new AdminApiError(failure(502))
     }
-    if (
-      generation === accessGeneration &&
-      [401, 403].includes(response.status) &&
-      path.startsWith('/api/')
-    )
+    if (generation === accessGeneration && response.status === 401 && path.startsWith('/api/'))
       accessLost?.(response.status)
     let body: unknown
     try {

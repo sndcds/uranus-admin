@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/authenticated'
 
 test('durable check goes from queued to running and success independently of start request', async ({
   page,

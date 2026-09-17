@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/authenticated'
 import { entityFixture, detailFixture } from '../fixtures/entities'
 import { entitySectionSchema } from '../../shared/contracts'
 for (const section of entitySectionSchema.options) {

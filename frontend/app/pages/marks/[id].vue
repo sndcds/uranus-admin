@@ -77,10 +77,6 @@ async function save(event: SubmitEvent) {
 }
 onMounted(load)
 watch(() => route.params.id, load)
-watch(
-  useState('admin-access-revision', () => 0),
-  load,
-)
 onBeforeUnmount(() => {
   requestId++
 })

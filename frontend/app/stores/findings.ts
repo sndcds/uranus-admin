@@ -41,6 +41,7 @@ export const useFindingsStore = defineStore('findings', () => {
     data.value = null
   }
   function reset() {
+    filters.value = filtersSchema.parse({})
     requestId++
     data.value = null
     error.value = null
