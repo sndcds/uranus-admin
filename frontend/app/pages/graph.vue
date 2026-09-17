@@ -1,11 +1,21 @@
 <script setup lang="ts">
+import { useFilterPreferencesStore } from '~/stores/filter-preferences'
+import { usePreferenceQuery } from '~/composables/usePreferenceQuery'
 import InlineAlert from '~/components/InlineAlert.vue'
 import type { GraphNode, GraphResponse } from '#shared/contracts'
 import { graphEntityTypeSchema, graphRelationTypeSchema } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
 import type { ApiFailure } from '#shared/errors'
 import { filterGraph } from '~/utils/graph'
-const route = useRoute()
+const preferences = useFilterPreferencesStore()
+const routeQuery = usePreferenceQuery(
+  {
+    entity_type: preferences.graph.entityType,
+    relation_type: preferences.graph.relationType,
+    depth: preferences.graph.depth,
+  },
+  (value) => preferences.hydrateGraph(value),
+)
 const router = useRouter()
 const { $adminApi } = useNuxtApp()
 const data = shallowRef<GraphResponse | null>(null)
@@ -15,7 +25,12 @@ const loading = ref(false)
 const query = ref('')
 const entityType = ref('')
 const relationType = ref('')
-const organization = ref('')
+const organization = computed({
+  get: () => preferences.graph.organization,
+  set: (value: string) => {
+    preferences.graph.organization = value
+  },
+})
 const depth = ref(2)
 const selected = ref('')
 const results = ref<GraphNode[]>([])
@@ -31,7 +46,7 @@ const visible = computed(() =>
   filterGraph(
     data.value?.nodes ?? [],
     data.value?.edges ?? [],
-    typeof route.query.entity_type === 'string' ? route.query.entity_type : '',
+    typeof routeQuery.value.entity_type === 'string' ? routeQuery.value.entity_type : '',
     '',
     root.value,
   ),
@@ -40,7 +55,7 @@ let requestId = 0
 let searchId = 0
 let debounce: ReturnType<typeof setTimeout> | undefined
 const stringParam = (key: string) =>
-  typeof route.query[key] === 'string' ? (route.query[key] as string) : ''
+  typeof routeQuery.value[key] === 'string' ? (routeQuery.value[key] as string) : ''
 async function load() {
   const id = ++requestId
   data.value = null
@@ -50,8 +65,8 @@ async function load() {
   entityType.value = stringParam('entity_type')
   relationType.value = stringParam('relation_type')
   depth.value = Number(stringParam('depth') || 2)
-  if (!route.query.root_type && !route.query.root_key) return
-  const type = graphEntityTypeSchema.safeParse(route.query.root_type)
+  if (!routeQuery.value.root_type && !routeQuery.value.root_key) return
+  const type = graphEntityTypeSchema.safeParse(routeQuery.value.root_type)
   const key = stringParam('root_key')
   if (
     !type.success ||
@@ -80,6 +95,14 @@ async function load() {
     if (id === requestId) loading.value = false
   }
 }
+function remember() {
+  preferences.hydrateGraph({
+    entity_type: entityType.value,
+    relation_type: relationType.value,
+    depth: depth.value,
+  })
+}
+watch([entityType, relationType, depth], remember)
 async function choose(node: GraphNode) {
   query.value = ''
   results.value = []
@@ -97,7 +120,7 @@ async function choose(node: GraphNode) {
 async function apply() {
   await router.push({
     query: {
-      ...route.query,
+      ...routeQuery.value,
       depth: depth.value,
       entity_type: entityType.value || undefined,
       relation_type: relationType.value || undefined,
@@ -109,13 +132,14 @@ async function reset() {
   organization.value = ''
   showLabels.value = true
   await router.push({
-    query: route.query.root_key
+    query: routeQuery.value.root_key
       ? { root_type: stringParam('root_type'), root_key: stringParam('root_key'), depth: 2 }
       : {},
   })
   entityType.value = ''
   relationType.value = ''
   depth.value = 2
+  preferences.hydrateGraph({})
 }
 watch([query, entityType, organization], () => {
   const id = ++searchId
@@ -145,7 +169,7 @@ watch([query, entityType, organization], () => {
   }, 300)
 })
 onMounted(load)
-watch(() => route.fullPath, load)
+watch(() => routeQuery.value, load)
 onBeforeUnmount(() => {
   requestId++
   searchId++
@@ -199,7 +223,7 @@ onBeforeUnmount(() => {
       :edges="visible.edges"
       :root="root"
       :selected="selected"
-      :depth="Number(route.query.depth || 2)"
+      :depth="Number(routeQuery.depth || 2)"
       :show-labels="showLabels"
       :loading="loading"
       :error="error"

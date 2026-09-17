@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useFilterPreferencesStore } from '~/stores/filter-preferences'
+import { usePreferenceQuery } from '~/composables/usePreferenceQuery'
+import { dashboardPeriods, resolvePeriod } from '~/utils/periods'
 import InlineAlert from '~/components/InlineAlert.vue'
 import SectionHeader from '~/components/SectionHeader.vue'
 import { filtersSchema, periodSchema } from '#shared/contracts'
@@ -7,12 +10,25 @@ import { periodLabels } from '~/utils/presentation'
 import { recordRows } from '~/utils/activity'
 import { filterQuery } from '~/utils/filters'
 const dashboard = useDashboardStore()
+const preferences = useFilterPreferencesStore()
+const router = useRouter()
+const query = usePreferenceQuery(
+  { period: preferences.resolvePeriodForPage('dashboard') },
+  (value) => preferences.hydratePeriod('dashboard', value.period ?? '24h'),
+)
+const period = computed(() => resolvePeriod('dashboard', query.value.period))
+function setPeriod(value: unknown) {
+  const selected = periodSchema.parse(value)
+  preferences.hydratePeriod('dashboard', selected)
+  void router.push({ query: { period: selected } })
+}
+watch(period, () => void dashboard.load($adminApi, period.value))
 const findings = useFindingsStore()
 const { $adminApi } = useNuxtApp()
-const displayedPeriod = computed(() => dashboard.data?.period ?? dashboard.period)
+const displayedPeriod = computed(() => dashboard.data?.period ?? period.value)
 const previewFilters = filtersSchema.parse({ page_size: 4 })
 onMounted(() => {
-  if (!dashboard.data) void dashboard.load($adminApi)
+  if (dashboard.data?.period !== period.value) void dashboard.load($adminApi, period.value)
   findings.syncQuery(previewFilters)
   void findings.load($adminApi)
 })
@@ -34,23 +50,22 @@ function openFilters(filters: FindingFilters) {
       <label class="text-sm"
         ><span class="sr-only">Zeitraum</span
         ><select
-          :value="dashboard.period"
+          :value="period"
           class="input"
           aria-label="Zeitraum"
-          @change="
-            dashboard.setPeriod(
-              periodSchema.parse(($event.target as HTMLSelectElement).value),
-              $adminApi,
-            )
-          "
+          @change="setPeriod(($event.target as HTMLSelectElement).value)"
         >
-          <option value="today">Heute</option>
-          <option value="24h">Letzte 24 Stunden</option>
-          <option value="7d">Letzte 7 Tage</option>
+          <option v-for="(label, value) in dashboardPeriods" :key="value" :value="value">
+            {{ label }}
+          </option>
         </select></label
       >
 
-      <button class="button" :disabled="dashboard.loading" @click="dashboard.load($adminApi)">
+      <button
+        class="button"
+        :disabled="dashboard.loading"
+        @click="dashboard.load($adminApi, period)"
+      >
         <AppIcon name="refresh" :size="16" /> Zahlen aktualisieren
       </button>
     </PageHeader>
@@ -59,10 +74,10 @@ function openFilters(filters: FindingFilters) {
       :error="dashboard.error"
       :has-data="!!dashboard.data"
       :last-success="dashboard.lastSuccess"
-      @retry="dashboard.load($adminApi)"
+      @retry="dashboard.load($adminApi, period)"
     />
     <InlineAlert
-      v-if="dashboard.data && dashboard.data.period !== dashboard.period"
+      v-if="dashboard.data && dashboard.data.period !== period"
       tone="warning"
       role="status"
     >
@@ -93,7 +108,7 @@ function openFilters(filters: FindingFilters) {
           <NuxtLink
             :to="{
               path: '/activity',
-              query: { period: dashboard.period, entity_type: row.type },
+              query: { period: period, entity_type: row.type },
             }"
             :aria-label="`${row.plural}: ${row.value} · ${periodLabels[displayedPeriod]} · Neue Datensätze ansehen`"
             class="group grid h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
@@ -119,7 +134,7 @@ function openFilters(filters: FindingFilters) {
       </ul>
       <p class="text-xs text-slate-500">
         <NuxtLink
-          :to="{ path: '/activity', query: { period: dashboard.period } }"
+          :to="{ path: '/activity', query: { period: period } }"
           class="font-semibold text-fuchsia-700"
           >Einzelne Neuanlagen anzeigen →</NuxtLink
         >

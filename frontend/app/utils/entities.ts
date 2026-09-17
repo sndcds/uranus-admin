@@ -47,3 +47,12 @@ export const temporalLabels: Record<TemporalFilter, string> = {
 export function temporalFromQuery(value: unknown): TemporalFilter | '' {
   return value === 'upcoming' || value === 'past' ? value : ''
 }
+
+export const entityFilterCapabilities = {
+  events: { status: true, temporal: true },
+  users: { status: true, temporal: false },
+  organizations: { status: false, temporal: true },
+  venues: { status: false, temporal: true },
+  spaces: { status: false, temporal: true },
+  images: { status: false, temporal: false },
+} as const satisfies Record<EntitySection, { status: boolean; temporal: boolean }>

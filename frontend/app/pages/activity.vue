@@ -1,11 +1,21 @@
 <script setup lang="ts">
+import { useFilterPreferencesStore } from '~/stores/filter-preferences'
+import { usePreferenceQuery } from '~/composables/usePreferenceQuery'
+import { activityPeriods } from '~/utils/periods'
 import { entityTypeSchema } from '#shared/contracts'
 import type { ActivityPage } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
 import type { ApiFailure } from '#shared/errors'
 import { activityTypes, activityGroups, activityCounts } from '~/utils/activity'
 import { dateTime, adminTimeZone } from '~/utils/presentation'
-const route = useRoute()
+const preferences = useFilterPreferencesStore()
+const query = usePreferenceQuery(
+  {
+    period: preferences.resolvePeriodForPage('activity'),
+    entity_type: preferences.activity.entityType,
+  },
+  (value) => preferences.hydrateActivity(value),
+)
 const router = useRouter()
 const { $adminApi } = useNuxtApp()
 const data = ref<ActivityPage | null>(null)
@@ -15,7 +25,7 @@ const entityType = ref('')
 const organization = ref('')
 const period = ref('24h')
 const selectedType = computed(() => {
-  const parsed = entityTypeSchema.safeParse(route.query.entity_type)
+  const parsed = entityTypeSchema.safeParse(query.value.entity_type)
   return parsed.success ? parsed.data : null
 })
 const title = computed(() =>
@@ -33,7 +43,7 @@ const description = computed(() => {
       : 'Datensätze'
   if (data.value.timestamp_state === 'unknown')
     return `${count} ${label} ohne belegten Erstellungszeitpunkt.`
-  if (route.query.entity_key && !route.query.period && !route.query.from_at && !route.query.to_at)
+  if (query.value.entity_key && !query.value.period && !query.value.from_at && !query.value.to_at)
     return `${count} ${label} für diesen Objektschlüssel.`
   const window =
     data.value.from_at && data.value.to_at
@@ -44,16 +54,16 @@ const description = computed(() => {
 const groups = computed(() => (data.value ? activityGroups(data.value) : []))
 const counts = computed(() => activityCounts(data.value?.items ?? []))
 function syncFilters() {
-  entityType.value = typeof route.query.entity_type === 'string' ? route.query.entity_type : ''
+  entityType.value = typeof query.value.entity_type === 'string' ? query.value.entity_type : ''
   organization.value =
-    typeof route.query.organization_id === 'string' ? route.query.organization_id : ''
+    typeof query.value.organization_id === 'string' ? query.value.organization_id : ''
   period.value =
-    route.query.timestamp_state === 'unknown'
+    query.value.timestamp_state === 'unknown'
       ? 'unknown'
-      : route.query.from_at || route.query.to_at
+      : query.value.from_at || query.value.to_at
         ? 'custom'
-        : typeof route.query.period === 'string'
-          ? route.query.period
+        : typeof query.value.period === 'string'
+          ? query.value.period
           : '24h'
 }
 syncFilters()
@@ -64,12 +74,12 @@ async function load() {
   data.value = null
   error.value = null
   try {
-    const query: Record<string, string> = {}
-    for (const [key, value] of Object.entries(route.query)) {
+    const requestQuery: Record<string, string> = {}
+    for (const [key, value] of Object.entries(query.value)) {
       if (typeof value !== 'string') throw new Error('Invalid query')
-      query[key] = value
+      requestQuery[key] = value
     }
-    const result = await $adminApi.activity(query)
+    const result = await $adminApi.activity(requestQuery)
     if (id === requestId) data.value = result
   } catch (cause) {
     if (id === requestId) error.value = asFailure(cause)
@@ -77,15 +87,21 @@ async function load() {
     if (id === requestId) loading.value = false
   }
 }
+function reset() {
+  preferences.activity.entityType = ''
+  preferences.activity.period = '24h'
+  void router.push({ query: {} })
+}
 function apply() {
+  preferences.hydratePeriod('activity', period.value)
   void router.push({
     query: {
-      creation_basis: route.query.creation_basis === 'statistics' ? 'statistics' : undefined,
+      creation_basis: query.value.creation_basis === 'statistics' ? 'statistics' : undefined,
       entity_type: entityType.value || undefined,
       organization_id: organization.value || undefined,
       period: ['unknown', 'custom'].includes(period.value) ? undefined : period.value,
-      from_at: period.value === 'custom' ? route.query.from_at : undefined,
-      to_at: period.value === 'custom' ? route.query.to_at : undefined,
+      from_at: period.value === 'custom' ? query.value.from_at : undefined,
+      to_at: period.value === 'custom' ? query.value.to_at : undefined,
       timestamp_state: period.value === 'unknown' ? 'unknown' : 'known',
       page: '1',
     },
@@ -93,7 +109,7 @@ function apply() {
 }
 onMounted(load)
 watch(
-  () => route.query,
+  () => query.value,
   () => {
     syncFilters()
     void load()
@@ -120,12 +136,10 @@ onBeforeUnmount(() => {
       <label
         ><span class="label">Zeitraum</span>
         <select v-model="period" class="input">
-          <option v-if="route.query.from_at || route.query.to_at" value="custom">
-            Benutzerdefiniert
+          <option v-if="query.from_at || query.to_at" value="custom">Benutzerdefiniert</option>
+          <option v-for="(label, value) in activityPeriods" :key="value" :value="value">
+            {{ label }}
           </option>
-          <option value="today">Heute</option>
-          <option value="24h">24 Stunden</option>
-          <option value="7d">7 Tage</option>
           <option value="unknown">Ohne Zeitstempel</option>
         </select>
       </label>
@@ -140,17 +154,12 @@ onBeforeUnmount(() => {
       </label>
       <div class="flex flex-wrap items-end gap-2">
         <button class="button-primary" :disabled="loading">Anwenden</button>
-        <button
-          type="button"
-          class="button"
-          :disabled="loading"
-          @click="router.push({ query: {} })"
-        >
+        <button type="button" class="button" :disabled="loading" @click="reset">
           Filter zurücksetzen
         </button>
       </div>
     </FilterBar>
-    <p v-if="route.query.creation_basis === 'statistics'" class="muted">
+    <p v-if="query.creation_basis === 'statistics'" class="muted">
       Neuanlagen der sieben Statistiktypen; Teammitgliedschaften nach Einladungszeitpunkt.
     </p>
     <RequestState :loading="loading" :error="error" @retry="load" />
@@ -217,7 +226,7 @@ onBeforeUnmount(() => {
         :pagination="data.pagination"
         :loading="loading"
         label="Activity-Seitennavigation"
-        :to="(page) => ({ query: { ...route.query, page } })"
+        :to="(page) => ({ query: { ...query, page } })"
       />
     </template>
   </section>

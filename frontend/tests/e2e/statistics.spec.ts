@@ -20,13 +20,12 @@ test('presets, named series, crosshair, comparison, links and responsive layout'
   await expect(page.getByRole('heading', { name: 'Neue Entitäten', exact: true })).toBeVisible()
   await expect(page.locator('.statistics-series')).toHaveCount(7)
   await expect(page.locator('.statistics-metric')).toHaveCount(7)
-  await expect(page.getByRole('button', { name: '24 Stunden', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  )
+  await expect(
+    page.getByRole('button', { name: 'Letzte 24 Stunden', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('combobox', { name: 'Intervall' })).toContainText('15 Minuten')
   await page.screenshot({ path: info.outputPath('statistics-24h.png'), fullPage: true })
-  await page.getByRole('button', { name: '7 Tage', exact: true }).click()
+  await page.getByRole('button', { name: 'Letzte 7 Tage', exact: true }).click()
   await expect(page).toHaveURL(/period=7d/)
   await expect(page.getByRole('combobox', { name: 'Intervall' })).toContainText('Stündlich')
   await page.getByRole('switch').check()
@@ -57,10 +56,10 @@ test('presets, named series, crosshair, comparison, links and responsive layout'
   await page.getByRole('heading', { name: 'Neue Entitäten im Zeitverlauf' }).click()
   await page.mouse.move(0, 0)
   await page.screenshot({ path: info.outputPath('statistics-7d.png'), fullPage: true })
-  await page.getByRole('button', { name: '30 Tage', exact: true }).click()
+  await page.getByRole('button', { name: 'Letzte 30 Tage', exact: true }).click()
   await expect(page.getByRole('combobox', { name: 'Intervall' })).toContainText('6 Stunden')
   await page.goBack()
-  await expect(page.getByRole('button', { name: '7 Tage', exact: true })).toHaveAttribute(
+  await expect(page.getByRole('button', { name: 'Letzte 7 Tage', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
   )
@@ -70,10 +69,9 @@ test('presets, named series, crosshair, comparison, links and responsive layout'
   await page.getByRole('link', { name: 'Statistiken', exact: true }).click()
   await expect(page).toHaveURL(/\/statistics$/)
   await expect(page.locator('.statistics-series')).toHaveCount(7)
-  await expect(page.getByRole('button', { name: '24 Stunden', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  )
+  await expect(
+    page.getByRole('button', { name: 'Letzte 24 Stunden', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true')
   expect(errors).toEqual([])
 })
 
@@ -153,9 +151,9 @@ test('late responses cannot overwrite a newer period or restore data after acces
   })
   await page.goto('/statistics')
   await expect(page.locator('.statistics-series')).toHaveCount(7)
-  await page.getByRole('button', { name: '7 Tage', exact: true }).click()
+  await page.getByRole('button', { name: 'Letzte 7 Tage', exact: true }).click()
   await expect(page.locator('.statistics-page [role="status"]')).toContainText('geladen')
-  await page.getByRole('button', { name: '30 Tage', exact: true }).click()
+  await page.getByRole('button', { name: 'Letzte 30 Tage', exact: true }).click()
   await expect(page.locator('.statistics-series')).toHaveCount(7)
   release()
   await expect(page.getByRole('combobox', { name: 'Intervall' })).toContainText('6 Stunden')
