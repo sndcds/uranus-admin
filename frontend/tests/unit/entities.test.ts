@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { reactive, ref, nextTick } from 'vue'
+import EntitySearch from '../../app/components/EntitySearch.vue'
 import EntityListPage from '../../app/components/EntityListPage.vue'
 import EntityDetailPage from '../../app/components/EntityDetailPage.vue'
 import FilterBar from '../../app/components/FilterBar.vue'
@@ -10,7 +11,11 @@ import PageHeader from '../../app/components/PageHeader.vue'
 import DetailFacts from '../../app/components/DetailFacts.vue'
 import { entitySectionSchema, entityPageSchema } from '../../shared/contracts'
 import { entityFixture, detailFixture } from '../fixtures/entities'
-const api = { entities: vi.fn(), entity: vi.fn() },
+const api = {
+    entities: vi.fn(),
+    entity: vi.fn(),
+    entitySearch: vi.fn().mockResolvedValue({ items: [] }),
+  },
   push = vi.fn()
 const route = reactive({
   query: {} as Record<string, string>,
@@ -18,7 +23,7 @@ const route = reactive({
   fullPath: '/events',
 })
 const global = {
-  components: { FilterBar, PaginationBar, ResultSummary, PageHeader },
+  components: { EntitySearch, FilterBar, PaginationBar, ResultSummary, PageHeader },
   stubs: {
     NuxtLink: { props: ['to'], template: '<a :data-to="JSON.stringify(to)"><slot /></a>' },
     DataListShell: { template: '<ul><slot /></ul>' },
@@ -67,9 +72,16 @@ it.each(entitySectionSchema.options)(
     expect(push).toHaveBeenCalledWith({
       query: { q: 'Nord', organization_id: undefined, status: undefined, page: '1' },
     })
-    route.query = { page: '2' }
+    route.query = { q: 'Nord', organization_id: 'org', status: 'active', page: '1' }
     await flushPromises()
-    expect(api.entities).toHaveBeenLastCalledWith(section, { page: '2' })
+    const next = list.findAll('a').find((a) => a.attributes('data-to')?.includes('"page":"2"'))!
+    expect(JSON.parse(next.attributes('data-to')!)).toEqual({
+      query: { ...route.query, page: '2' },
+    })
+    route.query = { ...route.query, page: '2' }
+    await flushPromises()
+    expect(api.entities).toHaveBeenLastCalledWith(section, route.query)
+    expect((list.get('input[type="search"]').element as HTMLInputElement).value).toBe('Nord')
     api.entities.mockResolvedValue({
       ...fixture,
       items: [],
@@ -106,3 +118,34 @@ it.each(entitySectionSchema.options)(
     detail.unmount()
   },
 )
+
+it('navigates to the selected result using its validated action href', async () => {
+  const fixture = entityFixture('users')
+  api.entities.mockResolvedValue(fixture)
+  const item = fixture.items[0]!
+  api.entitySearch.mockResolvedValue({
+    items: [
+      {
+        entity_type: 'user',
+        entity_key: item.entity_key,
+        label: 'Max Mustermann',
+        subtitle: '@max · max@example.org',
+        status: 'active',
+        action: item.action,
+      },
+    ],
+  })
+  vi.useFakeTimers()
+  const list = mount(EntityListPage, { props: { section: 'users' }, global })
+  try {
+    await flushPromises()
+    await list.get('input[type="search"]').trigger('focus')
+    await list.get('input[type="search"]').setValue('max')
+    await vi.advanceTimersByTimeAsync(275)
+    await list.get('[role="option"]').trigger('click')
+    expect(push).toHaveBeenCalledExactlyOnceWith(item.action!.href)
+  } finally {
+    list.unmount()
+    vi.useRealTimers()
+  }
+})
