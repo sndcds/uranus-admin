@@ -1,9 +1,32 @@
 # Remaining issues: implementation audit
 
-Baseline: main at `8fea79e1d42019799202026d2f1d62263b146a86`.
+Current baseline (2026-09-17): main at `7428b455f68316c2b116798ac1138d70eeeb3d2c`.
+Open GitHub issues at start: **#13 and #15 only**. #9/#11/#12 were completed by
+merged PR #38; graph canonical target validation was fixed by merged PR #39.
+The earlier implementation audit started at `8fea79e1d42019799202026d2f1d62263b146a86`.
+
+### Current result
+
+- **#13 remains open.** No authorized live connection/report was provided. No
+  credentials were searched. Existing verifier retained; added actual read-only
+  transaction metadata and a flag for truncated individual observed values. Operator
+  workflow and current-repo/live-pending matrix are in `source-verification.md`.
+- **#15 remains open.** Current Uranus default branch main was inspected at
+  `74fef734ca916ecd04aef9d7d3013c1cd918d6dc`. Ordinary access JWTs and scoped handlers
+  exist, but no supported delegation from independent admin accounts. Some upstream
+  update permission checks are incomplete; endpoint existence is not safe capability.
+  `contracts.md` records the route/permission matrix, proposed adapter interface and
+  upstream prerequisites. No adapter client or Write/Create/Edit capability enabled.
+- Small read-only gaps addressed: user search also matches username when display name
+  differs; events label their stored default location as Standardort/Standardraum;
+  the detail preview has a semantic list container. Tests retain distinct invitation
+  creation/invitation dates and authoritative joined state, and assert create stays disabled.
+- Quality-rule behavior, canonical links (including graph), authentication, source
+  read-only access, admin grants, migrations, CSRF and proxy allowlists are unchanged.
+
 No live production connection, migration, service or reverse-proxy change was performed.
 
-## #9 — persisted runs and finding history: complete in this PR
+## #9 — persisted runs and finding history: already complete on main (PR #38)
 
 Already present: durable queued/running/success/failed jobs, fenced worker leases,
 first/last seen timestamps, retained resolved rows, idempotent finding identity,
@@ -45,7 +68,7 @@ Verified endpoint evidence and the required adapter contract are in `contracts.m
 Do not close #15 on read-only pages alone. Editing and further per-entity filters
 remain follow-up work.
 
-## #11 — stable cursor API: complete in this PR
+## #11 — stable cursor API: already complete on main (PR #38)
 
 Offset API and page-number UI remain compatible. Activity adds validated opaque
 cursors with UTC created time/type/key, or type/key only for unknown timestamps.
@@ -57,7 +80,7 @@ unknown timestamps, invalid encoding/types/endpoints/scopes and size boundaries.
 Changing existing ordering fields is not a multi-request snapshot; this limitation
 is documented.
 
-## #12 — asynchronous safe reachability: complete in this PR
+## #12 — asynchronous safe reachability: already complete on main (PR #38)
 
 `url_syntax` stays local. A separate optional PostgreSQL-backed worker discovers
 source URLs in bounded pages, claims observations with leases, performs bounded
@@ -152,5 +175,21 @@ The new command supplies the catalog evidence mechanism, not the missing live ev
 - [x] Nuxt production build.
 - [x] Playwright domain workflows (desktop/mobile).
 
-Checked entries describe this branch, not deployment or issue closure. Create/edit
+Checked entries describe repository functionality, not live deployment evidence or closure of #13/#15. Create/edit
 and richer entity-specific management remain tracked in #15.
+
+
+## Six-section review at the current baseline
+
+| Section | Existing functionality retained / checked | Current refinement or limit |
+| --- | --- | --- |
+| Events | Search/org/release filters, dates, findings/marks, canonical/graph/public links; related dates use shared effective-location preview SQL | Default venue/space explicitly labeled; per-date overrides remain per date, no second inheritance implementation |
+| Venues | Org context, address/geolocation, related spaces, findings/marks | Existing verified read-only projection retained; cross-org use not classified as an error |
+| Spaces | Stored venue/organization relation, findings/marks | Existing safe projection retained |
+| Organizations | Venues/events/members, pending requests and accepted grant-backed graph relations, composite workflow links | A generic related organization row does not claim an established partnership; use the dedicated request/grant workflow for state |
+| Users | Active state, membership/invitation rows, organization navigation, safe user fields | Username included in search; regressions cover invited_at distinct from created_at, has_joined, and absent invitation timestamp |
+| Images | Safe thumbnail, UUID, nullable creation, verified linked context, total link count/orphan state, image findings/marks | No image-link creation time invented; richer inspection of individual dangling/unsupported image-link targets remains follow-up, with existing image-link quality findings in the worklist |
+
+No additional optional date-range filter, arbitrary JSON editor, duplicated entity
+endpoint or generic write proxy was introduced. The remaining create/edit and richer
+entity-specific management requirements stay in #15, not silently marked complete.

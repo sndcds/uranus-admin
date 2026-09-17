@@ -452,7 +452,8 @@ both are null; explicit live diagnostic mode returns `check_status: null`.
 
 `GET /api/v1/{section}` and `GET /api/v1/{section}/{uuid}` exist for six explicit
 sections: `events`, `venues`, `spaces`, `organizations`, `users`, `images`.
-Lists accept `q` (literal substring, maximum 200 characters), `organization_id`,
+Lists accept `q` (literal substring of name/UUID and additionally username for users,
+maximum 200 characters), `organization_id`,
 `status`, `page`, `page_size` (1–100); order is case-folded name with C collation,
 then UUID. Details accept `related_page` (25 related rows per page). Missing UUIDs
 return `404 record_not_found`. All endpoints share the system-admin dependency.
@@ -473,18 +474,107 @@ an exact `entity_key` filter in addition to `entity_type`.
 
 ### Domain create authorization prerequisite (#15)
 
-Read-only inspection of `sndcds/uranus` at `12ec7608d55aed3cf86724ce47d275f9d49e46b2`
-confirmed `/api/admin` uses `app.JWTMiddleware` (`uranus-api.go`). Create endpoints
-include `/org/create`, `/venue/create`, `/space/create`, `/event/create`; their handlers
-use Uranus user UUIDs and organization/venue permission checks (for example
-`api/admin_create_event.go`, `api/admin_create_venue.go`). An independent admin session
-is not a Uranus JWT or an organization grant. No delegated write credential/authorized
-identity mapping is configured in this application. Therefore this change adds no
-write adapter or create form, and the global create control explicitly explains the
-missing authorized Uranus connection. Issue #15 remains open for that integration.
-A future adapter needs a deliberately established delegated Uranus authorization
-contract, typed allowed bodies, safe upstream error mapping, and no browser-visible
-upstream credentials. It must not mint an identity or substitute source SQL writes.
+Current repository verification (2026-09-17): Uranus default branch **main**, commit
+[`74fef734ca916ecd04aef9d7d3013c1cd918d6dc`](https://github.com/sndcds/uranus/tree/74fef734ca916ecd04aef9d7d3013c1cd918d6dc).
+This supersedes the earlier write-contract review at `12ec7608`. Source inspection
+is not evidence that these handlers are deployed or compatible with the live schema.
+No Uranus server or production database was contacted.
+
+#### Proven authentication and routing
+
+[`uranus-api.go`](https://github.com/sndcds/uranus/blob/74fef734ca916ecd04aef9d7d3013c1cd918d6dc/uranus-api.go)
+mounts `/api/admin` with `app.JWTMiddleware`. The middleware accepts an Authorization
+Bearer access token or an `access_token` cookie. `app/jwt.go` verifies HS256 with the
+Uranus signing key, required expiry and registered claims; the middleware requires
+`token_type=access` and a nonzero user UUID. Refresh tokens are not access credentials.
+It puts the authenticated Uranus UUID into `user-uuid`; handlers obtain that identity
+through `h.userUuid(gc)`.
+
+`POST /api/login` checks the existing Uranus user/password and active state; refresh
+checks the active user and rotates registered refresh tokens. Access tokens remain
+valid until expiry (new tokens at most 900 seconds); middleware does not perform a
+fresh active-user check on every request. These are ordinary **Uranus user sessions**,
+not a delegated service identity. Independent `admin.auth_account` sessions cannot
+be passed through as Uranus tokens. No passwords or signing keys should be copied
+into this application. See the reviewed upstream
+[authentication contract](https://github.com/sndcds/uranus/blob/74fef734ca916ecd04aef9d7d3013c1cd918d6dc/docs/authentication.md).
+
+#### Operation matrix: present upstream does not mean enabled here
+
+All paths below are relative to `/api/admin`. Reviewed handlers are under `api/` at
+the pinned commit. **Every create/update capability remains disabled in uranus-admin.**
+
+| Operation | Proven route / handler | Actual authorization/audit observations |
+| --- | --- | --- |
+| Create organization | POST `/org/create`, `admin_create_org.go` | Ordinary authenticated Uranus user; body `org_name`; stores created_by and grants the creator org-admin membership/permissions. No delegated admin actor |
+| Create venue | POST `/venue/create`, `admin_create_venue.go` | Body org_uuid/venue_name/scope; checks `UserPermAddVenue` in the organization; stores created_by |
+| Create space | POST `/space/create`, `admin_create_space.go` | Body org_uuid/venue_uuid/space_name; checks `UserPermAddSpace` for supplied org. The adapter must not assume that this proves the supplied venue belongs to that org |
+| Create event | POST `/event/create`, `admin_create_event.go` | Checks `UserPermChooseAsEventOrg` AND `UserPermAddEvent`; a supplied venue also needs `UserPermChooseVenue`. Typed upstream payload includes org_id/org_key, language, release state, title/description, dates etc. SQL still names organization_id/venue_id/space_id and RETURNING id; do not assume compatibility with exported UUID schema |
+| Edit organization | PUT `/org/:orgUuid/fields`, `admin_update_org_fields.go` | Explicit field model; inspected handler has no object/organization permission check beyond JWT middleware. Not safe to expose as an authorized admin adapter |
+| Edit venue | PUT `/venue/:venueUuid/fields`, `admin_update_venue_fields.go` | Explicit fields and modified_by from JWT; inspected handler has no object permission check before update |
+| Edit space | PUT `/space/:spaceUuid/fields`, `admin_update_space_fields.go` | Resolves owning org from the stored space and checks `UserPermEditSpace` |
+| Edit event | PUT `/event/:eventUuid/fields`, `admin_update_event_fields.go` | Gets stored org permissions; explicitly checks `UserPermReleaseEvent` only when release_status is supplied. A general field-edit permission is not established by that check. Separate date/type/link/venue/etc handlers need their own review before exposure |
+| Users | PUT `/user/profile`, `/user/settings`; avatar routes | Self-service routes are not an arbitrary-system-user editing contract; no generic admin user create/edit capability enabled |
+| Images | PUT/DELETE `/image/:context/:contextUuid/:identifier`; Pluto routes receive JWT middleware | Context-bound media operations are not a generic system-wide image-create authorization contract; no adapter enabled |
+
+No request idempotency key, If-Match/version precondition or delegated actor/scoped
+service-credential mechanism was found in the reviewed route/middleware/handler code.
+Transactions alone do not establish idempotency or prevent lost updates. Existing
+created_by/modified_by fields refer to a Uranus user, not an independent admin subject.
+The organization import token generated at creation is not consumed as a general
+`/api/admin` credential. Localhost-only internal maintenance routes are not an
+alternative authorization mechanism and must never be used by this adapter.
+
+#### Decision: case B, no authorized delegation contract
+
+Search/review covered router registration, middleware/claims/token issuance, permission
+helpers, create/update handlers, API-token/import-token uses, service/machine identity,
+impersonation/delegation and concurrency mechanisms. No supported bridge from our
+independent admin identity was found. An upstream TODO or a missing permission check
+is not authorization. Create/Edit stays disabled; #15 remains open.
+
+No new credential settings, network client, proxy write routes, capability endpoint
+or create forms are added. The current UI capability set is empty. `URANUS_API_URL`
+is the existing server-side base URL; an eventual implementation should reuse it if
+it targets the same service, but configuring it alone never grants write authority.
+
+#### Prepared adapter interface (design only; not an implemented upstream API)
+
+This describes the integration boundary to agree with Uranus before code is wired:
+
+| Port | Required contract |
+| --- | --- |
+| `capabilities(principal, target)` | Return only operations explicitly authorized for this actor AND organization/entity scope; unavailable or unverified delegation means no capabilities |
+| `authorize(principal, operation, target)` | Obtain an expiring, revocable upstream-verifiable delegation binding the independent admin subject to the deliberately approved Uranus actor and scope; no browser-supplied user/org assertion suffices |
+| `create_<entity>(delegation, typed_input)` | Separate Pydantic input per supported operation, exact allowed upstream fields and validated UUID result; no arbitrary path/body passthrough |
+| `update_<entity>(delegation, entity_id, typed_patch, precondition)` | Recheck stored object ownership/permission upstream and enforce an agreed conflict/version policy; absence of a safe contract keeps that operation disabled |
+
+The future adapter receives no source-DB write handle. Credentials stay server-side,
+secret values use SecretStr, errors/logs redact credentials and raw upstream bodies.
+An authorization refusal stays 401/403; missing/conflicting/invalid records map to
+404/409/422; unavailable or invalid upstream responses to sanitized 502/503. Preserve
+Origin/X-Admin-CSRF, proxy body limits and exact method/path allowlists. No automatic
+POST retry; disable form submission in flight. Enable forms and canonical-detail
+redirects only after the adapter's real capability is verified.
+
+#### Upstream companion recommendation
+
+Proposed issue: **Define scoped delegated domain writes for independent admin clients**.
+Before integration, Uranus must provide and test:
+
+1. An explicit actor/delegation issuance, validation, expiry/revocation and scope
+   contract; independent admin status must never silently imply organization rights.
+2. Consistent object authorization on every enabled create/update endpoint, including
+   venue→org consistency and generic organization/venue/event field edits.
+3. A tested payload/result contract compatible with the authoritative schema, plus
+   idempotency or documented no-retry behavior and update conflict semantics.
+4. Audit attribution distinguishing the initiating admin and approved Uranus actor,
+   without inventing parallel domain history in uranus-admin.
+5. Denied/expired/revoked/wrong-scope/changed-owner tests and sanitized error behavior.
+
+This is a recommendation, not a new Uranus implementation, issued credential, or
+claim that delegation exists. Both upstream contract approval and deployment evidence
+are prerequisites to activate even one create/edit capability here.
 
 ### Additive cursor pagination
 
