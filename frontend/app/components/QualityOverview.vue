@@ -2,17 +2,22 @@
 import SectionHeader from '~/components/SectionHeader.vue'
 import { computed } from 'vue'
 import type { DashboardSummary } from '#shared/contracts'
-import { logoRules } from '~/utils/quality'
+import { qualityRules } from '~/utils/quality'
 import { metric } from '~/utils/presentation'
 const props = defineProps<{ data: DashboardSummary | null; limit?: number }>()
 const rules = computed(() =>
-  props.data ? [...new Set([...(props.data.quality.rules ?? []), ...Object.keys(logoRules)])] : [],
+  props.data
+    ? [...new Set([...(props.data.quality.rules ?? []), ...Object.keys(qualityRules)])]
+    : [],
 )
 const visibleRules = computed(() => (props.limit ? rules.value.slice(0, props.limit) : rules.value))
 const groups = computed(() =>
   [
-    { title: 'Regeln', rules: visibleRules.value.filter((rule) => !logoRules[rule]) },
-    { title: 'Logos & Bilder', rules: visibleRules.value.filter((rule) => logoRules[rule]) },
+    { title: 'Regeln', rules: visibleRules.value.filter((rule) => !qualityRules[rule]) },
+    ...[...new Set(Object.values(qualityRules).map((rule) => rule.group))].map((title) => ({
+      title,
+      rules: visibleRules.value.filter((rule) => qualityRules[rule]?.group === title),
+    })),
   ].filter((group) => group.rules.length),
 )
 </script>
@@ -47,16 +52,20 @@ const groups = computed(() =>
           <NuxtLink
             :to="{
               path: '/findings',
-              query: { rule, entity_type: logoRules[rule]?.entityType, mode: data?.quality.mode },
+              query: {
+                rule,
+                entity_type: qualityRules[rule]?.entityType,
+                mode: data?.quality.mode,
+              },
             }"
             class="data-row flex items-center justify-between gap-3 text-sm font-semibold text-slate-700 hover:text-fuchsia-700"
           >
             <span class="min-w-0 space-y-1">
-              <span class="block break-words">{{ logoRules[rule]?.label ?? rule }}</span>
-              <span v-if="logoRules[rule]" class="flex flex-wrap items-center gap-2">
-                <SeverityBadge :severity="logoRules[rule]!.severity" />
+              <span class="block break-words">{{ qualityRules[rule]?.label ?? rule }}</span>
+              <span v-if="qualityRules[rule]" class="flex flex-wrap items-center gap-2">
+                <SeverityBadge :severity="qualityRules[rule]!.severity" />
                 <span
-                  v-if="logoRules[rule]!.severity === 'warning'"
+                  v-if="qualityRules[rule]!.severity === 'warning'"
                   class="text-xs font-normal text-slate-500"
                   >Schlechte Datenqualität</span
                 >

@@ -131,3 +131,27 @@ remain “Nicht verfügbar”. Each row links to the corresponding finding rule 
 missing logos, the venue/organization entity filter, preserving the source mode.
 Finding Actions and entity details use the existing canonical routes. Core policy,
 identity and scan coverage are documented in [contracts](../../backend/docs/contracts.md).
+
+### Adressqualität
+
+| rule | entity | severity | Bedeutung |
+| --- | --- | --- | --- |
+| postal_code_whitespace | organization/venue | warning | Führende oder abschließende Whitespaces in postal_code |
+
+`/quality` zeigt unter „Adressqualität“ den Eintrag „Postleitzahlen mit Leerzeichen“,
+den Badge „Warnung“ und „Schlechte Datenqualität“. Die zentrale Präsentation in
+`app/utils/quality.ts` liefert Label, Gruppe und Severity. Der Count kommt aus
+`quality.rule_counts["postal_code_whitespace"]`; fehlende Counts bleiben „Nicht verfügbar“.
+Der Drilldown `/findings?rule=postal_code_whitespace` erhält den Live-/Persisted-Modus
+und setzt keinen Entity-Filter, da Organisationen und Orte betroffen sein können.
+
+Finding-Zeilen zeigen Entity-Typ, Name, `Feld: postal_code`, Warnung und die Meldung
+„Postleitzahl enthält führende oder abschließende Leerzeichen.“ Die bestehende Action
+führt auf `/organizations/<uuid>` bzw. `/venues/<uuid>`.
+
+Nur autoritative Organization-/Venue-Werte zählen. Projektionen werden nicht separat
+gezählt. Interne Spaces bleiben erlaubt, weil internationale Postleitzahlen sie benötigen
+können; kein landesspezifisches PLZ-Format wird validiert. Rand-Tabs und -Zeilenumbrüche
+werden ebenfalls erkannt. Die Prüfung bleibt lesend und korrigiert keine Quelldaten.
+`tests/e2e/postal-code-quality.spec.ts` prüft Gruppe, Count, Severity, beide Entity-Actions
+und den gemeinsamen Rule-Drilldown in Live- und Persisted-Modus auf Desktop und Mobile.
