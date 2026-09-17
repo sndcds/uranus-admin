@@ -335,7 +335,14 @@ def test_quality_scan_date_work_grows_linearly(settings, size):
     sources.rows["event_date"] = dates
     for n in range(size):
         sources.rows["venue"].append(
-            dict(uuid=uid(n + 100), name="Venue", org_uuid=None, web_link="bad", ticket_link="bad")
+            dict(
+                uuid=uid(n + 100),
+                name="Venue",
+                org_uuid=None,
+                postal_code=None,
+                web_link="bad",
+                ticket_link="bad",
+            )
         )
         sources.rows["event"].append(
             dict(
