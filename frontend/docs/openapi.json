@@ -3721,6 +3721,175 @@
         }
       }
     },
+    "/api/v1/statistics/events/content": {
+      "get": {
+        "tags": [
+          "Statistics"
+        ],
+        "summary": "Event content by creation time",
+        "operationId": "event_content_api_v1_statistics_events_content_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "today",
+                    "24h",
+                    "7d"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "30d",
+                    "90d"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "const": "all",
+                  "type": "string"
+                }
+              ],
+              "default": "24h",
+              "title": "Period"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "released",
+                    "draft",
+                    "review",
+                    "cancelled",
+                    "deferred",
+                    "rescheduled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "compare",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "previous",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Compare"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventContentStatistics"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
     "/api/v1/work-queues/{kind}": {
       "get": {
         "tags": [
@@ -5344,6 +5513,33 @@
         ],
         "title": "AdminPrincipal"
       },
+      "AssignmentCoverage": {
+        "properties": {
+          "events_with_assignment": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Events With Assignment"
+          },
+          "events_without_assignment": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Events Without Assignment"
+          },
+          "coverage_percent": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Coverage Percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events_with_assignment",
+          "events_without_assignment",
+          "coverage_percent"
+        ],
+        "title": "AssignmentCoverage"
+      },
       "CheckRun": {
         "properties": {
           "id": {
@@ -6275,6 +6471,305 @@
           "error"
         ],
         "title": "ErrorResponse"
+      },
+      "EventContentComparison": {
+        "properties": {
+          "from_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "From At"
+          },
+          "to_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "To At"
+          },
+          "event_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Event Count"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/EventContentCoverage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from_at",
+          "to_at",
+          "event_count",
+          "coverage"
+        ],
+        "title": "EventContentComparison"
+      },
+      "EventContentCoverage": {
+        "properties": {
+          "categories": {
+            "$ref": "#/components/schemas/AssignmentCoverage"
+          },
+          "genres": {
+            "$ref": "#/components/schemas/AssignmentCoverage"
+          },
+          "event_types": {
+            "$ref": "#/components/schemas/AssignmentCoverage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "categories",
+          "genres",
+          "event_types"
+        ],
+        "title": "EventContentCoverage"
+      },
+      "EventContentRanking": {
+        "properties": {
+          "distinct_assignment_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Distinct Assignment Count"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EventContentRankingItem"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "distinct_assignment_count",
+          "items"
+        ],
+        "title": "EventContentRanking"
+      },
+      "EventContentRankingItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "event_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Event Count"
+          },
+          "event_share_percent": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Event Share Percent"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Rank"
+          },
+          "previous_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Rank"
+          },
+          "rank_delta": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank Delta"
+          },
+          "previous_event_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Event Count"
+          },
+          "count_delta": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count Delta"
+          },
+          "previous_share_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Share Percent"
+          },
+          "share_delta_percentage_points": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Delta Percentage Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "event_count",
+          "event_share_percent",
+          "rank"
+        ],
+        "title": "EventContentRankingItem"
+      },
+      "EventContentStatistics": {
+        "properties": {
+          "period": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "today",
+                  "24h",
+                  "7d"
+                ]
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "30d",
+                  "90d"
+                ]
+              },
+              {
+                "type": "string",
+                "const": "all"
+              }
+            ],
+            "title": "Period"
+          },
+          "from_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From At"
+          },
+          "to_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To At"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "released",
+                  "draft",
+                  "review",
+                  "cancelled",
+                  "deferred",
+                  "rescheduled"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "event_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Event Count"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/EventContentCoverage"
+          },
+          "categories": {
+            "$ref": "#/components/schemas/EventContentRanking"
+          },
+          "genres": {
+            "$ref": "#/components/schemas/EventContentRanking"
+          },
+          "event_types": {
+            "$ref": "#/components/schemas/EventContentRanking"
+          },
+          "comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventContentComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "period",
+          "from_at",
+          "to_at",
+          "observed_at",
+          "timezone",
+          "status",
+          "event_count",
+          "coverage",
+          "categories",
+          "genres",
+          "event_types",
+          "comparison"
+        ],
+        "title": "EventContentStatistics"
       },
       "Finding": {
         "properties": {

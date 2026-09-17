@@ -11,7 +11,7 @@ from app.schemas.statistics import (
     StatisticsFilters,
     StatisticsInterval,
 )
-from app.services.periods import PeriodWindow, period_window
+from app.services.periods import PeriodWindow, period_window, previous_window
 
 
 def statistics_window(filters: StatisticsFilters, now: datetime, timezone: str) -> PeriodWindow:
@@ -77,7 +77,7 @@ async def get_statistics(
     series = await aggregate(connection, windows, settings.uranus_timestamp_timezone)
     previous = None
     if filters.compare:
-        previous = PeriodWindow(window.start - (window.end - window.start), window.start)
+        previous = previous_window(window)
         # Only previous totals are displayed; one aggregate bucket avoids redundant series.
         prior = await aggregate(connection, [previous], settings.uranus_timestamp_timezone)
         for current, old in zip(series, prior, strict=True):

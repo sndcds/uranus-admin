@@ -329,3 +329,30 @@ CREATE TABLE uranus.organization_access_grants (
  permissions bigint DEFAULT 0,
  CONSTRAINT organization_access_grants_unique_pair UNIQUE(src_org_uuid,dst_org_uuid)
 );
+
+-- Event-content lookups verified at Uranus 0c2632e (2026-09-17).
+CREATE TABLE uranus.event_category (
+    category_id integer,
+    iso_639_1 character varying(2),
+    name text NOT NULL,
+    schema_org_type text
+);
+CREATE TABLE uranus.event_type (
+    type_id integer,
+    iso_639_1 character varying(2),
+    name text NOT NULL,
+    schema_org_type text,
+    CONSTRAINT event_type_pkey PRIMARY KEY (type_id, iso_639_1)
+);
+CREATE TABLE uranus.genre_type (
+    name text NOT NULL,
+    genre_id integer NOT NULL,
+    type_id integer,
+    iso_639_1 character varying(2)
+);
+CREATE TABLE uranus.event_type_link (
+    event_uuid uuid NOT NULL REFERENCES uranus.event(uuid) ON DELETE CASCADE,
+    type_id integer NOT NULL,
+    genre_id integer NOT NULL DEFAULT 0,
+    CONSTRAINT event_type_link_unique UNIQUE (event_uuid, type_id, genre_id)
+);

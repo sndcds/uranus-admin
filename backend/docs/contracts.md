@@ -839,3 +839,76 @@ Autocomplete still limits output to 20. Timestamp conversion may prevent an ordi
 created_at index from serving the predicate directly, and broad scans remain possible.
 Production query-plan analysis and any suitable expression indexes belong to the Uranus
 migration repository. No production-scale latency claim is made.
+
+### Event content statistics
+
+`GET /api/v1/statistics/events/content` is part of the authenticated Statistics API.
+It accepts `period=all|today|24h|7d|30d|90d` (default 24h), optional
+`status=released|draft|review|cancelled|deferred|rescheduled` and `compare=previous`.
+Custom ranges and unknown query fields are not supported in v1. All + compare returns
+422, because an unbounded range has no defined predecessor.
+
+**Only uranus.event.created_at defines the event cohort**, never event_date.start_date,
+release_date or modified_at. Presets use the shared period service and [from_at,to_at):
+today starts at local midnight in ADMIN_TIMEZONE (default Europe/Berlin); other presets
+are rolling UTC durations. Naive source timestamps use URANUS_TIMESTAMP_TIMEZONE.
+An unconfigured source timezone returns 503. All removes the created_at restriction
+(including any future source timestamps) and returns null from_at/to_at; observed_at
+still identifies the snapshot. Status is an independent AND condition on the event.
+
+Source evidence verified against [Uranus main 0c2632e](https://github.com/sndcds/uranus/tree/0c2632e4cfeff4b0821c4ac3fa5eea9c36aa79af/ddl):
+
+- Categories: unnest(event.categories), event_category.category_id. Duplicate IDs and
+  NULL array elements never multiply events; NULL/empty arrays have no assignments.
+- Event types: event_type_link.type_id and event_type.type_id.
+- Genres: event_type_link.(type_id,genre_id) and genre_type.(type_id,genre_id).
+  The DDL gives no global genre_id uniqueness guarantee; the source's
+  `sql/event-type-genre-lookup.sql` groups genres under types. IDs are therefore
+  composite strings `type_id:genre_id` and labels always include `Type · Genre`.
+- `api/admin_update_event_types.go` explicitly stores 0 when genre_id is omitted.
+  Genre 0 is excluded from genre ranks and coverage even if a lookup row exists;
+  the link still establishes an event-type assignment.
+
+Labels choose a nonblank German name, then English, then a deterministic available
+language (C collation, NULL languages last), then name as final duplicate-row tie-breaker.
+Without a lookup use `Kategorie <id>`, `Event-Typ <id>` or `Genre <id>`.
+Every lookup selects one row per identity before joining. Unresolved non-null assignment
+IDs remain assigned and visible with a fallback: coverage measures metadata presence,
+not taxonomy validity. Category/type IDs are strings in the common ranking contract.
+
+Response: period, nullable boundaries, observed_at, timezone, status, event_count,
+coverage.{categories,genres,event_types}, and one ranking object per dimension.
+Coverage contains events_with_assignment, events_without_assignment and coverage_percent.
+Each ranking has distinct_assignment_count and at most ten items containing id, name,
+event_count, event_share_percent and rank. Counts always mean **DISTINCT events**.
+Shares divide by all filtered events, including events with no assignment; multi-value
+shares can sum above 100%. Coverage uses the union of assigned events, not a sum of bars.
+Percentages are rounded to two decimals. Zero totals produce zero percentages and empty
+rankings. Sort order is event_count DESC, name COLLATE C, id COLLATE C; ordinal ranks
+are deterministic even for ties.
+
+Comparison uses the existing Statistics equal-elapsed-duration predecessor, centralized
+in previous_window: [start-(end-start),start). Today compares the elapsed local day with
+an immediately preceding equal duration, not a complete previous calendar day.
+The response comparison contains previous boundaries, total and coverage. Current top
+items also carry previous_rank, rank_delta, previous_event_count, count_delta,
+previous_share_percent and share_delta_percentage_points. Positive rank_delta means an
+improvement (`previous_rank - rank`). Missing prior assignments have null rank/delta,
+zero prior count/share and are shown as new. All prior ranks are computed before joining
+the current top ten; an item outside the old top ten still has its actual previous rank.
+Without compare all item comparison fields and the comparison object are null.
+
+The dedicated source reader needs SELECT on the four classification tables; the explicit
+provisioning allowlist and upgrade note are in development.md. Runtime never grants
+privileges itself.
+
+One SELECT aggregates both windows under the existing REPEATABLE READ / READ ONLY
+connection. Filtered-event CTEs precede unnest/link aggregation; no N+1 or Python event
+hydration. The final result has at most 30 rows (one empty summary row per empty dimension).
+The DB still scans/aggregates all matching assignments, especially for All. Source timezone
+conversion may prevent a plain created_at index scan. Production query-plan benchmarking
+and any index changes belong in Uranus migrations. No source writes or migrations here.
+
+Follow-ups: category/type/genre filters in the Event list before adding drilldown links,
+long-tail pagination, CSV, dimension matrices, organization filters and genre time series.
+No dead links or misleading top-ten coverage sum are exposed in v1.

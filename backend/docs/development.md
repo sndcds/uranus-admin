@@ -386,6 +386,7 @@ REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA uranus
 GRANT USAGE ON SCHEMA uranus TO uranus_reader;
 GRANT SELECT ON uranus.organization, uranus.venue, uranus.space,
     uranus.event, uranus.event_date, uranus.event_link, uranus.license,
+    uranus.event_category, uranus.event_type, uranus.event_type_link, uranus.genre_type,
     uranus.pluto_image, uranus.pluto_image_link, uranus."user",
     uranus.organization_partner_request, uranus.organization_member_link,
     uranus.organization_access_grants TO uranus_reader;
@@ -934,3 +935,18 @@ record the evidence, required interface and proposed upstream follow-up.
 Do not add a service token, share a signing key, log in a technical account implicitly
 or enable the create button as an operational shortcut. There are no new secrets,
 capability toggles, runtime grants or migrations in this pass. #15 stays open.
+
+
+### Leserechte für Event-Inhaltsstatistik
+
+Die explizite Source-Allowlist umfasst zusätzlich `event_category`, `event_type`,
+`event_type_link` und `genre_type`. Bei bestehenden Installationen mit eingeschränkter
+Allowlist ergänzt der Datenbankbetreiber ausschließlich diese Leserechte:
+
+```sql
+GRANT SELECT ON uranus.event_category, uranus.event_type,
+    uranus.event_type_link, uranus.genre_type TO uranus_reader;
+```
+
+Die Anwendung führt diese Provisionierung nicht selbst aus. Es sind weder neue
+Domain-Schreibrechte noch Schema-/Indexmigrationen erforderlich.
