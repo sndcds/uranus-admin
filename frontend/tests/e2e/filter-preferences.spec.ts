@@ -8,18 +8,17 @@ import { statisticsFixture } from '../fixtures/statistics'
 
 async function navigate(page: Page, label: string) {
   const menu = page.getByRole('button', { name: 'Navigation öffnen' })
-  if (await menu.isVisible()) {
-    await menu.click()
-    await page
-      .getByRole('dialog', { name: 'Mobile Navigation' })
-      .getByRole('link', { name: label, exact: true })
-      .click()
-  } else
-    await page
-      .getByRole('navigation', { name: 'Hauptnavigation' })
-      .getByRole('link', { name: label, exact: true })
-      .click()
+  const mobile = await menu.isVisible()
+  if (mobile) await menu.click()
+  const navigation = mobile
+    ? page.getByRole('dialog', { name: 'Mobile Navigation' })
+    : page.getByRole('navigation', { name: 'Hauptnavigation' })
+  const link = navigation.getByRole('link', { name: label, exact: true })
+  const path = await link.getAttribute('href')
+  await link.click()
+  await expect(page).toHaveURL((url) => url.pathname === path)
 }
+
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/admin/api/v1/**', (route) => {
     const url = new URL(route.request().url())
@@ -101,6 +100,11 @@ test('shared periods cross pages, preserve unsupported preferences and keep cust
   await page.getByLabel('Zeitraum', { exact: true }).selectOption('7d')
   await expect(page).toHaveURL(/period=7d/)
   await navigate(page, 'Aktivität')
+  // Both Dashboard and Activity have this selector: wait for the destination first.
+  await expect(page.getByRole('heading', { name: 'Neue Datensätze', exact: true })).toBeVisible()
+  await expect(page).toHaveURL(
+    (url) => url.pathname === '/activity' && url.searchParams.get('period') === '7d',
+  )
   await expect(page.getByRole('combobox', { name: 'Zeitraum', exact: true })).toHaveValue('7d')
   await navigate(page, 'Statistiken')
   await expect(page.getByRole('button', { name: 'Letzte 7 Tage', exact: true })).toHaveAttribute(
