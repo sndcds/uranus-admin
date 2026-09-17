@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InlineAlert from '~/components/InlineAlert.vue'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { GraphNode, GraphEdge, GraphResponse } from '#shared/contracts'
 import type { ApiFailure } from '#shared/errors'
@@ -45,7 +46,7 @@ watch(isFullscreen, async (active) => {
   <div ref="fullscreenTarget" class="graph-workspace space-y-3 bg-white" :aria-busy="loading">
     <header
       v-if="data || isFullscreen"
-      class="workspace-toolbar flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3"
+      class="workspace-toolbar flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3"
     >
       <div class="min-w-0">
         <h3 v-if="isFullscreen" class="text-sm font-semibold">Entity-Relationship Graph</h3>
@@ -57,26 +58,16 @@ watch(isFullscreen, async (active) => {
         </p>
       </div>
       <div class="flex flex-wrap gap-2" role="group" aria-label="Graph-Steuerung">
-        <button
-          type="button"
-          class="button !px-2.5 !py-2 !text-xs"
-          :disabled="!data || loading"
-          @click="graph?.fit()"
-        >
+        <button type="button" class="button" :disabled="!data || loading" @click="graph?.fit()">
           <AppIcon name="fit" :size="16" />Ansicht einpassen
         </button>
-        <button
-          type="button"
-          class="button !px-2.5 !py-2 !text-xs"
-          :disabled="!data || loading"
-          @click="graph?.reset()"
-        >
+        <button type="button" class="button" :disabled="!data || loading" @click="graph?.reset()">
           <AppIcon name="refresh" :size="16" />Ansicht zurücksetzen
         </button>
         <button
           v-if="isFullscreen"
           type="button"
-          class="button !px-2.5 !py-2 !text-xs"
+          class="button"
           :aria-expanded="detailsOpen && !!selectedNode"
           :disabled="!selectedNode"
           @click="detailsOpen = !detailsOpen"
@@ -88,7 +79,7 @@ watch(isFullscreen, async (active) => {
         <button
           v-if="isSupported"
           type="button"
-          class="button !px-2.5 !py-2 !text-xs"
+          class="button"
           :aria-label="isFullscreen ? 'Vollbild beenden' : 'Graph im Vollbild anzeigen'"
           :aria-pressed="isFullscreen"
           @click="toggleFullscreen"
@@ -105,17 +96,13 @@ watch(isFullscreen, async (active) => {
     <div v-if="loading || error" class="shrink-0 p-3">
       <RequestState :loading="loading" :error="error" @retry="emit('retry')" />
     </div>
-    <p
-      v-if="data?.truncated"
-      role="status"
-      class="shrink-0 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
-    >
+    <InlineAlert v-if="data?.truncated" tone="warning" role="status" class="shrink-0">
       Darstellung begrenzt: maximal {{ data.max_nodes }} Knoten und
       {{ data.max_edges }} Beziehungen. Wähle einen anderen Ausgangspunkt oder reduziere die Tiefe.
-    </p>
+    </InlineAlert>
     <div
       v-if="data"
-      class="workspace-body relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 xl:flex-row"
+      class="workspace-body relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 xl:flex-row"
     >
       <EntityGraph
         ref="graph"
@@ -143,7 +130,7 @@ watch(isFullscreen, async (active) => {
     </div>
     <div
       v-else-if="!loading && !error"
-      class="grid min-h-[540px] place-items-center rounded-xl border border-slate-200 bg-white p-8 text-center"
+      class="grid min-h-[540px] place-items-center rounded-2xl border border-slate-200 bg-white p-8 text-center"
     >
       <div class="max-w-md">
         <span
@@ -161,7 +148,7 @@ watch(isFullscreen, async (active) => {
     <footer class="flex flex-wrap items-center justify-between gap-3">
       <ul
         aria-label="Graphlegende"
-        class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-white px-3 py-2 text-[10px] text-slate-500"
+        class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-white px-3 py-2 text-xs text-slate-500"
       >
         <li v-for="item in nodePresentation" :key="item.label" class="flex items-center gap-1.5">
           <span

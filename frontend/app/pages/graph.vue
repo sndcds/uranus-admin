@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InlineAlert from '~/components/InlineAlert.vue'
 import type { GraphNode, GraphResponse } from '#shared/contracts'
 import { graphEntityTypeSchema, graphRelationTypeSchema } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
@@ -163,21 +164,14 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <section class="space-y-3" aria-labelledby="graph-title">
-    <header class="mb-5">
-      <div class="flex items-center gap-3">
-        <h2 id="graph-title" class="text-2xl font-bold tracking-tight">
-          Entity-Relationship Graph
-        </h2>
-        <span class="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700"
-          >Beta</span
-        >
-      </div>
-      <p class="mt-1 text-sm text-slate-500">
-        Visualisiert die Zusammenhänge zwischen Organisationen, Orten, Räumen, Veranstaltungen,
-        Terminen und Benutzern.
-      </p>
-    </header>
+  <section class="space-y-5" aria-labelledby="graph-title">
+    <PageHeader
+      title="Beziehungsgraph"
+      title-id="graph-title"
+      description="Visualisiert die Zusammenhänge zwischen Organisationen, Orten, Räumen, Veranstaltungen, Terminen und Benutzern."
+    >
+      <template #badge><StatusBadge label="Beta" /></template>
+    </PageHeader>
     <GraphFilters
       v-model:query="query"
       v-model:entity-type="entityType"
@@ -196,7 +190,7 @@ onBeforeUnmount(() => {
       @apply="apply"
       @reset="reset"
     />
-    <div v-if="settingsOpen" class="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+    <div v-if="settingsOpen" class="panel p-4 text-sm">
       <label class="flex items-center gap-2"
         ><input v-model="showLabels" type="checkbox" class="accent-fuchsia-600" />Beziehungen im
         Graph beschriften</label
@@ -207,9 +201,9 @@ onBeforeUnmount(() => {
         Ausgangspunkt bei.
       </p>
     </div>
-    <p v-if="searchError" role="alert" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+    <InlineAlert v-if="searchError" tone="warning">
       Suche fehlgeschlagen: {{ searchError.message }}
-    </p>
+    </InlineAlert>
     <GraphWorkspace
       :data="data"
       :nodes="visible.nodes"
