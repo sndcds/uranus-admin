@@ -1,10 +1,13 @@
 """Fixed search projections shared by autocomplete and paginated entity lists."""
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.config import Settings
+from app.repositories.temporal import temporal_predicate
 from app.schemas.action import Action
 from app.schemas.entities import EntitySearchFilters, EntitySearchItem, EntitySearchResponse
 
@@ -104,15 +107,16 @@ ORGANIZATION_FILTER = """(CAST(:org AS uuid) IS NULL OR a.organization_id=:org
 
 
 async def entity_search(
-    connection: AsyncConnection, filters: EntitySearchFilters
+    connection: AsyncConnection, filters: EntitySearchFilters, settings: Settings, now: datetime
 ) -> EntitySearchResponse:
+    temporal = temporal_predicate(filters.entity_type, filters.temporal)
     definition = SEARCH_DEFINITIONS[filters.entity_type]
     query = escape_search(filters.q)
     rows = (
         await connection.execute(
             text(f"""SELECT entity_key,label,subtitle,status FROM ({definition.projection()}) a
         WHERE ({definition.matches()}) AND {ORGANIZATION_FILTER}
-        AND (CAST(:status AS text) IS NULL OR status=:status)
+        AND (CAST(:status AS text) IS NULL OR status=:status) AND {temporal}
         ORDER BY CASE WHEN {definition.matches("exact")} THEN 0
                       WHEN {definition.matches("prefix")} THEN 1 ELSE 2 END,
                  lower(label) COLLATE "C",entity_key COLLATE "C"
@@ -125,6 +129,8 @@ async def entity_search(
                 "org": filters.organization_id,
                 "status": filters.status,
                 "limit": filters.limit,
+                "event_tz": settings.event_timezone,
+                "temporal_now": now,
             },
         )
     ).mappings()

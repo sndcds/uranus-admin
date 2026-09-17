@@ -14,6 +14,7 @@ from app.repositories.activity import ACTIVITY_SQL, ENTITY_ACTIVITY_SQL
 from app.repositories.activity_previews import activity_previews
 from app.repositories.entity_search import ORGANIZATION_FILTER, SEARCH_DEFINITIONS, escape_search
 from app.repositories.graph import RELATIONS
+from app.repositories.temporal import temporal_predicate
 from app.schemas.action import Action
 from app.schemas.activity import Activity
 from app.schemas.entities import (
@@ -132,10 +133,13 @@ async def entity_page(
     now: datetime,
 ) -> EntityPage:
     kind = SECTIONS[section]
+    temporal = temporal_predicate(kind, filters.temporal)
     q = escape_search(filters.q)
     params = {
         "q": f"%{q}%",
         "kind": kind,
+        "event_tz": settings.event_timezone,
+        "temporal_now": now,
         "org": filters.organization_id,
         "status": filters.status,
         "size": filters.page_size,
@@ -152,7 +156,7 @@ async def entity_page(
     base = f"""SELECT a.* FROM ({SOURCES[kind]}) a
         WHERE {search}
         AND (CAST(:status AS text) IS NULL OR status=:status)
-        AND {ORGANIZATION_FILTER}"""
+        AND {ORGANIZATION_FILTER} AND {temporal}"""
     total = int(
         (await connection.execute(text(f"SELECT count(*) FROM ({base}) a"), params)).scalar_one()
     )

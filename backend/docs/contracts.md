@@ -746,3 +746,55 @@ It introduces no source writes, migrations or indexes. The result limit does not
 PostgreSQL scan/sort work: large tables and broad two-character searches may need
 `pg_trgm` indexes, owned by Uranus's schema migration system. Existing statement timeouts
 remain effective. No production-scale benchmark is claimed.
+
+### Temporal entity filters
+
+The entity list endpoints and `GET /api/v1/entity-search` accept optional
+`temporal=upcoming|past`. Absence means all records; `temporal=all`, empty and
+unknown values are invalid (422). Supported types: event, organization, venue,
+space. User/image requests with a temporal filter return 422; they are not silently
+ignored. Existing q, organization_id, status and pagination contracts remain intact.
+
+`repositories/temporal.py` supplies one fixed SQL predicate to both list and search.
+The filter is based on **effective event-date end**, never entity created_at:
+
+- A timed date with end_date/end_time ends at that local date/time.
+- With end_date but no end_time it lasts through that day's final microsecond.
+- With end_time but no end_date the end_time belongs to start_date; no implicit
+  overnight rollover is invented.
+- Without either end field, it ends at start_date + start_time. A missing
+  start_time means local midnight, unless all_day is true.
+- all_day ignores clock fields and lasts through end_date (or start_date when
+  end_date is absent), until the final microsecond before the next local midnight.
+- `upcoming`: effective end >= the request clock; `past`: effective end < clock.
+  Equality and running dates are upcoming. Mixed old/future events belong to both
+  filters. Events without dates belong to neither filter and remain visible unfiltered.
+
+Local event date/time values are converted with `settings.event_timezone`
+(`EVENT_TIMEZONE`, default Europe/Berlin), **not** the server/session timezone or
+`uranus_timestamp_timezone`. Each request captures an aware `datetime.now(UTC)`;
+list count and page share that same instant. All-day ends follow local calendar
+midnight, including 23-/25-hour DST days. Ambiguous or nonexistent wall times use
+PostgreSQL's timezone conversion rules; the source contains no offset/fold field.
+Inconsistent source intervals are not repaired by the filter. Date release statuses
+are not implicitly excluded; the existing status parameter filters the entity itself.
+Existing preview and quality-rule selection retain their separate business semantics.
+
+| Entity | Required matching date |
+| --- | --- |
+| Event | At least one own event_date |
+| Organization | At least one date of an event owned by that organization |
+| Venue | At least one date with that effective venue |
+| Space | At least one date with that effective space |
+
+Venue/space association reuses `repositories/location.py`: venue is
+`COALESCE(d.venue_uuid,e.venue_uuid)`; an explicit date venue stops event-space
+inheritance (use d.space_uuid, possibly NULL). Otherwise use
+`COALESCE(d.space_uuid,e.space_uuid)`. The optional organization filter still scopes
+the listed entity; it does not redefine the owner of events using a shared venue.
+
+Predicates use SQL EXISTS, without per-record requests or Python date hydration.
+Autocomplete remains bounded to 20 rows. Broad temporal scans and effective-location
+expressions may need query-plan analysis on large sources; existing event_date.event_uuid
+indexes can help. Any additional FK/expression indexes belong in Uranus migrations,
+not this read-only admin repository. No source writes, migrations or new public routes.

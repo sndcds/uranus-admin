@@ -161,7 +161,7 @@ async def test_organization_scope(
 
 
 @pytest.mark.integration
-async def test_ranking_bounds_stability_and_single_select(db_connection):
+async def test_ranking_bounds_stability_and_single_select(db_connection, settings, now):
     for n, name in enumerate(["zzmax", "Maxwell", "max", "amax", "max"], 100):
         await db_connection.execute(
             text(
@@ -178,7 +178,7 @@ async def test_ranking_bounds_stability_and_single_select(db_connection):
     event.listen(db_connection.sync_connection, "before_cursor_execute", capture)
     try:
         result = await entity_search(
-            db_connection, EntitySearchFilters(q="max", entity_type="user", limit=4)
+            db_connection, EntitySearchFilters(q="max", entity_type="user", limit=4), settings, now
         )
         assert [item.entity_key for item in result.items] == [
             str(uid(n)) for n in (102, 104, 101, 103)
