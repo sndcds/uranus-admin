@@ -316,3 +316,18 @@ it('allows authenticated read-only entity search with only its declared filters'
   ).toBe(422)
   expect(fetcher).toHaveBeenCalledTimes(1)
 })
+
+it.each([
+  '/api/v1/events',
+  '/api/v1/organizations',
+  '/api/v1/venues',
+  '/api/v1/spaces',
+  '/api/v1/entity-search',
+])('forwards temporal and existing organization filters for %s', async (path) => {
+  const fetcher = vi.fn().mockResolvedValue(new Response('{"items":[]}'))
+  const query = new URLSearchParams({ temporal: 'upcoming', organization_id: 'org', q: 'hacks' })
+  expect((await forwardAdminRequest({ ...input, path, query }, base, fetcher)).status).toBe(200)
+  const url = new URL(String(fetcher.mock.calls[0]?.[0]))
+  expect(url.searchParams.get('temporal')).toBe('upcoming')
+  expect(url.searchParams.get('organization_id')).toBe('org')
+})

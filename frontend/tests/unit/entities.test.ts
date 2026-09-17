@@ -70,7 +70,13 @@ it.each(entitySectionSchema.options)(
     await list.get('input[type="search"]').setValue('Nord')
     await list.get('form').trigger('submit')
     expect(push).toHaveBeenCalledWith({
-      query: { q: 'Nord', organization_id: undefined, status: undefined, page: '1' },
+      query: {
+        q: 'Nord',
+        organization_id: undefined,
+        status: undefined,
+        temporal: undefined,
+        page: '1',
+      },
     })
     route.query = { q: 'Nord', organization_id: 'org', status: 'active', page: '1' }
     await flushPromises()
@@ -149,3 +155,83 @@ it('navigates to the selected result using its validated action href', async () 
     vi.useRealTimers()
   }
 })
+
+it.each(entitySectionSchema.options)(
+  'simplifies the filter bar for %s and retains organization deep links',
+  async (section) => {
+    const org = entityFixture(section).items[0]!.entity_key
+    route.query = { organization_id: org }
+    api.entities.mockResolvedValue(entityFixture(section))
+    const list = mount(EntityListPage, { props: { section }, global })
+    await flushPromises()
+    expect(list.text()).not.toContain('Organisation UUID')
+    expect(list.find('input:not([type="search"])').exists()).toBe(false)
+    const supported = !['users', 'images'].includes(section)
+    expect(list.findAll('label').some((label) => label.text().startsWith('Zeitraum'))).toBe(
+      supported,
+    )
+    expect(list.getComponent(EntitySearch).props('organizationId')).toBe(org)
+    expect(api.entities).toHaveBeenCalledWith(section, { organization_id: org })
+    await list.get('form').trigger('submit')
+    expect(push).toHaveBeenLastCalledWith({
+      query: {
+        q: undefined,
+        organization_id: org,
+        status: undefined,
+        temporal: undefined,
+        page: '1',
+      },
+    })
+    list.unmount()
+  },
+)
+
+it.each(['events', 'organizations', 'venues', 'spaces'] as const)(
+  '%s restores temporal, combines filters, resets the page and preserves URL state',
+  async (section) => {
+    const org = entityFixture(section).items[0]!.entity_key
+    const initial = {
+      q: 'hacks',
+      temporal: 'past',
+      status: 'released',
+      organization_id: org,
+      page: '2',
+    }
+    route.query = { ...initial }
+    api.entities.mockResolvedValue(entityFixture(section))
+    const list = mount(EntityListPage, { props: { section }, global })
+    await flushPromises()
+    const select = list.get('select')
+    expect(select.findAll('option').map((o) => o.text())).toEqual([
+      'Alle',
+      'Mit bevorstehenden Terminen',
+      'Mit vergangenen Terminen',
+    ])
+    expect((select.element as HTMLSelectElement).value).toBe('past')
+    expect(list.getComponent(EntitySearch).props('temporal')).toBe('past')
+    expect(list.text()).toContain('Zeitraum: Mit vergangenen Terminen')
+    for (const temporal of ['upcoming', 'past', '']) {
+      await select.setValue(temporal)
+      expect(push).toHaveBeenLastCalledWith({
+        query: { ...initial, temporal: temporal || undefined, page: '1' },
+      })
+      route.query = { ...initial, page: '1', ...(temporal ? { temporal } : {}) }
+      if (!temporal) delete route.query.temporal
+      await flushPromises()
+      expect(api.entities).toHaveBeenLastCalledWith(section, route.query)
+    }
+    // Browser Back/Forward restores the applied controls from route state.
+    route.query = { ...initial, temporal: 'upcoming', page: '1' }
+    await flushPromises()
+    expect((select.element as HTMLSelectElement).value).toBe('upcoming')
+    const next = list.findAll('a').find((a) => a.attributes('data-to')?.includes('"page":"2"'))!
+    expect(JSON.parse(next.attributes('data-to')!)).toEqual({
+      query: { ...route.query, page: '2' },
+    })
+    route.query = { ...initial }
+    await flushPromises()
+    expect((select.element as HTMLSelectElement).value).toBe('past')
+    expect(list.getComponent(EntitySearch).props('temporal')).toBe('past')
+    list.unmount()
+  },
+)

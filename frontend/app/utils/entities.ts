@@ -1,5 +1,5 @@
 import { entityTypes } from './entityPresentation'
-import type { EntitySection, EntitySearchType } from '#shared/contracts'
+import type { EntitySection, EntitySearchType, TemporalFilter } from '#shared/contracts'
 export const entitySections = {
   events: { type: 'event', title: entityTypes.event.plural },
   venues: { type: 'venue', title: entityTypes.venue.plural },
@@ -35,4 +35,15 @@ export const entitySearchPlaceholders: Record<EntitySearchType, string> = {
   space: 'Nach Raum, Ort oder UUID suchen …',
   event: 'Nach Veranstaltung, Untertitel, externer ID oder UUID suchen …',
   image: 'Nach Bild, Dateiname, Alt-Text oder UUID suchen …',
+}
+
+export function supportsTemporal(type: EntitySearchType): boolean {
+  return type !== 'user' && type !== 'image'
+}
+export const temporalLabels: Record<TemporalFilter, string> = {
+  upcoming: 'Mit bevorstehenden Terminen',
+  past: 'Mit vergangenen Terminen',
+}
+export function temporalFromQuery(value: unknown): TemporalFilter | '' {
+  return value === 'upcoming' || value === 'past' ? value : ''
 }

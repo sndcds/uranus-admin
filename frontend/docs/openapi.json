@@ -594,6 +594,26 @@
             }
           },
           {
+            "name": "temporal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "upcoming",
+                    "past"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Temporal"
+            }
+          },
+          {
             "name": "status",
             "in": "query",
             "required": false,
@@ -747,6 +767,26 @@
                 }
               ],
               "title": "Organization Id"
+            }
+          },
+          {
+            "name": "temporal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "upcoming",
+                    "past"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Temporal"
             }
           },
           {
@@ -1039,6 +1079,26 @@
             }
           },
           {
+            "name": "temporal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "upcoming",
+                    "past"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Temporal"
+            }
+          },
+          {
             "name": "status",
             "in": "query",
             "required": false,
@@ -1325,6 +1385,26 @@
                 }
               ],
               "title": "Organization Id"
+            }
+          },
+          {
+            "name": "temporal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "upcoming",
+                    "past"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Temporal"
             }
           },
           {
@@ -1617,6 +1697,26 @@
             }
           },
           {
+            "name": "temporal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "upcoming",
+                    "past"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Temporal"
+            }
+          },
+          {
             "name": "status",
             "in": "query",
             "required": false,
@@ -1906,6 +2006,26 @@
             }
           },
           {
+            "name": "temporal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "upcoming",
+                    "past"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Temporal"
+            }
+          },
+          {
             "name": "status",
             "in": "query",
             "required": false,
@@ -2192,6 +2312,26 @@
                 }
               ],
               "title": "Organization Id"
+            }
+          },
+          {
+            "name": "temporal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "upcoming",
+                    "past"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Temporal"
             }
           },
           {

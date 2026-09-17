@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
-import type { EntitySearchItem, EntitySearchType } from '#shared/contracts'
+import type { EntitySearchItem, EntitySearchType, TemporalFilter } from '#shared/contracts'
 import { entityTypes } from '~/utils/entityPresentation'
-import { entitySearchPlaceholders } from '~/utils/entities'
+import { entitySearchPlaceholders, supportsTemporal } from '~/utils/entities'
 
 const query = defineModel<string>({ required: true })
 const props = defineProps<{
   entityType: EntitySearchType
   organizationId?: string
   status?: string
+  temporal?: TemporalFilter | ''
 }>()
 const emit = defineEmits<{ apply: []; select: [item: EntitySearchItem] }>()
 const { $adminApi } = useNuxtApp()
@@ -53,6 +54,7 @@ function schedule() {
     entity_type: props.entityType,
     organization_id: props.organizationId || undefined,
     status: props.status || undefined,
+    temporal: supportsTemporal(props.entityType) ? props.temporal || undefined : undefined,
     limit: 10,
   }
   timer = setTimeout(async () => {
@@ -66,7 +68,16 @@ function schedule() {
     }
   }, 275)
 }
-watch([query, () => props.entityType, () => props.organizationId, () => props.status], schedule)
+watch(
+  [
+    query,
+    () => props.entityType,
+    () => props.organizationId,
+    () => props.status,
+    () => props.temporal,
+  ],
+  schedule,
+)
 function select(item: EntitySearchItem) {
   close()
   emit('select', item)
@@ -121,7 +132,7 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <div ref="root" class="min-w-0 sm:col-span-2" @focusout="blur">
+  <div ref="root" class="min-w-0 sm:col-span-2 xl:col-span-1" @focusout="blur">
     <label :for="id" class="label">Suche</label>
     <div class="relative min-w-0">
       <AppIcon

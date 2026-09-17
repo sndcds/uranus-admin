@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import type { EntitySection, EntityPage } from '#shared/contracts'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import type { EntitySection, EntityPage, TemporalFilter } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
-import { entitySections, entityFactLabel } from '~/utils/entities'
+import {
+  entitySections,
+  entityFactLabel,
+  supportsTemporal,
+  temporalLabels,
+  temporalFromQuery,
+} from '~/utils/entities'
 const props = defineProps<{ section: EntitySection }>()
 const route = useRoute()
 const router = useRouter()
@@ -13,6 +19,11 @@ const error = ref<ApiFailure | null>(null)
 const q = ref(''),
   organization = ref(''),
   status = ref('')
+const temporal = ref<TemporalFilter | ''>('')
+const hasTemporal = computed(() => supportsTemporal(entitySections[props.section].type))
+const appliedTemporal = computed(() =>
+  hasTemporal.value ? temporalFromQuery(route.query.temporal) : '',
+)
 let generation = 0
 async function load() {
   const id = ++generation
@@ -23,6 +34,7 @@ async function load() {
   organization.value =
     typeof route.query.organization_id === 'string' ? route.query.organization_id : ''
   status.value = typeof route.query.status === 'string' ? route.query.status : ''
+  temporal.value = hasTemporal.value ? temporalFromQuery(route.query.temporal) : ''
   try {
     const query: Record<string, string> = {}
     for (const [key, value] of Object.entries(route.query)) {
@@ -43,6 +55,7 @@ function apply() {
       q: q.value || undefined,
       organization_id: organization.value || undefined,
       status: status.value || undefined,
+      temporal: hasTemporal.value ? temporal.value || undefined : undefined,
       page: '1',
     },
   })
@@ -70,12 +83,19 @@ onBeforeUnmount(() => {
         :entity-type="entitySections[section].type"
         :organization-id="organization"
         :status="status"
+        :temporal="hasTemporal ? temporal : undefined"
         @apply="apply"
         @select="router.push($event.action.href)"
       />
-      <label
-        ><span class="label">Organisation UUID</span><input v-model="organization" class="input"
-      /></label>
+      <label v-if="hasTemporal">
+        <span class="label">Zeitraum</span>
+        <select v-model="temporal" class="input" @change="apply">
+          <option value="">Alle</option>
+          <option v-for="(label, value) in temporalLabels" :key="value" :value="value">
+            {{ label }}
+          </option>
+        </select>
+      </label>
       <label v-if="section === 'events' || section === 'users'"
         ><span class="label">Status</span
         ><select v-model="status" class="input">
@@ -104,6 +124,7 @@ onBeforeUnmount(() => {
         :total="data.pagination.total"
         :visible="data.items.length"
         noun="Datensätze"
+        :description="appliedTemporal ? `Zeitraum: ${temporalLabels[appliedTemporal]}` : undefined"
         :observed-at="data.observed_at"
       />
       <DataListShell v-if="data.items.length" as="ul"

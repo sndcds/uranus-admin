@@ -23,9 +23,10 @@ router = APIRouter(tags=["Domain records"])
 @router.get("/entity-search", response_model=EntitySearchResponse)
 async def search(
     connection: ConnectionDep,
+    settings: SettingsDep,
     filters: Annotated[EntitySearchFilters, Query()],
 ) -> EntitySearchResponse:
-    return await entity_search(connection, filters)
+    return await entity_search(connection, filters, settings, datetime.now(UTC))
 
 
 # Register six explicit endpoints; no catch-all source table or arbitrary projection.
