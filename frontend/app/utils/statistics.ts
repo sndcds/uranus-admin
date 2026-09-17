@@ -1,51 +1,37 @@
 import type { EntityStatistics, StatisticsEntity } from '#shared/contracts'
 import { metric } from './presentation'
 
+import { entityTypes, invitationPresentation } from './entityPresentation'
+function statisticsPresentation(type: {
+  label: string
+  plural: string
+  icon: (typeof entityTypes)[keyof typeof entityTypes]['icon'] | typeof invitationPresentation.icon
+  color: string
+}) {
+  return {
+    label: type.plural,
+    singular: type.label,
+    card: `Neue ${type.plural}`,
+    icon: type.icon,
+    color: type.color,
+  }
+}
 export const statisticsTypes = {
-  user: {
-    label: 'Benutzer',
-    singular: 'Benutzer',
-    card: 'Neue Benutzer',
-    icon: 'user',
-    color: '#3980ff',
-  },
-  organization: {
-    label: 'Organisationen',
-    singular: 'Organisation',
-    card: 'Neue Organisationen',
-    icon: 'organization',
-    color: '#951bff',
-  },
-  event: {
-    label: 'Veranstaltungen',
-    singular: 'Veranstaltung',
-    card: 'Neue Veranstaltungen',
-    icon: 'calendar',
-    color: '#ff4081',
-  },
-  venue: {
-    label: 'Veranstaltungsorte',
-    singular: 'Veranstaltungsort',
-    card: 'Neue Orte',
-    icon: 'pin',
-    color: '#21c87a',
-  },
-  space: { label: 'Räume', singular: 'Raum', card: 'Neue Räume', icon: 'space', color: '#10b9d4' },
-  partner_request: {
-    label: 'Partneranfragen',
-    singular: 'Partneranfrage',
-    card: 'Neue Partneranfragen',
-    icon: 'partner',
-    color: '#ffad32',
-  },
-  team_invitation: {
-    label: 'Teameinladungen',
-    singular: 'Teameinladung',
-    card: 'Neue Teameinladungen',
-    icon: 'mail',
-    color: '#ac78ff',
-  },
+  user: statisticsPresentation(entityTypes.user),
+  organization: statisticsPresentation(entityTypes.organization),
+  event: statisticsPresentation(entityTypes.event),
+  venue: statisticsPresentation(entityTypes.venue),
+  space: statisticsPresentation(entityTypes.space),
+  partner_request: statisticsPresentation(entityTypes.partner_request),
+  team_invitation: statisticsPresentation(invitationPresentation),
 } as const
+/** Only Activity understands creation_basis; canonical details and queues remain untouched. */
+export function statisticsRecentLink(href: string): string {
+  const url = new URL(href, 'https://admin.invalid')
+  if (url.pathname !== '/activity') return href
+  url.searchParams.set('creation_basis', 'statistics')
+  return `${url.pathname}${url.search}${url.hash}`
+}
 export const statisticsOrder = Object.keys(statisticsTypes) as StatisticsEntity[]
 export const statisticsPeriods = {
   '24h': '24 Stunden',

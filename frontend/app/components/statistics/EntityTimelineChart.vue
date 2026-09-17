@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SectionHeader from '~/components/SectionHeader.vue'
 import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { scaleTime, scaleLinear } from 'd3-scale'
 import { line } from 'd3-shape'
@@ -102,9 +103,12 @@ function keyboard(event: KeyboardEvent) {
 }
 </script>
 <template>
-  <section class="statistics-panel statistics-timeline" aria-labelledby="timeline-title">
-    <div class="statistics-chart-heading">
-      <h3 id="timeline-title">Neue Entitäten im Zeitverlauf</h3>
+  <section
+    class="statistics-panel statistics-timeline panel p-4 sm:p-5"
+    aria-labelledby="timeline-title"
+  >
+    <div class="statistics-chart-heading mb-3 flex items-center gap-2">
+      <SectionHeader title-id="timeline-title" title="Neue Entitäten im Zeitverlauf" />
       <span
         title="Anzahl neu angelegter Datensätze pro Zeitintervall. Leere Intervalle zählen als null."
         ><AppIcon name="info" :size="15"
@@ -218,12 +222,16 @@ function keyboard(event: KeyboardEvent) {
       </div>
       <p v-if="!visible.length" class="statistics-no-series">Wähle mindestens eine Serie aus.</p>
     </div>
-    <div class="statistics-legend" aria-label="Serien auswählen">
+    <div
+      class="statistics-legend mt-3 flex flex-wrap justify-center gap-2"
+      aria-label="Serien auswählen"
+    >
       <button
         v-for="entry in series"
         :key="entry.entity_type"
         :aria-pressed="selectedTypes.includes(entry.entity_type)"
-        :class="{ inactive: !selectedTypes.includes(entry.entity_type) }"
+        class="button !px-2 !py-1 !text-xs"
+        :class="{ 'opacity-50 line-through': !selectedTypes.includes(entry.entity_type) }"
         @click="$emit('toggle', entry.entity_type)"
         @pointerenter="$emit('highlight', entry.entity_type)"
         @pointerleave="$emit('highlight', null)"
