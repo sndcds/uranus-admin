@@ -65,7 +65,8 @@ export const useAuthStore = defineStore('auth', () => {
     if (current !== revision.value) return
     session.value = identity
     await checkSession(true)
-    if (!isAdmin.value) throw new AdminApiError(error.value ?? failure(403))
+    if (!isAdmin.value)
+      throw new AdminApiError(error.value ?? failure(status.value === 'authenticated' ? 403 : 401))
   }
   async function logout() {
     try {

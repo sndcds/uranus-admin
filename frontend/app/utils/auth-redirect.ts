@@ -12,6 +12,7 @@ export function internalRedirect(value: unknown): string {
     const url = new URL(value, 'https://admin.invalid')
     if (
       url.origin !== 'https://admin.invalid' ||
+      url.pathname.startsWith('//') ||
       /^\/login\/?$/i.test(decodeURIComponent(url.pathname))
     )
       return '/'
