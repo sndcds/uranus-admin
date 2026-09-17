@@ -13,6 +13,7 @@ import { entityPeriods } from '~/utils/periods'
 import { asFailure, type ApiFailure } from '#shared/errors'
 import {
   entitySections,
+  eventStatusLabels,
   entityFactLabel,
   entityFilterCapabilities,
   temporalLabels,
@@ -166,12 +167,9 @@ onBeforeUnmount(() => {
             ><option value="active">Aktiv</option>
             <option value="inactive">Nicht aktiv</option></template
           ><template v-else
-            ><option value="released">Veröffentlicht</option>
-            <option value="draft">Entwurf</option>
-            <option value="review">In Prüfung</option>
-            <option value="cancelled">Abgesagt</option>
-            <option value="deferred">Verschoben</option>
-            <option value="rescheduled">Neuer Termin</option></template
+            ><option v-for="(label, value) in eventStatusLabels" :key="value" :value="value">
+              {{ label }}
+            </option></template
           >
         </select></label
       >

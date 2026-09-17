@@ -1,6 +1,7 @@
 import { entityTypes as activityTypes } from './entityPresentation'
 import { activityImageUrlSchema, activityLocationSchema } from '#shared/contracts'
 import type { ActivityPage, DashboardSummary } from '#shared/contracts'
+import { eventStatusLabels } from './entities'
 import { calendarDay, dayLabel, metric } from './presentation'
 
 export type ActivityItem = ActivityPage['items'][number]
@@ -8,9 +9,7 @@ export { entityTypes as activityTypes } from './entityPresentation'
 
 // Values emitted by repositories/activity.py and the verified source fixtures.
 const statusLabels: Record<string, string> = {
-  released: 'Veröffentlicht',
-  draft: 'Entwurf',
-  cancelled: 'Abgesagt',
+  ...eventStatusLabels,
   pending: 'Ausstehend',
   accepted: 'Angenommen',
   active: 'Aktiv',
