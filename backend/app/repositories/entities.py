@@ -140,8 +140,14 @@ async def entity_page(
         "offset": (filters.page - 1) * filters.page_size,
         "tz": require_timezone(settings),
     }
+    search = "entity_name ILIKE :q OR entity_key ILIKE :q"
+    if kind == "user":
+        search += (
+            ' OR EXISTS (SELECT 1 FROM uranus."user" u '
+            "WHERE u.uuid::text=a.entity_key AND u.username ILIKE :q)"
+        )
     base = f"""SELECT * FROM ({SOURCES[kind]}) a
-        WHERE (entity_name ILIKE :q OR entity_key ILIKE :q)
+        WHERE ({search})
         AND (CAST(:status AS text) IS NULL OR status=:status)
         AND (CAST(:org AS uuid) IS NULL OR organization_id=:org
           OR (entity_type='user' AND EXISTS (SELECT 1 FROM uranus.organization_member_link m

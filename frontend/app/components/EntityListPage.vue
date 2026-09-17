@@ -2,7 +2,7 @@
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import type { EntitySection, EntityPage } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
-import { entitySections, factLabels } from '~/utils/entities'
+import { entitySections, entityFactLabel } from '~/utils/entities'
 const props = defineProps<{ section: EntitySection }>()
 const route = useRoute()
 const router = useRouter()
@@ -113,7 +113,7 @@ onBeforeUnmount(() => {
               ><div class="mt-1 flex flex-wrap gap-x-3 text-xs text-slate-500">
                 <template v-for="(value, key) in item.facts" :key="key"
                   ><span v-if="value !== null && key !== 'description'"
-                    >{{ factLabels[key] }}:
+                    >{{ entityFactLabel(section, key) }}:
                     {{ typeof value === 'boolean' ? (value ? 'Ja' : 'Nein') : value }}</span
                   ></template
                 >

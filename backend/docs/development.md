@@ -912,3 +912,25 @@ Oversized responses are inconclusive, not broken-link findings. This is an obser
 from this worker, not proof of browser availability. Network egress restrictions remain
 useful defense in depth; redirects/WAFs/robots policies can cause inconclusive results.
 No production credentials or live configuration changes are part of deployment here.
+
+### Remaining live-verification and write prerequisites (2026-09-17)
+
+The current pass starts at admin main `7428b455f68316c2b116798ac1138d70eeeb3d2c`.
+It does not connect to production, inspect local credentials or change any deployed
+service. The previous UTC confirmation applies to the documented September 14 backup;
+confirm the current live writer and `URANUS_TIMESTAMP_TIMEZONE` separately.
+
+Use the operator-ready workflow and evidence matrix in
+[source-verification.md](source-verification.md#current-audit-2026-09-17--repository-evidence-no-live-access).
+The existing command now explicitly reports the actual read-only transaction mode and
+truncated observed values. Keep raw reports private, review metadata before publishing,
+and do not close #13 without the live facts and current operator timezone confirmation.
+
+Current Uranus main was inspected at `74fef734ca916ecd04aef9d7d3013c1cd918d6dc`.
+Create/update routes exist, but there is no verified delegation from independent
+admin accounts; some upstream field-update permission checks also need attention.
+The [write contract matrix and adapter boundary](contracts.md#domain-create-authorization-prerequisite-15)
+record the evidence, required interface and proposed upstream follow-up.
+Do not add a service token, share a signing key, log in a technical account implicitly
+or enable the create button as an operational shortcut. There are no new secrets,
+capability toggles, runtime grants or migrations in this pass. #15 stays open.

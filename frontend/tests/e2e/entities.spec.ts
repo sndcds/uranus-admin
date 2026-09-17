@@ -12,6 +12,7 @@ for (const section of entitySectionSchema.options) {
     })
     await page.goto(`/${section}`)
     await expect(page.getByText(`Fixture ${section}`, { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: /\+ Datensatz/ })).toBeDisabled()
     await page
       .getByRole('link', { name: `Im Admin ansehen: Fixture ${section}`, exact: true })
       .click()
@@ -26,6 +27,20 @@ for (const section of entitySectionSchema.options) {
     await expect(
       page.getByRole('link', { name: `Markierungen & Notizen zu Fixture ${section}` }),
     ).toBeVisible()
+    if (section === 'events') {
+      await expect(page.getByText('Standardort', { exact: true })).toBeVisible()
+      await expect(page.getByText('Standardraum', { exact: true })).toBeVisible()
+    }
+    if (section === 'users') {
+      await expect(
+        page.getByText('Eingeladen: 02.02.2026 13:00 (Europe/Berlin)', { exact: true }),
+      ).toBeVisible()
+      await expect(page.locator('time[datetime="2026-01-01T00:00:00Z"]')).toHaveAttribute(
+        'aria-label',
+        /Erstellt am 01.01.2026/,
+      )
+      await expect(page.getByText('Eingeladen', { exact: true })).toBeVisible()
+    }
     if (section !== 'images')
       await expect(page.getByRole('link', { name: 'Beziehungen anzeigen' })).toHaveAttribute(
         'href',

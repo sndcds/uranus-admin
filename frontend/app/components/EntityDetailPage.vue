@@ -2,7 +2,7 @@
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import type { EntitySection, EntityDetail } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
-import { entitySections, factLabels } from '~/utils/entities'
+import { entitySections, entityFactLabel } from '~/utils/entities'
 const props = defineProps<{ section: EntitySection }>()
 const route = useRoute()
 const { $adminApi } = useNuxtApp()
@@ -47,7 +47,7 @@ onBeforeUnmount(() => {
     >
     <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
     <template v-if="data">
-      <DataListShell
+      <DataListShell as="ul"
         ><ActivityRow :item="data.item" :observed-at="data.observed_at"
       /></DataListShell>
       <dl class="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
@@ -57,7 +57,7 @@ onBeforeUnmount(() => {
         </div>
         <template v-for="(value, field) in data.item.facts" :key="field"
           ><div v-if="value !== null">
-            <dt class="text-xs text-slate-500">{{ factLabels[field] }}</dt>
+            <dt class="text-xs text-slate-500">{{ entityFactLabel(section, field) }}</dt>
             <dd class="whitespace-pre-wrap break-words text-sm">
               {{ typeof value === 'boolean' ? (value ? 'Ja' : 'Nein') : value }}
             </dd>
