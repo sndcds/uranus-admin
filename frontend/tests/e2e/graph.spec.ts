@@ -46,6 +46,26 @@ test('search, explore, select, filter and navigate back', async ({ page }, info)
   await page.screenshot({ path: info.outputPath('relationship-graph.png'), fullPage: true })
 })
 
+test('user search accepts canonical detail links and opens the graph', async ({ page }) => {
+  const user = graphFixture.nodes[1]!
+  await page.route('**/api/admin/api/v1/graph/search?**', (route) =>
+    route.fulfill({ json: { items: [user] } }),
+  )
+  await page.goto('/graph')
+  await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
+  await page.getByLabel('Nach Name oder UUID suchen', { exact: true }).fill('Max')
+  await page.getByRole('button', { name: 'Max Mustermann Benutzer', exact: true }).click()
+  await expect(page).toHaveURL(/root_type=user/)
+  await expect(page.locator('.graph-node')).toHaveCount(12)
+  const panel = page.getByRole('complementary', { name: 'Knotendetails' })
+  await expect(panel.getByRole('heading', { name: user.label })).toBeVisible()
+  await expect(panel.getByRole('link', { name: 'Im Admin ansehen', exact: true })).toHaveAttribute(
+    'href',
+    `/users/${user.key}`,
+  )
+  await expect(page.getByText(/Suche fehlgeschlagen:/)).toHaveCount(0)
+})
+
 test('deep link and selected node as new root', async ({ page }) => {
   await page.goto(graphPath)
   await expect(page.locator('.graph-node')).toHaveCount(12)

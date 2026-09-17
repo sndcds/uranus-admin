@@ -7,6 +7,13 @@ import type {
 } from '../../shared/contracts'
 const node = (type: GraphEntityType, number: number, label: string): GraphNode => {
   const key = `20000000-0000-4000-8000-${String(number).padStart(12, '0')}`
+  const sections = {
+    organization: 'organizations',
+    venue: 'venues',
+    space: 'spaces',
+    event: 'events',
+    user: 'users',
+  }
   return {
     id: `${type}:${key}`,
     type,
@@ -15,7 +22,10 @@ const node = (type: GraphEntityType, number: number, label: string): GraphNode =
     subtitle: null,
     status: null,
     public_url: null,
-    admin_url: `/activity?entity_key=${key}&entity_type=${type}`,
+    admin_url:
+      type === 'event_date'
+        ? `/activity?entity_key=${key}&entity_type=${type}`
+        : `/${sections[type]}/${key}`,
   }
 }
 const nodes = [

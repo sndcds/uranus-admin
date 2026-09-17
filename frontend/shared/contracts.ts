@@ -483,7 +483,13 @@ export const graphNodeSchema = z
     (n) =>
       n.id === `${n.type}:${n.key}` &&
       (n.admin_url === null ||
-        n.admin_url === `/activity?entity_key=${n.key}&entity_type=${n.type}`),
+        actionSchema.safeParse({
+          type: 'view',
+          route: 'activity',
+          entity_type: n.type,
+          entity_key: n.key,
+          href: n.admin_url,
+        }).success),
     'Invalid graph identity or target',
   )
 export const graphEdgeSchema = z.object({
