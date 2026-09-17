@@ -52,16 +52,16 @@ invalidiert laufende Detailansichten. Das Development-Subject ist kein Uranus-Us
 
 ## Seiten und API
 
-| Seite | Backend |
-| --- | --- |
-| `/` und `/quality` | GET dashboard/summary und findings |
-| `/findings` | GET findings; Standard persisted, explizite Live-Diagnose, Filter/Pagination |
-| `/activity` | GET dashboard/activity; Typ/Organisation/Zeitraum oder separate undatierte Liste |
-| `/queues/partner_requests` | GET work-queues/partner_requests |
-| `/queues/team_invitations` | GET work-queues/team_invitations |
-| `/queues/user_activation` | GET work-queues/user_activation |
-| `/checks` | GET/POST check-runs |
-| Finding-Detail bei persistiertem Erstfund | PATCH finding-reviews |
+| Seite                                     | Backend                                                                          |
+| ----------------------------------------- | -------------------------------------------------------------------------------- |
+| `/` und `/quality`                        | GET dashboard/summary und findings                                               |
+| `/findings`                               | GET findings; Standard persisted, explizite Live-Diagnose, Filter/Pagination     |
+| `/activity`                               | GET dashboard/activity; Typ/Organisation/Zeitraum oder separate undatierte Liste |
+| `/queues/partner_requests`                | GET work-queues/partner_requests                                                 |
+| `/queues/team_invitations`                | GET work-queues/team_invitations                                                 |
+| `/queues/user_activation`                 | GET work-queues/user_activation                                                  |
+| `/checks`                                 | GET/POST check-runs                                                              |
+| Finding-Detail bei persistiertem Erstfund | PATCH finding-reviews                                                            |
 
 Die fachlichen Backend-Pfade haben Prefix `/api/v1`; Anmeldung verwendet `/auth`. Browserzugriff ausschließlich über gleiche Origin:
 `/api/admin/api/v1/findings` → `${NUXT_ADMIN_API_BASE}/api/v1/findings`.
@@ -214,3 +214,9 @@ URL-based. Detail relations are independently paginated; graph, marks and exact
 finding links remain available. Source timestamps retain their actual meaning.
 The global create action remains disabled until an authorized Uranus write adapter
 exists; the independent admin login does not grant Uranus domain write permissions.
+
+## UI patterns
+
+Use the shared Activity-based page patterns described in
+[the admin design system](docs/design-system.md). Statistics and Graph retain their
+specialized visualizations inside the same shell, controls and surface language.
