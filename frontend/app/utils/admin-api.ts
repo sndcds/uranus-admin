@@ -3,6 +3,7 @@ import {
   entitySearchResponseSchema,
   entityDetailSchema,
   entityStatisticsResponseSchema,
+  eventContentStatisticsSchema,
   graphResponseSchema,
   graphSearchResponseSchema,
   sessionSchema,
@@ -22,6 +23,7 @@ import {
 import type { z } from '#shared/zod'
 import type {
   FindingFilters,
+  EventContentQuery,
   EntitySearchQuery,
   Period,
   ReviewUpdate,
@@ -95,6 +97,8 @@ export function createAdminApi(
       request(`/api/v1/${section}/${encodeURIComponent(id)}`, entityDetailSchema, {
         related_page: relatedPage,
       }),
+    eventContent: (query: EventContentQuery) =>
+      request('/api/v1/statistics/events/content', eventContentStatisticsSchema, query),
     statistics: (query: Record<string, string | number | undefined>) =>
       request('/api/v1/statistics/entities', entityStatisticsResponseSchema, query),
     graph: (query: Record<string, string | number | undefined>) =>

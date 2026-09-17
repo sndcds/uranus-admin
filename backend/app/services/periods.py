@@ -23,3 +23,8 @@ def period_window(period: PresetPeriod, now: datetime, timezone: str) -> PeriodW
     else:
         start = end - timedelta(days={"7d": 7, "30d": 30, "90d": 90}[period])
     return PeriodWindow(start=start, end=end)
+
+
+def previous_window(window: PeriodWindow) -> PeriodWindow:
+    """Immediately preceding range with the same elapsed duration, including today."""
+    return PeriodWindow(window.start - (window.end - window.start), window.start)

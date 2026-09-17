@@ -56,3 +56,12 @@ export const entityFilterCapabilities = {
   spaces: { period: true, status: false, temporal: true },
   images: { period: true, status: false, temporal: false },
 } as const satisfies Record<EntitySection, { period: boolean; status: boolean; temporal: boolean }>
+
+export const eventStatusLabels = {
+  released: 'Veröffentlicht',
+  draft: 'Entwurf',
+  review: 'In Prüfung',
+  cancelled: 'Abgesagt',
+  deferred: 'Verschoben',
+  rescheduled: 'Neuer Termin',
+} as const

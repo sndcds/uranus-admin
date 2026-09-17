@@ -336,3 +336,46 @@ Backend-Zeitgrenzen sind inklusive Anfang/exklusive Jetzt. Heute beginnt um Mitt
 in `ADMIN_TIMEZONE` (Standard Europe/Berlin), die anderen Presets sind rollierende
 UTC-Dauern. Source-Zeitstempel werden entsprechend `URANUS_TIMESTAMP_TIMEZONE`
 interpretiert. Fehlende created_at-Werte sind bei Alle sichtbar, bei period ausgeschlossen.
+
+## Event-Inhalte in Statistics
+
+`/statistics` now offers the keyboard-accessible area buttons **Erstellung** and
+**Event-Inhalte**. The latter uses `view=event-content`; existing creation links (including
+custom ranges, intervals and comparisons) remain valid. Area switching reuses the page,
+its query ownership and shared Pinia period preference. Each panel only loads its own API;
+request generations prevent a late response from reviving an inactive panel.
+
+Event content uses `GET /api/v1/statistics/events/content` through the central authenticated
+API client/proxy with strict Zod contracts. Filters are Zeitraum (Alle, Heute, 24h, 7d,
+30d, 90d), Status and Zeitraum vergleichen. Normal presets update sharedPeriod; All is a
+local URL mode and never overwrites that preference. Status is URL-local and does not
+change entity-list status preferences. An explicit URL wins; reload and Back/Forward
+restore the active view and filters. If creation cannot represent Today, it uses its
+24h fallback without overwriting the shared Today preference. Custom creation ranges
+remain exclusive to Erstellung; switching to content uses the shared normal preset.
+
+**The cohort is defined solely by event.created_at, not event/occurrence dates.**
+Timezones, half-open boundaries and equal-duration predecessor semantics match the
+backend period service. All has no predecessor; the compare switch is disabled and a
+switch to All removes compare from the URL. Today compares an equal elapsed duration
+immediately before midnight, not yesterday's complete calendar day.
+
+Four KPIs show total created events plus category, genre and event-type coverage,
+including explicit missing-event counts. Three instances of RankingBarChart render
+horizontal bars with visible names/counts/event-share percentages and an accessible
+ordered-list text alternative. Labels wrap on mobile, no information requires hovering,
+and ranks have no dead drilldown links. Multi-assignment semantics are explicitly
+explained: shares divide by all events and need not sum to 100%. Lookup languages never
+multiply counts. Genres use composite type/genre identities and exclude the source's
+no-genre sentinel 0. Coverage measures assignment presence, including unresolved IDs
+with fallback labels, not validity against the taxonomy.
+
+Comparison shows previous totals/coverage, actual previous ranks (including beyond the
+old top ten), rank direction, count changes and percentage-point changes. New assignments
+have no invented prior rank. Zero events show a clear empty state, zero coverage and empty
+stable ranking panels. Loading clears old metrics; API failures stay within the panel
+and offer retry. No persist plugin/browser storage, source writes or new public routes.
+
+Follow-ups: read-only Event list facet filters for drilldown, full long-tail lists, exports,
+category/genre/type matrices and individual genre timelines. These are deliberately absent
+from v1. Browser tests use API fixtures; SQL behavior is tested separately on PostgreSQL.

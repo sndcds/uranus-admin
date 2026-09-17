@@ -16,6 +16,7 @@ export const sharedPeriodLabels: Record<SharedPeriod, string> = {
 }
 export const pagePeriods = {
   entities: sharedPeriodSchema,
+  eventContent: sharedPeriodSchema,
   dashboard: periodSchema,
   activity: periodSchema,
   statistics: statisticsPeriodSchema.exclude(['custom']),
@@ -27,6 +28,7 @@ export const pageDefaultPeriod = {
   activity: '24h',
   statistics: '24h',
   entities: '24h',
+  eventContent: '24h',
 } as const
 export function supportsPeriod<P extends PeriodPage>(
   page: P,
@@ -47,3 +49,5 @@ export const activityPeriods = periodOptions('activity')
 export const statisticsPeriods = periodOptions('statistics')
 
 export const entityPeriods = periodOptions('entities')
+
+export const eventContentPeriods = { all: 'Alle', ...periodOptions('eventContent') }

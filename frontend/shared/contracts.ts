@@ -708,3 +708,94 @@ export type EntitySearchQuery = {
   status?: string
   limit?: number
 }
+
+export const eventReleaseStatusSchema = z.enum([
+  'released',
+  'draft',
+  'review',
+  'cancelled',
+  'deferred',
+  'rescheduled',
+])
+export const eventContentPeriodSchema = sharedPeriodSchema.or(z.literal('all'))
+const eventShare = z.number().min(0).max(100)
+export const eventContentAssignmentCoverageSchema = z.object({
+  events_with_assignment: count,
+  events_without_assignment: count,
+  coverage_percent: eventShare,
+})
+export const eventContentCoverageSchema = z.object({
+  categories: eventContentAssignmentCoverageSchema,
+  genres: eventContentAssignmentCoverageSchema,
+  event_types: eventContentAssignmentCoverageSchema,
+})
+export const eventContentRankingItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  event_count: count,
+  event_share_percent: eventShare,
+  rank: z.number().int().positive(),
+  previous_rank: z.number().int().positive().nullable(),
+  rank_delta: z.number().int().nullable(),
+  previous_event_count: count.nullable(),
+  count_delta: z.number().int().nullable(),
+  previous_share_percent: eventShare.nullable(),
+  share_delta_percentage_points: z.number().min(-100).max(100).nullable(),
+})
+export const eventContentRankingSchema = z.object({
+  distinct_assignment_count: count,
+  items: z.array(eventContentRankingItemSchema).max(10),
+})
+export const eventContentStatisticsSchema = z
+  .object({
+    period: eventContentPeriodSchema,
+    from_at: timestamp.nullable(),
+    to_at: timestamp.nullable(),
+    timezone: z.string(),
+    observed_at: timestamp,
+    status: eventReleaseStatusSchema.nullable(),
+    event_count: count,
+    coverage: eventContentCoverageSchema,
+    categories: eventContentRankingSchema,
+    genres: eventContentRankingSchema,
+    event_types: eventContentRankingSchema,
+    comparison: z
+      .object({
+        from_at: timestamp,
+        to_at: timestamp,
+        event_count: count,
+        coverage: eventContentCoverageSchema,
+      })
+      .nullable(),
+  })
+  .refine((data) => {
+    const validCoverage = (coverage: EventContentCoverage, total: number) =>
+      Object.values(coverage).every(
+        (item) => item.events_with_assignment + item.events_without_assignment === total,
+      )
+    return (
+      validCoverage(data.coverage, data.event_count) &&
+      (data.period === 'all'
+        ? data.from_at === null && data.to_at === null && data.comparison === null
+        : data.from_at !== null &&
+          data.to_at !== null &&
+          Date.parse(data.from_at) <= Date.parse(data.to_at)) &&
+      (!data.comparison || validCoverage(data.comparison.coverage, data.comparison.event_count)) &&
+      [data.categories, data.genres, data.event_types].every(
+        (ranking) =>
+          ranking.items.length <= ranking.distinct_assignment_count &&
+          new Set(ranking.items.map((item) => item.id)).size === ranking.items.length &&
+          ranking.items.every(
+            (item, i) => item.rank === i + 1 && item.event_count <= data.event_count,
+          ),
+      )
+    )
+  }, 'Inconsistent event content statistics')
+export type EventContentCoverage = z.infer<typeof eventContentCoverageSchema>
+export type EventContentRanking = z.infer<typeof eventContentRankingSchema>
+export type EventContentStatistics = z.infer<typeof eventContentStatisticsSchema>
+export type EventContentQuery = {
+  period?: z.infer<typeof eventContentPeriodSchema>
+  status?: z.infer<typeof eventReleaseStatusSchema>
+  compare?: 'previous'
+}
