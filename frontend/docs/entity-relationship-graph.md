@@ -119,7 +119,11 @@ indexes remain an operational performance limitation, not a claim of production 
 
 User nodes expose only name, UUID and activation status. Email and credentials are excluded from
 the graph contract. Public links reuse Activity's existing configured-instance/slug/release checks;
-unsupported public URLs remain null. Admin links use the existing Action model and Activity route.
+unsupported public URLs remain null. Admin links use the existing Action model: organizations,
+venues, spaces, events and users link to their canonical detail pages; event dates retain
+the Activity target. Graph search and graph responses reuse the shared Action validation,
+which checks the exact entity type/key and also accepts legacy Activity links. Arbitrary
+internal paths and external admin targets remain rejected.
 Graph links are also available from Activity, finding details and mark details for supported UUID
 entities only. The Nuxt proxy allows only the two exact routes and their named query parameters.
 

@@ -3,7 +3,11 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { graphFixture } from '../fixtures/graph'
 import { graphDataToSimulation, filterGraph, graphHref } from '../../app/utils/graph'
-import { graphResponseSchema, graphNodeSchema } from '../../shared/contracts'
+import {
+  graphResponseSchema,
+  graphNodeSchema,
+  graphSearchResponseSchema,
+} from '../../shared/contracts'
 import EntityGraph from '../../app/components/EntityGraph.vue'
 import GraphNodeDetails from '../../app/components/GraphNodeDetails.vue'
 import GraphFilters from '../../app/components/GraphFilters.vue'
@@ -31,6 +35,51 @@ describe('relationship explorer', () => {
       false,
     )
     expect(graphResponseSchema.safeParse({ ...graphFixture, nodes: [root] }).success).toBe(false)
+  })
+  it.each([
+    ['organization', 'organizations'],
+    ['venue', 'venues'],
+    ['space', 'spaces'],
+    ['event', 'events'],
+    ['user', 'users'],
+  ])('accepts canonical %s targets in search and graph responses', (type, section) => {
+    const key = '019e0000-0000-7000-8000-000000000001'
+    const node = { ...root, id: `${type}:${key}`, type, key, admin_url: `/${section}/${key}` }
+    expect(graphSearchResponseSchema.safeParse({ items: [node] }).success).toBe(true)
+    expect(
+      graphResponseSchema.safeParse({
+        ...graphFixture,
+        root: { type, key },
+        nodes: [node],
+        edges: [],
+      }).success,
+    ).toBe(true)
+    expect(
+      graphNodeSchema.safeParse({
+        ...node,
+        admin_url: `/activity?entity_key=${key}&entity_type=${type}`,
+      }).success,
+    ).toBe(true)
+    expect(graphNodeSchema.safeParse({ ...node, admin_url: null }).success).toBe(true)
+  })
+  it('rejects unrelated, manipulated and external graph targets', () => {
+    const user = graphFixture.nodes[1]!
+    for (const admin_url of [
+      `/events/${user.key}`,
+      `/users/${root.key}`,
+      `/users/${user.key}?redirect=https://evil.test`,
+      `/users/${user.key}/edit`,
+      `/users/../${user.key}`,
+      `https://evil.test/users/${user.key}`,
+      `//evil.test/users/${user.key}`,
+      'javascript:alert(1)',
+      `/activity?entity_key=${user.key}&entity_type=event`,
+    ]) {
+      expect(graphSearchResponseSchema.safeParse({ items: [{ ...user, admin_url }] }).success).toBe(
+        false,
+      )
+    }
+    expect(graphNodeSchema.safeParse({ ...user, id: root.id }).success).toBe(false)
   })
   it('renders keyboard-selectable nodes and stops its simulation on unmount', async () => {
     const wrapper = mount(EntityGraph, {
