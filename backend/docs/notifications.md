@@ -220,6 +220,51 @@ forever; operators inspect SMTP/configuration and a later meaningful new intent 
 
 ## Rendering, privacy and security
 
+### Kulturbytes visual reference
+
+The visual source of truth for Kulturbytes system emails is Uranus
+[`template/email/email_base.html`](https://github.com/sndcds/uranus/blob/5a5ac813eec708c99de6962aa05a2357535117b0/template/email/email_base.html)
+and [`template/email/layout/{de,da,en}.html`](https://github.com/sndcds/uranus/tree/5a5ac813eec708c99de6962aa05a2357535117b0/template/email/layout).
+Pinned source revision: **5a5ac813eec708c99de6962aa05a2357535117b0**, verified with
+`git ls-remote https://github.com/sndcds/uranus.git refs/heads/main` on **2026-09-18**,
+before implementation. All three languages of `team-invite`, `team-member-accepted`,
+`user-email-verification` and `user-password-reset` at that revision were also inspected.
+The friendly team signature and button fallback wording follow `team-invite/{de,da,en}.html`.
+
+`services/notifications/rendering.py` implements the shared shell locally: the original
+style-block strategy, Arial/Helvetica typography, gray background, 600px container,
+white content with 12px radius, purple `#3f2dd2` pill CTA, responsive padding, signature,
+localized legal links/address and copyright. Entity headings and text group digest findings
+inside the same white content area; urgency uses bold text. Each safe action has a visible,
+breakable URL beneath its button. Missing/unsafe actions retain localized guidance without
+an action link; the public website and legal footer links remain. Source values are escaped.
+The only defensive CSS addition is `overflow-wrap: break-word` on the content container:
+unbroken source names must wrap on small screens without changing the reference's typography,
+colors or spacing. The URL fallback retains Uranus's inline `word-break:break-all`.
+There are no remote template fetches, runtime GitHub dependencies, external CSS/fonts or scripts.
+
+Preview and SMTP use this exact renderer. The preview only inserts an additional CSP meta
+tag, allowing local inline CSS (`style-src 'unsafe-inline'`) while keeping `default-src 'none'`,
+blocked forms/base URLs and an empty iframe sandbox (opaque origin, no scripts). No `v-html`.
+SMTP retains full `text/plain` and `text/html` alternatives; already composed retry snapshots
+and sent delivery history keep their original bodies.
+
+This is a **presentation-only change**: `TEMPLATE_VERSION` stays **1**. Fingerprints continue
+to use semantic payloads/recommendations, never rendered HTML, CSS, whitespace or footer copy.
+No backfill, notification reset or automatic requeue occurs. An unchanged successfully sent
+digest remains suppressed on later days; the regression test covers a changed stylesheet
+and an older sent HTML body. Existing explicit retry rules remain independent of the design.
+
+Backend assertions cover the reference structure/styles, all localized footers, button/fallback,
+guidance, escaping, deterministic entity grouping and MIME equality. Browser tests verify
+computed styles under CSP, opaque-origin isolation, original markup preservation and desktop/
+mobile overflow. They use synthetic renderer-generated inputs, not full-page golden snapshots.
+After renderer changes, refresh these inputs from `backend/` with
+`uv run python -m tests.generate_notification_previews`, then format
+`frontend/tests/fixtures/notification-previews.json` with the frontend Prettier command.
+
+### Localization and transport
+
 Shared structure + complete deterministic DE/DA/EN dictionaries. Missing required locale key
 falls the *whole message* back to English, preventing mixed fragments; tests require catalogue
 key parity. Invalid recipient locales never reach rendering. Dates use localized month names;

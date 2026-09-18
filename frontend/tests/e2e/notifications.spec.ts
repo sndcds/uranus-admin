@@ -6,6 +6,7 @@ import {
   notificationDetail,
   notificationDeliveryDetail,
   notificationPreview,
+  notificationDigestPreview,
   notificationGuidance,
 } from '../fixtures/notifications'
 test.beforeEach(async ({ page }) => {
@@ -61,15 +62,50 @@ for (const locale of ['de', 'da', 'en'] as const)
     await expect(
       page.getByRole('heading', { name: notificationPreview(locale).subject }),
     ).toBeVisible()
-    await expect(
-      page.frameLocator('iframe').getByText(notificationPreview(locale).subject),
-    ).toBeVisible()
+    await expect(page.frameLocator('iframe').locator('h1.heading')).toBeVisible()
     await expect(page.locator('iframe')).toHaveAttribute('sandbox', '')
-    await expect(page.frameLocator('iframe').getByRole('link')).toHaveAttribute(
+    await expect(page.frameLocator('iframe').locator('a.button')).toHaveAttribute(
       'href',
       notification.payload.external_action_url!,
     )
+    const frame = page.frameLocator('iframe')
+    await expect(frame.locator('body')).toHaveCSS('background-color', 'rgb(249, 250, 251)')
+    await expect(frame.locator('.email-container')).toHaveCSS('max-width', '600px')
+    await expect(frame.locator('.email-content')).toHaveCSS(
+      'background-color',
+      'rgb(255, 255, 255)',
+    )
+    await expect(frame.locator('.email-content')).toHaveCSS('border-radius', '12px')
+    await expect(frame.locator('a.button')).toHaveCSS('background-color', 'rgb(63, 45, 210)')
+    await expect(frame.locator('a.button')).toHaveCSS('border-radius', '999px')
+    await expect(frame.locator('a.button')).toHaveAttribute('target', '_blank')
+    await expect(frame.locator('a.button')).toHaveAttribute('rel', 'noopener noreferrer')
+    await expect(frame.locator('a[style="word-break:break-all;"]')).toHaveText(
+      notification.payload.external_action_url!,
+    )
+    const mobileEmail = await frame.locator('body').evaluate(() => innerWidth <= 600)
+    await expect(frame.locator('.email-container')).toHaveCSS(
+      'padding',
+      mobileEmail ? '24px 12px' : '40px 24px',
+    )
+    await expect(frame.locator('.email-content')).toHaveCSS(
+      'padding',
+      mobileEmail ? '24px' : '32px',
+    )
+    expect(
+      await frame
+        .locator('body')
+        .evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    ).toBe(true)
+    expect(
+      await page
+        .locator('iframe')
+        .evaluate((element) => (element as HTMLIFrameElement).contentDocument),
+    ).toBeNull()
     const html = await page.locator('iframe').getAttribute('srcdoc')
+    expect(html!.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, '')).toBe(
+      notificationPreview(locale).html,
+    )
     expect(html).not.toContain('https://admin.kulturbytes.de')
     expect(html).not.toContain('/findings')
     await page.getByRole('button', { name: 'Text', exact: true }).click()
@@ -82,7 +118,8 @@ for (const locale of ['de', 'da', 'en'] as const)
     await expect(page.locator('pre[lang]')).toContainText(notificationGuidance[locale])
     await page.getByRole('button', { name: 'HTML', exact: true }).click()
     await expect(page.frameLocator('iframe').getByText(notificationGuidance[locale])).toBeVisible()
-    await expect(page.frameLocator('iframe').getByRole('link')).toHaveCount(0)
+    await expect(page.frameLocator('iframe').locator('a.button')).toHaveCount(0)
+    await expect(page.frameLocator('iframe').locator('a.legal-link')).toHaveCount(2)
     expect(await page.locator('iframe').getAttribute('srcdoc')).not.toContain(
       'https://admin.kulturbytes.de',
     )
@@ -244,3 +281,22 @@ test('delivery routes keep unauthenticated SSR and client content private', asyn
     await context.close()
   }
 })
+
+for (const locale of ['de', 'da', 'en'] as const)
+  test(`digest ${locale} groups entities without mobile overflow`, async ({ page }) => {
+    await page.route(`**/api/admin/api/v1/notifications/${notification.id}/preview?**`, (route) =>
+      route.fulfill({ json: notificationDigestPreview(locale) }),
+    )
+    await page.goto(`/notifications/${notification.id}`)
+    await page.getByLabel('Sprache').selectOption(locale)
+    await page.getByRole('button', { name: 'Vorschau laden' }).click()
+    const frame = page.frameLocator('iframe')
+    await expect(frame.locator('.email-content h2.heading')).toHaveCount(2)
+    await expect(frame.locator('.copyright')).toHaveText('© DatenSindDaten e. V.')
+    expect(
+      await frame
+        .locator('body')
+        .evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    ).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })

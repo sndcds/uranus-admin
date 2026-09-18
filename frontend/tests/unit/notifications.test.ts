@@ -170,7 +170,11 @@ describe('notification administration', () => {
       expect(html).toContain(notification.payload.external_action_url)
       expect(html).not.toContain('https://admin.kulturbytes.de')
       expect(html).not.toContain('/findings')
-      expect(view.find('iframe').attributes('srcdoc')).toContain('Content-Security-Policy')
+      expect(html).toContain('style-src &apos;unsafe-inline&apos;')
+      // Only the additional preview CSP differs; the email markup/CSS is untouched.
+      expect(html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, '')).toBe(
+        notificationPreview(locale).html,
+      )
       await view
         .findAll('button')
         .find((b) => b.text() === 'Text')!
@@ -188,7 +192,9 @@ describe('notification administration', () => {
       await flushPromises()
       const html = view.find('iframe').attributes('srcdoc')!
       expect(html).toContain(notificationGuidance[locale])
-      expect(html).not.toContain('href=')
+      expect(html).not.toContain('class="button"')
+      expect(html).not.toContain('href=""')
+      expect(html).toContain('class="legal-link"')
       expect(html).not.toContain('https://admin.kulturbytes.de')
       expect(html).not.toContain('/findings')
       view.unmount()

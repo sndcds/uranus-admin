@@ -16,7 +16,7 @@ const document = computed(
   () =>
     preview.value?.html.replace(
       '<head>',
-      '<head><meta http-equiv="Content-Security-Policy" content="default-src &apos;none&apos;; form-action &apos;none&apos;; base-uri &apos;none&apos;">',
+      '<head><meta http-equiv="Content-Security-Policy" content="default-src &apos;none&apos;; style-src &apos;unsafe-inline&apos;; form-action &apos;none&apos;; base-uri &apos;none&apos;">',
     ) ?? '',
 )
 async function load() {

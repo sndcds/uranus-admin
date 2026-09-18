@@ -1,3 +1,4 @@
+import previews from './notification-previews.json' with { type: 'json' }
 import type {
   NotificationSummary,
   NotificationDelivery,
@@ -85,24 +86,11 @@ export const notificationGuidance = {
   en: 'Sign in to Kulturbytes and open the relevant entry in your dashboard.',
 }
 export function notificationPreview(locale: 'de' | 'da' | 'en', withAction = true) {
-  const subject = {
-    de: 'Deine Veranstaltung „Kulturabend“ findet bald statt',
-    da: 'Dit arrangement „Kulturabend“ finder snart sted',
-    en: 'Your event “Kulturabend” is coming up soon',
-  }[locale]
-  const url = notification.payload.external_action_url
-  const label = { de: 'Veranstaltung bearbeiten', da: 'Rediger arrangementet', en: 'Edit event' }[
-    locale
-  ]
-  const action = withAction ? `<a href="${url}">${label}</a>` : notificationGuidance[locale]
-  return {
-    subject,
-    text: `${subject}\nKulturverein\n${withAction ? `${label}: ${url}` : notificationGuidance[locale]}`,
-    html: `<!doctype html><html lang="${locale}"><head></head><body><p>${subject}</p><p>${action}</p></body></html>`,
-    locale,
-    notification_ids: [notification.id],
-    delivery_enabled: false,
-  }
+  return previews[locale][withAction ? 'action' : 'guidance']
+}
+
+export function notificationDigestPreview(locale: 'de' | 'da' | 'en') {
+  return previews[locale].digest
 }
 
 export const notificationDeliveryPage = {
