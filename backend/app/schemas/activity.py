@@ -63,6 +63,7 @@ class Activity(BaseModel):
     image_url: str | None = None
     public_url: str | None = None
     subtitle: str | None = None
+    notice: str | None = None
     address: str | None = None
     email: str | None = None
     location: ActivityLocation | None = None

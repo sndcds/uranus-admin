@@ -298,7 +298,7 @@ Zeilen lesen; begrenzte API-Seitengröße ist keine konstante Datenbanklaufzeit.
 
 ## Activity previews and public links
 
-Activity items optionally add `image_url`, `public_url`, `subtitle`, and `address` (nullable
+Activity items optionally add `image_url`, `public_url`, `subtitle`, `notice`, and `address` (nullable
 strings). `email` is an additional nullable string, deliberately exposed **only for user
 items in this system-admin-protected response**, as requested for account administration.
 Other entity types do not expose user email, including membership rows. No full user objects,
@@ -340,6 +340,18 @@ The existing UUID-v7 and public-instance URL conditions also remain in force. Wi
 a future date, no date text is appended. Existing event subtitles, `event_dates` facts,
 status badges and the separate `created_at` display remain unchanged; the frontend
 renders the supplied `subtitle` without additional date or status logic.
+
+For events in `draft` or `review`, the separate optional `notice` warns when the selected
+next date is today or within the next seven calendar days. The backend uses
+`UNPUBLISHED_EVENT_WARNING_DAYS = 7` and subtracts the request's local date in
+`EVENT_TIMEZONE` from the selected `start_date`; it does not count UTC days or elapsed
+24-hour periods. Day zero says “Dieser noch unveröffentlichte Event findet heute statt.”,
+day one says “Dieser noch unveröffentlichte Event findet bereits morgen statt.”, and
+days two through seven say “Dieser noch unveröffentlichte Event findet schon in N Tagen statt.”
+The value is null for later dates, no upcoming date, other event statuses and other entity
+types. The frontend renders the supplied notice below the unchanged subtitle using the
+existing warning `InlineAlert`, `role="status"` and a decorative warning icon, without
+browser date calculations. This notice never changes public-link eligibility.
 
 ### User avatars and organization locations
 

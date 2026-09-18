@@ -90,6 +90,11 @@ async def test_admin_selection_and_public_link_have_separate_status_boundaries(
 ):
     item = await preview(event_status, [{"status": date_status, "day": TODAY + timedelta(days=3)}])
     effective_status = event_status if date_status == "inherited" else date_status
+    assert item.notice == (
+        "Dieser noch unveröffentlichte Event findet schon in 3 Tagen statt."
+        if event_status in {"draft", "review"}
+        else None
+    )
     public_statuses = {"released", "cancelled", "deferred", "rescheduled"}
     public = event_status in public_statuses and effective_status in public_statuses
     prefix = "Nächster öffentlicher Termin" if public else "Nächster Termin"
@@ -126,6 +131,7 @@ async def test_today_uses_existing_local_start_semantics(
 async def test_no_future_date_keeps_count_without_date_subtitle(preview, status, dates):
     item = await preview(status, dates, upcoming=False)
     assert item.subtitle is None
+    assert item.notice is None
     assert item.public_url is None
 
 
@@ -163,6 +169,7 @@ async def test_preview_uses_configured_timezone_at_midnight_and_dst(preview, set
         now=now,
     )
     assert item.subtitle == f"Nächster Termin: {local:%d.%m.%Y} · {later:%H:%M} ({zone})"
+    assert item.notice == "Dieser noch unveröffentlichte Event findet heute statt."
     assert item.public_url is None
 
 
@@ -184,3 +191,76 @@ async def test_existing_event_subtitle_is_preserved(preview, db_connection):
     assert item.subtitle == (
         "Kultur am Hafen · Nächster Termin: 19.09.2026 · 18:00 (Europe/Berlin)"
     )
+
+
+@pytest.mark.parametrize("status", ["draft", "review"])
+@pytest.mark.parametrize(
+    ("days", "notice"),
+    [
+        (0, "Dieser noch unveröffentlichte Event findet heute statt."),
+        (1, "Dieser noch unveröffentlichte Event findet bereits morgen statt."),
+        (2, "Dieser noch unveröffentlichte Event findet schon in 2 Tagen statt."),
+        (3, "Dieser noch unveröffentlichte Event findet schon in 3 Tagen statt."),
+        (4, "Dieser noch unveröffentlichte Event findet schon in 4 Tagen statt."),
+        (5, "Dieser noch unveröffentlichte Event findet schon in 5 Tagen statt."),
+        (6, "Dieser noch unveröffentlichte Event findet schon in 6 Tagen statt."),
+        (7, "Dieser noch unveröffentlichte Event findet schon in 7 Tagen statt."),
+        (8, None),
+        (30, None),
+    ],
+)
+async def test_unpublished_event_notice_uses_seven_calendar_day_window(
+    preview, status, days, notice
+):
+    start = TODAY + timedelta(days=days)
+    item = await preview(status, [{"day": start}, {"day": start + timedelta(days=10)}])
+    assert item.subtitle == f"Nächster Termin: {start:%d.%m.%Y} · 18:00 (Europe/Berlin)"
+    assert item.notice == notice
+    assert item.public_url is None
+
+
+@pytest.mark.parametrize(
+    "status", ["released", "cancelled", "deferred", "rescheduled", "inherited"]
+)
+async def test_other_event_statuses_have_no_unpublished_notice(preview, status):
+    item = await preview(status, [{"day": TODAY + timedelta(days=2)}])
+    assert item.notice is None
+    if status != "inherited":
+        assert item.subtitle == "Nächster öffentlicher Termin: 20.09.2026 · 18:00 (Europe/Berlin)"
+        assert item.public_url is not None
+
+
+@pytest.mark.parametrize("status", ["draft", "review"])
+@pytest.mark.parametrize(
+    ("days", "notice"),
+    [
+        (0, "Dieser noch unveröffentlichte Event findet heute statt."),
+        (1, "Dieser noch unveröffentlichte Event findet bereits morgen statt."),
+        (7, "Dieser noch unveröffentlichte Event findet schon in 7 Tagen statt."),
+        (8, None),
+    ],
+)
+async def test_notice_day_and_threshold_use_berlin_calendar_at_utc_midnight(
+    preview, status, days, notice
+):
+    now = datetime(2026, 9, 18, 22, 30, tzinfo=UTC)  # Berlin: 19 September, 00:30
+    start = date(2026, 9, 19) + timedelta(days=days)
+    item = await preview(status, [{"day": start}], now=now)
+    assert item.subtitle == f"Nächster Termin: {start:%d.%m.%Y} · 18:00 (Europe/Berlin)"
+    assert item.notice == notice
+    assert item.public_url is None
+
+
+async def test_event_date_rows_do_not_receive_parent_event_notice(preview, db_connection, settings):
+    from app.repositories.activity_previews import activity_previews
+
+    parent = await preview("draft", [{}])
+    assert parent.notice is not None
+    key = ("event_date", str(date_id(1)))
+    result = await activity_previews(
+        db_connection,
+        settings,
+        [{"entity_type": key[0], "entity_key": key[1]}],
+        NOW,
+    )
+    assert result[key]["notice"] is None

@@ -115,6 +115,7 @@ LEFT JOIN LATERAL (
 ) img ON TRUE
 """
 PUBLIC_STATUSES = {"released", "cancelled", "deferred", "rescheduled"}
+UNPUBLISHED_EVENT_WARNING_DAYS = 7
 PUBLIC_SITE = "https://kulturbytes.de"
 PUBLIC_API = "https://api.kulturbytes.de"
 
@@ -197,6 +198,22 @@ async def activity_previews(
     public_instance = settings.uranus_api_url.rstrip("/") == PUBLIC_API
     for mapping in rows:
         row = dict(mapping)
+        notice = None
+        if (
+            row["kind"] == "event"
+            and row["event_status"] in {"draft", "review"}
+            and row["start_date"] is not None
+        ):
+            days_until = (row["start_date"] - local.date()).days
+            if 0 <= days_until <= UNPUBLISHED_EVENT_WARNING_DAYS:
+                when = (
+                    "heute"
+                    if days_until == 0
+                    else "bereits morgen"
+                    if days_until == 1
+                    else f"schon in {days_until} Tagen"
+                )
+                notice = f"Dieser noch unveröffentlichte Event findet {when} statt."
         parts = [row["subtitle"]]
         if row["start_date"] is not None:
             time = (
@@ -220,6 +237,7 @@ async def activity_previews(
         parts.extend([row["venue_name"], row["space_name"]])
         previews[(row["kind"], row["key"])] = {
             "subtitle": " · ".join(part for part in parts if part) or None,
+            "notice": notice,
             "address": row["address"],
             "image_url": (
                 avatar_url(row["key"], settings.uranus_api_url)

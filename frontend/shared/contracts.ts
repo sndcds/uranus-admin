@@ -273,6 +273,7 @@ export const activityPageSchema = z.object({
         .nullable()
         .optional(),
       subtitle: z.string().nullable().optional(),
+      notice: z.string().nullable().optional(),
       address: z.string().nullable().optional(),
       email: z.string().nullable().optional(),
       location: activityLocationSchema.nullable().optional(),

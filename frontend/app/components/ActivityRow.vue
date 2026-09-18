@@ -38,6 +38,15 @@ const status = computed(() => activityStatus(props.item.status))
       <p v-if="item.subtitle" class="mt-1 break-words text-xs leading-5 text-slate-600">
         {{ item.subtitle }}
       </p>
+      <InlineAlert
+        v-if="item.notice"
+        tone="warning"
+        role="status"
+        class="mt-2 flex items-start gap-2"
+      >
+        <AppIcon name="warning" :size="18" />
+        <span class="min-w-0 break-words">{{ item.notice }}</span>
+      </InlineAlert>
       <p v-if="item.address" class="mt-1 break-words text-xs text-slate-600">{{ item.address }}</p>
       <p v-if="mapUrl && item.location" class="mt-1 text-xs text-slate-500">
         <a

@@ -7,6 +7,7 @@ import ActivityRow from '../../app/components/ActivityRow.vue'
 import ActivityThumbnail from '../../app/components/ActivityThumbnail.vue'
 import { activityPageSchema } from '../../shared/contracts'
 import AppIcon from '../../app/components/AppIcon.vue'
+import InlineAlert from '../../app/components/InlineAlert.vue'
 import RecordMarkLink from '../../app/components/RecordMarkLink.vue'
 import {
   activityTypes,
@@ -42,7 +43,14 @@ function row(item = first) {
   return mount(ActivityRow, {
     props: { item, observedAt: activityObservedAt, grouped: true },
     global: {
-      components: { AppIcon, RecordMarkLink, ActivityThumbnail, EntityTypeBadge, StatusBadge },
+      components: {
+        AppIcon,
+        InlineAlert,
+        RecordMarkLink,
+        ActivityThumbnail,
+        EntityTypeBadge,
+        StatusBadge,
+      },
       stubs: { NuxtLink },
     },
   })
@@ -337,13 +345,69 @@ it.each([
     ...first,
     entity_type: 'event' as const,
     status,
-    subtitle: 'Nächster Termin: 22.09.2026 · 18:00 (Europe/Berlin)',
+    subtitle: 'Nächster Termin: 21.09.2026 · 18:00 (Europe/Berlin)',
+    notice: 'Dieser noch unveröffentlichte Event findet schon in 3 Tagen statt.',
     public_url: null,
   }
   const wrapper = row(item)
+  expect(wrapper.get('[role="status"]').text()).toBe(item.notice)
   expect(wrapper.text()).toContain(item.subtitle)
   expect(wrapper.text()).toContain(badge)
   expect(wrapper.find('a[href^="https://kulturbytes.de/"]').exists()).toBe(false)
   expect(wrapper.get('time').attributes('datetime')).toBe(item.created_at)
   expect(wrapper.get('time').text()).toBe(activityTime(item.created_at, activityObservedAt))
+})
+
+it('renders the backend notice as a separate accessible warning and clears it when absent', async () => {
+  const subtitle = 'Nächster Termin: 21.09.2026 · 18:00 (Europe/Berlin)'
+  const notice = 'Dieser noch unveröffentlichte Event findet schon in 3 Tagen statt.'
+  const item = {
+    ...first,
+    entity_type: 'event' as const,
+    status: 'draft',
+    subtitle,
+    notice,
+    public_url: null,
+  }
+  const wrapper = row(item)
+  const warning = wrapper.get('[role="status"]')
+  expect(warning.text()).toBe(notice)
+  expect(warning.classes()).toContain('bg-amber-50')
+  expect(warning.get('svg').attributes('aria-hidden')).toBe('true')
+  expect(warning.element.previousElementSibling?.textContent).toBe(subtitle)
+  expect(wrapper.get('[role="status"]').text()).not.toContain(subtitle)
+  expect(wrapper.text()).toContain('Entwurf')
+  expect(wrapper.find('a[href^="https://kulturbytes.de/"]').exists()).toBe(false)
+  const created = wrapper.get('time').html()
+  for (const absent of [null, undefined]) {
+    await wrapper.setProps({ item: { ...item, notice: absent } })
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain(subtitle)
+    expect(wrapper.get('time').html()).toBe(created)
+  }
+})
+
+it('preserves optional notices in the shared contract and public links on released rows', () => {
+  for (const notice of [
+    undefined,
+    null,
+    'Dieser noch unveröffentlichte Event findet heute statt.',
+  ]) {
+    const parsed = activityPageSchema.parse({ ...activityFixture, items: [{ ...first, notice }] })
+    expect(parsed.items[0]!.notice).toBe(notice)
+  }
+  const item = {
+    ...first,
+    entity_type: 'event' as const,
+    status: 'released',
+    subtitle: 'Nächster öffentlicher Termin: 20.09.2026 · 18:00 (Europe/Berlin)',
+    notice: null,
+    public_url: `https://kulturbytes.de/de/veranstaltung/${first.entity_key}/019954ea-0000-7000-8000-000000000001`,
+  }
+  const wrapper = row(item)
+  expect(wrapper.find('[role="status"]').exists()).toBe(false)
+  expect(wrapper.text()).toContain(item.subtitle)
+  expect(wrapper.text()).toContain('Veröffentlicht')
+  expect(wrapper.get('a[href^="https://kulturbytes.de/"]').attributes('href')).toBe(item.public_url)
+  expect(wrapper.get('time').attributes('datetime')).toBe(item.created_at)
 })
