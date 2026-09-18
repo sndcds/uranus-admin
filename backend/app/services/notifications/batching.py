@@ -49,6 +49,8 @@ def batches(
     )
     groups: dict[tuple[str, int], list[dict[str, Any]]] = defaultdict(list)
     anchors: dict[str, str] = {}
+    event_kinds: dict[int, str] = {}
+    kind_rank = {"initial": 0, "reminder": 1, "escalation": 2}
     for row in active:
         if row["notification_type"] == "quality_finding":
             groups[("digest", 0)].append(row)
@@ -70,10 +72,15 @@ def batches(
                 kind = "reminder"
             else:
                 continue
-        groups[(kind, row["payload"]["stage"])].append(row)
+        current_stage = row["payload"]["stage"]
+        event_kinds[current_stage] = max(
+            (event_kinds.get(current_stage, "initial"), kind), key=kind_rank.__getitem__
+        )
+        groups[("event", current_stage)].append(row)
         anchors[str(row["id"])] = str(previous["id"]) if previous else "initial"
     result = []
-    for (kind, _), items in groups.items():
+    for (family, current_stage), items in groups.items():
+        kind = "digest" if family == "digest" else event_kinds[current_stage]
         items.sort(key=lambda r: str(r["id"]))
         version = content_version(items)
         previous = (

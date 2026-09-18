@@ -149,8 +149,9 @@ Disabled reminders do not disable stage escalations. A previous send in another 
 still counts; future due mail uses the current recipient locale. No resend solely for a
 locale change. Changed dates/titles invalidate queued content.
 
-Compatible event items (org, recipient, locale, kind, stage) share one mail and N audit
-items. Urgent/event claims precede quality; urgency cannot be held behind a normal digest.
+Compatible event items (org, recipient, locale, stage) share one mail and N audit
+items, including mixed initial/reminder/escalation reasons. The batch uses the highest
+current kind: escalation, then reminder, then initial. Urgent/event claims precede quality; urgency cannot be held behind a normal digest.
 Reminder fingerprints include the previous successful delivery anchor, never a fresh scan
 timestamp. Repeating an unchanged run cannot enqueue another equivalent delivery.
 

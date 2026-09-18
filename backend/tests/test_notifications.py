@@ -744,3 +744,13 @@ async def test_expired_event_preview_is_unavailable_not_server_error(
     assert (
         await db_client.get(f"/api/v1/notifications/{id_}/preview", headers=headers)
     ).status_code == 422
+
+
+def test_mixed_initial_and_reminder_share_compatible_event_batch(config):
+    old = row(31)
+    initial = batches([old], [], config.recipients[0], config, NOW)[0]
+    history = [{**initial, "id": uuid4(), "status": "sent", "sent_at": NOW - timedelta(days=7)}]
+    planned = batches([old, row(32)], history, config.recipients[0], config, NOW)
+    assert len(planned) == 1
+    assert planned[0]["delivery_kind"] == "reminder"
+    assert len(planned[0]["snapshot"]["ids"]) == 2
