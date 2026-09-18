@@ -39,6 +39,7 @@ export const notification: NotificationSummary = {
   expired_at: null,
 }
 export const notificationDelivery: NotificationDelivery = {
+  retry_of_delivery_id: null,
   id: '10000000-0000-4000-8000-000000000041',
   organization_id: notification.organization_id,
   recipient: 'recipient@example.test',
@@ -58,7 +59,14 @@ export const notificationDelivery: NotificationDelivery = {
 export const notificationPage: NotificationPage = {
   items: [notification],
   pagination: { page: 1, page_size: 50, total: 1, pages: 1 },
-  summary: { active: 1, queued: 0, sent_today: 0, failed: 1 },
+  summary: {
+    active: 1,
+    queued: 0,
+    sent_today: 0,
+    failed: 1,
+    temporary_failed: 1,
+    permanent_failed: 0,
+  },
   health: { delivery_enabled: false, source_capability: true, config_issues: [] },
 }
 export const notificationDetail = {
@@ -66,7 +74,11 @@ export const notificationDetail = {
   deliveries: [notificationDelivery],
   delivery_enabled: false,
 }
-export const notificationDeliveryDetail = { ...notificationDelivery, notifications: [notification] }
+export const notificationDeliveryDetail = {
+  ...notificationDelivery,
+  notifications: [notification],
+  retries: [],
+}
 export const notificationGuidance = {
   de: 'Melde dich bei Kulturbytes an und öffne den entsprechenden Eintrag in deinem Dashboard.',
   da: 'Log ind på Kulturbytes, og åbn det relevante opslag i dit dashboard.',
@@ -91,4 +103,16 @@ export function notificationPreview(locale: 'de' | 'da' | 'en', withAction = tru
     notification_ids: [notification.id],
     delivery_enabled: false,
   }
+}
+
+export const notificationDeliveryPage = {
+  items: [
+    {
+      ...notificationDelivery,
+      organization_name: 'Kulturverein',
+      created_at: notification.first_detected_at,
+    },
+  ],
+  pagination: { page: 1, page_size: 50, total: 1, pages: 1 },
+  delivery_enabled: false,
 }

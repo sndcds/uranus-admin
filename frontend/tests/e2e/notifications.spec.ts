@@ -2,6 +2,7 @@ import { test, expect } from '../fixtures/authenticated'
 import {
   notification,
   notificationPage,
+  notificationDeliveryPage,
   notificationDetail,
   notificationDeliveryDetail,
   notificationPreview,
@@ -35,7 +36,7 @@ test('list, filters, dry run, detail and delivery history', async ({ page }) => 
   await request
   await page.getByRole('link', { name: 'Kulturabend', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Versandhistorie' })).toBeVisible()
-  await page.getByRole('link', { name: 'Fehlgeschlagen · recipient@example.test' }).click()
+  await page.getByRole('link', { name: 'Temporär fehlgeschlagen · recipient@example.test' }).click()
   await expect(page.getByRole('heading', { name: 'E-Mail-Versand' })).toBeVisible()
   await expect(page.getByText('smtp_451')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -102,4 +103,139 @@ test('navigation for an authenticated administrator', async ({ page, isMobile })
   await expect(
     page.getByRole('link', { name: 'Benachrichtigungen', exact: true }).filter({ visible: true }),
   ).toHaveAttribute('aria-current', 'page')
+})
+
+test('failure KPI, delivery list and confirmed retry preserve the old history', async ({
+  page,
+}) => {
+  const old = {
+    ...notificationDeliveryDetail,
+    status: 'permanent_failure',
+    last_error: 'smtp_553',
+    attempt_count: 2,
+  }
+  const nextId = '10000000-0000-4000-8000-000000000099'
+  const next = {
+    ...old,
+    id: nextId,
+    retry_of_delivery_id: old.id,
+    status: 'queued',
+    attempt_count: 0,
+    last_error: null,
+  }
+  await page.route('**/api/admin/api/v1/notifications?**', (route) =>
+    route.fulfill({
+      json: {
+        ...notificationPage,
+        summary: {
+          ...notificationPage.summary,
+          failed: 2,
+          permanent_failed: 2,
+          temporary_failed: 0,
+        },
+      },
+    }),
+  )
+  await page.route('**/api/admin/api/v1/notification-deliveries?**', (route) =>
+    route.fulfill({
+      json: {
+        ...notificationDeliveryPage,
+        items: [{ ...old, organization_name: 'Kulturverein', created_at: old.queued_at }],
+      },
+    }),
+  )
+  await page.route(`**/api/admin/api/v1/notification-deliveries/${old.id}`, (route) =>
+    route.fulfill({ json: old }),
+  )
+  await page.route(`**/api/admin/api/v1/notification-deliveries/${nextId}`, (route) =>
+    route.fulfill({ json: next }),
+  )
+  let posts = 0
+  await page.route(`**/api/admin/api/v1/notification-deliveries/${old.id}/retry`, (route) => {
+    expect(route.request().method()).toBe('POST')
+    expect(route.request().postData()).toBeNull()
+    expect(route.request().headers()['x-admin-csrf']).toBe('1')
+    posts++
+    return route.fulfill({
+      status: 201,
+      json: { delivery_id: nextId, retry_of_delivery_id: old.id, status: 'queued' },
+    })
+  })
+  await page.goto('/notifications')
+  await page.getByRole('link', { name: 'Dauerhaft fehlgeschlagen', exact: true }).click()
+  await expect(page).toHaveURL(/notifications\/deliveries\?status=permanent_failure/)
+  await expect(page.getByRole('heading', { name: 'E-Mail-Versände', exact: true })).toBeVisible()
+  await expect(page.getByLabel('Status', { exact: true })).toHaveValue('permanent_failure')
+  await page.getByRole('link', { name: old.subject! }).click()
+  await expect(page.getByText('Der automatische Versand wurde beendet.')).toBeVisible()
+  await expect(page.getByText('smtp_553', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Erneut versuchen', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Erneut versuchen?' })).toBeVisible()
+  await page.getByRole('button', { name: 'Versand erneut einreihen' }).click()
+  await expect(page).toHaveURL(`/notifications/deliveries/${nextId}`)
+  await expect(page.getByText(/Neuer Versand wurde eingereiht/)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Vorheriger Versand' })).toHaveAttribute(
+    'href',
+    `/notifications/deliveries/${old.id}`,
+  )
+  await expect(page.getByRole('button', { name: 'Erneut versuchen', exact: true })).toHaveCount(0)
+  expect(posts).toBe(1)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+for (const status of ['failed', 'sent'] as const)
+  test(`${status} delivery has no manual retry`, async ({ page }) => {
+    await page.route(
+      `**/api/admin/api/v1/notification-deliveries/${notificationDeliveryDetail.id}`,
+      (route) => route.fulfill({ json: { ...notificationDeliveryDetail, status } }),
+    )
+    await page.goto(`/notifications/deliveries/${notificationDeliveryDetail.id}`)
+    await expect(page.getByText('recipient@example.test', { exact: false })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Erneut versuchen', exact: true })).toHaveCount(0)
+    if (status === 'failed')
+      await expect(page.getByText(/Automatischer neuer Versuch:/)).toBeVisible()
+  })
+
+test('retry proxy denies anonymous and cross-origin writes without forwarding overrides', async ({
+  request,
+}) => {
+  const url = `/api/admin/api/v1/notification-deliveries/${notificationDeliveryDetail.id}/retry`
+  expect((await request.post(url)).status()).toBe(401)
+  await request.post('/api/admin/auth/login', {
+    headers: { Origin: 'http://127.0.0.1:3100', 'X-Admin-CSRF': '1' },
+    data: { login: 'operator', password: 'test-only-password' },
+  })
+  expect((await request.post(url)).status()).toBe(403)
+  expect(
+    (
+      await request.post(url, { headers: { Origin: 'http://evil.test', 'X-Admin-CSRF': '1' } })
+    ).status(),
+  ).toBe(403)
+  expect(
+    (
+      await request.post(url, {
+        headers: { Origin: 'http://127.0.0.1:3100', 'X-Admin-CSRF': '1' },
+        data: { recipient: 'other@example.test' },
+      })
+    ).status(),
+  ).toBe(422)
+})
+
+test('delivery routes keep unauthenticated SSR and client content private', async ({
+  request,
+  browser,
+}) => {
+  for (const path of [
+    '/notifications/deliveries',
+    `/notifications/deliveries/${notificationDeliveryDetail.id}`,
+  ]) {
+    const response = await request.get(path)
+    expect(await response.text()).not.toContain('recipient@example.test')
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.goto(path)
+    await expect(page).toHaveURL(/\/login/)
+    await expect(page.getByRole('button', { name: 'Erneut versuchen', exact: true })).toHaveCount(0)
+    await context.close()
+  }
 })
