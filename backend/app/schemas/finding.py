@@ -26,6 +26,7 @@ class FindingStatus(StrEnum):
 
 
 class FindingFilters(BaseModel):
+    geo_scope_id: UUID | None = None
     mode: Literal["live", "persisted"] = "persisted"
     severity: Severity | None = None
     entity_type: str | None = Field(default=None, max_length=64)

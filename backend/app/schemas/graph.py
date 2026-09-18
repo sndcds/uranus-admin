@@ -37,6 +37,7 @@ class GraphFilters(BaseModel):
 
 
 class GraphSearchFilters(BaseModel):
+    geo_scope_id: UUID | None = None
     model_config = ConfigDict(extra="forbid")
 
     q: str = Field(min_length=2, max_length=120)

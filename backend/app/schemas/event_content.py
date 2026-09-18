@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -10,6 +11,7 @@ EventReleaseStatus = Literal["released", "draft", "review", "cancelled", "deferr
 
 
 class EventContentFilters(BaseModel):
+    geo_scope_id: UUID | None = None
     model_config = {"extra": "forbid"}
     period: EventContentPeriod = "24h"
     status: EventReleaseStatus | None = None

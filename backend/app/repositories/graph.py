@@ -12,6 +12,7 @@ from app.repositories.activity import ENTITY_ACTIVITY_SQL
 from app.repositories.activity_previews import activity_previews
 from app.repositories.entity_search import escape_search
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
+from app.repositories.spatial import mixed_spatial_predicate
 from app.schemas.action import Action
 from app.schemas.graph import (
     GraphEdge,
@@ -174,7 +175,12 @@ def node(row: dict[str, Any]) -> GraphNode:
     )
 
 
-async def search(connection: AsyncConnection, filters: GraphSearchFilters) -> GraphSearchResponse:
+async def search(
+    connection: AsyncConnection, filters: GraphSearchFilters, geo_scope_wkb: bytes | None = None
+) -> GraphSearchResponse:
+    if filters.geo_scope_id and filters.entity_type == "user":
+        raise APIError(422, "invalid_input", "Users have no spatial membership.")
+    geo = " AND " + mixed_spatial_predicate() if geo_scope_wkb is not None else ""
     # Literal substring matching: % and _ in names are not wildcard instructions.
     query = escape_search(filters.q)
     rows = (
@@ -186,11 +192,13 @@ async def search(connection: AsyncConnection, filters: GraphSearchFilters) -> Gr
           OR (entity_type='user' AND EXISTS (
             SELECT 1 FROM uranus.organization_member_link m
             WHERE m.user_uuid::text=a.entity_key AND m.org_uuid=:org)))
+        {geo}
         ORDER BY lower(entity_name),entity_type,entity_key LIMIT :limit
     """),
             {
                 "types": [filters.entity_type] if filters.entity_type else list(TYPES),
                 "q": f"%{query}%",
+                "geo_scope_wkb": geo_scope_wkb,
                 "org": filters.organization_id,
                 "limit": filters.limit,
             },

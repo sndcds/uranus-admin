@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.repositories.spatial import spatial_predicate
 from app.services.periods import PeriodWindow
 
 # Source: sndcds/uranus 0c2632e, ddl/{event,event_category,event_type,event_type_link,genre_type}.
@@ -88,11 +89,19 @@ async def aggregate_event_content(
     previous: PeriodWindow | None,
     timezone: str,
     status: str | None,
+    geo_scope_wkb: bytes | None = None,
 ) -> list[dict[str, Any]]:
     windows = [window, previous] if previous else [window]
+    sql = CONTENT_SQL
+    if geo_scope_wkb is not None:
+        sql = sql.replace(
+            "), assignments AS",
+            " AND " + spatial_predicate("event", key_expression="e.uuid") + "), assignments AS",
+        )
     result = await connection.execute(
-        text(CONTENT_SQL),
+        text(sql),
         {
+            "geo_scope_wkb": geo_scope_wkb,
             "starts": [w.start if w else None for w in windows],
             "ends": [w.end if w else None for w in windows],
             "tz": timezone,

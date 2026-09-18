@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
 from app.database import ConnectionDep, SettingsDep
 from app.schemas.event_content import EventContentFilters, EventContentStatistics
 from app.schemas.statistics import EntityStatisticsResponse, StatisticsFilters
 from app.services.event_content import get_event_content
+from app.services.geo.scopes import request_geo_scope
 from app.services.statistics import get_statistics
 
 router = APIRouter(prefix="/statistics", tags=["Statistics"])
@@ -22,11 +23,15 @@ router = APIRouter(prefix="/statistics", tags=["Statistics"])
     "recent entities share the same read-only snapshot. No inferred authors or history.",
 )
 async def entities(
+    request: Request,
     connection: ConnectionDep,
     settings: SettingsDep,
     filters: Annotated[StatisticsFilters, Query()],
 ) -> EntityStatisticsResponse:
-    return await get_statistics(connection, settings, filters, datetime.now(UTC))
+    geo = await request_geo_scope(request, filters.geo_scope_id)
+    return await get_statistics(
+        connection, settings, filters, datetime.now(UTC), geo.ewkb if geo else None
+    )
 
 
 @router.get(
@@ -35,8 +40,12 @@ async def entities(
     summary="Event content by creation time",
 )
 async def event_content(
+    request: Request,
     connection: ConnectionDep,
     settings: SettingsDep,
     filters: Annotated[EventContentFilters, Query()],
 ) -> EventContentStatistics:
-    return await get_event_content(connection, settings, filters, datetime.now(UTC))
+    geo = await request_geo_scope(request, filters.geo_scope_id)
+    return await get_event_content(
+        connection, settings, filters, datetime.now(UTC), geo.ewkb if geo else None
+    )

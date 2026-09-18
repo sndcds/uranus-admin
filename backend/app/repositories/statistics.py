@@ -5,12 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.repositories.activity import creation_activity_sql
 from app.repositories.creation_sources import STATISTICS_SOURCES
+from app.repositories.spatial import SPATIAL_TYPES, mixed_spatial_predicate, spatial_predicate
 from app.schemas.action import Action
 from app.schemas.statistics import EntityTimeSeries, RecentEntity
 from app.services.periods import PeriodWindow
 
 
-def aggregation_sql(source_timezone: str) -> str:
+def aggregation_sql(source_timezone: str, geo: bool = False) -> str:
     queries = []
     for kind, (table, stamp, _) in STATISTICS_SOURCES.items():
         # Filter each source once; UTC preserves ordinary timestamp index scans.
@@ -20,6 +21,8 @@ def aggregation_sql(source_timezone: str) -> str:
             if source_timezone == "UTC"
             else f"s.{stamp} AT TIME ZONE :tz >= :start AND s.{stamp} AT TIME ZONE :tz < :end"
         )
+        if geo and kind in SPATIAL_TYPES:
+            condition += " AND " + spatial_predicate(kind, key_expression="s.uuid")
         queries.append(
             f"SELECT '{kind}' AS entity_type, s.{stamp} AT TIME ZONE :tz AS stamp "
             f"FROM uranus.{table} s WHERE {condition}"
@@ -39,12 +42,16 @@ def aggregation_sql(source_timezone: str) -> str:
 
 
 async def aggregate(
-    connection: AsyncConnection, windows: list[PeriodWindow], timezone: str
+    connection: AsyncConnection,
+    windows: list[PeriodWindow],
+    timezone: str,
+    geo_scope_wkb: bytes | None = None,
 ) -> list[EntityTimeSeries]:
     rows = (
         await connection.execute(
-            text(aggregation_sql(timezone)),
+            text(aggregation_sql(timezone, geo_scope_wkb is not None)),
             {
+                "geo_scope_wkb": geo_scope_wkb,
                 "starts": [w.start for w in windows],
                 "ends": [w.end for w in windows],
                 "tz": timezone,
@@ -63,6 +70,7 @@ async def aggregate(
             {
                 "entity_type": kind,
                 "label": STATISTICS_SOURCES[kind][2],
+                "scope": "geo" if geo_scope_wkb is not None and kind in SPATIAL_TYPES else "global",
                 "total": sum(point["count"] for point in points),
                 "points": points,
             }
@@ -72,7 +80,10 @@ async def aggregate(
 
 
 async def recent_entities(
-    connection: AsyncConnection, window: PeriodWindow, timezone: str
+    connection: AsyncConnection,
+    window: PeriodWindow,
+    timezone: str,
+    geo_scope_wkb: bytes | None = None,
 ) -> list[RecentEntity]:
     rows = (
         await connection.execute(
@@ -82,9 +93,15 @@ async def recent_entities(
                 f"FROM ({creation_activity_sql(True)}) a "
                 "WHERE created_at AT TIME ZONE :tz >= :start "
                 "AND created_at AT TIME ZONE :tz < :end "
-                "ORDER BY created_at DESC, entity_type, entity_key LIMIT 7"
+                + (" AND " + mixed_spatial_predicate() if geo_scope_wkb is not None else "")
+                + " ORDER BY created_at DESC, entity_type, entity_key LIMIT 7"
             ),
-            {"tz": timezone, "start": window.start, "end": window.end},
+            {
+                "tz": timezone,
+                "start": window.start,
+                "end": window.end,
+                "geo_scope_wkb": geo_scope_wkb,
+            },
         )
     ).mappings()
     items = []

@@ -67,19 +67,25 @@ def bucket_windows(
 
 
 async def get_statistics(
-    connection: AsyncConnection, settings: Settings, filters: StatisticsFilters, now: datetime
+    connection: AsyncConnection,
+    settings: Settings,
+    filters: StatisticsFilters,
+    now: datetime,
+    geo_scope_wkb: bytes | None = None,
 ) -> EntityStatisticsResponse:
     if settings.uranus_timestamp_timezone is None:
         raise APIError(503, "source_timezone_unconfigured", "Source timezone must be configured.")
     window = statistics_window(filters, now, settings.admin_timezone)
     interval = automatic_interval(window) if filters.interval == "auto" else filters.interval
     windows = bucket_windows(window, interval, settings.admin_timezone)
-    series = await aggregate(connection, windows, settings.uranus_timestamp_timezone)
+    series = await aggregate(connection, windows, settings.uranus_timestamp_timezone, geo_scope_wkb)
     previous = None
     if filters.compare:
         previous = previous_window(window)
         # Only previous totals are displayed; one aggregate bucket avoids redundant series.
-        prior = await aggregate(connection, [previous], settings.uranus_timestamp_timezone)
+        prior = await aggregate(
+            connection, [previous], settings.uranus_timestamp_timezone, geo_scope_wkb
+        )
         for current, old in zip(series, prior, strict=True):
             current.previous_total = old.total
     return EntityStatisticsResponse(
@@ -92,5 +98,7 @@ async def get_statistics(
         previous_from_at=previous.start if previous else None,
         previous_to_at=previous.end if previous else None,
         series=series,
-        recent=await recent_entities(connection, window, settings.uranus_timestamp_timezone),
+        recent=await recent_entities(
+            connection, window, settings.uranus_timestamp_timezone, geo_scope_wkb
+        ),
     )

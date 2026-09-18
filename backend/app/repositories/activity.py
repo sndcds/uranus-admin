@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.config import Settings
 from app.errors import APIError
 from app.repositories.activity_previews import activity_previews
+from app.repositories.spatial import SPATIAL_TYPES, mixed_spatial_predicate
 from app.schemas.action import Action
 from app.schemas.activity import Activity, ActivityFilters, ActivityPage
 from app.schemas.cursor import ActivityCursor, CursorPagination, decode, encode, scope
@@ -83,10 +84,16 @@ def creation_activity_sql(statistics: bool = False) -> str:
 
 
 async def activity_page(
-    connection: AsyncConnection, settings: Settings, filters: ActivityFilters, now: datetime
+    connection: AsyncConnection,
+    settings: Settings,
+    filters: ActivityFilters,
+    now: datetime,
+    geo_scope_wkb: bytes | None = None,
 ) -> ActivityPage:
     if settings.uranus_timestamp_timezone is None:
         raise APIError(503, "source_timezone_unconfigured", "Source timezone must be configured.")
+    if filters.geo_scope_id and filters.entity_type and filters.entity_type not in SPATIAL_TYPES:
+        raise APIError(422, "invalid_input", "This activity type has no spatial membership.")
     cursor_mode = filters.cursor is not None
     expected_scope = scope(filters, timezone=settings.uranus_timestamp_timezone)
     position = (
@@ -131,6 +138,9 @@ async def activity_page(
             ((l.context='organization' AND l.context_uuid=:org)
              OR v.org_uuid=:org OR e.org_uuid=:org))))
     """
+    if geo_scope_wkb is not None:
+        where += " AND " + mixed_spatial_predicate()
+        params["geo_scope_wkb"] = geo_scope_wkb
     source_sql = creation_activity_sql(filters.creation_basis == "statistics")
     base = f"WITH a AS ({source_sql}) SELECT * FROM a {where}"
     unknown = int(

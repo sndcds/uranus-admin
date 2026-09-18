@@ -23,7 +23,11 @@ def coverage(assigned: int, total: int) -> dict[str, int | float]:
 
 
 async def get_event_content(
-    connection: AsyncConnection, settings: Settings, filters: EventContentFilters, now: datetime
+    connection: AsyncConnection,
+    settings: Settings,
+    filters: EventContentFilters,
+    now: datetime,
+    geo_scope_wkb: bytes | None = None,
 ) -> EventContentStatistics:
     timezone = require_timezone(settings)
     window = (
@@ -32,7 +36,9 @@ async def get_event_content(
         else period_window(filters.period, now, settings.admin_timezone)
     )
     previous = previous_window(window) if window and filters.compare else None
-    rows = await aggregate_event_content(connection, window, previous, timezone, filters.status)
+    rows = await aggregate_event_content(
+        connection, window, previous, timezone, filters.status, geo_scope_wkb
+    )
     rankings: dict[str, Any] = {}
     current_coverage, old_coverage = {}, {}
     for row in rows:

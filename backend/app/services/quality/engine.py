@@ -8,6 +8,7 @@ from app.errors import APIError
 from app.repositories.quality_sources import load_sources
 from app.repositories.venues import QUALITY_SQL, RULE, query_parameters
 from app.schemas.finding import Finding, FindingFilters, FindingPage, Pagination
+from app.services.geo.membership import filter_live_findings
 from app.services.quality.core import CORE_RULES, QualityContext, RuleResult, evaluate_core
 from app.services.quality.venues import map_venue
 from app.services.queues import queue_findings
@@ -59,7 +60,14 @@ def findings_page(items: list[Finding], filters: FindingFilters, now: datetime) 
 
 
 async def get_findings(
-    connection: AsyncConnection, settings: Settings, filters: FindingFilters, now: datetime
+    connection: AsyncConnection,
+    settings: Settings,
+    filters: FindingFilters,
+    now: datetime,
+    geo_scope_wkb: bytes | None = None,
 ) -> FindingPage:
     results = await scan(connection, settings, now)
-    return findings_page([item for result in results for item in result.findings], filters, now)
+    items = await filter_live_findings(
+        connection, [item for result in results for item in result.findings], geo_scope_wkb
+    )
+    return findings_page(items, filters, now)
