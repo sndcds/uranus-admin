@@ -229,18 +229,31 @@ organization footer, full plain text and HTML, no marketing/tracking/remote font
 Every mail is multipart/alternative. HTML source values and URLs are escaped; subject control
 characters removed, long subjects capped at 180 characters, full names retained in body.
 Addresses are validated; headers use EmailMessage and formataddr. STARTTLS defaults on with
-normal certificate validation. Authenticated SMTP requires STARTTLS: enabling delivery with
-credentials and STARTTLS=false fails settings validation. Username/password must both be
-set or both unset, even in Dry Run (empty environment values normalize to unset). Dry Run
-can inspect otherwise incomplete transport configuration without connecting; TLS is enforced
-before delivery can be enabled. `SMTPTransport.send()` independently rejects partial/empty
-credentials and credentials without TLS **before opening a socket**, including settings
-modified after validation. The transport sequence is connect → EHLO → STARTTLS with
+normal certificate validation. **Every remote SMTP connection requires STARTTLS**, whether
+it authenticates or not. Plain SMTP is allowed only for an explicitly configured,
+unauthenticated **loopback** relay. Both settings validation and `SMTPTransport.send()`
+enforce this policy, including in Dry Run and after settings are modified or validation is
+bypassed. Transport rejection happens **before opening a socket**; no fallback is attempted.
+
+The shared host policy uses `ipaddress`, without DNS lookups. It accepts explicit IPv4
+loopback literals (`127.0.0.0/8`) and IPv6 `::1`, including `[::1]`. `localhost` is
+case-insensitive and accepts one trailing dot (`LOCALHOST`, `localhost.`); plaintext transport
+pins it to `127.0.0.1`, avoiding DNS-based trust. With STARTTLS its hostname remains intact
+for certificate verification. IPv6 brackets normalize away.
+Other names, scoped literals, IPv4-mapped IPv6, public IPs and RFC1918/private addresses
+(`10.x`, `172.16.x`, `192.168.x`) cannot use plaintext. DNS aliases are never resolved to
+establish loopback eligibility. Private networks are not treated as inherently secure:
+recipient addresses and unpublished event titles/content must not traverse a plaintext
+remote connection, and credentials must never traverse plaintext at all.
+
+Username/password must both be set or both unset (empty environment values normalize to
+unset). Credentials require STARTTLS even on loopback. Unsafe configurations are rejected
+**also when delivery is disabled**; safe incomplete Dry Run configuration with STARTTLS=true
+and no host remains inspectable without connecting. Enabling delivery requires a host.
+`SMTPTransport.send()` independently rejects partial/empty credentials and credentials
+without TLS. For authenticated SMTP the sequence is connect → EHLO → STARTTLS with
 `ssl.create_default_context()` → EHLO → login → send. TLS negotiation/certificate errors
-abort; there is no plaintext fallback. An unauthenticated trusted local relay, e.g.
-`NOTIFICATION_SMTP_HOST=127.0.0.1`, may explicitly use STARTTLS=false with both credentials
-unset. **Use this only for a trusted local relay.** Remote authenticated SMTP must use
-STARTTLS=true; SMTPS/port 465 remains a follow-up, not an alternative V1 mode.
+abort, without plaintext fallback. SMTPS/port 465 remains a follow-up, not a V1 mode.
 SMTP secrets use SecretStr and are never API/health/log output.
 External recipients are organization notification contacts and are not assumed to have
 uranus-admin system-admin accounts. Email CTAs target verified Kulturbytes user-facing edit
@@ -337,8 +350,11 @@ EnvironmentFile. Never include migration/operator credentials in the worker serv
    organization member, including event, venue, organization, space and parent event routes.
    Confirm the configured app origin hosts these routes and unknown routes display guidance.
    No delivery rows or fake sent state are created.
-5. Validate **SMTP TLS**, certificate trust and the credential pair. Authenticated remote SMTP
-   must have STARTTLS=true. A deliberately unauthenticated local relay needs both credentials unset.
+5. Check **SMTP host classification**: plaintext is permitted only for explicit loopback
+   (`localhost`, `127.0.0.1`, `::1`), never remote DNS names or private/RFC1918 IP addresses.
+   Every remote relay must use **STARTTLS=true**. Validate certificate trust and require a
+   complete username/password pair if authentication is used; plaintext loopback requires
+   both credentials unset. These rules apply already during Dry Run.
 6. Perform a **controlled recipient test** using the provider/operator procedure. Verify external
    app links and DE/DA/EN content in the test mailbox. V1 deliberately has no arbitrary-recipient
    test-send endpoint. Automated tests use a fake transport only.

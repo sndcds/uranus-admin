@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.admin_tables import notification_delivery as d
 from app.config import Settings
+from app.smtp_policy import is_loopback_smtp_host, normalize_smtp_host
 
 RETRY_DELAYS = (
     timedelta(minutes=5),
@@ -46,8 +47,17 @@ class SMTPTransport:
             raise RuntimeError("Notification SMTP requires a complete credential pair")
         if username is not None and not s.notification_smtp_starttls:
             raise RuntimeError("Authenticated notification SMTP requires TLS")
+        host = normalize_smtp_host(s.notification_smtp_host)
+        if not s.notification_smtp_starttls:
+            if not is_loopback_smtp_host(host):
+                raise RuntimeError(
+                    "Plain notification SMTP is only allowed for a local loopback relay"
+                )
+            # No DNS/hosts-file interpretation may redirect a plaintext connection.
+            if host == "localhost":
+                host = "127.0.0.1"
         with smtplib.SMTP(
-            s.notification_smtp_host,
+            host,
             s.notification_smtp_port,
             timeout=s.notification_smtp_timeout_seconds,
         ) as smtp:

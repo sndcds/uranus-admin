@@ -5,6 +5,8 @@ from zoneinfo import ZoneInfo
 from pydantic import EmailStr, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.smtp_policy import is_loopback_smtp_host, normalize_smtp_host
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
@@ -104,6 +106,11 @@ class Settings(BaseSettings):
             raise ValueError("AUTH_PUBLIC_ORIGIN must be one exact HTTP(S) origin")
         return value
 
+    @field_validator("notification_smtp_host")
+    @classmethod
+    def canonical_smtp_host(cls, value: str | None) -> str | None:
+        return normalize_smtp_host(value) if value is not None else None
+
     @field_validator("notification_smtp_username", "notification_smtp_password", mode="before")
     @classmethod
     def empty_smtp_credentials(cls, value: object) -> object:
@@ -157,15 +164,15 @@ class Settings(BaseSettings):
         has_password = self.notification_smtp_password is not None
         if has_username != has_password:
             raise ValueError("Notification SMTP username and password must be configured together")
-        if (
-            self.notifications_delivery_enabled
-            and has_username
-            and not self.notification_smtp_starttls
-        ):
+        if has_username and not self.notification_smtp_starttls:
             raise ValueError("Authenticated notification SMTP requires TLS")
         if self.notifications_delivery_enabled:
             if not self.notification_smtp_host:
                 raise ValueError("Notification delivery requires SMTP host")
+        if not self.notification_smtp_starttls and not is_loopback_smtp_host(
+            self.notification_smtp_host or ""
+        ):
+            raise ValueError("Plain notification SMTP is only allowed for a local loopback relay")
         if (
             self.app_env not in {"development", "test"} or self.notifications_delivery_enabled
         ) and not self.kulturbytes_app_public_base_url.startswith("https://"):
