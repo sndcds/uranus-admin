@@ -9,26 +9,21 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, text, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.admin_database import assert_admin_boundary, create_admin_engine
-from app.admin_tables import finding, notification
+from app.admin_tables import notification
 from app.admin_tables import notification_delivery as d
 from app.config import Settings
 from app.database import create_engine
 from app.logging import configure_logging
 from app.repositories.notifications import claim, synchronize, valid_intent
-from app.repositories.quality_sources import load_sources
-from app.schemas.notifications import NotificationConfig, NotificationPayload
-from app.services.notifications.candidates import Candidate, detect
-from app.services.notifications.config import (
-    organization_configs,
-    source_capability,
-    validate_configs,
-)
+from app.schemas.notifications import NotificationPayload
+from app.services.notifications.candidates import Candidate
 from app.services.notifications.delivery import SMTPTransport, Transport, finish, message
 from app.services.notifications.rendering import render
+from app.services.notifications.state import collect, refresh_rows
 from app.storage_preflight import RUNTIME_GRANTS, check_grants, check_schema
 
 LOG = logging.getLogger("admin.notifications")
@@ -36,39 +31,6 @@ LOG = logging.getLogger("admin.notifications")
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
-
-
-async def collect(
-    source: AsyncEngine,
-    admin: AsyncEngine,
-    settings: Settings,
-    now: datetime,
-    organization_id: UUID | None = None,
-) -> tuple[bool, dict[UUID, NotificationConfig], list[Candidate]]:
-    async with source.connect() as reader, reader.begin():
-        await reader.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
-        capability = await source_capability(reader)
-        if not capability:
-            LOG.warning("notification_source_capability_missing")
-            return False, {}, []
-        configs, _ = validate_configs(await organization_configs(reader, organization_id))
-        sources = await load_sources(reader, organization_id)
-        async with admin.connect() as writer, writer.begin():
-            reviews = dict(
-                (
-                    await writer.execute(
-                        select(finding.c.id, finding.c.status).where(
-                            finding.c.metadata["finding"]["organization_id"].as_string()
-                            == str(organization_id)
-                        )
-                        if organization_id is not None
-                        else select(finding.c.id, finding.c.status)
-                    )
-                )
-                .tuples()
-                .all()
-            )
-        return True, configs, detect(sources, configs, reviews, settings, now)
 
 
 async def work_once(
@@ -135,14 +97,7 @@ async def work_once(
                             )
                         ).mappings()
                     ]
-                fresh_map = {c.dedupe_key: c for c in fresh}
-                for row in rows:
-                    item = fresh_map.get(row["dedupe_key"])
-                    row["status"] = item.status if item else "suppressed"
-                    if item:
-                        episode = row["payload"].get("episode", 1)
-                        row["payload"] = item.payload.model_dump(mode="json")
-                        row["payload"]["episode"] = episode
+                rows = refresh_rows(rows, fresh)
                 valid = available and valid_intent(
                     delivery, rows, fresh_configs.get(delivery["organization_id"])
                 )

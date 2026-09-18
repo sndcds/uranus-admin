@@ -241,6 +241,15 @@ notification_delivery = sa.Table(
     "notification_delivery",
     metadata,
     sa.Column("id", UUID, primary_key=True),
+    sa.Column(
+        "retry_of_delivery_id",
+        UUID,
+        sa.ForeignKey(
+            "admin.notification_delivery.id",
+            ondelete="RESTRICT",
+            name="notification_delivery_retry_of_fk",
+        ),
+    ),
     sa.Column("organization_id", UUID, nullable=False),
     sa.Column("recipient", sa.Text, nullable=False),
     sa.Column("locale", sa.Text, nullable=False),
@@ -288,6 +297,14 @@ sa.Index("notification_delivery_org_idx", notification_delivery.c.organization_i
 sa.Index(
     "notification_delivery_fingerprint_idx",
     notification_delivery.c.message_fingerprint,
+    unique=True,
+    postgresql_where=notification_delivery.c.status != "cancelled",
+)
+
+# One non-cancelled direct successor; obsolete cancelled intents keep their history.
+sa.Index(
+    "notification_delivery_retry_of_idx",
+    notification_delivery.c.retry_of_delivery_id,
     unique=True,
     postgresql_where=notification_delivery.c.status != "cancelled",
 )

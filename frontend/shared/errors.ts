@@ -5,6 +5,14 @@ export interface ApiFailure {
 }
 
 export function failure(status: number, code = 'request_failed'): ApiFailure {
+  const retryMessages: Record<string, string> = {
+    notification_delivery_not_found: 'Dieser E-Mail-Versand wurde nicht gefunden.',
+    notification_retry_not_allowed:
+      'Dieser Versand kann nicht erneut gestartet werden. Prüfe den neuesten Versuch in der Versandhistorie.',
+    notification_retry_obsolete:
+      'Empfänger oder Hinweis sind nicht mehr aktiv konfiguriert, oder die Quelldaten sind nicht verfügbar. Kein neuer Versand wurde erstellt.',
+    notification_retry_already_queued: 'Für diesen Versand läuft bereits ein erneuter Versuch.',
+  }
   const messages: Record<number, string> = {
     401: 'Anmeldung erforderlich. Für diesen Zugriff fehlen gültige Zugangsdaten.',
     403: 'Keine Berechtigung. Dein Zugang darf diese Verwaltungsdaten nicht lesen.',
@@ -17,7 +25,11 @@ export function failure(status: number, code = 'request_failed'): ApiFailure {
     503: 'Die Admin-API ist derzeit nicht bereit. Bitte später erneut versuchen.',
     504: 'Die Admin-API hat nicht rechtzeitig geantwortet.',
   }
-  return { status, code, message: messages[status] ?? 'Die Daten konnten nicht geladen werden.' }
+  return {
+    status,
+    code,
+    message: retryMessages[code] ?? messages[status] ?? 'Die Daten konnten nicht geladen werden.',
+  }
 }
 
 export class AdminApiError extends Error {

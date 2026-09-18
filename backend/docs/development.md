@@ -952,3 +952,17 @@ GRANT SELECT ON uranus.event_category, uranus.event_type,
 
 Die Anwendung führt diese Provisionierung nicht selbst aus. Es sind weder neue
 Domain-Schreibrechte noch Schema-/Indexmigrationen erforderlich.
+
+### Notification delivery retry deployment (0009)
+
+Manual retries append a new delivery with `retry_of_delivery_id`; 0008 is unchanged.
+Only permanent failures offer the action. Temporary failures remain on the worker's
+automatic schedule. The POST is system-admin-only, bodyless and protected by exact Origin
+and CSRF, and never invokes SMTP from HTTP. Current source eligibility and the original
+item set are checked before queueing; normal worker limits apply.
+
+Coordinate API/worker rollout → migrate with `ADMIN_MIGRATION_DATABASE_URL` to 0009 →
+check existing runtime grants/preflight → restart backend → deploy/restart frontend →
+check `/ready` → inspect the delivery list and retry UI → resume/check the worker timer.
+Existing failures are preserved, never automatically retriggered. See
+[the notification retry contract and operator workflow](notifications.md#manual-delivery-retry-migration-0009).

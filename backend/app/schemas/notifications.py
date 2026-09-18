@@ -108,6 +108,7 @@ class NotificationSummary(BaseModel):
 
 class NotificationDelivery(BaseModel):
     id: UUID
+    retry_of_delivery_id: UUID | None
     organization_id: UUID
     recipient: str
     locale: Locale
@@ -131,6 +132,7 @@ class NotificationDetail(NotificationSummary):
 
 class DeliveryDetail(NotificationDelivery):
     notifications: list[NotificationSummary]
+    retries: list[NotificationDelivery]
 
 
 class ConfigIssue(BaseModel):
@@ -150,6 +152,8 @@ class NotificationCounts(BaseModel):
     queued: int
     sent_today: int
     failed: int
+    temporary_failed: int
+    permanent_failed: int
 
 
 class NotificationPage(BaseModel):
@@ -165,4 +169,21 @@ class NotificationPreview(BaseModel):
     html: str
     locale: Locale
     notification_ids: list[UUID]
+    delivery_enabled: bool
+
+
+class NotificationRetryResponse(BaseModel):
+    delivery_id: UUID
+    status: Literal["queued"] = "queued"
+    retry_of_delivery_id: UUID
+
+
+class DeliveryListItem(NotificationDelivery):
+    organization_name: str
+    created_at: datetime
+
+
+class DeliveryPage(BaseModel):
+    items: list[DeliveryListItem]
+    pagination: Pagination
     delivery_enabled: bool

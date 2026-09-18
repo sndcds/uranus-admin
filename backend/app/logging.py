@@ -28,6 +28,8 @@ class JsonFormatter(logging.Formatter):
             "rule",
             "organization_id",
             "delivery_id",
+            "retry_of_delivery_id",
+            "actor_subject",
             "candidates_detected",
             "deliveries_queued",
             "deliveries_sent",

@@ -398,3 +398,20 @@ routing for dates/links. Missing or unsafe routes show DE/DA/EN text guidance wi
 `internal_action_path` is separate from `external_action_url`; internal findings/event routes
 must never be substituted into the preview. Organization contacts need not have system-admin
 accounts.
+
+### E-Mail-Versände and manual retry
+
+`/notifications/deliveries` lists authenticated email audit records with exact status,
+organization UUID, kind, period and pagination filters in the URL. Separate temporary and
+permanent failure KPIs on `/notifications` link to their exact filters. The outstanding KPI
+counts queued plus sending; the list offers both statuses separately. Recipient addresses
+remain protected by the system-admin boundary and private/no-store responses.
+
+`/notifications/deliveries/{id}` explains sanitized SMTP codes, shows scheduled automatic
+attempts for temporary failures, and offers a confirmation dialog only for a permanent
+failure with no non-cancelled successor. “Erneut versuchen” creates a **new queued delivery**,
+then navigates to it. Pending requests disable repeat clicks. Parent/successor links preserve
+the audit chain; local safe error text explains obsolete intent, state conflicts and existing
+attempts. The bodyless typed POST uses the existing CSRF/Origin-protected proxy and cannot
+override recipients or message content. It performs no SMTP; the normal worker processes
+the request subject to current eligibility, the feature flag and daily limits.

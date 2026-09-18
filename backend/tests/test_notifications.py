@@ -6,7 +6,9 @@ import json
 import smtplib
 from datetime import UTC, date, datetime, time, timedelta
 from functools import partial
+from html import escape
 from uuid import UUID, uuid4
+from xml.etree import ElementTree as ET
 
 import email_validator
 import pytest
@@ -23,6 +25,7 @@ from app.notification_worker import work_once
 from app.repositories.notifications import claim, local_day, synchronize
 from app.repositories.quality_sources import Sources, load_sources
 from app.schemas.notifications import NotificationConfig, NotificationPayload
+from app.services.notifications import rendering
 from app.services.notifications.actions import RecipientActions
 from app.services.notifications.batching import batches, content_version
 from app.services.notifications.candidates import Candidate, detect
@@ -317,8 +320,10 @@ def test_permanent_recipient_rejection():
     assert (status, next_at, detail) == ("permanent_failure", None, "smtp_550")
 
 
-def test_multipart_stable_message_id(settings):
-    preview = render([payload()], "en", settings)
+@pytest.mark.parametrize("locale", ["de", "da", "en"])
+@pytest.mark.parametrize("rule", [None, "event_without_dates"])
+def test_multipart_stable_message_id(locale, rule, settings):
+    preview = render([payload(rule=rule)], locale, settings)
     delivery = {
         "id": uuid4(),
         "recipient": "recipient@example.test",
@@ -329,8 +334,8 @@ def test_multipart_stable_message_id(settings):
     assert mail["From"] == "Kulturbytes <notifications@kulturbytes.de>"
     assert mail["Subject"] == preview.subject
     assert mail.get_content_type() == "multipart/alternative"
-    assert "Kulturabend" in mail.get_body(preferencelist=("plain",)).get_content()
-    assert "Kulturabend" in mail.get_body(preferencelist=("html",)).get_content()
+    assert mail.get_body(preferencelist=("plain",)).get_content() == preview.text + "\n"
+    assert mail.get_body(preferencelist=("html",)).get_content() == preview.html
     assert mail["Message-ID"] == message(delivery, settings)["Message-ID"]
 
 
@@ -887,7 +892,10 @@ def test_unsafe_or_missing_recipient_route_degrades(locale, url, settings):
     for rule in (None, "event_without_dates"):
         p.rule = rule
         preview = render([p], locale, settings)
-        assert "href=" not in preview.html
+        assert 'class="button"' not in preview.html
+        assert 'class="button-container"' not in preview.html
+        assert 'style="word-break:break-all;"' not in preview.html
+        assert 'href=""' not in preview.html
         assert CATALOGUE[locale]["action_guidance"] in preview.text
         assert CATALOGUE[locale]["action_guidance"] in preview.html
         assert "https://admin.kulturbytes.de" not in preview.text + preview.html
@@ -977,3 +985,181 @@ async def test_detected_quality_actions_use_source_parents(db_connection, config
             assert p.external_action_url is not None
             assert p.internal_action_path.startswith("/findings?")
     assert {"event", "event_date", "event_link", "organization", "venue", "space"} <= seen
+
+
+def email_tree(html):
+    # The renderer emits HTML void meta tags; normalize only those for XML inspection.
+    import re
+
+    return ET.fromstring(re.sub(r"(<meta\b[^>]*)(>)", r"\1/>", html).replace("&nbsp;", "\u00a0"))
+
+
+@pytest.mark.parametrize("rule", [None, "event_without_dates"])
+@pytest.mark.parametrize(
+    "locale,country,privacy,label,legal,imprint,signoff,team,fallback",
+    [
+        (
+            "de",
+            "",
+            "datenschutz",
+            "Datenschutzerklärung",
+            "impressum",
+            "Impressum",
+            "Viele Grüße,",
+            "Dein kulturbytes-Team",
+            "Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:",
+        ),
+        (
+            "da",
+            ", Tyskland",
+            "privatlivspolitik",
+            "Privatlivspolitik",
+            "impressum",
+            "Impressum",
+            "Mange hilsner,",
+            "Dit kulturbytes-team",
+            "Hvis knappen ikke virker, kan du kopiere dette link til din browser:",
+        ),
+        (
+            "en",
+            ", Germany",
+            "privacy",
+            "Privacy policy",
+            "legal",
+            "Imprint",
+            "Best regards,",
+            "Your kulturbytes team",
+            "If the button does not work, copy this link into your browser:",
+        ),
+    ],
+)
+def test_kulturbytes_reference_layout(
+    locale, country, privacy, label, legal, imprint, signoff, team, fallback, rule, settings
+):
+    p = payload(rule=rule, priority="urgent")
+    result = render([p], locale, settings)
+    assert result.html.startswith(f'<!DOCTYPE html>\n<html lang="{locale}">')
+    tree = email_tree(result.html)
+    assert tree.find('./head/meta[@name="viewport"]').get("content") == (
+        "width=device-width, initial-scale=1.0"
+    )
+    css = tree.find("./head/style").text
+    for declaration in (
+        "margin: 0;",
+        "padding: 0;",
+        "background-color: #f9fafb;",
+        "color: #374151;",
+        "font-family: Arial, Helvetica, sans-serif;",
+        "line-height: 1.5;",
+        "max-width: 600px;",
+        "margin: 0 auto;",
+        "padding: 40px 24px;",
+        "background-color: #ffffff;",
+        "padding: 32px;",
+        "border-radius: 12px;",
+        "font-size: 20px;",
+        "color: #111827;",
+        "margin: 0 0 12px 0;",
+        "margin: 0 0 18px 0;",
+        "margin: 0 0 20px 0;",
+        "display: inline-block;",
+        "background-color: #3f2dd2;",
+        "color: #ffffff !important;",
+        "padding: 12px 24px;",
+        "text-decoration: none;",
+        "border-radius: 999px;",
+        "font-weight: 500;",
+        "margin: 0 0 16px 0;",
+        "color: #6b7280;",
+        "font-size: 14px;",
+        "color: #3f2dd2;",
+        "margin: 20px 0 0 0;",
+        "padding-top: 20px;",
+        "border-top: 1px solid #eef2f6;",
+        "font-size: 12px;",
+        "color: #9ca3af;",
+        "text-decoration: underline;",
+        "margin: 12px 0 0 0;",
+        "text-align: center;",
+    ):
+        assert declaration in css
+    responsive = css.split("@media only screen and (max-width: 600px)")[1]
+    assert ".email-container {\n        padding: 24px 12px;\n    }" in responsive
+    assert ".email-content {\n        padding: 24px;\n    }" in responsive
+    container = tree.find('./body/div[@class="email-container"]')
+    content = container.find('./div[@class="email-content"]')
+    assert content.find('./h1[@class="heading"]').text == CATALOGUE[locale]["hello"]
+    assert (
+        content.find('./h2[@class="heading"]').text == f"Kulturabend · {CATALOGUE[locale]['event']}"
+    )
+    assert content.find('./p[@class="text"]/strong').text == CATALOGUE[locale]["urgent"]
+    button = content.find('./p[@class="button-container"]/a[@class="button"]')
+    assert button.attrib == {
+        "href": p.external_action_url,
+        "class": "button",
+        "target": "_blank",
+        "rel": "noopener noreferrer",
+    }
+    fallback_link = content.find('./p[@class="muted"]/a[@class="link"]')
+    assert fallback_link.text == fallback_link.get("href") == p.external_action_url
+    assert fallback_link.get("style") == "word-break:break-all;"
+    assert fallback in result.html
+    assert result.html.index('class="button-container"') < result.html.index(fallback)
+    footer = content.find('./p[@class="footer"]')
+    assert footer.text.strip() == signoff
+    assert footer.find("strong").text == team
+    assert footer.find("a").get("href") == "https://kulturbytes.de"
+    legal_box = content.find('./div[@class="legal"]')
+    address = "DatenSindDaten e. V., Friesische Straße 41, 24937 Flensburg" + country
+    assert legal_box.find("p").text == address
+    links = legal_box.findall('./p/a[@class="legal-link"]')
+    assert [(a.get("href"), a.text.strip()) for a in links] == [
+        (f"https://kulturbytes.de/{locale}/{privacy}", label),
+        (f"https://kulturbytes.de/{locale}/{legal}", imprint),
+    ]
+    assert list(content)[-2:] == [footer, legal_box]
+    assert container.find('./p[@class="copyright"]').text == "© DatenSindDaten e. V."
+    assert len(list(container)) == 2
+    for value in (signoff, team, address, "© DatenSindDaten e. V.", p.external_action_url):
+        assert value in result.text
+    assert tree.findall(".//script") == tree.findall(".//link") == []
+    assert render([p], locale, settings) == result
+
+
+def test_digest_grouping_and_escaped_recommendations(monkeypatch, settings):
+    attack = '<img src=x onerror="alert(1)"> & <script>alert(1)</script>'
+    monkeypatch.setitem(CATALOGUE["de"], "venue_missing_logo.recommendation", attack)
+    venue = payload(rule="venue_missing_logo").model_copy(
+        update={
+            "entity_type": "venue",
+            "entity_name": attack,
+            "entity_key": "venue",
+            "organization_name": attack,
+            "external_action_url": None,
+        }
+    )
+    items = [payload(rule="url_syntax"), venue, payload(rule="event_without_dates")]
+    result = render(items, "de", settings)
+    tree = email_tree(result.html)
+    assert len(tree.findall('.//h2[@class="heading"]')) == 2
+    assert tree.findall(".//img") == tree.findall(".//script") == []
+    assert escape(attack) in result.html and attack in result.text
+    assert render(list(reversed(items)), "de", settings) == result
+
+
+def test_design_update_does_not_resend_sent_digest(monkeypatch, config, settings):
+    p = payload(rule="event_without_dates", finding_id="f1", severity="warning")
+    items = [row(p=p)]
+    intent = batches(items, [], config.recipients[0], config, NOW)[0]
+    # Simulate a successful pre-design delivery. Its rendered body is not semantic input.
+    intent["snapshot"]["mail"] = {"html": "<html><body>Previous design</body></html>"}
+    history = [{**intent, "id": uuid4(), "status": "sent", "sent_at": NOW}]
+    before = render([p], "de", settings)
+    monkeypatch.setattr(rendering, "EMAIL_CSS", rendering.EMAIL_CSS + "\n/* cosmetic change */")
+    assert render([p], "de", settings).html != before.html
+    assert intent["snapshot"]["version"] == content_version(items)
+    assert (
+        batches(items, [], config.recipients[0], config, NOW)[0]["message_fingerprint"]
+        == (intent["message_fingerprint"])
+    )
+    assert batches(items, history, config.recipients[0], config, NOW + timedelta(days=1)) == []

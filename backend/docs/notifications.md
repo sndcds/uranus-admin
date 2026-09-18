@@ -220,6 +220,51 @@ forever; operators inspect SMTP/configuration and a later meaningful new intent 
 
 ## Rendering, privacy and security
 
+### Kulturbytes visual reference
+
+The visual source of truth for Kulturbytes system emails is Uranus
+[`template/email/email_base.html`](https://github.com/sndcds/uranus/blob/5a5ac813eec708c99de6962aa05a2357535117b0/template/email/email_base.html)
+and [`template/email/layout/{de,da,en}.html`](https://github.com/sndcds/uranus/tree/5a5ac813eec708c99de6962aa05a2357535117b0/template/email/layout).
+Pinned source revision: **5a5ac813eec708c99de6962aa05a2357535117b0**, verified with
+`git ls-remote https://github.com/sndcds/uranus.git refs/heads/main` on **2026-09-18**,
+before implementation. All three languages of `team-invite`, `team-member-accepted`,
+`user-email-verification` and `user-password-reset` at that revision were also inspected.
+The friendly team signature and button fallback wording follow `team-invite/{de,da,en}.html`.
+
+`services/notifications/rendering.py` implements the shared shell locally: the original
+style-block strategy, Arial/Helvetica typography, gray background, 600px container,
+white content with 12px radius, purple `#3f2dd2` pill CTA, responsive padding, signature,
+localized legal links/address and copyright. Entity headings and text group digest findings
+inside the same white content area; urgency uses bold text. Each safe action has a visible,
+breakable URL beneath its button. Missing/unsafe actions retain localized guidance without
+an action link; the public website and legal footer links remain. Source values are escaped.
+The only defensive CSS addition is `overflow-wrap: break-word` on the content container:
+unbroken source names must wrap on small screens without changing the reference's typography,
+colors or spacing. The URL fallback retains Uranus's inline `word-break:break-all`.
+There are no remote template fetches, runtime GitHub dependencies, external CSS/fonts or scripts.
+
+Preview and SMTP use this exact renderer. The preview only inserts an additional CSP meta
+tag, allowing local inline CSS (`style-src 'unsafe-inline'`) while keeping `default-src 'none'`,
+blocked forms/base URLs and an empty iframe sandbox (opaque origin, no scripts). No `v-html`.
+SMTP retains full `text/plain` and `text/html` alternatives; already composed retry snapshots
+and sent delivery history keep their original bodies.
+
+This is a **presentation-only change**: `TEMPLATE_VERSION` stays **1**. Fingerprints continue
+to use semantic payloads/recommendations, never rendered HTML, CSS, whitespace or footer copy.
+No backfill, notification reset or automatic requeue occurs. An unchanged successfully sent
+digest remains suppressed on later days; the regression test covers a changed stylesheet
+and an older sent HTML body. Existing explicit retry rules remain independent of the design.
+
+Backend assertions cover the reference structure/styles, all localized footers, button/fallback,
+guidance, escaping, deterministic entity grouping and MIME equality. Browser tests verify
+computed styles under CSP, opaque-origin isolation, original markup preservation and desktop/
+mobile overflow. They use synthetic renderer-generated inputs, not full-page golden snapshots.
+After renderer changes, refresh these inputs from `backend/` with
+`uv run python -m tests.generate_notification_previews`, then format
+`frontend/tests/fixtures/notification-previews.json` with the frontend Prettier command.
+
+### Localization and transport
+
 Shared structure + complete deterministic DE/DA/EN dictionaries. Missing required locale key
 falls the *whole message* back to English, preventing mixed fragments; tests require catalogue
 key parity. Invalid recipient locales never reach rendering. Dates use localized month names;
@@ -327,7 +372,8 @@ invalid-config diagnostics. GET `/notifications/{id}`, `/notifications/{id}/prev
 `/notification-deliveries/{id}` are under the same `/api/v1` prefix and require system admin.
 Preview reads saved payload and never creates jobs or calls SMTP. Resolved/expired events without a
 complete unpublished payload have no event preview. Actual delivery snapshots remain in the audit table.
-No POST/test-mail endpoint in V1: no additional mail-relay surface or CSRF exception.
+No arbitrary-recipient test-mail endpoint exists. The explicit bodyless retry POST below
+queues only revalidated original items and retains the CSRF/Origin boundary.
 
 UI `/notifications`, `/notifications/{id}`, `/notifications/deliveries/{id}` offers filters,
 counts, status/detail/history, sanitized failures, locale preview HTML/Text and an explicit
@@ -422,3 +468,86 @@ Future work: provider bounces, delivery failure operator retry workflow, authori
 config editing, recipient self-service, larger-source streaming, optional authenticated and
 rate-limited test mail, localization review by native speakers. No weekly unchanged digest,
 SMS/push/WhatsApp/newsletter/AI-generated runtime text/custom cron or template editor in V1.
+
+## Manual delivery retry (migration 0009)
+
+Only `permanent_failure` is manually retryable. `failed` is temporary: the worker
+already has an automatic `next_attempt_at`. Queued, sending, sent, cancelled and test
+messages are not manually retryable. Diagnose and correct the SMTP cause (for example
+`smtp_553`) before requesting another attempt; the UI does not change SMTP configuration.
+
+`POST /api/v1/notification-deliveries/{uuid}/retry` requires an authenticated system
+administrator, the exact configured Origin and `X-Admin-CSRF: 1`, including bearer/dev
+requests. It accepts **no request body or query parameters**: neither recipient, locale,
+subject, body nor action URL can be overridden. It returns **201** with `delivery_id`,
+`status=queued` and `retry_of_delivery_id`. It never sends SMTP, starts a worker or schedules
+an HTTP background task. The existing systemd worker processes the queue at its next
+eligible run; no timer change is required.
+
+The old row is never rewritten, including its attempts, error, subject, snapshot and
+fingerprint. New rows start with attempt_count=0 and queued_at/next_attempt_at=now. They
+keep the original delivery kind and get a new UUID/RFC Message-ID; automatic attempts
+within that new row retain their Message-ID and the existing five-attempt schedule.
+
+Migration **0009**, following the already shipped 0008, adds nullable
+`retry_of_delivery_id`, an admin-only self-FK with `ON DELETE RESTRICT`, and unique index
+`notification_delivery_retry_of_idx`. Existing rows receive NULL without a data rewrite.
+The partial unique index permits only one non-cancelled direct successor: `A → B → C`. If B already exists,
+inspect B and retry B if it ends in permanent_failure; A cannot spawn a parallel branch,
+even after B is sent. A cancelled B retains its history but frees A for another explicit
+retry if A is still eligible; the unique retry fingerprint likewise excludes cancelled rows.
+This linear active-chain invariant makes double clicks
+idempotent at the database boundary. The organization advisory lock is shared with normal
+planning, and overlapping queued/sending/failed deliveries also prevent a new intent.
+The retry fingerprint is SHA-256 of the explicit parent retry intent. Downgrade removes only
+the relation/index and preserves delivery rows; coordinate workers before downgrading.
+Runtime grants remain SELECT/INSERT/UPDATE on deliveries and SELECT/INSERT on items, with
+no additional DELETE, DDL or source permissions. Readiness requires the new migration head.
+
+Retry creation uses the **same collect/detect and valid_intent logic as the worker**.
+It reads current source capability/configuration, ownership, recipient enabled state,
+locale, source evidence and persisted finding reviews. Only active stored notifications
+that remain eligible in fresh source evidence are retained. A recipient removed/disabled,
+invalid config, unavailable capability or no remaining eligible original items produces
+409 `notification_retry_obsolete`. Current titles, countdowns, language and verified external
+CTAs are rendered; historical mail is not copied. A locale change applies only to the new row.
+
+A digest retry is restricted to original delivery-item IDs intersected with current eligible
+notifications. It neither adds later findings nor becomes obsolete solely because unrelated
+new findings appear. Normal digests retain their full-current-digest validation. Pre-send
+revalidation and first-attempt composition still run through the ordinary worker; a now
+obsolete intent is cancelled. The recipient daily quota and one-successful-digest-per-day
+limit apply normally: a failed original does not count as success; an already successful
+digest today defers the retry. Quotas never discard it.
+
+Explicit manual retry requests can create a queued row while delivery is disabled; the
+worker still cannot send it. This differs from automatic Dry Run detection, which creates
+no delivery rows. The UI explains queueing; the list retains the Dry Run banner.
+
+Safe error codes: 404 `notification_delivery_not_found`; 409
+`notification_retry_not_allowed`, `notification_retry_obsolete`, and
+`notification_retry_already_queued`. Messages use local safe descriptions, never SMTP server
+responses. The authenticated `/notifications/deliveries` list uses exact status, organization,
+kind, days and pagination filters. Overview KPIs split temporary/permanent failures;
+`queued + sending` remains the outstanding count, while the list can filter them separately.
+Details link to parent/successor attempts. PII responses remain private/no-store.
+
+No extra actor FK is introduced: the existing authenticated subject (including the explicit
+development subject) is written to a structured `notification_manual_retry` audit event,
+with new/parent delivery IDs and **no recipient address or credentials**. Retain application
+logs according to the operator policy; retry linkage itself is durable in admin storage.
+
+### Deployment of the retry workflow
+
+1. Deploy the new code with API/worker restart coordinated; pause the worker during migration.
+2. Use `ADMIN_MIGRATION_DATABASE_URL` with admin_migrator for `uv run alembic upgrade head`.
+3. Check runtime grants/preflight; no new grants or Uranus migration are required.
+4. Restart the backend, deploy/restart the frontend, and check `/ready`.
+5. Inspect `/notifications/deliveries?status=permanent_failure`: existing `smtp_553` rows
+   remain visible and unchanged. After correcting SMTP, deliberately retry one eligible row.
+6. Confirm the new queued row and parent link; resume/check the notification worker timer.
+   Normal revalidation, SMTP TLS policy and quotas continue to apply.
+
+There is **no automatic retrigger** of existing production failures. SMTP remains
+at-least-once around acceptance versus the sent commit; manual retry is not a guarantee of
+provider delivery. Provider bounce handling and retrying cancelled messages remain outside V1.

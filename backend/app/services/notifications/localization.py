@@ -6,6 +6,16 @@ from app.schemas.notifications import Locale
 
 CATALOGUE: dict[str, dict[str, str]] = {
     "de": {
+        "signoff": "Viele Grüße,",
+        "team": "Dein kulturbytes-Team",
+        "legal_address": "DatenSindDaten e. V., Friesische Straße 41, 24937 Flensburg",
+        "privacy_url": "https://kulturbytes.de/de/datenschutz",
+        "privacy_label": "Datenschutzerklärung",
+        "legal_url": "https://kulturbytes.de/de/impressum",
+        "legal_label": "Impressum",
+        "button_fallback": (
+            "Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:"
+        ),
         "hello": "Hallo,",
         "single": "Deine Veranstaltung „{title}“ findet bald statt",
         "multiple": "{count} deiner Veranstaltungen finden bald statt",
@@ -102,6 +112,14 @@ CATALOGUE: dict[str, dict[str, str]] = {
         ),
     },
     "da": {
+        "signoff": "Mange hilsner,",
+        "team": "Dit kulturbytes-team",
+        "legal_address": "DatenSindDaten e. V., Friesische Straße 41, 24937 Flensburg, Tyskland",
+        "privacy_url": "https://kulturbytes.de/da/privatlivspolitik",
+        "privacy_label": "Privatlivspolitik",
+        "legal_url": "https://kulturbytes.de/da/impressum",
+        "legal_label": "Impressum",
+        "button_fallback": "Hvis knappen ikke virker, kan du kopiere dette link til din browser:",
         "hello": "Hej,",
         "single": "Dit arrangement „{title}“ finder snart sted",
         "multiple": "{count} af dine arrangementer finder snart sted",
@@ -185,6 +203,14 @@ CATALOGUE: dict[str, dict[str, str]] = {
         ),
     },
     "en": {
+        "signoff": "Best regards,",
+        "team": "Your kulturbytes team",
+        "legal_address": "DatenSindDaten e. V., Friesische Straße 41, 24937 Flensburg, Germany",
+        "privacy_url": "https://kulturbytes.de/en/privacy",
+        "privacy_label": "Privacy policy",
+        "legal_url": "https://kulturbytes.de/en/legal",
+        "legal_label": "Imprint",
+        "button_fallback": "If the button does not work, copy this link into your browser:",
         "hello": "Hello,",
         "single": "Your event “{title}” is coming up soon",
         "multiple": "{count} of your events are coming up soon",
