@@ -15,6 +15,7 @@ from app.repositories.activity_previews import activity_previews
 from app.repositories.created_period import created_period_filter, require_timezone
 from app.repositories.entity_search import ORGANIZATION_FILTER, SEARCH_DEFINITIONS, escape_search
 from app.repositories.graph import RELATIONS
+from app.repositories.spatial import spatial_predicate
 from app.repositories.temporal import temporal_predicate
 from app.schemas.action import Action
 from app.schemas.activity import Activity
@@ -126,13 +127,20 @@ async def entity_page(
     section: EntitySection,
     filters: EntityFilters,
     now: datetime,
+    geo_scope_wkb: bytes | None = None,
 ) -> EntityPage:
     kind = SECTIONS[section]
-    temporal = temporal_predicate(kind, filters.temporal)
+    spatial = spatial_predicate(kind, filters.temporal) if geo_scope_wkb is not None else "TRUE"
+    temporal = (
+        "TRUE"
+        if geo_scope_wkb is not None and kind == "event"
+        else temporal_predicate(kind, filters.temporal)
+    )
     period_sql, period_params = created_period_filter(filters.period, settings, now)
     q = escape_search(filters.q)
     params = {
         **period_params,
+        "geo_scope_wkb": geo_scope_wkb,
         "q": f"%{q}%",
         "kind": kind,
         "event_tz": settings.event_timezone,
@@ -153,7 +161,7 @@ async def entity_page(
     base = f"""SELECT a.* FROM ({SOURCES[kind]}) a
         WHERE {search}
         AND (CAST(:status AS text) IS NULL OR status=:status)
-        AND {ORGANIZATION_FILTER} AND {temporal} AND {period_sql}"""
+        AND {ORGANIZATION_FILTER} AND {temporal} AND {period_sql} AND {spatial}"""
     total = int(
         (await connection.execute(text(f"SELECT count(*) FROM ({base}) a"), params)).scalar_one()
     )

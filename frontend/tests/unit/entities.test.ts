@@ -12,6 +12,7 @@ import ResultSummary from '../../app/components/ResultSummary.vue'
 import PageHeader from '../../app/components/PageHeader.vue'
 import DetailFacts from '../../app/components/DetailFacts.vue'
 import { entitySectionSchema, entityPageSchema } from '../../shared/contracts'
+import { geoArea } from '../fixtures/geo'
 import { entityFixture, detailFixture } from '../fixtures/entities'
 const api = {
     entities: vi.fn(),
@@ -377,5 +378,38 @@ it.each(entitySectionSchema.options)(
       query: expect.objectContaining({ period: undefined, page: '1' }),
     })
     list.unmount()
+  },
+)
+
+it('sends the scope before pagination, describes it and preserves it on local reset', async () => {
+  useFilterPreferencesStore().setGeoScope(geoArea)
+  route.query = { geo_scope_id: geoArea.id, period: '90d', q: 'Foo', status: 'draft', page: '3' }
+  api.entities.mockResolvedValue(entityFixture('events'))
+  const wrapper = mount(EntityListPage, { props: { section: 'events' }, global })
+  await flushPromises()
+  expect(api.entities).toHaveBeenLastCalledWith('events', route.query)
+  expect(wrapper.text()).toContain('Gebiet: Flensburg')
+  expect(wrapper.text()).toContain('Erstellt: Letzte 90 Tage')
+  expect(wrapper.findComponent(EntitySearch).props('geoScopeId')).toBe(geoArea.id)
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Filter zurücksetzen')!
+    .trigger('click')
+  expect(push).toHaveBeenLastCalledWith({ query: { page: '1', geo_scope_id: geoArea.id } })
+  expect(useFilterPreferencesStore().sharedGeoScope?.id).toBe(geoArea.id)
+  wrapper.unmount()
+})
+
+it.each(['users', 'images'] as const)(
+  'keeps %s globally listed without a misleading area summary',
+  async (section) => {
+    useFilterPreferencesStore().setGeoScope(geoArea)
+    api.entities.mockResolvedValue(entityFixture(section))
+    const wrapper = mount(EntityListPage, { props: { section }, global })
+    await flushPromises()
+    expect(api.entities).toHaveBeenLastCalledWith(section, {})
+    expect(wrapper.text()).not.toContain('Gebiet: Flensburg')
+    expect(wrapper.findComponent(EntitySearch).props('geoScopeId')).toBeUndefined()
+    wrapper.unmount()
   },
 )

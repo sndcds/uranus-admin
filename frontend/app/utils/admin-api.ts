@@ -1,4 +1,6 @@
 import {
+  geoAreaSchema,
+  geoAreaSearchResponseSchema,
   notificationPageSchema,
   notificationDeliveryPageSchema,
   notificationRetryResponseSchema,
@@ -28,6 +30,7 @@ import {
 } from '#shared/contracts'
 import type { z } from '#shared/zod'
 import type {
+  GeoAreaImport,
   FindingFilters,
   EventContentQuery,
   EntitySearchQuery,
@@ -51,6 +54,7 @@ export function createAdminApi(
     query: Record<string, string | number | undefined> = {},
     method = 'GET',
     requestBody?: unknown,
+    signal?: AbortSignal,
   ) {
     const generation = accessGeneration
     const params = new URLSearchParams()
@@ -68,7 +72,9 @@ export function createAdminApi(
         },
         cache: 'no-store',
         credentials: credential ? 'omit' : 'same-origin',
-        signal: AbortSignal.timeout(12000),
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(12000)])
+          : AbortSignal.timeout(12000),
       })
     } catch {
       throw new AdminApiError(failure(502))
@@ -92,6 +98,18 @@ export function createAdminApi(
     return parsed.data
   }
   return {
+    geoArea: (id: string) => request(`/api/v1/geo/areas/${encodeURIComponent(id)}`, geoAreaSchema),
+    searchGeoAreas: (q: string, signal?: AbortSignal) =>
+      request(
+        '/api/v1/geo/areas/search',
+        geoAreaSearchResponseSchema,
+        { q },
+        'GET',
+        undefined,
+        signal,
+      ),
+    importGeoArea: (identity: GeoAreaImport) =>
+      request('/api/v1/geo/areas', geoAreaSchema, {}, 'POST', identity),
     onAccessLost(callback: (status: number) => void) {
       accessLost = callback
     },

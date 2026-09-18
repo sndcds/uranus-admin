@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     notification_urgent_days: int = Field(default=2, ge=0, le=2)
     admin_public_base_url: str = "https://admin.kulturbytes.de"
     kulturbytes_app_public_base_url: str = "https://app.kulturbytes.de"
+    nominatim_base_url: str | None = None
+    nominatim_timeout_seconds: int = Field(default=8, ge=1, le=30)
+    nominatim_max_response_bytes: int = Field(default=16_777_216, ge=1024, le=33_554_432)
+    nominatim_max_geometry_points: int = Field(default=250_000, ge=4, le=500_000)
     upcoming_days: int = Field(default=14, ge=1, le=365)
     image_orphan_grace_hours: int = Field(default=48, ge=1, le=8760)
     pending_age_days: int = Field(default=14, ge=1, le=3650)
@@ -63,6 +67,27 @@ class Settings(BaseSettings):
     openapi_enabled: bool = False
     dev_auth_enabled: bool = False
     dev_admin_token: SecretStr | None = None
+
+    @field_validator("nominatim_base_url")
+    @classmethod
+    def valid_nominatim_origin(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or any(c in value for c in "*\\?#%")
+            or any(ord(c) < 33 or ord(c) == 127 for c in value)
+        ):
+            raise ValueError("NOMINATIM_BASE_URL must be one exact HTTP(S) origin")
+        _ = parsed.port
+        return value
 
     @field_validator("admin_timezone", "event_timezone", "uranus_timestamp_timezone")
     @classmethod
@@ -160,6 +185,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def secure_configuration(self) -> "Settings":
+        if (
+            self.nominatim_base_url
+            and self.app_env not in {"development", "test"}
+            and not self.nominatim_base_url.startswith("https://")
+        ):
+            raise ValueError("Production Nominatim requires HTTPS")
         has_username = self.notification_smtp_username is not None
         has_password = self.notification_smtp_password is not None
         if has_username != has_password:

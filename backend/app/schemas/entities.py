@@ -18,6 +18,7 @@ TemporalFilter = Literal["upcoming", "past"]
 class EntityFilters(BaseModel):
     q: str = Field(default="", max_length=200)
     organization_id: UUID | None = None
+    geo_scope_id: UUID | None = None
     temporal: TemporalFilter | None = None
     period: PresetPeriod | None = None
     status: str | None = Field(default=None, max_length=32)
@@ -71,6 +72,7 @@ class EntitySearchFilters(BaseModel):
     q: str = Field(min_length=2, max_length=200)
     entity_type: EntitySearchType
     organization_id: UUID | None = None
+    geo_scope_id: UUID | None = None
     temporal: TemporalFilter | None = None
     period: PresetPeriod | None = None
     status: str | None = Field(default=None, max_length=32)

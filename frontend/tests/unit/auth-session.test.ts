@@ -7,6 +7,7 @@ import { useFindingsStore } from '../../app/stores/findings'
 import { createAdminApi } from '../../app/utils/admin-api'
 import { internalRedirect, returnTarget } from '../../app/utils/auth-redirect'
 import { AdminApiError, failure } from '../../shared/errors'
+import { geoArea } from '../fixtures/geo'
 import { findings, summary } from '../fixtures/api'
 
 const principal = { subject: 'admin:fixture', system_admin: true }
@@ -57,6 +58,7 @@ it.each([false, true])('logout clears caches and navigates even on failure: %s',
   const dashboard = useDashboardStore(),
     list = useFindingsStore()
   const preferences = useFilterPreferencesStore()
+  preferences.setGeoScope(geoArea)
   preferences.entities.events.q = 'email@example.org'
   preferences.entities.events.status = 'released'
   preferences.graph.organization = 'private-org'
@@ -71,6 +73,7 @@ it.each([false, true])('logout clears caches and navigates even on failure: %s',
   expect(list.data).toBeNull()
   expect(preferences.entities.events).toEqual({ q: '', status: '', temporal: '', period: '' })
   expect(preferences.graph.organization).toBe('')
+  expect(preferences.sharedGeoScope).toBeNull()
   expect(preferences.sharedPeriod).toBe('24h')
   expect(preferences.sharedPeriodChosen).toBe(false)
   expect(Object.values(preferences.entityPeriodsSet).some(Boolean)).toBe(false)
@@ -165,6 +168,7 @@ it.each([
     )
 })
 it('central access-loss handler resets stores and preserves the current route', async () => {
+  useFilterPreferencesStore().setGeoScope(geoArea)
   vi.stubGlobal('defineNuxtPlugin', (plugin: unknown) => plugin)
   const auth = useAuthStore()
   await auth.checkSession()
@@ -180,6 +184,7 @@ it('central access-loss handler resets stores and preserves the current route', 
   setup({ $adminApi: api, runWithContext: (fn: () => unknown) => fn() })
   register.mock.calls[0]![0](401)
   expect(auth.status).toBe('anonymous')
+  expect(useFilterPreferencesStore().sharedGeoScope).toBeNull()
   expect(useDashboardStore().data).toBeNull()
   expect(useFindingsStore().data).toBeNull()
   expect(navigate).toHaveBeenCalledWith(

@@ -6,6 +6,11 @@ export interface ApiFailure {
 
 export function failure(status: number, code = 'request_failed'): ApiFailure {
   const retryMessages: Record<string, string> = {
+    geo_scope_not_found: 'Dieses Gebiet ist nicht verfügbar. Der Gebietsfilter wurde entfernt.',
+    geo_provider_unavailable:
+      'Die Gebietssuche ist derzeit nicht verfügbar. Gespeicherte Gebiete bleiben nutzbar.',
+    geo_area_not_eligible: 'Dieser Treffer kann nicht als administratives Gebiet verwendet werden.',
+    geo_area_geometry_invalid: 'Die Grenze dieses Gebiets konnte nicht verarbeitet werden.',
     notification_delivery_not_found: 'Dieser E-Mail-Versand wurde nicht gefunden.',
     notification_retry_not_allowed:
       'Dieser Versand kann nicht erneut gestartet werden. Prüfe den neuesten Versuch in der Versandhistorie.',

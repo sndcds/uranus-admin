@@ -415,3 +415,20 @@ the audit chain; local safe error text explains obsolete intent, state conflicts
 attempts. The bodyless typed POST uses the existing CSRF/Origin-protected proxy and cannot
 override recipients or message content. It performs no SMTP; the normal worker processes
 the request subject to current eligibility, the feature flag and daily limits.
+
+## Global Geo Scope (phase 1)
+
+The header's Gebiet selector sets a session-only work area alongside the shared period.
+Events, Venues, Spaces and Organizations lists and autocomplete support `geo_scope_id`;
+URL wins over memory, then no scope. Reload resolves cached metadata before the list
+loads. Local filter reset preserves the area; global area reset preserves other filters
+and returns to page 1. Logout/session loss/new login resets it. No browser persistence.
+
+Users/images and, in this delivery phase, Activity/Findings/Dashboard/Statistics/Graph
+remain global and say so visibly when a scope is selected. These pages do not send a
+geo filter or claim their metrics are spatially restricted. Scope memory survives the
+navigation back to supported lists. Details remain accessible outside the scope.
+Unlocated records (NULL/EMPTY authoritative points) are excluded from scoped lists.
+
+See [backend Geo Scope](../../backend/docs/geo-scope.md) for the API matrix, exact event
+and temporal semantics, provider limits/coverage, deployment and concrete follow-up PRs.

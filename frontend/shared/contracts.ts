@@ -188,6 +188,10 @@ export type FindingFilters = z.infer<typeof filtersSchema>
 
 // Own API codes only. Messages are validated but replaced with local safe text.
 export const adminErrorStatuses = {
+  geo_scope_not_found: 404,
+  geo_provider_unavailable: 503,
+  geo_area_not_eligible: 422,
+  geo_area_geometry_invalid: 422,
   notification_delivery_not_found: 404,
   notification_retry_not_allowed: 409,
   notification_retry_obsolete: 409,
@@ -705,6 +709,7 @@ export const entitySearchResponseSchema = z.object({
 export const temporalFilterSchema = z.enum(['upcoming', 'past'])
 export type TemporalFilter = z.infer<typeof temporalFilterSchema>
 export type EntitySearchQuery = {
+  geo_scope_id?: string
   q: string
   entity_type: EntitySearchType
   period?: SharedPeriod
@@ -946,3 +951,58 @@ export const notificationDeliveryPageSchema = z.object({
 })
 export type NotificationRetryResponse = z.infer<typeof notificationRetryResponseSchema>
 export type NotificationDeliveryPage = z.infer<typeof notificationDeliveryPageSchema>
+
+export const geoScopeIdSchema = z.uuid()
+export const geoAreaKindSchema = z.enum([
+  'country',
+  'region',
+  'county',
+  'municipality',
+  'city',
+  'district',
+  'other',
+])
+export const geoAreaImportSchema = z
+  .object({
+    source: z.literal('osm'),
+    source_type: z.literal('relation'),
+    source_id: z.string().regex(/^[1-9][0-9]{0,18}$/),
+  })
+  .strict()
+const geoAreaMetadata = {
+  name: z.string().min(1).max(240),
+  display_name: z.string().min(1).max(1024),
+  country_code: z
+    .string()
+    .regex(/^[a-z]{2}$/)
+    .nullable(),
+  admin_level: z.number().int().min(0).max(99).nullable(),
+  kind: geoAreaKindSchema,
+  provider_class: z.string().max(80).nullable(),
+  provider_type: z.string().max(80).nullable(),
+  provider_addresstype: z.string().max(80).nullable(),
+  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable(),
+  hierarchy: z.record(z.string().max(80), z.string().max(240)),
+}
+export const geoAreaSchema = z.object({
+  id: geoScopeIdSchema,
+  source: z.string().min(1).max(80),
+  source_type: z.string().min(1).max(80),
+  source_id: z.string().min(1).max(80),
+  ...geoAreaMetadata,
+  fetched_at: z.iso.datetime({ offset: true }),
+})
+export const geoAreaSearchItemSchema = z.object({
+  provider: z.literal('osm'),
+  osm_type: z.literal('relation'),
+  osm_id: geoAreaImportSchema.shape.source_id,
+  ...geoAreaMetadata,
+  eligible_for_scope: z.boolean(),
+})
+export const geoAreaSearchResponseSchema = z.object({
+  items: z.array(geoAreaSearchItemSchema).max(10),
+})
+export type GeoArea = z.infer<typeof geoAreaSchema>
+export type GeoAreaKind = z.infer<typeof geoAreaKindSchema>
+export type GeoAreaSearchItem = z.infer<typeof geoAreaSearchItemSchema>
+export type GeoAreaImport = z.infer<typeof geoAreaImportSchema>

@@ -544,3 +544,28 @@ def test_heartbeat_settings_are_validated(heartbeat):
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None, auth_session_heartbeat_seconds=heartbeat)
+
+
+async def test_geo_import_requires_systemadmin_origin_and_csrf(auth_client):
+    client, _, settings = auth_client
+    from app.api.geo import get_provider
+    from tests.test_geo import IDENTITY, provider
+
+    client._transport.app.dependency_overrides[get_provider] = lambda: provider(settings)
+    assert (await sign_in(client, "ordinary")).status_code == 200
+    denied = await client.post("/api/v1/geo/areas", headers=CSRF, json=IDENTITY.model_dump())
+    assert denied.status_code == 403
+    assert (await sign_in(client)).status_code == 200
+    for headers in (
+        {},
+        {"Origin": ORIGIN},
+        {"X-Admin-CSRF": "1"},
+        {"Origin": "https://evil.test", "X-Admin-CSRF": "1"},
+    ):
+        response = await client.post(
+            "/api/v1/geo/areas", headers=headers, json=IDENTITY.model_dump()
+        )
+        assert response.status_code == 403
+        assert response.json()["error"]["code"] == "csrf_rejected"
+    response = await client.post("/api/v1/geo/areas", headers=CSRF, json=IDENTITY.model_dump())
+    assert response.status_code == 200

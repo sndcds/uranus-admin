@@ -1,4 +1,5 @@
 import {
+  geoAreaImportSchema,
   loginSchema,
   sessionSchema,
   logoutSchema,
@@ -12,6 +13,8 @@ import { isIP } from 'node:net'
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
+  '/api/v1/geo/areas/search': ['q', 'limit'],
+  '/api/v1/geo/areas': [],
   '/api/v1/notification-deliveries': [
     'status',
     'organization_id',
@@ -33,6 +36,7 @@ const routes: Record<string, readonly string[]> = {
   '/api/v1/graph': ['root_type', 'root_key', 'depth', 'relation_type'],
   '/api/v1/entity-search': [
     'q',
+    'geo_scope_id',
     'entity_type',
     'organization_id',
     'status',
@@ -136,6 +140,11 @@ export async function forwardAdminRequest(
   base: string,
   fetcher: typeof fetch = fetch,
 ): Promise<ProxyResult> {
+  const geoDetail =
+    /^\/api\/v1\/geo\/areas\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      input.path,
+    )
+  const spatialList = /^\/api\/v1\/(events|venues|spaces|organizations)$/.test(input.path)
   const entityList = /^\/api\/v1\/(events|venues|spaces|organizations|users|images)$/.test(
     input.path,
   )
@@ -164,12 +173,21 @@ export async function forwardAdminRequest(
       input.path,
     )
   const allowed =
-    notificationDetail || notificationRetry
+    notificationDetail || notificationRetry || geoDetail
       ? []
       : notificationPreview
         ? ['locale']
         : entityList
-          ? ['q', 'organization_id', 'status', 'period', 'temporal', 'page', 'page_size']
+          ? [
+              'q',
+              'organization_id',
+              'status',
+              'period',
+              'temporal',
+              'page',
+              'page_size',
+              ...(spatialList ? ['geo_scope_id'] : []),
+            ]
           : entityDetail
             ? ['related_page']
             : markDetail || checkDetail
@@ -187,6 +205,7 @@ export async function forwardAdminRequest(
     return rejected(405, 'method_not_allowed')
   const write =
     authWrite ||
+    (input.method === 'POST' && input.path === '/api/v1/geo/areas') ||
     (input.method === 'POST' && notificationRetry) ||
     (input.method === 'POST' && input.path === '/api/v1/record-marks') ||
     (input.method === 'PATCH' && markDetail) ||
@@ -199,7 +218,14 @@ export async function forwardAdminRequest(
     return rejected(405, 'method_not_allowed')
   if (notificationRetry && input.body !== undefined) return rejected(422, 'invalid_input')
   if (write && input.query.size) return rejected(422, 'invalid_query')
+  if (input.path === '/api/v1/geo/areas' && input.method !== 'POST')
+    return rejected(405, 'method_not_allowed')
   let requestBody: string | undefined
+  if (write && input.path === '/api/v1/geo/areas') {
+    const parsed = geoAreaImportSchema.safeParse(input.body)
+    if (!parsed.success) return rejected(422, 'invalid_input')
+    requestBody = JSON.stringify(parsed.data)
+  }
   if (input.path === '/auth/login') {
     const parsed = loginSchema.safeParse(input.body)
     if (!parsed.success) return rejected(422, 'invalid_input')

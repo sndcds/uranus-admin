@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { supportsGeoScope } from '~/utils/geo'
 import { dateTime } from '~/utils/presentation'
+const preferences = useFilterPreferencesStore()
+const route = useRoute()
 const auth = useAuthStore()
 const interactive = ref(false)
 onMounted(() => {
@@ -74,6 +77,7 @@ function closeMenu() {
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-3">
+            <GeoScopeSelector />
             <span class="text-sm text-slate-600">Systemadministrator</span>
             <button
               class="button"
@@ -95,6 +99,20 @@ function closeMenu() {
         </div>
       </header>
       <main id="main-content" tabindex="-1" class="mx-auto max-w-7xl space-y-5 p-5 sm:p-8">
+        <p v-if="preferences.geoScopeError" role="alert" class="text-sm text-amber-800">
+          {{ preferences.geoScopeError }}
+        </p>
+        <p v-if="preferences.sharedGeoScope" class="text-sm text-slate-600" role="status">
+          <template v-if="supportsGeoScope(route.path)"
+            >Nicht räumlich zuordenbare Datensätze sind bei aktivem Gebietsfilter
+            ausgeschlossen.</template
+          >
+          <template v-else
+            >Gebiet: {{ preferences.sharedGeoScope.name }}. Diese Ansicht ist nicht räumlich
+            eingeschränkt. Der Gebietsfilter gilt derzeit für Listen und Suche von Veranstaltungen,
+            Orten, Räumen und Organisationen.</template
+          >
+        </p>
         <slot />
       </main>
     </div>
