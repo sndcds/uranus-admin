@@ -5652,6 +5652,318 @@
           }
         }
       }
+    },
+    "/api/v1/notification-deliveries": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Deliveries",
+        "operationId": "deliveries_api_v1_notification_deliveries_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "sending",
+                    "sent",
+                    "failed",
+                    "permanent_failure",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "delivery_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "initial",
+                    "reminder",
+                    "escalation",
+                    "digest",
+                    "test"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Delivery Kind"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 365,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Days"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/notification-deliveries/{delivery_id}/retry": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Retry Delivery",
+        "operationId": "retry_delivery_api_v1_notification_deliveries__delivery_id__retry_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "delivery_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Delivery Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRetryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6396,6 +6708,18 @@
             "format": "uuid",
             "title": "Id"
           },
+          "retry_of_delivery_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Of Delivery Id"
+          },
           "organization_id": {
             "type": "string",
             "format": "uuid",
@@ -6532,11 +6856,19 @@
             },
             "type": "array",
             "title": "Notifications"
+          },
+          "retries": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationDelivery"
+            },
+            "type": "array",
+            "title": "Retries"
           }
         },
         "type": "object",
         "required": [
           "id",
+          "retry_of_delivery_id",
           "organization_id",
           "recipient",
           "locale",
@@ -6551,9 +6883,217 @@
           "next_attempt_at",
           "last_error",
           "provider_message_id",
-          "notifications"
+          "notifications",
+          "retries"
         ],
         "title": "DeliveryDetail"
+      },
+      "DeliveryListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "retry_of_delivery_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Of Delivery Id"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "recipient": {
+            "type": "string",
+            "title": "Recipient"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "de",
+              "da",
+              "en"
+            ],
+            "title": "Locale"
+          },
+          "delivery_kind": {
+            "type": "string",
+            "enum": [
+              "initial",
+              "reminder",
+              "escalation",
+              "digest",
+              "test"
+            ],
+            "title": "Delivery Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sending",
+              "sent",
+              "failed",
+              "permanent_failure",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "message_fingerprint": {
+            "type": "string",
+            "title": "Message Fingerprint"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count"
+          },
+          "queued_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queued At"
+          },
+          "sending_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sending At"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent At"
+          },
+          "next_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Attempt At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "provider_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Message Id"
+          },
+          "organization_name": {
+            "type": "string",
+            "title": "Organization Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "retry_of_delivery_id",
+          "organization_id",
+          "recipient",
+          "locale",
+          "delivery_kind",
+          "status",
+          "subject",
+          "message_fingerprint",
+          "attempt_count",
+          "queued_at",
+          "sending_at",
+          "sent_at",
+          "next_attempt_at",
+          "last_error",
+          "provider_message_id",
+          "organization_name",
+          "created_at"
+        ],
+        "title": "DeliveryListItem"
+      },
+      "DeliveryPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveryListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "delivery_enabled": {
+            "type": "boolean",
+            "title": "Delivery Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination",
+          "delivery_enabled"
+        ],
+        "title": "DeliveryPage"
       },
       "EntityDetail": {
         "properties": {
@@ -8839,6 +9379,14 @@
           "failed": {
             "type": "integer",
             "title": "Failed"
+          },
+          "temporary_failed": {
+            "type": "integer",
+            "title": "Temporary Failed"
+          },
+          "permanent_failed": {
+            "type": "integer",
+            "title": "Permanent Failed"
           }
         },
         "type": "object",
@@ -8846,7 +9394,9 @@
           "active",
           "queued",
           "sent_today",
-          "failed"
+          "failed",
+          "temporary_failed",
+          "permanent_failed"
         ],
         "title": "NotificationCounts"
       },
@@ -8856,6 +9406,18 @@
             "type": "string",
             "format": "uuid",
             "title": "Id"
+          },
+          "retry_of_delivery_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Of Delivery Id"
           },
           "organization_id": {
             "type": "string",
@@ -8991,6 +9553,7 @@
         "type": "object",
         "required": [
           "id",
+          "retry_of_delivery_id",
           "organization_id",
           "recipient",
           "locale",
@@ -9425,6 +9988,32 @@
           "delivery_enabled"
         ],
         "title": "NotificationPreview"
+      },
+      "NotificationRetryResponse": {
+        "properties": {
+          "delivery_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Delivery Id"
+          },
+          "status": {
+            "type": "string",
+            "const": "queued",
+            "title": "Status",
+            "default": "queued"
+          },
+          "retry_of_delivery_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Retry Of Delivery Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "delivery_id",
+          "retry_of_delivery_id"
+        ],
+        "title": "NotificationRetryResponse"
       },
       "NotificationSummary": {
         "properties": {

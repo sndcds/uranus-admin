@@ -221,7 +221,7 @@ def valid_intent(
     items = [
         r for r in rows if str(r["id"]) in delivery["snapshot"]["ids"] and r["status"] == "active"
     ]
-    if delivery["delivery_kind"] == "digest":
+    if delivery["delivery_kind"] == "digest" and not delivery.get("retry_of_delivery_id"):
         items = [
             r
             for r in rows
