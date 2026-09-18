@@ -15,6 +15,7 @@ from app.schemas.notifications import (
     NotificationStatus,
     NotificationType,
 )
+from app.services.notifications.actions import RecipientActions
 from app.services.notifications.policy import EXTERNAL_POLICY, SEVERITY, next_date, stage
 from app.services.quality.core import QualityContext, evaluate_core
 
@@ -37,6 +38,7 @@ def detect(
 ) -> list[Candidate]:
     context = QualityContext(sources, settings, now)
     organizations = sources.index("organization")
+    actions = RecipientActions(sources, settings)
     local = now.astimezone(ZoneInfo(settings.event_timezone))
     result = []
     for event in sources.rows["event"]:
@@ -78,7 +80,8 @@ def detect(
                     entity_name=event["name"],
                     entity_type="event",
                     entity_key=str(event["uuid"]),
-                    action_path=f"/events/{event['uuid']}",
+                    internal_action_path=f"/events/{event['uuid']}",
+                    external_action_url=actions.url("event", str(event["uuid"]), org_id),
                     event_status=event["release_status"]
                     if event["release_status"] in {"draft", "review"}
                     else None,
@@ -120,7 +123,10 @@ def detect(
                         entity_name=f.entity_name,
                         entity_type=f.entity_type,
                         entity_key=f.entity_key,
-                        action_path="/findings?"
+                        external_action_url=actions.url(
+                            f.entity_type, f.entity_key, f.organization_id
+                        ),
+                        internal_action_path="/findings?"
                         + urlencode(
                             {
                                 "mode": "persisted",

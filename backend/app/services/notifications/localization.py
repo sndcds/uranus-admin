@@ -25,8 +25,14 @@ CATALOGUE: dict[str, dict[str, str]] = {
         "today": "Deine Veranstaltung findet heute statt.",
         "tomorrow": "Deine Veranstaltung findet bereits morgen statt.",
         "days": "Deine Veranstaltung findet in {count} Tagen statt.",
-        "event_action": "Veranstaltung prüfen",
-        "quality_action": "Hinweise ansehen",
+        "event_action": "Veranstaltung bearbeiten",
+        "venue_action": "Veranstaltungsort bearbeiten",
+        "organization_action": "Organisation bearbeiten",
+        "space_action": "Raum bearbeiten",
+        "action_guidance": (
+            "Melde dich bei Kulturbytes an und öffne den entsprechenden Eintrag "
+            "in deinem Dashboard."
+        ),
         "footer": (
             "Du erhältst diese Nachricht, weil diese E-Mail-Adresse für "
             "Benachrichtigungen der Organisation „{organization}“ in Kulturbytes "
@@ -114,8 +120,11 @@ CATALOGUE: dict[str, dict[str, str]] = {
         "today": "Dit arrangement finder sted i dag.",
         "tomorrow": "Dit arrangement finder allerede sted i morgen.",
         "days": "Dit arrangement finder sted om {count} dage.",
-        "event_action": "Gennemgå arrangementet",
-        "quality_action": "Se forslagene",
+        "event_action": "Rediger arrangementet",
+        "venue_action": "Rediger arrangementsstedet",
+        "organization_action": "Rediger organisationen",
+        "space_action": "Rediger lokalet",
+        "action_guidance": ("Log ind på Kulturbytes, og åbn det relevante opslag i dit dashboard."),
         "footer": (
             "Du modtager denne besked, fordi denne e-mailadresse er tilmeldt "
             "notifikationer for organisationen „{organization}“ på Kulturbytes."
@@ -190,8 +199,13 @@ CATALOGUE: dict[str, dict[str, str]] = {
         "today": "Your event takes place today.",
         "tomorrow": "Your event takes place tomorrow.",
         "days": "Your event takes place in {count} days.",
-        "event_action": "Review event",
-        "quality_action": "View suggestions",
+        "event_action": "Edit event",
+        "venue_action": "Edit venue",
+        "organization_action": "Edit organization",
+        "space_action": "Edit room",
+        "action_guidance": (
+            "Sign in to Kulturbytes and open the relevant entry in your dashboard."
+        ),
         "footer": (
             "You are receiving this message because this email address is registered for "
             "notifications for the organization “{organization}” on Kulturbytes."

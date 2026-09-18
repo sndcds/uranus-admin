@@ -9236,9 +9236,27 @@
             "type": "string",
             "title": "Entity Key"
           },
-          "action_path": {
-            "type": "string",
-            "title": "Action Path"
+          "internal_action_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Action Path"
+          },
+          "external_action_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Action Url"
           },
           "event_status": {
             "anyOf": [
@@ -9356,8 +9374,7 @@
           "organization_name",
           "entity_name",
           "entity_type",
-          "entity_key",
-          "action_path"
+          "entity_key"
         ],
         "title": "NotificationPayload",
         "description": "Small, typed rendering/audit snapshot; never a raw source row or finding.message."

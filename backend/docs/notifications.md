@@ -230,8 +230,62 @@ Every mail is multipart/alternative. HTML source values and URLs are escaped; su
 characters removed, long subjects capped at 180 characters, full names retained in body.
 Addresses are validated; headers use EmailMessage and formataddr. STARTTLS defaults on with
 normal certificate validation. SMTP secrets use SecretStr and are never API/health/log output.
-Links derive from validated ADMIN_PUBLIC_BASE_URL and canonical existing event/finding routes,
-never the Host header or arbitrary source URL. No invented notification-settings link.
+External recipients are organization notification contacts and are not assumed to have
+uranus-admin system-admin accounts. Email CTAs target verified Kulturbytes user-facing edit
+routes only. Links derive from `KULTURBYTES_APP_PUBLIC_BASE_URL` (default
+`https://app.kulturbytes.de`), never the Host header, source URLs, or `ADMIN_PUBLIC_BASE_URL`.
+The configured app origin must be an exact HTTP(S) origin without credentials, wildcards,
+path, query, fragment or control characters. HTTPS is required in staging/production and
+when delivery is enabled. The app must have a separate origin from system-admin authentication.
+`ADMIN_PUBLIC_BASE_URL` is reserved for internal administration.
+
+### Verified recipient routes
+
+Verified on 2026-09-18 against uranus-dashboard commit
+[`4a77db16fdc15222d7994fdcda701aaf7a126624`](https://github.com/sndcds/uranus-dashboard/tree/4a77db16fdc15222d7994fdcda701aaf7a126624):
+
+| Entity | User-facing path under `https://app.kulturbytes.de` |
+| --- | --- |
+| Event | `/admin/event/{event_uuid}` |
+| Organization | `/admin/org/{org_uuid}/edit` |
+| Venue | `/admin/org/{org_uuid}/venue/{venue_uuid}/edit` |
+| Space | `/admin/org/{org_uuid}/venue/{venue_uuid}/space/{space_uuid}/edit` |
+| Event date | Parent event route |
+| Event link | Parent event route |
+
+Evidence: [`src/router/index.ts`](https://github.com/sndcds/uranus-dashboard/blob/4a77db16fdc15222d7994fdcda701aaf7a126624/src/router/index.ts)
+registers these exact paths, including the nested `/admin` prefix.
+[`UranusAdminEventEditView.vue`](https://github.com/sndcds/uranus-dashboard/blob/4a77db16fdc15222d7994fdcda701aaf7a126624/src/component/event/view/UranusAdminEventEditView.vue)
+embeds the date and link editors in its `dates` and `links` tabs; there is no independent
+edit route for either technical child entity.
+[`sessionGuard.ts`](https://github.com/sndcds/uranus-dashboard/blob/4a77db16fdc15222d7994fdcda701aaf7a126624/src/router/sessionGuard.ts)
+uses the normal Uranus user session and preserves the requested route through login/signup.
+The `/admin` path on **app.kulturbytes.de** belongs to that dashboard; it is unrelated to the
+independent system-admin accounts on **admin.kulturbytes.de**.
+[`docs/authentication.md`](https://github.com/sndcds/uranus-dashboard/blob/4a77db16fdc15222d7994fdcda701aaf7a126624/docs/authentication.md)
+confirms the app/API production origins. The public kulturbytes-client route tree was also
+checked at `5ef2337909123b95c1e44f01ae8a668cdc83c10d`; its event/venue pages are public display
+pages, not the draft editing surface.
+
+Parent event IDs come from source `event_date.event_uuid` / `event_link.event_uuid`.
+Venue ownership and `space -> venue -> organization` are checked against the same source
+snapshot; no guessed owners, additional source queries, or writes. Recipients still need
+normal organization permissions in Uranus; registering a contact grants no editing rights.
+Operators must test with an actual authorized organization contact before enabling delivery.
+
+Payloads now separate `internal_action_path` (authenticated admin detail only) from
+`external_action_url` (recipient email/preview). Rendering never uses the internal field.
+Only the configured exact app origin and the verified UUID route patterns are accepted,
+with contextual DE/DA/EN action labels. Unknown entities, missing parents or unsafe snapshot
+URLs produce localized dashboard guidance without a link. Internal `/findings` is never
+used as a fallback. No invented notification-settings link.
+
+The same renderer powers the admin preview and real email; preview never replaces a CTA
+with a system-admin link. Both text and HTML contain the same external URL. HTML remains
+escaped and sandboxed in preview. This JSON snapshot contract replaces the unshipped
+`action_path` within PR #52; no migration or legacy compatibility shim is required.
+For a pre-merge test installation, regenerate dry-run notification state before inspecting
+previews; do not enable old queued/sending test deliveries with the previous snapshot contract.
 
 Recipient PII exists only in authenticated delivery history/snapshots; semantic notifications
 contain no addresses. Logs identify organization/delivery and fixed counters/errors, not
@@ -257,7 +311,7 @@ and missing capability are visible. The normal GET path never starts detection o
 ## Environment and deployment
 
 See `backend/.env.example`. Required for delivery: source/admin DSNs, SMTP host and valid
-sender, trusted HTTPS admin base URL. Optional SMTP username/password; use a private
+sender, trusted HTTPS Kulturbytes app origin. Optional SMTP username/password; use a private
 EnvironmentFile. Never include migration/operator credentials in the worker service.
 
 1. Deploy code with **NOTIFICATIONS_DELIVERY_ENABLED=false** (default).

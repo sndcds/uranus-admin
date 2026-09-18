@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     notification_important_days: int = Field(default=7, ge=3, le=30)
     notification_urgent_days: int = Field(default=2, ge=0, le=2)
     admin_public_base_url: str = "https://admin.kulturbytes.de"
+    kulturbytes_app_public_base_url: str = "https://app.kulturbytes.de"
     upcoming_days: int = Field(default=14, ge=1, le=365)
     image_orphan_grace_hours: int = Field(default=48, ge=1, le=8760)
     pending_age_days: int = Field(default=14, ge=1, le=3650)
@@ -103,6 +104,27 @@ class Settings(BaseSettings):
             raise ValueError("AUTH_PUBLIC_ORIGIN must be one exact HTTP(S) origin")
         return value
 
+    @field_validator("kulturbytes_app_public_base_url")
+    @classmethod
+    def valid_app_origin(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme not in {"https", "http"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or any(char in value for char in "*\\?#")
+            or any(ord(char) < 33 or ord(char) == 127 for char in value)
+            or parsed.hostname == "admin.kulturbytes.de"
+        ):
+            raise ValueError("KULTURBYTES_APP_PUBLIC_BASE_URL must be an exact user-app origin")
+        # Accessing port also rejects invalid/non-numeric/out-of-range ports.
+        _ = parsed.port
+        return value
+
     @field_validator("admin_auth_management_database_url")
     @classmethod
     def valid_management_url(cls, value: SecretStr | None) -> SecretStr | None:
@@ -125,8 +147,15 @@ class Settings(BaseSettings):
         if self.notifications_delivery_enabled:
             if not self.notification_smtp_host:
                 raise ValueError("Notification delivery requires SMTP host")
-            if not self.admin_public_base_url.startswith("https://"):
-                raise ValueError("Notification links require HTTPS")
+        if (
+            self.app_env not in {"development", "test"} or self.notifications_delivery_enabled
+        ) and not self.kulturbytes_app_public_base_url.startswith("https://"):
+            raise ValueError("Notification recipient links require HTTPS")
+        if urlsplit(self.kulturbytes_app_public_base_url).hostname in {
+            urlsplit(self.admin_public_base_url).hostname,
+            urlsplit(self.auth_public_origin or "").hostname,
+        }:
+            raise ValueError("Notification recipient app must be separate from system admin")
         if self.notification_lease_seconds <= self.notification_smtp_timeout_seconds * 4:
             raise ValueError("Notification lease must exceed SMTP operation budget")
         for value in (self.notification_smtp_from_email, self.notification_smtp_from_name):

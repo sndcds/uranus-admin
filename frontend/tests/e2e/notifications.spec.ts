@@ -5,6 +5,7 @@ import {
   notificationDetail,
   notificationDeliveryDetail,
   notificationPreview,
+  notificationGuidance,
 } from '../fixtures/notifications'
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/admin/api/v1/notifications?**', (route) =>
@@ -63,8 +64,27 @@ for (const locale of ['de', 'da', 'en'] as const)
       page.frameLocator('iframe').getByText(notificationPreview(locale).subject),
     ).toBeVisible()
     await expect(page.locator('iframe')).toHaveAttribute('sandbox', '')
+    await expect(page.frameLocator('iframe').getByRole('link')).toHaveAttribute(
+      'href',
+      notification.payload.external_action_url!,
+    )
+    const html = await page.locator('iframe').getAttribute('srcdoc')
+    expect(html).not.toContain('https://admin.kulturbytes.de')
+    expect(html).not.toContain('/findings')
     await page.getByRole('button', { name: 'Text', exact: true }).click()
     await expect(page.locator('pre[lang]')).toContainText('Kulturverein')
+    await expect(page.locator('pre[lang]')).toContainText(notification.payload.external_action_url!)
+    await page.route(`**/api/admin/api/v1/notifications/${notification.id}/preview?**`, (route) =>
+      route.fulfill({ json: notificationPreview(locale, false) }),
+    )
+    await page.getByRole('button', { name: 'Vorschau laden' }).click()
+    await expect(page.locator('pre[lang]')).toContainText(notificationGuidance[locale])
+    await page.getByRole('button', { name: 'HTML', exact: true }).click()
+    await expect(page.frameLocator('iframe').getByText(notificationGuidance[locale])).toBeVisible()
+    await expect(page.frameLocator('iframe').getByRole('link')).toHaveCount(0)
+    expect(await page.locator('iframe').getAttribute('srcdoc')).not.toContain(
+      'https://admin.kulturbytes.de',
+    )
   })
 test('anonymous deep links and SSR disclose no protected content', async ({ request, browser }) => {
   const response = await request.get(`/notifications/${notification.id}`)

@@ -391,3 +391,10 @@ the existing auth layout, request state, list, empty and pagination components a
 contracts. GET never schedules/sends mail. Preview uses an opaque-origin sandbox iframe,
 restrictive CSP and no v-html. Locale comes from the preview selection or source recipient,
 not the admin browser. Source notification configuration cannot be edited here.
+
+Notification HTML/Text previews display the actual external recipient email. CTAs use verified
+normal Kulturbytes dashboard edit routes on the configured app origin, including parent-event
+routing for dates/links. Missing or unsafe routes show DE/DA/EN text guidance without a link.
+`internal_action_path` is separate from `external_action_url`; internal findings/event routes
+must never be substituted into the preview. Organization contacts need not have system-admin
+accounts.

@@ -16,6 +16,7 @@ import {
   notificationDetail,
   notificationDeliveryDetail,
   notificationPreview,
+  notificationGuidance,
 } from '../fixtures/notifications'
 import { createAdminApi } from '../../app/utils/admin-api'
 import { forwardAdminRequest } from '../../server/utils/admin-proxy'
@@ -133,6 +134,10 @@ describe('notification administration', () => {
       await flushPromises()
       expect(view.text()).toContain(notificationPreview(locale).subject)
       expect(view.find('iframe').attributes('sandbox')).toBe('')
+      const html = view.find('iframe').attributes('srcdoc')!
+      expect(html).toContain(notification.payload.external_action_url)
+      expect(html).not.toContain('https://admin.kulturbytes.de')
+      expect(html).not.toContain('/findings')
       expect(view.find('iframe').attributes('srcdoc')).toContain('Content-Security-Policy')
       await view
         .findAll('button')
@@ -140,6 +145,20 @@ describe('notification administration', () => {
         .trigger('click')
       expect(view.find('pre').attributes('lang')).toBe(locale)
       expect(view.text()).toContain('Kulturverein')
+      view.unmount()
+    })
+  for (const locale of ['de', 'da', 'en'] as const)
+    it(`previews ${locale} guidance without a replacement admin link`, async () => {
+      api.notificationPreview.mockResolvedValue(notificationPreview(locale, false))
+      const view = mount(Preview, { props: { notificationId: notification.id }, global })
+      await view.find('select').setValue(locale)
+      await view.find('button').trigger('click')
+      await flushPromises()
+      const html = view.find('iframe').attributes('srcdoc')!
+      expect(html).toContain(notificationGuidance[locale])
+      expect(html).not.toContain('href=')
+      expect(html).not.toContain('https://admin.kulturbytes.de')
+      expect(html).not.toContain('/findings')
       view.unmount()
     })
   it('requires credentials at proxy and permits only reads', async () => {

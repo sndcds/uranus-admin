@@ -74,7 +74,8 @@ class NotificationPayload(BaseModel):
     entity_name: str
     entity_type: str
     entity_key: str
-    action_path: str
+    internal_action_path: str | None = None
+    external_action_url: str | None = None
     event_status: Literal["draft", "review"] | None = None
     next_date: str | None = None
     days_until: int | None = None

@@ -18,10 +18,12 @@ from sqlalchemy.pool import NullPool
 from app.admin_tables import notification as n
 from app.admin_tables import notification_delivery as d
 from app.admin_tables import notification_delivery_item as di
+from app.config import Settings
 from app.notification_worker import work_once
 from app.repositories.notifications import claim, local_day, synchronize
-from app.repositories.quality_sources import load_sources
+from app.repositories.quality_sources import Sources, load_sources
 from app.schemas.notifications import NotificationConfig, NotificationPayload
+from app.services.notifications.actions import RecipientActions
 from app.services.notifications.batching import batches, content_version
 from app.services.notifications.candidates import Candidate, detect
 from app.services.notifications.config import source_capability, validate_configs
@@ -72,7 +74,8 @@ def payload(**changes):
         entity_name="Kulturabend",
         entity_type="event",
         entity_key=str(UUID(int=31)),
-        action_path=f"/events/{UUID(int=31)}",
+        internal_action_path=f"/events/{UUID(int=31)}",
+        external_action_url=f"https://app.kulturbytes.de/admin/event/{UUID(int=31)}",
         event_status="draft",
         next_date="2026-09-30",
         days_until=12,
@@ -166,7 +169,7 @@ def test_localization(locale, subject, day, status, settings):
         "Kulturverein",
         day,
         status,
-        "https://admin.kulturbytes.de/events/",
+        "https://app.kulturbytes.de/admin/event/",
     ):
         assert value in preview.text
         assert value in preview.html
@@ -400,6 +403,9 @@ async def test_event_and_quality_lifecycle(db_connection, config, settings):
         )
 
     assert selected().status == "active"
+    assert selected().payload.external_action_url == (
+        f"https://app.kulturbytes.de/admin/event/{UUID(int=31)}"
+    )
     target["release_status"] = "review"
     assert selected().status == "active"
     target["release_status"] = "released"
@@ -754,3 +760,215 @@ def test_mixed_initial_and_reminder_share_compatible_event_batch(config):
     assert len(planned) == 1
     assert planned[0]["delivery_kind"] == "reminder"
     assert len(planned[0]["snapshot"]["ids"]) == 2
+
+
+@pytest.fixture
+def action_sources():
+    return Sources(
+        {
+            "organization": [{"uuid": ORG}],
+            "event": [{"uuid": UUID(int=31), "org_uuid": ORG}],
+            "venue": [{"uuid": UUID(int=21), "org_uuid": ORG}],
+            "space": [{"uuid": UUID(int=51), "venue_uuid": UUID(int=21)}],
+            "event_date": [{"uuid": UUID(int=41), "event_uuid": UUID(int=31)}],
+            "event_link": [{"id": 7, "event_uuid": UUID(int=31)}],
+        }
+    )
+
+
+@pytest.mark.parametrize("locale", ["de", "da", "en"])
+@pytest.mark.parametrize(
+    "rule,entity,key,path,target",
+    [
+        (None, "event", str(UUID(int=31)), f"/admin/event/{UUID(int=31)}", "event"),
+        (
+            "event_without_dates",
+            "event",
+            str(UUID(int=31)),
+            f"/admin/event/{UUID(int=31)}",
+            "event",
+        ),
+        (
+            "event_without_location",
+            "event",
+            str(UUID(int=31)),
+            f"/admin/event/{UUID(int=31)}",
+            "event",
+        ),
+        (
+            "event_date_without_location",
+            "event_date",
+            str(UUID(int=41)),
+            f"/admin/event/{UUID(int=31)}",
+            "event",
+        ),
+        (
+            "venue_missing_logo",
+            "venue",
+            str(UUID(int=21)),
+            f"/admin/org/{ORG}/venue/{UUID(int=21)}/edit",
+            "venue",
+        ),
+        (
+            "organization_missing_logo",
+            "organization",
+            str(ORG),
+            f"/admin/org/{ORG}/edit",
+            "organization",
+        ),
+        ("url_syntax", "event_link", "7", f"/admin/event/{UUID(int=31)}", "event"),
+        ("url_syntax", "event_date", str(UUID(int=41)), f"/admin/event/{UUID(int=31)}", "event"),
+        ("url_syntax", "event", str(UUID(int=31)), f"/admin/event/{UUID(int=31)}", "event"),
+        (
+            "url_syntax",
+            "venue",
+            str(UUID(int=21)),
+            f"/admin/org/{ORG}/venue/{UUID(int=21)}/edit",
+            "venue",
+        ),
+        ("url_syntax", "organization", str(ORG), f"/admin/org/{ORG}/edit", "organization"),
+        (
+            "url_syntax",
+            "space",
+            str(UUID(int=51)),
+            f"/admin/org/{ORG}/venue/{UUID(int=21)}/space/{UUID(int=51)}/edit",
+            "space",
+        ),
+    ],
+)
+def test_verified_recipient_routes(
+    locale, rule, entity, key, path, target, action_sources, settings
+):
+    url = RecipientActions(action_sources, settings).url(entity, key, ORG)
+    assert url == "https://app.kulturbytes.de" + path
+    p = payload().model_copy(
+        update={
+            "rule": rule,
+            "entity_type": entity,
+            "entity_key": key,
+            "external_action_url": url,
+            "internal_action_path": "/findings?mode=persisted",
+        }
+    )
+    preview = render([p], locale, settings)
+    for body in (preview.text, preview.html):
+        assert url in body
+        assert CATALOGUE[locale][f"{target}_action"] in body
+        assert "https://admin.kulturbytes.de" not in body
+        assert "/findings" not in body
+        for jargon in ("UUID", "entity_key", "SQL", "constraint", "foreign key"):
+            assert jargon not in body
+    assert f'href="{url}"' in preview.html
+
+
+@pytest.mark.parametrize("locale", ["de", "da", "en"])
+@pytest.mark.parametrize(
+    "url",
+    [
+        None,
+        "https://admin.kulturbytes.de/events/" + str(UUID(int=31)),
+        "https://app.kulturbytes.de/findings",
+        "https://evil.example.test/admin/event/" + str(UUID(int=31)),
+        "https://app.kulturbytes.de@evil.example.test/admin/event/" + str(UUID(int=31)),
+        "https://app.kulturbytes.de/admin/event/../../findings",
+        "https://app.kulturbytes.de/admin/event/"
+        + str(UUID(int=31))
+        + "?next=https://admin.kulturbytes.de",
+        "https://app.kulturbytes.de/admin/event/" + str(UUID(int=31)) + "#section",
+        "https://app.kulturbytes.de/admin/event/" + str(UUID(int=31)) + "\n",
+        "javascript:alert(1)",
+        "https://[invalid",
+        "//app.kulturbytes.de/admin/event/" + str(UUID(int=31)),
+        "https://app.kulturbytes.de/admin/org/" + str(ORG) + "/edit",
+    ],
+)
+def test_unsafe_or_missing_recipient_route_degrades(locale, url, settings):
+    p = payload().model_copy(update={"external_action_url": url})
+    for rule in (None, "event_without_dates"):
+        p.rule = rule
+        preview = render([p], locale, settings)
+        assert "href=" not in preview.html
+        assert CATALOGUE[locale]["action_guidance"] in preview.text
+        assert CATALOGUE[locale]["action_guidance"] in preview.html
+        assert "https://admin.kulturbytes.de" not in preview.text + preview.html
+        assert "/findings" not in preview.text + preview.html
+
+
+def test_recipient_parent_requires_proven_ownership(action_sources, settings):
+    actions = RecipientActions(action_sources, settings)
+    for entity, rows in action_sources.rows.items():
+        key = str(rows[0]["id" if entity == "event_link" else "uuid"])
+        assert actions.url(entity, key, UUID(int=999)) is None
+        assert actions.url(entity, "missing", ORG) is None
+    assert actions.url("unknown", "anything", ORG) is None
+    action_sources.rows["event"] = []
+    action_sources.rows["venue"] = []
+    actions = RecipientActions(action_sources, settings)
+    assert actions.url("event_date", str(UUID(int=41)), ORG) is None
+    assert actions.url("event_link", "7", ORG) is None
+    assert actions.url("space", str(UUID(int=51)), ORG) is None
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://admin.kulturbytes.de",
+        "https://app.kulturbytes.de/",
+        "https://app.kulturbytes.de/x",
+        "https://user:password@app.kulturbytes.de",
+        "https://@app.kulturbytes.de",
+        "https://*.kulturbytes.de",
+        "https://app.kulturbytes.de?x=y",
+        "https://app.kulturbytes.de#x",
+        "https://app.kulturbytes.de?",
+        "https://app.kulturbytes.de#",
+        "ftp://app.kulturbytes.de",
+        "https://app.kulturbytes.de:bad",
+        "https://app.kulturbytes.de:99999",
+        "https://app.kulturbytes.de\n",
+        "https://app.kulturbytes.de\\evil",
+        "http://app.kulturbytes.de",
+    ],
+)
+def test_recipient_origin_validation(origin):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, kulturbytes_app_public_base_url=origin)
+
+
+def test_recipient_origin_is_separate_and_supports_local_preview():
+    with pytest.raises(ValidationError, match="separate"):
+        Settings(_env_file=None, admin_public_base_url="https://app.kulturbytes.de")
+    assert Settings(
+        _env_file=None, app_env="test", kulturbytes_app_public_base_url="http://localhost:3000"
+    )
+
+
+async def test_detected_quality_actions_use_source_parents(db_connection, config, settings):
+    sources = await load_sources(db_connection)
+    sources.rows["event_link"].append({"id": 901, "event_uuid": UUID(int=31), "url": "broken"})
+    # Exercise detection's wiring, not just the route helper: all existing source IDs
+    # stay unchanged, while synthetic invalid URLs ensure the relevant rules appear.
+    for entity in ("event", "event_date", "event_link", "venue", "space", "organization"):
+        for row in sources.rows[entity]:
+            row[
+                "url"
+                if entity == "event_link"
+                else "ticket_link"
+                if entity == "event_date"
+                else "web_link"
+                if entity in {"organization", "venue", "space"}
+                else "online_link"
+            ] = "broken"
+    candidates = detect(sources, {ORG: config}, {}, settings, NOW)
+    actions = RecipientActions(sources, settings)
+    seen = set()
+    for candidate in candidates:
+        p = candidate.payload
+        if p.rule:
+            seen.add(p.entity_type)
+            assert p.external_action_url == actions.url(
+                p.entity_type, p.entity_key, candidate.organization_id
+            )
+            assert p.external_action_url is not None
+            assert p.internal_action_path.startswith("/findings?")
+    assert {"event", "event_date", "event_link", "organization", "venue", "space"} <= seen
