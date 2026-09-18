@@ -800,3 +800,120 @@ export type EventContentQuery = {
   status?: z.infer<typeof eventReleaseStatusSchema>
   compare?: 'previous'
 }
+
+export const notificationStatusSchema = z.enum([
+  'pending',
+  'active',
+  'resolved',
+  'suppressed',
+  'expired',
+])
+export const notificationTypeSchema = z.enum(['unpublished_upcoming_event', 'quality_finding'])
+export const notificationDeliveryStatusSchema = z.enum([
+  'queued',
+  'sending',
+  'sent',
+  'failed',
+  'permanent_failure',
+  'cancelled',
+])
+export const notificationDeliveryKindSchema = z.enum([
+  'initial',
+  'reminder',
+  'escalation',
+  'digest',
+  'test',
+])
+export const notificationLocaleSchema = z.enum(['de', 'da', 'en'])
+export const notificationPayloadSchema = z.object({
+  organization_name: z.string(),
+  entity_name: z.string(),
+  entity_type: z.string(),
+  entity_key: z.string(),
+  action_path: z.string(),
+  event_status: z.enum(['draft', 'review']).nullable(),
+  next_date: z.string().nullable(),
+  days_until: z.number().int().nullable(),
+  stage: count,
+  episode: count,
+  rule: z.string().nullable(),
+  finding_id: z.string().nullable(),
+  severity: z.string().nullable(),
+  field: z.string().nullable(),
+  relevance: z.array(z.string()),
+  priority: z.enum(['urgent', 'important', 'improvement', 'internal']),
+})
+export const notificationSummarySchema = z.object({
+  id: z.uuid(),
+  notification_type: notificationTypeSchema,
+  organization_id: z.uuid(),
+  entity_type: z.string().nullable(),
+  entity_key: z.string().nullable(),
+  entity_name: z.string().nullable(),
+  finding_id: z.string().nullable(),
+  rule: z.string().nullable(),
+  status: notificationStatusSchema,
+  payload: notificationPayloadSchema,
+  first_detected_at: timestamp,
+  last_detected_at: timestamp,
+  resolved_at: timestamp.nullable(),
+  expired_at: timestamp.nullable(),
+})
+export const notificationDeliverySchema = z.object({
+  id: z.uuid(),
+  organization_id: z.uuid(),
+  recipient: z.string(),
+  locale: notificationLocaleSchema,
+  delivery_kind: notificationDeliveryKindSchema,
+  status: notificationDeliveryStatusSchema,
+  subject: z.string().nullable(),
+  message_fingerprint: z.string(),
+  attempt_count: count,
+  queued_at: timestamp.nullable(),
+  sending_at: timestamp.nullable(),
+  sent_at: timestamp.nullable(),
+  next_attempt_at: timestamp.nullable(),
+  last_error: z.string().nullable(),
+  provider_message_id: z.string().nullable(),
+})
+export const notificationDetailSchema = notificationSummarySchema.extend({
+  deliveries: z.array(notificationDeliverySchema),
+  delivery_enabled: z.boolean(),
+})
+export const notificationDeliveryDetailSchema = notificationDeliverySchema.extend({
+  notifications: z.array(notificationSummarySchema),
+})
+export const notificationPreviewSchema = z.object({
+  subject: z.string(),
+  text: z.string(),
+  html: z.string(),
+  locale: notificationLocaleSchema,
+  notification_ids: z.array(z.uuid()),
+  delivery_enabled: z.boolean(),
+})
+export const notificationPageSchema = z.object({
+  items: z.array(notificationSummarySchema),
+  pagination: z.object({ page: count, page_size: count, total: count, pages: count }),
+  summary: z.object({ active: count, queued: count, sent_today: count, failed: count }),
+  health: z.object({
+    delivery_enabled: z.boolean(),
+    source_capability: z.boolean(),
+    config_issues: z.array(
+      z.object({
+        organization_id: z.uuid(),
+        organization_name: z.string(),
+        code: z.literal('invalid_config'),
+      }),
+    ),
+  }),
+})
+export type NotificationStatus = z.infer<typeof notificationStatusSchema>
+export type NotificationType = z.infer<typeof notificationTypeSchema>
+export type NotificationDeliveryStatus = z.infer<typeof notificationDeliveryStatusSchema>
+export type NotificationDeliveryKind = z.infer<typeof notificationDeliveryKindSchema>
+export type NotificationSummary = z.infer<typeof notificationSummarySchema>
+export type NotificationDetail = z.infer<typeof notificationDetailSchema>
+export type NotificationDelivery = z.infer<typeof notificationDeliverySchema>
+export type NotificationDeliveryDetail = z.infer<typeof notificationDeliveryDetailSchema>
+export type NotificationPreview = z.infer<typeof notificationPreviewSchema>
+export type NotificationPage = z.infer<typeof notificationPageSchema>

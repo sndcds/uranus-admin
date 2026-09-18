@@ -379,3 +379,15 @@ and offer retry. No persist plugin/browser storage, source writes or new public 
 Follow-ups: read-only Event list facet filters for drilldown, full long-tail lists, exports,
 category/genre/type matrices and individual genre timelines. These are deliberately absent
 from v1. Browser tests use API fixtures; SQL behavior is tested separately on PostgreSQL.
+
+## Benachrichtigungen
+
+`/notifications` shows authenticated semantic notifications with status/type/organization/time
+filters, active/queued/sent-today/failed counts, missing source capability and config errors.
+Dry Run is an explicit banner. `/notifications/{id}` shows detection, resolution/expiry,
+minimal payload, delivery history and DE/DA/EN HTML/Text previews. `/notifications/deliveries/{id}`
+shows recipient PII, attempts, sanitized SMTP errors and contained notifications. All pages use
+the existing auth layout, request state, list, empty and pagination components and typed Zod
+contracts. GET never schedules/sends mail. Preview uses an opaque-origin sandbox iframe,
+restrictive CSP and no v-html. Locale comes from the preview selection or source recipient,
+not the admin browser. Source notification configuration cannot be edited here.

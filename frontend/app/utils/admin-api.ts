@@ -1,4 +1,8 @@
 import {
+  notificationPageSchema,
+  notificationDetailSchema,
+  notificationDeliveryDetailSchema,
+  notificationPreviewSchema,
   entityPageSchema,
   entitySearchResponseSchema,
   entityDetailSchema,
@@ -89,6 +93,21 @@ export function createAdminApi(
     onAccessLost(callback: (status: number) => void) {
       accessLost = callback
     },
+    notifications: (query: Record<string, string | number | undefined>) =>
+      request('/api/v1/notifications', notificationPageSchema, query),
+    notification: (id: string) =>
+      request(`/api/v1/notifications/${encodeURIComponent(id)}`, notificationDetailSchema),
+    notificationDelivery: (id: string) =>
+      request(
+        `/api/v1/notification-deliveries/${encodeURIComponent(id)}`,
+        notificationDeliveryDetailSchema,
+      ),
+    notificationPreview: (id: string, locale: 'de' | 'da' | 'en') =>
+      request(
+        `/api/v1/notifications/${encodeURIComponent(id)}/preview`,
+        notificationPreviewSchema,
+        { locale },
+      ),
     entitySearch: (query: EntitySearchQuery) =>
       request('/api/v1/entity-search', entitySearchResponseSchema, query),
     entities: (section: string, query: Record<string, string | number | undefined>) =>
