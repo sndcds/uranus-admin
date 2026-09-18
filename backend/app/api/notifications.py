@@ -149,7 +149,11 @@ async def preview(
 ) -> NotificationPreview:
     item = await detail(notification_id, admin, settings)
     # Preview historical payloads deliberately; never implies current send eligibility.
-    if item.payload.rule is None and item.payload.event_status is None:
+    if item.payload.rule is None and (
+        item.payload.event_status is None
+        or item.payload.next_date is None
+        or item.payload.days_until is None
+    ):
         raise APIError(422, "invalid_input", "No event email is available for this state.")
     return render([item.payload], locale, settings, [item.id])
 

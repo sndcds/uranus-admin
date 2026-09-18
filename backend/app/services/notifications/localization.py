@@ -101,7 +101,9 @@ CATALOGUE: dict[str, dict[str, str]] = {
         "multiple": "{count} af dine arrangementer finder snart sted",
         "quality_one": "Et forslag til dine opslag på Kulturbytes",
         "quality_many": "{count} forslag til dine opslag på Kulturbytes",
-        "intro": "Dit arrangement „{title}“ finder sted den {date} og er stadig gemt som {status}.",
+        "intro": (
+            "Dit arrangement „{title}“ finder sted den {date} og har stadig status „{status}“."
+        ),
         "publish": (
             "Du kan gennemgå oplysningerne og offentliggøre arrangementet, når det hele "
             "er klar, så det bliver synligt på Kulturbytes i god tid."

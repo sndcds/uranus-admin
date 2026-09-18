@@ -244,8 +244,8 @@ GET `/api/v1/notifications` supports status, notification_type, organization_id,
 page/page_size; response includes global active/queued/sent_today/failed counts and capability/
 invalid-config diagnostics. GET `/notifications/{id}`, `/notifications/{id}/preview?locale=de|da|en`,
 `/notification-deliveries/{id}` are under the same `/api/v1` prefix and require system admin.
-Preview reads saved payload and never creates jobs or calls SMTP. Resolved events without an
-unpublished payload have no event preview. Actual delivery snapshots remain in the audit table.
+Preview reads saved payload and never creates jobs or calls SMTP. Resolved/expired events without a
+complete unpublished payload have no event preview. Actual delivery snapshots remain in the audit table.
 No POST/test-mail endpoint in V1: no additional mail-relay surface or CSRF exception.
 
 UI `/notifications`, `/notifications/{id}`, `/notifications/deliveries/{id}` offers filters,

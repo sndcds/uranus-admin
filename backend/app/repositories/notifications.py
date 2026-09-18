@@ -62,7 +62,8 @@ async def synchronize(
             payload = item.payload.model_dump(mode="json")
             if existing:
                 payload["episode"] = existing["payload"].get("episode", 1) + int(
-                    existing["status"] in {"resolved", "expired"} and item.status == "active"
+                    existing["status"] in {"resolved", "expired"}
+                    and item.status in {"active", "suppressed"}
                 )
             values = dict(
                 id=existing["id"] if existing else uuid4(),
@@ -77,7 +78,9 @@ async def synchronize(
                 status=item.status,
                 payload=payload,
                 first_detected_at=existing["first_detected_at"] if existing else now,
-                last_detected_at=now,
+                last_detected_at=now
+                if item.status in {"active", "suppressed"} or not existing
+                else existing["last_detected_at"],
                 resolved_at=(existing.get("resolved_at") or now)
                 if item.status == "resolved" and existing
                 else now

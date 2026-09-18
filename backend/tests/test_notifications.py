@@ -710,3 +710,37 @@ async def test_wrong_source_column_type_is_unavailable(db_connection):
         text("ALTER TABLE uranus.organization ADD COLUMN notifications text")
     )
     assert not await source_capability(db_connection)
+
+
+async def test_resolved_issue_recurring_while_disabled_keeps_new_episode(
+    admin_store, config, settings
+):
+    settings.notifications_delivery_enabled = True
+    await synchronize(admin_store, ORG, [candidate()], config, settings, NOW)
+    delivery = await claim(admin_store, settings, NOW)
+    await finish(admin_store, delivery, NOW)
+    later = NOW + timedelta(days=1)
+    await synchronize(admin_store, ORG, [candidate(status="resolved")], config, settings, later)
+    async with admin_store.begin():
+        saved = (await admin_store.execute(select(n))).mappings().one()
+        assert saved["last_detected_at"] == NOW
+    for state in ("suppressed", "active"):
+        await synchronize(admin_store, ORG, [candidate(status=state)], config, settings, later)
+    delivery = await claim(admin_store, settings, later)
+    assert delivery["snapshot"]["payloads"][0]["episode"] == 2
+    assert delivery["delivery_kind"] == "initial"
+
+
+async def test_expired_event_preview_is_unavailable_not_server_error(
+    admin_store, db_client, headers, config, settings
+):
+    await synchronize(admin_store, ORG, [candidate()], config, settings, NOW)
+    expired = payload().model_copy(update={"next_date": None, "days_until": None})
+    await synchronize(
+        admin_store, ORG, [candidate(status="expired", p=expired)], config, settings, NOW
+    )
+    async with admin_store.begin():
+        id_ = (await admin_store.execute(select(n.c.id))).scalar_one()
+    assert (
+        await db_client.get(f"/api/v1/notifications/{id_}/preview", headers=headers)
+    ).status_code == 422
