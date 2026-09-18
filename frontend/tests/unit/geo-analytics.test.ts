@@ -267,3 +267,18 @@ it('a geo-only URL inherits shared period, explicit period still wins', async ()
     expect.objectContaining({ period: '7d', geo_scope_id: geoArea.id }),
   )
 })
+
+it('preserves the Dashboard preview severity while clearing only geo', async () => {
+  const wrapper = page(Dashboard)
+  await flushPromises()
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Warnungen')!
+    .trigger('click')
+  await flushPromises()
+  route.query = { period: '7d' }
+  await flushPromises()
+  expect(api.findings).toHaveBeenLastCalledWith(
+    expect.objectContaining({ severity: 'warning', geo_scope_id: undefined }),
+  )
+})

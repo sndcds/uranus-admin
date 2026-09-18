@@ -31,9 +31,14 @@ const findings = useFindingsStore()
 const { $adminApi } = useNuxtApp()
 const displayedPeriod = computed(() => dashboard.data?.period ?? period.value)
 const previewFilters = filtersSchema.parse({ page_size: 4 })
+const previewSeverityFilter = ref<Severity | undefined>()
 function loadDashboard() {
   void dashboard.load($adminApi, period.value, geoScopeId.value)
-  findings.syncQuery({ ...previewFilters, geo_scope_id: geoScopeId.value })
+  findings.syncQuery({
+    ...previewFilters,
+    severity: previewSeverityFilter.value,
+    geo_scope_id: geoScopeId.value,
+  })
   void findings.load($adminApi)
 }
 onMounted(loadDashboard)
@@ -53,6 +58,7 @@ function recordLink(type: string) {
   }
 }
 function previewSeverity(severity?: Severity) {
+  previewSeverityFilter.value = severity
   findings.setFilters({ severity, page_size: 4 })
   void findings.load($adminApi)
 }
