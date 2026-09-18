@@ -2,6 +2,7 @@
 import http from 'node:http'
 import { randomBytes } from 'node:crypto'
 import { summary, findings } from './api.ts'
+import { geoArea, geoSearchItem } from './geo.ts'
 
 const sessions = new Map()
 const production = process.env.TEST_PRODUCTION === '1'
@@ -67,6 +68,17 @@ http
       )
         return deny(403, 'csrf_rejected')
       return deny(409, 'notification_retry_obsolete')
+    }
+    if (path === '/api/v1/geo/areas/search') return send(200, { items: [geoSearchItem] })
+    if (path === `/api/v1/geo/areas/${geoArea.id}`) return send(200, geoArea)
+    if (path.startsWith('/api/v1/geo/areas/')) return deny(404, 'geo_scope_not_found')
+    if (path === '/api/v1/geo/areas' && request.method === 'POST') {
+      if (
+        request.headers.origin !== 'http://127.0.0.1:3100' ||
+        request.headers['x-admin-csrf'] !== '1'
+      )
+        return deny(403, 'csrf_rejected')
+      return send(200, geoArea)
     }
     if (path === '/auth/session') return send(200, principal)
     if (path === '/api/v1/dashboard/summary') return send(200, summary)

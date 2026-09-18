@@ -6,11 +6,13 @@ import type {
   TemporalFilter,
   SharedPeriod,
 } from '#shared/contracts'
+import { supportsGeoEntity } from '~/utils/geo'
 import { entityTypes } from '~/utils/entityPresentation'
 import { entitySearchPlaceholders, supportsTemporal } from '~/utils/entities'
 
 const query = defineModel<string>({ required: true })
 const props = defineProps<{
+  geoScopeId?: string
   entityType: EntitySearchType
   organizationId?: string
   status?: string
@@ -57,6 +59,9 @@ function schedule() {
   const request = generation
   const params = {
     q: query.value.trim(),
+    ...(supportsGeoEntity(props.entityType) && props.geoScopeId
+      ? { geo_scope_id: props.geoScopeId }
+      : {}),
     period: props.period || undefined,
     entity_type: props.entityType,
     organization_id: props.organizationId || undefined,
@@ -83,6 +88,7 @@ watch(
     () => props.status,
     () => props.temporal,
     () => props.period,
+    () => props.geoScopeId,
   ],
   schedule,
 )

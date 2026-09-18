@@ -9,6 +9,7 @@ import {
   type TemporalFilter,
   type SharedPeriod,
 } from '#shared/contracts'
+import { supportsGeoEntity } from '~/utils/geo'
 import { entityPeriods } from '~/utils/periods'
 import { asFailure, type ApiFailure } from '#shared/errors'
 import {
@@ -45,6 +46,12 @@ const q = ref(''),
 const temporal = ref<TemporalFilter | ''>('')
 const period = ref<SharedPeriod | ''>('')
 const hasTemporal = computed(() => entityFilterCapabilities[props.section].temporal)
+const hasGeo = computed(() => supportsGeoEntity(entitySections[props.section].type))
+const appliedGeoScopeId = computed(() =>
+  hasGeo.value && typeof query.value.geo_scope_id === 'string'
+    ? query.value.geo_scope_id
+    : undefined,
+)
 const appliedTemporal = computed(() =>
   hasTemporal.value ? temporalFromQuery(query.value.temporal) : '',
 )
@@ -53,6 +60,9 @@ const resultDescription = computed(() => {
   return (
     [
       created.success ? `Erstellt: ${entityPeriods[created.data]}` : '',
+      appliedGeoScopeId.value && preferences.sharedGeoScope?.id === appliedGeoScopeId.value
+        ? `Gebiet: ${preferences.sharedGeoScope.name}`
+        : '',
       appliedTemporal.value ? `Terminlage: ${temporalLabels[appliedTemporal.value]}` : '',
     ]
       .filter(Boolean)
@@ -99,6 +109,7 @@ function apply() {
   )
   void router.push({
     query: {
+      ...(appliedGeoScopeId.value ? { geo_scope_id: appliedGeoScopeId.value } : {}),
       q: q.value || undefined,
       period: period.value || undefined,
       organization_id: organization.value || undefined,
@@ -111,7 +122,12 @@ function apply() {
 function reset() {
   preferences.resetEntity(props.section)
   q.value = status.value = organization.value = temporal.value = period.value = ''
-  void router.push({ query: { page: '1' } })
+  void router.push({
+    query: {
+      page: '1',
+      ...(appliedGeoScopeId.value ? { geo_scope_id: appliedGeoScopeId.value } : {}),
+    },
+  })
 }
 onMounted(load)
 watch(() => query.value, load)
@@ -137,6 +153,7 @@ onBeforeUnmount(() => {
         :organization-id="organization"
         :status="status"
         :period="period"
+        :geo-scope-id="appliedGeoScopeId"
         :temporal="hasTemporal ? temporal : undefined"
         @apply="apply"
         @select="router.push($event.action.href)"
