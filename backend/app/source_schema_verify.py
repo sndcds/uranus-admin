@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.database import create_engine
+from app.services.notifications.config import source_capability
 
 TABLES = (
     "venue",
@@ -116,6 +117,7 @@ async def verify(connection: AsyncConnection, settings: Settings) -> dict[str, A
         "timestamp_note": (
             "Database type does not establish storage timezone; operator confirmation required."
         ),
+        "notification_config_capability": await source_capability(connection),
         "missing_tables": sorted(set(TABLES) - {row["table_name"] for row in columns}),
         "columns": [dict(row) for row in columns],
         "constraints": [dict(row) for row in constraints],

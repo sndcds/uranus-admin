@@ -2,7 +2,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import EmailStr, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +32,22 @@ class Settings(BaseSettings):
     url_check_batch_size: int = Field(default=100, ge=1, le=1000)
     url_check_success_ttl_seconds: int = Field(default=86400, ge=3600, le=604800)
     url_check_failure_ttl_seconds: int = Field(default=3600, ge=300, le=86400)
+    notifications_delivery_enabled: bool = False
+    notification_max_emails_per_recipient_per_day: int = Field(default=3, ge=1, le=20)
+    notification_smtp_host: str | None = None
+    notification_smtp_port: int = Field(default=587, ge=1, le=65535)
+    notification_smtp_username: str | None = None
+    notification_smtp_password: SecretStr | None = None
+    notification_smtp_from_email: EmailStr = "notifications@kulturbytes.de"
+    notification_smtp_from_name: str = "Kulturbytes"
+    notification_smtp_starttls: bool = True
+    notification_smtp_timeout_seconds: int = Field(default=20, ge=1, le=60)
+    notification_lease_seconds: int = Field(default=300, ge=120, le=3600)
+    notification_worker_poll_seconds: int = Field(default=3600, ge=10, le=86400)
+    notification_quality_start_hour: int = Field(default=8, ge=0, le=23)
+    notification_important_days: int = Field(default=7, ge=3, le=30)
+    notification_urgent_days: int = Field(default=2, ge=0, le=2)
+    admin_public_base_url: str = "https://admin.kulturbytes.de"
     upcoming_days: int = Field(default=14, ge=1, le=365)
     image_orphan_grace_hours: int = Field(default=48, ge=1, le=8760)
     pending_age_days: int = Field(default=14, ge=1, le=3650)
@@ -69,7 +85,7 @@ class Settings(BaseSettings):
             raise ValueError("ADMIN_DATABASE_URL must use postgresql+asyncpg")
         return value
 
-    @field_validator("auth_public_origin")
+    @field_validator("auth_public_origin", "admin_public_base_url")
     @classmethod
     def valid_auth_origin(cls, value: str | None) -> str | None:
         if value is None:
@@ -106,6 +122,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def secure_configuration(self) -> "Settings":
+        if self.notifications_delivery_enabled:
+            if not self.notification_smtp_host:
+                raise ValueError("Notification delivery requires SMTP host")
+            if not self.admin_public_base_url.startswith("https://"):
+                raise ValueError("Notification links require HTTPS")
+        if self.notification_lease_seconds <= self.notification_smtp_timeout_seconds * 4:
+            raise ValueError("Notification lease must exceed SMTP operation budget")
+        for value in (self.notification_smtp_from_email, self.notification_smtp_from_name):
+            if any(ord(char) < 32 for char in value):
+                raise ValueError("Invalid mail header")
         for origin in self.origins:
             parsed = urlsplit(origin)
             if (

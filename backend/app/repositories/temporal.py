@@ -5,6 +5,8 @@ converts them to instants before comparing with the request's aware UTC clock.
 Aliases a (entity), d (date) and e (event) are fixed application SQL.
 """
 
+from datetime import date, datetime, time
+
 from app.errors import APIError
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
 from app.schemas.entities import TemporalFilter
@@ -41,3 +43,23 @@ def temporal_predicate(kind: str, temporal: TemporalFilter | None) -> str:
           AND {EFFECTIVE_EVENT_DATE_END_SQL} {TEMPORAL_COMPARISONS[temporal]}
               CAST(:temporal_now AS timestamptz)
     )"""
+
+
+def is_upcoming_start(row: dict[str, object], local: "datetime") -> bool:
+    """Activity/quality start semantics: untimed/all-day today remains upcoming all day."""
+    start_date, start_time = row["start_date"], row["start_time"]
+    return bool(
+        isinstance(start_date, date)
+        and (
+            start_date > local.date()
+            or (
+                start_date == local.date()
+                and (
+                    row["all_day"]
+                    or start_time is None
+                    or isinstance(start_time, time)
+                    and start_time >= local.time().replace(tzinfo=None)
+                )
+            )
+        )
+    )

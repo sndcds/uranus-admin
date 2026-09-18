@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from app.config import Settings
 from app.repositories.quality_sources import Sources
+from app.repositories.temporal import is_upcoming_start
 from app.schemas.action import Action
 from app.schemas.finding import Finding, Severity
 from app.services.quality.priority import priority_details
@@ -155,14 +156,7 @@ class QualityContext:
             event_key = str(date["event_uuid"])
             self.dates_by_event.setdefault(event_key, []).append(date)
             parent = events.get(event_key, {})
-            upcoming = date["start_date"] > local.date() or (
-                date["start_date"] == local.date()
-                and (
-                    date["all_day"]
-                    or date["start_time"] is None
-                    or date["start_time"] >= local.time().replace(tzinfo=None)
-                )
-            )
+            upcoming = is_upcoming_start(date, local)
             released = parent.get("release_status") in {"released", "rescheduled"} and date[
                 "release_status"
             ] in {"inherited", "released", "rescheduled", None}
