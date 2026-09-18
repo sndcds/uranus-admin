@@ -236,3 +236,13 @@ Synthetic unit tests cover both owner types and the boundary/internal whitespace
 Integration tests run the registered engine and persist findings in `admin.finding`,
 checking relevance, one finding per owner despite referencing events/dates, repeated scans,
 resolution after correction, counts, and preservation after failed/incomplete scans.
+
+## Notification capability — 2026-09-18
+
+Uranus main `5a5ac813eec708c99de6962aa05a2357535117b0` exports
+[`organization.notifications jsonb`](https://github.com/sndcds/uranus/blob/5a5ac813eec708c99de6962aa05a2357535117b0/ddl/organization.ddl).
+No production database was queried. The source verifier now reports
+`notification_config_capability`; the worker checks it before reading the optional column.
+Missing/wrong-type/unreadable capability disables sends without a source migration. Existing
+synthetic DDL remains unchanged; disposable tests cover both missing and present capability.
+See [notifications](notifications.md) for the strict V1 contract and operator enablement gate.
