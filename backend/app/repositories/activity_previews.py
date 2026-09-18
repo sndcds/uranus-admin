@@ -64,13 +64,11 @@ WITH requested AS (
         'event',e.uuid,NULL
  FROM requested r JOIN uranus.event e ON r.kind='event' AND e.uuid=r.id
  LEFT JOIN LATERAL (
+   -- Admin previews include unpublished dates; public_url checks both statuses separately.
    SELECT d.uuid,d.start_date,d.start_time,d.all_day,d.release_status
    FROM uranus.event_date d WHERE d.event_uuid=e.uuid
-     AND e.release_status::text IN ('released','cancelled','deferred','rescheduled')
      AND (d.start_date > CAST(:today AS date) OR (d.start_date=CAST(:today AS date)
        AND (d.all_day IS TRUE OR d.start_time IS NULL OR d.start_time >= CAST(:clock AS time))))
-     AND COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text)
-         IN ('released','cancelled','deferred','rescheduled')
    ORDER BY d.start_date,d.start_time NULLS LAST,d.uuid LIMIT 1
  ) d ON TRUE
  UNION ALL
@@ -117,6 +115,7 @@ LEFT JOIN LATERAL (
 ) img ON TRUE
 """
 PUBLIC_STATUSES = {"released", "cancelled", "deferred", "rescheduled"}
+UNPUBLISHED_EVENT_WARNING_DAYS = 7
 PUBLIC_SITE = "https://kulturbytes.de"
 PUBLIC_API = "https://api.kulturbytes.de"
 
@@ -199,6 +198,22 @@ async def activity_previews(
     public_instance = settings.uranus_api_url.rstrip("/") == PUBLIC_API
     for mapping in rows:
         row = dict(mapping)
+        notice = None
+        if (
+            row["kind"] == "event"
+            and row["event_status"] in {"draft", "review"}
+            and row["start_date"] is not None
+        ):
+            days_until = (row["start_date"] - local.date()).days
+            if 0 <= days_until <= UNPUBLISHED_EVENT_WARNING_DAYS:
+                when = (
+                    "heute"
+                    if days_until == 0
+                    else "bereits morgen"
+                    if days_until == 1
+                    else f"schon in {days_until} Tagen"
+                )
+                notice = f"Dieser noch unveröffentlichte Event findet {when} statt."
         parts = [row["subtitle"]]
         if row["start_date"] is not None:
             time = (
@@ -208,13 +223,21 @@ async def activity_previews(
                 if row["start_time"]
                 else "Uhrzeit unbekannt"
             )
-            prefix = "Nächster öffentlicher Termin" if row["kind"] == "event" else "Termin"
+            prefix = "Termin"
+            if row["kind"] == "event":
+                prefix = (
+                    "Nächster öffentlicher Termin"
+                    if row["event_status"] in PUBLIC_STATUSES
+                    and row["date_status"] in PUBLIC_STATUSES
+                    else "Nächster Termin"
+                )
             parts.append(
                 f"{prefix}: {row['start_date']:%d.%m.%Y} · {time} ({settings.event_timezone})"
             )
         parts.extend([row["venue_name"], row["space_name"]])
         previews[(row["kind"], row["key"])] = {
             "subtitle": " · ".join(part for part in parts if part) or None,
+            "notice": notice,
             "address": row["address"],
             "image_url": (
                 avatar_url(row["key"], settings.uranus_api_url)

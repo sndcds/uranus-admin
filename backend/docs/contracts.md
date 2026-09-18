@@ -298,7 +298,7 @@ Zeilen lesen; begrenzte API-Seitengröße ist keine konstante Datenbanklaufzeit.
 
 ## Activity previews and public links
 
-Activity items optionally add `image_url`, `public_url`, `subtitle`, and `address` (nullable
+Activity items optionally add `image_url`, `public_url`, `subtitle`, `notice`, and `address` (nullable
 strings). `email` is an additional nullable string, deliberately exposed **only for user
 items in this system-admin-protected response**, as requested for account administration.
 Other entity types do not expose user email, including membership rows. No full user objects,
@@ -317,12 +317,41 @@ empty page). UUID joins retain the source UUID indexes; next-date lookup uses th
 | organization | City, available street/house number/address addition/postal code/city/country, WGS84 location and `main_logo`; no standalone public organization route is established |
 | venue | Address, `main_photo` then `main_logo`, public venue link |
 | space | Parent venue name; no invented image relation or standalone public route |
-| event | Subtitle, next upcoming public-status date, `main` image; public link only when a supported date exists |
+| event | Subtitle, next upcoming date regardless of release status, `main` image; public link only when the selected date and parent event meet the public-link conditions |
 | event_date | Actual event date/time (unknown time stays unknown), effective venue/space, parent event image |
 | user | Display name/username, activation status, email and a public avatar candidate URL; no Pluto image relationship is assumed |
 | partner_request | Existing directed from/to names and status |
 | team_membership | Existing user/organization, invited/joined status; optional explicitly labelled `invited_at`, never a fabricated joined timestamp |
 | image | Image itself; linked name only if exactly one distinct context/target exists |
+
+Event previews select one date in the existing batched LATERAL lookup, ordered by
+`start_date ASC, start_time ASC NULLS LAST, uuid ASC`, with `LIMIT 1`. Both event and
+date may be `draft`, `review`, or any other value in the verified source enum;
+`inherited` date status resolves to the parent event status. A future date starts after
+today in `EVENT_TIMEZONE`, or today with `all_day = true`, no start time, or a start time
+at or after the request's local clock. This start-based preview deliberately retains
+its semantics separately from the end-based entity `temporal` filter.
+
+The backend appends `Nächster öffentlicher Termin: …` only when both the parent and
+effective date status are public (`released`, `cancelled`, `deferred`, `rescheduled`);
+otherwise it uses `Nächster Termin: …`. A nearer unpublished date is not skipped in
+favor of a later public date, and yields no `public_url` even for a released parent.
+The existing UUID-v7 and public-instance URL conditions also remain in force. Without
+a future date, no date text is appended. Existing event subtitles, `event_dates` facts,
+status badges and the separate `created_at` display remain unchanged; the frontend
+renders the supplied `subtitle` without additional date or status logic.
+
+For events in `draft` or `review`, the separate optional `notice` warns when the selected
+next date is today or within the next seven calendar days. The backend uses
+`UNPUBLISHED_EVENT_WARNING_DAYS = 7` and subtracts the request's local date in
+`EVENT_TIMEZONE` from the selected `start_date`; it does not count UTC days or elapsed
+24-hour periods. Day zero says “Dieser noch unveröffentlichte Event findet heute statt.”,
+day one says “Dieser noch unveröffentlichte Event findet bereits morgen statt.”, and
+days two through seven say “Dieser noch unveröffentlichte Event findet schon in N Tagen statt.”
+The value is null for later dates, no upcoming date, other event statuses and other entity
+types. The frontend renders the supplied notice below the unchanged subtitle using the
+existing warning `InlineAlert`, `role="status"` and a decorative warning icon, without
+browser date calculations. This notice never changes public-link eligibility.
 
 ### User avatars and organization locations
 
@@ -372,7 +401,7 @@ a failed large preview shows an error while preserving the rest of the Activity 
 | Entity type | `public_url` |
 | --- | --- |
 | venue | `https://kulturbytes.de/de/ort/<slug-or-UUIDv7>` |
-| event | `https://kulturbytes.de/de/veranstaltung/<event_uuid>/<next-public-date-UUIDv7>`; null without a supported upcoming public date |
+| event | `https://kulturbytes.de/de/veranstaltung/<event_uuid>/<next-date-UUIDv7>`; null unless the selected upcoming date and event both have public status |
 | event_date | `https://kulturbytes.de/de/veranstaltung/<event_uuid>/<date-UUIDv7>` when event and effective date status are public |
 | organization, space, user, partner_request, team_membership, image | null; no standalone public detail route in the verified client |
 
@@ -391,8 +420,8 @@ Routing evidence inspected at implementation time:
   `sql/get-venue.sql` accepts a slug or UUIDv7; `api/api_utils.go` accepts UUIDv7 date identifiers.
   To avoid ambiguous/generated time slugs, unsupported date identifiers get no public link.
   `api/get_event.go` establishes public statuses released/cancelled/deferred/rescheduled;
-  both event and effective date status must be public. Events without an upcoming public date
-  get no link. Date time selection uses `EVENT_TIMEZONE`, not creation time.
+  both event and effective date status must be public. Events whose selected next date is
+  not public get no link. Date time selection uses `EVENT_TIMEZONE`, not creation time.
 - Uranus `api/api_image_helper.go`, `sql/get-event.sql` and Pluto v0.5.6 `RegisterRoutes`:
   organization/venue/event image links, UUID-based public GET route without auth middleware.
   No public space image relationship is assumed. Event-date venue overrides stop inheritance
