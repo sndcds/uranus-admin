@@ -34,6 +34,18 @@ class SMTPTransport:
         s = self.settings
         if not s.notifications_delivery_enabled or not s.notification_smtp_host:
             raise RuntimeError("Delivery disabled")
+        # Guard before opening a socket, even if settings validation was bypassed or
+        # settings were changed after construction. Never authenticate in plaintext.
+        username = s.notification_smtp_username
+        password = (
+            s.notification_smtp_password.get_secret_value()
+            if s.notification_smtp_password is not None
+            else None
+        )
+        if (username is not None) != (password is not None) or username == "" or password == "":
+            raise RuntimeError("Notification SMTP requires a complete credential pair")
+        if username is not None and not s.notification_smtp_starttls:
+            raise RuntimeError("Authenticated notification SMTP requires TLS")
         with smtplib.SMTP(
             s.notification_smtp_host,
             s.notification_smtp_port,
@@ -43,13 +55,8 @@ class SMTPTransport:
             if s.notification_smtp_starttls:
                 smtp.starttls(context=ssl.create_default_context())
                 smtp.ehlo()
-            if s.notification_smtp_username:
-                smtp.login(
-                    s.notification_smtp_username,
-                    s.notification_smtp_password.get_secret_value()
-                    if s.notification_smtp_password
-                    else "",
-                )
+            if username is not None and password is not None:
+                smtp.login(username, password)
             smtp.send_message(
                 message, from_addr=s.notification_smtp_from_email, to_addrs=[recipient]
             )

@@ -229,7 +229,19 @@ organization footer, full plain text and HTML, no marketing/tracking/remote font
 Every mail is multipart/alternative. HTML source values and URLs are escaped; subject control
 characters removed, long subjects capped at 180 characters, full names retained in body.
 Addresses are validated; headers use EmailMessage and formataddr. STARTTLS defaults on with
-normal certificate validation. SMTP secrets use SecretStr and are never API/health/log output.
+normal certificate validation. Authenticated SMTP requires STARTTLS: enabling delivery with
+credentials and STARTTLS=false fails settings validation. Username/password must both be
+set or both unset, even in Dry Run (empty environment values normalize to unset). Dry Run
+can inspect otherwise incomplete transport configuration without connecting; TLS is enforced
+before delivery can be enabled. `SMTPTransport.send()` independently rejects partial/empty
+credentials and credentials without TLS **before opening a socket**, including settings
+modified after validation. The transport sequence is connect → EHLO → STARTTLS with
+`ssl.create_default_context()` → EHLO → login → send. TLS negotiation/certificate errors
+abort; there is no plaintext fallback. An unauthenticated trusted local relay, e.g.
+`NOTIFICATION_SMTP_HOST=127.0.0.1`, may explicitly use STARTTLS=false with both credentials
+unset. **Use this only for a trusted local relay.** Remote authenticated SMTP must use
+STARTTLS=true; SMTPS/port 465 remains a follow-up, not an alternative V1 mode.
+SMTP secrets use SecretStr and are never API/health/log output.
 External recipients are organization notification contacts and are not assumed to have
 uranus-admin system-admin accounts. Email CTAs target verified Kulturbytes user-facing edit
 routes only. Links derive from `KULTURBYTES_APP_PUBLIC_BASE_URL` (default
@@ -316,14 +328,22 @@ EnvironmentFile. Never include migration/operator credentials in the worker serv
 
 1. Deploy code with **NOTIFICATIONS_DELIVERY_ENABLED=false** (default).
 2. Run migration using ADMIN_MIGRATION_DATABASE_URL, then explicit runtime grants.
-3. Run source verification and the existing quality worker so reviewed persisted findings exist.
+3. Run source verification: **notification_config_capability must be true**. Run the existing
+   quality worker so reviewed persisted findings exist. Never enable delivery when the source
+   capability is absent; this does not authorize a Uranus migration or config write.
 4. `uv run python -m app.notification_worker --once` in Dry Run; inspect `/notifications`
-   and all three locale previews. No delivery rows or fake sent state are created.
-5. Verify SMTP with the operator's controlled staging mailbox/provider procedure. V1 deliberately
-   has no arbitrary-recipient test-send endpoint. Automated tests use a fake transport only.
-6. Enable delivery explicitly in the worker environment after review; restart/reload the
-   appropriate services. Keep API/worker feature flags consistent so the banner reflects reality.
-7. Observe initial batches, sanitized errors, queued age and permanent failures. SMTP outage
+   and **DE/DA/EN** previews. Check the actual recipient CTAs as an ordinary authorized
+   organization member, including event, venue, organization, space and parent event routes.
+   Confirm the configured app origin hosts these routes and unknown routes display guidance.
+   No delivery rows or fake sent state are created.
+5. Validate **SMTP TLS**, certificate trust and the credential pair. Authenticated remote SMTP
+   must have STARTTLS=true. A deliberately unauthenticated local relay needs both credentials unset.
+6. Perform a **controlled recipient test** using the provider/operator procedure. Verify external
+   app links and DE/DA/EN content in the test mailbox. V1 deliberately has no arbitrary-recipient
+   test-send endpoint. Automated tests use a fake transport only.
+7. **Only after these checks**, enable delivery explicitly in the worker environment; restart/reload
+   the appropriate services. Keep API/worker feature flags consistent so the banner reflects reality.
+8. Observe initial batches, sanitized errors, queued age and permanent failures. SMTP outage
    never prevents candidate detection and is not a general API readiness blocker.
 
 Example hardened hourly timer (adjust service user, paths and clock window):

@@ -104,6 +104,14 @@ class Settings(BaseSettings):
             raise ValueError("AUTH_PUBLIC_ORIGIN must be one exact HTTP(S) origin")
         return value
 
+    @field_validator("notification_smtp_username", "notification_smtp_password", mode="before")
+    @classmethod
+    def empty_smtp_credentials(cls, value: object) -> object:
+        # Empty example-environment values mean unauthenticated relay, not a login.
+        if value == "" or isinstance(value, SecretStr) and value.get_secret_value() == "":
+            return None
+        return value
+
     @field_validator("kulturbytes_app_public_base_url")
     @classmethod
     def valid_app_origin(cls, value: str) -> str:
@@ -144,6 +152,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def secure_configuration(self) -> "Settings":
+        has_username = self.notification_smtp_username is not None
+        has_password = self.notification_smtp_password is not None
+        if has_username != has_password:
+            raise ValueError("Notification SMTP username and password must be configured together")
+        if (
+            self.notifications_delivery_enabled
+            and has_username
+            and not self.notification_smtp_starttls
+        ):
+            raise ValueError("Authenticated notification SMTP requires TLS")
         if self.notifications_delivery_enabled:
             if not self.notification_smtp_host:
                 raise ValueError("Notification delivery requires SMTP host")
