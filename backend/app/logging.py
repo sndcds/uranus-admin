@@ -53,6 +53,8 @@ def configure_logging(level: str, *, debug: bool = False) -> None:
     # SQL/parameters and Uvicorn's raw URL/query-string access logs may contain PII.
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("uvicorn.access").disabled = True
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 class RequestLoggingMiddleware:

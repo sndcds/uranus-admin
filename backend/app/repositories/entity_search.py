@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.repositories.created_period import created_period_filter
+from app.repositories.spatial import spatial_predicate
 from app.repositories.temporal import temporal_predicate
 from app.schemas.action import Action
 from app.schemas.entities import EntitySearchFilters, EntitySearchItem, EntitySearchResponse
@@ -116,9 +117,22 @@ ORGANIZATION_FILTER = """(CAST(:org AS uuid) IS NULL OR a.organization_id=:org
 
 
 async def entity_search(
-    connection: AsyncConnection, filters: EntitySearchFilters, settings: Settings, now: datetime
+    connection: AsyncConnection,
+    filters: EntitySearchFilters,
+    settings: Settings,
+    now: datetime,
+    geo_scope_wkb: bytes | None = None,
 ) -> EntitySearchResponse:
-    temporal = temporal_predicate(filters.entity_type, filters.temporal)
+    spatial = (
+        spatial_predicate(filters.entity_type, filters.temporal)
+        if geo_scope_wkb is not None
+        else "TRUE"
+    )
+    temporal = (
+        "TRUE"
+        if geo_scope_wkb is not None and filters.entity_type == "event"
+        else temporal_predicate(filters.entity_type, filters.temporal)
+    )
     period_sql, period_params = created_period_filter(filters.period, settings, now)
     definition = SEARCH_DEFINITIONS[filters.entity_type]
     query = escape_search(filters.q)
@@ -126,13 +140,15 @@ async def entity_search(
         await connection.execute(
             text(f"""SELECT entity_key,label,subtitle,status FROM ({definition.projection()}) a
         WHERE ({definition.matches()}) AND {ORGANIZATION_FILTER}
-        AND (CAST(:status AS text) IS NULL OR status=:status) AND {temporal} AND {period_sql}
+        AND (CAST(:status AS text) IS NULL OR status=:status)
+        AND {temporal} AND {period_sql} AND {spatial}
         ORDER BY CASE WHEN {definition.matches("exact")} THEN 0
                       WHEN {definition.matches("prefix")} THEN 1 ELSE 2 END,
                  lower(label) COLLATE "C",entity_key COLLATE "C"
         LIMIT :limit"""),
             {
                 **period_params,
+                "geo_scope_wkb": geo_scope_wkb,
                 "q": f"%{query}%",
                 "exact": query,
                 "prefix": f"{query}%",

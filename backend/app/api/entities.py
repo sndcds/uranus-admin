@@ -16,17 +16,22 @@ from app.schemas.entities import (
     EntitySearchResponse,
     EntitySection,
 )
+from app.services.geo.scopes import request_geo_scope
 
 router = APIRouter(tags=["Domain records"])
 
 
 @router.get("/entity-search", response_model=EntitySearchResponse)
 async def search(
+    request: Request,
     connection: ConnectionDep,
     settings: SettingsDep,
     filters: Annotated[EntitySearchFilters, Query()],
 ) -> EntitySearchResponse:
-    return await entity_search(connection, filters, settings, datetime.now(UTC))
+    scope = await request_geo_scope(request, filters.geo_scope_id)
+    return await entity_search(
+        connection, filters, settings, datetime.now(UTC), scope.ewkb if scope else None
+    )
 
 
 # Register six explicit endpoints; no catch-all source table or arbitrary projection.
@@ -37,7 +42,10 @@ def register(section: EntitySection) -> None:
         settings: SettingsDep,
         filters: Annotated[EntityFilters, Query()],
     ) -> EntityPage:
-        result = await entity_page(connection, settings, section, filters, datetime.now(UTC))
+        scope = await request_geo_scope(request, filters.geo_scope_id)
+        result = await entity_page(
+            connection, settings, section, filters, datetime.now(UTC), scope.ewkb if scope else None
+        )
         if settings.admin_database_url is not None:
             async with connect_admin(request) as admin:
                 await workflow_counts(admin, result.items)

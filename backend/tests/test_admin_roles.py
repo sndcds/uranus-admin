@@ -140,6 +140,7 @@ SELECT has_schema_privilege(current_user,'admin','USAGE'),
                 )
             ).one() == (True, False, False, False, False, False)
             expected = {
+                "geo_area": (True, True, True, False, False, False),
                 "notification": (True, True, True, False, False, False),
                 "notification_delivery": (True, True, True, False, False, False),
                 "notification_delivery_item": (True, True, False, False, False, False),

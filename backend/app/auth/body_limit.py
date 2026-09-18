@@ -1,4 +1,4 @@
-"""Bound login JSON before validation, including requests without Content-Length."""
+"""Bound login and area-identity JSON, including requests without Content-Length."""
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -10,7 +10,7 @@ class AuthBodyLimitMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope.get("path") != "/auth/login":
+        if scope["type"] != "http" or scope.get("path") not in {"/auth/login", "/api/v1/geo/areas"}:
             await self.app(scope, receive, send)
             return
         body = bytearray()
@@ -20,7 +20,7 @@ class AuthBodyLimitMiddleware:
                 return
             body.extend(message.get("body", b""))
             if len(body) > 8192:
-                await error_response(413, "request_too_large", "Login request is too large.")(
+                await error_response(413, "request_too_large", "Request is too large.")(
                     scope, receive, send
                 )
                 return

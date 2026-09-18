@@ -3,6 +3,8 @@
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
+from app.geo_types import Geometry
+
 metadata = sa.MetaData(schema="admin")
 
 check_run = sa.Table(
@@ -328,3 +330,39 @@ notification_delivery_item = sa.Table(
 sa.Index(
     "notification_delivery_item_notification_idx", notification_delivery_item.c.notification_id
 )
+
+# Cache metadata is separate from authoritative Uranus points.
+geo_area = sa.Table(
+    "geo_area",
+    metadata,
+    sa.Column("id", UUID, primary_key=True),
+    sa.Column("source", sa.Text, nullable=False),
+    sa.Column("source_type", sa.Text, nullable=False),
+    sa.Column("source_id", sa.Text, nullable=False),
+    sa.Column("name", sa.Text, nullable=False),
+    sa.Column("display_name", sa.Text, nullable=False),
+    sa.Column("country_code", sa.Text),
+    sa.Column("admin_level", sa.Integer),
+    sa.Column("kind", sa.Text, nullable=False),
+    sa.Column("provider_class", sa.Text),
+    sa.Column("provider_type", sa.Text),
+    sa.Column("provider_addresstype", sa.Text),
+    sa.Column("geometry", Geometry("MultiPolygon"), nullable=False),
+    sa.Column("bbox", Geometry("Polygon")),
+    sa.Column("hierarchy", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
+    sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=False),
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+    sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+    sa.UniqueConstraint("source", "source_type", "source_id", name="geo_area_source_identity"),
+    sa.CheckConstraint(
+        "kind IN ('country','region','county','municipality','city','district','other')",
+        name="geo_area_kind",
+    ),
+    sa.CheckConstraint(
+        "NOT ST_IsEmpty(geometry) AND ST_IsValid(geometry)", name="geo_area_geometry_valid"
+    ),
+)
+sa.Index("geo_area_geometry_idx", geo_area.c.geometry, postgresql_using="gist")
+sa.Index("geo_area_country_code_idx", geo_area.c.country_code)
+sa.Index("geo_area_kind_idx", geo_area.c.kind)
+sa.Index("geo_area_fetched_at_idx", geo_area.c.fetched_at)
