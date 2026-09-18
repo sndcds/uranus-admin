@@ -101,3 +101,9 @@ Optional public URL observations run separately with
 `python -m app.url_check_worker --once` (migration 0007 and explicit runtime grants).
 They never run during normal list requests or the deterministic syntax scan.
 See [worker operations and SSRF safeguards](backend/docs/development.md).
+
+Organization email notifications (DE/DA/EN) use a separate durable worker:
+`cd backend && uv run python -m app.notification_worker --once`.
+Migration 0008 and explicit notification runtime grants are required. Delivery defaults off;
+inspect `/notifications` and previews before enabling SMTP. See the
+[notification architecture, source verification and deployment guide](backend/docs/notifications.md).

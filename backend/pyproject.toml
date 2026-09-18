@@ -5,7 +5,7 @@ description = "Internal administration and data quality API for Kulturbytes/Uran
 requires-python = ">=3.13,<3.14"
 dependencies = [
   "fastapi>=0.115,<1",
-  "pydantic>=2.10,<3",
+  "pydantic[email]>=2.10,<3",
   "pydantic-settings>=2.7,<3",
   "sqlalchemy[asyncio]>=2.0,<2.1",
   "asyncpg>=0.30,<1",

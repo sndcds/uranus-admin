@@ -12,6 +12,14 @@ import { isIP } from 'node:net'
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
+  '/api/v1/notifications': [
+    'status',
+    'notification_type',
+    'organization_id',
+    'days',
+    'page',
+    'page_size',
+  ],
   '/api/v1/statistics/events/content': ['period', 'status', 'compare'],
   '/api/v1/statistics/entities': ['period', 'interval', 'compare', 'from_at', 'to_at'],
   '/api/v1/graph': ['root_type', 'root_key', 'depth', 'relation_type'],
@@ -135,15 +143,27 @@ export async function forwardAdminRequest(
     /^\/api\/v1\/check-runs\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
     )
-  const allowed = entityList
-    ? ['q', 'organization_id', 'status', 'period', 'temporal', 'page', 'page_size']
-    : entityDetail
-      ? ['related_page']
-      : markDetail || checkDetail
-        ? []
-        : Object.hasOwn(routes, input.path)
-          ? routes[input.path]
-          : undefined
+  const notificationDetail =
+    /^\/api\/v1\/(notifications|notification-deliveries)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      input.path,
+    )
+  const notificationPreview =
+    /^\/api\/v1\/notifications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/preview$/i.test(
+      input.path,
+    )
+  const allowed = notificationDetail
+    ? []
+    : notificationPreview
+      ? ['locale']
+      : entityList
+        ? ['q', 'organization_id', 'status', 'period', 'temporal', 'page', 'page_size']
+        : entityDetail
+          ? ['related_page']
+          : markDetail || checkDetail
+            ? []
+            : Object.hasOwn(routes, input.path)
+              ? routes[input.path]
+              : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
   const authWrite = input.method === 'POST' && ['/auth/login', '/auth/logout'].includes(input.path)
   if (

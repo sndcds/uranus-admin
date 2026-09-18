@@ -21,6 +21,7 @@ from app.api import (
     graph,
     health,
     marks,
+    notifications,
     quality,
     queues,
     statistics,
@@ -120,6 +121,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         queues.router,
         checks.router,
         marks.router,
+        notifications.router,
     ):
         admin.include_router(router)
     application.include_router(admin)

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -30,8 +31,38 @@ class Sources:
         return {str(row["uuid"]): row for row in self.rows[kind]}
 
 
-async def load_sources(connection: AsyncConnection) -> Sources:
+# Fixed predicates for bounded pre-send revalidation; ordinary quality scans retain
+# the existing bulk snapshot. No query per finding/event.
+ORGANIZATION_SCOPE = {
+    "organization": "uuid = :organization_id",
+    "venue": "org_uuid = :organization_id",
+    "space": "venue_uuid IN (SELECT uuid FROM uranus.venue WHERE org_uuid=:organization_id)",
+    "event": "org_uuid = :organization_id",
+    "event_date": "event_uuid IN (SELECT uuid FROM uranus.event WHERE org_uuid=:organization_id)",
+    "event_link": "event_uuid IN (SELECT uuid FROM uranus.event WHERE org_uuid=:organization_id)",
+    "license": "FALSE",
+    "image_link": "(context='organization' AND context_uuid=:organization_id) OR "
+    "(context='venue' AND context_uuid IN "
+    "(SELECT uuid FROM uranus.venue WHERE org_uuid=:organization_id)) OR "
+    "(context='event' AND context_uuid IN "
+    "(SELECT uuid FROM uranus.event WHERE org_uuid=:organization_id))",
+}
+ORGANIZATION_SCOPE["image"] = (
+    "uuid IN (SELECT pluto_image_uuid FROM uranus.pluto_image_link WHERE "
+    + ORGANIZATION_SCOPE["image_link"]
+    + ")"
+)
+
+
+async def load_sources(connection: AsyncConnection, organization_id: UUID | None = None) -> Sources:
     rows = {}
     for kind, sql in SOURCE_QUERIES.items():
-        rows[kind] = [dict(row) for row in (await connection.execute(text(sql))).mappings()]
+        if organization_id is not None:
+            sql += " WHERE " + ORGANIZATION_SCOPE[kind]
+        rows[kind] = [
+            dict(row)
+            for row in (
+                await connection.execute(text(sql), {"organization_id": organization_id})
+            ).mappings()
+        ]
     return Sources(rows)

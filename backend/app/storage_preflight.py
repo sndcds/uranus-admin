@@ -66,6 +66,9 @@ async def check_grants(connection: AsyncConnection, grants: dict[str, tuple[str,
 
 
 RUNTIME_GRANTS = {
+    "notification": ("SELECT", "INSERT", "UPDATE"),
+    "notification_delivery": ("SELECT", "INSERT", "UPDATE"),
+    "notification_delivery_item": ("SELECT", "INSERT"),
     "url_check": ("SELECT", "INSERT", "UPDATE"),
     "alembic_version": ("SELECT",),
     "check_run": ("SELECT", "INSERT", "UPDATE"),
