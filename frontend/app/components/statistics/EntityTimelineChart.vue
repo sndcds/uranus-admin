@@ -9,6 +9,7 @@ import { statisticsTypes, statisticsDate } from '~/utils/statistics'
 import { metric } from '~/utils/presentation'
 import AppIcon from '~/components/AppIcon.vue'
 const props = defineProps<{
+  showScope?: boolean
   series: StatisticsSeries[]
   fromAt: string
   toAt: string
@@ -216,7 +217,11 @@ function keyboard(event: KeyboardEvent) {
           <span
             class="statistics-dot"
             :style="{ background: statisticsTypes[entry.entity_type].color }"
-          /><span>{{ statisticsTypes[entry.entity_type].label }}</span
+          /><span
+            >{{ statisticsTypes[entry.entity_type].label
+            }}<template v-if="showScope">
+              · {{ entry.scope === 'geo' ? 'Gebiet' : 'Systemweit' }}</template
+            ></span
           ><b>{{ metric(entry.points[active]!.count) }}</b>
         </div>
       </div>
@@ -241,7 +246,10 @@ function keyboard(event: KeyboardEvent) {
         <span
           class="statistics-dot"
           :style="{ background: statisticsTypes[entry.entity_type].color }"
-        />{{ statisticsTypes[entry.entity_type].label }}
+        />{{ statisticsTypes[entry.entity_type].label
+        }}<template v-if="showScope">
+          · {{ entry.scope === 'geo' ? 'Gebiet' : 'Systemweit' }}</template
+        >
       </button>
     </div>
   </section>

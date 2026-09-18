@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import type { GeoAreaSearchItem } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
 import AppModal from './AppModal.vue'
-import { geoAreaLabel, supportsGeoScope } from '~/utils/geo'
+import { geoAreaLabel, supportsGeoScope, geoPagination, isSpatialType } from '~/utils/geo'
 import { useFilterPreferencesStore } from '~/stores/filter-preferences'
 
 const preferences = useFilterPreferencesStore()
@@ -77,7 +77,16 @@ async function apply(item: GeoAreaSearchItem) {
     preferences.setGeoScope(area)
     if (supportsGeoScope(route.path))
       await router.push({
-        query: { ...route.query, geo_scope_id: area.id, page: '1' },
+        query: {
+          ...route.query,
+          geo_scope_id: area.id,
+          ...(geoPagination(route.path) ? { page: '1', cursor: undefined } : {}),
+          ...(['/activity', '/graph'].includes(route.path) &&
+          typeof route.query.entity_type === 'string' &&
+          !isSpatialType(route.query.entity_type)
+            ? { entity_type: undefined }
+            : {}),
+        },
         hash: route.hash,
       })
     modal.value?.close()
@@ -91,7 +100,8 @@ async function clear() {
   preferences.setGeoScope(null)
   const next = { ...route.query }
   delete next.geo_scope_id
-  if (supportsGeoScope(route.path)) next.page = '1'
+  if (geoPagination(route.path)) next.page = '1'
+  delete next.cursor
   await router.push({ query: next, hash: route.hash })
 }
 function keydown(event: KeyboardEvent) {

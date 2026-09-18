@@ -4,6 +4,7 @@ import { isNavigationActive } from '~/utils/navigation'
 defineEmits<{ navigate: [] }>()
 const route = useRoute()
 const dashboard = useDashboardStore()
+const preferences = useFilterPreferencesStore()
 const links = [
   { label: 'Übersicht', icon: 'home', to: '/' },
   { label: 'Partneranfragen', icon: 'organization', to: '/queues/partner_requests' },
@@ -49,7 +50,11 @@ const links = [
       >
         <AppIcon :name="link.icon" /><span>{{ link.label }}</span>
         <span
-          v-if="link.to === '/findings' && dashboard.data"
+          v-if="
+            link.to === '/findings' &&
+            dashboard.data &&
+            (dashboard.data.geo_scope_id ?? null) === (preferences.sharedGeoScope?.id ?? null)
+          "
           class="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
           >{{ dashboard.data.quality.total }}</span
         >

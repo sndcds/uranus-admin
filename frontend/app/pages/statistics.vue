@@ -56,6 +56,7 @@ function setView(view: 'creation' | 'event-content') {
   void router.push({
     query: {
       view,
+      geo_scope_id: query.value.geo_scope_id,
       period:
         view === 'creation' && !supportsPeriod('statistics', preferences.sharedPeriod)
           ? undefined
@@ -121,7 +122,7 @@ async function load() {
     for (const [key, value] of Object.entries(query.value)) {
       if (key === 'view' && value === 'creation') continue
       if (
-        !['period', 'interval', 'compare', 'from_at', 'to_at'].includes(key) ||
+        !['period', 'interval', 'compare', 'from_at', 'to_at', 'geo_scope_id'].includes(key) ||
         typeof value !== 'string'
       )
         throw new Error('Invalid query')
@@ -142,7 +143,12 @@ function setPeriod(value: string) {
   preferences.hydratePeriod('statistics', value)
   customOpen.value = false
   void router.push({
-    query: { period: value, interval: 'auto', compare: compare.value ? 'previous' : undefined },
+    query: {
+      geo_scope_id: query.value.geo_scope_id,
+      period: value,
+      interval: 'auto',
+      compare: compare.value ? 'previous' : undefined,
+    },
   })
 }
 function setQuery(key: string, value: string | undefined) {
@@ -168,6 +174,7 @@ function applyCustom() {
     customOpen.value = false
     void router.push({
       query: {
+        geo_scope_id: query.value.geo_scope_id,
         period: 'custom',
         from_at: start,
         to_at: end,
@@ -324,6 +331,7 @@ onBeforeUnmount(() => {
       <template v-if="data">
         <EmptyState v-if="!total" message="Keine neuen Entitäten in diesem Zeitraum." />
         <EntityTimelineChart
+          :show-scope="!!query.geo_scope_id"
           :series="ordered"
           :from-at="data.from_at"
           :to-at="data.to_at"
@@ -341,6 +349,7 @@ onBeforeUnmount(() => {
             v-for="series in ordered"
             :key="series.entity_type"
             :series="series"
+            :show-scope="!!query.geo_scope_id"
             :selected="selected.includes(series.entity_type)"
             @toggle="toggle(series.entity_type)"
             @highlight="highlighted = series.entity_type"
@@ -403,7 +412,7 @@ onBeforeUnmount(() => {
               >Alle neuen Entitäten anzeigen <AppIcon name="arrow" :size="15"
             /></NuxtLink>
           </section>
-          <EntityDistributionChart :series="ordered" />
+          <EntityDistributionChart :show-scope="!!query.geo_scope_id" :series="ordered" />
         </div>
         <div
           class="statistics-footnote flex flex-wrap justify-between gap-2 text-xs text-slate-500"
@@ -422,7 +431,11 @@ onBeforeUnmount(() => {
         </p>
         <details class="statistics-data-table panel p-4 text-sm text-slate-600">
           <summary class="cursor-pointer font-semibold">
-            Daten als Tabelle · {{ metric(total) }} neue Entitäten
+            Daten als Tabelle · {{ metric(total) }} neue Entitäten<template
+              v-if="query.geo_scope_id"
+            >
+              (Gebiet und Systemweit)</template
+            >
           </summary>
           <div class="statistics-table-scroll mt-3 max-w-full overflow-x-auto">
             <table class="admin-table">
@@ -436,7 +449,10 @@ onBeforeUnmount(() => {
                 <tr>
                   <th>Intervallbeginn</th>
                   <th v-for="series in ordered" :key="series.entity_type">
-                    {{ statisticsTypes[series.entity_type].label }}
+                    {{ statisticsTypes[series.entity_type].label
+                    }}<template v-if="query.geo_scope_id">
+                      · {{ series.scope === 'geo' ? 'Gebiet' : 'Systemweit' }}</template
+                    >
                   </th>
                 </tr>
               </thead>

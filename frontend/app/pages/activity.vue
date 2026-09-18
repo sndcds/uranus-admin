@@ -2,6 +2,7 @@
 import { useFilterPreferencesStore } from '~/stores/filter-preferences'
 import { usePreferenceQuery } from '~/composables/usePreferenceQuery'
 import { activityPeriods } from '~/utils/periods'
+import { isSpatialType } from '~/utils/geo'
 import { entityTypeSchema } from '#shared/contracts'
 import type { ActivityPage } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
@@ -12,7 +13,10 @@ const preferences = useFilterPreferencesStore()
 const query = usePreferenceQuery(
   {
     period: preferences.resolvePeriodForPage('activity'),
-    entity_type: preferences.activity.entityType,
+    entity_type:
+      preferences.sharedGeoScope && !isSpatialType(preferences.activity.entityType)
+        ? undefined
+        : preferences.activity.entityType,
   },
   (value) => preferences.hydrateActivity(value),
 )
@@ -28,6 +32,12 @@ const selectedType = computed(() => {
   const parsed = entityTypeSchema.safeParse(query.value.entity_type)
   return parsed.success ? parsed.data : null
 })
+const geoScopeId = computed(() =>
+  typeof query.value.geo_scope_id === 'string' ? query.value.geo_scope_id : undefined,
+)
+const availableTypes = computed(() =>
+  entityTypeSchema.options.filter((kind) => !geoScopeId.value || isSpatialType(kind)),
+)
 const title = computed(() =>
   selectedType.value ? `Neue ${activityTypes[selectedType.value].plural}` : 'Neue Datensätze',
 )
@@ -90,12 +100,13 @@ async function load() {
 function reset() {
   preferences.activity.entityType = ''
   preferences.activity.period = '24h'
-  void router.push({ query: {} })
+  void router.push({ query: { geo_scope_id: geoScopeId.value } })
 }
 function apply() {
   preferences.hydratePeriod('activity', period.value)
   void router.push({
     query: {
+      geo_scope_id: geoScopeId.value,
       creation_basis: query.value.creation_basis === 'statistics' ? 'statistics' : undefined,
       entity_type: entityType.value || undefined,
       organization_id: organization.value || undefined,
@@ -128,7 +139,7 @@ onBeforeUnmount(() => {
         ><span class="label">Objektart</span>
         <select v-model="entityType" class="input">
           <option value="">Alle Objektarten</option>
-          <option v-for="kind in entityTypeSchema.options" :key="kind" :value="kind">
+          <option v-for="kind in availableTypes" :key="kind" :value="kind">
             {{ activityTypes[kind].label }}
           </option>
         </select>

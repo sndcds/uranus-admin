@@ -6,7 +6,7 @@ import { arc, pie } from 'd3-shape'
 import type { StatisticsSeries } from '#shared/contracts'
 import { statisticsTypes } from '~/utils/statistics'
 import { metric } from '~/utils/presentation'
-const props = defineProps<{ series: StatisticsSeries[] }>()
+const props = defineProps<{ showScope?: boolean; series: StatisticsSeries[] }>()
 const sorted = computed(() => [...props.series].sort((a, b) => b.total - a.total))
 const total = computed(() => props.series.reduce((sum, s) => sum + s.total, 0))
 const slices = computed(() =>
@@ -22,6 +22,9 @@ const shape = arc<(typeof slices.value)[number]>().innerRadius(63).outerRadius(9
     aria-labelledby="distribution-title"
   >
     <SectionHeader title-id="distribution-title" title="Verteilung nach Entitätstyp" />
+    <p v-if="showScope" class="mt-2 text-xs text-slate-600">
+      Verteilung über Gebiets- und systemweite Serien.
+    </p>
     <div
       v-if="total"
       class="statistics-distribution-body mt-3 flex flex-col items-center gap-4 sm:flex-row"
@@ -57,7 +60,12 @@ const shape = arc<(typeof slices.value)[number]>().innerRadius(63).outerRadius(9
             class="statistics-dot"
             :style="{ background: statisticsTypes[seriesItem.entity_type].color }"
           />
-          <span>{{ statisticsTypes[seriesItem.entity_type].label }}</span>
+          <span
+            >{{ statisticsTypes[seriesItem.entity_type].label
+            }}<template v-if="showScope">
+              · {{ seriesItem.scope === 'geo' ? 'Gebiet' : 'Systemweit' }}</template
+            ></span
+          >
           <strong class="ml-auto font-semibold">{{ metric(seriesItem.total) }}</strong
           ><span class="statistics-percentage whitespace-nowrap text-xs text-slate-500"
             >({{ Math.round((seriesItem.total / total) * 100) }} %)</span

@@ -19,6 +19,7 @@ defineProps<{
   loading: boolean
   hasRoot: boolean
   settingsOpen?: boolean
+  geoActive?: boolean
 }>()
 defineEmits<{ select: [node: GraphNode]; apply: []; reset: []; settings: [] }>()
 </script>
@@ -78,13 +79,20 @@ defineEmits<{ select: [node: GraphNode]; apply: []; reset: []; settings: [] }>()
     </div>
     <select v-model="entityType" class="input" aria-label="Entitätstypen">
       <option value="">Alle Entitätstypen</option>
-      <option v-for="(item, type) in nodePresentation" :key="type" :value="type">
+      <option
+        v-for="(item, type) in nodePresentation"
+        :key="type"
+        :value="type"
+        :disabled="geoActive && type === 'user'"
+      >
         {{ item.label }}
       </option>
     </select>
     <select v-model="relationType" class="input" aria-label="Beziehungstypen">
       <option value="">Alle Beziehungen</option>
-      <option v-for="(label, type) in relationLabels" :key="type" :value="type">{{ label }}</option>
+      <option v-for="(label, type) in relationLabels" :key="type" :value="type">
+        {{ label }}
+      </option>
     </select>
     <select v-model="organization" class="input" aria-label="Organisation für Suche">
       <option value="">Alle Organisationen</option>

@@ -2,8 +2,9 @@
 import SectionHeader from '~/components/SectionHeader.vue'
 const store = useDashboardStore()
 const { $adminApi } = useNuxtApp()
+const globalData = computed(() => (store.data?.geo_scope_id ? null : store.data))
 onMounted(() => {
-  if (!store.data) void store.load($adminApi)
+  if (!store.data || store.data.geo_scope_id) void store.load($adminApi)
 })
 </script>
 
@@ -21,12 +22,12 @@ onMounted(() => {
     <RequestState
       :loading="store.loading"
       :error="store.error"
-      :has-data="!!store.data"
+      :has-data="!!globalData"
       :last-success="store.lastSuccess"
       @retry="store.load($adminApi)"
     />
     <div class="space-y-4">
-      <QualityOverview :data="store.data" />
+      <QualityOverview :data="globalData" />
       <section class="rounded-2xl border border-slate-200 bg-white p-4">
         <SectionHeader title="Orte ohne Geoposition" />
         <p class="mt-2 text-sm text-slate-600">
