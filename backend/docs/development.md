@@ -438,6 +438,8 @@ REVOKE admin_migrator FROM admin_user;
 GRANT SELECT ON admin.alembic_version TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.check_run, admin.finding, admin.record_mark, admin.url_check TO admin_user;
 GRANT SELECT, INSERT ON admin.record_mark_event TO admin_user;
+GRANT SELECT, INSERT, UPDATE ON admin.notification, admin.notification_delivery TO admin_user;
+GRANT SELECT, INSERT ON admin.notification_delivery_item TO admin_user;
 -- Migration 0004: runtime cannot create accounts or grant itself global access.
 GRANT SELECT ON admin.auth_account, admin.auth_system_admin TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.auth_session, admin.auth_login_bucket TO admin_user;
