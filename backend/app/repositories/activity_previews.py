@@ -64,13 +64,11 @@ WITH requested AS (
         'event',e.uuid,NULL
  FROM requested r JOIN uranus.event e ON r.kind='event' AND e.uuid=r.id
  LEFT JOIN LATERAL (
+   -- Admin previews include unpublished dates; public_url checks both statuses separately.
    SELECT d.uuid,d.start_date,d.start_time,d.all_day,d.release_status
    FROM uranus.event_date d WHERE d.event_uuid=e.uuid
-     AND e.release_status::text IN ('released','cancelled','deferred','rescheduled')
      AND (d.start_date > CAST(:today AS date) OR (d.start_date=CAST(:today AS date)
        AND (d.all_day IS TRUE OR d.start_time IS NULL OR d.start_time >= CAST(:clock AS time))))
-     AND COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text)
-         IN ('released','cancelled','deferred','rescheduled')
    ORDER BY d.start_date,d.start_time NULLS LAST,d.uuid LIMIT 1
  ) d ON TRUE
  UNION ALL
@@ -208,7 +206,14 @@ async def activity_previews(
                 if row["start_time"]
                 else "Uhrzeit unbekannt"
             )
-            prefix = "Nächster öffentlicher Termin" if row["kind"] == "event" else "Termin"
+            prefix = "Termin"
+            if row["kind"] == "event":
+                prefix = (
+                    "Nächster öffentlicher Termin"
+                    if row["event_status"] in PUBLIC_STATUSES
+                    and row["date_status"] in PUBLIC_STATUSES
+                    else "Nächster Termin"
+                )
             parts.append(
                 f"{prefix}: {row['start_date']:%d.%m.%Y} · {time} ({settings.event_timezone})"
             )
