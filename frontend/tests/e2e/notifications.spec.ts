@@ -165,7 +165,9 @@ test('failure KPI, delivery list and confirmed retry preserve the old history', 
   await page.getByRole('link', { name: 'Dauerhaft fehlgeschlagen', exact: true }).click()
   await expect(page).toHaveURL(/notifications\/deliveries\?status=permanent_failure/)
   await expect(page.getByRole('heading', { name: 'E-Mail-Versände', exact: true })).toBeVisible()
-  await expect(page.getByLabel('Status', { exact: true })).toHaveValue('permanent_failure')
+  await expect(page.getByRole('combobox', { name: 'Status', exact: true })).toHaveValue(
+    'permanent_failure',
+  )
   await page.getByRole('link', { name: old.subject! }).click()
   await expect(page.getByText('Der automatische Versand wurde beendet.')).toBeVisible()
   await expect(page.getByText('smtp_553', { exact: true })).toBeVisible()
@@ -198,23 +200,26 @@ for (const status of ['failed', 'sent'] as const)
 
 test('retry proxy denies anonymous and cross-origin writes without forwarding overrides', async ({
   request,
+  context,
 }) => {
   const url = `/api/admin/api/v1/notification-deliveries/${notificationDeliveryDetail.id}/retry`
   expect((await request.post(url)).status()).toBe(401)
-  await request.post('/api/admin/auth/login', {
-    headers: { Origin: 'http://127.0.0.1:3100', 'X-Admin-CSRF': '1' },
-    data: { login: 'operator', password: 'test-only-password' },
-  })
-  expect((await request.post(url)).status()).toBe(403)
+  // The page fixture has a real session; the separate request fixture is anonymous.
+  // APIRequestContext does not apply Chromium's secure-loopback cookie exception.
+  const cookie = (await context.cookies()).find((item) => item.name.endsWith('admin_session'))!
+  const authenticated = { Cookie: `${cookie.name}=${cookie.value}` }
+  expect((await request.post(url, { headers: authenticated })).status()).toBe(403)
   expect(
     (
-      await request.post(url, { headers: { Origin: 'http://evil.test', 'X-Admin-CSRF': '1' } })
+      await request.post(url, {
+        headers: { ...authenticated, Origin: 'http://evil.test', 'X-Admin-CSRF': '1' },
+      })
     ).status(),
   ).toBe(403)
   expect(
     (
       await request.post(url, {
-        headers: { Origin: 'http://127.0.0.1:3100', 'X-Admin-CSRF': '1' },
+        headers: { ...authenticated, Origin: 'http://127.0.0.1:3100', 'X-Admin-CSRF': '1' },
         data: { recipient: 'other@example.test' },
       })
     ).status(),
