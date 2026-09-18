@@ -124,7 +124,8 @@ class Settings(BaseSettings):
             or parsed.path
             or parsed.query
             or parsed.fragment
-            or any(char in value for char in "*\\?#")
+            or any(char in value for char in "*\\?#%")
+            or parsed.hostname.endswith(".")
             or any(ord(char) < 33 or ord(char) == 127 for char in value)
             or parsed.hostname == "admin.kulturbytes.de"
         ):
@@ -170,8 +171,8 @@ class Settings(BaseSettings):
         ) and not self.kulturbytes_app_public_base_url.startswith("https://"):
             raise ValueError("Notification recipient links require HTTPS")
         if urlsplit(self.kulturbytes_app_public_base_url).hostname in {
-            urlsplit(self.admin_public_base_url).hostname,
-            urlsplit(self.auth_public_origin or "").hostname,
+            (urlsplit(self.admin_public_base_url).hostname or "").rstrip("."),
+            (urlsplit(self.auth_public_origin or "").hostname or "").rstrip("."),
         }:
             raise ValueError("Notification recipient app must be separate from system admin")
         if self.notification_lease_seconds <= self.notification_smtp_timeout_seconds * 4:

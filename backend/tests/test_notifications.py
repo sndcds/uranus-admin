@@ -913,6 +913,9 @@ def test_recipient_parent_requires_proven_ownership(action_sources, settings):
     "origin",
     [
         "https://admin.kulturbytes.de",
+        "https://admin%2ekulturbytes.de",
+        "https://admin.kulturbytes.de.",
+        "https://app.kulturbytes.de.",
         "https://app.kulturbytes.de/",
         "https://app.kulturbytes.de/x",
         "https://user:password@app.kulturbytes.de",
@@ -938,6 +941,8 @@ def test_recipient_origin_validation(origin):
 def test_recipient_origin_is_separate_and_supports_local_preview():
     with pytest.raises(ValidationError, match="separate"):
         Settings(_env_file=None, admin_public_base_url="https://app.kulturbytes.de")
+    with pytest.raises(ValidationError, match="separate"):
+        Settings(_env_file=None, auth_public_origin="https://app.kulturbytes.de.")
     assert Settings(
         _env_file=None, app_env="test", kulturbytes_app_public_base_url="http://localhost:3000"
     )

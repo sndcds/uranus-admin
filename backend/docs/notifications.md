@@ -247,7 +247,8 @@ uranus-admin system-admin accounts. Email CTAs target verified Kulturbytes user-
 routes only. Links derive from `KULTURBYTES_APP_PUBLIC_BASE_URL` (default
 `https://app.kulturbytes.de`), never the Host header, source URLs, or `ADMIN_PUBLIC_BASE_URL`.
 The configured app origin must be an exact HTTP(S) origin without credentials, wildcards,
-path, query, fragment or control characters. HTTPS is required in staging/production and
+path, query, fragment or control characters. Encoded hostnames and trailing DNS dots are
+rejected so alternate spellings cannot bypass the internal-host boundary. HTTPS is required in staging/production and
 when delivery is enabled. The app must have a separate origin from system-admin authentication.
 `ADMIN_PUBLIC_BASE_URL` is reserved for internal administration.
 

@@ -71,8 +71,10 @@ def recipient_action(url: str | None, entity: str, settings: Settings) -> tuple[
             parsed.scheme != origin.scheme
             or parsed.netloc != origin.netloc
             or parsed.hostname == "admin.kulturbytes.de"
-            or parsed.hostname == urlsplit(settings.admin_public_base_url).hostname
-            or parsed.hostname == urlsplit(settings.auth_public_origin or "").hostname
+            or parsed.hostname
+            == (urlsplit(settings.admin_public_base_url).hostname or "").rstrip(".")
+            or parsed.hostname
+            == (urlsplit(settings.auth_public_origin or "").hostname or "").rstrip(".")
             or parsed.username is not None
             or parsed.password is not None
             or parsed.query
