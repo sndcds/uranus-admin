@@ -365,6 +365,29 @@ async def test_event_content_scopes_denominator_before_ranking(
         text("INSERT INTO uranus.event_date(uuid,event_uuid,start_date) VALUES (:id,:event,:day)"),
         {"id": uid(937), "event": uid(936), "day": now.date()},
     )
+    for key, hours in [(938, 1), (940, 25)]:
+        await db_connection.execute(
+            text(
+                "INSERT INTO uranus.event(uuid,org_uuid,title,created_at,venue_uuid,categories) "
+                "VALUES (:id,:org,'Outside category',:stamp,:venue,ARRAY[99])"
+            ),
+            {
+                "id": uid(key),
+                "org": uid(10),
+                "venue": uid(21),
+                "stamp": now.replace(tzinfo=None) - timedelta(hours=hours),
+            },
+        )
+        await db_connection.execute(
+            text(
+                "INSERT INTO uranus.event_date(uuid,event_uuid,start_date) VALUES (:id,:event,:day)"
+            ),
+            {"id": uid(key + 1), "event": uid(key), "day": now.date()},
+        )
+    global_result = await get_event_content(
+        db_connection, settings, EventContentFilters(period=period), now
+    )
+    assert global_result.categories.items[0].id == "99"
     result = await get_event_content(
         db_connection,
         settings,

@@ -321,8 +321,8 @@ planner; tiny tables also produce sequential scans. Some fixed membership EXISTS
 subplans are correlated; these are PostgreSQL plan operations, not N+1 network calls.
 The bound geometry appears as a constant in custom plans rather than a per-row
 provider/deserialization request. No materialized scope CTE or simplified geometry
-was introduced without evidence of benefit. Graph search can trigger PostgreSQL JIT
-at estimated-cost thresholds; tiny-fixture timing is not a production benchmark.
+was introduced without evidence of benefit. The explicit spatial-type restriction prunes nonspatial UNION branches. The final
+small-fixture Graph plan did not trigger JIT; tiny-fixture timing is not a production benchmark.
 
 Organization.point still lacks a GIST index in the previously audited upstream DDL.
 Any index belongs in a Uranus-owned change after representative measurements. Phase 2

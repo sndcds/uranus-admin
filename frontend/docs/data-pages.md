@@ -424,10 +424,9 @@ URL wins over memory, then no scope. Reload resolves cached metadata before the 
 loads. Local filter reset preserves the area; global area reset preserves other filters
 and returns to page 1. Logout/session loss/new login resets it. No browser persistence.
 
-Users/images and, in this delivery phase, Activity/Findings/Dashboard/Statistics/Graph
-remain global and say so visibly when a scope is selected. These pages do not send a
-geo filter or claim their metrics are spatially restricted. Scope memory survives the
-navigation back to supported lists. Details remain accessible outside the scope.
+Users/images remain global and say so visibly when a scope is selected. They do not
+send a geo filter. Phase 2 extends Activity/Findings/Dashboard/Statistics/Graph as
+described below. Scope memory survives navigation back to supported views. Details remain accessible outside the scope.
 Unlocated records (NULL/EMPTY authoritative points) are excluded from scoped lists.
 
 See [backend Geo Scope](../../backend/docs/geo-scope.md) for the API matrix, exact event
