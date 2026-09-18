@@ -19,7 +19,21 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "event": record.getMessage(),
         }
-        for key in ("method", "route", "status_code", "duration_ms", "error_type", "rule"):
+        for key in (
+            "method",
+            "route",
+            "status_code",
+            "duration_ms",
+            "error_type",
+            "rule",
+            "organization_id",
+            "delivery_id",
+            "candidates_detected",
+            "deliveries_queued",
+            "deliveries_sent",
+            "deliveries_failed",
+            "deliveries_suppressed",
+        ):
             if hasattr(record, key):
                 payload[key] = getattr(record, key)
         if self.debug and record.exc_info:

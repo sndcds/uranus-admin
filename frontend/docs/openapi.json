@@ -5113,6 +5113,545 @@
           }
         }
       }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Notifications",
+        "operationId": "notifications_api_v1_notifications_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "active",
+                    "resolved",
+                    "suppressed",
+                    "expired"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "notification_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "unpublished_upcoming_event",
+                    "quality_finding"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Notification Type"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 365,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Days"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{notification_id}": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Detail",
+        "operationId": "detail_api_v1_notifications__notification_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{notification_id}/preview": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Preview",
+        "operationId": "preview_api_v1_notifications__notification_id__preview_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Notification Id"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "de",
+                "da",
+                "en"
+              ],
+              "type": "string",
+              "default": "de",
+              "title": "Locale"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/notification-deliveries/{delivery_id}": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Delivery Detail",
+        "operationId": "delivery_detail_api_v1_notification_deliveries__delivery_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "delivery_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Delivery Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5643,6 +6182,31 @@
         ],
         "title": "CheckRunPage"
       },
+      "ConfigIssue": {
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "organization_name": {
+            "type": "string",
+            "title": "Organization Name"
+          },
+          "code": {
+            "type": "string",
+            "const": "invalid_config",
+            "title": "Code",
+            "default": "invalid_config"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_id",
+          "organization_name"
+        ],
+        "title": "ConfigIssue"
+      },
       "CursorPagination": {
         "properties": {
           "page_size": {
@@ -5824,6 +6388,172 @@
           "quality"
         ],
         "title": "DashboardSummary"
+      },
+      "DeliveryDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "recipient": {
+            "type": "string",
+            "title": "Recipient"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "de",
+              "da",
+              "en"
+            ],
+            "title": "Locale"
+          },
+          "delivery_kind": {
+            "type": "string",
+            "enum": [
+              "initial",
+              "reminder",
+              "escalation",
+              "digest",
+              "test"
+            ],
+            "title": "Delivery Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sending",
+              "sent",
+              "failed",
+              "permanent_failure",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "message_fingerprint": {
+            "type": "string",
+            "title": "Message Fingerprint"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count"
+          },
+          "queued_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queued At"
+          },
+          "sending_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sending At"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent At"
+          },
+          "next_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Attempt At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "provider_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Message Id"
+          },
+          "notifications": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationSummary"
+            },
+            "type": "array",
+            "title": "Notifications"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "recipient",
+          "locale",
+          "delivery_kind",
+          "status",
+          "subject",
+          "message_fingerprint",
+          "attempt_count",
+          "queued_at",
+          "sending_at",
+          "sent_at",
+          "next_attempt_at",
+          "last_error",
+          "provider_message_id",
+          "notifications"
+        ],
+        "title": "DeliveryDetail"
       },
       "EntityDetail": {
         "properties": {
@@ -8091,6 +8821,736 @@
           "images"
         ],
         "title": "NewRecords"
+      },
+      "NotificationCounts": {
+        "properties": {
+          "active": {
+            "type": "integer",
+            "title": "Active"
+          },
+          "queued": {
+            "type": "integer",
+            "title": "Queued"
+          },
+          "sent_today": {
+            "type": "integer",
+            "title": "Sent Today"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "active",
+          "queued",
+          "sent_today",
+          "failed"
+        ],
+        "title": "NotificationCounts"
+      },
+      "NotificationDelivery": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "recipient": {
+            "type": "string",
+            "title": "Recipient"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "de",
+              "da",
+              "en"
+            ],
+            "title": "Locale"
+          },
+          "delivery_kind": {
+            "type": "string",
+            "enum": [
+              "initial",
+              "reminder",
+              "escalation",
+              "digest",
+              "test"
+            ],
+            "title": "Delivery Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sending",
+              "sent",
+              "failed",
+              "permanent_failure",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "message_fingerprint": {
+            "type": "string",
+            "title": "Message Fingerprint"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count"
+          },
+          "queued_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queued At"
+          },
+          "sending_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sending At"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent At"
+          },
+          "next_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Attempt At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "provider_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Message Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "recipient",
+          "locale",
+          "delivery_kind",
+          "status",
+          "subject",
+          "message_fingerprint",
+          "attempt_count",
+          "queued_at",
+          "sending_at",
+          "sent_at",
+          "next_attempt_at",
+          "last_error",
+          "provider_message_id"
+        ],
+        "title": "NotificationDelivery"
+      },
+      "NotificationDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "notification_type": {
+            "type": "string",
+            "enum": [
+              "unpublished_upcoming_event",
+              "quality_finding"
+            ],
+            "title": "Notification Type"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Key"
+          },
+          "entity_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Name"
+          },
+          "finding_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finding Id"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active",
+              "resolved",
+              "suppressed",
+              "expired"
+            ],
+            "title": "Status"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/NotificationPayload"
+          },
+          "first_detected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Detected At"
+          },
+          "last_detected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Detected At"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "expired_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expired At"
+          },
+          "deliveries": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationDelivery"
+            },
+            "type": "array",
+            "title": "Deliveries"
+          },
+          "delivery_enabled": {
+            "type": "boolean",
+            "title": "Delivery Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "notification_type",
+          "organization_id",
+          "entity_type",
+          "entity_key",
+          "entity_name",
+          "finding_id",
+          "rule",
+          "status",
+          "payload",
+          "first_detected_at",
+          "last_detected_at",
+          "resolved_at",
+          "expired_at",
+          "deliveries",
+          "delivery_enabled"
+        ],
+        "title": "NotificationDetail"
+      },
+      "NotificationHealth": {
+        "properties": {
+          "delivery_enabled": {
+            "type": "boolean",
+            "title": "Delivery Enabled"
+          },
+          "source_capability": {
+            "type": "boolean",
+            "title": "Source Capability"
+          },
+          "config_issues": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigIssue"
+            },
+            "type": "array",
+            "title": "Config Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "delivery_enabled",
+          "source_capability",
+          "config_issues"
+        ],
+        "title": "NotificationHealth"
+      },
+      "NotificationPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/NotificationCounts"
+          },
+          "health": {
+            "$ref": "#/components/schemas/NotificationHealth"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination",
+          "summary",
+          "health"
+        ],
+        "title": "NotificationPage"
+      },
+      "NotificationPayload": {
+        "properties": {
+          "organization_name": {
+            "type": "string",
+            "title": "Organization Name"
+          },
+          "entity_name": {
+            "type": "string",
+            "title": "Entity Name"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "title": "Entity Key"
+          },
+          "action_path": {
+            "type": "string",
+            "title": "Action Path"
+          },
+          "event_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "review"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Status"
+          },
+          "next_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Date"
+          },
+          "days_until": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Until"
+          },
+          "stage": {
+            "type": "integer",
+            "title": "Stage",
+            "default": 0
+          },
+          "episode": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Episode",
+            "default": 1
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          },
+          "finding_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finding Id"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "relevance": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Relevance"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "urgent",
+              "important",
+              "improvement",
+              "internal"
+            ],
+            "title": "Priority",
+            "default": "improvement"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_name",
+          "entity_name",
+          "entity_type",
+          "entity_key",
+          "action_path"
+        ],
+        "title": "NotificationPayload",
+        "description": "Small, typed rendering/audit snapshot; never a raw source row or finding.message."
+      },
+      "NotificationPreview": {
+        "properties": {
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "html": {
+            "type": "string",
+            "title": "Html"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "de",
+              "da",
+              "en"
+            ],
+            "title": "Locale"
+          },
+          "notification_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Notification Ids"
+          },
+          "delivery_enabled": {
+            "type": "boolean",
+            "title": "Delivery Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subject",
+          "text",
+          "html",
+          "locale",
+          "notification_ids",
+          "delivery_enabled"
+        ],
+        "title": "NotificationPreview"
+      },
+      "NotificationSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "notification_type": {
+            "type": "string",
+            "enum": [
+              "unpublished_upcoming_event",
+              "quality_finding"
+            ],
+            "title": "Notification Type"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Key"
+          },
+          "entity_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Name"
+          },
+          "finding_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finding Id"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active",
+              "resolved",
+              "suppressed",
+              "expired"
+            ],
+            "title": "Status"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/NotificationPayload"
+          },
+          "first_detected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Detected At"
+          },
+          "last_detected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Detected At"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "expired_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expired At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "notification_type",
+          "organization_id",
+          "entity_type",
+          "entity_key",
+          "entity_name",
+          "finding_id",
+          "rule",
+          "status",
+          "payload",
+          "first_detected_at",
+          "last_detected_at",
+          "resolved_at",
+          "expired_at"
+        ],
+        "title": "NotificationSummary"
       },
       "Pagination": {
         "properties": {
