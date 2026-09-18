@@ -188,6 +188,10 @@ export type FindingFilters = z.infer<typeof filtersSchema>
 
 // Own API codes only. Messages are validated but replaced with local safe text.
 export const adminErrorStatuses = {
+  notification_delivery_not_found: 404,
+  notification_retry_not_allowed: 409,
+  notification_retry_obsolete: 409,
+  notification_retry_already_queued: 409,
   authentication_required: 401,
   invalid_credentials: 401,
   permission_denied: 403,
@@ -862,6 +866,7 @@ export const notificationSummarySchema = z.object({
 })
 export const notificationDeliverySchema = z.object({
   id: z.uuid(),
+  retry_of_delivery_id: z.uuid().nullable(),
   organization_id: z.uuid(),
   recipient: z.string(),
   locale: notificationLocaleSchema,
@@ -882,6 +887,7 @@ export const notificationDetailSchema = notificationSummarySchema.extend({
   delivery_enabled: z.boolean(),
 })
 export const notificationDeliveryDetailSchema = notificationDeliverySchema.extend({
+  retries: z.array(notificationDeliverySchema),
   notifications: z.array(notificationSummarySchema),
 })
 export const notificationPreviewSchema = z.object({
@@ -895,7 +901,14 @@ export const notificationPreviewSchema = z.object({
 export const notificationPageSchema = z.object({
   items: z.array(notificationSummarySchema),
   pagination: z.object({ page: count, page_size: count, total: count, pages: count }),
-  summary: z.object({ active: count, queued: count, sent_today: count, failed: count }),
+  summary: z.object({
+    active: count,
+    queued: count,
+    sent_today: count,
+    failed: count,
+    temporary_failed: count,
+    permanent_failed: count,
+  }),
   health: z.object({
     delivery_enabled: z.boolean(),
     source_capability: z.boolean(),
@@ -918,3 +931,18 @@ export type NotificationDelivery = z.infer<typeof notificationDeliverySchema>
 export type NotificationDeliveryDetail = z.infer<typeof notificationDeliveryDetailSchema>
 export type NotificationPreview = z.infer<typeof notificationPreviewSchema>
 export type NotificationPage = z.infer<typeof notificationPageSchema>
+
+export const notificationRetryResponseSchema = z.object({
+  delivery_id: z.uuid(),
+  status: z.literal('queued'),
+  retry_of_delivery_id: z.uuid(),
+})
+export const notificationDeliveryPageSchema = z.object({
+  items: z.array(
+    notificationDeliverySchema.extend({ organization_name: z.string(), created_at: timestamp }),
+  ),
+  pagination: notificationPageSchema.shape.pagination,
+  delivery_enabled: z.boolean(),
+})
+export type NotificationRetryResponse = z.infer<typeof notificationRetryResponseSchema>
+export type NotificationDeliveryPage = z.infer<typeof notificationDeliveryPageSchema>

@@ -1,5 +1,7 @@
 import {
   notificationPageSchema,
+  notificationDeliveryPageSchema,
+  notificationRetryResponseSchema,
   notificationDetailSchema,
   notificationDeliveryDetailSchema,
   notificationPreviewSchema,
@@ -97,6 +99,15 @@ export function createAdminApi(
       request('/api/v1/notifications', notificationPageSchema, query),
     notification: (id: string) =>
       request(`/api/v1/notifications/${encodeURIComponent(id)}`, notificationDetailSchema),
+    notificationDeliveries: (query: Record<string, string | number | undefined>) =>
+      request('/api/v1/notification-deliveries', notificationDeliveryPageSchema, query),
+    retryNotificationDelivery: (id: string) =>
+      request(
+        `/api/v1/notification-deliveries/${encodeURIComponent(id)}/retry`,
+        notificationRetryResponseSchema,
+        {},
+        'POST',
+      ),
     notificationDelivery: (id: string) =>
       request(
         `/api/v1/notification-deliveries/${encodeURIComponent(id)}`,

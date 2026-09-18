@@ -12,6 +12,14 @@ import { isIP } from 'node:net'
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
+  '/api/v1/notification-deliveries': [
+    'status',
+    'organization_id',
+    'delivery_kind',
+    'days',
+    'page',
+    'page_size',
+  ],
   '/api/v1/notifications': [
     'status',
     'notification_type',
@@ -147,23 +155,28 @@ export async function forwardAdminRequest(
     /^\/api\/v1\/(notifications|notification-deliveries)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
     )
+  const notificationRetry =
+    /^\/api\/v1\/notification-deliveries\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/retry$/i.test(
+      input.path,
+    )
   const notificationPreview =
     /^\/api\/v1\/notifications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/preview$/i.test(
       input.path,
     )
-  const allowed = notificationDetail
-    ? []
-    : notificationPreview
-      ? ['locale']
-      : entityList
-        ? ['q', 'organization_id', 'status', 'period', 'temporal', 'page', 'page_size']
-        : entityDetail
-          ? ['related_page']
-          : markDetail || checkDetail
-            ? []
-            : Object.hasOwn(routes, input.path)
-              ? routes[input.path]
-              : undefined
+  const allowed =
+    notificationDetail || notificationRetry
+      ? []
+      : notificationPreview
+        ? ['locale']
+        : entityList
+          ? ['q', 'organization_id', 'status', 'period', 'temporal', 'page', 'page_size']
+          : entityDetail
+            ? ['related_page']
+            : markDetail || checkDetail
+              ? []
+              : Object.hasOwn(routes, input.path)
+                ? routes[input.path]
+                : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
   const authWrite = input.method === 'POST' && ['/auth/login', '/auth/logout'].includes(input.path)
   if (
@@ -174,12 +187,17 @@ export async function forwardAdminRequest(
     return rejected(405, 'method_not_allowed')
   const write =
     authWrite ||
+    (input.method === 'POST' && notificationRetry) ||
     (input.method === 'POST' && input.path === '/api/v1/record-marks') ||
     (input.method === 'PATCH' && markDetail) ||
     (input.method === 'POST' && input.path === '/api/v1/check-runs') ||
     (input.method === 'PATCH' && input.path === '/api/v1/finding-reviews')
-  if (!write && (input.method !== 'GET' || input.path === '/api/v1/finding-reviews'))
+  if (
+    !write &&
+    (input.method !== 'GET' || input.path === '/api/v1/finding-reviews' || notificationRetry)
+  )
     return rejected(405, 'method_not_allowed')
+  if (notificationRetry && input.body !== undefined) return rejected(422, 'invalid_input')
   if (write && input.query.size) return rejected(422, 'invalid_query')
   let requestBody: string | undefined
   if (input.path === '/auth/login') {

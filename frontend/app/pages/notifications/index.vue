@@ -13,6 +13,21 @@ const status = ref<NotificationStatus | ''>('')
 const type = ref<NotificationType | ''>('')
 const organization = ref('')
 const days = ref('')
+const metrics = [
+  { key: 'active', label: 'Aktiv', to: '' },
+  { key: 'sent_today', label: 'Heute gesendet', to: '/notifications/deliveries?status=sent' },
+  {
+    key: 'temporary_failed',
+    label: 'Temporär fehlgeschlagen',
+    to: '/notifications/deliveries?status=failed',
+  },
+  {
+    key: 'permanent_failed',
+    label: 'Dauerhaft fehlgeschlagen',
+    to: '/notifications/deliveries?status=permanent_failure',
+  },
+  { key: 'queued', label: 'Ausstehend', to: '/notifications/deliveries' },
+] as const
 let generation = 0
 async function load(page = 1) {
   const current = ++generation
@@ -44,7 +59,10 @@ onBeforeUnmount(() => {
     <PageHeader
       title="Benachrichtigungen"
       description="Operative E-Mail-Hinweise und Versandhistorie."
-    />
+      ><NuxtLink to="/notifications/deliveries" class="button"
+        >E-Mail-Versände</NuxtLink
+      ></PageHeader
+    >
     <FilterBar @apply="load()">
       <label
         >Status<select v-model="status" class="input">
@@ -94,19 +112,16 @@ onBeforeUnmount(() => {
           Ungültige Benachrichtigungskonfiguration: {{ issue.organization_name }}. Kein Versand.
         </li>
       </ul>
-      <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div
-          v-for="(label, key) in {
-            active: 'Aktiv',
-            sent_today: 'Heute gesendet',
-            failed: 'Fehlgeschlagen',
-            queued: 'Ausstehend',
-          }"
-          :key="key"
-          class="rounded-xl bg-white p-4"
-        >
-          <dt class="muted">{{ label }}</dt>
-          <dd class="text-2xl font-semibold">{{ data.summary[key] }}</dd>
+      <dl class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div v-for="metric in metrics" :key="metric.key" class="rounded-xl bg-white p-4">
+          <dt class="muted">
+            <NuxtLink v-if="metric.to" :to="metric.to" class="text-fuchsia-700 underline">{{
+              metric.label
+            }}</NuxtLink>
+            <span v-else>{{ metric.label }}</span>
+          </dt>
+          <dd class="text-2xl font-semibold">{{ data.summary[metric.key] }}</dd>
+          <p v-if="metric.key === 'queued'" class="muted">Eingereiht oder wird gesendet</p>
         </div>
       </dl>
       <ResultSummary
