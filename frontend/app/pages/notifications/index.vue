@@ -47,7 +47,7 @@ onBeforeUnmount(() => {
     />
     <FilterBar @apply="load()">
       <label
-        >Status<select v-model="status" class="field">
+        >Status<select v-model="status" class="input">
           <option value="">Alle</option>
           <option v-for="(label, value) in notificationStatuses" :key="value" :value="value">
             {{ label }}
@@ -55,7 +55,7 @@ onBeforeUnmount(() => {
         </select></label
       >
       <label
-        >Typ<select v-model="type" class="field">
+        >Typ<select v-model="type" class="input">
           <option value="">Alle</option>
           <option v-for="(label, value) in notificationTypes" :key="value" :value="value">
             {{ label }}
@@ -65,11 +65,11 @@ onBeforeUnmount(() => {
       <label
         >Organisation (UUID)<input
           v-model="organization"
-          class="field"
+          class="input"
           placeholder="Alle Organisationen"
       /></label>
       <label
-        >Zeitraum<select v-model="days" class="field">
+        >Zeitraum<select v-model="days" class="input">
           <option value="">Gesamter Zeitraum</option>
           <option value="7">Letzte 7 Tage</option>
           <option value="30">Letzte 30 Tage</option>

@@ -46,7 +46,7 @@ onBeforeUnmount(() => {
     <p class="muted">Vorschau des gespeicherten Hinweises. Es wird keine E-Mail gesendet.</p>
     <div class="flex flex-wrap gap-3 items-end">
       <label
-        >Sprache<select v-model="locale" class="field">
+        >Sprache<select v-model="locale" class="input">
           <option value="de">Deutsch</option>
           <option value="da">Dansk</option>
           <option value="en">English</option>
