@@ -328,3 +328,22 @@ it('rejects unsafe avatar endpoints and invalid map coordinates', () => {
   )
   expect(row({ ...first, email: null }).text()).not.toContain('E-Mail:')
 })
+
+it.each([
+  ['draft', 'Entwurf'],
+  ['review', 'In Prüfung'],
+])('renders the backend %s next-date subtitle without a public link', (status, badge) => {
+  const item = {
+    ...first,
+    entity_type: 'event' as const,
+    status,
+    subtitle: 'Nächster Termin: 22.09.2026 · 18:00 (Europe/Berlin)',
+    public_url: null,
+  }
+  const wrapper = row(item)
+  expect(wrapper.text()).toContain(item.subtitle)
+  expect(wrapper.text()).toContain(badge)
+  expect(wrapper.find('a[href^="https://kulturbytes.de/"]').exists()).toBe(false)
+  expect(wrapper.get('time').attributes('datetime')).toBe(item.created_at)
+  expect(wrapper.get('time').text()).toBe(activityTime(item.created_at, activityObservedAt))
+})
