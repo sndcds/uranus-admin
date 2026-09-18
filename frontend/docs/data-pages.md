@@ -432,3 +432,28 @@ Unlocated records (NULL/EMPTY authoritative points) are excluded from scoped lis
 
 See [backend Geo Scope](../../backend/docs/geo-scope.md) for the API matrix, exact event
 and temporal semantics, provider limits/coverage, deployment and concrete follow-up PRs.
+
+
+## Global Geo Scope: Phase 2
+
+The shared session scope now also applies to `/activity`, `/findings`, `/`,
+`/statistics` (both views) and `/graph` root discovery. Every supported page carries
+`geo_scope_id` in its URL. URL takes precedence over the session store; period and
+geo remain independent. Local resets preserve geo; global clear resets list pagination
+and cursor without adding `page` to Dashboard, Statistics or Graph URLs. Logout and
+session loss clear the session preferences.
+
+- Activity excludes nonspatial types and hides their filter choices.
+- Findings show only spatially matching affected entities; unlocated/technical findings
+  are excluded. Counts and pagination reflect that population in persisted and live mode.
+- Dashboard splits new-record totals and labels metrics **Gebiet** / **Systemweit**.
+  Quality counts are scoped; check status and workflow queues remain systemwide.
+- Statistics label each series; users, partner requests and invitations remain systemwide.
+  Recent records are spatial only. Event-content rankings/shares use the scoped denominator.
+- Graph search excludes nonspatial roots, while direct roots and relationship traversal
+  remain complete. The traversal API never receives geo_scope_id.
+
+All of these requests use cached areas; they work without Nominatim availability.
+Details and global users/images/notification/settings views remain outside the filter.
+The scope is a work context, never authorization. Phase 3 (missing locations and
+address suggestions) remains outstanding.

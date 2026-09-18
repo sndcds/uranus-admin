@@ -1,4 +1,4 @@
-# Global administrative work scope — phase 1
+# Global administrative work scope — phases 1 and 2
 
 Base: uranus-admin main `2579e04b24819f16acf6b7ec096d31e0275d6135` (fetched 2026-09-18).
 Uranus remote main DDL verified at `15835d8ac0f217e53fa5e8ee7b451a1ed6bd6c2e`:
@@ -7,26 +7,19 @@ events/event dates have venue/space references, no independent points. EMPTY poi
 are possible (no excluding source constraint, and already present in the synthetic fixture).
 This is repository evidence, not an assertion about the deployed database schema.
 
-## Delivery split
+## Delivery status
 
-This PR delivers the complete first phase proposed in the feature request. Separate
-reviewable follow-ups are required before calling the *whole* feature complete:
+Phase 1 was merged in **PR #55**. Phase 2 builds on verified main
+`f7b27cf90325776ca8c540086ced8cbf2eaaf7a8` and implements Activity, Findings,
+Dashboard, entity statistics, event-content statistics and Graph root discovery.
+**Phase 2 needs no migration, grant change, provider configuration or new worker.**
+The Alembic head remains `0010`. Deploy compatible API and frontend builds together.
 
-1. **This PR:** geo_area, Nominatim area discovery/import/cache, four spatial entity
-   lists and autocomplete, global selector, URL/session behavior, tests and deployment.
-2. **PR 2 — feat(geo): scope activity, findings and analytics:** spatial-only Activity;
-   entity-derived Findings across the separate database connections; pre-aggregation
-   filtering for Statistics/event content; explicit global Dashboard KPIs; Graph root
-   discovery with full relationships retained. Reuse `spatial_predicate`, including
-   its event_date branch; never join admin tables with Source reader queries.
-3. **PR 3 — feat(geo): suggest missing organization and venue locations:** internal-only
-   missing-location rules, bounded geocode candidate storage and standalone worker,
-   source/query fingerprints, own address match score, ambiguity, suggestion UI,
-   retry/rate limits and hardened systemd service/timer. No candidate table, worker,
-   mail policy changes or dormant suggestion endpoints are shipped in this first PR.
-
-The header explicitly says which views are still global. It never claims Statistics,
-Activity, Findings, Graph, Dashboard, users or images are spatially restricted in phase 1.
+Phase 3 remains outstanding: internal missing-location rules for organizations and
+venues, bounded candidate storage, address fingerprints, address match scores,
+ambiguity, a standalone geocode worker and suggestion UI. No new quality rule,
+notification policy, address geocoding or candidate acceptance is included here.
+Candidates must never automatically become authoritative Uranus coordinates.
 
 ## Three independent concepts
 
@@ -131,7 +124,7 @@ Fixed SQL uses `point IS NOT NULL AND point && ST_GeomFromEWKB(:geo_scope_wkb)
 AND ST_Covers(ST_GeomFromEWKB(:geo_scope_wkb), point)`. Covers includes boundary edges;
 NULL and EMPTY points have no membership. Venue buildings are not used.
 
-| Surface | geo_scope_id in phase 1 | Membership |
+| Surface | geo_scope_id | Membership |
 | --- | --- | --- |
 | Organizations | yes | organization.point |
 | Venues | yes | venue.point |
@@ -140,11 +133,12 @@ NULL and EMPTY points have no membership. Venue buildings are not used.
 | Entity search | yes, four spatial types | identical predicates and temporal combination |
 | Users, images | no | globally listed; proxy rejects geo query |
 | Event dates | shared predicate, no standalone list | COALESCE(date venue,event venue), same existing location module |
-| Activity | PR 2 | spatial types only; nonspatial types excluded |
-| Findings | PR 2 | derive via affected source entity, missing-point findings unlocated |
-| Dashboard | PR 2 | spatial metrics filtered, global metrics explicitly distinguished |
-| Statistics/content | PR 2 | filter event population before aggregation/denominator |
-| Graph | PR 2 | root search only; relationships/direct roots remain complete |
+| Activity | yes | spatial types only; nonspatial types excluded |
+| Findings | yes | derive via affected source entity, missing-point findings unlocated |
+| Dashboard | yes | spatial metrics filtered, global metrics explicitly distinguished |
+| Entity statistics | yes | spatial series scoped before buckets; nonspatial series explicitly global |
+| Event content | yes | event population scoped before counts, rankings, coverage and denominator |
+| Graph | search only | root search only; relationships/direct roots remain complete |
 
 Events without dates stay unlocated, even if event.venue_uuid exists. No artificial
 fallback to event-level location. A date venue override wins; `EFFECTIVE_VENUE_SQL`
@@ -167,7 +161,7 @@ the other. No localStorage, sessionStorage, IndexedDB, profile field or custom c
 Existing auth clear/logout/new-login resets all preferences, including scope.
 Late resolution/import responses cannot restore a previous login's scope.
 
-Priority on supported list pages: **URL geo_scope_id > session store > none**.
+Priority on supported pages: **URL geo_scope_id > session store > none**.
 Authenticated middleware resolves metadata before list setup, and serializes an
 inherited scope into the URL. Direct login return URLs retain an explicit scope.
 Reload uses the cached-area endpoint, not Nominatim. Unsupported pages keep global
@@ -226,3 +220,110 @@ Large country geometries and source dataset size require production-like measure
 Candidate acceptance is a separate future domain-write feature. It requires a verified,
 authorized Uranus API contract for organization.point/venue.point. No direct SQL or
 service-token shortcut is part of this or the planned suggestion worker.
+
+
+## Phase 2 API and read boundaries
+
+All six new query surfaces accept the same optional UUID `geo_scope_id`:
+
+| Endpoint | Behavior with scope |
+| --- | --- |
+| `/dashboard/activity` | organization, venue, space, event and event_date only |
+| `/findings` | affected spatial entities with UUID keys; persisted and live modes |
+| `/dashboard/summary` | spatial creations and quality scoped; other metrics labelled global |
+| `/statistics/entities` | spatial series scoped; user/partner_request/team_invitation global |
+| `/statistics/events/content` | scoped event population before every aggregate |
+| `/graph/search` | spatial root discovery only; explicit user + geo returns 422 |
+
+Nuxt explicitly allowlists these parameters. `/graph` traversal does **not** accept
+geo_scope_id. Its page URL carries scope only as discovery context. Direct roots
+outside scope and relationships to outside/nonspatial nodes remain available.
+Activity rejects explicit nonspatial type + geo with 422, and its UI offers only
+spatial types. Unknown timestamp counts use the same scope. In the audited Source
+DDL all five spatial types have NOT NULL created_at; unknown image timestamps thus
+contribute zero to scoped Activity. No timestamp fallback is invented.
+
+All endpoint scope resolution reads `admin.geo_area` once on the Admin connection;
+only bound EWKB enters Source SQL. Phase 2 performs **no Nominatim request**, including
+when the provider is unconfigured or offline. Unknown scopes return 404, malformed
+UUIDs 422. Cached geometry does not change the source reader's permissions.
+
+`spatial_predicate` accepts a code-owned key expression, with distinct inner aliases
+so it can be reused inside aggregates without capturing the caller's alias. No SQL
+identifier comes from a request. `mixed_spatial_predicate` composes those same
+predicates, excludes other types and guards casts using CASE (technical Activity
+keys are composite strings). It does not duplicate event/effective-location logic.
+Creation time windows are independent of event-date spatial membership. All current
+and previous comparison windows use the same geometry.
+
+## Findings: exact totals with bounded memory
+
+Persisted findings remain exclusively on the Admin connection. A read-only,
+REPEATABLE READ server cursor selects matching rows in priority-score descending,
+C-collated ID order, applying ordinary filters first. It yields **500 rows per batch**.
+The Source connection has its own read-only REPEATABLE READ snapshot. A shared
+membership helper groups UUID-valid identities by the five fixed spatial types and
+checks each group with a bound UUID array, reusing `spatial_predicate`.
+Non-UUID technical keys and nonspatial findings are excluded without a database cast.
+
+Only the requested page (plus one item for cursor has_more) is retained; every eligible
+row is counted to preserve **exact totals**. There is no full-result ID list, no
+per-finding query, no temporary table and no Admin/Source join. The 1,201-finding
+fixture requires three Source membership queries for one type; it produces an exact
+600-item result even for the last page. Dashboard quality counts use the same stream
+and membership helper, excluding resolved history as before. Live mode retains its
+existing explicit global diagnostic scan, then filters results in 500-item batches
+before pagination/counting; live Dashboard reuses the same filter.
+
+Exact counting costs O(filtered candidate count) per request, regardless of requested
+page. Memory is O(batch + page), but runtime is not independent of dataset size. This
+is a deliberate no-migration tradeoff, not a production-volume claim. Existing command
+and proxy timeouts remain in force; a timeout is an error, never an approximate total
+or silently global response. Measure representative production-like finding volumes
+before considering a dedicated derived-membership cache with explicit invalidation.
+
+Each connection is internally snapshot-consistent. Admin findings and current Uranus
+locations are **not a distributed snapshot**: a small interconnection race is possible.
+This is an observational work view, not evidence for a write or authorization decision.
+Activity and Finding cursor fingerprints include geo_scope_id; global/scoped and
+cross-area cursor reuse is rejected. Changing/clearing scope removes an old cursor.
+
+## Dashboard and statistics presentation
+
+The additive Dashboard contract retains `new_records` (including its mixed total)
+for compatibility, and supplies `geo_scope_id`, `new_record_scopes`,
+`scoped_new_records_total`, `global_new_records_total`. Without a scope the new totals
+are null. With one, the UI shows separate totals and labels every creation metric
+**Gebiet** or **Systemweit**; it never presents the mixed sum as the area's total.
+Users, images, partner requests and memberships remain global. Their links go to
+appropriate global entity/queue views. Quality totals, severity, urgent counts and
+rule_counts are spatial; latest/last-successful check runs and workflow queues remain
+explicitly systemwide and independent of the creation period.
+
+Entity series carry `scope: geo | global`; metric cards, chart legends and table
+headers show the distinction under an active scope. Mixed-series distribution is
+explicitly described as combining geographic and systemwide series. Recent entities
+exclude nonspatial records when scoped. Event-content counts, coverage and ranking
+shares all use the scoped event denominator, including period=all and comparison.
+
+Supported page URLs are `/`, `/activity`, `/findings`, `/statistics`, `/graph` and the
+four Phase 1 entity lists. Login, settings, notifications, users/images and direct
+entity details are not newly scoped. Local reset preserves the scope, changing the
+period preserves it, and global clear removes only geo (plus resetting pagination on
+paginated lists). Existing logout/session-loss preference reset applies unchanged.
+
+## Phase 2 performance review
+
+Tests save EXPLAIN ANALYZE/BUFFERS JSON for Activity count/page/unknown count, entity
+aggregation/recent, event-content and graph discovery. Small synthetic fixtures use
+venue.point GIST, primary-key indexes and event_date.event_uuid where chosen by the
+planner; tiny tables also produce sequential scans. Some fixed membership EXISTS
+subplans are correlated; these are PostgreSQL plan operations, not N+1 network calls.
+The bound geometry appears as a constant in custom plans rather than a per-row
+provider/deserialization request. No materialized scope CTE or simplified geometry
+was introduced without evidence of benefit. Graph search can trigger PostgreSQL JIT
+at estimated-cost thresholds; tiny-fixture timing is not a production benchmark.
+
+Organization.point still lacks a GIST index in the previously audited upstream DDL.
+Any index belongs in a Uranus-owned change after representative measurements. Phase 2
+contains no Source DML/DDL, migration, new grant or external provider dependency.

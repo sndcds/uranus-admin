@@ -194,6 +194,23 @@
               "default": "persisted",
               "title": "Mode"
             }
+          },
+          {
+            "name": "geo_scope_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Geo Scope Id"
+            }
           }
         ],
         "responses": {
@@ -294,6 +311,23 @@
           }
         ],
         "parameters": [
+          {
+            "name": "geo_scope_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Geo Scope Id"
+            }
+          },
           {
             "name": "mode",
             "in": "query",
@@ -3051,6 +3085,23 @@
         ],
         "parameters": [
           {
+            "name": "geo_scope_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Geo Scope Id"
+            }
+          },
+          {
             "name": "creation_basis",
             "in": "query",
             "required": false,
@@ -3334,6 +3385,23 @@
           }
         ],
         "parameters": [
+          {
+            "name": "geo_scope_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Geo Scope Id"
+            }
+          },
           {
             "name": "q",
             "in": "query",
@@ -4000,6 +4068,23 @@
         ],
         "parameters": [
           {
+            "name": "geo_scope_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Geo Scope Id"
+            }
+          },
+          {
             "name": "period",
             "in": "query",
             "required": false,
@@ -4188,6 +4273,23 @@
           }
         ],
         "parameters": [
+          {
+            "name": "geo_scope_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Geo Scope Id"
+            }
+          },
           {
             "name": "period",
             "in": "query",
@@ -7119,6 +7221,52 @@
           "new_records": {
             "$ref": "#/components/schemas/NewRecords"
           },
+          "geo_scope_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Scope Id"
+          },
+          "new_record_scopes": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "geo",
+                "global"
+              ]
+            },
+            "type": "object",
+            "title": "New Record Scopes",
+            "default": {}
+          },
+          "scoped_new_records_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoped New Records Total"
+          },
+          "global_new_records_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Global New Records Total"
+          },
           "images_without_created_at": {
             "type": "integer",
             "title": "Images Without Created At"
@@ -8137,6 +8285,15 @@
       },
       "EntityTimeSeries": {
         "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "geo",
+              "global"
+            ],
+            "title": "Scope",
+            "default": "global"
+          },
           "entity_type": {
             "type": "string",
             "enum": [
