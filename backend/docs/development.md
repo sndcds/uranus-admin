@@ -439,6 +439,7 @@ GRANT SELECT ON admin.alembic_version TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.check_run, admin.finding, admin.record_mark, admin.url_check TO admin_user;
 GRANT SELECT, INSERT ON admin.record_mark_event TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.notification, admin.notification_delivery TO admin_user;
+GRANT SELECT, INSERT, UPDATE ON admin.geo_area TO admin_user;
 GRANT SELECT, INSERT ON admin.notification_delivery_item TO admin_user;
 -- Migration 0004: runtime cannot create accounts or grant itself global access.
 GRANT SELECT ON admin.auth_account, admin.auth_system_admin TO admin_user;
@@ -966,3 +967,10 @@ check existing runtime grants/preflight → restart backend → deploy/restart f
 check `/ready` → inspect the delivery list and retry UI → resume/check the worker timer.
 Existing failures are preserved, never automatically retriggered. See
 [the notification retry contract and operator workflow](notifications.md#manual-delivery-retry-migration-0009).
+
+### Geo scope deployment (0010)
+
+See [Geo Scope](geo-scope.md) for the area cache, restricted grants, provider configuration,
+source semantics and the explicit delivery split. Apply 0010 with the migrator and
+grant SELECT/INSERT/UPDATE on admin.geo_area to admin_user before rolling out the API.
+Nominatim availability is not a core readiness dependency.
