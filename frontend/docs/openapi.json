@@ -5291,6 +5291,17 @@
             ],
             "title": "Subtitle"
           },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice"
+          },
           "address": {
             "anyOf": [
               {
@@ -6102,6 +6113,17 @@
               }
             ],
             "title": "Subtitle"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice"
           },
           "address": {
             "anyOf": [
