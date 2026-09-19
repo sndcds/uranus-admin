@@ -42,7 +42,7 @@ stehen in der [Frontend-Anleitung](frontend/README.md).
 
 ## Review-Funktionen
 
-Activity für neun Quelltypen, 19 zentrale Qualitätsregeln einschließlich bestehender Venue-Prüfung,
+Activity für neun Quelltypen, zentrale Qualitätsregeln einschließlich bestehender Venue-Prüfung,
 operative Arbeitslisten sowie optionale persistierte Prüfläufe und Reviews sind angebunden.
 Die neue Admin-Schreibverbindung verwaltet ausschließlich eigene Metadaten; Uranus bleibt read-only.
 Globale Admin-Autorisierung wird ausdrücklich in der separaten Admin-Berechtigungstabelle vergeben.

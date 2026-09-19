@@ -110,6 +110,8 @@ in dieser Testdatenbank administrative Rechte. CI führt den vollständigen DB-L
 - [Verträge](docs/contracts.md): Finding Identity, Priority, Actions, Activity-Zeitsemantik,
   Auth/Authorization Boundary, Check Run/Resolve Semantics, Reviewworkflow.
 - [Quellverifikation und Regelkatalog](docs/source-verification.md).
+- [Quality Rules v2](docs/quality-rules.md): DDL-Audit, interne Regeln,
+  bewusst zurückgestellte Kandidaten und versionierter Source Contract.
 - [Architektur](docs/architecture.md), [Entwicklung und Rollen](docs/development.md).
 - [Ursprüngliche Analyse](docs/uranus-analysis.md), [offene Uranus-Verbesserungen](docs/future-uranus-improvements.md).
 - [Nuxt-Frontend](../frontend/README.md).
