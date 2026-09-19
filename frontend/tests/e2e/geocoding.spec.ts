@@ -83,20 +83,33 @@ test('real proxy enforces bodyless retry and forwards Origin/CSRF to protected b
   request,
 }) => {
   const path = `/api/admin/api/v1/geocode/requests/${geocodeDetail.id}/retry`
-  const valid = { Origin: 'http://127.0.0.1:3100', 'X-Admin-CSRF': '1' }
-  expect((await request.post(path, { headers: valid })).status()).toBe(401)
+  const origin = { Origin: 'http://127.0.0.1:3100', 'X-Admin-CSRF': '1' }
+  expect((await request.post(path, { headers: origin })).status()).toBe(401)
+  // APIRequestContext lacks Chromium's Secure-cookie exception for loopback HTTP.
+  const cookie = (await page.context().cookies()).find((item) =>
+    item.name.endsWith('admin_session'),
+  )!
+  const valid = { ...origin, Cookie: `${cookie.name}=${cookie.value}` }
   expect(
     (
       await page.request.post(path, { headers: { ...valid, Origin: 'https://evil.test' } })
     ).status(),
   ).toBe(403)
-  expect((await page.request.post(path, { headers: { Origin: valid.Origin } })).status()).toBe(403)
+  expect(
+    (
+      await page.request.post(path, { headers: { Origin: valid.Origin, Cookie: valid.Cookie } })
+    ).status(),
+  ).toBe(403)
   for (const data of [{}, { address: 'override' }, { lat: 54, lon: 9 }, { provider: 'evil' }]) {
     expect((await page.request.post(path, { headers: valid, data })).status()).toBe(422)
   }
   expect((await page.request.post(`${path}?host=evil`, { headers: valid })).status()).toBe(422)
   expect(
-    (await page.request.get('/api/admin/api/v1/geocode/requests?geo_scope_id=bad')).status(),
+    (
+      await page.request.get('/api/admin/api/v1/geocode/requests?geo_scope_id=bad', {
+        headers: valid,
+      })
+    ).status(),
   ).toBe(422)
   const response = await page.request.post(path, { headers: valid })
   expect(response.status()).toBe(409)
