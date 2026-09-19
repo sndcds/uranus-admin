@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     app_env: Literal["development", "test", "staging", "production"] = "production"
     app_debug: bool = False
+    allow_production_debug: bool = False
     app_host: str = "127.0.0.1"
     app_port: int = Field(default=8000, ge=1, le=65535)
     database_url: SecretStr = SecretStr("postgresql+asyncpg://localhost/uranus")
@@ -244,10 +245,10 @@ class Settings(BaseSettings):
         if self.app_env not in {"development", "test"}:
             if self.auth_public_origin and not self.auth_public_origin.startswith("https://"):
                 raise ValueError("Production authentication requires an HTTPS origin")
-            if self.app_debug or self.dev_auth_enabled or self.openapi_enabled:
-                raise ValueError(
-                    "Debug, development auth and public OpenAPI require development/test"
-                )
+            if self.app_debug and not self.allow_production_debug:
+                raise ValueError("Production debug requires ALLOW_PRODUCTION_DEBUG=true")
+            if self.dev_auth_enabled or self.openapi_enabled:
+                raise ValueError("Development auth and public OpenAPI require development/test")
         if self.dev_auth_enabled and (
             self.dev_admin_token is None or len(self.dev_admin_token.get_secret_value()) < 32
         ):

@@ -104,7 +104,7 @@ class RequestLoggingMiddleware:
         try:
             await self.app(scope, receive, capture)
         except Exception as exc:
-            # Keep errors in our logger, with details only for explicit local debugging.
+            # Keep errors in our logger, with details only for explicitly enabled debugging.
             # Current routes are buffered JSON.
             logging.getLogger("admin.error").error(
                 "internal_error",

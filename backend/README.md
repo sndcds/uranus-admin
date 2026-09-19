@@ -26,10 +26,26 @@ APP_ENV=development APP_DEBUG=true LOG_LEVEL=DEBUG \
 uv run uvicorn app.main:app --reload --log-level debug --no-access-log
 ```
 
-`APP_DEBUG=true` aktiviert das Feld `traceback` einschließlich Fehlermeldung nur in
-development/test. API-Fehlerantworten bleiben bereinigt. Debuglogs können sensible
+`APP_DEBUG=true` aktiviert zusätzliche Exception-Details im Feld `traceback` der
+Serverlogs. API-Fehlerantworten bleiben bereinigt. Debuglogs können sensible
 Daten aus Exceptions enthalten. Ohne `APP_DEBUG` bleiben Exception-Details verborgen,
-auch bei `LOG_LEVEL=DEBUG`; in staging/production wird `APP_DEBUG=true` abgewiesen.
+auch bei `LOG_LEVEL=DEBUG`.
+
+In staging/production ist deshalb zusätzlich `ALLOW_PRODUCTION_DEBUG=true` erforderlich;
+`APP_DEBUG=true` allein wird weiterhin abgewiesen. Beide Einstellungen bleiben standardmäßig
+`false` und sollten nur während einer aktiven Diagnose eingeschaltet werden:
+
+```bash
+APP_ENV=production \
+APP_DEBUG=true \
+ALLOW_PRODUCTION_DEBUG=true \
+LOG_LEVEL=DEBUG \
+uv run uvicorn app.main:app --no-access-log
+```
+
+`ALLOW_PRODUCTION_DEBUG` erlaubt ausschließlich Production-/Staging-Debugging.
+`DEV_AUTH_ENABLED=true` und `OPENAPI_ENABLED=true` bleiben dort verboten;
+die HTTPS-Anforderungen bleiben unverändert.
 
 Production verwendet eigene Admin-Konten und explizite globale Vergaben (siehe unten).
 Ein Uranus-Login oder Organisationsrechte begründen keinen Zugriff. Nur ausdrücklich lokal: `APP_ENV=development`,

@@ -7,6 +7,7 @@ from pydantic import SecretStr
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ProgrammingError
 
+from app.config import Settings
 from app.database import get_connection
 from app.main import create_app
 
@@ -61,7 +62,14 @@ async def test_unexpected_error_does_not_escape_to_server_logs(settings, caplog)
 
 @pytest.mark.parametrize(
     "app_env,debug",
-    [("development", True), ("test", True), ("development", False), ("production", False)],
+    [
+        ("development", True),
+        ("test", True),
+        ("development", False),
+        ("production", False),
+        ("staging", True),
+        ("production", True),
+    ],
 )
 @pytest.mark.parametrize(
     "error_type,status", [(ProgrammingError, 503), (OSError, 503), (ValueError, 500)]
@@ -80,9 +88,11 @@ async def test_exception_details_only_in_debug_server_logs(
             monkeypatch.setattr(logger, attribute, getattr(logger, attribute))
     settings.app_env = app_env
     settings.app_debug = debug
+    settings.allow_production_debug = app_env in {"staging", "production"}
     settings.log_level = "DEBUG"
     settings.dev_auth_enabled = False
     settings.openapi_enabled = False
+    settings = Settings.model_validate(settings.model_dump())
     app = create_app(settings)
 
     async def failing_connection():
@@ -144,7 +154,14 @@ async def test_missing_database_returns_503(database, settings):
 
 @pytest.mark.parametrize(
     "app_env,debug",
-    [("development", True), ("test", True), ("development", False), ("production", False)],
+    [
+        ("development", True),
+        ("test", True),
+        ("development", False),
+        ("production", False),
+        ("staging", True),
+        ("production", True),
+    ],
 )
 async def test_api_503_logs_code_and_debug_traceback(settings, capsys, monkeypatch, app_env, debug):
     from app.errors import APIError
@@ -159,10 +176,12 @@ async def test_api_503_logs_code_and_debug_traceback(settings, capsys, monkeypat
             monkeypatch.setattr(logger, attribute, getattr(logger, attribute))
     settings.app_env = app_env
     settings.app_debug = debug
+    settings.allow_production_debug = app_env in {"staging", "production"}
     settings.dev_auth_enabled = False
     settings.openapi_enabled = False
     # ERROR logging must work at the normal INFO level too.
     settings.log_level = "INFO"
+    settings = Settings.model_validate(settings.model_dump())
     app = create_app(settings)
 
     async def rejected_connection():

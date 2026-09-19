@@ -34,7 +34,9 @@ def error_response(status: int, code: str, message: str) -> JSONResponse:
 async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
     if 500 <= exc.status < 600:
         settings = request.app.state.settings
-        debug = settings.app_debug and settings.app_env in {"development", "test"}
+        debug = settings.app_debug and (
+            settings.app_env in {"development", "test"} or settings.allow_production_debug
+        )
         logging.getLogger("admin.error").error(
             exc.code,
             extra={
