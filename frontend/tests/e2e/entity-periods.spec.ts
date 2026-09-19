@@ -61,8 +61,22 @@ test('created period combines with Terminlage, status, search, pagination and hi
   const created = page.getByRole('combobox', { name: 'Erstellt', exact: true })
   await expect(created).toHaveValue('')
   await created.selectOption('7d')
+  // Period changes apply immediately and reload the form from the committed URL.
+  // Wait for that result before editing the next, not-yet-applied filter.
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get('period') === '7d' && url.searchParams.get('page') === '1',
+  )
+  await expect(page.getByRole('region', { name: 'Ergebnisübersicht' })).toContainText(
+    'Erstellt: Letzte 7 Tage',
+  )
   await page.getByRole('combobox', { name: 'Status', exact: true }).selectOption('released')
   await page.getByRole('combobox', { name: 'Terminlage', exact: true }).selectOption('upcoming')
+  await expect(page).toHaveURL(
+    (url) =>
+      url.searchParams.get('period') === '7d' &&
+      url.searchParams.get('status') === 'released' &&
+      url.searchParams.get('temporal') === 'upcoming',
+  )
   await expect(page.getByText('Recent released future event', { exact: true })).toBeVisible()
   const search = page.getByRole('combobox', { name: 'Suche', exact: true })
   await search.fill('recent')
