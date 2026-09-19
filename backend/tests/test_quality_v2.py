@@ -413,3 +413,48 @@ def test_price_variants_have_distinct_stable_fields(sources, settings):
         "negative_max_price",
         "min_greater_than_max",
     }
+
+
+def test_v2_projection_preserves_existing_rule_fingerprints(sources, settings):
+    import hashlib
+    import json
+
+    sources.rows["organization"][0]["web_link"] = None
+    row = sources.rows["event"][0]
+    row.update(
+        venue_uuid=None,
+        space_uuid=None,
+        source_link=None,
+        online_link="broken.example",
+        ticket_link=None,
+        registration_link=None,
+    )
+    previous_projection = {
+        key: row[key]
+        for key in (
+            "uuid",
+            "name",
+            "org_uuid",
+            "venue_uuid",
+            "space_uuid",
+            "release_status",
+            "source_link",
+            "online_link",
+            "ticket_link",
+            "registration_link",
+        )
+    }
+    expected = hashlib.sha256(
+        json.dumps(previous_projection, sort_keys=True, default=str).encode()
+    ).hexdigest()
+    first = evaluate_core("url_syntax", sources, settings, NOW).findings[0]
+    assert first.metadata["source_fingerprint"] == expected
+    row.update(
+        description="Changed content", min_price=10, registration_email="person@example.test"
+    )
+    second = evaluate_core("url_syntax", sources, settings, NOW).findings[0]
+    assert second.metadata["source_fingerprint"] == expected
+    row["online_link"] = "different-broken.example"
+    third = evaluate_core("url_syntax", sources, settings, NOW).findings[0]
+    assert third.id == first.id
+    assert third.metadata["source_fingerprint"] != expected

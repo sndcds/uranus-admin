@@ -176,8 +176,9 @@ time, priority aging and unrelated fields do not change new-rule fingerprints.
 Changed evidence reopens an exception/ignored finding through existing persistence.
 Incomplete or failed runs cannot resolve previous findings. A rule exception
 continues to fail the run safely; there is no exception-swallowing fallback.
-Adding projected fields can change fingerprints of **older** rules, which hash
-the whole existing row; their reviewed exceptions may reopen once after rollout.
+Older rules keep their pre-v2 projection for fingerprinting. Newly projected v2
+columns do not reopen existing exceptions or indirectly enable old external
+notification candidates; a regression test checks the original digest.
 
 QualityContext.relevance and priority_details retain released/rescheduled and
 upcoming/soon semantics. No parallel priority engine was added. Date-order rules

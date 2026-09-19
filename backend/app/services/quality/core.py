@@ -75,6 +75,28 @@ CORE_RULES = (
     "logo_unsupported_format",
 )
 
+# Existing rules historically hashed their entire projection. Adding v2 columns
+# must not reopen their exceptions (including externally notifiable findings).
+# These fields have separate, field-specific fingerprints in the v2 evaluator.
+V2_PROJECTION_FIELDS = {
+    "organization": {"contact_email"},
+    "venue": {"contact_email"},
+    "space": {"total_capacity", "seating_capacity", "area_sqm"},
+    "event": {
+        "registration_email",
+        "registration_phone",
+        "min_price",
+        "max_price",
+        "currency",
+        "price_type",
+        "description",
+        "categories",
+        "languages",
+    },
+    "event_date": {"end_date", "end_time"},
+    "event_link": {"type"},
+}
+
 
 @dataclass
 class RuleResult:
@@ -273,7 +295,15 @@ def evaluate_core(
                 metadata={
                     **(metadata or {}),
                     "source_fingerprint": hashlib.sha256(
-                        json.dumps(row, sort_keys=True, default=str).encode()
+                        json.dumps(
+                            {
+                                key: value
+                                for key, value in row.items()
+                                if key not in V2_PROJECTION_FIELDS.get(kind, set())
+                            },
+                            sort_keys=True,
+                            default=str,
+                        ).encode()
                     ).hexdigest(),
                 },
                 **relevance(kind, row),
