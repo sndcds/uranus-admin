@@ -475,3 +475,17 @@ may also be ambiguous. Importance is not confidence. No map iframe or CSP except
 pending state. Double submissions and stale responses are guarded; the worker performs
 network work later. No client address, provider or coordinate override exists. No acceptance
 button exists: even a perfect match is a suggestion, never the authoritative Uranus point.
+
+### Quality Rules v2
+
+Die bestehenden Rule-Drilldowns akzeptieren alle neuen IDs ohne Contract-Erweiterung.
+Deutsche Labels und Severity stehen in `app/utils/quality.ts`; die Gruppe „Interne
+Sicherheit“ trennt die Einladungstoken-Integrität von Veranstaltungs-/Adressqualität.
+Die Mitgliedschaft verweist auf ihre bekannte Organisation, nicht auf eine erfundene
+Detailroute. Tokenwerte werden nie geliefert oder angezeigt. Preis-/Kapazitätsgründe
+erscheinen als verständliche Backend-Meldung; es gibt keine rohe Metadata-JSON-Ansicht.
+
+Der [Regelkatalog](../../backend/docs/quality-rules.md) dokumentiert DDL-Evidenz,
+Severity, interne Notification-Policy, Geo-Verhalten und zurückgestellte Kandidaten.
+Die Dashboard-Gesamtzahl bleibt ein Qualitäts-/Workflow-Bestand; Maintenance-Diagnosen
+für Social Posts und Passwort-Reset-Retention sind darin bewusst nicht neu enthalten.

@@ -1,3 +1,7 @@
+Aktueller ergänzender Audit: [Quality Rules v2](quality-rules.md) gegen Uranus main
+`15835d8ac0f217e53fa5e8ee7b451a1ed6bd6c2e`, einschließlich des lokalen
+Source-Contract-Manifests. Die folgenden datierten Befunde bleiben historische Evidenz.
+
 # Uranus-dev-Verifikation, 2026-09-14
 
 Geprüfter aktueller Remote-Commit: **733c54133362460353400eb96c60a0cdb9f8450a**.

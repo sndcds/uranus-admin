@@ -12,6 +12,7 @@ from app.repositories.temporal import is_upcoming_start
 from app.schemas.action import Action
 from app.schemas.finding import Finding, Severity
 from app.services.quality.priority import priority_details
+from app.services.quality.rules.v2 import V2_RULES, evaluate_v2
 from app.services.quality.urls import url_problem, valid_online
 
 URL_FIELDS = {
@@ -55,6 +56,7 @@ IMAGE_IDENTIFIERS = {
 LOGO_IDENTIFIERS = {"main_logo", "dark_theme_logo", "light_theme_logo"}
 LOGO_MIME_TYPES = ("image/png", "image/webp")
 CORE_RULES = (
+    *V2_RULES,
     "organization_missing_location",
     "venue_missing_location",
     "url_syntax",
@@ -73,6 +75,28 @@ CORE_RULES = (
     "logo_unsupported_format",
 )
 
+# Existing rules historically hashed their entire projection. Adding v2 columns
+# must not reopen their exceptions (including externally notifiable findings).
+# These fields have separate, field-specific fingerprints in the v2 evaluator.
+V2_PROJECTION_FIELDS = {
+    "organization": {"contact_email"},
+    "venue": {"contact_email"},
+    "space": {"total_capacity", "seating_capacity", "area_sqm"},
+    "event": {
+        "registration_email",
+        "registration_phone",
+        "min_price",
+        "max_price",
+        "currency",
+        "price_type",
+        "description",
+        "categories",
+        "languages",
+    },
+    "event_date": {"end_date", "end_time"},
+    "event_link": {"type"},
+}
+
 
 @dataclass
 class RuleResult:
@@ -83,6 +107,8 @@ class RuleResult:
 
 
 def entity_key(kind: str, row: dict[str, Any]) -> str:
+    if kind == "team_membership":
+        return f"membership:{row['org_uuid']}:{row['user_uuid']}"
     if kind == "image_link":
         return "image-link:" + ":".join(
             quote(str(row[key]), safe="") for key in ("context", "context_uuid", "identifier")
@@ -145,6 +171,21 @@ class QualityContext:
             for kind in ("organization", "venue", "space", "event", "image")
         }
         self.dates_by_event: dict[str, list[dict[str, Any]]] = {}
+        self.event_types: dict[str, set[tuple[int, int]]] = {}
+        for link in sources.rows.get("event_type_link", []):
+            self.event_types.setdefault(str(link["event_uuid"]), set()).add(
+                (link["type_id"], link["genre_id"])
+            )
+        self.vocabularies = {
+            kind: {row[column] for row in sources.rows.get(kind, [])}
+            for kind, column in {
+                "event_category": "category_id",
+                "event_type": "type_id",
+                "genre_type": "genre_id",
+                "language": "code_iso_639_1",
+                "link_type": "key",
+            }.items()
+        }
         self.flags: dict[tuple[str, str], dict[str, bool]] = {}
         local = now.astimezone(ZoneInfo(settings.event_timezone))
         events = self.indexes["event"]
@@ -209,6 +250,8 @@ def evaluate_core(
 ) -> RuleResult:
     result = RuleResult(rule)
     scan_context = scan_context or QualityContext(sources, settings, now)
+    if rule in V2_RULES:
+        return evaluate_v2(rule, sources, now, scan_context)
     orgs, venues, spaces, events = (
         scan_context.indexes[kind] for kind in ("organization", "venue", "space", "event")
     )
@@ -252,7 +295,15 @@ def evaluate_core(
                 metadata={
                     **(metadata or {}),
                     "source_fingerprint": hashlib.sha256(
-                        json.dumps(row, sort_keys=True, default=str).encode()
+                        json.dumps(
+                            {
+                                key: value
+                                for key, value in row.items()
+                                if key not in V2_PROJECTION_FIELDS.get(kind, set())
+                            },
+                            sort_keys=True,
+                            default=str,
+                        ).encode()
                     ).hexdigest(),
                 },
                 **relevance(kind, row),

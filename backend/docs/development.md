@@ -387,6 +387,7 @@ GRANT USAGE ON SCHEMA uranus TO uranus_reader;
 GRANT SELECT ON uranus.organization, uranus.venue, uranus.space,
     uranus.event, uranus.event_date, uranus.event_link, uranus.license,
     uranus.event_category, uranus.event_type, uranus.event_type_link, uranus.genre_type,
+    uranus.language, uranus.link_type,
     uranus.pluto_image, uranus.pluto_image_link, uranus."user",
     uranus.organization_partner_request, uranus.organization_member_link,
     uranus.organization_access_grants TO uranus_reader;
@@ -999,3 +1000,19 @@ migration/grant order, `systemctl start`, `journalctl`, retry and first-run proc
 in [Missing location suggestions](geo-scope.md#missing-location-suggestions-phase-3).
 The worker keeps immutable candidate generations and leases; scores are address agreement,
 not confirmation. Controlled acceptance requires a separate authorized Uranus write API.
+
+### Quality Rules v2 rollout
+
+Vor dem Start der neuen Checks den aktuellen
+[Source Contract](quality-rules.md#complexity-and-diagnostics) mit dem autorisierten
+Reader prüfen. Bei Installationen mit der expliziten Reader-Allowlist oben benötigt
+der Reader zusätzlich zwei Vokabulartabellen. Ein autorisierter Betreiber vergibt:
+
+```sql
+GRANT SELECT ON uranus.language, uranus.link_type TO uranus_reader;
+```
+
+Keine Admin-Migration, Admin-Grants oder neue Konfiguration sind erforderlich.
+API und Check-/Notification-Worker mit kompatiblem Backend neu starten, da diese
+den gemeinsamen Source-Snapshot laden. Die Anwendung vergibt selbst keine Rechte.
+Alle neuen Regeln bleiben intern; die externe Notification-Allowlist ändert sich nicht.

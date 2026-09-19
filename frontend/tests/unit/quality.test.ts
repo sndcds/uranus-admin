@@ -152,3 +152,37 @@ it('labels both internal missing-location rules and links authoritative owners',
     group.findAllComponents({ name: 'NuxtLink' }).map((link) => link.props('to').query.entity_type),
   ).toEqual(['organization', 'venue'])
 })
+
+describe('quality v2', () => {
+  it('separates internal security and links the composite membership filter', () => {
+    const view = render({
+      ...data,
+      quality: {
+        ...data.quality,
+        mode: 'persisted',
+        rule_counts: { membership_joined_accept_token_present: 1 },
+      },
+    })
+    const group = view.get('ul[aria-label="Interne Sicherheit"]')
+    expect(group.text()).toContain('Einladungstoken nach Beitritt vorhanden')
+    expect(group.getComponent(SeverityBadge).props('severity')).toBe('error')
+    expect(group.getComponent({ name: 'NuxtLink' }).props('to')).toEqual({
+      path: '/findings',
+      query: {
+        rule: 'membership_joined_accept_token_present',
+        entity_type: 'team_membership',
+        mode: 'persisted',
+      },
+    })
+  })
+  it('shows all three date checks with their distinct severities', () => {
+    const view = render()
+    const group = view.get('ul[aria-label="Terminintegrität"]')
+    expect(group.findAllComponents(SeverityBadge).map((badge) => badge.props('severity'))).toEqual([
+      'error',
+      'error',
+      'info',
+    ])
+    expect(group.text()).toContain('Übernachttermin ohne Enddatum')
+  })
+})

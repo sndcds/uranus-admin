@@ -172,6 +172,8 @@ Quality rules are deterministic and identities stable across runs. Preserve rule
 entity and field identity, evidence and coverage. Only a successful covering check
 may resolve findings; failed/partial runs are not evidence of clean data. Human review
 does not directly mutate source data or provide a manual resolved shortcut.
+Quality rules MUST match current Uranus DDL. Secret source columns MUST NOT be
+returned as values; token-presence checks project only non-sensitive booleans.
 
 Run these standalone entry points from `backend/` (all support `--once`):
 

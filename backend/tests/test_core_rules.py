@@ -240,6 +240,14 @@ async def test_rules_cover_clean_objects_and_source_sql(db_connection, settings,
         for kind in ("venue", "organization")
         for row in sources.rows[kind]
     ]
+    # This test's baseline is complete for the v2 content requirements too.
+    sources.rows["event_type"] = [{"type_id": 1}]
+    sources.rows["event_category"] = [{"category_id": 1}]
+    for event in sources.rows["event"]:
+        event.update(description="Synthetic description", categories=[1])
+        sources.rows["event_type_link"].append(
+            {"event_uuid": event["uuid"], "type_id": 1, "genre_id": 0}
+        )
     for rule in CORE_RULES:
         result = evaluate_core(rule, sources, settings, now)
         assert result.success and not result.findings
@@ -381,4 +389,4 @@ def test_quality_scan_date_work_grows_linearly(settings, size):
     urls = next(r for r in results if r.rule == "url_syntax")
     assert len(urls.findings) == size * 2
     assert all("published_soon" in f.priority_reasons for f in urls.findings)
-    assert dates.visits <= size * 5
+    assert dates.visits <= size * 8  # Three additional linear date-integrity passes.

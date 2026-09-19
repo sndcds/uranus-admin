@@ -132,7 +132,9 @@ async def test_live_filters(db_client, headers, params):
         "/api/v1/findings", headers=headers, params={**params, "mode": "live"}
     )
     assert response.status_code == 200
-    assert response.json()["pagination"]["total"] == 0
+    # Two released fixtures now each have three completeness findings.
+    expected = 6 if params.get("entity_type") == "event" else 0
+    assert response.json()["pagination"]["total"] == expected
 
 
 @pytest.mark.integration
