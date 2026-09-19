@@ -316,8 +316,11 @@ fixtures and a local auth server; it does not establish production/backend integ
   production Chromium E2E. Current pins: Python 3.13.15, uv 0.12.5, Node 22.22.3;
   pnpm 12.3.4 is declared in the frontend manifest.
 - `.github/workflows/security.yml` (`Security`): CodeQL for Python and JS/TS;
-  PR Dependency review blocks high/critical vulnerabilities. No Ansible/deploy workflow
-  is present. Do not claim CI configuration establishes branch-protection settings.
+  PR Dependency review blocks high/critical vulnerabilities.
+- `.github/workflows/deployment-checks.yml` (`Deployment checks`): local Ansible safety,
+  syntax, proxy and isolated PostgreSQL privilege tests; never deploys to production.
+  See `ansible/README.md` for the reviewed dry-run/apply gates. Do not claim CI
+  configuration establishes branch-protection settings.
 - Regenerate `frontend/docs/openapi.json` from FastAPI `create_app(...).openapi()` in
   an explicit development/test configuration without loading secrets. Do not hand-fake
   it; `backend/tests/test_auth.py::test_openapi` checks exact structural equality.

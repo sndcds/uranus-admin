@@ -1,0 +1,14 @@
+all:
+  children:
+    uranus_admin:
+      hosts:
+        webserver:
+          ansible_host: webserver
+          ansible_user: awendelk
+          ansible_port: 22
+          # Keep strict host key verification; use your existing verified SSH alias.
+          ua_expected_hostname: webserver
+          ua_release_sha: "REPLACE_WITH_FULL_COMMIT_SHA"
+          ua_artifact: "/absolute/controller/path/release.tar.gz"
+          ua_artifact_sha256: "REPLACE_WITH_SHA256"
+          # No passwords, runtime DSNs or operator credentials belong in inventory.

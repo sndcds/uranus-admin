@@ -75,6 +75,11 @@ Voraussetzung: Admin-Migration `0003` und die zusätzlichen
 
 ## Production-Anmeldung
 
+Das vorsichtige Deployment der bestehenden Installation auf `admin.kulturbytes.de`
+ist in [ansible/README.md](ansible/README.md) beschrieben. Die Rolle prüft PostgreSQL
+ausschließlich lesend und benötigt vor produktiven Änderungen einen geprüften Dry Run
+und eine ausdrückliche Freigabe.
+
 FastAPI authentifiziert eigene Admin-Konten; eine separate Tabelle in `admin` vergibt globale
 System-Admin-Rechte. Es gibt keine Uranus-Authentifizierung oder Statusabfrage. Der Browser nutzt
 HttpOnly-Sitzungscookies über Nitro. Einrichtung einschließlich Migration 0004, eingeschränkter

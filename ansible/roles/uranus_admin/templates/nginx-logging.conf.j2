@@ -1,0 +1,3 @@
+# No raw request, query string, referrer, user agent, cookies or forwarded headers.
+log_format uranus_admin_safe '$remote_addr [$time_local] "$request_method $uri" '
+                             '$status $body_bytes_sent $request_time';

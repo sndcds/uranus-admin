@@ -1,0 +1,24 @@
+# Definition order is deliberate: validate before reload, then start only affected services.
+- name: Validate complete nginx before reload
+  ansible.builtin.command: /usr/sbin/nginx -t
+  changed_when: false
+  when: ua_nginx_changed | bool
+  no_log: true
+
+- name: Reload systemd when units changed
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: ua_units_changed | bool
+
+- name: Start changed admin services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop: "{{ ua_restart_services | default([]) }}"
+
+- name: Reload nginx when configuration changed
+  ansible.builtin.systemd_service:
+    name: nginx.service
+    state: reloaded
+  when: ua_nginx_changed | bool

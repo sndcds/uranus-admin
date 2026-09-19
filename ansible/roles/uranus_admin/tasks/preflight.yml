@@ -1,0 +1,200 @@
+- name: Read the hostname
+  ansible.builtin.command: hostname
+  changed_when: false
+  check_mode: false
+  register: ua_hostname
+
+- name: Refuse a different machine
+  ansible.builtin.assert:
+    that: ua_hostname.stdout == ua_expected_hostname
+
+- name: Read the operating system release
+  ansible.builtin.slurp:
+    src: /etc/os-release
+  register: ua_os_release
+
+- name: Require the audited Ubuntu release
+  ansible.builtin.assert:
+    that:
+      - "'ID=ubuntu' in (ua_os_release.content | b64decode)"
+      - '''VERSION_ID="24.04"'' in (ua_os_release.content | b64decode)'
+
+- name: Read the systemd version
+  ansible.builtin.command: systemctl --version
+  changed_when: false
+  check_mode: false
+  register: ua_systemd_version
+  failed_when: ua_systemd_version.rc != 0 or not ua_systemd_version.stdout.startswith('systemd 255 ')
+
+- name: Require the existing enabled Nginx site to reference the audited file
+  ansible.builtin.stat:
+    path: /etc/nginx/sites-enabled/uranus-admin
+    follow: false
+  register: ua_nginx_site_link
+
+- name: Reject a different reverse proxy routing arrangement
+  ansible.builtin.assert:
+    that:
+      - ua_nginx_site_link.stat.islnk | default(false)
+      - ua_nginx_site_link.stat.lnk_source | default('') == '/etc/nginx/sites-available/uranus-admin'
+
+- name: Read the existing rate-zone definitions
+  ansible.builtin.slurp:
+    src: /etc/nginx/conf.d/uranus-admin-ratelimit.conf
+  register: ua_rate_zones
+
+- name: Require the audited rate zones without silently changing shared definitions
+  ansible.builtin.assert:
+    that:
+      - >-
+        (ua_rate_zones.content | b64decode | regex_replace('\\s+', ' ') | trim) ==
+        'limit_req_zone $binary_remote_addr zone=uranus_admin_general:10m rate=10r/s; limit_req_zone $binary_remote_addr zone=uranus_admin_api:10m rate=5r/s; limit_conn_zone $binary_remote_addr zone=uranus_admin_conn:10m;'
+    fail_msg: "Rate-zone configuration differs; review it before deployment."
+
+- name: Read service states
+  ansible.builtin.service_facts:
+
+- name: Inspect managed directory boundaries without following symlinks
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop:
+    - "{{ ua_root }}"
+    - "{{ ua_root }}/releases"
+    - "{{ ua_release_dir }}"
+    - "{{ ua_release_dir }}/deployment"
+    - "{{ ua_config_dir }}"
+    - "{{ ua_config_dir }}/recovery"
+    - "{{ ua_config_dir }}/recovery/{{ ua_release_sha }}"
+    - /var/cache/uranus-admin-build
+  register: ua_directory_stats
+
+- name: Refuse redirected managed directories
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+      - not item.stat.exists or item.stat.isdir
+  loop: "{{ ua_directory_stats.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Require the audited existing installation
+  ansible.builtin.assert:
+    that:
+      - item in ansible_facts.services
+    fail_msg: "Expected service missing; do not create an alternative installation automatically."
+  loop: "{{ ua_services + ['nginx.service', 'uranus-admin-notification-worker.service'] }}"
+
+- name: Reject unknown service drop-ins before taking over unit files
+  ansible.builtin.command:
+    argv: [systemctl, show, "{{ item }}", --property=DropInPaths, --value]
+  loop: "{{ ua_services }}"
+  changed_when: false
+  check_mode: false
+  register: ua_dropins
+  failed_when: ua_dropins.rc != 0 or ua_dropins.stdout | trim | length > 0
+
+- name: Require a stopped or reviewed existing notification timer
+  ansible.builtin.command:
+    argv:
+      [
+        systemctl,
+        show,
+        uranus-admin-notification-worker.timer,
+        --property=LoadState,
+        --value,
+      ]
+  changed_when: false
+  check_mode: false
+  register: ua_timer
+  failed_when: ua_timer.rc != 0 or ua_timer.stdout | trim != 'loaded'
+
+- name: Verify existing toolchain without installing system packages
+  ansible.builtin.command:
+    argv: "{{ item.argv }}"
+  loop:
+    - {
+        argv: ["{{ ua_python }}", --version],
+        expected: "Python {{ ua_manifest.python }}.",
+      }
+    - { argv: ["{{ ua_uv }}", --version], expected: "uv {{ ua_manifest.uv }}" }
+    - {
+        argv: ["{{ ua_node }}", --version],
+        expected: "v{{ ua_manifest.node }}",
+      }
+    - { argv: ["{{ ua_pnpm }}", --version], expected: "{{ ua_manifest.pnpm }}" }
+  register: ua_tool
+  changed_when: false
+  check_mode: false
+  failed_when: ua_tool.rc != 0 or item.expected not in ua_tool.stdout
+
+- name: Require a valid existing complete Nginx configuration
+  ansible.builtin.command: /usr/sbin/nginx -t
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Read database identity and mandatory object guards
+  community.postgresql.postgresql_query:
+    login_db: oklab
+    login_user: postgres
+    login_unix_socket: "{{ ua_pg_socket }}"
+    login_port: "{{ ua_pg_port }}"
+    connect_params:
+      options: "-c default_transaction_read_only=on -c statement_timeout=10000 -c lock_timeout=2000 -c search_path=pg_catalog"
+    query: >-
+      SELECT current_database() = 'oklab' AS correct_database,
+      current_setting('transaction_read_only') = 'on' AS read_only,
+      to_regnamespace('uranus') IS NOT NULL AS source_schema,
+      to_regclass('uranus.event') IS NOT NULL AS event,
+      to_regclass('uranus.event_date') IS NOT NULL AS event_date,
+      to_regclass('uranus.venue') IS NOT NULL AS venue,
+      to_regclass('uranus.organization') IS NOT NULL AS organization,
+      to_regclass('admin.alembic_version') IS NOT NULL AS version_table,
+      EXISTS(SELECT 1 FROM pg_extension WHERE extname='postgis') AS postgis
+  become_user: postgres
+  changed_when: false
+  register: ua_db_guard
+
+- name: Stop on missing or wrong database objects without repairing anything
+  ansible.builtin.assert:
+    that: ua_db_guard.query_result[0].values() | list | min
+    fail_msg: "Wrong database or missing source/admin/PostGIS objects; no provisioning or migration is permitted."
+
+- name: Audit current head and effective privileges in a read-only transaction
+  community.postgresql.postgresql_query:
+    login_db: oklab
+    login_user: postgres
+    login_unix_socket: "{{ ua_pg_socket }}"
+    login_port: "{{ ua_pg_port }}"
+    connect_params:
+      options: "-c default_transaction_read_only=on -c statement_timeout=10000 -c lock_timeout=2000 -c search_path=pg_catalog"
+    query: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
+    named_args:
+      head: "{{ ua_manifest.head }}"
+      grants: "{{ ua_manifest.runtime_grants | to_json }}"
+  become_user: postgres
+  changed_when: false
+  register: ua_boundary
+
+- name: Refuse unsafe privileges, dependencies or a different migration head
+  ansible.builtin.assert:
+    that: ua_boundary.query_result[0].violations | length == 0
+    fail_msg: "Database preflight failed: {{ ua_boundary.query_result[0].violations }}. No automatic repair."
+
+- name: Read optional orientation counts without any equality guard
+  community.postgresql.postgresql_query:
+    login_db: oklab
+    login_user: postgres
+    login_unix_socket: "{{ ua_pg_socket }}"
+    login_port: "{{ ua_pg_port }}"
+    connect_params:
+      options: "-c default_transaction_read_only=on -c statement_timeout=10000 -c lock_timeout=2000"
+    query:
+      - SELECT COUNT(*) FROM uranus.event
+      - SELECT COUNT(*) FROM uranus.event_date
+      - SELECT COUNT(*) FROM uranus.venue
+      - SELECT COUNT(*) FROM uranus.organization
+  become_user: postgres
+  changed_when: false
+  when: ua_counts | bool

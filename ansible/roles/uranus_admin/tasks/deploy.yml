@@ -1,0 +1,219 @@
+- name: Render the exact desired files in memory
+  ansible.builtin.set_fact:
+    ua_files:
+      - path: /etc/systemd/system/uranus-admin-backend.service
+        content: "{{ lookup('template', 'backend.service.j2') }}"
+        mode: "0644"
+      - path: /etc/systemd/system/uranus-admin-check-worker.service
+        content: "{{ lookup('template', 'check-worker.service.j2') }}"
+        mode: "0644"
+      - path: /etc/systemd/system/uranus-admin-frontend.service
+        content: "{{ lookup('template', 'frontend.service.j2') }}"
+        mode: "0644"
+      - path: /etc/nginx/sites-available/uranus-admin
+        content: "{{ lookup('template', 'nginx-site.conf.j2') }}"
+        mode: "0644"
+      - path: /etc/nginx/conf.d/uranus-admin-logging.conf
+        content: "{{ lookup('template', 'nginx-logging.conf.j2') }}"
+        mode: "0644"
+      - path: "{{ ua_config_dir }}/runtime.env"
+        content: "{{ ua_runtime | ua_render_env }}"
+        mode: "0600"
+      - path: "{{ ua_legacy_root }}/backend/.env"
+        content: "{{ ua_runtime | ua_render_env }}"
+        mode: "0600"
+  no_log: true
+
+- name: Compare installed files without emitting old contents or secret diffs
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    follow: false
+    checksum_algorithm: sha256
+  loop: "{{ ua_files }}"
+  register: ua_file_stats
+  no_log: true
+
+- name: Reject symlinks at managed file destinations
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+      - not item.stat.exists or item.stat.isreg
+  loop: "{{ ua_file_stats.results }}"
+  no_log: true
+
+- name: Determine which file contents or permissions need changing
+  ansible.builtin.set_fact:
+    ua_changed_paths: "{{ (ua_changed_paths | default([])) + [item.item.path] }}"
+  loop: "{{ ua_file_stats.results }}"
+  when: >-
+    not item.stat.exists or item.stat.checksum != (item.item.content | hash('sha256'))
+    or item.stat.mode != item.item.mode or item.stat.uid != 0 or item.stat.gid != 0
+  no_log: true
+
+- name: Determine service-specific activation requirements
+  ansible.builtin.set_fact:
+    ua_activation: "{{ (ua_changed_paths | default([])) | ua_activation_plan(ansible_facts.services, ua_config_dir) }}"
+
+- name: Store the exact activation plan
+  ansible.builtin.set_fact:
+    ua_changed_paths: "{{ ua_changed_paths | default([]) }}"
+    ua_runtime_changed: "{{ ua_activation.runtime_changed }}"
+    ua_nginx_changed: "{{ ua_activation.nginx_changed }}"
+    ua_units_changed: "{{ ua_activation.units_changed }}"
+    ua_restart_services: "{{ ua_activation.restart_services }}"
+
+- name: Report only safe file names and service decisions
+  ansible.builtin.debug:
+    msg:
+      changed_files: "{{ ua_changed_paths }}"
+      restart_services: "{{ ua_restart_services | default([]) }}"
+      nginx_reload: "{{ ua_nginx_changed }}"
+      notification_timer: "Will remain disabled after approved apply; never restarted by this role."
+      secret_diffs: "Suppressed, including old unit contents. No password rotation."
+      legacy_frontend_env: "Existing file will be restricted to root:root 0600 without content changes."
+      release: "{{ ua_release_dir }} (build only when the verified completion marker is absent)"
+      protected_paths: "{{ ua_config_dir }} (0700), operator.env and recovery files (0600)"
+
+- name: Stage the release and verify it before interrupting existing services
+  ansible.builtin.import_tasks: release.yml
+  when: not ansible_check_mode
+
+- name: Simulate candidate file installation without exposing previous contents
+  ansible.builtin.copy:
+    content: "{{ item.content }}"
+    dest: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop: "{{ ua_files[:5] }}"
+  loop_control:
+    label: "{{ item.path }}"
+  # Old unit/site files could contain inline credentials. Review the new templates locally.
+  diff: false
+  when: ansible_check_mode
+
+- name: Apply reviewed configuration inside the confirmed maintenance window
+  when: not ansible_check_mode
+  block:
+    - name: Disable the existing notification timer under its separate approval
+      ansible.builtin.systemd_service:
+        name: uranus-admin-notification-worker.timer
+        state: stopped
+        enabled: false
+
+    - name: Stop an existing notification invocation before changing its shared environment
+      ansible.builtin.systemd_service:
+        name: uranus-admin-notification-worker.service
+        state: stopped
+
+    - name: Stop only services whose executable or runtime configuration changes
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+      loop: "{{ ua_restart_services | default([]) }}"
+      notify: Start changed admin services
+
+    - name: Schedule activation even when an affected service was already stopped
+      ansible.builtin.debug:
+        msg: "Validated affected services will be started by the activation handler."
+      changed_when: true
+      when: ua_restart_services | default([]) | length > 0
+      notify: Start changed admin services
+
+    - name: Create root-only configuration and recovery directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+      loop:
+        - "{{ ua_config_dir }}"
+        - "{{ ua_config_dir }}/recovery"
+        - "{{ ua_config_dir }}/recovery/{{ ua_release_sha }}"
+
+    - name: Preserve existing managed files once for manual system-configuration recovery
+      ansible.builtin.copy:
+        remote_src: true
+        src: "{{ item.item.path }}"
+        dest: "{{ ua_config_dir }}/recovery/{{ ua_release_sha }}/{{ item.item.path | replace('/', '_') }}"
+        force: false
+        owner: root
+        group: root
+        mode: "0600"
+      loop: "{{ ua_file_stats.results }}"
+      when: item.stat.exists and item.item.path in ua_changed_paths
+      no_log: true
+      diff: false
+
+    - name: Preserve privileged entries outside the runtime user's access
+      ansible.builtin.copy:
+        content: "{{ ua_privileged | ua_render_env }}"
+        dest: "{{ ua_config_dir }}/operator.env"
+        force: false
+        owner: root
+        group: root
+        mode: "0600"
+      when: ua_privileged | length > 0 or ua_env_stats.results[1].stat.exists
+      no_log: true
+      diff: false
+
+    - name: Install reviewed files including the sanitized legacy backend environment
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: "{{ item.path }}"
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop: "{{ ua_files }}"
+      when: item.path in ua_changed_paths
+      no_log: true
+      diff: false
+      notify:
+        - Reload systemd when units changed
+        - Validate complete nginx before reload
+        - Reload nginx when configuration changed
+
+    - name: Restrict the legacy frontend environment without replacing its contents
+      ansible.builtin.file:
+        path: "{{ ua_legacy_root }}/frontend/.env"
+        owner: root
+        group: root
+        mode: "0600"
+      when: ua_env_stats.results[3].stat.exists
+
+    - name: Run validation and activation handlers in their defined order
+      ansible.builtin.meta: flush_handlers
+
+    - name: Check backend liveness and database readiness without login or worker runs
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:8011/{{ item }}"
+        status_code: 200
+        return_content: false
+        follow_redirects: none
+      loop: [health, ready]
+      register: ua_health
+      until: ua_health.status == 200
+      retries: 10
+      delay: 2
+
+    - name: Check the public HTTPS login route without authentication
+      ansible.builtin.uri:
+        url: https://admin.kulturbytes.de/login
+        method: HEAD
+        status_code: 200
+        validate_certs: true
+        follow_redirects: none
+        return_content: false
+      register: ua_public_health
+      until: ua_public_health.status == 200
+      retries: 10
+      delay: 2
+
+    - name: Record the successfully activated release pointer
+      ansible.builtin.file:
+        src: "{{ ua_release_dir }}"
+        dest: "{{ ua_root }}/current"
+        state: link
+        owner: root
+        group: root

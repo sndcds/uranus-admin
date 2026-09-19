@@ -1,0 +1,23 @@
+- name: Validate operator inputs before any target mutation
+  ansible.builtin.import_tasks: inputs.yml
+
+- name: Inspect the existing host and database
+  ansible.builtin.import_tasks: preflight.yml
+
+- name: Inspect and prepare secret separation in memory
+  ansible.builtin.import_tasks: environment_plan.yml
+
+- name: Report the proposed deployment without secrets
+  ansible.builtin.debug:
+    msg:
+      - "Database: oklab. Expected admin head: {{ ua_manifest.head }}. Database changes: NONE."
+      - "Release: {{ ua_release_dir }}. Artifact: {{ ua_artifact_sha256 }}."
+      - "Secrets: preserve passwords; archive privileged entries root-only; sanitize legacy backend .env."
+      - "Services: backend/frontend/check only. Existing notification timer will be disabled on approved apply."
+      - "No notification, URL or geocode worker is started; SMTP delivery remains disabled."
+      - "Check mode cannot build the new release, validate its runtime DB logins or prove service startup."
+      - "TEMPORARY and existing broader reader SELECT grants are reported, never revoked automatically."
+
+- name: Prepare and activate only the explicitly approved release
+  ansible.builtin.import_tasks: deploy.yml
+  when: ua_action == 'deploy'
