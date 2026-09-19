@@ -283,6 +283,8 @@ class DeploymentBoundaryTests(unittest.TestCase):
                     if name == "ansible.builtin.file" and args.get("recurse"):
                         # venv/bin/python links to the system interpreter; never chmod its target.
                         self.assertIs(args.get("follow"), False)
+                    if name == "ansible.builtin.file" and args.get("state") == "link":
+                        self.assertIs(args.get("follow"), False)
                     if name.startswith("community.postgresql."):
                         self.assertEqual(name, "community.postgresql.postgresql_query")
                         self.assertEqual(args["login_db"], "oklab")
@@ -291,7 +293,6 @@ class DeploymentBoundaryTests(unittest.TestCase):
                         )
                     if name in ("block", "rescue", "always"):
                         walk(args)
-                self.assertNotIn("rescue", task)
 
         for path in (ROLE / "tasks").glob("*.yml"):
             walk(yaml.safe_load(path.read_text()))
@@ -332,6 +333,8 @@ class DeploymentBoundaryTests(unittest.TestCase):
         self.assertIn("limit_req_status 429;", site)
         self.assertIn("limit_conn_status 429;", site)
         self.assertNotIn("unsafe-eval", site)
+        self.assertEqual(site.count("error_log /var/log/nginx/uranus-admin-error.log warn;"), 2)
+        self.assertNotIn("error_log /dev/null", site)
         error_block = site.split("location @rate_limited", 1)[1]
         self.assertIn("Strict-Transport-Security", error_block)
         self.assertIn("Content-Security-Policy", error_block)
@@ -398,6 +401,7 @@ class DeploymentBoundaryTests(unittest.TestCase):
                 "/etc/letsencrypt/live/admin.kulturbytes.de/fullchain.pem": str(root / "cert.pem"),
                 "/etc/letsencrypt/live/admin.kulturbytes.de/privkey.pem": str(root / "key.pem"),
                 "/var/log/nginx/uranus-admin-access.log": str(root / "access.log"),
+                "/var/log/nginx/uranus-admin-error.log": str(root / "error.log"),
             }.items():
                 site = site.replace(old, new)
             config = (

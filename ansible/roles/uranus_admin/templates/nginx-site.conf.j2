@@ -12,8 +12,8 @@ server {
     listen [::]:80;
     server_name admin.kulturbytes.de;
     access_log /var/log/nginx/uranus-admin-access.log uranus_admin_safe;
-    # Nginx error messages may include raw request queries; keep them out of logs.
-    error_log /dev/null;
+    # Error messages may contain request details: restrict access and rotate this log.
+    error_log /var/log/nginx/uranus-admin-error.log warn;
     return 301 https://admin.kulturbytes.de$request_uri;
 }
 
@@ -28,7 +28,7 @@ server {
     ssl_session_timeout 1d;
     ssl_session_tickets off;
     access_log /var/log/nginx/uranus-admin-access.log uranus_admin_safe;
-    error_log /dev/null;
+    error_log /var/log/nginx/uranus-admin-error.log warn;
 {{ headers() }}
     client_max_body_size 2m;
     client_body_timeout 15s;

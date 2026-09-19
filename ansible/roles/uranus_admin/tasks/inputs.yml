@@ -20,9 +20,9 @@
       - ua_reviewed_dry_run | length > 0
       - ua_maintenance_window | length > 0
       - ua_backup_reference | length > 0
-      - ua_disable_notification_timer_approved | bool
+      - not (ua_manage_notification_timer | bool) or (ua_disable_notification_timer_approved | bool)
       - ua_secret_adoption_approved | bool
-    fail_msg: "Apply requires reviewed dry run, backup reference, maintenance window and explicit timer/secret approvals."
+    fail_msg: "Apply requires reviewed dry run, backup reference, maintenance window, secret approval and separate approval when managing notifications."
   when: ua_action == 'deploy' and not ansible_check_mode
 
 - name: Authenticate and inspect the controller artifact without extraction

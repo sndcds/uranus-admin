@@ -3,11 +3,12 @@ ua_expected_hostname: webserver
 ua_release_sha: ""
 ua_artifact: ""
 ua_artifact_sha256: ""
-# Every real deployment needs all four operator decisions, after a reviewed dry run.
+# Every real deployment needs explicit approval after a reviewed dry run.
 ua_apply_confirmation: ""
 ua_reviewed_dry_run: ""
 ua_maintenance_window: ""
 ua_backup_reference: ""
+ua_manage_notification_timer: false
 ua_disable_notification_timer_approved: false
 ua_secret_adoption_approved: false
 ua_debug: false

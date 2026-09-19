@@ -1,0 +1,18 @@
+- name: Read stable service states immediately before activation
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - show
+      - "{{ item }}"
+      - --property=LoadState,ActiveState,UnitFileState
+  loop: "{{ ua_services + ['nginx.service'] + (['uranus-admin-notification-worker.timer', 'uranus-admin-notification-worker.service'] if ua_manage_notification_timer | bool else []) }}"
+  changed_when: false
+  register: ua_service_status
+
+- name: Keep exact active and enablement states for system recovery
+  ansible.builtin.set_fact:
+    ua_previous_services: "{{ ua_service_status.results | ua_service_snapshot }}"
+
+- name: Refresh the restart set from actual service states
+  ansible.builtin.set_fact:
+    ua_restart_services: "{{ (ua_changed_paths | ua_activation_plan(ua_previous_services, ua_config_dir)).restart_services }}"

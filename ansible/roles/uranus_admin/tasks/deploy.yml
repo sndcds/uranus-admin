@@ -19,9 +19,13 @@
       - path: "{{ ua_config_dir }}/runtime.env"
         content: "{{ ua_runtime | ua_render_env }}"
         mode: "0600"
-      - path: "{{ ua_legacy_root }}/backend/.env"
-        content: "{{ ua_runtime | ua_render_env }}"
-        mode: "0600"
+  no_log: true
+
+- name: Sanitize the shared legacy environment only with notification management
+  ansible.builtin.set_fact:
+    ua_files: "{{ ua_files + [{'path': ua_legacy_root + '/backend/.env', 'content': ua_runtime | ua_render_env, 'mode': '0600'}] }}"
+  # Planning also works before the second approval; the real apply gate still requires it.
+  when: ua_manage_notification_timer | bool
   no_log: true
 
 - name: Compare installed files without emitting old contents or secret diffs
@@ -68,7 +72,7 @@
       changed_files: "{{ ua_changed_paths }}"
       restart_services: "{{ ua_restart_services | default([]) }}"
       nginx_reload: "{{ ua_nginx_changed }}"
-      notification_timer: "Will remain disabled after approved apply; never restarted by this role."
+      notification_timer: "{{ 'Disable only under the separate approval; recover original state on failure' if ua_manage_notification_timer | bool else 'UNCHANGED (including shared legacy environment)' }}"
       secret_diffs: "Suppressed, including old unit contents. No password rotation."
       legacy_frontend_env: "Existing file will be restricted to root:root 0600 without content changes."
       release: "{{ ua_release_dir }} (build only when the verified completion marker is absent)"
@@ -92,128 +96,6 @@
   diff: false
   when: ansible_check_mode
 
-- name: Apply reviewed configuration inside the confirmed maintenance window
+- name: Prepare a per-attempt system snapshot and dispatch guarded activation
+  ansible.builtin.import_tasks: prepare_activation.yml
   when: not ansible_check_mode
-  block:
-    - name: Disable the existing notification timer under its separate approval
-      ansible.builtin.systemd_service:
-        name: uranus-admin-notification-worker.timer
-        state: stopped
-        enabled: false
-
-    - name: Stop an existing notification invocation before changing its shared environment
-      ansible.builtin.systemd_service:
-        name: uranus-admin-notification-worker.service
-        state: stopped
-
-    - name: Stop only services whose executable or runtime configuration changes
-      ansible.builtin.systemd_service:
-        name: "{{ item }}"
-        state: stopped
-      loop: "{{ ua_restart_services | default([]) }}"
-      notify: Start changed admin services
-
-    - name: Schedule activation even when an affected service was already stopped
-      ansible.builtin.debug:
-        msg: "Validated affected services will be started by the activation handler."
-      changed_when: true
-      when: ua_restart_services | default([]) | length > 0
-      notify: Start changed admin services
-
-    - name: Create root-only configuration and recovery directories
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: directory
-        owner: root
-        group: root
-        mode: "0700"
-      loop:
-        - "{{ ua_config_dir }}"
-        - "{{ ua_config_dir }}/recovery"
-        - "{{ ua_config_dir }}/recovery/{{ ua_release_sha }}"
-
-    - name: Preserve existing managed files once for manual system-configuration recovery
-      ansible.builtin.copy:
-        remote_src: true
-        src: "{{ item.item.path }}"
-        dest: "{{ ua_config_dir }}/recovery/{{ ua_release_sha }}/{{ item.item.path | replace('/', '_') }}"
-        force: false
-        owner: root
-        group: root
-        mode: "0600"
-      loop: "{{ ua_file_stats.results }}"
-      when: item.stat.exists and item.item.path in ua_changed_paths
-      no_log: true
-      diff: false
-
-    - name: Preserve privileged entries outside the runtime user's access
-      ansible.builtin.copy:
-        content: "{{ ua_privileged | ua_render_env }}"
-        dest: "{{ ua_config_dir }}/operator.env"
-        force: false
-        owner: root
-        group: root
-        mode: "0600"
-      when: ua_privileged | length > 0 or ua_env_stats.results[1].stat.exists
-      no_log: true
-      diff: false
-
-    - name: Install reviewed files including the sanitized legacy backend environment
-      ansible.builtin.copy:
-        content: "{{ item.content }}"
-        dest: "{{ item.path }}"
-        owner: root
-        group: root
-        mode: "{{ item.mode }}"
-      loop: "{{ ua_files }}"
-      when: item.path in ua_changed_paths
-      no_log: true
-      diff: false
-      notify:
-        - Reload systemd when units changed
-        - Validate complete nginx before reload
-        - Reload nginx when configuration changed
-
-    - name: Restrict the legacy frontend environment without replacing its contents
-      ansible.builtin.file:
-        path: "{{ ua_legacy_root }}/frontend/.env"
-        owner: root
-        group: root
-        mode: "0600"
-      when: ua_env_stats.results[3].stat.exists
-
-    - name: Run validation and activation handlers in their defined order
-      ansible.builtin.meta: flush_handlers
-
-    - name: Check backend liveness and database readiness without login or worker runs
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:8011/{{ item }}"
-        status_code: 200
-        return_content: false
-        follow_redirects: none
-      loop: [health, ready]
-      register: ua_health
-      until: ua_health.status == 200
-      retries: 10
-      delay: 2
-
-    - name: Check the public HTTPS login route without authentication
-      ansible.builtin.uri:
-        url: https://admin.kulturbytes.de/login
-        method: HEAD
-        status_code: 200
-        validate_certs: true
-        follow_redirects: none
-        return_content: false
-      register: ua_public_health
-      until: ua_public_health.status == 200
-      retries: 10
-      delay: 2
-
-    - name: Record the successfully activated release pointer
-      ansible.builtin.file:
-        src: "{{ ua_release_dir }}"
-        dest: "{{ ua_root }}/current"
-        state: link
-        owner: root
-        group: root

@@ -3,7 +3,8 @@
 Diese Rolle übernimmt die **bereits vorhandene** Installation auf `webserver`.
 Sie ist kein Datenbank-Bootstrap und kein allgemeines Server-Provisioning.
 Alle PostgreSQL-Tasks sind **READ ONLY**. Es gibt keine Migration, keinen Grant,
-keine Rollenanlage und keinen Restore, auch keinen entsprechenden Fehler-Fallback.
+keine Rollenanlage und keinen Datenbank-Restore, auch keinen entsprechenden Fehler-Fallback.
+Der automatische Fehlerpfad stellt ausschließlich Systemkonfiguration und Service-Zustände wieder her.
 Ein fehlendes Objekt oder ein unpassender Berechtigungs-/Migrationsstand bedeutet Abbruch.
 
 Die Implementierung darf lokal geprüft werden. Ein produktiver Check Mode benötigt
@@ -17,26 +18,26 @@ Die Bestandsaufnahme vom 19. September 2026 ist eine Momentaufnahme, keine Garan
 für einen späteren Lauf. Grundlage des Anwendungsstands:
 `0d2c70896d9bb8522ff79162981f0802596e5fb6` auf `main`.
 
-| Befund                                                                                | Umsetzung / verbleibende Grenze                                                                                                                                                             |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ubuntu 24.04.4, systemd 255.4, Nginx 1.24                                             | Preflight verlangt Ubuntu 24.04/systemd 255; vollständiges `nginx -t`; keine Paket-/OS-Upgrades.                                                                                            |
-| PostgreSQL 16.15, PostGIS 3.4.2; Client 17.0                                          | Bestehender lokaler Socket, Datenbank `oklab`; keine Extension-Änderung. Tests zusätzlich mit PostgreSQL 17.                                                                                |
-| `uranus` gehört `oklab`, `admin` gehört `admin_migrator`                              | Live-Quelle bleibt unverändert. Ownership/effektive Rechte werden geprüft. Linux-User `oklab` ist nicht die DB-Verbindungsrolle.                                                            |
-| `admin.alembic_version = 0011`, 16 Admin-Tabellen                                     | Head/Grant-Matrix stammen aus dem ausgewählten Release. Abweichung stoppt, ohne automatische Migration.                                                                                     |
-| Reader besitzt SELECT auf 72 Quellobjekten, keine Sequenzrechte                       | Mindestens die 19 benötigten Quellobjekte werden geprüft. Bestehende weitere Leserechte bleiben erhalten; kein pauschales SELECT auf Sequenzen.                                             |
-| Vier getrennte App-Rollen, keine Memberships, keine privilegierten Attribute          | Attribute, Memberships in beide Richtungen, Ownership, Tabellen-/Spaltenrechte und indirekte Schreibmöglichkeiten werden erneut geprüft.                                                    |
-| App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | TEMP wird nicht pauschal über PUBLIC entzogen. Das wäre ein eigener, serverweiter Berechtigungsvorschlag.                                                                                   |
-| Backend, Frontend, Check-Worker existieren und laufen                                 | Nur diese drei bekannten Services werden übernommen. Keine zusätzlichen Service-Namen.                                                                                                      |
-| Notification-Timer ist aktiv, Notification-Service ist ein stündlicher Oneshot        | Echtlauf verlangt gesonderte Zustimmung zum Stoppen/Deaktivieren. Er wird nie automatisch wieder eingeschaltet.                                                                             |
-| Kein URL-/Geocode-Service gefunden                                                    | Keine Installation oder Aktivierung dieser Worker.                                                                                                                                          |
-| Bisherige `.env`-Dateien sind 0664, Backend enthält auch privilegierte Variablennamen | Werte wurden beim Audit nicht veröffentlicht. Übernahme liest sie geschützt, erhält Passwörter und trennt Runtime/Operator; keine Behauptung, dass alle gefundenen Variablen befüllt waren. |
-| Check-Worker startet bisher über `uv run`, ohne EnvironmentFile                       | Direkter Python-Aufruf aus dem fertigen Release, explizites Runtime-EnvironmentFile; kein Dependency-Sync beim Service-Start.                                                               |
-| Frontend-Dev-Token-Flag true, vertrauenswürdiger Ingress nicht konfiguriert           | Flag explizit false; Nitro vertraut ausschließlich dem lokalen Nginx-Peer `127.0.0.1`. Das alte Flag allein bewies keinen Production-Auth-Bypass.                                           |
-| Nginx und Apache aktiv                                                                | Nur den bestehenden Admin-Vhost und einen eigenen Logformat-Snippet verwalten. Apache, andere Sites, TLS-Zertifikate und Rate-Zonen bleiben bestehen.                                       |
-| Nginx-Limits ohne expliziten 429-Status, Headerverlust im Fehler-Location             | Request-/Connection-Limits liefern 429; vollständige Security-Header auch dort.                                                                                                             |
-| Globales Access-Log enthält rohe Requests/Querystrings                                | Eigenes minimiertes Admin-Access-Log. Vhost-Error-Log wird wegen möglicher Rohrequests nach `/dev/null` geleitet; siehe Abwägung unten.                                                     |
-| CSP ohne Nonce-System, bereits ohne unsafe-eval                                       | Bestehende CSP erhalten, nicht vorzeitig entfernen.                                                                                                                                         |
-| Kein bestätigtes Wartungsfenster, kein bestätigtes DB-Backup                          | Echtlauf bleibt gesperrt, bis beides angegeben und tatsächlich geprüft wurde. Ein vorhandener dpkg-Backup-Timer ist kein PostgreSQL-Backup.                                                 |
+| Befund                                                                                | Umsetzung / verbleibende Grenze                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ubuntu 24.04.4, systemd 255.4, Nginx 1.24                                             | Preflight verlangt Ubuntu 24.04/systemd 255; vollständiges `nginx -t`; keine Paket-/OS-Upgrades.                                                                                                                                                                |
+| PostgreSQL 16.15, PostGIS 3.4.2; Client 17.0                                          | Bestehender lokaler Socket, Datenbank `oklab`; keine Extension-Änderung. Tests zusätzlich mit PostgreSQL 17.                                                                                                                                                    |
+| `uranus` gehört `oklab`, `admin` gehört `admin_migrator`                              | Live-Quelle bleibt unverändert. Ownership/effektive Rechte werden geprüft. Linux-User `oklab` ist nicht die DB-Verbindungsrolle.                                                                                                                                |
+| `admin.alembic_version = 0011`, 16 Admin-Tabellen                                     | Head/Grant-Matrix stammen aus dem ausgewählten Release. Abweichung stoppt, ohne automatische Migration.                                                                                                                                                         |
+| Reader besitzt SELECT auf 72 Quellobjekten, keine Sequenzrechte                       | Mindestens die 19 benötigten Quellobjekte werden geprüft. Bestehende weitere Leserechte bleiben erhalten; kein pauschales SELECT auf Sequenzen.                                                                                                                 |
+| Vier getrennte App-Rollen, keine Memberships, keine privilegierten Attribute          | Attribute, Memberships in beide Richtungen, Ownership, Tabellen-/Spaltenrechte und indirekte Schreibmöglichkeiten werden erneut geprüft.                                                                                                                        |
+| App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | TEMP wird nicht pauschal über PUBLIC entzogen. Das wäre ein eigener, serverweiter Berechtigungsvorschlag.                                                                                                                                                       |
+| Backend, Frontend, Check-Worker existieren und laufen                                 | Nur diese drei bekannten Services werden übernommen. Keine zusätzlichen Service-Namen.                                                                                                                                                                          |
+| Notification-Timer ist aktiv, Notification-Service ist ein stündlicher Oneshot        | Standard: unverändert. Nur explizites Notification-Management mit zweiter Zustimmung stoppt/deaktiviert ihn; Recovery stellt dann seinen vorherigen Zustand wieder her.                                                                                         |
+| Kein URL-/Geocode-Service gefunden                                                    | Keine Installation oder Aktivierung dieser Worker.                                                                                                                                                                                                              |
+| Bisherige `.env`-Dateien sind 0664, Backend enthält auch privilegierte Variablennamen | Werte wurden beim Audit nicht veröffentlicht. Übernahme liest sie geschützt, erhält Passwörter und trennt neue Runtime/Operator; Legacy-Backend-Env nur bei Notification-Management bereinigen; keine Behauptung, dass alle gefundenen Variablen befüllt waren. |
+| Check-Worker startet bisher über `uv run`, ohne EnvironmentFile                       | Direkter Python-Aufruf aus dem fertigen Release, explizites Runtime-EnvironmentFile; kein Dependency-Sync beim Service-Start.                                                                                                                                   |
+| Frontend-Dev-Token-Flag true, vertrauenswürdiger Ingress nicht konfiguriert           | Flag explizit false; Nitro vertraut ausschließlich dem lokalen Nginx-Peer `127.0.0.1`. Das alte Flag allein bewies keinen Production-Auth-Bypass.                                                                                                               |
+| Nginx und Apache aktiv                                                                | Nur den bestehenden Admin-Vhost und einen eigenen Logformat-Snippet verwalten. Apache, andere Sites, TLS-Zertifikate und Rate-Zonen bleiben bestehen.                                                                                                           |
+| Nginx-Limits ohne expliziten 429-Status, Headerverlust im Fehler-Location             | Request-/Connection-Limits liefern 429; vollständige Security-Header auch dort.                                                                                                                                                                                 |
+| Globales Access-Log enthält rohe Requests/Querystrings                                | Minimiertes Admin-Access-Log und dediziertes Error-Log mit Level warn; Zugriffsrechte und Rotation vor Einsatz prüfen.                                                                                                                                          |
+| CSP ohne Nonce-System, bereits ohne unsafe-eval                                       | Bestehende CSP erhalten, nicht vorzeitig entfernen.                                                                                                                                                                                                             |
+| Kein bestätigtes Wartungsfenster, kein bestätigtes DB-Backup                          | Echtlauf bleibt gesperrt, bis beides angegeben und tatsächlich geprüft wurde. Ein vorhandener dpkg-Backup-Timer ist kein PostgreSQL-Backup.                                                                                                                     |
 
 Ein identischer Head ist **kein vollständiger struktureller Schema-Diff**. Der
 Preflight prüft Objektbestand, Rechte und gefährliche Abhängigkeiten; die spätere
@@ -140,23 +141,26 @@ des aktuellen Head-Checks.
 **CHANGES SYSTEM CONFIGURATION** — folgende Pfade sind der vollständige verwaltete
 Produktionsumfang; temporäre Ansible-/Validierungsdateien kommen technisch hinzu:
 
-| Pfad                                                                       | Aktion                                                                                                                                                            |
-| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/opt/uranus-admin/releases/<commit>/`                                     | Neues getrenntes Release mit Backend-venv und gebautem Nitro-Server; nach Build root-owned. Vorheriges Checkout wird nicht überschrieben.                         |
-| `/opt/uranus-admin/releases/<commit>/.complete`                            | SHA256 des fertig gebauten Archivs; vorhandene abweichende Marker führen zum Abbruch.                                                                             |
-| `/opt/uranus-admin/releases/<commit>/deployment/`                          | Prüfprogramme und nichtgeheime Konfigurationskandidaten.                                                                                                          |
-| `/opt/uranus-admin/current`                                                | Verweis auf zuletzt erfolgreich aktiviertes Release, erst nach Healthchecks geändert. Units verwenden feste Release-Pfade.                                        |
-| `/var/cache/uranus-admin-build/`                                           | Build-Cache von uv/pnpm, Benutzer `oklab`. Kein Laufzeit-Schreibpfad des Services.                                                                                |
-| `/etc/uranus-admin/`                                                       | root:root, 0700.                                                                                                                                                  |
-| `/etc/uranus-admin/runtime.env`                                            | root:root, 0600; systemd liest und übergibt ausschließlich Runtime-Konfiguration.                                                                                 |
-| `/etc/uranus-admin/operator.env`                                           | root:root, 0600; vorhandene Migrator-/Operator-/Dev-Token-Einträge gesichert, nie in Units geladen. Unterschiedliche bereits gesicherte Werte führen zum Abbruch. |
-| `/etc/uranus-admin/recovery/<commit>/`                                     | Einmalige root-only Sicherung vorheriger verwalteter Dateien, inklusive möglicherweise enthaltener Secrets. Nicht als DB-Backup verwenden.                        |
-| `/home/oklab/build/uranus-admin/backend/.env`                              | Durch dieselbe bereinigte Runtime-Konfiguration ersetzt, root:root 0600; privilegierte Einträge werden vorher gesichert.                                          |
-| `/home/oklab/build/uranus-admin/frontend/.env`                             | Inhalt erhalten, root:root 0600.                                                                                                                                  |
-| `/etc/systemd/system/uranus-admin-{backend,frontend,check-worker}.service` | Bekannte Units mit festen Release-Pfaden aktualisieren. UMask 0027; Worker startet direkt `.venv/bin/python`, keine Installation beim Start.                      |
-| `/etc/nginx/sites-available/uranus-admin`                                  | Bestehenden Vhost aktualisieren. Der vorhandene sites-enabled-Symlink muss bereits genau hierhin zeigen.                                                          |
-| `/etc/nginx/conf.d/uranus-admin-logging.conf`                              | Eigenes Access-Logformat ohne Querystring, Referer, Cookies, User-Agent oder fremdes X-Forwarded-For.                                                             |
-| `/var/log/nginx/uranus-admin-access.log`                                   | Nginx schreibt das dedizierte Log; vorhandene Nginx-Logrotation muss diesen `*.log`-Pfad erfassen.                                                                |
+| Pfad                                                                       | Aktion                                                                                                                                                                                  |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/opt/uranus-admin/releases/<commit>/`                                     | Neues getrenntes Release mit Backend-venv und gebautem Nitro-Server; nach Build root-owned. Vorheriges Checkout wird nicht überschrieben.                                               |
+| `/opt/uranus-admin/releases/<commit>/.complete`                            | SHA256 des fertig gebauten Archivs; vorhandene abweichende Marker führen zum Abbruch.                                                                                                   |
+| `/opt/uranus-admin/releases/<commit>/deployment/`                          | Prüfprogramme und nichtgeheime Konfigurationskandidaten.                                                                                                                                |
+| `/opt/uranus-admin/current`                                                | Verweis auf zuletzt erfolgreich aktiviertes Release, erst nach Healthchecks geändert. Units verwenden feste Release-Pfade.                                                              |
+| `/var/cache/uranus-admin-build/`                                           | Build-Cache von uv/pnpm, Benutzer `oklab`. Kein Laufzeit-Schreibpfad des Services.                                                                                                      |
+| `/etc/uranus-admin/`                                                       | root:root, 0700.                                                                                                                                                                        |
+| `/etc/uranus-admin/runtime.env`                                            | root:root, 0600; systemd liest und übergibt ausschließlich Runtime-Konfiguration.                                                                                                       |
+| `/etc/uranus-admin/operator.env`                                           | root:root, 0600; vorhandene Migrator-/Operator-/Dev-Token-Einträge gesichert, nie in Units geladen. Unterschiedliche bereits gesicherte Werte führen zum Abbruch.                       |
+| `/etc/uranus-admin/recovery/<commit>/attempt-<zufall>/`                    | Frischer root-only Snapshot pro Aktivierungsversuch: geänderte Altdateien und Manifest mit Existenz, Ownership, Modi, Service-Zuständen und vorherigem current-Verweis. Kein DB-Backup. |
+| `/home/oklab/build/uranus-admin/backend/.env`                              | Standard unverändert, weil der bestehende Notification-Service sie liest. Nur mit beiden Notification-Flags bereinigen und auf root:root 0600 setzen; Altdatei im Recovery-Snapshot.    |
+| `/home/oklab/build/uranus-admin/frontend/.env`                             | Inhalt erhalten, root:root 0600.                                                                                                                                                        |
+| `/etc/systemd/system/uranus-admin-{backend,frontend,check-worker}.service` | Bekannte Units mit festen Release-Pfaden aktualisieren. UMask 0027; Worker startet direkt `.venv/bin/python`, keine Installation beim Start.                                            |
+| `/etc/nginx/sites-available/uranus-admin`                                  | Bestehenden Vhost aktualisieren. Der vorhandene sites-enabled-Symlink muss bereits genau hierhin zeigen.                                                                                |
+| `/etc/nginx/conf.d/uranus-admin-logging.conf`                              | Eigenes Access-Logformat ohne Querystring, Referer, Cookies, User-Agent oder fremdes X-Forwarded-For.                                                                                   |
+| `/var/log/nginx/uranus-admin-access.log`                                   | Nginx schreibt das dedizierte Log; vorhandene Nginx-Logrotation muss diesen `*.log`-Pfad erfassen.                                                                                      |
+
+Zusätzlich schreibt Nginx `/var/log/nginx/uranus-admin-error.log` mit Level `warn`
+für HTTP und HTTPS. Die Rolle verändert keine globale Logrotate-Konfiguration.
 
 Der neue Release-Pfad ist eine bewusst zu prüfende Änderung gegenüber dem bestehenden
 Checkout unter `/home/oklab/build`. Keine automatische Release-/Cache-/Backup-Bereinigung.
@@ -166,25 +170,64 @@ Der Build lädt gesperrte Dependencies, kann also Paketregistry-Zugriff benötig
 Das Artefakt enthält `pnpm-workspace.yaml` einschließlich der erlaubten Build-Scripts.
 Keine Secrets, Tests oder Test-Fixtures gelangen in das Release-Archiv.
 
-**CHANGES SYSTEM CONFIGURATION** — nach erfolgreichem Build/Prüfung und erst im
-freigegebenen Wartungsfenster:
+## Normaler Deploy und optionales Notification-Management
 
-1. Bestehenden Notification-Timer stoppen/deaktivieren, laufenden Oneshot stoppen.
-2. Nur Services anhalten, deren Unit/Runtime-Datei geändert wird oder die bereits
-   gestoppt sind. Check-Jobs können hierbei ihre Lease verlieren und regulär fehlschlagen;
-   es gibt kein automatisches Requeue oder Resetten.
-3. Vorherige Dateien root-only sichern, privilegierte Secrets schützen, geprüfte Dateien installieren.
-4. Handler: vollständiges `nginx -t`; bei Unit-Änderungen `daemon-reload`;
-   betroffene drei Services starten/enable; Nginx nur bei eigener Config-Änderung reloaden.
-5. **READ ONLY** — Backend `/health`, `/ready` und HTTPS-HEAD `/login` prüfen.
-   Kein Login-Versuch, Scan, Notification-Retry oder SMTP-Test.
-6. Release-Pointer setzen. Keine automatische Rücksetzung bei Fehlern; Diagnose und
-   gezielter System-Rollback benötigen eine eigene Entscheidung.
+Standard:
+
+```yaml
+ua_manage_notification_timer: false
+```
+
+Ein normales Deployment verändert weder Notification-Timer noch Notification-Service:
+kein Stop, Disable, Enable oder Restart, auch nicht im Recovery. Die gemeinsam vom
+bestehenden Notification-Service verwendete Legacy-Backend-`.env` bleibt einschließlich
+ihrer Rechte unverändert. Damit wird auch vorhandene Zustellung nicht indirekt abgeschaltet.
+Die neuen Backend-/Check-Worker-Units erhalten weiterhin nur die bereinigte
+`/etc/uranus-admin/runtime.env`, niemals Migrator-/Operator-Credentials.
+Eine eventuell noch unsichere Legacy-Konfiguration muss bewusst separat übernommen werden.
+
+Nur mit beiden expliziten Flags:
+
+```yaml
+ua_manage_notification_timer: true
+ua_disable_notification_timer_approved: true
+```
+
+wird der Timer gestoppt/deaktiviert, ein laufender Notification-Oneshot gestoppt und
+seine Legacy-Environment-Datei bereinigt. `manage=true` ohne die zweite Zustimmung
+verweigert den Echtlauf vor jedem Host-Eingriff. Die übrigen Apply-Gates gelten unverändert.
+Bei erfolgreicher Aktivierung bleiben verwaltete Notifications deaktiviert; bei
+fehlgeschlagener Aktivierung werden die ursprünglichen Zustände wiederhergestellt.
+
+## Aktivierungsreihenfolge
+
+1. Release bauen, Runtime-Konfiguration/DSNs **READ ONLY** verifizieren und
+   systemd-/Nginx-Kandidaten prüfen. Ein Kandidatenfehler stoppt vor Service-Eingriffen.
+2. Geplante Dateizustände nach dem Build erneut prüfen; bei paralleler Veränderung abbrechen.
+3. **CHANGES SYSTEM CONFIGURATION** — root-only Recovery-Kopien pro Versuch erstellen,
+   bevor irgendein Service gestoppt oder eine verwaltete Konfiguration ersetzt wird.
+4. Lauf-/Enablement-Zustände unmittelbar vor Aktivierung als Facts erfassen und ins
+   Recovery-Manifest schreiben. Übergangszustände, Maskierung oder nicht unterstützte
+   Enablement-Arten führen zum Abbruch. Nginx muss bereits laufen.
+5. Ein Handler fordert die Aktivierung an. Anschließend stoppt ein normaler
+   `block`/`rescue` nur betroffene Services; Notification-Eingriffe sind zusätzlich
+   durch beide Flags begrenzt. Der Handler selbst verändert keine Services.
+6. Geprüfte Dateien installieren, gegebenenfalls `daemon-reload`, vollständiges `nginx -t`.
+7. Betroffene App-Services starten; Nginx nur bei eigener Config-Änderung reloaden.
+8. **READ ONLY** — Backend `/health`, `/ready` und HTTPS-HEAD `/login` prüfen.
+9. Erst danach `current` umstellen und `ua_activation_succeeded=true` setzen.
+
+Fehler in Schritt 5–9 führen zum **SYSTEM ROLLBACK** unten. Auch ein fehlgeschlagenes
+Nginx-Verify/Reload wird im normalen Aktivierungsblock aufgefangen. Es gibt keine später noch
+wartenden einzelnen Restart-Handler, die nach der Recovery neue Services starten könnten.
 
 Identische Artefakte/Dateien werden nicht neu gebaut oder geschrieben. Unveränderte,
-laufende Services werden nicht neu gestartet. Handler starten auch einen schon zuvor
-gestoppten betroffenen Service. Ein unvollständiger Build wird nicht aktiviert; bei
-teilweise root-owned Resten ist eine gesonderte Prüfung nötig, keine automatische Löschung.
+laufende Services werden nicht neu gestartet. Ohne Aktivierungsbedarf entsteht kein
+neuer Recovery-Snapshot; es laufen nur Healthchecks. Bereits gestoppte betroffene
+App-Services werden bei Erfolg gestartet, bei Fehler dagegen in ihrem alten Zustand belassen.
+Check-Jobs können durch Unterbrechung ihre Lease verlieren und regulär fehlschlagen;
+kein automatisches Requeue oder Resetten. Ein unvollständiger Build wird nicht aktiviert;
+keine automatische Löschung von Releases, Build-Resten oder Snapshots.
 
 ## Secrets und Production-Debug
 
@@ -219,17 +262,26 @@ NOTIFICATIONS_DELIVERY_ENABLED=false
 
 Standard ist Debug aus. Debug-Tracebacks können sensible Exception-Details enthalten;
 Journal-Zugriff und Debug-Dauer begrenzen. Die Flags öffnen weder Dev-Auth noch OpenAPI.
-Bestehende SMTP-Einstellungen werden erhalten, aber Zustellung bleibt deaktiviert.
+Im neuen Runtime-Environment bleibt Zustellung deaktiviert. Unverwaltete bestehende
+Notifications behalten ihre bisherigen SMTP-Einstellungen und ihren Betriebszustand.
 
 Der gemeinsame Linux-Account `oklab` bleibt ein verbleibendes Isolationsrisiko:
 andere Prozesse dieses Accounts sind keine getrennte Vertrauensdomäne. Die Rolle
 wechselt nicht stillschweigend Benutzer oder Ownership anderer Anwendungen.
 
-Nginx kann seine Error-Logs nicht mit einem eigenen bereinigten Format ausgeben.
-Der Admin-Vhost verwendet deshalb `error_log /dev/null`, um rohe Queries dort zu
-vermeiden. Das reduziert Proxy-Fehlerdiagnostik; Status-/Timing-Access-Logs, App-Journal
-und Konfigurationsprüfungen bleiben. Globales Logging vor Auswahl eines Vhosts und
-andere virtuelle Hosts sind damit nicht vollständig abgedeckt.
+HTTP und HTTPS verwenden `error_log /var/log/nginx/uranus-admin-error.log warn;`.
+Das minimierte Access-Log bleibt ohne Querystrings. Nginx-Errorlogs können trotzdem
+sensible Request-Informationen einschließlich Querystrings enthalten. Zugriff auf
+berechtigte Betreiber begrenzen (beispielsweise 0640 mit passender Betreibergruppe),
+begrenzte Aufbewahrung und sichere Rotation samt Wiederöffnung der Logs sicherstellen.
+Keine Errorlog-Inhalte ungeprüft in Tickets oder CI-Ausgaben kopieren.
+
+Im Repository gibt es keine bestehende Logrotate-Konfiguration. Die produktive
+`/etc/logrotate.d/nginx` wurde für diese Nachbesserung mangels freigegebenem Live-Zugriff
+nicht ausgelesen; ihre Regeln/Dateiabdeckung und Zugriffsrechte müssen vor einem später
+freigegebenen Deployment lesend geprüft werden. Eine Wildcard wie `/var/log/nginx/*.log`
+kann beide Dateien erfassen, ist hier aber nicht als produktiver Befund bestätigt.
+Die Rolle installiert keine konkurrierende Rotation und verändert keine globale Nginx-Konfiguration.
 
 ## Lokale Vorbereitung und freizugebender Dry Run
 
@@ -283,8 +335,11 @@ ua_apply_confirmation: "Ja, führe das Deployment jetzt aus."
 ua_reviewed_dry_run: "<Datum und Referenz des geprüften Dry Runs>"
 ua_maintenance_window: "<bestätigtes Zeitfenster>"
 ua_backup_reference: "<geprüfter Backup-/Recovery-Nachweis>"
-ua_disable_notification_timer_approved: true
+ua_manage_notification_timer: false
 ua_secret_adoption_approved: true
+# Nur bei ausdrücklichem Notification-Management zusätzlich:
+# ua_manage_notification_timer: true
+# ua_disable_notification_timer_approved: true
 ```
 
 Diese Angaben müssen tatsächlich zutreffen; nicht bloß befüllen, um Guards zu umgehen.
@@ -294,34 +349,58 @@ Sie sind keine automatische Prüfung der Backup-Güte. Erst dann:
 ansible/.venv/bin/ansible-playbook -i ansible/inventory.local.yml ansible/deploy.yml -e @ansible/approvals.local.yml
 ```
 
-## Rollback und Produktionsverifikation
+## Automatische System-Recovery und Produktionsverifikation
 
-Ein Rollback betrifft ausschließlich Anwendung/Systemkonfiguration, niemals die
-Live-Datenbank: kein Downgrade, Restore, `stamp`, DROP, DELETE oder Reset.
-Vorhandene Releases und root-only Dateisicherungen bleiben erhalten. Bei einem Fehler
-können Services bereits gestoppt oder neue Dateien installiert sein; Ansible ist keine
-Transaktion. Kein `force_handlers` und kein automatisches Starten ungeprüfter Dateien.
+**NO DATABASE ROLLBACK.** Der Rescue-Pfad ist auf `systemd`, Nginx, Runtime-/Legacy-
+Environment, Dateimetadaten, Service-Zustand und den vorherigen `current`-Verweis begrenzt.
+Er enthält keine PostgreSQL-Module, keine SQL-/Alembic-/Restore-Aufrufe, keine HTTP-
+Readiness-Abfragen und keine Includes von DB-Tasks. `boundary.sql`, Runtime-Verifikation
+und sämtliche read-only PostgreSQL-Preflights bleiben unverändert vor der Aktivierung.
 
-Für einen genehmigten Rollback zuerst betroffene Prozesse/Dateien und Fehlerphase
-ermitteln. Ein bereits mit dieser Rolle installiertes, schema-kompatibles vorheriges
-Release kann nach erneutem Preflight/Dry Run ausgewählt werden. Dessen Artefakt muss
-denselben aktuellen DB-Head erwarten. Danach die geprüften Units aktivieren; keine
-gespeicherten Queue-/History-Daten rücksetzen.
+Die Recovery stoppt zuerst betroffene neue App-Prozesse und stellt geänderte Altdateien
+mit ihrem vorherigen Inhalt, Besitzer, Gruppe und Modus wieder her. Zuvor nicht existente
+verwaltete Konfigurationsdateien werden gezielt entfernt (z. B. die neue `runtime.env`
+bei der Erstübernahme); das ist kein allgemeiner Cleanup. Ebenso werden die vorherigen
+Rechte der Legacy-Frontend-`.env` und ein gegebenenfalls bereits umgestellter `current`-
+Verweis wiederhergestellt. Releases, Logs, Operator-Archiv und geschützte Recovery-
+Verzeichnisse bleiben erhalten. Jeder Versuch verwendet einen eigenen Snapshot, auch
+bei gleichem Release-SHA; alte Sicherungen werden nicht versehentlich als aktueller Zustand benutzt.
 
-Beim ersten Rollback zum alten Checkout **nicht blind** `.env` oder alte Units aus
-`recovery/` zurückkopieren: dadurch würden privilegierte Variablen wieder in die Runtime
-gelangen. Sichere Units auf den alten Codepfad mit `/etc/uranus-admin/runtime.env`
-ausrichten und vorher prüfen. Der Notification-Timer bleibt deaktiviert, bis seine
-Wiederaufnahme ausdrücklich genehmigt ist. Wiederherstellung von Systemdateien muss
-mit `systemd-analyze verify`/`nginx -t` und den gleichen Healthchecks geprüft werden.
+Danach: bei geänderten Units `daemon-reload`, restauriertes Nginx mit `nginx -t` prüfen,
+bei Bedarf reloaden und nur vorher laufende betroffene App-Services wieder starten.
+Vorher gestoppte oder fehlgeschlagene Services bleiben gestoppt; Enabled/Disabled wird
+zurückgesetzt. Der ursprüngliche systemd-Fehlerstatus selbst wird nicht künstlich reproduziert.
+Beispiel: Backend/Frontend vorher aktiv, Check-Worker vorher gestoppt → nur Backend und
+Frontend starten wieder. Unbetroffene Services werden nicht unterbrochen.
 
-Nach Deployment zusätzlich read-only prüfen: drei erwartete Units aktiv, Timer
-inaktiv/disabled, Ports ausschließlich loopback, `/health` und `/ready` erfolgreich,
-HTTPS-/Cookie-/Header-Verhalten. Ein erfolgreicher `/ready` beweist keine Worker-
-Liveness: Lease-/Queue-Fortschritt des bereits vorhandenen Check-Workers getrennt
-beobachten, ohne automatisch einen neuen Job einzureihen. Keine SMTP-Zustellung
-oder Auth-Retention als Smoke-Test. Backup und Wiederherstellbarkeit bleiben eine
-separate Betriebsaufgabe.
+Nur bei ausdrücklich verwalteten Notifications werden deren ursprünglicher Service-
+und Timer-Laufzustand sowie Timer-Enablement wiederhergestellt. Ein vorher statischer
+Notification-Service bleibt statisch. Ein aktiver Timer bzw. ein unterbrochener Oneshot
+kann dadurch wieder normale Arbeit ausführen; es gibt keine Queue-/Daten-Rücksetzung
+oder Zusicherung genau-einmaliger Zustellung. Ohne Management bleiben beide unangetastet.
+
+Wieder gestartete Anwendungen arbeiten mit ihren bisherigen Konfigurationen und können
+normalerweise in `admin` schreiben. Die Recovery selbst greift auf keine Datenbank zu;
+die technische SELECT-only-Grenze zum Live-Schema `uranus` wird nicht verändert.
+Insbesondere beim ersten Übernahmeversuch kann die genaue Wiederherstellung auch bereits
+bekannte Schwächen der vorherigen Environment-Dateien/Units zurückbringen. Es werden dabei
+keine neuen DB-Rechte vergeben und keine alten Datenstände zurückgespielt.
+
+Ein erfolgreich zurückgesetztes Deployment endet trotzdem **fehlgeschlagen**, mit Verweis
+auf seinen Recovery-Snapshot. Scheitert die Recovery selbst, wird ebenfalls abgebrochen
+und manuelle System-Recovery verlangt, ohne weitere Fallbacks. Ungültige restaurierte
+Nginx-Konfiguration wird nicht reloadet; betroffene App-Services bleiben dann gestoppt.
+Host-Ausfall, verlorene SSH-Verbindung, Controller-Abbruch und bestimmte Ansible-Syntax-
+oder Unreachable-Fehler können nicht zuverlässig durch `rescue` aufgefangen werden.
+Dafür bleiben Snapshot und Manifest verfügbar. Kein `force_handlers`, keine parallelen
+Deployments oder manuellen Konfigurationsänderungen während der Aktivierung.
+
+Nach erfolgreichem Deployment zusätzlich read-only prüfen: drei erwartete Units aktiv,
+Notification-Zustand unverändert (oder bei explizitem Management Timer inaktiv/disabled),
+Ports ausschließlich loopback, `/health` und `/ready` erfolgreich, HTTPS-/Cookie-/Header-
+Verhalten. `/ready` beweist keine Worker-Liveness; bestehenden Queue-/Lease-Fortschritt
+getrennt beobachten. Keine SMTP-Zustellung, neuen Jobs oder Auth-Retention als Smoke-Test.
+Backup und Wiederherstellbarkeit bleiben eine separate Betriebsaufgabe.
 
 ## Tests
 
@@ -342,6 +421,12 @@ Für jeden kompletten Testlauf einen frischen Container verwenden. CI prüft Pos
 16/PostGIS 3.4 und PostgreSQL 17/PostGIS 3.5 mit gepinnten Images. Die Nginx-Prüfung
 verwendet ein temporäres Testzertifikat/unprivilegierte Ports, startet keinen Webservice.
 
-Es gibt noch keinen vollständigen Apply-/Idempotenzlauf auf einem systemd-Abbild des
+Zusätzliche Tests führen echte Ansible-Handler/Blocks/Rescue und Dateioperationen in
+temporären Verzeichnissen aus. Nur Host-I/O (systemd, Nginx-Aufruf, HTTP) ist simuliert;
+Fehler bei Kandidatenprüfung, Verify/Reload und Healthchecks werden gezielt injiziert.
+Sie prüfen Dateiwiederherstellung, frühzeitige Snapshots, Service-/Timer-Zustände und
+spätes Setzen von `current`. Rescue-Includes werden rekursiv auf den erlaubten Scope geprüft.
+
+Es gibt weiterhin keinen vollständigen Apply-/Idempotenzlauf auf einem systemd-Abbild des
 Produktionshosts. Der freizugebende Dry Run und die tatsächlichen Ziel-Prerequisites
 bleiben deshalb notwendige Schritte; lokale Tests ersetzen sie nicht.

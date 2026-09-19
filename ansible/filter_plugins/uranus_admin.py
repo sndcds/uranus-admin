@@ -192,4 +192,48 @@ class FilterModule:
             "ua_privileged_env": privileged_environment,
             "ua_manifest": artifact_manifest,
             "ua_activation_plan": activation_plan,
+            "ua_service_snapshot": service_snapshot,
+            "ua_recovery_files": recovery_files,
         }
+
+
+def service_snapshot(results):
+    """Accept stable states that can be restored without unmasking or inventing enablement."""
+    snapshot = {}
+    for result in results:
+        name = result["item"]
+        fields = dict(line.split("=", 1) for line in result["stdout"].splitlines() if "=" in line)
+        allowed = {"enabled", "disabled"}
+        if name == "uranus-admin-notification-worker.service":
+            allowed.add("static")
+        if (
+            fields.get("LoadState") != "loaded"
+            or fields.get("ActiveState") not in {"active", "inactive", "failed"}
+            or fields.get("UnitFileState") not in allowed
+        ):
+            raise AnsibleFilterError(
+                "Unstable, masked or unsupported unit state; review before activation"
+            )
+        snapshot[name] = {
+            "state": "running" if fields["ActiveState"] == "active" else "stopped",
+            "active": fields["ActiveState"] == "active",
+            "enabled": fields["UnitFileState"] == "enabled",
+            "unit_file_state": fields["UnitFileState"],
+        }
+    if not snapshot["nginx.service"]["active"]:
+        raise AnsibleFilterError("The existing proxy must be running before activation")
+    return snapshot
+
+
+def recovery_files(results, changed_paths, directory):
+    """Metadata only: no previous or candidate environment contents in the manifest."""
+    return [
+        {
+            "path": result["item"]["path"],
+            "backup": directory + "/file-" + str(index),
+            "exists": result["stat"]["exists"],
+            **{key: result["stat"][key] for key in ("uid", "gid", "mode") if key in result["stat"]},
+        }
+        for index, result in enumerate(results)
+        if result["item"]["path"] in changed_paths
+    ]

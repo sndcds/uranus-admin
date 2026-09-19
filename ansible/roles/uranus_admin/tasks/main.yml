@@ -12,9 +12,9 @@
     msg:
       - "Database: oklab. Expected admin head: {{ ua_manifest.head }}. Database changes: NONE."
       - "Release: {{ ua_release_dir }}. Artifact: {{ ua_artifact_sha256 }}."
-      - "Secrets: preserve passwords; archive privileged entries root-only; sanitize legacy backend .env."
-      - "Services: backend/frontend/check only. Existing notification timer will be disabled on approved apply."
-      - "No notification, URL or geocode worker is started; SMTP delivery remains disabled."
+      - "Secrets: preserve passwords; archive privileged entries root-only; legacy backend .env changes only with notification management."
+      - "Notifications: {{ 'explicitly managed with separate approval' if ua_manage_notification_timer | bool else 'timer, service and shared legacy environment unchanged' }}."
+      - "New runtime has SMTP delivery disabled. Existing unmanaged notifications retain their configuration. No URL/geocode worker activation."
       - "Check mode cannot build the new release, validate its runtime DB logins or prove service startup."
       - "TEMPORARY and existing broader reader SELECT grants are reported, never revoked automatically."
 
