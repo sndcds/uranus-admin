@@ -26,9 +26,16 @@ async def test_dashboard_real_counts(db_client, headers):
         "images": 1,
     }
     assert body["images_without_created_at"] == 1
-    assert body["quality"]["total"] == 11
-    assert body["quality"]["warnings"] == 11
-    assert body["urgent_findings"] == 6
+    assert body["quality"]["total"] == 17
+    assert body["quality"]["warnings"] == 17
+    # Two released synthetic events each lack description, categories and type.
+    for rule in (
+        "released_event_without_description",
+        "released_event_without_categories",
+        "released_event_without_type",
+    ):
+        assert body["quality"]["rule_counts"][rule] == 2
+    assert body["urgent_findings"] == 12
     assert body["quality"]["rule_counts"]["venue_missing_logo"] == 3
     assert body["quality"]["rule_counts"]["organization_missing_logo"] == 2
     assert body["quality"]["rule_counts"]["logo_unsupported_format"] == 0

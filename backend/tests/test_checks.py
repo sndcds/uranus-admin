@@ -19,6 +19,22 @@ from tests.conftest import uid
     "rule,kind,key,prepare,repair",
     [
         (
+            "event_price_without_currency",
+            "event",
+            str(uid(30)),
+            "UPDATE uranus.event SET min_price=10,currency=NULL "
+            "WHERE uuid='00000000-0000-0000-0000-00000000001e'",
+            "UPDATE uranus.event SET currency='EUR'",
+        ),
+        (
+            "membership_joined_accept_token_present",
+            "team_membership",
+            f"membership:{uid(10)}:{uid(1)}",
+            "UPDATE uranus.organization_member_link "
+            "SET has_joined=true,accept_token='synthetic-token'",
+            "UPDATE uranus.organization_member_link SET accept_token=NULL",
+        ),
+        (
             "venue_missing_geolocation",
             "venue",
             str(uid(20)),
@@ -119,17 +135,17 @@ async def test_runs_are_idempotent_and_resolve_only_covered_objects(
     admin_store, db_connection, settings, now
 ):
     one = await run_check(db_connection, admin_store, settings)
-    assert one.status == "success" and one.finding_count == 11 and one.rule_count == 25
+    assert one.status == "success" and one.finding_count == 17 and one.rule_count == 47
     two = await run_check(db_connection, admin_store, settings)
     page = await persisted_page(admin_store, FindingFilters(), now)
-    assert page.pagination.total == 11 and page.items[0].first_seen_at <= page.items[0].last_seen_at
+    assert page.pagination.total == 17 and page.items[0].first_seen_at <= page.items[0].last_seen_at
     first_seen = {f.id: f.first_seen_at for f in page.items}
     await db_connection.execute(
         text("UPDATE uranus.venue SET point=ST_GeomFromText('POINT(9 54)',4326) WHERE uuid=:id"),
         {"id": uid(20)},
     )
     three = await run_check(db_connection, admin_store, settings)
-    assert three.status == "success" and three.finding_count == 9
+    assert three.status == "success" and three.finding_count == 15
     page = await persisted_page(admin_store, FindingFilters(status="resolved"), now)
     assert page.pagination.total == 2 and all(f.entity_key == str(uid(20)) for f in page.items)
     assert page.items[0].first_seen_at == first_seen[page.items[0].id]

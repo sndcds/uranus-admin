@@ -356,3 +356,9 @@ CREATE TABLE uranus.event_type_link (
     genre_id integer NOT NULL DEFAULT 0,
     CONSTRAINT event_type_link_unique UNIQUE (event_uuid, type_id, genre_id)
 );
+
+-- Minimal vocabulary fixtures; current Uranus DDL audited at 15835d8.
+CREATE TABLE uranus.language (
+ code_iso_639_1 varchar(2) NOT NULL, name text NOT NULL, name_iso_639_1 varchar(2) NOT NULL
+);
+CREATE TABLE uranus.link_type (key text PRIMARY KEY);
