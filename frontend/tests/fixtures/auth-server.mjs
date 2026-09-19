@@ -59,7 +59,7 @@ http
     if (!principal) return deny(401, token ? 'invalid_credentials' : 'authentication_required')
     if (!principal.system_admin) return deny(403, 'admin_access_denied')
     if (
-      /^\/api\/v1\/notification-deliveries\/[0-9a-f-]+\/retry$/.test(path) &&
+      /^\/api\/v1\/(?:notification-deliveries|geocode\/requests)\/[0-9a-f-]+\/retry$/.test(path) &&
       request.method === 'POST'
     ) {
       if (
@@ -67,7 +67,10 @@ http
         request.headers['x-admin-csrf'] !== '1'
       )
         return deny(403, 'csrf_rejected')
-      return deny(409, 'notification_retry_obsolete')
+      return deny(
+        409,
+        path.includes('/geocode/') ? 'geocode_no_longer_needed' : 'notification_retry_obsolete',
+      )
     }
     if (path === '/api/v1/geo/areas/search') return send(200, { items: [geoSearchItem] })
     if (path === `/api/v1/geo/areas/${geoArea.id}`) return send(200, geoArea)

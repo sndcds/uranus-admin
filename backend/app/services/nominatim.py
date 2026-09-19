@@ -196,6 +196,22 @@ class NominatimClient:
                 503, "geo_provider_unavailable", "Geo provider is unavailable."
             ) from None
 
+    async def geocode_address(self, inputs: dict[str, str]) -> list[dict[str, Any]]:
+        # Inputs are constructed exclusively from the source by strategy v1.
+        if not inputs or set(inputs) - {"street", "city", "postalcode", "country", "countrycodes"}:
+            raise ValueError("Invalid structured address")
+        return (
+            await self._get(
+                "/search",
+                {
+                    **inputs,
+                    "addressdetails": "1",
+                    "namedetails": "1",
+                    "limit": str(self.settings.geocode_max_candidates),
+                },
+            )
+        )[: self.settings.geocode_max_candidates]
+
     async def search_areas(self, query: str, limit: int) -> list[GeoAreaSearchItem]:
         rows = await self._get(
             "/search",

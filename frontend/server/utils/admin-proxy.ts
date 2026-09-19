@@ -13,6 +13,7 @@ import { isIP } from 'node:net'
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
+  '/api/v1/geocode/requests': ['entity_type', 'status', 'page', 'page_size'],
   '/api/v1/geo/areas/search': ['q', 'limit'],
   '/api/v1/geo/areas': [],
   '/api/v1/notification-deliveries': [
@@ -149,6 +150,14 @@ export async function forwardAdminRequest(
   base: string,
   fetcher: typeof fetch = fetch,
 ): Promise<ProxyResult> {
+  const geocodeDetail =
+    /^\/api\/v1\/geocode\/requests\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      input.path,
+    )
+  const geocodeRetry =
+    /^\/api\/v1\/geocode\/requests\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/retry$/i.test(
+      input.path,
+    )
   const geoDetail =
     /^\/api\/v1\/geo\/areas\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
@@ -182,7 +191,7 @@ export async function forwardAdminRequest(
       input.path,
     )
   const allowed =
-    notificationDetail || notificationRetry || geoDetail
+    notificationDetail || notificationRetry || geoDetail || geocodeDetail || geocodeRetry
       ? []
       : notificationPreview
         ? ['locale']
@@ -215,17 +224,21 @@ export async function forwardAdminRequest(
   const write =
     authWrite ||
     (input.method === 'POST' && input.path === '/api/v1/geo/areas') ||
-    (input.method === 'POST' && notificationRetry) ||
+    (input.method === 'POST' && (notificationRetry || geocodeRetry)) ||
     (input.method === 'POST' && input.path === '/api/v1/record-marks') ||
     (input.method === 'PATCH' && markDetail) ||
     (input.method === 'POST' && input.path === '/api/v1/check-runs') ||
     (input.method === 'PATCH' && input.path === '/api/v1/finding-reviews')
   if (
     !write &&
-    (input.method !== 'GET' || input.path === '/api/v1/finding-reviews' || notificationRetry)
+    (input.method !== 'GET' ||
+      input.path === '/api/v1/finding-reviews' ||
+      notificationRetry ||
+      geocodeRetry)
   )
     return rejected(405, 'method_not_allowed')
-  if (notificationRetry && input.body !== undefined) return rejected(422, 'invalid_input')
+  if ((notificationRetry || geocodeRetry) && input.body !== undefined)
+    return rejected(422, 'invalid_input')
   if (write && input.query.size) return rejected(422, 'invalid_query')
   if (input.path === '/api/v1/geo/areas' && input.method !== 'POST')
     return rejected(405, 'method_not_allowed')

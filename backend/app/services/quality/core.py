@@ -55,6 +55,8 @@ IMAGE_IDENTIFIERS = {
 LOGO_IDENTIFIERS = {"main_logo", "dark_theme_logo", "light_theme_logo"}
 LOGO_MIME_TYPES = ("image/png", "image/webp")
 CORE_RULES = (
+    "organization_missing_location",
+    "venue_missing_location",
     "url_syntax",
     "postal_code_whitespace",
     "event_without_dates",
@@ -257,7 +259,21 @@ def evaluate_core(
             )
         )
 
-    if rule == "url_syntax":
+    if rule in {"organization_missing_location", "venue_missing_location"}:
+        kind = "organization" if rule == "organization_missing_location" else "venue"
+        for row in sources.rows[kind]:
+            result.covered.add((kind, entity_key(kind, row)))
+            if row["point_missing"]:
+                emit(
+                    kind,
+                    row,
+                    "point",
+                    "Organisation hat keine Geoposition."
+                    if kind == "organization"
+                    else "Veranstaltungsort hat keine Geoposition.",
+                    metadata={"geocode_supported": True},
+                )
+    elif rule == "url_syntax":
         for kind, fields in URL_FIELDS.items():
             for row in sources.rows[kind]:
                 result.covered.add((kind, entity_key(kind, row)))

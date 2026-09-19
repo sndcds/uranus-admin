@@ -1,4 +1,7 @@
 import {
+  geocodePageSchema,
+  geocodeRequestDetailSchema,
+  geocodeRetryResponseSchema,
   geoAreaSchema,
   geoAreaSearchResponseSchema,
   notificationPageSchema,
@@ -30,6 +33,7 @@ import {
 } from '#shared/contracts'
 import type { z } from '#shared/zod'
 import type {
+  GeocodeFilters,
   GeoAreaImport,
   FindingFilters,
   EventContentQuery,
@@ -98,6 +102,17 @@ export function createAdminApi(
     return parsed.data
   }
   return {
+    geocodeRequests: (query: GeocodeFilters) =>
+      request('/api/v1/geocode/requests', geocodePageSchema, { ...query }),
+    geocodeRequest: (id: string) =>
+      request(`/api/v1/geocode/requests/${encodeURIComponent(id)}`, geocodeRequestDetailSchema),
+    retryGeocodeRequest: (id: string) =>
+      request(
+        `/api/v1/geocode/requests/${encodeURIComponent(id)}/retry`,
+        geocodeRetryResponseSchema,
+        {},
+        'POST',
+      ),
     geoArea: (id: string) => request(`/api/v1/geo/areas/${encodeURIComponent(id)}`, geoAreaSchema),
     searchGeoAreas: (q: string, signal?: AbortSignal) =>
       request(

@@ -225,6 +225,10 @@ async def test_image_rules_and_grace_period(db_connection, settings, now):
 
 
 async def test_rules_cover_clean_objects_and_source_sql(db_connection, settings, now):
+    for kind in ("organization", "venue"):
+        await db_connection.execute(
+            text(f"UPDATE uranus.{kind} SET point=ST_GeomFromText('POINT(9 54)',4326)")
+        )
     sources = await load_sources(db_connection)
     sources.rows["image_link"] = [
         {
@@ -338,6 +342,7 @@ def test_quality_scan_date_work_grows_linearly(settings, size):
             dict(
                 uuid=uid(n + 100),
                 name="Venue",
+                point_missing=False,
                 org_uuid=None,
                 postal_code=None,
                 web_link="bad",

@@ -54,6 +54,7 @@ function page(value: number) {
       title="Priorisierte Arbeitsliste"
       description="Befunde filtern, einordnen und bearbeiten."
     >
+      <NuxtLink to="/geocoding" class="button">Standortvorschläge</NuxtLink>
       <button
         class="button"
         :disabled="store.loading || invalidQuery"

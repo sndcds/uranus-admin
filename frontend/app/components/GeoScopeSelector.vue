@@ -206,6 +206,7 @@ onBeforeUnmount(cancel)
             </button>
           </li>
         </ul>
+        <OsmAttribution />
         <p class="text-xs text-slate-500">
           Grenzen: OpenStreetMap. Die Suchabdeckung hängt vom Datenbestand des eingerichteten
           Dienstes ab.

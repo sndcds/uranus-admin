@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { qualityRules } from '~/utils/quality'
 import { entityPresentation } from '~/utils/activity'
 import { findingStatusLabels } from '~/utils/presentation'
 import type { FindingFilters } from '#shared/contracts'
@@ -82,6 +83,13 @@ function apply() {
       ><select v-model="rule" class="input">
         <option value="">Alle verfügbaren</option>
         <option value="venue_missing_geolocation">Geoposition fehlt</option>
+        <option
+          v-for="code in ['organization_missing_location', 'venue_missing_location']"
+          :key="code"
+          :value="code"
+        >
+          {{ qualityRules[code]!.label }}
+        </option>
         <option
           v-for="code in [
             'url_syntax',
