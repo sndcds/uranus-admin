@@ -1,0 +1,51 @@
+- name: Inspect canonical and legacy environment paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop:
+    - "{{ ua_config_dir }}/runtime.env"
+    - "{{ ua_config_dir }}/operator.env"
+    - "{{ ua_legacy_root }}/backend/.env"
+    - "{{ ua_legacy_root }}/frontend/.env"
+  register: ua_env_stats
+
+- name: Reject symlinked environment files
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+      - not item.stat.exists or item.stat.isreg
+  loop: "{{ ua_env_stats.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Read canonical runtime configuration, or existing legacy file on first adoption
+  ansible.builtin.slurp:
+    src: "{{ ua_config_dir + '/runtime.env' if ua_env_stats.results[0].stat.exists else ua_legacy_root + '/backend/.env' }}"
+  register: ua_env_source
+  no_log: true
+
+- name: Read the legacy configuration for privileged entry preservation
+  ansible.builtin.slurp:
+    src: "{{ ua_legacy_root }}/backend/.env"
+  register: ua_legacy_env
+  no_log: true
+
+- name: Validate configuration and prepare separate environments without logging values
+  ansible.builtin.set_fact:
+    ua_runtime: "{{ (ua_env_source.content | b64decode | ua_parse_env) | ua_runtime_env(ua_manifest.environment_keys, ua_runtime_overrides, ua_debug | bool) }}"
+    ua_privileged: "{{ ua_legacy_env.content | b64decode | ua_parse_env | ua_privileged_env }}"
+  no_log: true
+
+- name: Read existing protected operator file only to prevent secret overwrites
+  ansible.builtin.slurp:
+    src: "{{ ua_config_dir }}/operator.env"
+  register: ua_existing_operator
+  when: ua_env_stats.results[1].stat.exists
+  no_log: true
+
+- name: Refuse overwriting different previously protected operator secrets
+  ansible.builtin.assert:
+    that: ua_privileged.items() | difference((ua_existing_operator.content | b64decode | ua_parse_env).items()) | length == 0
+    fail_msg: "Existing operator secrets differ; reconcile explicitly outside deployment."
+  when: ua_env_stats.results[1].stat.exists and ua_privileged | length > 0
+  no_log: true

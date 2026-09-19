@@ -1,0 +1,87 @@
+# Only bounded files and service state. No application CLI, HTTP probes or database access.
+- name: Stop affected application services before restoring their configuration
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+  loop: "{{ ua_restart_services }}"
+
+- name: Restore previous managed file contents and permissions
+  ansible.builtin.copy:
+    remote_src: true
+    src: "{{ item.backup }}"
+    dest: "{{ item.path }}"
+    owner: "{{ item.uid | string }}"
+    group: "{{ item.gid | string }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ ua_recovery_files }}"
+  when: item.exists
+  no_log: true
+  diff: false
+
+- name: Remove only managed configuration files absent before this attempt
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ ua_recovery_files }}"
+  when: not item.exists
+  no_log: true
+  diff: false
+
+- name: Restore legacy frontend environment ownership and permissions
+  ansible.builtin.file:
+    path: "{{ ua_legacy_root }}/frontend/.env"
+    owner: "{{ ua_previous_frontend_env.stat.uid | string }}"
+    group: "{{ ua_previous_frontend_env.stat.gid | string }}"
+    mode: "{{ ua_previous_frontend_env.stat.mode }}"
+  when: ua_previous_frontend_env.stat.exists
+
+- name: Restore the previous release pointer if publication was attempted
+  ansible.builtin.file:
+    src: "{{ ua_previous_current.stat.lnk_target }}"
+    dest: "{{ ua_root }}/current"
+    state: link
+    follow: false
+    owner: "{{ ua_previous_current.stat.uid | string }}"
+    group: "{{ ua_previous_current.stat.gid | string }}"
+  when: ua_pointer_attempted | bool and ua_previous_current.stat.exists
+
+- name: Remove the release pointer if it did not exist before publication
+  ansible.builtin.file:
+    path: "{{ ua_root }}/current"
+    state: absent
+  when: ua_pointer_attempted | bool and not ua_previous_current.stat.exists
+
+- name: Reload restored systemd unit definitions
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: ua_units_changed | bool
+
+- name: Verify restored nginx configuration before any reload
+  ansible.builtin.command: /usr/sbin/nginx -t
+  changed_when: false
+  no_log: true
+
+- name: Reload the valid previous nginx configuration
+  ansible.builtin.systemd_service:
+    name: nginx.service
+    state: reloaded
+  when: ua_nginx_changed | bool and ua_install_attempted | bool
+
+- name: Restore affected application services to their actual previous states
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: "{{ 'started' if ua_previous_services[item].active else 'stopped' }}"
+    enabled: "{{ ua_previous_services[item].enabled }}"
+  loop: "{{ ua_restart_services }}"
+
+- name: Restore the managed notification service and timer to their previous states
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: "{{ 'started' if ua_previous_services[item].active else 'stopped' }}"
+    enabled: "{{ omit if ua_previous_services[item].unit_file_state == 'static' else ua_previous_services[item].enabled }}"
+  loop:
+    - uranus-admin-notification-worker.service
+    - uranus-admin-notification-worker.timer
+  when:
+    - ua_manage_notification_timer | bool
+    - ua_disable_notification_timer_approved | bool

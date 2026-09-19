@@ -1,0 +1,5 @@
+inventory.local.yml
+approvals.local.yml
+.venv/
+__pycache__/
+*.tar.gz

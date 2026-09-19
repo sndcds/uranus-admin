@@ -1,0 +1,139 @@
+- name: Inspect the previous successful release pointer
+  ansible.builtin.stat:
+    path: "{{ ua_root }}/current"
+    follow: false
+  register: ua_previous_current
+
+- name: Refuse replacing a non-symlink current path
+  ansible.builtin.assert:
+    that: not ua_previous_current.stat.exists or ua_previous_current.stat.islnk
+
+- name: Snapshot the legacy frontend environment metadata after the build
+  ansible.builtin.stat:
+    path: "{{ ua_legacy_root }}/frontend/.env"
+    follow: false
+  register: ua_previous_frontend_env
+
+- name: Reject a redirected legacy frontend environment
+  ansible.builtin.assert:
+    that: not ua_previous_frontend_env.stat.exists or (ua_previous_frontend_env.stat.isreg and not ua_previous_frontend_env.stat.islnk)
+
+- name: Refresh service states after the potentially long build
+  ansible.builtin.import_tasks: service_snapshot.yml
+
+- name: Recheck managed files after the build without revealing contents
+  ansible.builtin.stat:
+    path: "{{ item.item.path }}"
+    follow: false
+    checksum_algorithm: sha256
+  loop: "{{ ua_file_stats.results }}"
+  register: ua_fresh_files
+  no_log: true
+
+- name: Abort before interruption if managed files changed during the build
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists == item.item.stat.exists
+      - not item.stat.exists or (not item.stat.islnk and item.stat.isreg)
+      - item.stat.checksum | default('') == item.item.stat.checksum | default('')
+      - item.stat.mode | default('') == item.item.stat.mode | default('')
+      - item.stat.uid | default(-1) == item.item.stat.uid | default(-1)
+      - item.stat.gid | default(-1) == item.item.stat.gid | default(-1)
+  loop: "{{ ua_fresh_files.results }}"
+  no_log: true
+
+- name: Decide whether any activation is needed
+  ansible.builtin.set_fact:
+    ua_activation_required: >-
+      {{ ua_changed_paths | length > 0 or ua_restart_services | length > 0
+         or not ua_previous_current.stat.exists
+         or ua_previous_current.stat.lnk_source | default('') != ua_release_dir
+         or (ua_previous_frontend_env.stat.exists and
+             (ua_previous_frontend_env.stat.mode != '0600' or ua_previous_frontend_env.stat.uid != 0
+              or ua_previous_frontend_env.stat.gid != 0))
+         or (ua_manage_notification_timer | bool and
+             (ua_previous_services['uranus-admin-notification-worker.timer'].active
+              or ua_previous_services['uranus-admin-notification-worker.timer'].enabled
+              or ua_previous_services['uranus-admin-notification-worker.service'].active)) }}
+
+- name: Prepare recovery before any service is interrupted
+  when: ua_activation_required | bool
+  block:
+    - name: Create protected configuration and recovery parents
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+      loop:
+        - "{{ ua_config_dir }}"
+        - "{{ ua_config_dir }}/recovery"
+        - "{{ ua_config_dir }}/recovery/{{ ua_release_sha }}"
+
+    - name: Allocate a fresh recovery directory for this attempt
+      ansible.builtin.tempfile:
+        state: directory
+        path: "{{ ua_config_dir }}/recovery/{{ ua_release_sha }}"
+        prefix: attempt-
+      register: ua_recovery_directory
+
+    - name: Record the bounded file recovery manifest
+      ansible.builtin.set_fact:
+        ua_recovery_files: "{{ ua_file_stats.results | ua_recovery_files(ua_changed_paths, ua_recovery_directory.path) }}"
+      no_log: true
+
+    - name: Copy every pre-existing changed file before stopping services
+      ansible.builtin.copy:
+        remote_src: true
+        src: "{{ item.path }}"
+        dest: "{{ item.backup }}"
+        owner: root
+        group: root
+        mode: "0600"
+      loop: "{{ ua_recovery_files }}"
+      when: item.exists
+      no_log: true
+      diff: false
+
+    - name: Preserve privileged entries outside runtime access
+      ansible.builtin.copy:
+        content: "{{ ua_privileged | ua_render_env }}"
+        dest: "{{ ua_config_dir }}/operator.env"
+        force: false
+        owner: root
+        group: root
+        mode: "0600"
+      when: ua_privileged | length > 0 or ua_env_stats.results[1].stat.exists
+      no_log: true
+      diff: false
+
+    - name: Snapshot actual states after copies and before the first stop
+      ansible.builtin.import_tasks: service_snapshot.yml
+
+    - name: Save recovery metadata without environment contents
+      ansible.builtin.copy:
+        content: "{{ {'files': ua_recovery_files, 'services': ua_previous_services, 'current': ua_previous_current.stat, 'frontend_env': ua_previous_frontend_env.stat} | to_nice_json }}"
+        dest: "{{ ua_recovery_directory.path }}/manifest.json"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+      diff: false
+
+    - name: Request activation only after recovery preparation succeeded
+      ansible.builtin.debug:
+        msg: "Prepared system recovery: {{ ua_recovery_directory.path }}"
+      changed_when: true
+      notify: Activate reviewed system configuration
+
+    - name: Flush the activation request without queued service mutations
+      ansible.builtin.meta: flush_handlers
+
+    - name: Run activation inside a normal task block with reliable rescue semantics
+      ansible.builtin.import_tasks: activate.yml
+      when: ua_activate_requested | default(false) | bool
+
+- name: Check an unchanged installation without restarting it
+  ansible.builtin.import_tasks: healthchecks.yml
+  when: not (ua_activation_required | bool)

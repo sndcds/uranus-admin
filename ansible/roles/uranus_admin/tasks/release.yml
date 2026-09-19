@@ -1,0 +1,161 @@
+- name: Inspect an existing release completion marker
+  ansible.builtin.stat:
+    path: "{{ ua_release_dir }}/.complete"
+    follow: false
+  register: ua_complete
+
+- name: Refuse a substituted completion marker
+  ansible.builtin.assert:
+    that:
+      - not (ua_complete.stat.islnk | default(false))
+      - not ua_complete.stat.exists or (ua_complete.stat.isreg and ua_complete.stat.uid == 0)
+
+- name: Check that an existing completed release uses this exact archive
+  ansible.builtin.slurp:
+    src: "{{ ua_release_dir }}/.complete"
+  register: ua_complete_content
+  when: ua_complete.stat.exists
+
+- name: Refuse a different archive under the same release identifier
+  ansible.builtin.assert:
+    that: ua_complete_content.content | b64decode | trim == ua_artifact_sha256
+  when: ua_complete.stat.exists
+
+- name: Build a new isolated release without touching the running checkout
+  when: not ua_complete.stat.exists
+  block:
+    - name: Create the release parent and build cache
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner }}"
+        group: "{{ item.owner }}"
+        mode: "0755"
+      loop:
+        - { path: "{{ ua_root }}", owner: root }
+        - { path: "{{ ua_root }}/releases", owner: root }
+        - { path: "{{ ua_release_dir }}", owner: oklab }
+        - { path: /var/cache/uranus-admin-build, owner: oklab }
+
+    - name: Extract only the previously validated source archive
+      ansible.builtin.unarchive:
+        src: "{{ ua_artifact }}"
+        dest: "{{ ua_release_dir }}"
+        owner: oklab
+        group: oklab
+
+    - name: Install locked Python runtime dependencies into the new release
+      ansible.builtin.command:
+        argv:
+          ["{{ ua_uv }}", sync, --locked, --no-dev, --python, "{{ ua_python }}"]
+        chdir: "{{ ua_release_dir }}/backend"
+      become_user: oklab
+      environment:
+        UV_CACHE_DIR: /var/cache/uranus-admin-build/uv
+        UV_PYTHON_DOWNLOADS: never
+      changed_when: true
+
+    - name: Install locked frontend dependencies into the new release
+      ansible.builtin.command:
+        argv:
+          [
+            "{{ ua_pnpm }}",
+            install,
+            --frozen-lockfile,
+            --store-dir,
+            /var/cache/uranus-admin-build/pnpm,
+          ]
+        chdir: "{{ ua_release_dir }}/frontend"
+      become_user: oklab
+      changed_when: true
+
+    - name: Build the production Nitro server without runtime secrets
+      ansible.builtin.command:
+        argv: ["{{ ua_pnpm }}", build]
+        chdir: "{{ ua_release_dir }}/frontend"
+      become_user: oklab
+      environment:
+        NODE_ENV: production
+        NITRO_PRESET: node-server
+      changed_when: true
+
+    - name: Make the completed application tree owned by root
+      ansible.builtin.file:
+        path: "{{ ua_release_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: u=rwX,go=rX
+        recurse: true
+        follow: false
+
+    - name: Write the successful build marker without rewriting it later
+      ansible.builtin.copy:
+        content: "{{ ua_artifact_sha256 }}\n"
+        dest: "{{ ua_release_dir }}/.complete"
+        owner: root
+        group: root
+        mode: "0644"
+
+- name: Create a directory for reviewed verification files
+  ansible.builtin.file:
+    path: "{{ ua_release_dir }}/deployment"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install bounded verification programs
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ ua_release_dir }}/deployment/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [verify_runtime.py, validate_nginx.py]
+
+- name: Validate production settings and the actual runtime DSNs before stopping services
+  ansible.builtin.command:
+    argv:
+      [
+        "{{ ua_release_dir }}/backend/.venv/bin/python",
+        -B,
+        "{{ ua_release_dir }}/deployment/verify_runtime.py",
+      ]
+    chdir: "{{ ua_release_dir }}/backend"
+  become_user: oklab
+  environment: "{{ ua_runtime }}"
+  changed_when: false
+  no_log: true
+
+- name: Stage non-secret service and proxy candidates
+  ansible.builtin.copy:
+    content: "{{ item.content }}"
+    dest: "{{ ua_release_dir }}/deployment/{{ item.path | basename }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ ua_files[:5] }}"
+  loop_control:
+    label: "{{ item.path }}"
+  diff: false
+
+- name: Validate prepared units against installed release executables
+  ansible.builtin.command:
+    argv:
+      - systemd-analyze
+      - verify
+      - "{{ ua_release_dir }}/deployment/uranus-admin-backend.service"
+      - "{{ ua_release_dir }}/deployment/uranus-admin-check-worker.service"
+      - "{{ ua_release_dir }}/deployment/uranus-admin-frontend.service"
+  changed_when: false
+
+- name: Validate the candidate Nginx vhost before installation
+  ansible.builtin.command:
+    argv:
+      [
+        /usr/bin/python3,
+        "{{ ua_release_dir }}/deployment/validate_nginx.py",
+        "{{ ua_release_dir }}/deployment/uranus-admin",
+      ]
+  changed_when: false

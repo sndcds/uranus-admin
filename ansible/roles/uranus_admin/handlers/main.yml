@@ -1,0 +1,4 @@
+# Handlers only request activation. Ordinary tasks own block/rescue and all service changes.
+- name: Activate reviewed system configuration
+  ansible.builtin.set_fact:
+    ua_activate_requested: true

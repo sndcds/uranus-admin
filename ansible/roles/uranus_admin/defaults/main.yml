@@ -1,0 +1,31 @@
+ua_action: inspect
+ua_expected_hostname: webserver
+ua_release_sha: ""
+ua_artifact: ""
+ua_artifact_sha256: ""
+# Every real deployment needs explicit approval after a reviewed dry run.
+ua_apply_confirmation: ""
+ua_reviewed_dry_run: ""
+ua_maintenance_window: ""
+ua_backup_reference: ""
+ua_manage_notification_timer: false
+ua_disable_notification_timer_approved: false
+ua_secret_adoption_approved: false
+ua_debug: false
+ua_runtime_overrides: {}
+ua_root: /opt/uranus-admin
+ua_legacy_root: /home/oklab/build/uranus-admin
+ua_config_dir: /etc/uranus-admin
+ua_service_user: oklab
+ua_service_group: oklab
+ua_python: /usr/bin/python3.13
+ua_uv: /usr/local/bin/uv
+ua_node: /usr/bin/node
+ua_pnpm: /usr/bin/pnpm
+ua_pg_socket: /var/run/postgresql
+ua_pg_port: 5432
+ua_counts: false
+ua_services:
+  - uranus-admin-backend.service
+  - uranus-admin-check-worker.service
+  - uranus-admin-frontend.service
