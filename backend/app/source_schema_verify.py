@@ -12,23 +12,31 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.config import Settings
 from app.database import create_engine
 from app.services.notifications.config import source_capability
+from app.source_contract import QUALITY_SOURCE_CONTRACT, compare_contract
 
-TABLES = (
-    "venue",
-    "space",
-    "space_feature_link",
-    "organization_partner_request",
-    "organization_member_link",
-    "user_organization_link",
-    "user_venue_link",
-    "user_space_link",
-    "user_event_link",
-    "organization",
-    "user",
-    "event",
-    "event_date",
-    "pluto_image",
-    "pluto_image_link",
+TABLES = tuple(
+    sorted(
+        set(QUALITY_SOURCE_CONTRACT)
+        | set(
+            (
+                "venue",
+                "space",
+                "space_feature_link",
+                "organization_partner_request",
+                "organization_member_link",
+                "user_organization_link",
+                "user_venue_link",
+                "user_space_link",
+                "user_event_link",
+                "organization",
+                "user",
+                "event",
+                "event_date",
+                "pluto_image",
+                "pluto_image_link",
+            )
+        )
+    )
 )
 
 
@@ -38,8 +46,12 @@ async def verify(connection: AsyncConnection, settings: Settings) -> dict[str, A
         (
             await connection.execute(
                 text("""
-        SELECT table_name, column_name, data_type, udt_name, column_default, is_nullable
-        FROM information_schema.columns
+        SELECT table_name, column_name, data_type, udt_name, column_default, is_nullable,
+               format_type(a.atttypid, a.atttypmod) AS formatted_type
+        FROM information_schema.columns i
+        JOIN pg_namespace n ON n.nspname=i.table_schema
+        JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=i.table_name
+        JOIN pg_attribute a ON a.attrelid=c.oid AND a.attname=i.column_name
         WHERE table_schema='uranus' AND table_name=ANY(:tables)
         ORDER BY table_name, ordinal_position
     """),
@@ -107,6 +119,7 @@ async def verify(connection: AsyncConnection, settings: Settings) -> dict[str, A
         else:
             observations[f"{table}.{field}"] = {"missing": True}
     return {
+        "source_contract": compare_contract([dict(row) for row in columns]),
         "database": (await connection.execute(text("SELECT current_database()"))).scalar_one(),
         "verified_at": datetime.now(UTC).isoformat(),
         "transaction_read_only": (
@@ -152,7 +165,7 @@ def main() -> int:
     if not args.json:
         print("Read-only source schema verification")
     print(json.dumps(report, indent=2))
-    return 0
+    return 0 if report["source_contract"]["compatible"] else 1
 
 
 if __name__ == "__main__":
