@@ -47,6 +47,7 @@ stehen in [uranus-analysis.md](uranus-analysis.md). UTC-Speicherung ist vom Betr
 | --- | --- |
 | APP_ENV | production; development/test/staging/production |
 | APP_DEBUG | false; aktiviert keine HTTP-Stacktraces |
+| ALLOW_PRODUCTION_DEBUG | false; zweiter expliziter Opt-in für Debug-Serverlogs in staging/production |
 | APP_HOST / APP_PORT | 127.0.0.1 / 8000 bei `python -m app` |
 | DATABASE_URL | asyncpg-DSN des Readers, als SecretStr behandelt |
 | URANUS_API_URL | http://localhost:8080; öffentliche Activity-Links nur bei https://api.kulturbytes.de |
@@ -145,10 +146,13 @@ Logs sind JSON mit Methode, Route-Template, Status und Dauer. Querystrings und D
 werden nicht geloggt. DB-Fehler erscheinen als 503 mit Fehlercode; interne Fehler als 500,
 ohne Stacktrace oder SQL. SQLAlchemy echo nicht zur Fehlersuche auf echten Daten aktivieren.
 Auch bewusst ausgelöste API-Fehler mit Status 5xx erzeugen einen `admin.error`-Eintrag mit
-Fehlercode, Status und Route. Mit `APP_DEBUG=true` in Development/Test enthält dieser Eintrag
+Fehlercode, Status und Route. Mit `APP_DEBUG=true` enthält dieser Eintrag
 zusätzlich den Traceback einschließlich verketteter Ursachen, beispielsweise bei abgelehnten
 Admin-Runtime-Rechten. Die HTTP-Antwort enthält weiterhin keinen Traceback; ohne Debug bleiben
-auch die Serverlogs frei davon. Nach Konfigurationsänderungen den Backend-Prozess neu starten.
+auch die Serverlogs frei davon. In staging/production ist zusätzlich
+`ALLOW_PRODUCTION_DEBUG=true` erforderlich, da Exception-Details sensible Daten enthalten
+können. Development-Auth und öffentliches OpenAPI bleiben dort verboten. Siehe das
+[Debug-Beispiel](../README.md#start). Nach Konfigurationsänderungen den Backend-Prozess neu starten.
 `/health` bleibt bei DB-Ausfall erreichbar; `/ready` prüft Source-Verbindung und die
 konfigurierte Admin-/Auth-Ablage einschließlich Migrationstand, Boundary und positiven Grants. Ein 503 `source_timezone_unconfigured` erfordert den belegten
 Speichervertrag, ein 503 `admin_auth_unconfigured` die unabhängige Admin-Auth-Konfiguration (Origin und Admin-Ablage).

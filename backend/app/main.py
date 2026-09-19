@@ -46,7 +46,9 @@ from app.logging import RequestLoggingMiddleware, configure_logging
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
-    debug_logging = settings.app_debug and settings.app_env in {"development", "test"}
+    debug_logging = settings.app_debug and (
+        settings.app_env in {"development", "test"} or settings.allow_production_debug
+    )
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
