@@ -108,7 +108,10 @@ The authoritative table definitions are in `backend/app/admin_tables.py`.
 - Always inspect the current Alembic head before adding a migration. Do not pin
   operational instructions to an old numbered revision.
 - `backend/migrations/env.py` limits metadata comparison and version storage to
-  `admin`. The schema must be provisioned separately. Migrations require the explicit
+  `admin`. Migration commands bootstrap a missing schema as the connected migrator;
+  this first run requires database CREATE, which can be revoked afterward. Existing
+  schema ownership and grants are preserved; roles/grants remain operator provisioning.
+  Migrations require the explicit
   `ADMIN_MIGRATION_DATABASE_URL`; NEVER fall back to `DATABASE_URL` or runtime access.
 - The API and workers NEVER auto-migrate or grant privileges.
 

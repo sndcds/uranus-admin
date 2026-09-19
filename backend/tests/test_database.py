@@ -58,7 +58,8 @@ async def test_quality_query_explain(db_connection, settings, now, tmp_path):
 
 
 @pytest.mark.integration
-async def test_migrations_only_manage_admin(database, monkeypatch):
+@pytest.mark.parametrize("bootstrap", [False, True])
+async def test_migrations_only_manage_admin(database, monkeypatch, bootstrap):
     import asyncpg
 
     url = database[0]
@@ -75,7 +76,8 @@ async def test_migrations_only_manage_admin(database, monkeypatch):
         await conn.execute(
             "CREATE ROLE admin_migrator_test LOGIN PASSWORD 'fixture-migration-only'"
         )
-        await conn.execute("CREATE SCHEMA admin AUTHORIZATION admin_migrator_test")
+        if not bootstrap:
+            await conn.execute("CREATE SCHEMA admin AUTHORIZATION admin_migrator_test")
     migration_url = (
         make_url(url)
         .set(username="admin_migrator_test", password="fixture-migration-only")
@@ -84,7 +86,44 @@ async def test_migrations_only_manage_admin(database, monkeypatch):
     monkeypatch.setenv("ADMIN_MIGRATION_DATABASE_URL", migration_url)
     config = Config("alembic.ini")
     try:
+        if bootstrap:
+            # Inspection must not bootstrap; migration cannot bypass DB privileges.
+            await asyncio.to_thread(command.current, config)
+            assert await conn.fetchval("SELECT to_regnamespace('admin')") is None
+            with pytest.raises(DBAPIError):
+                await asyncio.to_thread(command.upgrade, config, "0001")
+            assert await conn.fetchval("SELECT to_regnamespace('admin')") is None
+            await conn.execute(
+                await conn.fetchval(
+                    "SELECT format('GRANT CREATE ON DATABASE %I TO admin_migrator_test', "
+                    "current_database())"
+                )
+            )
+            # Bootstrap rolls back if migration planning fails.
+            from alembic.util import CommandError
+
+            with pytest.raises(CommandError):
+                await asyncio.to_thread(command.upgrade, config, "missing_revision")
+            assert await conn.fetchval("SELECT to_regnamespace('admin')") is None
         await asyncio.to_thread(command.upgrade, config, "0001")
+        assert (
+            await conn.fetchval(
+                "SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname='admin'"
+            )
+            == "admin_migrator_test"
+        )
+        assert not await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM pg_namespace n, "
+            "aclexplode(coalesce(n.nspacl, acldefault('n', n.nspowner))) a "
+            "WHERE n.nspname='admin' AND a.grantee=0)"
+        )
+        if bootstrap:
+            await conn.execute(
+                await conn.fetchval(
+                    "SELECT format('REVOKE CREATE ON DATABASE %I FROM admin_migrator_test', "
+                    "current_database())"
+                )
+            )
         await conn.execute(
             "INSERT INTO admin.finding (id,rule,severity,entity_type,entity_id,message,"
             "first_seen_at,last_seen_at) VALUES ('legacy','legacy','warning','venue','key',"
@@ -152,7 +191,8 @@ async def test_migrations_only_manage_admin(database, monkeypatch):
         await asyncio.to_thread(command.upgrade, config, "head")
         assert await conn.fetch(fingerprint_sql) == before
     finally:
-        await conn.execute("DROP SCHEMA admin CASCADE")
+        await conn.execute("DROP SCHEMA IF EXISTS admin CASCADE")
+        await conn.execute("DROP OWNED BY admin_migrator_test")
         await conn.execute("DROP ROLE admin_migrator_test")
         await conn.close()
 

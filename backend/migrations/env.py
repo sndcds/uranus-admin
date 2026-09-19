@@ -1,4 +1,4 @@
-"""Migrations own admin only; an independently provisioned admin schema is required."""
+"""Migrations own admin only, including bootstrap of a missing admin schema."""
 
 import asyncio
 import os
@@ -36,6 +36,20 @@ def configure(connection: Any = None, url: str | None = None) -> None:
         literal_binds=connection is None,
     )
     with context.begin_transaction():
+        if context.get_context().opts.get("destination_rev") is not None:
+            # Run before Alembic creates admin.alembic_version. The conditional
+            # also works in offline SQL and avoids requiring database CREATE for
+            # an existing schema. Inspection/autogeneration has no destination.
+            context.execute("""
+DO $admin_bootstrap$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'admin') THEN
+        CREATE SCHEMA admin AUTHORIZATION CURRENT_USER;
+        REVOKE ALL PRIVILEGES ON SCHEMA admin FROM PUBLIC;
+    END IF;
+END;
+$admin_bootstrap$;
+""")
         context.run_migrations()
 
 

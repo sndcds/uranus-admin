@@ -70,6 +70,10 @@ Die [zentrale PostgreSQL-Rollen-Anleitung](docs/development.md#minimale-rechte-n
 enthält die vollständigen SQL-Blöcke, Default Privileges, Ownership, Diagnose und Rechte-Matrix.
 `DATABASE_URL` verwendet `uranus_reader`; `ADMIN_DATABASE_URL` verwendet `admin_user`;
 `ADMIN_MIGRATION_DATABASE_URL` verwendet ausschließlich für Alembic `admin_migrator`.
+Alembic legt ein fehlendes `admin`-Schema vor der Versionstabelle an. Dafür benötigt
+der Migrator beim ersten Lauf `CREATE` auf der Zieldatenbank; anschließend kann dieses
+Recht entzogen werden. Bestehende Schemas bleiben unverändert. Rollen und explizite
+Runtime-/Operator-Grants werden weiterhin separat provisioniert.
 Migrationen 0001–0003 erzeugen Check Runs, Findings, Record Marks und deren append-only-Historie.
 
 Keine automatische Migration und kein DDL-Fallback auf `DATABASE_URL`. Die Runtime ist nie

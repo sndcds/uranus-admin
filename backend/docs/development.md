@@ -412,6 +412,34 @@ Keine Kennwörter in SQL-Dateien oder Shell-History hinterlegen.
 
 **2. Migrationen aus `backend/` als `admin_migrator`:**
 
+Alternativ zur Schema-Anlage in Schritt 1 kann Alembic ein fehlendes `admin`-Schema
+selbst anlegen, noch bevor es `admin.alembic_version` erzeugt. Rollen und sichere
+Default Privileges bleiben Voraussetzung. In diesem Fall `CREATE SCHEMA` aus
+Schritt 1 auslassen und die übrigen Anweisungen, die das Schema `admin` voraussetzen,
+erst nach dem Migrationslauf ausführen. Die globalen Default Privileges vorher
+einschränken. Der DB-Betreiber
+gewährt dem Migrator für die erstmalige Anlage `CREATE` auf der ausgewählten
+Datenbank (Platzhalter durch den tatsächlichen Datenbanknamen ersetzen):
+
+```sql
+GRANT CREATE ON DATABASE "TARGET_DATABASE" TO admin_migrator;
+```
+
+Dieses Recht erlaubt grundsätzlich die Anlage weiterer Schemas in der Datenbank;
+Alembic verwendet ausschließlich den festen Namen `admin`. Nach erfolgreicher
+Migration das Bootstrap-Recht wieder entziehen:
+
+```sql
+REVOKE CREATE ON DATABASE "TARGET_DATABASE" FROM admin_migrator;
+```
+
+Das neue Schema gehört dem verbundenen Migrator; PUBLIC erhält keine Schema-Rechte.
+Bestehende Schemas werden weder umgehängt noch in ihren Grants verändert und
+benötigen kein Datenbank-CREATE-Recht. Bootstrap und Migrationen laufen in derselben
+Transaktion. Auch `upgrade --sql` enthält den bedingten Bootstrap vor der
+Versionstabelle. `current`, `check` und Autogenerate legen kein Schema an. Rollen,
+Runtime-/Operator-Grants und Uranus-Daten werden dadurch nicht verändert.
+
 ```bash
 # ADMIN_MIGRATION_DATABASE_URL sicher im Prozess-Environment bereitstellen.
 # Nur ein Eintrag in backend/.env reicht für Alembic nicht.
@@ -419,6 +447,11 @@ uv run alembic upgrade head
 uv run alembic current
 uv run alembic check
 ```
+
+Bei lokaler Nutzung von `backend/.env` jeweils `uv run --env-file .env alembic ...`
+verwenden. `auth_storage_unavailable` (HTTP 503) kann auf fehlende Auth-Tabellen,
+fehlende Runtime-Grants oder Verbindungsprobleme hinweisen. Die Schema-Anlage allein
+ersetzt weder das Upgrade bis `head` noch Schritt 3 mit den Runtime-Grants.
 
 Die Credentials nur dem Migrationsprozess geben, nicht dem Runtime-Service. Neue Tabellen
 gehören dadurch `admin_migrator`; nie nachträglich an `admin_user` übertragen. Nach einem
