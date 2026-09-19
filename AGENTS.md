@@ -10,7 +10,9 @@ Implemented features include persisted quality findings/reviews, record marks an
 notes, activity, entity lists/details, operational queues, statistics, a bounded D3
 relationship graph, asynchronous URL checks, and organization email notifications
 with delivery history and manual retries. Domain creation/editing is unavailable.
-Global Geo Scope and Nominatim integration are not present in the audited main.
+Global administrative Geo Scope uses cached boundaries and authoritative Uranus points.
+Nominatim location suggestions are stored separately in admin and are never authoritative.
+Never write Uranus organization/venue points directly or automatically accept a suggestion.
 
 Prefer current code, migration metadata and CI over historical implementation notes.
 Recheck these facts when changing the corresponding subsystem; never present an open

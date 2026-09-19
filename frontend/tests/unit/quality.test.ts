@@ -137,3 +137,18 @@ describe('postal code quality overview', () => {
     )
   })
 })
+
+it('labels both internal missing-location rules and links authoritative owners', () => {
+  const view = render()
+  const group = view.get('ul[aria-label="Standorte"]')
+  expect(group.findAll('li')).toHaveLength(2)
+  expect(group.text()).toContain('Organisationen ohne Geoposition')
+  expect(group.text()).toContain('Orte ohne Geoposition')
+  expect(group.findAllComponents(SeverityBadge).map((badge) => badge.props('severity'))).toEqual([
+    'warning',
+    'warning',
+  ])
+  expect(
+    group.findAllComponents({ name: 'NuxtLink' }).map((link) => link.props('to').query.entity_type),
+  ).toEqual(['organization', 'venue'])
+})

@@ -6520,6 +6520,390 @@
           }
         }
       }
+    },
+    "/api/v1/geocode/requests": {
+      "get": {
+        "tags": [
+          "Location suggestions"
+        ],
+        "summary": "Requests",
+        "operationId": "requests_api_v1_geocode_requests_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "organization",
+                    "venue"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "checking",
+                    "candidate",
+                    "ambiguous",
+                    "not_found",
+                    "insufficient_input",
+                    "failed",
+                    "stale"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeocodePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/geocode/requests/{key}": {
+      "get": {
+        "tags": [
+          "Location suggestions"
+        ],
+        "summary": "Request Detail",
+        "operationId": "request_detail_api_v1_geocode_requests__key__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeocodeRequestDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/geocode/requests/{key}/retry": {
+      "post": {
+        "tags": [
+          "Location suggestions"
+        ],
+        "summary": "Retry",
+        "operationId": "retry_api_v1_geocode_requests__key__retry_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeocodeRetryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8750,6 +9134,18 @@
             "type": "string",
             "title": "Message"
           },
+          "location_suggestion_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Suggestion Request Id"
+          },
           "action": {
             "anyOf": [
               {
@@ -9345,6 +9741,557 @@
           "items"
         ],
         "title": "GeoAreaSearchResponse"
+      },
+      "GeocodeCandidate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "rank": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rank"
+          },
+          "latitude": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Display Name"
+          },
+          "osm_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "node",
+                  "way",
+                  "relation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Osm Type"
+          },
+          "osm_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Osm Id"
+          },
+          "provider_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Class"
+          },
+          "provider_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Type"
+          },
+          "provider_addresstype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Addresstype"
+          },
+          "provider_importance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Importance"
+          },
+          "match_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Match Score"
+          },
+          "match_reasons": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "country_exact",
+                "country_mismatch",
+                "country_unknown",
+                "postal_code_exact",
+                "postal_code_mismatch",
+                "postal_code_missing",
+                "city_exact",
+                "city_mismatch",
+                "city_missing",
+                "street_exact",
+                "street_mismatch",
+                "street_missing",
+                "house_number_exact",
+                "house_number_mismatch",
+                "house_number_missing"
+              ]
+            },
+            "type": "array",
+            "title": "Match Reasons"
+          },
+          "address": {
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 240
+            },
+            "propertyNames": {
+              "enum": [
+                "road",
+                "house_number",
+                "postcode",
+                "city",
+                "town",
+                "village",
+                "municipality",
+                "county",
+                "state",
+                "country",
+                "country_code"
+              ]
+            },
+            "type": "object",
+            "title": "Address"
+          },
+          "osm_url": {
+            "type": "string",
+            "title": "Osm Url",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "rank",
+          "latitude",
+          "longitude",
+          "display_name",
+          "match_score",
+          "match_reasons",
+          "address",
+          "osm_url"
+        ],
+        "title": "GeocodeCandidate"
+      },
+      "GeocodePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GeocodeRequestSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "pending",
+                "checking",
+                "candidate",
+                "ambiguous",
+                "not_found",
+                "insufficient_input",
+                "failed",
+                "stale"
+              ]
+            },
+            "type": "object",
+            "title": "Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination",
+          "counts"
+        ],
+        "title": "GeocodePage"
+      },
+      "GeocodeRequestDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "organization",
+              "venue"
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Entity Key"
+          },
+          "entity_name": {
+            "type": "string",
+            "title": "Entity Name"
+          },
+          "source_address": {
+            "type": "string",
+            "title": "Source Address"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "checking",
+              "candidate",
+              "ambiguous",
+              "not_found",
+              "insufficient_input",
+              "failed",
+              "stale"
+            ],
+            "title": "Status"
+          },
+          "source_fingerprint": {
+            "type": "string",
+            "title": "Source Fingerprint"
+          },
+          "query_fingerprint": {
+            "type": "string",
+            "title": "Query Fingerprint"
+          },
+          "generation": {
+            "type": "integer",
+            "title": "Generation"
+          },
+          "query_version": {
+            "type": "integer",
+            "title": "Query Version"
+          },
+          "scoring_version": {
+            "type": "integer",
+            "title": "Scoring Version"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "next_check_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Check At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "provider_unavailable"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "candidate_count": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Candidate Count"
+          },
+          "best_candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeocodeCandidate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/GeocodeCandidate"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "entity_type",
+          "entity_key",
+          "entity_name",
+          "source_address",
+          "status",
+          "source_fingerprint",
+          "query_fingerprint",
+          "generation",
+          "query_version",
+          "scoring_version",
+          "attempt_count",
+          "checked_at",
+          "next_check_at",
+          "last_error",
+          "created_at",
+          "updated_at",
+          "candidate_count",
+          "best_candidate",
+          "candidates"
+        ],
+        "title": "GeocodeRequestDetail"
+      },
+      "GeocodeRequestSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "organization",
+              "venue"
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Entity Key"
+          },
+          "entity_name": {
+            "type": "string",
+            "title": "Entity Name"
+          },
+          "source_address": {
+            "type": "string",
+            "title": "Source Address"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "checking",
+              "candidate",
+              "ambiguous",
+              "not_found",
+              "insufficient_input",
+              "failed",
+              "stale"
+            ],
+            "title": "Status"
+          },
+          "source_fingerprint": {
+            "type": "string",
+            "title": "Source Fingerprint"
+          },
+          "query_fingerprint": {
+            "type": "string",
+            "title": "Query Fingerprint"
+          },
+          "generation": {
+            "type": "integer",
+            "title": "Generation"
+          },
+          "query_version": {
+            "type": "integer",
+            "title": "Query Version"
+          },
+          "scoring_version": {
+            "type": "integer",
+            "title": "Scoring Version"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "next_check_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Check At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "provider_unavailable"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "candidate_count": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Candidate Count"
+          },
+          "best_candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeocodeCandidate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "entity_type",
+          "entity_key",
+          "entity_name",
+          "source_address",
+          "status",
+          "source_fingerprint",
+          "query_fingerprint",
+          "generation",
+          "query_version",
+          "scoring_version",
+          "attempt_count",
+          "checked_at",
+          "next_check_at",
+          "last_error",
+          "created_at",
+          "updated_at",
+          "candidate_count",
+          "best_candidate"
+        ],
+        "title": "GeocodeRequestSummary"
+      },
+      "GeocodeRetryResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "const": "pending",
+            "title": "Status",
+            "default": "pending"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "GeocodeRetryResponse"
       },
       "GraphEdge": {
         "properties": {

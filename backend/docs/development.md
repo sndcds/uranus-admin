@@ -440,6 +440,8 @@ GRANT SELECT, INSERT, UPDATE ON admin.check_run, admin.finding, admin.record_mar
 GRANT SELECT, INSERT ON admin.record_mark_event TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.notification, admin.notification_delivery TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.geo_area TO admin_user;
+GRANT SELECT, INSERT, UPDATE ON admin.geocode_request TO admin_user;
+GRANT SELECT, INSERT ON admin.geocode_candidate TO admin_user;
 GRANT SELECT, INSERT ON admin.notification_delivery_item TO admin_user;
 -- Migration 0004: runtime cannot create accounts or grant itself global access.
 GRANT SELECT ON admin.auth_account, admin.auth_system_admin TO admin_user;
@@ -974,3 +976,26 @@ See [Geo Scope](geo-scope.md) for the area cache, restricted grants, provider co
 source semantics and the explicit delivery split. Apply 0010 with the migrator and
 grant SELECT/INSERT/UPDATE on admin.geo_area to admin_user before rolling out the API.
 Nominatim availability is not a core readiness dependency.
+
+### Location suggestions (migration 0011)
+
+Phase 3 uses the same internal `NOMINATIM_BASE_URL`, exclusively from a standalone
+`uv run python -m app.geocode_worker --once`. Quality checks only detect NULL/EMPTY
+points. No ordinary GET or retry POST performs provider HTTP; no Uranus point is written.
+
+Apply the current head using explicit `ADMIN_MIGRATION_DATABASE_URL`, then provision
+SELECT/INSERT/UPDATE on `admin.geocode_request` and SELECT/INSERT on immutable
+`admin.geocode_candidate`. No DELETE or candidate UPDATE. The complete provisioning
+block above includes these grants; readiness requires them and the current migration head.
+
+New bounded settings: GEOCODE_BATCH_SIZE=50, GEOCODE_REQUEST_INTERVAL_MS=250,
+GEOCODE_MAX_CANDIDATES=5, GEOCODE_NOT_FOUND_RETRY_DAYS=30,
+GEOCODE_FAILED_RETRY_MINUTES=60, GEOCODE_LEASE_SECONDS=300. Runtime settings must not
+contain migration/operator credentials. Provider availability is not readiness.
+
+Prefer an hourly oneshot systemd timer. Run the service manually once and inspect the
+systemwide `/geocoding` queue before enabling it. Example hardened service/timer, exact
+migration/grant order, `systemctl start`, `journalctl`, retry and first-run procedure are
+in [Missing location suggestions](geo-scope.md#missing-location-suggestions-phase-3).
+The worker keeps immutable candidate generations and leases; scores are address agreement,
+not confirmation. Controlled acceptance requires a separate authorized Uranus write API.

@@ -115,6 +115,7 @@ export const actionSchema = z
   }, 'Invalid internal action target')
 
 export const findingSchema = z.object({
+  location_suggestion_request_id: z.uuid().nullable().optional(),
   id: z.string(),
   rule: z.string(),
   severity: severitySchema,
@@ -193,6 +194,9 @@ export type FindingFilters = z.infer<typeof filtersSchema>
 
 // Own API codes only. Messages are validated but replaced with local safe text.
 export const adminErrorStatuses = {
+  geocode_request_not_found: 404,
+  geocode_retry_not_allowed: 409,
+  geocode_no_longer_needed: 409,
   geo_scope_not_found: 404,
   geo_provider_unavailable: 503,
   geo_area_not_eligible: 422,
@@ -1013,3 +1017,110 @@ export type GeoArea = z.infer<typeof geoAreaSchema>
 export type GeoAreaKind = z.infer<typeof geoAreaKindSchema>
 export type GeoAreaSearchItem = z.infer<typeof geoAreaSearchItemSchema>
 export type GeoAreaImport = z.infer<typeof geoAreaImportSchema>
+
+export const geocodeStatusSchema = z.enum([
+  'pending',
+  'checking',
+  'candidate',
+  'ambiguous',
+  'not_found',
+  'insufficient_input',
+  'failed',
+  'stale',
+])
+export const geocodeMatchReasonSchema = z.enum([
+  'country_exact',
+  'country_mismatch',
+  'country_unknown',
+  'postal_code_exact',
+  'postal_code_mismatch',
+  'postal_code_missing',
+  'city_exact',
+  'city_mismatch',
+  'city_missing',
+  'street_exact',
+  'street_mismatch',
+  'street_missing',
+  'house_number_exact',
+  'house_number_mismatch',
+  'house_number_missing',
+])
+export const geocodeCandidateSchema = z.object({
+  id: z.uuid(),
+  rank: z.number().int().min(1).max(5),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  display_name: z.string().min(1).max(1024),
+  osm_type: z.enum(['node', 'way', 'relation']).nullable(),
+  osm_id: z
+    .string()
+    .regex(/^[1-9][0-9]{0,18}$/)
+    .nullable(),
+  provider_class: z.string().nullable(),
+  provider_type: z.string().nullable(),
+  provider_addresstype: z.string().nullable(),
+  provider_importance: z.number().nullable(),
+  match_score: z.number().min(0).max(1),
+  match_reasons: z.array(geocodeMatchReasonSchema),
+  address: z.partialRecord(
+    z.enum([
+      'road',
+      'house_number',
+      'postcode',
+      'city',
+      'town',
+      'village',
+      'municipality',
+      'county',
+      'state',
+      'country',
+      'country_code',
+    ]),
+    z.string().max(240),
+  ),
+  osm_url: z
+    .string()
+    .regex(
+      /^https:\/\/www\.openstreetmap\.org\/(?:node\/[1-9][0-9]{0,18}|way\/[1-9][0-9]{0,18}|relation\/[1-9][0-9]{0,18}|\?mlat=-?[0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?&mlon=-?[0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?)$/,
+    ),
+})
+export const geocodeRequestSummarySchema = z.object({
+  id: z.uuid(),
+  entity_type: z.enum(['organization', 'venue']),
+  entity_key: z.uuid(),
+  entity_name: z.string(),
+  source_address: z.string(),
+  status: geocodeStatusSchema,
+  source_fingerprint: z.string(),
+  query_fingerprint: z.string(),
+  generation: z.number().int().positive(),
+  query_version: z.number().int().positive(),
+  scoring_version: z.number().int().positive(),
+  attempt_count: z.number().int().nonnegative(),
+  checked_at: timestamp.nullable(),
+  next_check_at: timestamp.nullable(),
+  last_error: z.literal('provider_unavailable').nullable(),
+  created_at: timestamp,
+  updated_at: timestamp,
+  candidate_count: z.number().int().min(0).max(5),
+  best_candidate: geocodeCandidateSchema.nullable(),
+})
+export const geocodeRequestDetailSchema = geocodeRequestSummarySchema.extend({
+  candidates: z.array(geocodeCandidateSchema).max(5),
+})
+export const geocodePageSchema = z.object({
+  items: z.array(geocodeRequestSummarySchema),
+  pagination: notificationPageSchema.shape.pagination,
+  counts: z.partialRecord(geocodeStatusSchema, z.number().int().nonnegative()),
+})
+export const geocodeRetryResponseSchema = z.object({ id: z.uuid(), status: z.literal('pending') })
+export type GeocodeStatus = z.infer<typeof geocodeStatusSchema>
+export type GeocodeCandidate = z.infer<typeof geocodeCandidateSchema>
+export type GeocodeRequestDetail = z.infer<typeof geocodeRequestDetailSchema>
+export type GeocodePage = z.infer<typeof geocodePageSchema>
+export interface GeocodeFilters {
+  entity_type?: 'organization' | 'venue'
+  status?: GeocodeStatus
+  page?: number
+  page_size?: number
+}

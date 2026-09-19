@@ -8,8 +8,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 SOURCE_QUERIES = {
-    "organization": "SELECT uuid, name, postal_code, web_link FROM uranus.organization",
-    "venue": "SELECT uuid, name, org_uuid, postal_code, web_link, ticket_link FROM uranus.venue",
+    "organization": "SELECT uuid, name, street, house_number, address_addition, postal_code, "
+    "city, country, state, (point IS NULL OR ST_IsEmpty(point)) AS point_missing, "
+    "web_link FROM uranus.organization",
+    "venue": "SELECT uuid, name, org_uuid, street, house_number, postal_code, city, country, "
+    "state, osm_id, (point IS NULL OR ST_IsEmpty(point)) AS point_missing, "
+    "web_link, ticket_link FROM uranus.venue",
     "space": "SELECT uuid, name, venue_uuid, web_link FROM uranus.space",
     "event": "SELECT uuid, title AS name, org_uuid, venue_uuid, space_uuid, release_status::text, "
     "source_link, online_link, ticket_link, registration_link FROM uranus.event",

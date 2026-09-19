@@ -19,6 +19,7 @@ from app.api import (
     entities,
     findings,
     geo,
+    geocode,
     graph,
     health,
     marks,
@@ -124,6 +125,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         checks.router,
         marks.router,
         notifications.router,
+        geocode.router,
     ):
         admin.include_router(router)
     application.include_router(admin)

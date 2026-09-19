@@ -20,6 +20,18 @@ class JsonFormatter(logging.Formatter):
             "event": record.getMessage(),
         }
         for key in (
+            "request_id",
+            "candidate_count",
+            "entities_scanned",
+            "requests_synchronized",
+            "requests_created",
+            "requests_checked",
+            "candidates_found",
+            "ambiguous",
+            "not_found",
+            "failed",
+            "stale",
+            "insufficient_input",
             "method",
             "route",
             "status_code",

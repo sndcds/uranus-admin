@@ -21,6 +21,10 @@ pytestmark = pytest.mark.integration
 @pytest.mark.parametrize(
     "grant",
     [
+        "GRANT UPDATE ON admin.geocode_candidate TO admin_history_test",
+        "GRANT DELETE ON admin.geocode_candidate TO admin_history_test",
+        "GRANT DELETE ON admin.geocode_request TO admin_history_test",
+        "GRANT TRUNCATE ON admin.geocode_request TO admin_history_test",
         "GRANT CREATE ON SCHEMA admin TO admin_history_test",
         "GRANT UPDATE ON uranus.venue TO admin_history_test",
         "GRANT UPDATE ON admin.record_mark_event TO admin_history_test",
@@ -28,7 +32,18 @@ pytestmark = pytest.mark.integration
         "GRANT TRUNCATE ON admin.record_mark_event TO admin_history_test",
         "GRANT TRIGGER ON admin.record_mark_event TO admin_history_test",
     ],
-    ids=["admin-ddl", "domain-update", "history-update", "history-delete", "truncate", "trigger"],
+    ids=[
+        "candidate-update",
+        "candidate-delete",
+        "request-delete",
+        "request-truncate",
+        "admin-ddl",
+        "domain-update",
+        "history-update",
+        "history-delete",
+        "truncate",
+        "trigger",
+    ],
 )
 async def test_boundary_rejects_excessive_runtime_grant(admin_store, db_connection, grant):
     await assert_admin_boundary(admin_store)
@@ -140,6 +155,8 @@ SELECT has_schema_privilege(current_user,'admin','USAGE'),
                 )
             ).one() == (True, False, False, False, False, False)
             expected = {
+                "geocode_request": (True, True, True, False, False, False),
+                "geocode_candidate": (True, True, False, False, False, False),
                 "geo_area": (True, True, True, False, False, False),
                 "notification": (True, True, True, False, False, False),
                 "notification_delivery": (True, True, True, False, False, False),

@@ -4,6 +4,18 @@ export const qualityRules: Record<
   string,
   { label: string; severity: Severity; group: string; entityType?: string }
 > = {
+  organization_missing_location: {
+    label: 'Organisationen ohne Geoposition',
+    severity: 'warning',
+    group: 'Standorte',
+    entityType: 'organization',
+  },
+  venue_missing_location: {
+    label: 'Orte ohne Geoposition',
+    severity: 'warning',
+    group: 'Standorte',
+    entityType: 'venue',
+  },
   venue_missing_logo: {
     label: 'Orte ohne Logo',
     severity: 'warning',

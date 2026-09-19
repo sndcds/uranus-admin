@@ -56,6 +56,12 @@ const detail = useTemplateRef('detail')
             class="rounded text-fuchsia-700 hover:underline"
             >Im Admin ansehen</NuxtLink
           >
+          <NuxtLink
+            v-if="finding.location_suggestion_request_id"
+            :to="`/geocoding/${finding.location_suggestion_request_id}`"
+            class="text-fuchsia-700 hover:underline"
+            >Standortvorschlag prüfen</NuxtLink
+          >
           <RecordMarkLink :entity-type="finding.entity_type" :entity-key="finding.entity_key" />
         </div>
       </div>

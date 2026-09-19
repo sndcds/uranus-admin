@@ -47,9 +47,13 @@ SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR
  AND (has_table_privilege(current_user,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
       OR has_any_column_privilege(current_user,c.oid,'INSERT,UPDATE')))
  OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname='admin' AND c.relname='record_mark_event'
+ WHERE n.nspname='admin' AND c.relname IN ('record_mark_event','geocode_candidate')
  AND (has_table_privilege(current_user,c.oid,'UPDATE,DELETE,TRUNCATE,TRIGGER')
       OR has_any_column_privilege(current_user,c.oid,'UPDATE')
+      OR pg_has_role(current_user,c.relowner,'USAGE')))
+ OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='admin' AND c.relname='geocode_request'
+ AND (has_table_privilege(current_user,c.oid,'DELETE,TRUNCATE,TRIGGER')
       OR pg_has_role(current_user,c.relowner,'USAGE')))
  OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='admin' AND c.relname IN ('auth_account','auth_system_admin')

@@ -6,6 +6,10 @@ export interface ApiFailure {
 
 export function failure(status: number, code = 'request_failed'): ApiFailure {
   const retryMessages: Record<string, string> = {
+    geocode_request_not_found: 'Dieser Standortvorschlag wurde nicht gefunden.',
+    geocode_retry_not_allowed: 'Eine Standortprüfung ist bereits eingeplant.',
+    geocode_no_longer_needed:
+      'Die Position ist bereits vorhanden oder der Datensatz wurde entfernt.',
     geo_scope_not_found: 'Dieses Gebiet ist nicht verfügbar. Der Gebietsfilter wurde entfernt.',
     geo_provider_unavailable:
       'Die Gebietssuche ist derzeit nicht verfügbar. Gespeicherte Gebiete bleiben nutzbar.',

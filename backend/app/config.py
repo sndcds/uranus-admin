@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     notification_urgent_days: int = Field(default=2, ge=0, le=2)
     admin_public_base_url: str = "https://admin.kulturbytes.de"
     kulturbytes_app_public_base_url: str = "https://app.kulturbytes.de"
+    geocode_batch_size: int = Field(default=50, ge=1, le=500)
+    geocode_request_interval_ms: int = Field(default=250, ge=100, le=10000)
+    geocode_max_candidates: int = Field(default=5, ge=1, le=5)
+    geocode_not_found_retry_days: int = Field(default=30, ge=1, le=365)
+    geocode_failed_retry_minutes: int = Field(default=60, ge=1, le=10080)
+    geocode_lease_seconds: int = Field(default=300, ge=120, le=3600)
+
     nominatim_base_url: str | None = None
     nominatim_timeout_seconds: int = Field(default=8, ge=1, le=30)
     nominatim_max_response_bytes: int = Field(default=16_777_216, ge=1024, le=33_554_432)

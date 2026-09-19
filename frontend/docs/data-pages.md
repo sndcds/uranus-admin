@@ -454,5 +454,24 @@ session loss clear the session preferences.
 
 All of these requests use cached areas; they work without Nominatim availability.
 Details and global users/images/notification/settings views remain outside the filter.
-The scope is a work context, never authorization. Phase 3 (missing locations and
-address suggestions) remains outstanding.
+The scope is a work context, never authorization. Phase 3 adds the systemwide `/geocoding` workflow described below.
+
+## Location suggestions
+
+`/geocoding` is a systemwide operations queue with entity/status filters, URL-driven
+pagination, server-wide stored status counts, current source addresses and best candidates.
+Missing positions cannot establish authoritative Geo Scope membership. This page and
+`/geocoding/{uuid}` never send geo_scope_id; the header explains the global view while
+retaining the session scope for supported pages. Stored filters/counts reflect the last
+worker observation; changed source rows are displayed stale on revalidation.
+
+Missing-location findings receive a batch-enriched request UUID and link to the detail
+page. There is no geocode request per finding row. `LocationSuggestion` renders up to five
+escaped candidates with coordinates, address match percentage, fixed localized reasons,
+and constructed OpenStreetMap links plus shared attribution. Low-score single candidates
+may also be ambiguous. Importance is not confidence. No map iframe or CSP exception.
+
+“Standort erneut prüfen” sends an authenticated, bodyless CSRF-protected POST and shows
+pending state. Double submissions and stale responses are guarded; the worker performs
+network work later. No client address, provider or coordinate override exists. No acceptance
+button exists: even a perfect match is a suggestion, never the authoritative Uranus point.
