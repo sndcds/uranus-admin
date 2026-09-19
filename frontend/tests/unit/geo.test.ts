@@ -227,12 +227,7 @@ it('proxy allows only declared geo routes, queries and strict import bodies', as
       )
     ).status,
   ).toBe(422)
-  for (const path of [
-    '/api/v1/users',
-    '/api/v1/images',
-    '/api/v1/graph',
-    '/api/v1/statistics/entities',
-  ])
+  for (const path of ['/api/v1/users', '/api/v1/images', '/api/v1/graph', '/api/v1/notifications'])
     expect(
       (
         await forwardAdminRequest(

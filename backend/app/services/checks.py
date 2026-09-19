@@ -1,4 +1,5 @@
 import logging
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
@@ -10,11 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.admin_tables import check_run, finding
 from app.config import Settings
 from app.errors import APIError
+from app.repositories.spatial import SPATIAL_TYPES
 from app.repositories.venues import RULE
 from app.schemas.checks import CheckRun, ReviewUpdate
 from app.schemas.cursor import CursorPagination, FindingCursor, decode, encode, scope
 from app.schemas.dashboard import QualityCounts
 from app.schemas.finding import Finding, FindingFilters, FindingPage, Pagination, Severity
+from app.services.geo.membership import MEMBERSHIP_BATCH_SIZE, spatial_membership
 from app.services.quality.core import CORE_RULES, RuleResult
 from app.services.quality.engine import scan
 from app.services.quality.priority import priority_details
@@ -385,8 +388,16 @@ def stored_priority_score() -> Any:
 
 
 async def persisted_page(
-    admin: AsyncConnection, filters: FindingFilters, now: datetime
+    admin: AsyncConnection,
+    filters: FindingFilters,
+    now: datetime,
+    source: AsyncConnection | None = None,
+    geo_scope_wkb: bytes | None = None,
 ) -> FindingPage:
+    if geo_scope_wkb is not None:
+        if source is None:
+            raise ValueError("Spatial findings require a source connection")
+        return await spatial_persisted_page(admin, source, filters, now, geo_scope_wkb)
     cursor_mode = filters.cursor is not None
     expected_scope = scope(filters)
     position = (
@@ -455,7 +466,15 @@ async def persisted_page(
         )
 
 
-async def persisted_counts(admin: AsyncConnection) -> tuple[QualityCounts, int]:
+async def persisted_counts(
+    admin: AsyncConnection,
+    source: AsyncConnection | None = None,
+    geo_scope_wkb: bytes | None = None,
+) -> tuple[QualityCounts, int]:
+    if geo_scope_wkb is not None:
+        if source is None:
+            raise ValueError("Spatial counts require a source connection")
+        return await spatial_persisted_counts(admin, source, geo_scope_wkb)
     # Resolved records remain in history, but no longer count as current quality concerns.
     async with admin.begin():
         rows = (
@@ -559,3 +578,132 @@ async def review(
             return stored_finding(dict(row))
     finally:
         await unlock(admin)
+
+
+async def spatial_stored_rows(
+    admin: AsyncConnection, source: AsyncConnection, conditions: list[Any], geo_scope_wkb: bytes
+) -> AsyncIterator[dict[str, Any]]:
+    """Exact scan, bounded memory: server cursor + 500-row membership batches.
+
+    Each connection has its own read-only snapshot, not a distributed snapshot. No IDs
+    for the complete result set are materialized. Source uses at most five queries/batch.
+    """
+    query = (
+        select(*FINDING_COLUMNS)
+        .where(*conditions, finding.c.entity_type.in_(sorted(SPATIAL_TYPES)))
+        .order_by(stored_priority_score().desc(), finding.c.id.collate("C"))
+        .execution_options(yield_per=MEMBERSHIP_BATCH_SIZE)
+    )
+    async with admin.stream(query) as result:
+        async for batch in result.mappings().partitions(MEMBERSHIP_BATCH_SIZE):
+            eligible = await spatial_membership(
+                source, ((row["entity_type"], row["entity_key"]) for row in batch), geo_scope_wkb
+            )
+            for row in batch:
+                if (row["entity_type"], row["entity_key"]) in eligible:
+                    yield dict(row)
+
+
+async def spatial_persisted_page(
+    admin: AsyncConnection,
+    source: AsyncConnection,
+    filters: FindingFilters,
+    now: datetime,
+    geo_scope_wkb: bytes,
+) -> FindingPage:
+    cursor_mode = filters.cursor is not None
+    expected_scope = scope(filters)
+    position = (
+        decode(filters.cursor, FindingCursor, expected_scope)
+        if filters.cursor and filters.cursor != "start"
+        else None
+    )
+    conditions = []
+    for key in ("severity", "entity_type", "entity_key", "rule", "status"):
+        if (value := getattr(filters, key)) is not None:
+            conditions.append(finding.c[key] == value)
+    if filters.organization_id is not None:
+        conditions.append(
+            finding.c.metadata["finding"]["organization_id"].as_string()
+            == str(filters.organization_id)
+        )
+    items: list[Finding] = []
+    total = 0
+    start = 0 if cursor_mode else (filters.page - 1) * filters.page_size
+    async with admin.begin():
+        await admin.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        async for row in spatial_stored_rows(admin, source, conditions, geo_scope_wkb):
+            total += 1
+            if total <= start:
+                continue
+            # One extra eligible item suffices for cursor has_more. Continue scanning
+            # identities to retain an EXACT total, but never retain the whole result.
+            if len(items) >= filters.page_size + int(cursor_mode):
+                continue
+            item = stored_finding(row)
+            if position and (-item.priority_score, item.id) <= (
+                -position.priority_score,
+                position.id,
+            ):
+                continue
+            items.append(item)
+    has_more = cursor_mode and len(items) > filters.page_size
+    items = items[: filters.page_size]
+    next_cursor = (
+        encode(
+            FindingCursor(
+                scope=expected_scope, priority_score=items[-1].priority_score, id=items[-1].id
+            )
+        )
+        if has_more
+        else None
+    )
+    return FindingPage(
+        items=items,
+        mode="persisted",
+        observed_at=now,
+        cursor_pagination=CursorPagination(
+            page_size=filters.page_size, next_cursor=next_cursor, has_more=has_more
+        )
+        if cursor_mode
+        else None,
+        pagination=Pagination(
+            page=filters.page,
+            page_size=filters.page_size,
+            total=total,
+            pages=(total + filters.page_size - 1) // filters.page_size,
+        ),
+    )
+
+
+async def spatial_persisted_counts(
+    admin: AsyncConnection,
+    source: AsyncConnection,
+    geo_scope_wkb: bytes,
+) -> tuple[QualityCounts, int]:
+    counts = QualityCounts(
+        total=0,
+        errors=0,
+        warnings=0,
+        info=0,
+        rules=[],
+        rule_counts=dict.fromkeys((RULE, *CORE_RULES, *QUEUE_RULES), 0),
+        mode="persisted",
+    )
+    urgent = 0
+    active_rules: set[str] = set()
+    async with admin.begin():
+        await admin.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        async for row in spatial_stored_rows(
+            admin, source, [finding.c.status != "resolved"], geo_scope_wkb
+        ):
+            item = stored_finding(row)
+            counts.total += 1
+            counts.errors += item.severity == "error"
+            counts.warnings += item.severity == "warning"
+            counts.info += item.severity == "info"
+            counts.rule_counts[item.rule] = counts.rule_counts.get(item.rule, 0) + 1
+            active_rules.add(item.rule)
+            urgent += item.priority <= 2 or "published_soon" in item.priority_reasons
+    counts.rules = sorted(active_rules)
+    return counts, urgent

@@ -43,6 +43,10 @@ export const summarySchema = z.object({
     team_memberships: count,
     images: count,
   }),
+  geo_scope_id: z.uuid().nullable().optional(),
+  new_record_scopes: z.record(z.string(), z.enum(['geo', 'global'])).optional(),
+  scoped_new_records_total: count.nullable().optional(),
+  global_new_records_total: count.nullable().optional(),
   images_without_created_at: count,
   urgent_findings: count,
   quality: z.object({
@@ -174,6 +178,7 @@ export type FindingPage = z.infer<typeof findingPageSchema>
 export type DashboardSummary = z.infer<typeof summarySchema>
 
 export const filtersSchema = z.object({
+  geo_scope_id: z.uuid().optional(),
   mode: z.enum(['live', 'persisted']).default('persisted'),
   severity: severitySchema.optional(),
   entity_type: z.string().max(64).optional(),
@@ -558,6 +563,7 @@ export const entityStatisticsPointSchema = z
 export const entityStatisticsSeriesSchema = z
   .object({
     entity_type: statisticsEntitySchema,
+    scope: z.enum(['geo', 'global']).optional(),
     label: z.string(),
     total: count,
     previous_total: count.nullable(),
@@ -805,6 +811,7 @@ export type EventContentCoverage = z.infer<typeof eventContentCoverageSchema>
 export type EventContentRanking = z.infer<typeof eventContentRankingSchema>
 export type EventContentStatistics = z.infer<typeof eventContentStatisticsSchema>
 export type EventContentQuery = {
+  geo_scope_id?: string
   period?: z.infer<typeof eventContentPeriodSchema>
   status?: z.infer<typeof eventReleaseStatusSchema>
   compare?: 'previous'

@@ -4,6 +4,7 @@ import type { FindingFilters } from '#shared/contracts'
 export function parseFilters(query: Record<string, unknown>) {
   const allowed = new Set([
     'mode',
+    'geo_scope_id',
     'severity',
     'entity_type',
     'entity_key',

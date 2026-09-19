@@ -103,14 +103,27 @@ function closeMenu() {
           {{ preferences.geoScopeError }}
         </p>
         <p v-if="preferences.sharedGeoScope" class="text-sm text-slate-600" role="status">
-          <template v-if="supportsGeoScope(route.path)"
-            >Nicht räumlich zuordenbare Datensätze sind bei aktivem Gebietsfilter
-            ausgeschlossen.</template
-          >
+          <template v-if="supportsGeoScope(route.path)">
+            Gebiet: {{ preferences.sharedGeoScope.name }}.
+            <template v-if="route.path === '/' || route.path === '/statistics'">
+              Systemweite Kennzahlen sind gekennzeichnet.
+            </template>
+            <template v-else-if="route.path === '/graph'">
+              Das Gebiet filtert nur die Root-Suche. Der Graph zeigt vollständige Beziehungen.
+            </template>
+            <template v-else-if="route.path === '/findings'">
+              Nicht räumlich zuordenbare Hinweise sind ausgeblendet.
+            </template>
+            <template v-else-if="route.path === '/activity'">
+              Nicht räumlich zuordenbare Aktivität wird bei aktivem Gebietsfilter ausgeblendet.
+            </template>
+            <template v-else>
+              Nicht räumlich zuordenbare Datensätze sind bei aktivem Gebietsfilter ausgeschlossen.
+            </template>
+          </template>
           <template v-else
             >Gebiet: {{ preferences.sharedGeoScope.name }}. Diese Ansicht ist nicht räumlich
-            eingeschränkt. Der Gebietsfilter gilt derzeit für Listen und Suche von Veranstaltungen,
-            Orten, Räumen und Organisationen.</template
+            eingeschränkt. Das Gebiet gilt für räumlich zuordenbare Daten.</template
           >
         </p>
         <slot />

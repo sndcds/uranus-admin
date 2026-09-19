@@ -151,11 +151,29 @@ test('invalid credentials stay on login; external redirect is rejected', async (
   await login(page)
   await expect(page).toHaveURL('http://127.0.0.1:3100/?period=24h')
 })
-test('ordinary accounts cannot enter the shell, including after reload', async ({ page }) => {
+test('ordinary accounts cannot enter the shell, including after reload', async ({
+  page,
+  context,
+}) => {
   await page.goto('/login')
   await login(page, 'ordinary')
   await expect(page.getByRole('heading', { name: 'Zugriff gesperrt' })).toBeVisible()
   await noShell(page)
+  const cookie = (await context.cookies()).find((item) => item.name.endsWith('admin_session'))!
+  const ssr = await context.request.get('/login', {
+    headers: { Cookie: `${cookie.name}=${cookie.value}` },
+  })
+  expect(
+    await page.evaluate(
+      (html) => {
+        const document = new DOMParser().parseFromString(html, 'text/html')
+        return [...document.querySelectorAll('button')].find(
+          (button) => button.textContent?.trim() === 'Abmelden',
+        )?.disabled
+      },
+      await ssr.text(),
+    ),
+  ).toBe(true)
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Zugriff gesperrt' })).toBeVisible()
   await noShell(page)

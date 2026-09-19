@@ -41,7 +41,7 @@ async function loadRoute() {
 onMounted(loadRoute)
 watch(() => route.query, loadRoute)
 function apply(filters: FindingFilters) {
-  return router.push({ query: filterQuery(filters) })
+  return router.push({ query: { ...filterQuery(filters), geo_scope_id: route.query.geo_scope_id } })
 }
 function page(value: number) {
   return apply({ ...store.filters, page: value })
@@ -62,7 +62,11 @@ function page(value: number) {
         <AppIcon name="refresh" :size="16" /> Aktualisieren
       </button>
     </PageHeader>
-    <FilterForm :filters="store.filters" @apply="apply" @reset="router.push({ query: {} })" />
+    <FilterForm
+      :filters="store.filters"
+      @apply="apply"
+      @reset="router.push({ query: { geo_scope_id: route.query.geo_scope_id } })"
+    />
     <InlineAlert v-if="invalidQuery" tone="error">
       Die URL enthält ungültige Filter oder Seitenzahlen.
       <NuxtLink to="/findings" class="font-semibold underline">Filter zurücksetzen</NuxtLink>

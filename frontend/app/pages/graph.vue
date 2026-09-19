@@ -38,6 +38,9 @@ const searching = ref(false)
 const searched = ref(false)
 const showLabels = ref(true)
 const settingsOpen = ref(false)
+const geoScopeId = computed(() =>
+  typeof routeQuery.value.geo_scope_id === 'string' ? routeQuery.value.geo_scope_id : undefined,
+)
 const root = computed(() => (data.value ? `${data.value.root.type}:${data.value.root.key}` : ''))
 const organizations = computed(
   () => data.value?.nodes.filter((n) => n.type === 'organization') ?? [],
@@ -109,6 +112,7 @@ async function choose(node: GraphNode) {
   await router.push({
     path: '/graph',
     query: {
+      geo_scope_id: geoScopeId.value,
       root_type: node.type,
       root_key: node.key,
       depth: depth.value,
@@ -133,15 +137,20 @@ async function reset() {
   showLabels.value = true
   await router.push({
     query: routeQuery.value.root_key
-      ? { root_type: stringParam('root_type'), root_key: stringParam('root_key'), depth: 2 }
-      : {},
+      ? {
+          root_type: stringParam('root_type'),
+          root_key: stringParam('root_key'),
+          depth: 2,
+          geo_scope_id: geoScopeId.value,
+        }
+      : { geo_scope_id: geoScopeId.value },
   })
   entityType.value = ''
   relationType.value = ''
   depth.value = 2
   preferences.hydrateGraph({})
 }
-watch([query, entityType, organization], () => {
+watch([query, entityType, organization, geoScopeId], () => {
   const id = ++searchId
   clearTimeout(debounce)
   results.value = []
@@ -154,7 +163,11 @@ watch([query, entityType, organization], () => {
     try {
       const response = await $adminApi.graphSearch({
         q: query.value.trim(),
-        entity_type: entityType.value || undefined,
+        geo_scope_id: geoScopeId.value,
+        entity_type:
+          geoScopeId.value && entityType.value === 'user'
+            ? undefined
+            : entityType.value || undefined,
         organization_id: organization.value || undefined,
       })
       if (id === searchId) {
@@ -191,6 +204,7 @@ onBeforeUnmount(() => {
       v-model:relation-type="relationType"
       v-model:organization="organization"
       v-model:depth="depth"
+      :geo-active="!!geoScopeId"
       :results="results"
       :searching="searching"
       :searched="searched"

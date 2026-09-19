@@ -5,7 +5,7 @@ import { statisticsTypes, statisticsDelta } from '~/utils/statistics'
 import { metric } from '~/utils/presentation'
 import AppIcon from '~/components/AppIcon.vue'
 import EntitySparkline from './EntitySparkline.vue'
-const props = defineProps<{ series: StatisticsSeries; selected: boolean }>()
+const props = defineProps<{ series: StatisticsSeries; selected: boolean; showScope?: boolean }>()
 defineEmits<{ toggle: []; highlight: []; unhighlight: [] }>()
 const presentation = computed(() => statisticsTypes[props.series.entity_type])
 const delta = computed(() =>
@@ -59,6 +59,9 @@ const delta = computed(() =>
     <span v-else class="statistics-metric-caption mt-2 block text-xs text-slate-500"
       >im gewählten Zeitraum</span
     >
+    <span v-if="showScope" class="block text-xs font-semibold">{{
+      series.scope === 'geo' ? 'Gebiet' : 'Systemweit'
+    }}</span>
     <EntitySparkline :points="series.points" :color="presentation.color" />
   </button>
 </template>

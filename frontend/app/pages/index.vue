@@ -7,6 +7,7 @@ import SectionHeader from '~/components/SectionHeader.vue'
 import { filtersSchema, periodSchema } from '#shared/contracts'
 import type { Severity, FindingFilters } from '#shared/contracts'
 import { periodLabels } from '~/utils/presentation'
+import { isSpatialType } from '~/utils/geo'
 import { recordRows } from '~/utils/activity'
 import { filterQuery } from '~/utils/filters'
 const dashboard = useDashboardStore()
@@ -16,28 +17,56 @@ const query = usePreferenceQuery(
   { period: preferences.resolvePeriodForPage('dashboard') },
   (value) => preferences.hydratePeriod('dashboard', value.period ?? '24h'),
 )
+const geoScopeId = computed(() =>
+  typeof query.value.geo_scope_id === 'string' ? query.value.geo_scope_id : undefined,
+)
 const period = computed(() => resolvePeriod('dashboard', query.value.period))
 function setPeriod(value: unknown) {
   const selected = periodSchema.parse(value)
   preferences.hydratePeriod('dashboard', selected)
-  void router.push({ query: { period: selected } })
+  void router.push({ query: { period: selected, geo_scope_id: geoScopeId.value } })
 }
-watch(period, () => void dashboard.load($adminApi, period.value))
+watch([period, geoScopeId], loadDashboard)
 const findings = useFindingsStore()
 const { $adminApi } = useNuxtApp()
 const displayedPeriod = computed(() => dashboard.data?.period ?? period.value)
 const previewFilters = filtersSchema.parse({ page_size: 4 })
-onMounted(() => {
-  if (dashboard.data?.period !== period.value) void dashboard.load($adminApi, period.value)
-  findings.syncQuery(previewFilters)
+const previewSeverityFilter = ref<Severity | undefined>()
+function loadDashboard() {
+  void dashboard.load($adminApi, period.value, geoScopeId.value)
+  findings.syncQuery({
+    ...previewFilters,
+    severity: previewSeverityFilter.value,
+    geo_scope_id: geoScopeId.value,
+  })
   void findings.load($adminApi)
-})
+}
+onMounted(loadDashboard)
+function recordLink(type: string) {
+  if (geoScopeId.value && !isSpatialType(type)) {
+    const globalPaths: Record<string, string> = {
+      user: '/users',
+      image: '/images',
+      partner_request: '/queues/partner_requests',
+      team_membership: '/queues/team_invitations',
+    }
+    return { path: globalPaths[type] ?? '/activity' }
+  }
+  return {
+    path: '/activity',
+    query: { period: period.value, entity_type: type, geo_scope_id: geoScopeId.value },
+  }
+}
 function previewSeverity(severity?: Severity) {
+  previewSeverityFilter.value = severity
   findings.setFilters({ severity, page_size: 4 })
   void findings.load($adminApi)
 }
 function openFilters(filters: FindingFilters) {
-  return navigateTo({ path: '/findings', query: filterQuery(filters) })
+  return navigateTo({
+    path: '/findings',
+    query: { ...filterQuery(filters), geo_scope_id: geoScopeId.value },
+  })
 }
 </script>
 
@@ -64,7 +93,7 @@ function openFilters(filters: FindingFilters) {
       <button
         class="button"
         :disabled="dashboard.loading"
-        @click="dashboard.load($adminApi, period)"
+        @click="dashboard.load($adminApi, period, geoScopeId)"
       >
         <AppIcon name="refresh" :size="16" /> Zahlen aktualisieren
       </button>
@@ -74,7 +103,7 @@ function openFilters(filters: FindingFilters) {
       :error="dashboard.error"
       :has-data="!!dashboard.data"
       :last-success="dashboard.lastSuccess"
-      @retry="dashboard.load($adminApi, period)"
+      @retry="dashboard.load($adminApi, period, geoScopeId)"
     />
     <InlineAlert
       v-if="dashboard.data && dashboard.data.period !== period"
@@ -94,9 +123,18 @@ function openFilters(filters: FindingFilters) {
         <SectionHeader title-id="new-records-title" title="Neu eingegangen" />
         <p class="text-sm text-slate-600">
           <strong class="font-semibold tabular-nums text-slate-900">{{
-            metric(dashboard.data?.new_records.total)
+            metric(
+              geoScopeId
+                ? dashboard.data?.scoped_new_records_total
+                : dashboard.data?.new_records.total,
+            )
           }}</strong>
-          neue Datensätze · {{ periodLabels[displayedPeriod] }}
+          neue Datensätze <template v-if="geoScopeId">im Gebiet</template> ·
+          {{ periodLabels[displayedPeriod] }}
+          <span v-if="geoScopeId" class="block text-sm"
+            >Systemweit zusätzlich: {{ metric(dashboard.data?.global_new_records_total) }} nicht
+            räumlich zuordenbare Neuanlagen.</span
+          >
         </p>
         <p v-if="dashboard.data" class="mt-1 text-xs text-slate-500">
           {{ dateTime(dashboard.data.from_at) }} – {{ dateTime(dashboard.data.to_at) }} ·
@@ -106,10 +144,7 @@ function openFilters(filters: FindingFilters) {
       <ul class="grid grid-cols-2 gap-2 md:grid-cols-3">
         <li v-for="row in recordRows(dashboard.data)" :key="row.key" class="min-w-0">
           <NuxtLink
-            :to="{
-              path: '/activity',
-              query: { period: period, entity_type: row.type },
-            }"
+            :to="recordLink(row.type)"
             :aria-label="`${row.plural}: ${row.value} · ${periodLabels[displayedPeriod]} · Neue Datensätze ansehen`"
             class="group grid h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
           >
@@ -121,6 +156,9 @@ function openFilters(filters: FindingFilters) {
             <div class="min-w-0">
               <span class="block break-words text-xs text-slate-600 group-hover:text-fuchsia-800">{{
                 row.plural
+              }}</span
+              ><span v-if="geoScopeId" class="block text-xs font-medium">{{
+                dashboard.data?.new_record_scopes?.[row.key] === 'geo' ? 'Gebiet' : 'Systemweit'
               }}</span
               ><span class="block text-lg font-semibold tabular-nums">{{ row.value }}</span>
             </div>
@@ -144,7 +182,9 @@ function openFilters(filters: FindingFilters) {
       <div>
         <SectionHeader title-id="attention-title" title="Was braucht Aufmerksamkeit?" />
         <p class="mt-1 muted">
+          <template v-if="geoScopeId">Qualitätskennzahlen im ausgewählten Gebiet. </template>
           Aktuelle offene Vorgänge und Datenprobleme · unabhängig vom gewählten Zeitraum.
+          <template v-if="geoScopeId">Prüfstatus und offene Vorgänge: Systemweit.</template>
         </p>
       </div>
       <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" :aria-busy="dashboard.loading">
@@ -171,7 +211,10 @@ function openFilters(filters: FindingFilters) {
           description="Aktueller Vorgangsbestand · keine Gesamtzahl verfügbar"
           to="/#open-queues"
         />
-        <DashboardCheckStatus :status="dashboard.data?.check_status" />
+        <div>
+          <span v-if="geoScopeId" class="text-xs">Systemweit</span>
+          <DashboardCheckStatus :status="dashboard.data?.check_status" />
+        </div>
       </div>
       <p class="text-xs text-slate-500">
         {{
@@ -252,7 +295,11 @@ function openFilters(filters: FindingFilters) {
     <section id="open-queues" class="scroll-mt-28 space-y-3" aria-labelledby="queues-title">
       <div>
         <SectionHeader title-id="queues-title" title="Offene Vorgänge" />
-        <p class="mt-1 muted">Arbeitslisten mit tatsächlichem Zustand und belegtem Alter.</p>
+        <p class="mt-1 muted">
+          Arbeitslisten mit tatsächlichem Zustand und belegtem Alter.<span v-if="geoScopeId">
+            Systemweit.</span
+          >
+        </p>
       </div>
       <DataListShell as="ul" class="divide-y divide-slate-100">
         <li

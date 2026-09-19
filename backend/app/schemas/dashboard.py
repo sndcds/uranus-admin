@@ -51,6 +51,10 @@ class DashboardSummary(BaseModel):
     admin_timezone: str
     source_timestamp_timezone: str
     new_records: NewRecords
+    geo_scope_id: UUID | None = None
+    new_record_scopes: dict[str, Literal["geo", "global"]] = {}
+    scoped_new_records_total: int | None = None
+    global_new_records_total: int | None = None
     images_without_created_at: int
     urgent_findings: int
     quality: QualityCounts

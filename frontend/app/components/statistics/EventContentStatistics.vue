@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import type { LocationQuery } from 'vue-router'
 import {
+  geoScopeIdSchema,
   eventContentPeriodSchema,
   eventReleaseStatusSchema,
   type EventContentStatistics,
@@ -50,8 +51,11 @@ async function load() {
   error.value = null
   try {
     for (const key of Object.keys(props.query))
-      if (!['view', 'period', 'status', 'compare'].includes(key)) throw new Error('Invalid query')
+      if (!['view', 'period', 'status', 'compare', 'geo_scope_id'].includes(key))
+        throw new Error('Invalid query')
     const request: EventContentQuery = { period: eventContentPeriodSchema.parse(period.value) }
+    if (props.query.geo_scope_id !== undefined)
+      request.geo_scope_id = geoScopeIdSchema.parse(props.query.geo_scope_id)
     if (props.query.status !== undefined)
       request.status = eventReleaseStatusSchema.parse(props.query.status)
     if (props.query.compare !== undefined) {
@@ -126,6 +130,9 @@ onBeforeUnmount(() => {
         >Für „Alle“ gibt es keine Vorperiode.</span
       >
     </div>
+    <p v-if="query.geo_scope_id" class="text-sm text-slate-600">
+      Rankings und Anteile beziehen sich auf Veranstaltungen im gewählten Gebiet.
+    </p>
     <p class="text-sm text-slate-600">
       Ein Event kann mehreren Kategorien, Genres oder Typen zugeordnet sein. Die Anteile beziehen
       sich jeweils auf alle Events im gewählten Erstellungszeitraum und summieren sich nicht

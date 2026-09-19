@@ -11,12 +11,15 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const error = ref<ApiFailure | null>(null)
   const lastSuccess = ref<string | null>(null)
   let requestId = 0
-  async function load(api: AdminApi, requestedPeriod: Period = '24h') {
+  async function load(api: AdminApi, requestedPeriod: Period = '24h', geoScopeId?: string) {
     const id = ++requestId
+    if ((data.value?.geo_scope_id ?? undefined) !== geoScopeId) data.value = null
     loading.value = true
     error.value = null
     try {
-      const result = await api.summary(requestedPeriod)
+      const result = await (geoScopeId
+        ? api.summary(requestedPeriod, geoScopeId)
+        : api.summary(requestedPeriod))
       if (id !== requestId) return
       data.value = result
       lastSuccess.value = new Date().toISOString()

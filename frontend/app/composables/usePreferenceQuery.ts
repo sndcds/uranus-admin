@@ -10,7 +10,8 @@ export function usePreferenceQuery(
   const route = useRoute()
   const router = useRouter()
   const entryPath = route.path
-  const explicit = Object.keys(route.query).length > 0
+  // A global geographic context alone does not replace local/period preferences.
+  const explicit = Object.keys(route.query).some((key) => key !== 'geo_scope_id')
   const restored: LocationQuery = {}
   for (const [key, value] of Object.entries(defaults)) {
     if (value !== undefined && value !== null && value !== '') restored[key] = String(value)

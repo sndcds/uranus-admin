@@ -9,6 +9,7 @@ from app.database import SettingsDep, get_connection
 from app.errors import APIError
 from app.schemas.finding import FindingFilters, FindingPage
 from app.services.checks import persisted_page
+from app.services.geo.scopes import request_geo_scope
 from app.services.quality.engine import get_findings
 
 router = APIRouter(tags=["Findings"])
@@ -34,9 +35,17 @@ async def findings(
         raise APIError(
             422, "invalid_input", "Cursor pagination requires persisted mode without page."
         )
-    if filters.mode == "persisted":
+    geo = await request_geo_scope(request, filters.geo_scope_id)
+    if filters.mode == "persisted" and geo is None:
         async with connect_admin(request) as admin:
             return await persisted_page(admin, filters, datetime.now(UTC))
     async with aclosing(get_connection(request)) as connections:
         connection = await anext(connections)
-        return await get_findings(connection, settings, filters, datetime.now(UTC))
+        if filters.mode == "persisted":
+            async with connect_admin(request) as admin:
+                return await persisted_page(
+                    admin, filters, datetime.now(UTC), connection, geo.ewkb if geo else None
+                )
+        return await get_findings(
+            connection, settings, filters, datetime.now(UTC), geo.ewkb if geo else None
+        )

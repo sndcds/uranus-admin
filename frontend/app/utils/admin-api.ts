@@ -168,7 +168,8 @@ export function createAdminApi(
       accessGeneration++
       credential = ''
     },
-    summary: (period: Period) => request('/api/v1/dashboard/summary', summarySchema, { period }),
+    summary: (period: Period, geo_scope_id?: string) =>
+      request('/api/v1/dashboard/summary', summarySchema, { period, geo_scope_id }),
     findings: (filters: FindingFilters) => request('/api/v1/findings', findingPageSchema, filters),
     missingGeolocation: (page = 1) =>
       request('/api/v1/quality/venues/missing-geolocation', findingPageSchema, { page }),

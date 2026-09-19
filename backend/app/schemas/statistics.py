@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from typing import Literal
+from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
@@ -13,6 +14,7 @@ StatisticsEntity = Literal[
 
 
 class StatisticsFilters(BaseModel):
+    geo_scope_id: UUID | None = None
     model_config = {"extra": "forbid"}
     period: StatisticsPeriod | None = None
     interval: Literal["auto", "15m", "1h", "6h", "1d"] = "auto"
@@ -38,6 +40,7 @@ class EntityTimePoint(BaseModel):
 
 
 class EntityTimeSeries(BaseModel):
+    scope: Literal["geo", "global"] = "global"
     entity_type: StatisticsEntity
     label: str
     total: int = Field(ge=0)
