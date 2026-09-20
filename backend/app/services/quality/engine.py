@@ -43,6 +43,7 @@ def findings_page(items: list[Finding], filters: FindingFilters, now: datetime) 
         and (filters.rule is None or item.rule == filters.rule)
         and (filters.organization_id is None or item.organization_id == filters.organization_id)
         and (filters.status is None or item.status == filters.status)
+        and (not filters.active_only or item.status != "resolved")
     ]
     items.sort(key=lambda item: (-item.priority_score, item.id))
     total = len(items)

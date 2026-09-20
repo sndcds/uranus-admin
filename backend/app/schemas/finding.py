@@ -34,6 +34,9 @@ class FindingFilters(BaseModel):
     rule: str | None = Field(default=None, max_length=100)
     organization_id: UUID | None = None
     status: FindingStatus | None = None
+    active_only: bool = Field(
+        default=False, description="Exclude resolved findings; retain all other workflow statuses."
+    )
     cursor: str | None = Field(default=None, max_length=16384)
     page: int = Field(default=1, ge=1, le=100_000)
     page_size: int = Field(default=50, ge=1, le=100)

@@ -110,6 +110,7 @@ const routes: Record<string, readonly string[]> = {
     'page_size',
   ],
   '/api/v1/findings': [
+    'active_only',
     'geo_scope_id',
     'cursor',
     'mode',

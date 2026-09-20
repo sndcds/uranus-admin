@@ -116,6 +116,12 @@ Prüfungen schließen abgedeckte Findings. Die persistierte Liste bietet open/in
 exception; Snooze braucht Ablauf, Ausnahme einen Grund. Zuweisung verlangt eine existierende
 User-UUID. Es gibt keinen manuellen resolved-Schalter. Reviews ändern keine Domain-Daten.
 
+Die Dashboard-Vorschau lädt `active_only=true`: alle gespeicherten Status außer
+`resolved`, einschließlich Zurückstellungen und Ausnahmen. Gesamtzahl und Links zur
+Arbeitsliste behalten diesen Filter sowie Severity und Geo Scope bei. `/findings`
+ohne diesen URL-Filter zeigt weiterhin die Historie; „Filter zurücksetzen“ entfernt
+auch die Einschränkung auf nicht behobene Befunde.
+
 Dashboard-/Finding-Stores schützen vor verspäteten Responses und entfernen Daten bei Authverlust.
 Neue Activity-/Queue-/Check-Seiten laden ausschließlich clientseitig, verwenden Request-IDs und
 verwerfen alte Daten beim Filter-/Zugangswechsel. Datumsanzeige Deutsch/Europe-Berlin; das
