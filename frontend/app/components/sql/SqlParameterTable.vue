@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { SqlDiagnosticDefinition } from '#shared/contracts'
-defineProps<{ parameters: SqlDiagnosticDefinition['parameters'] }>()
+import type { ProvenanceSource } from '#shared/sql-provenance'
+defineProps<{
+  parameters: SqlDiagnosticDefinition['parameters'] | ProvenanceSource['parameters']
+}>()
 function parameterType(value: unknown): string {
   if (value === null) return 'NULL'
   if (typeof value === 'boolean') return 'Boolean'
@@ -23,9 +26,12 @@ function display(value: unknown): string {
 </script>
 
 <template>
-  <section aria-label="Parameter" class="space-y-3">
-    <h3 class="font-semibold">Parameter</h3>
-    <div class="overflow-x-auto rounded-xl border border-slate-200">
+  <section aria-label="Parameter" class="space-y-2">
+    <div>
+      <h3 class="font-semibold text-slate-950">Parameter</h3>
+      <p class="text-xs text-slate-500">Die tatsächlich verwendeten Parameter für diese Abfrage.</p>
+    </div>
+    <div class="overflow-x-auto rounded-lg border border-slate-200">
       <table class="admin-table">
         <caption class="sr-only">
           Gebundene SQL-Parameter
@@ -42,7 +48,9 @@ function display(value: unknown): string {
             <th scope="row" class="font-mono text-xs break-all">{{ name }}</th>
             <td class="text-xs">{{ parameterType(value) }}</td>
             <td class="font-mono text-xs break-all">
-              {{ value === null ? 'NULL' : display(value) }}
+              <span v-if="value === null" class="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600"
+                >NULL</span
+              ><span v-else>{{ display(value) }}</span>
             </td>
           </tr>
         </tbody>

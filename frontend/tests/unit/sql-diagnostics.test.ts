@@ -12,6 +12,7 @@ import { AdminApiError, failure } from '../../shared/errors'
 import { findingSchema, sqlDiagnosticResultSchema } from '../../shared/contracts'
 import { createAdminApi } from '../../app/utils/admin-api'
 import { forwardAdminRequest } from '../../server/utils/admin-proxy'
+import { formatPostgresql } from '../../app/utils/sql-formatter'
 const api = { sqlDiagnostic: vi.fn(), executeSqlDiagnostic: vi.fn() }
 const finding = { ...findings.items[0]!, sql_diagnostic_available: true }
 const views: ReturnType<typeof mount>[] = []
@@ -88,10 +89,14 @@ describe('SQL editor', () => {
     expect(view.text()).toContain('READ ONLY')
     expect(view.text()).toContain(finding.entity_name)
     expect(view.text()).toContain('Parameter')
-    expect(view.get('code').text()).toBe(diagnosticDefinition.sql)
+    await vi.waitFor(() =>
+      expect(view.get('code').text()).toBe(formatPostgresql(diagnosticDefinition.sql)),
+    )
     expect(api.executeSqlDiagnostic).not.toHaveBeenCalled()
     await click(view, 'SQL kopieren')
-    expect(writeText).toHaveBeenCalledExactlyOnceWith(diagnosticDefinition.copy_sql)
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(
+      formatPostgresql(diagnosticDefinition.copy_sql),
+    )
     expect(view.text()).toContain('SQL kopiert')
     await click(view, 'Abfrage ausführen')
     expect(api.executeSqlDiagnostic).toHaveBeenCalledExactlyOnceWith(finding.id)
@@ -117,7 +122,7 @@ describe('SQL editor', () => {
       await click(view, 'Abfrage ausführen')
       expect(view.text()).toContain(message)
       expect(view.text()).toContain('Die Abfrage hat keine aktuellen Datensätze zurückgegeben.')
-      expect(view.text()).toContain('Finding zuletzt beobachtet')
+      expect(view.text()).toContain('Beobachtet:')
       expect(view.text()).toContain('Aktuelle Diagnose:')
     },
   )
@@ -143,7 +148,9 @@ describe('SQL editor', () => {
     first.resolve({ ...diagnosticDefinition, sql: 'STALE A' })
     await flushPromises()
     expect(view.text()).toContain('Finding B')
-    expect(view.get('code').text()).toBe(diagnosticDefinition.sql)
+    await vi.waitFor(() =>
+      expect(view.get('code').text()).toBe(formatPostgresql(diagnosticDefinition.sql)),
+    )
   })
   it('discards a late execution when A is replaced by B', async () => {
     const first = deferred<typeof diagnosticResult>()
@@ -166,7 +173,9 @@ describe('SQL editor', () => {
     await open(view)
     expect(view.get('[role="alert"]').text()).toContain('Keine SQL-Diagnose verfügbar.')
     await click(view, 'Erneut versuchen')
-    expect(view.get('code').text()).toBe(diagnosticDefinition.sql)
+    await vi.waitFor(() =>
+      expect(view.get('code').text()).toBe(formatPostgresql(diagnosticDefinition.sql)),
+    )
     expect(api.executeSqlDiagnostic).not.toHaveBeenCalled()
   })
   it('disables execution while pending and shows a safe timeout', async () => {
@@ -188,13 +197,43 @@ describe('SQL editor', () => {
     const view = mount(SqlCodeEditor, { props: { sql } })
     views.push(view)
     await vi.waitFor(() => expect(view.find('.token.keyword').exists()).toBe(true))
-    expect(view.get('code').element.textContent).toBe(sql)
+    expect(view.get('code').element.textContent).toBe(formatPostgresql(sql))
     expect(view.get('.token.parameter').text()).toBe(':entity_key')
     expect(view.find('img').exists()).toBe(false)
-    expect(view.get('[aria-hidden="true"]').classes()).toContain('select-none')
+    expect(view.get('[aria-hidden="true"].select-none').classes()).toContain('select-none')
     await view.setProps({ sql: 'SELECT false' })
     await flushPromises()
-    expect(view.get('code').text()).toBe('SELECT false')
+    await vi.waitFor(() => expect(view.get('code').text()).toBe(formatPostgresql('SELECT false')))
+  })
+  it('shares the workspace layout, switches context, renders JSON and downloads loaded rows', async () => {
+    const view = setup()
+    await open(view)
+    expect(view.get('.sql-workspace').classes()).toContain('md:grid-cols-[260px_minmax(0,1fr)]')
+    expect(view.get('aside').text()).toContain(finding.entity_name)
+    expect(view.get('main').text()).toContain('SQL Abfrage')
+    expect(view.get('a[target="_blank"]').attributes('href')).toContain('#sql-editor=')
+    await click(view, 'Befund-Details')
+    expect(view.get('section[aria-label="Befund-Details"]').text()).toContain(finding.message)
+    await click(view, 'Regel-Informationen')
+    expect(view.get('section[aria-label="Regel-Informationen"]').text()).toContain(
+      diagnosticDefinition.explanation,
+    )
+    await click(view, 'Historie')
+    expect(view.get('section[aria-label="Historie"]').text()).toContain('Erstmals beobachtet')
+    await click(view, 'SQL Editor')
+    await click(view, 'Abfrage ausführen')
+    await click(view, 'JSON')
+    await vi.waitFor(() => expect(view.find('.language-json .property').exists()).toBe(true))
+    expect(JSON.parse(view.get('.language-json').text())).toEqual(diagnosticResult.rows)
+    expect(view.find('[aria-label="Ergebnistabelle"]').exists()).toBe(false)
+    await click(view, 'Tabellarisch')
+    expect(view.get('[aria-label="Ergebnistabelle"]').text()).toContain('point_missing')
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fixture')
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    await click(view, 'Als CSV herunterladen')
+    expect(create).toHaveBeenCalledOnce()
+    expect(await (create.mock.calls[0]![0] as Blob).text()).toContain('point_missing')
+    expect(api.executeSqlDiagnostic).toHaveBeenCalledTimes(1)
   })
   it('derives parameter types without changing values', () => {
     const view = mount(SqlParameterTable, {

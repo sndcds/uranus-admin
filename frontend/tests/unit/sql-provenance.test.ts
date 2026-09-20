@@ -11,6 +11,7 @@ import { createAdminApi } from '../../app/utils/admin-api'
 import { findings } from '../fixtures/api'
 import { filtersSchema } from '../../shared/contracts'
 
+import { formatPostgresql } from '../../app/utils/sql-formatter'
 const definition = provenanceDefinitionSchema.parse(fixtures.dashboard)
 const source = definition.sources[0]!
 const result = {
@@ -61,27 +62,53 @@ it('loads only on demand, copies a query and isolates source results and errors'
   await flushPromises()
   expect(api.provenance).toHaveBeenCalledExactlyOnceWith('dashboard', { period: '24h' })
   expect(api.executeProvenance).not.toHaveBeenCalled()
+  expect(view.get('.sql-workspace').classes()).toContain('md:grid-cols-[260px_minmax(0,1fr)]')
   expect(view.text()).toContain('Uranus · READ ONLY')
-  expect(view.text()).toContain('Admin · READ ONLY')
-  const panels = view.findAll('section').filter((item) => item.find('code').exists())
-  expect(panels[0]!.get('[aria-label="SQL-Abfrage, Nur-Lese-Modus"] code').text()).toBe(source.sql)
-  await panels[0]!.findAll('button')[0]!.trigger('click')
-  await flushPromises()
-  expect(writeText).toHaveBeenCalledExactlyOnceWith(source.copy_sql)
-  await panels[0]!.findAll('button')[1]!.trigger('click')
-  await flushPromises()
+  expect(view.findAll('code')).toHaveLength(1)
+  await vi.waitFor(() => expect(view.get('code').text()).toBe(formatPostgresql(source.sql)))
+  const click = async (text: string) => {
+    await view
+      .findAll('button')
+      .find((button) => button.text() === text)!
+      .trigger('click')
+    await flushPromises()
+  }
+  await click('SQL kopieren')
+  expect(writeText).toHaveBeenCalledExactlyOnceWith(formatPostgresql(source.copy_sql!))
+  await click('Abfrage ausführen')
   expect(api.executeProvenance).toHaveBeenCalledExactlyOnceWith(
     'dashboard',
     source.id,
     definition.parameters,
   )
-  expect(panels[0]!.get('table').text()).toContain('venue')
-  expect(panels[0]!.findAll('th').map((column) => column.text())).toEqual(['kind', 'count'])
+  expect(view.get('[aria-label="Ergebnistabelle"]').text()).toContain('venue')
   api.executeProvenance.mockRejectedValue(new AdminApiError(failure(504, 'diagnostic_timeout')))
-  await panels[1]!.findAll('button')[1]!.trigger('click')
+  await view.findAll('[role="tab"]')[1]!.trigger('click')
   await flushPromises()
-  expect(panels[1]!.get('[role="alert"]').text()).toContain('Zeitlimit')
-  expect(panels[0]!.get('table').text()).toContain('venue')
+  expect(view.findAll('code')).toHaveLength(1)
+  await click('Abfrage ausführen')
+  expect(view.get('[role="alert"]').text()).toContain('Zeitlimit')
+  await view.findAll('[role="tab"]')[0]!.trigger('click')
+  await flushPromises()
+  expect(view.get('[aria-label="Ergebnistabelle"]').text()).toContain('venue')
+  expect(view.text()).toContain('Nachbearbeitung')
+  await view.findAll('[role="tab"]')[0]!.trigger('keydown', { key: 'End' })
+  expect(view.findAll('[role="tab"]').at(-1)!.attributes('aria-selected')).toBe('true')
+  view.unmount()
+})
+it('keeps documentary sources read-only without an execution action', async () => {
+  const view = mount(SqlProvenanceDrawer, {
+    props: { view: 'dashboard', parameters: {} },
+    global: { stubs },
+  })
+  await view.vm.open()
+  await flushPromises()
+  const index = definition.sources.findIndex((source) => !source.executable)
+  await view.findAll('[role="tab"]')[index]!.trigger('click')
+  await flushPromises()
+  expect(view.text()).toContain('Diese Datenherkunft ist nur dokumentarisch.')
+  expect(view.findAll('button').some((button) => button.text() === 'Abfrage ausführen')).toBe(false)
+  expect(api.executeProvenance).not.toHaveBeenCalled()
   view.unmount()
 })
 it('discards a late definition after close', async () => {

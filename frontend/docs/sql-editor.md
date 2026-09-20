@@ -1,75 +1,150 @@
-# Finding SQL Editor
+# Shared SQL workspace
 
-The shared FindingsList opens a dedicated read-only SQL Editor from both the prioritized
-work list and `/findings`. AppModal's existing `wide` prop provides `max-w-5xl`, viewport
-width minus 2rem and `max-h-[90dvh]` with vertical scrolling. Other modals retain their
-existing width. The native dialog preserves focus trapping, Escape and trigger focus return.
+Finding SQL Editor/Diagnostics and SQL / Datenherkunft/Provenance use the same
+`SqlWorkspaceModal`, `SqlQueryPanel`, `SqlCodeEditor`, `SqlParameterTable`,
+`SqlResultTable`, `SqlJsonResult` and `SqlReadonlyNotice`. `SqlSourceTabs` selects one
+provenance query at a time. The former vertical finding card and stacked provenance
+code boxes are replaced; both existing controllers retain their execution contracts.
+FindingDetail continues to link to the editor, with no second inline SQL renderer.
 
-Finding context, query, bound parameters, results and rule evaluation follow one vertical
-flow. Unsupported and live findings retain **Ansehen**; supported findings expose **SQL
-Editor →** and secondary **Details**. FindingDetail links to the same editor instead of
-embedding a second diagnostic UI. Resolved findings remain diagnosable; last finding
-observation and current diagnostic time are shown separately.
+## Layout and mockup
 
-Definitions load only after opening; queries never run automatically. Closing/unmounting
-clears local state and invalidates pending definition, execution and clipboard feedback.
-Switching findings uses the same revision guard. Copy writes `definition.copy_sql` without
-line numbers or markup and shows feedback for 2.5 seconds. Execution still calls
-`executeSqlDiagnostic(finding.id)` and sends exactly `{"finding_id":"…"}`.
+The SQL-only AppModal variant is `max-w-5xl`, viewport width/height minus 2rem,
+with a database icon, subtitle and native close control. At desktop widths its grid is
+`260px minmax(0, 1fr)`: finding/source context and navigation on the left, then SQL,
+parameters, results, and optional rule evaluation/postprocessing on the right. The
+read-only notice sits at the bottom left. The dark slate editor has numbered lines,
+fuchsia keywords, a 256px minimum height and a 384px maximum height; longer content
+scrolls. On desktop the right pane scrolls independently so the context and notice remain
+visible. Copy and fuchsia execution actions sit above it. Other modals retain their
+normal size and padding.
 
-`sql_diagnostic_available` is the only API addition. Persisted responses derive it from the
-existing registry's rule/type/field/key checks, without running SQL. Live findings default
-false; older responses without the flag also fall back to false in Zod. Existing API-client
-and Nitro response validation share that schema; routes, request allowlists and execution
-payloads are unchanged. The flag is presentation metadata, never authorization.
+Below the desktop breakpoint the order is header, context, navigation, query,
+parameters, result/evaluation, notice. Long code and tables scroll inside their own
+containers; they do not widen the dialog. The native dialog retains Escape, focus
+trapping and focus return. Source tabs support arrows, Home and End. Line numbers are
+hidden from assistive technology and excluded from text selection.
 
-## Highlighting and dependency audit
+The reference mockup determines layout and placement. The existing design system's
+1024px maximum width, fonts, buttons and badges are retained. The actual registered
+recipe determines columns and rows: no invented organization joins or sample results
+are added to application behavior. Separate Python rule evaluation remains visible
+below the result. Provenance adds its source selector and postprocessing.
 
-- Runtime: **prismjs 1.30.0**, MIT; development types: **@types/prismjs 1.26.6**, MIT.
-- [Prism tokenization](https://prismjs.com/docs/prism) provides structured tokens. Vue renders
-  escaped text spans; no `v-html`, DOM mutation, CDN, eval or CSP exception.
-- Only `prism-core` and `prism-sql` are imported. SQL covers the registered PostgreSQL
-  statements; an additional token recognizes named SQLAlchemy parameters without confusing
-  PostgreSQL `::` casts. No other languages, themes or editor runtime are bundled.
-- The highlighter helper is dynamically imported on mounting SqlCodeEditor, after the modal
-  opens and its definition arrives. Normal work-list loading does not fetch the highlighter.
-- Production measurement: the separate highlighter chunk including the token adapter is
-  **11,579 bytes minified / 5,436 bytes gzip**. These are the added highlighting payload,
-  not a claim about the whole application bundle delta.
-- Vite prebundles the two CommonJS entry points in development to avoid a full-page
-  optimizer reload on first opening. This does not preload them in the browser.
-- SSR starts with plain SQL; highlighting begins only onMounted. Failed chunk loads leave
-  the full SQL readable. Code remains a continuous accessible text block; line numbers are
-  separate, aria-hidden and unselectable.
-- SqlCodeEditor accepts generic `sql` and `readonly?: true`. A future editable mode can
-  extend the component deliberately; this phase has no mutable SQL model or edit event.
+Finding navigation exposes details, the rule explanation, a link to existing marks
+and notes, and known observation/review/resolution timestamps. Unknown dates stay
+unknown. “In neuem Tab öffnen” links to the authenticated, filtered `/findings` page
+with an encoded finding identity in the fragment. Only a supported finding returned
+by that list can open; the fragment never contains SQL, parameters or results.
+Provenance context exposes the view, source, endpoint, actual filters and metadata.
+Results are retained per visited source until the workspace closes.
 
-The app currently uses a light UI; the code surface uses a fixed dark slate palette.
-This change does not add global theme support.
+## Formatting, copying and execution
 
-## Validation
+The existing dependency audit found Prism but no SQL formatter. The workspace uses
+[sql-formatter 15.8.2](https://github.com/sql-formatter-org/sql-formatter), MIT, with its
+PostgreSQL dialect and `formatDialect` entry point (other dialects are tree-shaken).
 
-Unit tests cover capability-dependent actions, width, lazy loading, escaped structured
-highlighting, parameter types, raw Copy SQL, ID-only execution, safe errors/retry, empty
-results, resolved/unknown rule evaluation, close/reset and stale definition/execution races.
-Existing client/proxy tests reject arbitrary SQL, parameter, recipe and limit overrides.
+```text
+server sql      → PostgreSQL formatter → plain text → Prism SQL tokens → display
+server copy_sql → PostgreSQL formatter → plain text → clipboard
+finding ID / existing provenance parameters → unchanged API execution method
+```
 
-`tests/e2e/sql-diagnostics.spec.ts` exercises both work-list entry points on desktop and
-mobile, native focus behavior, overflow containment, copy, execution and reset. It emits
-`sql-editor-modal.png` as a Playwright artifact; fixtures are synthetic, never live data.
-Production runs exercise the same flow plus the existing enforcing-CSP regression.
+`SQL kopieren` **copies formatted `copy_sql`**, preserving the server's literal and
+parameter binding choices. It never copies display SQL in place of that contract,
+HTML or line numbers. Clipboard feedback expires after 2.5 seconds. Only local
+component state caches a formatted copy for a stable input; close clears it.
 
-There are no source queries, recipe changes, migrations, grants, database rights or
-schema changes in this redesign. Backend changes only enrich the Finding response.
+Formatting uses four spaces, separate SELECT columns, uppercase keywords and a
+110-character expression-width target. FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY
+and LIMIT begin their own lines. ON and multiline AND/OR are indented; CTEs, CASE,
+EXISTS and subqueries use the library's PostgreSQL layout. Long identifiers, literals
+and URLs remain intact, so the width target is deliberately not a hard wrap.
 
-Reviewed production screenshots with synthetic fixtures:
-[Desktop](screenshots/sql-editor/desktop.png) · [Mobile](screenshots/sql-editor/mobile.png).
+Before:
 
-Local checks: frozen install, ESLint, Nuxt typecheck, 382 unit tests and production build.
-Backend: Ruff, format check, mypy, 860 tests passed; 703 database integration tests skipped
-because no disposable `TEST_DATABASE_URL` was configured. Backend OpenAPI equality passed.
-Browser verification uses isolated local ports to avoid another worktree's running servers;
-that temporary test configuration is not part of the change.
-The affected Chromium suites passed on desktop and mobile: 22 development tests and
-24 production tests, including CSP. Development prebundling also covers the first modal
-opening without a dependency-optimizer page reload.
+```sql
+SELECT uuid,event_uuid,start_date FROM uranus.event_date WHERE uuid = :entity_key LIMIT :diagnostic_limit
+```
+
+After:
+
+```sql
+SELECT
+    uuid,
+    event_uuid,
+    start_date
+FROM uranus.event_date
+WHERE uuid = :entity_key
+LIMIT :diagnostic_limit;
+```
+
+The library's PostgreSQL lexer verifies tokens before/after formatting, including
+named binds, `::` casts, quoted identifiers, dollar strings and nested comments.
+Small whitespace-only layout adjustments use lexer positions, never replacements
+inside literals. PostgreSQL's newline-sensitive adjacent string literals are guarded.
+Unsupported syntax, token changes, excessive input or failed optional imports retain
+readable original text. The formatter is never called by execution handlers.
+
+`executeSqlDiagnostic(finding.id)` still sends exactly `{"finding_id":"…"}`.
+Provenance still calls `executeProvenance(view, source.id, definition.parameters)`.
+No automatic execution, new endpoint, free SQL console, WSS, grants, recipes,
+backend schemas, auth, CSRF, CSP or source connections are changed. Existing
+capability-dependent list actions and resolved-finding diagnostics are preserved.
+
+## Parameters and results
+
+Both workspaces use Name/Typ/Wert parameter tables, including UUID, Integer, Boolean,
+Date, DateTime, String, NULL and structured JSON parameters where provenance supplies
+them. NULL has a compact chip and long values wrap within the table.
+
+Results show row count, elapsed time and observation time. The compact semantic table
+has a sticky header, horizontal scrolling, NULL/boolean chips and truncated cells
+with their full value in a title tooltip. The JSON toggle shows exactly the received
+rows in a dark surface using **Prism's JSON grammar**, separately from SQL.
+CSV is generated from received columns and rows only, with quoted fields, CRLF and
+UTF-8 BOM. Potential spreadsheet formulas in source strings are prefixed with an
+apostrophe; numeric negatives remain numeric. There is no export request or endpoint.
+Documentary sources omit execution and explain that no result can be requested.
+
+## Loading, highlighting and bundle
+
+- Highlighter: **prismjs 1.30.0**, MIT; types **@types/prismjs 1.26.6**.
+- Vue renders escaped token text: no `v-html`, DOM mutation, eval or CSP exception.
+- Formatter and SQL/JSON grammars load dynamically on demand; closed dialogs do not
+  initialize them. SSR initially renders readable plain text. Watchers run only for
+  changed input, and revision guards discard stale work.
+- Vite prebundles the optional libraries in development to avoid a first-open optimizer
+  reload. This does not make them eager browser imports in the production build.
+- Production comparison against fresh main `e7a48b30bcbd1ddd6629c43474edd93b40a9ecfa`:
+  all emitted client JavaScript totals **725,644 → 810,978 bytes** minified and
+  **268,147 → 292,553 bytes** gzip (delta **24,406 bytes gzip**). CSS totals
+  **45,971 → 48,830 bytes**. Gzip is summed per emitted file; these totals are not
+  the initial page payload.
+- The lazy PostgreSQL formatter chunk is **69,876 bytes minified / 19,495 bytes gzip**.
+  The remainder includes shared UI, JSON grammar and changed chunk boundaries.
+
+## Verification and screenshots
+
+Unit coverage includes the exact formatting example, JOIN/CTE/CASE/EXISTS, casts,
+parameters, quoted names, literals/URLs, comments, all registry fixtures, safe fallback,
+formatted copying, execution payloads, source isolation, tab keyboard navigation,
+JSON/CSV, errors, resolved/unsupported findings, reset and stale responses.
+
+Playwright covers both entry points and provenance views on desktop and mobile,
+checks the two-column geometry, SQL → parameters → result order, new-tab navigation,
+focus behavior, overflow, copy, JSON/CSV and production CSP. Screenshot fixtures are
+synthetic and do not establish a live source schema or deployed behavior.
+
+- Finding: [Desktop](screenshots/sql-editor/desktop.png) · [Mobile](screenshots/sql-editor/mobile.png)
+- Provenance: [Desktop](screenshots/sql-provenance/desktop.png) · [Mobile](screenshots/sql-provenance/mobile.png)
+
+No migrations, grants or worker deployment steps are required. Backend/database
+integration tests are outside this frontend-only change; browser mocks do not replace
+them. This PR is not a deployment.
+
+Validated locally: frozen dependency install, ESLint, Nuxt typecheck, 402 unit tests,
+production build, 14 targeted development Chromium tests, and the complete production
+Chromium suite (216 passed, none skipped), including CSP and shared desktop/mobile
+layout checks. Documentation formatting, relative links and `git diff --check` pass.

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
+import SqlEditorModal from '~/components/sql/SqlEditorModal.vue'
+import { sqlFindingFromHash } from '~/utils/sql-finding-link'
 import InlineAlert from '~/components/InlineAlert.vue'
 import type { FindingFilters } from '#shared/contracts'
 import { filtersSchema } from '#shared/contracts'
@@ -8,6 +11,12 @@ const router = useRouter()
 const store = useFindingsStore()
 const { $adminApi } = useNuxtApp()
 const invalidQuery = ref(false)
+const linkedSqlEditor = useTemplateRef<InstanceType<typeof SqlEditorModal>>('linkedSqlEditor')
+function openLinkedSql() {
+  const finding = sqlFindingFromHash(route.hash ?? '', store.data?.items ?? [])
+  if (finding) linkedSqlEditor.value?.open(finding)
+}
+watch(() => route.hash, openLinkedSql)
 const severityCounts = computed(() => {
   const items = store.data?.items ?? []
   return [
@@ -37,6 +46,7 @@ async function loadRoute() {
   }
   store.syncQuery(parsed)
   await store.load($adminApi)
+  openLinkedSql()
 }
 onMounted(loadRoute)
 watch(() => route.query, loadRoute)
@@ -50,6 +60,7 @@ function page(value: number) {
 
 <template>
   <section class="space-y-5">
+    <SqlEditorModal ref="linkedSqlEditor" />
     <PageHeader
       title="Priorisierte Arbeitsliste"
       description="Befunde filtern, einordnen und bearbeiten."

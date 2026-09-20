@@ -8,7 +8,14 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
     // Prebundle these CJS entry points in dev to avoid a full-page optimizer reload
     // on first opening the lazy editor. Production/client loading remains lazy.
-    optimizeDeps: { include: ['prismjs/components/prism-core', 'prismjs/components/prism-sql'] },
+    optimizeDeps: {
+      include: [
+        'prismjs/components/prism-core',
+        'prismjs/components/prism-sql',
+        'prismjs/components/prism-json',
+        'sql-formatter',
+      ],
+    },
   },
   devtools: { enabled: false },
   typescript: { strict: true },

@@ -11,13 +11,13 @@ function display(value: unknown): string {
 <template>
   <p
     v-if="!rows.length"
-    class="rounded-xl border border-dashed border-slate-200 p-4 text-slate-500"
+    class="rounded-lg border border-dashed border-slate-200 p-4 text-slate-500"
   >
     Die Abfrage hat keine aktuellen Datensätze zurückgegeben.
   </p>
   <div
     v-else
-    class="max-h-80 overflow-auto rounded-xl border border-slate-200"
+    class="max-h-80 overflow-auto rounded-lg border border-slate-200"
     tabindex="0"
     role="region"
     aria-label="Ergebnistabelle"
@@ -28,12 +28,7 @@ function display(value: unknown): string {
       </caption>
       <thead class="sticky top-0">
         <tr>
-          <th
-            v-for="column in columns"
-            :key="column"
-            scope="col"
-            class="whitespace-nowrap font-mono text-xs"
-          >
+          <th v-for="column in columns" :key="column" scope="col" class="whitespace-nowrap text-xs">
             {{ column }}
           </th>
         </tr>
@@ -43,14 +38,15 @@ function display(value: unknown): string {
           <td
             v-for="column in columns"
             :key="column"
-            class="max-w-80 break-words font-mono text-xs tabular-nums"
+            class="max-w-48 truncate text-xs tabular-nums"
+            :title="display(row[column])"
           >
             <StatusBadge v-if="row[column] === null" label="NULL" />
             <StatusBadge
               v-else-if="typeof row[column] === 'boolean'"
               :label="String(row[column])"
             />
-            <span v-else class="whitespace-pre-wrap">{{ display(row[column]) }}</span>
+            <span v-else>{{ display(row[column]) }}</span>
           </td>
         </tr>
       </tbody>
