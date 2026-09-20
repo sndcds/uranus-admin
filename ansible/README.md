@@ -217,6 +217,50 @@ ASCII-Zeichen ohne Leerzeichen, URL-kodiert). Keine Inventory-/CLI-Secrets und k
 Fallbacks auf Source/Admin-DSNs. `no_log`, keine Secret-Diffs, keine automatische
 Rotation. Frontend erhält keine DSN. Keine Secret-Generation bei jedem Deployment.
 
+#### Lesender Diagnoseexport bei Console-Blockern
+
+Für einen freigegebenen Katalogabgleich kann unabhängig von Release-Artefakt,
+Runtime-/Operator-Environment und Deployment ein Diagnoseexport ausgeführt werden:
+
+```sh
+export ANSIBLE_CONFIG="$PWD/ansible/ansible.cfg"
+uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.local.yml ansible/sql-console-audit.yml
+```
+
+Der Aufruf verwendet dieselbe SSH-Verbindung wie das Deployment und auf dem Ziel
+`become_user: postgres`, `/usr/bin/python3` mit psycopg2 sowie den festen lokalen
+Socket `/var/run/postgresql`, Port 5432, Datenbank `oklab`. Er benötigt keine DSN
+und liest keine Environment-Dateien. Die Datenbanktransaktion ist **READ ONLY /
+REPEATABLE READ**, mit 10 Sekunden Statement- und 2 Sekunden Lock-Timeout.
+Katalogblocker verhindern den Export nicht; Verbindungs-/Abfragefehler bleiben Fehler.
+Keine Provisionierung, Grants, Migrationen, Service- oder Deployment-Aktionen.
+Ansible kann wie beim Preflight temporäre Transferdateien auf dem Ziel benötigen.
+
+Der Controller speichert pro Inventory-Host
+`ansible/sql-console-audit.local/<inventory_hostname>.json` (Datei 0600,
+Verzeichnis 0700, gitignored). Ein erneuter Export ersetzt die vorherige Datei
+desselben Hosts. `--check` liest die Kataloge ebenfalls, speichert aber keine Datei;
+die Zusammenfassung weist dies mit `saved: false` aus. Zum Sammeln der Diagnose
+deshalb den obigen Aufruf ohne `--check` verwenden. Die Terminalausgabe enthält nur
+Blockerkategorien und den lokalen Dateipfad.
+
+Der JSON-Bericht enthält den bisherigen Plan, Rollenattribute und Memberships,
+Extension-Versionen/-Eigentümer, Katalog-Fingerprints und die einzelnen Nicht-Core-
+Funktionssignaturen mit Definitions-Hashes, Eigentümern und EXECUTE-ACLs. Für
+PostGIS-Metadaten stehen tatsächliche und erwartete Definitions-Hashes,
+`owner_matches_extension`, `definition_matches_contract`, fehlende Objekte und
+Strukturmerkmale separat bereit. Damit lassen sich Eigentümer- und
+Definitionsabweichungen sowie deren Folgeblocker unterscheiden.
+
+Keine Anwendungszeilen, Passwörter, Funktions-/View-SQL-Texte oder rohen
+Konfigurationswerte werden ausgegeben. Auch Funktionsdefinitionen können Secrets
+enthalten; sie werden deshalb nur gehasht. Die interne Rollen-/Objektinventur
+trotzdem vertraulich behandeln. Definitionen anschließend gegen den zugehörigen
+Quellstand bzw. eine isolierte Paket-Referenzinstallation prüfen; ein Hash allein
+beweist keine sichere Implementierung. Der Bericht enthält Erfassungszeit und
+Vertrags-Hash, er **aktualisiert oder genehmigt keinen Vertrag**. Unbekannte Rollen,
+Extensions und Funktionen bleiben bis zum geprüften Vertragsupdate blockiert.
+
 Beispiel eines gekürzten **Plans**, keine Aussage über Production:
 
 ```yaml

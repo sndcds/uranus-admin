@@ -3,3 +3,4 @@ approvals.local.yml
 .venv/
 __pycache__/
 *.tar.gz
+sql-console-audit.local/

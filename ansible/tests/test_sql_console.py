@@ -244,6 +244,60 @@ class ConsoleDatabaseTests(unittest.TestCase):
         self.boundary = console.Boundary(self.conn, CONTRACT)
         self.boundary.execute("SET LOCAL search_path=pg_catalog")
 
+    def test_audit_exports_unknown_catalog_evidence_without_mutation_or_literals(self):
+        # Committed synthetic objects are visible to a separate genuinely read-only
+        # connection. Cleanup runs even if the audit assertions fail.
+        self.boundary.execute("CREATE ROLE audit_extra2 LOGIN NOINHERIT")
+        self.boundary.execute("CREATE EXTENSION pg_trgm")
+        self.boundary.execute("""CREATE FUNCTION public.audit_literal() RETURNS text
+            LANGUAGE sql AS $$ SELECT 'audit-secret-literal'::text $$""")
+        self.boundary.execute("ALTER VIEW public.geometry_columns OWNER TO audit_extra2")
+        self.boundary.execute("ALTER TABLE public.spatial_ref_sys SET (autovacuum_enabled=false)")
+        self.conn.commit()
+        try:
+            with psycopg2.connect(**self.connection_args) as reader:
+                reader.set_session(readonly=True, isolation_level="REPEATABLE READ")
+                audit = console.Boundary(reader, CONTRACT).audit()
+                with reader.cursor() as cur:
+                    cur.execute("SHOW transaction_read_only")
+                    self.assertEqual(cur.fetchone()[0], "on")
+                    cur.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (console.READER,))
+                    self.assertIsNone(cur.fetchone())
+                    cur.execute("SELECT to_regnamespace('uranus_console')")
+                    self.assertIsNone(cur.fetchone()[0])
+            serialized = json.dumps(audit)
+            self.assertNotIn("audit-secret-literal", serialized)
+            self.assertNotIn("fixture-secret", serialized)
+            self.assertIn("unreviewed_extension:pg_trgm", audit["plan"]["blockers"])
+            self.assertIn("audit_extra2", {r["name"] for r in audit["roles"]})
+            custom = next(f for f in audit["functions"] if f["name"] == "audit_literal")
+            self.assertRegex(custom["definition_sha256"], r"^[a-f0-9]{64}$")
+            self.assertIn({"role": "PUBLIC", "grant_option": False}, custom["execute_grants"])
+            metadata = {m["name"]: m for m in audit["postgis_metadata"]}
+            self.assertFalse(metadata["geometry_columns"]["owner_matches_extension"])
+            self.assertEqual(metadata["geometry_columns"]["owner"], "audit_extra2")
+            self.assertTrue(metadata["geometry_columns"]["definition_matches_contract"])
+            self.assertFalse(metadata["spatial_ref_sys"]["definition_matches_contract"])
+            self.assertTrue(metadata["spatial_ref_sys"]["owner_matches_extension"])
+            self.assertEqual(audit["missing_postgis_metadata"], [])
+            self.assertGreater(audit["blocker_counts"]["unreviewed_function_path"], 0)
+            # The export did not repair any of the deliberately unreviewed objects.
+            self.assertEqual(
+                self.boundary.rows(
+                    "SELECT pg_get_userbyid(relowner) FROM pg_class "
+                    "WHERE oid='public.geometry_columns'::regclass"
+                ),
+                [("audit_extra2",)],
+            )
+        finally:
+            self.conn.rollback()
+            self.boundary.execute("ALTER VIEW public.geometry_columns OWNER TO postgres")
+            self.boundary.execute("ALTER TABLE public.spatial_ref_sys RESET (autovacuum_enabled)")
+            self.boundary.execute("DROP FUNCTION public.audit_literal()")
+            self.boundary.execute("DROP EXTENSION pg_trgm")
+            self.boundary.execute("DROP ROLE audit_extra2")
+            self.conn.commit()
+
     def tearDown(self):
         self.conn.rollback()
         # Only the subprocess fixture test commits. Cleanup its own known console roles.

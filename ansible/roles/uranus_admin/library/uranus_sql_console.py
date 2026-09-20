@@ -12,6 +12,7 @@ import hmac
 import json
 import re
 import secrets
+from datetime import UTC, datetime
 from urllib.parse import unquote, urlsplit
 
 import psycopg2
@@ -244,7 +245,7 @@ def restricted_function(function, policy):
     )
 
 
-def postgis_metadata(connection):
+def postgis_metadata(connection, include_details=False):
     with connection.cursor() as cur:
         cur.execute("""
             SELECT c.oid,n.nspname,c.relname,c.relowner,
@@ -261,10 +262,28 @@ def postgis_metadata(connection):
             WHERE e.extname='postgis' AND c.relkind IN ('r','p','v','m','f','S')
             ORDER BY n.nspname,c.relname
         """)
-        return [
-            dict(oid=o, schema=n, name=t, owner=r, definition_sha256=catalog_digest(v))
-            for o, n, t, r, v in cur.fetchall()
-        ]
+        result = []
+        for oid, schema, name, owner, value in cur.fetchall():
+            entry = dict(
+                oid=oid,
+                schema=schema,
+                name=name,
+                owner=owner,
+                definition_sha256=catalog_digest(value),
+            )
+            if include_details:
+                # Do not export SQL definitions or option values: even catalog
+                # definitions can contain embedded credentials or other literals.
+                entry["structure"] = dict(
+                    kind=value[0],
+                    row_security=value[1],
+                    force_row_security=value[2],
+                    options_sha256=catalog_digest(value[3]),
+                    view_definition_sha256=catalog_digest(value[4]),
+                    columns=value[5],
+                )
+            result.append(entry)
+        return result
 
 
 class Boundary:
@@ -287,6 +306,156 @@ class Boundary:
 
     def action(self, label, query, args=()):
         self.actions.append((label, query, args))
+
+    def audit(self):
+        """Collect review evidence only; never accept it as a new contract.
+
+        Run in the same read-only snapshot as the plan. Definitions are hashed,
+        not exported. No domain rows or password values are read; role settings
+        inspected by the plan are not exported.
+        """
+        require(
+            self.rows("SELECT current_setting('transaction_read_only')")[0][0] == "on",
+            "audit_requires_read_only_transaction",
+        )
+        plan = self.inspect()
+        role_rows = self.rows("""SELECT oid,rolname,rolcanlogin,rolsuper,rolcreatedb,
+            rolcreaterole,rolreplication,rolbypassrls,rolinherit
+            FROM pg_roles ORDER BY rolname""")
+        names = {r[0]: r[1] for r in role_rows}
+        memberships = [
+            dict(
+                member=names[member],
+                role=names[role],
+                grantor=names[grantor],
+                admin_option=admin,
+                inherit_option=inherit,
+                set_option=set_role,
+            )
+            for member, role, grantor, admin, inherit, set_role in self.rows("""
+                SELECT member,roleid,grantor,admin_option,inherit_option,set_option
+                FROM pg_auth_members ORDER BY member,roleid,grantor""")
+        ]
+        roles = [
+            dict(
+                zip(
+                    (
+                        "name",
+                        "login",
+                        "superuser",
+                        "create_db",
+                        "create_role",
+                        "replication",
+                        "bypass_rls",
+                        "inherit",
+                    ),
+                    row[1:],
+                    strict=True,
+                )
+            )
+            for row in role_rows
+        ]
+        extensions = [
+            dict(name=name, version=version, schema=schema, owner=names[owner])
+            for name, version, schema, owner in self.rows("""
+                SELECT e.extname,e.extversion,n.nspname,e.extowner
+                FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace
+                ORDER BY e.extname""")
+        ]
+        version = next((e["version"] for e in extensions if e["name"] == "postgis"), None)
+        snapshot = function_snapshot(self.contract, self.conn.server_version // 10000, version)
+        functions = function_catalog(self.conn)
+        groups = {}
+        for function in functions:
+            group = function["extension"] or (
+                "core" if function["schema"] in {"pg_catalog", "information_schema"} else "custom"
+            )
+            groups.setdefault(group, []).append(function)
+        catalogs = {
+            name: dict(
+                functions=len(members),
+                catalog_sha256=function_set_digest(members),
+                expected_catalog_sha256=snapshot.get(name, {}).get("catalog_sha256"),
+            )
+            for name, members in sorted(groups.items())
+        }
+        grants = {}
+        for oid, grantee, grantable in self.rows("""
+            SELECT p.oid,a.grantee,a.is_grantable FROM pg_proc p,
+            LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+            WHERE a.privilege_type='EXECUTE' ORDER BY p.oid,a.grantee"""):
+            grants.setdefault(oid, []).append(
+                dict(
+                    role="PUBLIC" if grantee == 0 else names[grantee],
+                    grant_option=grantable,
+                )
+            )
+        # Core fingerprints and restricted core ACLs already appear in catalogs/plan.
+        # Include every non-core function, including custom trigger/type helpers.
+        details = []
+        for function in functions:
+            if function["extension"] is None and function["schema"] in {
+                "pg_catalog",
+                "information_schema",
+            }:
+                continue
+            # Explicit export fields prevent future catalog-reader additions from
+            # accidentally publishing definition text or configuration values.
+            entry = {
+                key: function[key]
+                for key in (
+                    "schema",
+                    "name",
+                    "arguments",
+                    "signature",
+                    "extension",
+                    "superuser_owner",
+                    "volatility",
+                    "security_definer",
+                    "language",
+                    "kind",
+                    "definition_sha256",
+                )
+            }
+            entry.update(
+                owner=names[function["owner"]],
+                library_sha256=catalog_digest(function["library"]),
+                execute_grants=grants.get(function["oid"], []),
+            )
+            details.append(entry)
+        metadata = postgis_metadata(self.conn, include_details=True)
+        extension_owner = next((e["owner"] for e in extensions if e["name"] == "postgis"), None)
+        expected_metadata = snapshot.get("postgis", {}).get("metadata_select", {})
+        for entry in metadata:
+            entry.pop("oid")
+            entry["owner"] = names[entry["owner"]]
+            entry["owner_matches_extension"] = entry["owner"] == extension_owner
+            entry["expected_definition_sha256"] = expected_metadata.get(
+                entry["schema"] + "." + entry["name"]
+            )
+            entry["definition_matches_contract"] = (
+                entry["definition_sha256"] == entry["expected_definition_sha256"]
+            )
+        counts = {}
+        for blocker in plan["blockers"]:
+            category = blocker.split(":", 1)[0]
+            counts[category] = counts.get(category, 0) + 1
+        return dict(
+            audit_version=1,
+            captured_at=datetime.now(UTC).isoformat(),
+            contract_sha256=catalog_digest(self.contract),
+            plan=plan,
+            blocker_counts=dict(sorted(counts.items())),
+            roles=roles,
+            memberships=memberships,
+            extensions=extensions,
+            catalogs=catalogs,
+            functions=details,
+            postgis_metadata=metadata,
+            missing_postgis_metadata=sorted(
+                set(expected_metadata) - {e["schema"] + "." + e["name"] for e in metadata}
+            ),
+        )
 
     def inspect(self, password=None):
         self.execute("SET LOCAL search_path=pg_catalog")
@@ -1203,7 +1372,7 @@ def main():
     module = AnsibleModule(
         argument_spec={
             "contract": {"type": "dict", "required": True},
-            "state": {"choices": ["plan", "provision", "verify"], "required": True},
+            "state": {"choices": ["plan", "provision", "verify", "audit"], "required": True},
             "dsn": {"type": "str", "no_log": True},
         },
         supports_check_mode=True,
@@ -1223,6 +1392,10 @@ def main():
         )
         conn.set_session(readonly=not writing, isolation_level="REPEATABLE READ")
         boundary = Boundary(conn, module.params["contract"])
+        if state == "audit":
+            report = boundary.audit()
+            conn.rollback()
+            module.exit_json(changed=False, sql_console_audit=report)
         if writing:
             # Do not persist credential statements/parameters in server statement logs.
             boundary.execute("SET LOCAL log_statement='none'")

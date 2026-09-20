@@ -1,0 +1,57 @@
+- name: Validate the inventory name used for the local report filename
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname is match('^[a-zA-Z0-9][a-zA-Z0-9_.-]*$')
+
+- name: Read catalog evidence in a read-only repeatable snapshot
+  uranus_sql_console:
+    state: audit
+    contract: "{{ lookup('file', role_path + '/files/sql_console_contract.json') | from_json }}"
+  become_user: postgres
+  register: ua_console_audit
+  no_log: true
+
+- name: Inspect local report paths without following symlinks
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop:
+    - "{{ playbook_dir }}/sql-console-audit.local"
+    - "{{ playbook_dir }}/sql-console-audit.local/{{ inventory_hostname }}.json"
+  delegate_to: localhost
+  become: false
+  register: ua_console_audit_paths
+
+- name: Reject symlinked or incompatible report paths
+  ansible.builtin.assert:
+    that:
+      - not (ua_console_audit_paths.results[0].stat.islnk | default(false))
+      - not (ua_console_audit_paths.results[1].stat.islnk | default(false))
+      - not ua_console_audit_paths.results[0].stat.exists or ua_console_audit_paths.results[0].stat.isdir
+      - not ua_console_audit_paths.results[1].stat.exists or ua_console_audit_paths.results[1].stat.isreg
+
+- name: Create a private report directory on the controller
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/sql-console-audit.local"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: Save catalog evidence on the controller
+  ansible.builtin.copy:
+    content: "{{ ua_console_audit.sql_console_audit | to_nice_json }}\n"
+    dest: "{{ playbook_dir }}/sql-console-audit.local/{{ inventory_hostname }}.json"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  no_log: true
+
+- name: Report blocker categories and export location without the full catalog
+  ansible.builtin.debug:
+    msg:
+      blocker_counts: "{{ ua_console_audit.sql_console_audit.blocker_counts }}"
+      report: "{{ playbook_dir }}/sql-console-audit.local/{{ inventory_hostname }}.json"
+      saved: "{{ not ansible_check_mode }}"
+      database_changes: false
+      contract_updated: false

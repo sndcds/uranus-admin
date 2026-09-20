@@ -381,7 +381,9 @@ class DeploymentBoundaryTests(unittest.TestCase):
                             "default_transaction_read_only=on", args["connect_params"]["options"]
                         )
                     if name == "uranus_sql_console":
-                        self.assertIn(args["state"], {"plan", "provision", "verify"})
+                        self.assertIn(args["state"], {"plan", "provision", "verify", "audit"})
+                        if args["state"] == "audit":
+                            self.assertTrue(task["no_log"])
                         if args["state"] == "provision":
                             self.assertTrue(task["no_log"])
                             self.assertFalse(task["diff"])
