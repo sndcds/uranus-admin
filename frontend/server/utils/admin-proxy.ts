@@ -1,4 +1,5 @@
 import {
+  diagnosticRequestSchema,
   geoAreaImportSchema,
   loginSchema,
   sessionSchema,
@@ -109,6 +110,8 @@ const routes: Record<string, readonly string[]> = {
     'page',
     'page_size',
   ],
+  '/api/v1/findings/sql-diagnostic': ['finding_id'],
+  '/api/v1/findings/sql-diagnostic/execute': [],
   '/api/v1/findings': [
     'active_only',
     'geo_scope_id',
@@ -215,6 +218,7 @@ export async function forwardAdminRequest(
                 ? routes[input.path]
                 : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
+  const diagnosticExecute = input.path === '/api/v1/findings/sql-diagnostic/execute'
   const authWrite = input.method === 'POST' && ['/auth/login', '/auth/logout'].includes(input.path)
   if (
     input.path.startsWith('/auth/') &&
@@ -224,6 +228,7 @@ export async function forwardAdminRequest(
     return rejected(405, 'method_not_allowed')
   const write =
     authWrite ||
+    (input.method === 'POST' && diagnosticExecute) ||
     (input.method === 'POST' && input.path === '/api/v1/geo/areas') ||
     (input.method === 'POST' && (notificationRetry || geocodeRetry)) ||
     (input.method === 'POST' && input.path === '/api/v1/record-marks') ||
@@ -234,6 +239,7 @@ export async function forwardAdminRequest(
     !write &&
     (input.method !== 'GET' ||
       input.path === '/api/v1/finding-reviews' ||
+      diagnosticExecute ||
       notificationRetry ||
       geocodeRetry)
   )
@@ -244,6 +250,11 @@ export async function forwardAdminRequest(
   if (input.path === '/api/v1/geo/areas' && input.method !== 'POST')
     return rejected(405, 'method_not_allowed')
   let requestBody: string | undefined
+  if (diagnosticExecute) {
+    const parsed = diagnosticRequestSchema.safeParse(input.body)
+    if (!parsed.success) return rejected(422, 'invalid_input')
+    requestBody = JSON.stringify(parsed.data)
+  }
   if (write && input.path === '/api/v1/geo/areas') {
     const parsed = geoAreaImportSchema.safeParse(input.body)
     if (!parsed.success) return rejected(422, 'invalid_input')
@@ -291,6 +302,11 @@ export async function forwardAdminRequest(
       return rejected(422, 'invalid_query')
     }
   }
+  if (
+    input.path === '/api/v1/findings/sql-diagnostic' &&
+    !diagnosticRequestSchema.safeParse(Object.fromEntries(input.query)).success
+  )
+    return rejected(422, 'invalid_query')
   if (
     input.path.startsWith('/api/') &&
     !cookie &&

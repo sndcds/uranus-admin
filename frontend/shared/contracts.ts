@@ -1127,3 +1127,123 @@ export interface GeocodeFilters {
   page?: number
   page_size?: number
 }
+
+// Explicit diagnostic projection allowlist: never accept secret source columns.
+const diagnosticColumnSchema = z.enum([
+  'uuid',
+  'event_uuid',
+  'start_date',
+  'start_time',
+  'end_date',
+  'end_time',
+  'all_day',
+  'release_status',
+  'date_venue_uuid',
+  'date_space_uuid',
+  'event_venue_uuid',
+  'event_space_uuid',
+  'online_link',
+  'title',
+  'min_price',
+  'max_price',
+  'currency',
+  'price_type',
+  'name',
+  'org_uuid',
+  'street',
+  'house_number',
+  'postal_code',
+  'city',
+  'country',
+  'state',
+  'osm_id',
+  'point',
+  'point_missing',
+  'source_link',
+  'ticket_link',
+  'registration_link',
+  'web_link',
+  'organization_name',
+  'user_uuid',
+  'has_joined',
+  'accept_token_present',
+  'from_org_uuid',
+  'from_org_name',
+  'to_org_uuid',
+  'to_org_name',
+  'user_id',
+  'user_exists',
+  'status',
+  'created_at',
+  'grant_exists',
+])
+const diagnosticValueSchema = z.union([
+  z.string().max(4096),
+  z.number().finite(),
+  z.boolean(),
+  z.null(),
+])
+export const diagnosticRequestSchema = z
+  .object({ finding_id: z.string().min(1).max(8192) })
+  .strict()
+export const sqlDiagnosticDefinitionSchema = z
+  .object({
+    recipe_id: z.string(),
+    title: z.string(),
+    datasource: z.literal('uranus'),
+    readonly: z.literal(true),
+    sql: z.string(),
+    copy_sql: z.string(),
+    parameters: z.record(z.string(), diagnosticValueSchema),
+    explanation: z.string(),
+    columns: z.array(diagnosticColumnSchema),
+    last_seen_at: z.iso.datetime(),
+  })
+  .strict()
+export const sqlDiagnosticResultSchema = z
+  .object({
+    recipe_id: z.string(),
+    columns: z.array(diagnosticColumnSchema),
+    rows: z
+      .array(
+        z
+          .record(z.string(), diagnosticValueSchema)
+          .refine((row) =>
+            Object.keys(row).every((key) => diagnosticColumnSchema.safeParse(key).success),
+          ),
+      )
+      .max(100),
+    row_count: z.number().int().min(0).max(100),
+    duration_ms: z.number().nonnegative(),
+    observed_at: z.iso.datetime(),
+    evaluation: z
+      .object({
+        engine: z.literal('Python'),
+        matched: z.boolean().nullable(),
+        message: z.string(),
+        checks: z.array(
+          z
+            .object({
+              label: z.string(),
+              value: z.boolean().nullable(),
+              left: diagnosticValueSchema,
+              operator: z.string().nullable(),
+              right: diagnosticValueSchema,
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+  })
+  .strict()
+  .refine(
+    (result) =>
+      result.row_count === result.rows.length &&
+      result.rows.every(
+        (row) =>
+          Object.keys(row).length === result.columns.length &&
+          result.columns.every((column) => column in row),
+      ),
+  )
+export type SqlDiagnosticDefinition = z.infer<typeof sqlDiagnosticDefinitionSchema>
+export type SqlDiagnosticResult = z.infer<typeof sqlDiagnosticResultSchema>

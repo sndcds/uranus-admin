@@ -6,6 +6,10 @@ export interface ApiFailure {
 
 export function failure(status: number, code = 'request_failed'): ApiFailure {
   const retryMessages: Record<string, string> = {
+    diagnostic_unavailable: 'Keine SQL-Diagnose verfügbar.',
+    diagnostic_invalid_finding: 'Für diesen Befund ist keine passende SQL-Diagnose verfügbar.',
+    diagnostic_failed: 'Prüfung fehlgeschlagen.',
+    diagnostic_timeout: 'Query überschritt Zeitlimit.',
     geocode_request_not_found: 'Dieser Standortvorschlag wurde nicht gefunden.',
     geocode_retry_not_allowed: 'Eine Standortprüfung ist bereits eingeplant.',
     geocode_no_longer_needed:

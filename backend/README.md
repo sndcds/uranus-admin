@@ -135,3 +135,5 @@ in dieser Testdatenbank administrative Rechte. CI führt den vollständigen DB-L
 - [Architektur](docs/architecture.md), [Entwicklung und Rollen](docs/development.md).
 - [Ursprüngliche Analyse](docs/uranus-analysis.md), [offene Uranus-Verbesserungen](docs/future-uranus-improvements.md).
 - [Nuxt-Frontend](../frontend/README.md).
+
+[Finding SQL Diagnostics – Sicherheitsmodell und Pilotqueries](docs/sql-diagnostics.md).

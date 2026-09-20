@@ -26,6 +26,7 @@ from app.api import (
     notifications,
     quality,
     queues,
+    sql_diagnostics,
     statistics,
 )
 from app.auth.body_limit import AuthBodyLimitMiddleware
@@ -117,6 +118,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for router in (
         dashboard.router,
         findings.router,
+        sql_diagnostics.router,
         entities.router,
         quality.router,
         activity.router,

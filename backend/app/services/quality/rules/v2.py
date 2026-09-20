@@ -215,11 +215,21 @@ def date_issues(rule: str, row: dict[str, Any]) -> Iterator[Issue]:
         )
 
 
+def price_without_currency(row: dict[str, Any]) -> bool:
+    return (row.get("min_price") is not None or row.get("max_price") is not None) and blank(
+        row.get("currency")
+    )
+
+
+def joined_token_present(row: dict[str, Any]) -> bool:
+    return bool(row["has_joined"] and row["accept_token_present"])
+
+
 def event_issues(rule: str, row: dict[str, Any], context: "QualityContext") -> Iterator[Issue]:
     low, high = row.get("min_price"), row.get("max_price")
     priced = low is not None or high is not None
     field = RULES[rule][1]
-    if rule == "event_price_without_currency" and priced and blank(row.get("currency")):
+    if rule == "event_price_without_currency" and price_without_currency(row):
         yield field, {"min_price": low, "max_price": high, "currency": row.get("currency")}
     elif rule == "event_free_with_price" and priced and row.get("price_type") == "free":
         yield field, {"min_price": low, "max_price": high, "price_type": "free"}
@@ -296,7 +306,7 @@ def issues(rule: str, kind: str, row: dict[str, Any], context: "QualityContext")
                 value = row.get(name)
                 if value is not None and value < 0:
                     yield name, {"reason": f"negative_{name}", "value": value}
-    elif kind == "team_membership" and row["has_joined"] and row["accept_token_present"]:
+    elif kind == "team_membership" and joined_token_present(row):
         yield field, {"token_present": True}
 
 
