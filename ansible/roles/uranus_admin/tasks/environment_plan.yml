@@ -30,17 +30,25 @@
   register: ua_legacy_env
   no_log: true
 
-- name: Validate configuration and prepare separate environments without logging values
-  ansible.builtin.set_fact:
-    ua_runtime: "{{ (ua_env_source.content | b64decode | ua_parse_env) | ua_runtime_env(ua_manifest.environment_keys, ua_runtime_overrides, ua_debug | bool) }}"
-    ua_privileged: "{{ ua_legacy_env.content | b64decode | ua_parse_env | ua_privileged_env }}"
-  no_log: true
+- name: Require a protected operator secret source
+  ansible.builtin.assert:
+    that:
+      - ua_env_stats.results[1].stat.uid == 0
+      - ua_env_stats.results[1].stat.gid == 0
+      - ua_env_stats.results[1].stat.mode == '0600'
+  when: ua_env_stats.results[1].stat.exists
 
-- name: Read existing protected operator file only to prevent secret overwrites
+- name: Read protected operator entries for preservation and explicit console adoption
   ansible.builtin.slurp:
     src: "{{ ua_config_dir }}/operator.env"
   register: ua_existing_operator
   when: ua_env_stats.results[1].stat.exists
+  no_log: true
+
+- name: Validate configuration and prepare separate environments without logging values
+  ansible.builtin.set_fact:
+    ua_runtime: "{{ ((ua_env_source.content | b64decode | ua_parse_env) | ua_console_environment((ua_existing_operator.content | default('') | b64decode | ua_parse_env), ua_manifest.environment_keys)) | ua_runtime_env(ua_manifest.environment_keys, ua_runtime_overrides, ua_debug | bool) }}"
+    ua_privileged: "{{ ua_legacy_env.content | b64decode | ua_parse_env | ua_privileged_env }}"
   no_log: true
 
 - name: Refuse overwriting different previously protected operator secrets
@@ -48,4 +56,9 @@
     that: ua_privileged.items() | difference((ua_existing_operator.content | b64decode | ua_parse_env).items()) | length == 0
     fail_msg: "Existing operator secrets differ; reconcile explicitly outside deployment."
   when: ua_env_stats.results[1].stat.exists and ua_privileged | length > 0
+  no_log: true
+
+- name: Preserve explicit console credentials independently of release capability
+  ansible.builtin.set_fact:
+    ua_privileged: "{{ ua_privileged | ua_archive_console((ua_env_source.content | b64decode | ua_parse_env), (ua_existing_operator.content | default('') | b64decode | ua_parse_env)) }}"
   no_log: true

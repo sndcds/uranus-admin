@@ -1,0 +1,13 @@
+- name: Require explicit console infrastructure approval in addition to existing apply gates
+  ansible.builtin.assert:
+    that: ua_sql_console_provision_approved is sameas true
+    fail_msg: "This release requires ua_sql_console_provision_approved=true after review of the console plan."
+
+- name: Reconcile only isolated console roles schema views and minimal grants
+  uranus_sql_console:
+    state: provision
+    contract: "{{ ua_sql_console_contract }}"
+    dsn: "{{ ua_runtime.SQL_CONSOLE_DATABASE_URL }}"
+  become_user: postgres
+  no_log: true
+  diff: false

@@ -7,10 +7,27 @@
 - name: Inspect and prepare secret separation in memory
   ansible.builtin.import_tasks: environment_plan.yml
 
+- name: Plan isolated console infrastructure using read-only catalog inspection
+  ansible.builtin.import_tasks: sql_console_plan.yml
+
+- name: Provision isolated console infrastructure before release build or maintenance
+  ansible.builtin.import_tasks: sql_console_provision.yml
+  when:
+    - ua_sql_console_required
+    - ua_action == 'deploy'
+    - not ansible_check_mode
+
+- name: Verify reconciled console infrastructure in a separate read-only transaction
+  ansible.builtin.import_tasks: sql_console_verify.yml
+  when:
+    - ua_sql_console_required
+    - ua_action == 'deploy'
+    - not ansible_check_mode
+
 - name: Report the proposed deployment without secrets
   ansible.builtin.debug:
     msg:
-      - "Database: oklab. Expected admin head: {{ ua_manifest.head }}. Database changes: NONE."
+      - "Database: oklab. Expected admin head: {{ ua_manifest.head }}. Source/admin changes: NONE. Console infrastructure: {{ ua_sql_console_required }}."
       - "Release: {{ ua_release_dir }}. Artifact: {{ ua_artifact_sha256 }}."
       - "Local build: {{ ua_build_dir }}. Runtime/toolchain: {{ ua_root }}. Network storage is refused."
       - "Build retention: {{ 'keep three newest completed workspaces plus current build; only after successful deployment' if ua_cleanup_builds | bool else 'disabled' }}. Runtime releases and backups are never removed."
@@ -18,7 +35,7 @@
       - "Notifications: {{ 'explicitly managed with separate approval' if ua_manage_notification_timer | bool else 'timer, service and shared legacy environment unchanged' }}."
       - "New runtime has SMTP delivery disabled. Existing unmanaged notifications retain their configuration. No URL/geocode worker activation."
       - "Check mode cannot build the new release, validate its runtime DB logins or prove service startup."
-      - "TEMPORARY and existing broader reader SELECT grants are reported, never revoked automatically."
+      - "PUBLIC TEMP is reconciled only under the versioned approved TEMP contract; unknown consumers block. Other shared privileges and existing source grants remain unchanged."
 
 - name: Prepare and activate only the explicitly approved release
   ansible.builtin.import_tasks: deploy.yml

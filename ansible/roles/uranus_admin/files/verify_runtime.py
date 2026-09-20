@@ -13,6 +13,8 @@ from app.database import create_engine  # noqa: E402
 from app.source_schema_verify import verify  # noqa: E402
 from app.storage_preflight import RUNTIME_GRANTS, check_grants, check_schema  # noqa: E402
 from sqlalchemy import text  # noqa: E402
+from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
+from sqlalchemy.pool import NullPool  # noqa: E402
 
 
 async def main():
@@ -36,10 +38,52 @@ async def main():
         or settings.auth_public_origin != "https://admin.kulturbytes.de"
     ):
         raise ValueError("Unsafe settings")
+    console = None
+    if "sql_console_database_url" in Settings.model_fields:
+        secret = settings.sql_console_database_url
+        if secret is None:
+            raise ValueError("Missing dedicated console DSN; no fallback")
+        console = create_async_engine(
+            secret.get_secret_value(),
+            echo=False,
+            hide_parameters=True,
+            poolclass=NullPool,
+            connect_args={
+                "timeout": 10,
+                "server_settings": {
+                    "default_transaction_read_only": "on",
+                    "statement_timeout": "10000",
+                    "lock_timeout": "2000",
+                    "TimeZone": "UTC",
+                },
+            },
+        )
     source, admin = create_engine(settings), create_admin_engine(settings)
     if admin is None:
         raise ValueError("Missing admin engine")
     try:
+        if console is not None:
+            async with console.connect() as conn, conn.begin():
+                await conn.execute(
+                    text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+                )
+                identity = (
+                    await conn.execute(
+                        text("""
+                    SELECT current_database(), current_user, current_setting('search_path'),
+                    has_database_privilege(current_user,current_database(),'TEMPORARY'),
+                    has_database_privilege(current_user,current_database(),'CREATE')
+                """)
+                    )
+                ).one()
+                if tuple(identity) != (
+                    "oklab",
+                    "uranus_console_reader",
+                    "pg_catalog, uranus_console",
+                    False,
+                    False,
+                ):
+                    raise ValueError("Wrong console identity or effective boundary")
         for engine, role in ((source, "uranus_reader"), (admin, "admin_user")):
             async with engine.connect() as conn, conn.begin():
                 await conn.execute(
@@ -59,6 +103,8 @@ async def main():
     finally:
         await source.dispose()
         await admin.dispose()
+        if console is not None:
+            await console.dispose()
 
 
 if __name__ == "__main__":

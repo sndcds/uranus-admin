@@ -256,6 +256,27 @@ class ArtifactTests(unittest.TestCase):
                 with self.assertRaises(AnsibleFilterError):
                     filters.artifact_manifest(path, digest, "a" * 40)
 
+    def test_manifest_capability_requires_exact_environment_key_list(self):
+        for keys in ("SQL_CONSOLE_DATABASE_URL", ["DATABASE_URL", "DATABASE_URL"], [None]):
+            with self.subTest(keys=keys), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "manifest.tar.gz"
+                content = json.dumps(
+                    {
+                        "commit": "a" * 40,
+                        "head": "0011",
+                        "runtime_grants": {"finding": ["SELECT"]},
+                        "environment_keys": keys,
+                    }
+                ).encode()
+                with tarfile.open(path, "w:gz") as archive:
+                    entry = tarfile.TarInfo("release.json")
+                    entry.mode, entry.size = 0o644, len(content)
+                    archive.addfile(entry, io.BytesIO(content))
+                with self.assertRaisesRegex(AnsibleFilterError, "capability contract"):
+                    filters.artifact_manifest(
+                        path, hashlib.sha256(path.read_bytes()).hexdigest(), "a" * 40
+                    )
+
     def test_reproducible_committed_sources_and_current_metadata(self):
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
@@ -344,7 +365,7 @@ class DeploymentBoundaryTests(unittest.TestCase):
             self.assertIn("Apply requires reviewed dry run", result.stdout)
             self.assertNotIn("Read the hostname", result.stdout)
 
-    def test_only_read_only_postgresql_tasks(self):
+    def test_existing_postgresql_preflight_stays_read_only(self):
         def walk(tasks):
             for task in tasks:
                 for name, args in task.items():
@@ -359,6 +380,11 @@ class DeploymentBoundaryTests(unittest.TestCase):
                         self.assertIn(
                             "default_transaction_read_only=on", args["connect_params"]["options"]
                         )
+                    if name == "uranus_sql_console":
+                        self.assertIn(args["state"], {"plan", "provision", "verify"})
+                        if args["state"] == "provision":
+                            self.assertTrue(task["no_log"])
+                            self.assertFalse(task["diff"])
                     if name in ("block", "rescue", "always"):
                         walk(args)
 

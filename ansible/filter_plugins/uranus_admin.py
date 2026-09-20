@@ -61,13 +61,20 @@ def render_environment(values):
 
 
 def runtime_environment(values, allowed, overrides=None, debug=False):
+    values = dict(values)
+    # Older releases neither require nor receive an adopted console credential.
+    if "SQL_CONSOLE_DATABASE_URL" not in allowed:
+        values.pop("SQL_CONSOLE_DATABASE_URL", None)
     if set(values) - set(allowed) - PRIVILEGED:
         raise AnsibleFilterError("Unknown backend environment keys; review before adoption")
     if set(overrides or {}) - OVERRIDES:
         raise AnsibleFilterError("Only documented non-secret overrides are allowed")
     result = {k: v for k, v in values.items() if k not in PRIVILEGED}
     result.update({k: str(v) for k, v in (overrides or {}).items()})
-    for key, role in (("DATABASE_URL", "uranus_reader"), ("ADMIN_DATABASE_URL", "admin_user")):
+    identities = [("DATABASE_URL", "uranus_reader"), ("ADMIN_DATABASE_URL", "admin_user")]
+    if "SQL_CONSOLE_DATABASE_URL" in allowed:
+        identities.append(("SQL_CONSOLE_DATABASE_URL", "uranus_console_reader"))
+    for key, role in identities:
         try:
             url = urlsplit(result[key])
             valid = (
@@ -80,6 +87,14 @@ def runtime_environment(values, allowed, overrides=None, debug=False):
                 and not url.fragment
                 and bool(url.password)
             )
+            if key == "SQL_CONSOLE_DATABASE_URL":
+                password = unquote(url.password or "")
+                valid = (
+                    valid
+                    and len(password) >= 24
+                    and password.isascii()
+                    and all(32 < ord(c) < 127 for c in password)
+                )
         except (KeyError, ValueError):
             valid = False
         if not valid:
@@ -147,6 +162,16 @@ def artifact_manifest(path, expected_hash, expected_sha):
             manifest = json.load(archive.extractfile(member))
         if manifest["commit"] != expected_sha:
             raise AnsibleFilterError("Release commit mismatch")
+        keys = manifest["environment_keys"]
+        if (
+            not isinstance(keys, list)
+            or any(
+                not isinstance(key, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]*", key)
+                for key in keys
+            )
+            or len(keys) != len(set(keys))
+        ):
+            raise AnsibleFilterError("Invalid release environment capability contract")
         if not re.fullmatch(r"[0-9]{4}", manifest["head"]):
             raise AnsibleFilterError("Invalid migration head")
         if not manifest["runtime_grants"] or any(
@@ -187,6 +212,8 @@ class FilterModule:
     def filters(self):
         return {
             "ua_parse_env": parse_environment,
+            "ua_console_environment": console_environment,
+            "ua_archive_console": archive_console,
             "ua_render_env": render_environment,
             "ua_runtime_env": runtime_environment,
             "ua_privileged_env": privileged_environment,
@@ -237,3 +264,34 @@ def recovery_files(results, changed_paths, directory):
         for index, result in enumerate(results)
         if result["item"]["path"] in changed_paths
     ]
+
+
+def console_environment(values, operator, allowed):
+    """Adopt one explicit secret; no derivation from source/admin credentials."""
+    result = dict(values)
+    key = "SQL_CONSOLE_DATABASE_URL"
+    if key not in allowed:
+        result.pop(key, None)
+        return result
+    if key in operator:
+        if key in result and result[key] != operator[key]:
+            raise AnsibleFilterError("Console credential differs; no automatic rotation")
+        result[key] = operator[key]
+    if not result.get(key):
+        raise AnsibleFilterError("Missing SQL_CONSOLE_DATABASE_URL; no fallback")
+    return result
+
+
+def archive_console(privileged, source, existing):
+    """Preserve an explicit console secret when deploying an older release.
+
+    The existing task guard has already compared all legacy privileged entries.
+    This adds only the console key, never replaces a different archived value.
+    """
+    result = {**privileged, **existing}
+    key = "SQL_CONSOLE_DATABASE_URL"
+    if key in source:
+        if key in result and result[key] != source[key]:
+            raise AnsibleFilterError("Console credential differs; no automatic rotation")
+        result[key] = source[key]
+    return result

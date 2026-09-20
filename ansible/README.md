@@ -2,10 +2,13 @@
 
 Diese Rolle übernimmt die **bereits vorhandene** Installation auf `webserver`.
 Sie ist kein Datenbank-Bootstrap und kein allgemeines Server-Provisioning.
-Alle PostgreSQL-Tasks sind **READ ONLY**. Es gibt keine Migration, keinen Grant,
-keine Rollenanlage und keinen Datenbank-Restore, auch keinen entsprechenden Fehler-Fallback.
-Der automatische Fehlerpfad stellt ausschließlich Systemkonfiguration und Service-Zustände wieder her.
-Ein fehlendes Objekt oder ein unpassender Berechtigungs-/Migrationsstand bedeutet Abbruch.
+Der bestehende Source/Admin-Preflight bleibt **READ ONLY**; es gibt keine
+Admin-Migration und keinen Datenbank-Restore. Ein eigener, zusätzlich freigegebener
+Schritt verwaltet ausschließlich die isolierte SQL-Console-Infrastruktur.
+Er verändert keine Uranus-Domain-Daten, Uranus-Tabellendefinitionen oder bestehenden
+App-Rollenattribute. Der versionierte TEMP-Vertrag erhält die TEMP-Rechte der vier
+App-Rollen durch explizite Grants. Der automatische Fehlerpfad stellt ausschließlich
+Systemkonfiguration und Service-Zustände wieder her. Unpassende bestehende Grenzen bleiben ein Abbruchgrund.
 
 Die Implementierung darf lokal geprüft werden. Ein produktiver Check Mode benötigt
 eine gesonderte Freigabe; ein Echtlauf zusätzlich die ausdrückliche Bestätigung
@@ -26,7 +29,7 @@ für einen späteren Lauf. Grundlage des Anwendungsstands:
 | `admin.alembic_version = 0011`, 16 Admin-Tabellen                                     | Head/Grant-Matrix stammen aus dem ausgewählten Release. Abweichung stoppt, ohne automatische Migration.                                                                                                                                                         |
 | Reader besitzt SELECT auf 72 Quellobjekten, keine Sequenzrechte                       | Mindestens die 19 benötigten Quellobjekte werden geprüft. Bestehende weitere Leserechte bleiben erhalten; kein pauschales SELECT auf Sequenzen.                                                                                                                 |
 | Vier getrennte App-Rollen, keine Memberships, keine privilegierten Attribute          | Attribute, Memberships in beide Richtungen, Ownership, Tabellen-/Spaltenrechte und indirekte Schreibmöglichkeiten werden erneut geprüft.                                                                                                                        |
-| App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | TEMP wird nicht pauschal über PUBLIC entzogen. Das wäre ein eigener, serverweiter Berechtigungsvorschlag.                                                                                                                                                       |
+| App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | PUBLIC TEMP wird ausschließlich nach Prüfung des versionierten Vier-Rollen-Vertrags atomar auf explizite TEMP-Grants umgestellt; unbekannte Verbraucher blockieren.                                                                                             |
 | Backend, Frontend, Check-Worker existieren und laufen                                 | Nur diese drei bekannten Services werden übernommen. Keine zusätzlichen Service-Namen.                                                                                                                                                                          |
 | Notification-Timer ist aktiv, Notification-Service ist ein stündlicher Oneshot        | Standard: unverändert. Nur explizites Notification-Management mit zweiter Zustimmung stoppt/deaktiviert ihn; Recovery stellt dann seinen vorherigen Zustand wieder her.                                                                                         |
 | Kein URL-/Geocode-Service gefunden                                                    | Keine Installation oder Aktivierung dieser Worker.                                                                                                                                                                                                              |
@@ -46,9 +49,16 @@ eine geprüfte Backup-Wiederherstellung noch erfolgreiche SMTP-Zustellung.
 
 ## Datenbankgrenzen und Grants
 
-**Keine der folgenden Berechtigungen wird von Ansible gesetzt.** Die Tabelle beschreibt
+**Keine der folgenden bestehenden App-Berechtigungen wird von Ansible gesetzt.** Die Tabelle beschreibt
 die bereits erwarteten Grenzen. Bei fehlenden oder zusätzlichen kritischen Rechten
 ist ein separat geprüfter SQL-Plan nötig; die Rolle repariert nichts automatisch.
+
+Das `uranus-admin` Deployment verwaltet ausschließlich die isolierte SQL-Console-Infrastruktur
+(Rollen, `uranus_console`-Schema, explizite Views und minimale Grants).
+Es verändert keine Uranus-Domain-Daten oder Uranus-Tabellendefinitionen.
+Der [versionierte Console-Vertrag](../backend/docs/sql-console-infrastructure.md)
+beschreibt den zusätzlichen Plan-/Provisionierungs-/Verifikationsschritt und seine Blocker.
+Die bestehende `uranus_reader`-Rolle wird nicht für freie SQL-Abfragen wiederverwendet.
 
 | Rolle                 | Erwartete Verwendung in `oklab`                                                                                                                                                                                                                        |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -103,13 +113,171 @@ Die Operator-Queries verwenden `default_transaction_read_only=on`, 10 Sekunden
 Statement-Timeout, 2 Sekunden Lock-Timeout und `search_path=pg_catalog`.
 Die Runtime-Verifikation nutzt explizite read-only Transaktionen und die Zeitlimits
 der Anwendung. Source-Queries sind schemaqualifiziert. Der bestehende Datenbank-
-`search_path` wird nicht verändert. Counts können durch legitime parallele Live-
+`search_path` bleibt erhalten; nur der dedizierte Console-Reader erhält seine eigene
+Datenbank-Rolleneinstellung `pg_catalog, uranus_console`. Counts können durch legitime parallele Live-
 Schreibvorgänge schwanken und beweisen deshalb keinen unveränderten Datenbestand.
 
-**Geplante schreibende SQL-Kommandos: keine.** Nach Wiederanlauf kann der vorhandene
+**Source/Admin-Preflight: keine schreibenden SQL-Kommandos.** Der getrennte
+Console-Schritt verwendet CREATE ROLE, CREATE SCHEMA, CREATE OR REPLACE VIEW,
+explizite GRANTs und ALTER ROLE ausschließlich gemäß dem Console-Vertrag. Nach Wiederanlauf kann der vorhandene
 Check-Worker bereits eingereihte Aufträge bearbeiten und dabei bestimmungsgemäß
 in `admin` schreiben (**CHANGES ADMIN SCHEMA ONLY**, normales Runtime-DML).
 Er erhält keine Rechte zum Schreiben in `uranus`.
+
+### Ansible-managed Console-Infrastruktur
+
+Capability: `SQL_CONSOLE_DATABASE_URL` muss im Environment-Vertrag des authentifizierten
+Release-Manifests stehen. Alte Releases planen keine Console-Änderungen und löschen
+vorhandene Console-Objekte nicht. Der eigene
+[Contract v4](roles/uranus_admin/files/sql_console_contract.json) pinnt Uranus
+`7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d`: vier Views (`event_date`, `event`,
+`venue`, `organization`), 31 explizite Spalten und Datentypen.
+
+1. `sql_console_plan.yml`: reine Katalog-READ-ONLY-Prüfung und geheimnisfreier Plan.
+2. `sql_console_provision.yml`: zusätzliches `ua_sql_console_provision_approved: true`
+   plus bestehende Apply-Gates; idempotente Rollen/Schema/Views/Minimal-Grants und
+   datenbankbezogener Reader-Search-Path. Wiederholte Prüfung und atomarer DB-Commit.
+3. `sql_console_verify.yml`: neue READ-ONLY-Verbindung, exakter Sollzustand ohne Drift.
+4. Erst dann Release-Build und echte Console-DSN-Verifikation, anschließend Maintenance
+   und App-Aktivierung. Recovery bleibt ausschließlich systembezogen.
+
+`uranus_console_owner` ist NOLOGIN; `uranus_console_reader` ist LOGIN. Beide erhalten
+NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/NOBYPASSRLS und NOINHERIT. Bestehende
+INHERIT-Rollen führen zu `unsafe_role_inherit:<role>`; keine automatische Reparatur.
+Keine Memberships. Nur der Owner besitzt Console-Schema/Views und exakte Quellspaltenrechte.
+Nur der Reader erhält View-SELECT, Console-USAGE und CONNECT. Überprivilegierte bestehende
+Rollen, falsche Owner und Zusatzrechte werden abgewiesen, nicht still repariert.
+Abweichende View-Definitionen bei unverändertem Spaltenvertrag werden reconciled;
+unbekannte Objekte führen zu `unexpected_sql_console_object`, niemals automatischem DROP.
+
+PUBLIC TEMP wird nur dann automatisch reconciled, wenn alle betroffenen normalen
+Login-Rollen vom versionierten `database_temp_roles`-Vertrag abgedeckt sind:
+`uranus_reader`, `admin_user`, `admin_migrator`, `admin_auth_operator`. Diese vier
+bestehenden LOGIN-Rollen müssen vorhanden sein. Der Plan inventarisiert effektive
+Rechte, direkte TEMP-Grants, Membership-Pfade und privilegierte Identitäten.
+Superuser und der Datenbank-Owner mit eigener TEMP-ACL verlieren keine Rechte und
+werden separat ausgewiesen. Die Console-Rollen sind ausdrückliche TEMP-freie Ziele.
+
+Apply vergibt zuerst fehlende explizite TEMP-Grants an die vier App-Rollen, entzieht
+anschließend ausschließlich PUBLIC TEMP und prüft den gesamten Sollzustand erneut,
+bevor dieselbe Console-Provisionierungstransaktion committet. Ein Fehler rollt alle
+Änderungen zurück. Der zweite Apply bleibt unverändert. Unbekannte Login-Verbraucher
+(`unexpected_public_temp_consumer:<role>`), nicht erlaubte direkte Grants,
+Grant Options und ungeprüfte TEMP-Membership-Pfade blockieren ohne Teiländerung.
+Auch indirekte SET-ROLE-Pfade werden geprüft; NOINHERIT allein genügt dafür nicht.
+
+Der Function-/Extension-Vertrag in Contract v4 / Policy v2 prüft exakte Katalog-Fingerprints.
+Geprüfte Kombinationen:
+
+- PostgreSQL **16.15 / PostGIS 3.4.2** — dokumentierte Production-Baseline,
+  reproduzierbarer Ubuntu-24.04-Testbuild aus gepinnten Image-/Paketquellen.
+- PostgreSQL **16 / PostGIS 3.4.3** — CI-Kompatibilität (auditiert mit 16.4).
+- PostgreSQL **17 / PostGIS 3.5.2** — CI-Kompatibilität (auditiert mit 17.5).
+
+`function_policy.catalogs[PG-Major].postgis_versions[extversion]` wählt den vollständigen
+Core-/plpgsql-/PostGIS-Snapshot anhand der **tatsächlich installierten exakten** Version.
+Keine 3.4.x-Wildcard, kein nächster Patchstand und kein Core-Fallback zwischen Snapshots.
+Neue PostGIS-Patchstände und abweichende Build-/Katalog-Fingerprints bleiben fail-closed.
+Der [3.4.2-Audit](tests/images/pg16-postgis342/README.md) dokumentiert feste Quellen,
+Definition-/ACL-/Metadatenvergleich und Reproduktion. Core und plpgsql aus Ubuntu 16.15
+wurden geprüft und entsprechen dem bisherigen PG16-CI-Katalog. Production wurde nicht
+abgefragt: unterstützt ist die explizit reproduzierte Baseline; ihr reales Deployment
+muss weiterhin alle exakten Fingerprints erfüllen. Neue Versionen oder Definitionen
+benötigen ein neues Review. Sichere geprüfte PostGIS-IMMUTABLE/STABLE-Funktionen behalten PUBLIC EXECUTE;
+Schema, Extension-Zugehörigkeit, Owner, Sprache/C-Bibliothek und Sicherheitsattribute
+werden geprüft. Kein pauschales PostGIS-Allowlisting und kein `oid >= 16384`-Blocker.
+
+Für konkret geprüfte gefährliche Signaturen inventarisiert Ansible PUBLIC-/direktes und
+effektives EXECUTE sowie Membership-/SET-ROLE-Pfade. Nur bekannte Verbraucher erlauben
+den atomaren Übergang: vorhandene PUBLIC-Rechte durch explizite Grants an dieselben vier
+App-Rollen erhalten, PUBLIC EXECUTE dieser Signatur entziehen, vollständige Grenze erneut
+prüfen, erst dann Commit. Beide Console-Rollen bleiben ohne gefährliches EXECUTE.
+Unbekannte Verbraucher/Funktionen/Extensions, SECURITY DEFINER, Zusatzgrants und
+Membership-Pfade blockieren. Bereits nicht öffentliche privilegierte Funktionen erhalten
+keine neuen App-Grants. Der Plan zeigt jede betroffene Signatur, Erhaltungsrollen und
+geplante Grants/REVOKEs; Fehler rollen auch TEMP und Console-Objekte zurück. Zweiter Apply:
+`changed=0`. Keine pauschale Manipulation von Funktionsrechten.
+
+Die drei fingerprintgeprüften Standard-Metadatenobjekte von PostGIS behalten ausschließlich
+ihr vorhandenes SELECT. Die Testfixture verwendet unverändertes `CREATE EXTENSION postgis`,
+keine vorbereitenden pauschalen PUBLIC-REVOKEs. Der Search-Path bleibt
+`pg_catalog, uranus_console`; sichere schemaqualifizierte PostGIS-Aufrufe sind möglich.
+Details, Signaturmengen, Audit-Reproduktion und Grenzen stehen im
+[Function-/Extension-Vertrag](../backend/docs/sql-console-infrastructure.md#public-temp-und-function-extension-grenze).
+
+Andere gemeinsame Rechte, insbesondere PUBLIC CREATE, bleiben Blocker. Kein allgemeines
+Aufräumen von CONNECT, CREATE, Extensions oder sonstigen PUBLIC-Grants. Kein Unsafe-Override
+und keine heimliche Ersatz-DB. Phase 3 benötigt zusätzlich AST-/Function-Denylist und
+Ressourcen-, Timeout-, Zeilen- und Parallelitätslimits; kein freier Executor in diesem PR.
+
+Secret ausschließlich als `SQL_CONSOLE_DATABASE_URL` in geschützter `operator.env`
+(root:root 0600) oder bereits expliziter Runtime-Konfiguration bereitstellen. Lokales
+`oklab`, Benutzer `uranus_console_reader`, eigenes Passwort (mindestens 24 druckbare
+ASCII-Zeichen ohne Leerzeichen, URL-kodiert). Keine Inventory-/CLI-Secrets und keine
+Fallbacks auf Source/Admin-DSNs. `no_log`, keine Secret-Diffs, keine automatische
+Rotation. Frontend erhält keine DSN. Keine Secret-Generation bei jedem Deployment.
+
+Beispiel eines gekürzten **Plans**, keine Aussage über Production:
+
+```yaml
+sql_console:
+  required: true
+  role: uranus_console_reader
+  schema: uranus_console
+  contract_version: 4
+  owner_role: uranus_console_owner
+  changes_planned:
+    - would grant explicit TEMPORARY uranus_reader
+    - would revoke PUBLIC TEMPORARY
+    - would create role uranus_console_owner
+    - would create role uranus_console_reader
+    - would create schema uranus_console
+    - would create view event_date
+    - would reconcile owner SELECT event_date.uuid
+    - would reconcile reader SELECT event_date
+    - would set role search_path
+  runtime_dsn_present: true
+  fallback: false
+  public_temp: true
+  temp_login_roles:
+    [admin_auth_operator, admin_migrator, admin_user, postgres, uranus_reader]
+  temp_reconcile:
+    allowed: true
+    would_grant_explicit:
+      [uranus_reader, admin_user, admin_migrator, admin_auth_operator]
+    would_revoke_public_temp: true
+  extensions:
+    - name: plpgsql
+      version: "1.0"
+      status: allowed
+      reviewed_functions: 3
+      restricted_functions: 0
+      blocked_functions: 0
+    - name: postgis
+      version: "3.5.2"
+      status: reconcile_required
+      reviewed_functions: 776
+      restricted_functions: 86
+      blocked_functions: 0
+  execute_reconcile:
+    allowed: true
+    changes: # Auszug; der echte Plan zeigt jede betroffene Signatur.
+      - signature: pg_catalog.set_config(text, text, boolean)
+        catalog: core
+        retained_roles:
+          [uranus_reader, admin_user, admin_migrator, admin_auth_operator]
+        would_grant_explicit:
+          [uranus_reader, admin_user, admin_migrator, admin_auth_operator]
+        would_revoke_public_execute: true
+  blockers: []
+```
+
+`--check --diff` zeigt den Plan auch ohne Console-Approval und führt keine Console-
+Mutationen aus. Ein Blocker wird nach dem Report als Fehler ausgegeben. Inspect
+provisioniert auch ohne Check Mode nicht. Keine erfolgreiche echte Runtime-Anmeldung
+wird im Check Mode behauptet. Für einen kompatiblen, versionierten Produktionszustand
+ist kein manueller psql-Schritt nötig; ungeprüfte gemeinsame DB-Rechte bleiben ausdrücklich außerhalb dieser Freigabe.
+Details und Phase-3-Kriterien: [Console-Infrastruktur](../backend/docs/sql-console-infrastructure.md).
 
 ### Alembic-Audit des Ausgangsstands
 
@@ -149,7 +317,7 @@ Produktionsumfang; temporäre Ansible-/Validierungsdateien kommen technisch hinz
 | `/var/lib/uranus-admin/releases/<commit>/deployment/`                      | Prüfprogramme und nichtgeheime Konfigurationskandidaten.                                                                                                                                                           |
 | `/var/lib/uranus-admin/current`                                            | Verweis auf zuletzt erfolgreich aktiviertes Release, erst nach Healthchecks geändert. Units verwenden feste Release-Pfade.                                                                                         |
 | `/var/cache/uranus-admin-build/`                                           | Build-Cache von uv/pnpm, Benutzer `oklab`. Kein Laufzeit-Schreibpfad des Services.                                                                                                                                 |
-| `/var/lib/uranus-admin/maintenance/` | Root-owned statische Wartungsseite, lokale Assets und Marker `enabled`; Details unter [Wartungsmodus](#wartungsmodus). |
+| `/var/lib/uranus-admin/maintenance/`                                       | Root-owned statische Wartungsseite, lokale Assets und Marker `enabled`; Details unter [Wartungsmodus](#wartungsmodus).                                                                                             |
 | `/etc/uranus-admin/`                                                       | root:root, 0700.                                                                                                                                                                                                   |
 | `/etc/uranus-admin/runtime.env`                                            | root:root, 0600; systemd liest und übergibt ausschließlich Runtime-Konfiguration.                                                                                                                                  |
 | `/etc/uranus-admin/operator.env`                                           | root:root, 0600; vorhandene Migrator-/Operator-/Dev-Token-Einträge gesichert, nie in Units geladen. Unterschiedliche bereits gesicherte Werte führen zum Abbruch.                                                  |
@@ -278,7 +446,8 @@ ist erforderlich.
 
 Reihenfolge: Input-/Apply-Gates → Host-/OS-/lokale Speicher-/Nginx-Prüfung → Toolchain-Inspektion →
 bei freigegebenem Echtlauf Provisionierung und Verifikation → unveränderter READ-ONLY-
-DB-Preflight → Environment-Plan → lokaler Build/Runtime-Prüfung → Aktivierung/Recovery
+DB-Preflight → Environment-Plan → Console-Plan/Provisionierung/READ-ONLY-Verifikation
+→ lokaler Build/Runtime-Prüfung → Aktivierung/Recovery
 → nur bei Erfolg begrenzte Build-Aufbewahrung.
 Ein Toolchain-Fehler erreicht weder DB-Prüfung noch Secret-Übernahme, Nginx-Mutation
 oder Service-Stop. Die Activation-Recovery bleibt unverändert und greift auf keine DB zu.
@@ -351,6 +520,11 @@ fehlgeschlagener Aktivierung werden die ursprünglichen Zustände wiederhergeste
 
 ## Aktivierungsreihenfolge
 
+Vor diesen Aktivierungsschritten: Host-/Source-/Admin-Preflight, Console-Plan,
+Console-Provisionierung und separate READ-ONLY-Console-Verifikation vollständig
+abschließen. Ein Console-Fehler verändert keine laufenden Services und aktiviert
+keine Maintenance.
+
 1. Release bauen, Runtime-Konfiguration/DSNs **READ ONLY** verifizieren und
    systemd-/Nginx-Kandidaten prüfen. Ein Kandidatenfehler stoppt vor Service-Eingriffen.
 2. Geplante Dateizustände nach dem Build erneut prüfen; bei paralleler Veränderung abbrechen.
@@ -387,7 +561,9 @@ keine automatische Löschung von Releases, unvollständigen Build-Resten oder Sn
 ## Secrets und Production-Debug
 
 Es werden keine neuen Passwörter erzeugt, keine Secrets aus Beispieldateien installiert
-und keine vorhandenen Zugangsdaten rotiert. Beim ersten Lauf ist die bestehende Backend-
+und keine vorhandenen Zugangsdaten rotiert. Der Console-Reader übernimmt sein separates
+Secret aus der geschützten `operator.env` oder einer bereits expliziten Runtime-DSN;
+Ansible setzt bei Neuanlage dessen SCRAM-Verifier. Bei Abweichung Abbruch statt Rotation. Beim ersten Lauf ist die bestehende Backend-
 `.env` die Quelle; danach `/etc/uranus-admin/runtime.env`. Unbekannte Schlüssel,
 Dubletten, Interpolation oder mehrdeutige Syntax führen zum Abbruch.
 
@@ -400,7 +576,9 @@ Die neuen Templates sind vollständig im Repository prüfbar.
 `DATABASE_URL` muss auf `uranus_reader`, `ADMIN_DATABASE_URL` auf `admin_user`, jeweils
 lokales `oklab:5432`, zeigen. Runtime-Units entfernen zusätzlich privilegierte Variablen
 mit `UnsetEnvironment`. Frontend erhält keine DB-DSNs. `operator.env` ist ein geschütztes
-Archiv, kein automatisch benutzter CLI-Kontext. Ein späterer Wechsel zu Vault/SOPS ist
+Archiv, kein automatisch benutzter CLI-Kontext. Nur der explizite Console-DSN-Schlüssel
+wird bei unterstützenden Releases für die geschützte Console-Provisionierung übernommen;
+Migrator-/Operator-Credentials bleiben außerhalb der Runtime. Ein späterer Wechsel zu Vault/SOPS ist
 ein eigener, geprüfter Secret-Management-Schritt; nichts wird unverschlüsselt eingecheckt.
 
 Mit `ua_debug: true` werden zusammen gesetzt:
@@ -495,8 +673,10 @@ ist gitignored. Keine Credentials in Inventory oder CLI-Argumenten. Bestehenden,
 verifizierten SSH-Hostkey verwenden; niemals StrictHostKeyChecking deaktivieren.
 
 `community.postgresql` benötigt auf dem Ziel unter `/usr/bin/python3` psycopg2 oder
-psycopg3. Die Rolle installiert dieses Paket nicht automatisch. Der Operator muss
-über sudo als `postgres` lokal lesen und im späteren Echtlauf Systemdateien verwalten
+psycopg3; der Console-Provisionierer benötigt psycopg2. Die Rolle installiert
+dieses Paket nicht automatisch. Der Operator muss
+über sudo als `postgres` lokal lesen, im freigegebenen Console-Schritt die isolierte
+Infrastruktur provisionieren und im späteren Echtlauf Systemdateien verwalten
 können. Bei Bedarf `--ask-become-pass`, kein Passwort im Inventory.
 Die projektlokale `ansible.cfg` verwendet `/tmp` als Basis für private Ansible-Task-
 Unterverzeichnisse. Dadurch benötigt `become_user: postgres` kein schreibbares
@@ -536,6 +716,8 @@ ua_maintenance_window: "<bestätigtes Zeitfenster>"
 ua_backup_reference: "<geprüfter Backup-/Recovery-Nachweis>"
 ua_manage_notification_timer: false
 ua_secret_adoption_approved: true
+# Zusätzlich bei einem Release mit SQL_CONSOLE_DATABASE_URL:
+ua_sql_console_provision_approved: true
 # Nur bei ausdrücklichem Notification-Management zusätzlich:
 # ua_manage_notification_timer: true
 # ua_disable_notification_timer_approved: true
@@ -591,15 +773,15 @@ zu; ein vorhandener aktiver Marker verhindert diese Deaktivierung ausdrücklich.
 
 ### Dateien, HTTP und öffentliche Angaben
 
-| Pfad | Eigentümer/Modus | Zweck |
-| --- | --- | --- |
-| `/var/lib/uranus-admin/maintenance/` und `assets/` | root:root 0755 | Nginx-lesbare statische Dateien |
-| `maintenance/maintenance.html` | root:root 0644 | Gerendertes deutsches HTML |
-| `maintenance/assets/lottie.min.js` | root:root 0644 | Lokal vendorte Lottie-Light-Runtime |
-| `maintenance/assets/maintenance.json` | root:root 0644 | Kleine eigene Server-/Update-Animation |
-| `maintenance/assets/maintenance.js` | root:root 0644 | Lokaler Initializer, Reduced-Motion-Unterstützung |
-| `maintenance/assets/LICENSE.lottie-web.txt` | root:root 0644 | MIT-Copyright-/Lizenzhinweis |
-| `/var/lib/uranus-admin/maintenance/enabled` | root:root 0644 | Einzige ON/OFF-Quelle |
+| Pfad                                               | Eigentümer/Modus | Zweck                                             |
+| -------------------------------------------------- | ---------------- | ------------------------------------------------- |
+| `/var/lib/uranus-admin/maintenance/` und `assets/` | root:root 0755   | Nginx-lesbare statische Dateien                   |
+| `maintenance/maintenance.html`                     | root:root 0644   | Gerendertes deutsches HTML                        |
+| `maintenance/assets/lottie.min.js`                 | root:root 0644   | Lokal vendorte Lottie-Light-Runtime               |
+| `maintenance/assets/maintenance.json`              | root:root 0644   | Kleine eigene Server-/Update-Animation            |
+| `maintenance/assets/maintenance.js`                | root:root 0644   | Lokaler Initializer, Reduced-Motion-Unterstützung |
+| `maintenance/assets/LICENSE.lottie-web.txt`        | root:root 0644   | MIT-Copyright-/Lizenzhinweis                      |
+| `/var/lib/uranus-admin/maintenance/enabled`        | root:root 0644   | Einzige ON/OFF-Quelle                             |
 
 Die relativen Dateizeilen liegen ebenfalls unter `/var/lib/uranus-admin/`.
 Die App-Services können diese Dateien nicht schreiben. Der Marker liegt bewusst
@@ -678,7 +860,9 @@ curl -I https://admin.kulturbytes.de/
 Environment, Dateimetadaten, Service-Zustand und den vorherigen `current`-Verweis begrenzt.
 Er enthält keine PostgreSQL-Module, keine SQL-/Alembic-/Restore-Aufrufe, keine HTTP-
 Readiness-Abfragen und keine Includes von DB-Tasks. `boundary.sql`, Runtime-Verifikation
-und sämtliche read-only PostgreSQL-Preflights bleiben unverändert vor der Aktivierung.
+und sämtliche read-only PostgreSQL-Preflights bleiben vor der Aktivierung.
+Console DB infrastructure wird nicht destruktiv zurückgerollt: nach erfolgreichem
+Console-Commit kein DROP VIEW, DROP ROLE oder DROP SCHEMA im System-Recovery.
 
 Die Recovery stoppt zuerst betroffene neue App-Prozesse und stellt geänderte Altdateien
 mit ihrem vorherigen Inhalt, Besitzer, Gruppe und Modus wieder her. Zuvor nicht existente

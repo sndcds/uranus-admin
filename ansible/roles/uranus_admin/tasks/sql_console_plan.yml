@@ -1,0 +1,23 @@
+- name: Derive console capability from the authenticated release manifest
+  ansible.builtin.set_fact:
+    ua_sql_console_required: "{{ 'SQL_CONSOLE_DATABASE_URL' in ua_manifest.environment_keys }}"
+    ua_sql_console_contract: "{{ lookup('file', role_path + '/files/sql_console_contract.json') | from_json }}"
+
+- name: Inspect console catalog without mutations even when roles are absent
+  uranus_sql_console:
+    state: plan
+    contract: "{{ ua_sql_console_contract }}"
+  become_user: postgres
+  register: ua_sql_console_plan
+  when: ua_sql_console_required
+
+- name: Report console plan without credentials or SQL text
+  ansible.builtin.debug:
+    msg:
+      sql_console: "{{ ua_sql_console_plan.sql_console | combine({'runtime_dsn_present': 'SQL_CONSOLE_DATABASE_URL' in ua_runtime}) if ua_sql_console_required else {'required': false, 'changes_planned': [], 'fallback': false} }}"
+
+- name: Refuse console blockers before provisioning build or maintenance
+  ansible.builtin.assert:
+    that: ua_sql_console_plan.sql_console.blockers | length == 0
+    fail_msg: "Console boundary blocked. Review the catalog plan; only versioned approved TEMP/EXECUTE contracts permit their targeted PUBLIC reconciliation; unknown consumers and other shared privileges block. No app activation."
+  when: ua_sql_console_required

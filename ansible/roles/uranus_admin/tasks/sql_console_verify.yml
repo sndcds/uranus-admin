@@ -1,0 +1,5 @@
+- name: Independently verify the complete console contract read-only
+  uranus_sql_console:
+    state: verify
+    contract: "{{ ua_sql_console_contract }}"
+  become_user: postgres
