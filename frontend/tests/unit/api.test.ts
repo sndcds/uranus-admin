@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+import { filtersSchema } from '../../shared/contracts'
 import { createAdminApi } from '../../app/utils/admin-api'
-import { summary } from '../fixtures/api'
+import { summary, findings } from '../fixtures/api'
 
 describe('browser API client', () => {
   it.each([401, 403, 422, 500, 503])(
@@ -39,4 +40,14 @@ describe('browser API client', () => {
       createAdminApi(vi.fn().mockRejectedValue(new Error('secret'))).summary('24h'),
     ).rejects.toMatchObject({ failure: { status: 502 } })
   })
+})
+
+it('serializes active-only findings queries as explicit booleans', async () => {
+  const fetcher = vi.fn().mockImplementation(async () => new Response(JSON.stringify(findings)))
+  const api = createAdminApi(fetcher)
+  for (const active_only of [true, false]) {
+    await api.findings(filtersSchema.parse({ active_only }))
+    const url = new URL(String(fetcher.mock.lastCall?.[0]), 'http://localhost')
+    expect(url.searchParams.get('active_only')).toBe(String(active_only))
+  }
 })

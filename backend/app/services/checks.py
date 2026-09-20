@@ -406,6 +406,8 @@ async def persisted_page(
         else None
     )
     conditions = []
+    if filters.active_only:
+        conditions.append(finding.c.status != "resolved")
     for key in ("severity", "entity_type", "entity_key", "rule", "status"):
         if (value := getattr(filters, key)) is not None:
             conditions.append(finding.c[key] == value)
@@ -619,6 +621,8 @@ async def spatial_persisted_page(
         else None
     )
     conditions = []
+    if filters.active_only:
+        conditions.append(finding.c.status != "resolved")
     for key in ("severity", "entity_type", "entity_key", "rule", "status"):
         if (value := getattr(filters, key)) is not None:
             conditions.append(finding.c[key] == value)

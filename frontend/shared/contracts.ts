@@ -187,6 +187,9 @@ export const filtersSchema = z.object({
   rule: z.string().max(100).optional(),
   organization_id: z.uuid().optional(),
   status: statusSchema.optional(),
+  active_only: z
+    .union([z.boolean(), z.enum(['true', 'false']).transform((value) => value === 'true')])
+    .default(false),
   page: z.coerce.number().int().min(1).max(100000).default(1),
   page_size: z.coerce.number().int().min(1).max(100).default(50),
 })

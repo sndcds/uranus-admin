@@ -3,7 +3,7 @@ import { findingPageSchema, summarySchema } from '../../shared/contracts'
 import { summary, findings } from '../fixtures/api'
 import { recordRows } from '../../app/utils/activity'
 import { dateTime, metric } from '../../app/utils/presentation'
-import { parseFilters } from '../../app/utils/filters'
+import { parseFilters, filterQuery } from '../../app/utils/filters'
 
 describe('actual response contract', () => {
   it('maps a real-shaped response and retains unknown history', () => {
@@ -72,4 +72,16 @@ it('validates internal action routes and encoded keys', async () => {
 it('defaults normal finding lists to persisted and requires explicit live diagnosis', () => {
   expect(parseFilters({})?.mode).toBe('persisted')
   expect(parseFilters({ mode: 'live' })?.mode).toBe('live')
+})
+
+it('round-trips active-only booleans without interpreting false as truthy', () => {
+  expect(parseFilters({})?.active_only).toBe(false)
+  for (const active of [true, false]) {
+    const parsed = parseFilters({ active_only: String(active), severity: 'error' })!
+    expect(parsed.active_only).toBe(active)
+    expect(parseFilters(filterQuery(parsed))).toEqual(parsed)
+  }
+  for (const active_only of ['yes', '', 'anything', ['true', 'false'], 1]) {
+    expect(parseFilters({ active_only })).toBeNull()
+  }
 })

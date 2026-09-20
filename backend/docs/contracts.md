@@ -158,6 +158,20 @@ stillschweigenden Live-Fallback. Historische Daten werden nicht als frischer Liv
 aktuell eine Zeile pro Finding plus Run-Coverage, **kein vollständiges Ereignisjournal jeder
 Feldänderung oder jedes früheren Reviews**.
 
+`active_only=true` schließt ausschließlich `resolved` aus. `open`, `in_progress`,
+`snoozed`, `exception`, `reviewed` und `ignored` bleiben enthalten. Standard ist
+`false`; `/findings` ohne Filter zeigt weiterhin auch historische behobene Befunde.
+Der Filter wirkt vor SQL-COUNT/LIMIT/OFFSET und vor dem räumlichen Membership-Scan.
+Er wird mit explizitem `status`, Severity und anderen Filtern per AND kombiniert;
+`active_only=true&status=resolved` liefert deshalb eine leere Ergebnismenge.
+Live-Diagnosen enthalten ohnehin nur offene Befunde.
+
+Dashboard-Vorschau, Qualitäts-/Dringlichkeitskennzahlen und Qualitätsübersicht beziehen
+sich auf den nicht behobenen Bestand. Ihre Findings-Links übernehmen `active_only=true`
+und gegebenenfalls Severity und Geo Scope. Die Vorschau-Gesamtzahl stammt aus der
+gefilterten API-Pagination, nicht aus der sichtbaren Seitengröße. Separate Requests
+können bei parallel abgeschlossenen Prüfläufen kurzzeitig unterschiedliche Stände sehen.
+
 ## Review Workflow
 
 `PATCH /api/v1/finding-reviews` mit `finding_id`, `status` und optionalen Metadaten.
@@ -615,6 +629,7 @@ Offset navigation remains the frontend default. `cursor_pagination` contains
 cursor page counter. Live findings do not support cursors.
 
 Cursors are versioned base64url JSON with endpoint and filter-scope validation.
+The findings scope includes `active_only`; changing it requires a new cursor stream.
 Activity includes UTC created time plus entity type/key (descending time, ascending
 identity); unknown timestamps use identity only. The original time window is carried
 forward, even when the clock advances. Persisted findings use descending effective

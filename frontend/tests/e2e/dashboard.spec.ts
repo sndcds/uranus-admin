@@ -85,3 +85,85 @@ test('real Nitro proxy denies absent auth, unknown routes and write methods', as
   const response = await request.get('/api/admin/api/v1/findings')
   expect(response.headers()['cache-control']).toContain('no-store')
 })
+
+test('dashboard active worklist total and links exclude resolved history', async ({ page }) => {
+  const base = findings.items[0]!
+  const rows = [
+    {
+      ...base,
+      id: 'resolved-high',
+      entity_name: 'Behobener Spitzenbefund',
+      status: 'resolved',
+      severity: 'error',
+      priority_score: 99999,
+    },
+    {
+      ...base,
+      id: 'open-low',
+      entity_name: 'Aktiver Fehler',
+      status: 'open',
+      severity: 'error',
+      priority_score: 1000,
+    },
+    {
+      ...base,
+      id: 'exception-low',
+      entity_name: 'Aktive Ausnahme',
+      status: 'exception',
+      severity: 'warning',
+      priority_score: 900,
+    },
+  ]
+  await page.route('**/api/admin/api/v1/**', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/summary'))
+      return route.fulfill({
+        json: {
+          ...summary,
+          quality: { ...summary.quality, mode: 'persisted', total: 2, errors: 1, warnings: 1 },
+        },
+      })
+    const active = url.searchParams.get('active_only') === 'true'
+    const severity = url.searchParams.get('severity')
+    const selected = rows.filter(
+      (row) => (!active || row.status !== 'resolved') && (!severity || row.severity === severity),
+    )
+    return route.fulfill({
+      json: {
+        ...findings,
+        mode: 'persisted',
+        items: selected.slice(0, Number(url.searchParams.get('page_size') ?? 50)),
+        pagination: { page: 1, page_size: 4, total: selected.length, pages: 1 },
+      },
+    })
+  })
+  await page.goto('/?period=24h')
+  await expect(page.getByText('Aktiver Fehler', { exact: true })).toBeVisible()
+  await expect(page.getByText('Aktive Ausnahme', { exact: true })).toBeVisible()
+  await expect(page.getByText('Behobener Spitzenbefund')).toHaveCount(0)
+  const all = page.getByRole('link', { name: 'Alle 2 Befunde anzeigen' })
+  await expect(all).toHaveAttribute('href', /active_only=true/)
+  await expect(page.getByRole('region', { name: 'Datenqualitätsübersicht' })).toContainText(
+    '2 Befunde',
+  )
+  await expect(page.getByRole('link', { name: /Dringend/ })).toHaveAttribute(
+    'href',
+    /active_only=true/,
+  )
+  await all.click()
+  await expect(page).toHaveURL(/active_only=true/)
+  await expect(page.getByText('Behobener Spitzenbefund')).toHaveCount(0)
+  await page.goto('/')
+  await expect(page.getByRole('link', { name: 'Alle 2 Befunde anzeigen' })).toBeVisible()
+  await page.getByRole('button', { name: 'Fehler', exact: true }).click()
+  const errors = page.getByRole('link', { name: 'Alle 1 Befunde anzeigen' })
+  await expect(errors).toHaveAttribute('href', /active_only=true/)
+  await expect(errors).toHaveAttribute('href', /severity=error/)
+  await expect(page.getByText('Behobener Spitzenbefund')).toHaveCount(0)
+  await expect(page.getByText('Aktive Ausnahme', { exact: true })).toHaveCount(0)
+  await errors.click()
+  await expect(page).toHaveURL(/severity=error/)
+  await expect(page.getByText('Aktiver Fehler', { exact: true })).toBeVisible()
+  await page.goto('/findings')
+  await expect(page.getByText('Behobener Spitzenbefund', { exact: true })).toBeVisible()
+})

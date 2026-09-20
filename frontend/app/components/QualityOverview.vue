@@ -53,6 +53,8 @@ const groups = computed(() =>
             :to="{
               path: '/findings',
               query: {
+                active_only: 'true',
+                geo_scope_id: data?.geo_scope_id ?? undefined,
                 rule,
                 entity_type: qualityRules[rule]?.entityType,
                 mode: data?.quality.mode,
@@ -88,7 +90,14 @@ const groups = computed(() =>
         >Alle Regeln anzeigen →</NuxtLink
       >
       <NuxtLink
-        :to="{ path: '/findings', query: { mode: data?.quality.mode ?? 'persisted' } }"
+        :to="{
+          path: '/findings',
+          query: {
+            mode: data?.quality.mode ?? 'persisted',
+            active_only: 'true',
+            geo_scope_id: data?.geo_scope_id ?? undefined,
+          },
+        }"
         class="rounded hover:underline"
         >Qualitätsbefunde öffnen →</NuxtLink
       >

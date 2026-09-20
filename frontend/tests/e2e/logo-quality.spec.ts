@@ -94,7 +94,12 @@ for (const entry of cases) {
     if (entry.rule === 'venue_missing_logo')
       await page.screenshot({ path: testInfo.outputPath('logo-quality.png'), fullPage: true })
     await page.getByRole('link', { name: new RegExp(entry.label) }).click()
-    await expect(page).toHaveURL(new RegExp(`/findings\\?rule=${entry.rule}`))
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === '/findings' &&
+        url.searchParams.get('rule') === entry.rule &&
+        url.searchParams.get('active_only') === 'true',
+    )
     const row = page.getByRole('list', { name: 'Befunde', exact: true }).getByRole('listitem')
     await expect(row).toContainText('Logo-Testdatensatz')
     await expect(

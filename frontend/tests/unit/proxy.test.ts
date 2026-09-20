@@ -355,3 +355,23 @@ it.each(['events', 'users', 'organizations', 'venues', 'spaces', 'images', 'enti
     expect(fetcher).toHaveBeenCalledTimes(1)
   },
 )
+
+it('forwards active_only only on findings and rejects duplicate filter keys', async () => {
+  const fetcher = vi.fn().mockResolvedValue(new Response('{}'))
+  const query = new URLSearchParams('active_only=true&severity=error')
+  await forwardAdminRequest({ ...input, query }, base, fetcher)
+  expect(String(fetcher.mock.calls[0]?.[0])).toBe(`${base}/api/v1/findings?${query}`)
+  fetcher.mockClear()
+  query.append('active_only', 'false')
+  expect((await forwardAdminRequest({ ...input, query }, base, fetcher)).status).toBe(422)
+  expect(fetcher).not.toHaveBeenCalled()
+  expect(
+    (
+      await forwardAdminRequest(
+        { ...input, path: '/api/v1/check-runs', query: new URLSearchParams('active_only=true') },
+        base,
+        fetcher,
+      )
+    ).status,
+  ).toBe(422)
+})

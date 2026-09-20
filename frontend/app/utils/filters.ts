@@ -11,6 +11,7 @@ export function parseFilters(query: Record<string, unknown>) {
     'rule',
     'organization_id',
     'status',
+    'active_only',
     'page',
     'page_size',
   ])

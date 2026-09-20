@@ -59,15 +59,33 @@ describe('logo quality overview', () => {
     expect(queries).toEqual([
       {
         path: '/findings',
-        query: { rule: 'venue_missing_logo', entity_type: 'venue', mode: 'live' },
+        query: {
+          active_only: 'true',
+          geo_scope_id: undefined,
+          rule: 'venue_missing_logo',
+          entity_type: 'venue',
+          mode: 'live',
+        },
       },
       {
         path: '/findings',
-        query: { rule: 'organization_missing_logo', entity_type: 'organization', mode: 'live' },
+        query: {
+          active_only: 'true',
+          geo_scope_id: undefined,
+          rule: 'organization_missing_logo',
+          entity_type: 'organization',
+          mode: 'live',
+        },
       },
       {
         path: '/findings',
-        query: { rule: 'logo_unsupported_format', entity_type: undefined, mode: 'live' },
+        query: {
+          active_only: 'true',
+          geo_scope_id: undefined,
+          rule: 'logo_unsupported_format',
+          entity_type: undefined,
+          mode: 'live',
+        },
       },
     ])
   })
@@ -123,7 +141,13 @@ describe('postal code quality overview', () => {
     expect(group.text()).not.toContain('postal_code_whitespace')
     expect(group.getComponent({ name: 'NuxtLink' }).props('to')).toEqual({
       path: '/findings',
-      query: { rule: 'postal_code_whitespace', entity_type: undefined, mode },
+      query: {
+        active_only: 'true',
+        geo_scope_id: undefined,
+        rule: 'postal_code_whitespace',
+        entity_type: undefined,
+        mode,
+      },
     })
   })
   it('shows zero counts and distinguishes unavailable counts', () => {
@@ -169,6 +193,8 @@ describe('quality v2', () => {
     expect(group.getComponent({ name: 'NuxtLink' }).props('to')).toEqual({
       path: '/findings',
       query: {
+        active_only: 'true',
+        geo_scope_id: undefined,
         rule: 'membership_joined_accept_token_present',
         entity_type: 'team_membership',
         mode: 'persisted',
@@ -185,4 +211,13 @@ describe('quality v2', () => {
     ])
     expect(group.text()).toContain('Übernachttermin ohne Enddatum')
   })
+})
+
+it('quality links keep the active filter and current geo scope', () => {
+  const geo_scope_id = '00000000-0000-4000-8000-000000000800'
+  const view = render({ ...data, geo_scope_id })
+  const links = view.findAllComponents({ name: 'NuxtLink' }).map((link) => link.props('to'))
+  for (const to of links.filter((to) => typeof to === 'object' && to.path === '/findings')) {
+    expect(to.query).toMatchObject({ active_only: 'true', geo_scope_id })
+  }
 })

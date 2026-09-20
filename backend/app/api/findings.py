@@ -25,6 +25,7 @@ router = APIRouter(tags=["Findings"])
     description="Defaults to persisted findings without a source scan. Explicit mode=live runs "
     "a full diagnostic scan. Only open findings exist in live mode; "
     "other status filters return an empty live result, not historical workflow data. "
+    "active_only=true excludes resolved findings and combines with other filters. "
     "Ordered by priority_score descending and stable finding ID.",
 )
 async def findings(

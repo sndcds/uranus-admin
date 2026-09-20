@@ -55,7 +55,7 @@ export function createAdminApi(
   async function request<T>(
     path: string,
     schema: z.ZodType<T>,
-    query: Record<string, string | number | undefined> = {},
+    query: Record<string, string | number | boolean | undefined> = {},
     method = 'GET',
     requestBody?: unknown,
     signal?: AbortSignal,

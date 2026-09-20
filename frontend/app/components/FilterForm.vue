@@ -33,6 +33,7 @@ function apply() {
     rule: rule.value || undefined,
     mode: mode.value,
     status: status.value || undefined,
+    active_only: props.filters.active_only,
     page: 1,
     page_size: props.filters.page_size,
   })

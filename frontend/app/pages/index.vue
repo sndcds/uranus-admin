@@ -30,7 +30,7 @@ watch([period, geoScopeId], loadDashboard)
 const findings = useFindingsStore()
 const { $adminApi } = useNuxtApp()
 const displayedPeriod = computed(() => dashboard.data?.period ?? period.value)
-const previewFilters = filtersSchema.parse({ page_size: 4 })
+const previewFilters = filtersSchema.parse({ page_size: 4, active_only: true })
 const previewSeverityFilter = ref<Severity | undefined>()
 function loadDashboard() {
   void dashboard.load($adminApi, period.value, geoScopeId.value)
@@ -59,13 +59,13 @@ function recordLink(type: string) {
 }
 function previewSeverity(severity?: Severity) {
   previewSeverityFilter.value = severity
-  findings.setFilters({ severity, page_size: 4 })
+  findings.setFilters({ severity, page_size: 4, active_only: true })
   void findings.load($adminApi)
 }
 function openFilters(filters: FindingFilters) {
   return navigateTo({
     path: '/findings',
-    query: { ...filterQuery(filters), geo_scope_id: geoScopeId.value },
+    query: { ...filterQuery({ ...filters, active_only: true }), geo_scope_id: geoScopeId.value },
   })
 }
 </script>
@@ -193,7 +193,7 @@ function openFilters(filters: FindingFilters) {
           :value="dashboard.data?.urgent_findings"
           description="Aktuell dringende Befunde · gesamte Arbeitsliste öffnen"
           tone="rose"
-          :to="`/findings?mode=${dashboard.data?.quality.mode ?? 'persisted'}`"
+          :to="`/findings?mode=${dashboard.data?.quality.mode ?? 'persisted'}&active_only=true${geoScopeId ? '&geo_scope_id=' + encodeURIComponent(geoScopeId) : ''}`"
         />
         <KpiCard
           label="Datenqualität"
@@ -275,7 +275,11 @@ function openFilters(filters: FindingFilters) {
           <NuxtLink
             :to="{
               path: '/findings',
-              query: findings.filters.severity ? { severity: findings.filters.severity } : {},
+              query: {
+                active_only: 'true',
+                severity: findings.filters.severity,
+                geo_scope_id: geoScopeId,
+              },
             }"
             class="text-sm font-semibold text-fuchsia-700"
             >{{
