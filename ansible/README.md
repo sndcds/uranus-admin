@@ -362,8 +362,8 @@ fehlgeschlagener Aktivierung werden die ursprünglichen Zustände wiederhergeste
    Enablement-Arten führen zum Abbruch. Nginx muss bereits laufen.
 5. Ein Handler fordert die Aktivierung an. Ein normaler `block`/`rescue` bereitet die
    [Wartungsseite](#wartungsmodus) vor, aktiviert den Marker und lädt nach `nginx -t`
-   den gesicherten Proxy-Kandidaten. Erst nach öffentlicher 503-Verifikation und
-   Abwarten alter Nginx-Worker stoppt er betroffene Services. Notification-Eingriffe
+   den gesicherten Proxy-Kandidaten. Erst nach Abwarten alter Nginx-Worker und
+   öffentlicher 503-Verifikation stoppt er betroffene Services. Notification-Eingriffe
    sind zusätzlich durch beide Flags begrenzt. Der Handler selbst verändert keine Services.
 6. Geprüfte Dateien installieren, gegebenenfalls `daemon-reload`, vollständiges `nginx -t`.
 7. Betroffene App-Services starten; Nginx nur bei eigener Config-Änderung reloaden.
@@ -562,12 +562,17 @@ Reihenfolge bei einer erforderlichen Aktivierung:
 4. Marker atomar anlegen (vorhandenen Inhalt erhalten). Den bereits geprüften,
    gesicherten Nginx-Kandidaten bei Bedarf vorziehen: Bei der ersten Übernahme kennt
    der alte VHost den Marker noch nicht. `nginx -t`, Reload.
-5. Öffentliches HTTPS-GET `/` auf **503**, festen HTML-Marker, escaped Titel,
-   `Retry-After` und `Cache-Control: no-store` prüfen. Redirects werden abgewiesen,
-   Zertifikate geprüft. Danach das Ende der vor dem Reload erfassten Nginx-Worker abwarten
-   (maximal 60 Sekunden pro Worker); auch alte, noch laufende Requests dürfen nicht
-   durch den Service-Stopp abbrechen. Timeout bricht ohne App-Stopp ab, ohne Worker
-   zu beenden oder andere Sites zu verändern. Erst danach App-Services stoppen.
+5. Zuerst das Ende der vor dem Reload erfassten Nginx-Worker abwarten (maximal
+   60 Sekunden pro Worker). Der Reload ist asynchron; alte Worker können noch
+   die vorherige Proxy-Konfiguration bedienen. Auch alte, noch laufende Requests
+   dürfen nicht durch den Service-Stopp abbrechen. Timeout bricht ohne App-Stopp ab,
+   ohne Worker zu beenden oder andere Sites zu verändern. Anschließend öffentliches
+   HTTPS-GET `/` auf **503**, festen HTML-Marker, escaped Titel, `Retry-After` und
+   `Cache-Control: no-store` prüfen: maximal zehn Wiederholungen mit zwei Sekunden
+   Abstand und zehn Sekunden Timeout pro Request. Nur der vollständige Vertrag
+   gilt als Erfolg; auch eine 503-Seite mit falschem Inhalt oder Headern scheitert.
+   Redirects werden nicht verfolgt, Zertifikate geprüft. Eine vorübergehende 302
+   darf erneut geprüft werden, eine dauerhafte 302 löst Recovery ohne App-Stopp aus.
 6. Optionale explizit verwaltete Notifications und betroffene App-Services stoppen,
    übrige Konfiguration installieren, geänderte Units neu laden, `nginx -t` ausführen,
    betroffene Services starten und geändertes Nginx reloaden.

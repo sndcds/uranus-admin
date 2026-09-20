@@ -169,6 +169,7 @@ class ActivationIntegrationTests(unittest.TestCase):
         recovery_fail_task=None,
         check=False,
         repeat_without_activation=False,
+        maintenance_responses=None,
     ):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -281,6 +282,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "maintenance": str(maintenance),
                 "nginx_site": str(root / "etc/nginx/sites-available/uranus-admin"),
                 "loaded_maintenance_capable": originally_on,
+                "maintenance_responses": maintenance_responses or [],
                 "config_dir": str(config),
                 "current": str(release_root / "current"),
             }
@@ -401,7 +403,9 @@ class ActivationIntegrationTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, output)
                 self.assertEqual((release_root / "current").resolve(), release)
                 health_events = [event for event in observed["events"] if event["kind"] == "uri"]
-                self.assertEqual(len(health_events), 5)
+                self.assertEqual(
+                    len(health_events), 5 + max(0, len(maintenance_responses or []) - 1)
+                )
                 self.assertTrue(
                     all(event["pointer"] == str(old_release) for event in health_events)
                 )
@@ -443,11 +447,16 @@ class ActivationIntegrationTests(unittest.TestCase):
                     if e["task"] == "Drain previous nginx workers before stopping applications"
                 )
                 self.assertLess(observed["events"].index(drain), observed["events"].index(stops[0]))
-                verify = next(
+                verifications = [
                     e
                     for e in observed["events"]
                     if e["task"] == "Check public HTTP 503 maintenance content and headers"
+                ]
+                self.assertLess(
+                    observed["events"].index(drain),
+                    observed["events"].index(verifications[0]),
                 )
+                verify = verifications[-1]
                 self.assertTrue(verify["maintenance_files_ready"], output)
                 self.assertTrue(verify["maintenance_active"], output)
                 self.assertLess(
@@ -540,7 +549,10 @@ class ActivationIntegrationTests(unittest.TestCase):
                         **(args if isinstance(args, dict) else {"command": args}),
                     }
                     if kind == "uri":
-                        task["retries"], task["delay"] = 0, 0
+                        # Exercise real until/failed_when retries for maintenance.
+                        if task["name"] != "Check public HTTP 503 maintenance content and headers":
+                            task["retries"] = 0
+                        task["delay"] = 0
             for name in (
                 "ansible.builtin.copy",
                 "ansible.builtin.file",
@@ -603,6 +615,30 @@ class ActivationIntegrationTests(unittest.TestCase):
 
     def test_maintenance_verification_failure_never_stops_apps(self):
         self.run_activation("Check public HTTP 503 maintenance content and headers")
+
+    def test_transient_redirect_and_invalid_503_require_complete_contract(self):
+        observed = self.run_activation(
+            maintenance_responses=[
+                {
+                    "status": 302,
+                    "content": '<meta http-equiv="refresh" content="0; url=/login?redirect=/">',
+                },
+                {"status": 503, "content": "Unrelated unavailable page"},
+                {"status": 503, "retry_after": "1"},
+                {"status": 503},
+            ]
+        )
+        checks = [e for e in observed["events"] if "response_status" in e]
+        self.assertEqual([e["response_status"] for e in checks], [302, 503, 503, 503])
+
+    def test_persistent_redirect_recovers_without_stopping_apps(self):
+        observed = self.run_activation(
+            "Check public HTTP 503 maintenance content and headers",
+            maintenance_responses=[{"status": 302, "content": "Redirect to login"}],
+        )
+        checks = [e for e in observed["events"] if "response_status" in e]
+        self.assertEqual(len(checks), 11)
+        self.assertTrue(all(e["response_status"] == 302 for e in checks))
 
     def test_unchanged_release_refreshes_public_copy_without_switching(self):
         self.run_activation(originally_on=True, repeat_without_activation=True)
