@@ -32,7 +32,7 @@ class ConsoleContractTests(unittest.TestCase):
             self.assertNotIn("*", definition)
             self.assertNotIn("(", definition)
             self.assertEqual(view["owner_select_columns"], [c["name"] for c in view["columns"]])
-        self.assertEqual(CONTRACT["version"], 2)
+        self.assertEqual(CONTRACT["version"], 3)
         self.assertEqual(
             set(CONTRACT["database_temp_roles"]),
             {"uranus_reader", "admin_user", "admin_migrator", "admin_auth_operator"},
@@ -165,7 +165,6 @@ class ConsoleDatabaseTests(unittest.TestCase):
         cls.conn.autocommit = True
         with cls.conn.cursor() as cur:
             cur.execute("CREATE EXTENSION postgis")
-            cur.execute("REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC")
             cur.execute("CREATE SCHEMA uranus; CREATE SCHEMA admin")
             cur.execute(
                 "CREATE TYPE uranus.event_release_status AS ENUM ('draft','inherited','released')"
@@ -201,16 +200,6 @@ class ConsoleDatabaseTests(unittest.TestCase):
                         sql.Identifier(cls.database), sql.Identifier(role)
                     )
                 )
-            cur.execute(
-                """SELECT p.oid::regprocedure::text FROM pg_proc p JOIN pg_namespace n
-                ON n.oid=p.pronamespace WHERE p.proname=ANY(%s) OR p.prosecdef OR p.oid>=16384 OR
-                (n.nspname NOT IN ('pg_catalog','information_schema'))""",
-                (console.DANGEROUS,),
-            )
-            for (function,) in cur.fetchall():
-                cur.execute(
-                    sql.SQL("REVOKE EXECUTE ON FUNCTION {} FROM PUBLIC").format(sql.SQL(function))
-                )
         cls.conn.autocommit = False
 
     @classmethod
@@ -230,6 +219,8 @@ class ConsoleDatabaseTests(unittest.TestCase):
         self.conn.rollback()
         # Only the subprocess fixture test commits. Cleanup its own known console roles.
         with self.conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (console.READER,))
+            committed_console = bool(cur.fetchone())
             cur.execute("DROP SCHEMA IF EXISTS uranus_console CASCADE")
             for role in (console.READER, console.OWNER):
                 cur.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (role,))
@@ -247,6 +238,36 @@ class ConsoleDatabaseTests(unittest.TestCase):
                         sql.Identifier(self.database), sql.Identifier(role)
                     )
                 )
+            if committed_console:
+                # Restore the stock ACLs only after subprocess tests that committed.
+                # No fixture pre-hardening: subsequent tests see normal PostGIS again.
+                cur.execute("SET LOCAL search_path=pg_catalog")
+                snapshot = CONTRACT["function_policy"]["catalogs"][
+                    str(self.conn.server_version // 10000)
+                ]
+                for function in console.function_catalog(self.conn):
+                    entry = (
+                        snapshot.get(function["extension"] or "core", {})
+                        .get("restricted_functions", {})
+                        .get(function["signature"])
+                    )
+                    if entry and entry["public_execute"]:
+                        target = sql.SQL("{}.{}({})").format(
+                            sql.Identifier(function["schema"]),
+                            sql.Identifier(function["name"]),
+                            sql.SQL(function["arguments"]),
+                        )
+                        cur.execute(
+                            sql.SQL("GRANT EXECUTE ON FUNCTION {} TO PUBLIC").format(target)
+                        )
+                        cur.execute(
+                            sql.SQL("REVOKE EXECUTE ON FUNCTION {} FROM {}").format(
+                                target,
+                                sql.SQL(", ").join(
+                                    map(sql.Identifier, CONTRACT["database_temp_roles"])
+                                ),
+                            )
+                        )
         self.conn.commit()
 
     def provision(self):
@@ -580,6 +601,7 @@ class ConsoleDatabaseTests(unittest.TestCase):
         )
 
     def test_temp_contract_missing_roles_grant_options_and_owner_dependency(self):
+        self.provision()
         self.public_temp_fixture()
         app_role = CONTRACT["database_temp_roles"][0]
         cases = (
@@ -623,6 +645,7 @@ class ConsoleDatabaseTests(unittest.TestCase):
         self.public_temp_fixture()
         self.conn.commit()
         before = self.database_acl()
+        before_functions = self.function_acls()
         self.conn.rollback()
         with tempfile.TemporaryDirectory() as directory:
             module = Path(directory) / "console_failure_fixture.py"
@@ -660,6 +683,7 @@ class ConsoleDatabaseTests(unittest.TestCase):
             self.assertIn("boundary rejected", json.loads(result.stdout)["msg"])
             self.assertNotIn(PASSWORD, result.stdout + result.stderr)
         self.assertEqual(self.database_acl(), before)
+        self.assertEqual(self.function_acls(), before_functions)
         self.assertTrue(self.boundary.inspect()["public_temp"])
         self.assertEqual(
             self.boundary.rows(
@@ -737,7 +761,7 @@ class ConsoleDatabaseTests(unittest.TestCase):
             "CREATE FUNCTION public.escalation() RETURNS int LANGUAGE sql "
             "SECURITY DEFINER AS 'SELECT 1'",
             "CREATE FUNCTION public.unreviewed() RETURNS int LANGUAGE sql VOLATILE AS 'SELECT 1'",
-            "GRANT EXECUTE ON FUNCTION pg_catalog.lo_create(oid) TO PUBLIC",
+            "GRANT EXECUTE ON FUNCTION pg_catalog.lo_create(oid) TO uranus_console_reader",
             "CREATE FUNCTION public.stable_wrapper() RETURNS int LANGUAGE sql STABLE AS 'SELECT 1'",
             "CREATE EXTENSION dblink WITH SCHEMA public",
             "CREATE FOREIGN DATA WRAPPER fixture_fdw; "
@@ -769,6 +793,332 @@ class ConsoleDatabaseTests(unittest.TestCase):
             self.boundary.inspect("different")["blockers"],
         )
 
+    def function_acls(self):
+        return self.boundary.rows("SELECT oid,proacl::text FROM pg_proc ORDER BY oid")
+
+    def test_normal_postgis_execute_plan_preservation_and_idempotency(self):
+        before = self.function_acls()
+        report = self.boundary.inspect()
+        self.assertEqual(report["blockers"], [])
+        snapshot = CONTRACT["function_policy"]["catalogs"][str(self.conn.server_version // 10000)]
+        expected = {
+            sig
+            for group in ("core", "postgis")
+            for sig, function in snapshot[group]["restricted_functions"].items()
+            if function["public_execute"]
+        }
+        changes = report["execute_reconcile"]["changes"]
+        self.assertEqual({c["signature"] for c in changes}, expected)
+        for change in changes:
+            self.assertEqual(change["would_grant_explicit"], CONTRACT["database_temp_roles"])
+            self.assertTrue(change["would_revoke_public_execute"])
+        self.assertEqual(self.function_acls(), before)
+        self.assertEqual(
+            next(e for e in report["extensions"] if e["name"] == "plpgsql")["status"], "allowed"
+        )
+        self.assertEqual(
+            next(e for e in report["extensions"] if e["name"] == "postgis")["status"],
+            "reconcile_required",
+        )
+        self.provision()
+        for signature in expected:
+            rights = dict(
+                self.boundary.rows(
+                    """SELECT rolname,
+                has_function_privilege(oid,%s,'EXECUTE') FROM pg_roles
+                WHERE rolname=ANY(%s)""",
+                    (signature, CONTRACT["database_temp_roles"] + [console.OWNER, console.READER]),
+                )
+            )
+            self.assertEqual(
+                rights,
+                {
+                    **dict.fromkeys(CONTRACT["database_temp_roles"], True),
+                    console.OWNER: False,
+                    console.READER: False,
+                },
+            )
+        # Stock privileged grants survive; no app gains stock non-PUBLIC privileges.
+        self.assertTrue(
+            self.boundary.rows(
+                "SELECT has_function_privilege('pg_monitor','pg_catalog.pg_ls_logdir()','EXECUTE')"
+            )[0][0]
+        )
+        self.assertFalse(
+            self.boundary.rows(
+                "SELECT has_function_privilege('admin_user',"
+                "'pg_catalog.pg_read_file(text)','EXECUTE')"
+            )[0][0]
+        )
+        self.assertFalse(self.boundary.provision(PASSWORD))
+        self.assertEqual(self.boundary.report()["execute_reconcile"]["changes"], [])
+        self.assertTrue(
+            all(
+                e["status"] == "allowed" and e["blocked_functions"] == 0
+                for e in self.boundary.report()["extensions"]
+            )
+        )
+
+    def test_reviewed_postgis_function_and_standard_metadata_remain_usable(self):
+        self.provision()
+        self.boundary.execute("SAVEPOINT safe_postgis")
+        self.boundary.execute("SET LOCAL SESSION AUTHORIZATION uranus_console_reader")
+        self.assertEqual(self.boundary.rows("SELECT public.st_x(public.st_point(1,2))"), [(1.0,)])
+        for name in ("spatial_ref_sys", "geometry_columns", "geography_columns"):
+            self.assertTrue(
+                self.boundary.rows(
+                    "SELECT has_table_privilege(current_user,%s,'SELECT')", ("public." + name,)
+                )[0][0]
+            )
+        self.assertEqual(self.boundary.rows("SHOW search_path"), [("pg_catalog",)])
+        self.boundary.execute("ROLLBACK TO SAVEPOINT safe_postgis")
+
+    def test_unknown_execute_consumer_blocks_without_acl_changes(self):
+        self.boundary.execute("CREATE ROLE reporting_user LOGIN")
+        before = self.function_acls()
+        report = self.boundary.inspect()
+        self.assertFalse(report["public_temp"])
+        self.assertIn(
+            "unexpected_execute_consumer:pg_catalog.set_config(text, text, boolean):reporting_user",
+            report["blockers"],
+        )
+        inventory = next(
+            f
+            for f in report["execute_inventory"]
+            if f["signature"] == "pg_catalog.set_config(text, text, boolean)"
+        )
+        self.assertIn("reporting_user", inventory["effective_login_roles"])
+        self.assertFalse(report["execute_reconcile"]["allowed"])
+        with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+            self.boundary.provision(PASSWORD)
+        self.assertEqual(self.function_acls(), before)
+        self.assertEqual(
+            self.boundary.rows("SELECT 1 FROM pg_roles WHERE rolname=%s", (console.READER,)), []
+        )
+
+    def test_direct_execute_grants_and_membership_paths_fail_closed(self):
+        self.provision()
+        cases = (
+            (
+                "CREATE ROLE reporting_user LOGIN; "
+                "GRANT EXECUTE ON FUNCTION pg_catalog.lo_create(oid) TO reporting_user",
+                "unexpected_function_grantee:pg_catalog.lo_create(oid):reporting_user",
+            ),
+            (
+                "CREATE ROLE execute_group NOLOGIN; "
+                "GRANT EXECUTE ON FUNCTION pg_catalog.lo_create(oid) TO execute_group",
+                "unexpected_function_grantee:pg_catalog.lo_create(oid):execute_group",
+            ),
+            (
+                "GRANT EXECUTE ON FUNCTION pg_catalog.pg_stat_reset() TO uranus_console_reader",
+                "unexpected_function_grantee:pg_catalog.pg_stat_reset():uranus_console_reader",
+            ),
+            (
+                "CREATE ROLE reporting_user LOGIN NOINHERIT; GRANT admin_user TO reporting_user",
+                "unexpected_execute_membership_path:pg_catalog.lo_create(oid):reporting_user:admin_user",
+            ),
+            (
+                "CREATE ROLE reporting_user LOGIN NOINHERIT; GRANT pg_monitor TO reporting_user",
+                "unexpected_execute_membership_path:pg_catalog.pg_ls_logdir():reporting_user:pg_monitor",
+            ),
+        )
+        for query, blocker in cases:
+            with self.subTest(blocker=blocker):
+                self.boundary.execute("SAVEPOINT execute_path")
+                self.boundary.execute(query)
+                before = self.function_acls()
+                self.assertIn(blocker, self.boundary.inspect()["blockers"])
+                with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+                    self.boundary.provision(PASSWORD)
+                self.assertEqual(self.function_acls(), before)
+                self.boundary.execute("ROLLBACK TO SAVEPOINT execute_path")
+
+    def test_restricted_calls_fail_with_insufficient_privilege(self):
+        self.provision()
+        for query in (
+            "SELECT pg_catalog.lo_create(0)",
+            "SELECT pg_catalog.lo_get(0)",
+            "SELECT pg_catalog.pg_read_file('/nonexistent-fixture-file')",
+            "SELECT pg_catalog.pg_ls_dir('/nonexistent-fixture-directory')",
+            "SELECT pg_catalog.pg_cancel_backend(-1)",
+            "SELECT pg_catalog.pg_terminate_backend(-1)",
+            "SELECT pg_catalog.pg_reload_conf()",
+            "SELECT pg_catalog.pg_stat_reset()",
+            "SELECT pg_catalog.pg_stat_clear_snapshot()",
+            "SELECT pg_catalog.pg_stat_force_next_flush()",
+            "SELECT pg_catalog.pg_show_all_file_settings()",
+            "SELECT pg_catalog.set_config('application_name','fixture',true)",
+            "SELECT pg_catalog.pg_sleep(0)",
+            "SELECT public.postgis_extensions_upgrade()",
+            "SELECT public.st_fromflatgeobuftotable('public','forbidden',decode('','hex'))",
+            "SELECT public.st_findextent('uranus','event','uuid')",
+            "SELECT public.st_transformpipeline(public.st_point(1,2),'+proj=pipeline',4326)",
+        ):
+            with self.subTest(query=query):
+                self.denied(query)
+        for role in (console.READER, console.OWNER):
+            self.boundary.execute("SAVEPOINT direct_console_execute")
+            self.boundary.execute(
+                sql.SQL(
+                    "GRANT EXECUTE ON FUNCTION pg_catalog.set_config(text,text,boolean) TO {}"
+                ).format(sql.Identifier(role))
+            )
+            self.assertIn(
+                "unexpected_function_grantee:pg_catalog.set_config(text, text, boolean):" + role,
+                self.boundary.inspect()["blockers"],
+            )
+            self.boundary.execute("ROLLBACK TO SAVEPOINT direct_console_execute")
+
+    def test_unknown_functions_extensions_and_postgis_security_definer(self):
+        cases = (
+            (
+                "CREATE FUNCTION public.unreviewed() RETURNS int LANGUAGE sql STABLE AS 'SELECT 1'",
+                "unreviewed_function_path:public.unreviewed()",
+            ),
+            (
+                "CREATE FUNCTION public.volatile_helper() RETURNS int "
+                "LANGUAGE sql VOLATILE AS 'SELECT 1'",
+                "unreviewed_function_path:public.volatile_helper()",
+            ),
+            (
+                "CREATE FUNCTION public.postgis_like() RETURNS int "
+                "LANGUAGE sql SECURITY DEFINER AS 'SELECT 1'",
+                "unreviewed_function_path:public.postgis_like()",
+            ),
+            (
+                "ALTER FUNCTION public.st_x(public.geometry) SECURITY DEFINER",
+                "unreviewed_function_path:public.st_x(public.geometry)",
+            ),
+            (
+                "CREATE FUNCTION public.private_helper() RETURNS int LANGUAGE sql "
+                "SECURITY DEFINER AS 'SELECT 1'; "
+                "REVOKE EXECUTE ON FUNCTION public.private_helper() FROM PUBLIC",
+                "unreviewed_function_path:public.private_helper()",
+            ),
+            ("CREATE EXTENSION dblink WITH SCHEMA public", "unreviewed_extension:dblink"),
+        )
+        for query, blocker in cases:
+            with self.subTest(blocker=blocker):
+                self.boundary.execute("SAVEPOINT function_unknown")
+                self.boundary.execute(query)
+                before = self.function_acls()
+                report = self.boundary.inspect()
+                self.assertIn(blocker, report["blockers"])
+                if "dblink" in query:
+                    self.assertTrue(
+                        any(
+                            b.startswith("unreviewed_function_path:public.dblink(")
+                            for b in report["blockers"]
+                        )
+                    )
+                with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+                    self.boundary.provision(PASSWORD)
+                self.assertEqual(self.function_acls(), before)
+                self.boundary.execute("ROLLBACK TO SAVEPOINT function_unknown")
+
+    def test_extension_catalog_version_owner_and_definition_drift(self):
+        self.provision()
+        cases = (
+            (
+                "UPDATE pg_extension SET extversion='4.0.0' WHERE extname='postgis'",
+                "unreviewed_extension_version:postgis:4.0.0",
+            ),
+            (
+                "UPDATE pg_extension SET extversion='3.99.0' WHERE extname='postgis'",
+                "unreviewed_extension_version:postgis:3.99.0",
+            ),
+            (
+                "UPDATE pg_extension SET extowner=(SELECT oid FROM pg_roles "
+                "WHERE rolname='uranus_console_reader') WHERE extname='postgis'",
+                "unreviewed_extension_schema_or_owner:postgis",
+            ),
+            (
+                "ALTER FUNCTION public.st_x(public.geometry) OWNER TO uranus_console_owner",
+                "unreviewed_function_owner_or_language:public.st_x(public.geometry)",
+            ),
+            (
+                "ALTER FUNCTION public.st_x(public.geometry) VOLATILE",
+                "unreviewed_function_catalog:postgis",
+            ),
+            (
+                "ALTER EXTENSION postgis DROP FUNCTION public.st_x(public.geometry)",
+                "unreviewed_function_path:public.st_x(public.geometry)",
+            ),
+            (
+                "ALTER TABLE public.spatial_ref_sys ADD COLUMN surprise text",
+                "unreviewed_postgis_metadata",
+            ),
+            (
+                "CREATE FUNCTION pg_catalog.counterfeit_core() RETURNS int "
+                "LANGUAGE sql IMMUTABLE AS 'SELECT 1'",
+                "unreviewed_function_catalog:core",
+            ),
+        )
+        for query, blocker in cases:
+            with self.subTest(blocker=blocker):
+                self.boundary.execute("SAVEPOINT function_drift")
+                self.boundary.execute(query)
+                self.assertIn(blocker, self.boundary.inspect()["blockers"])
+                with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+                    self.boundary.provision(PASSWORD)
+                self.boundary.execute("ROLLBACK TO SAVEPOINT function_drift")
+
+    def test_execute_only_adopts_recorded_stock_public_rights(self):
+        for query, blocker in (
+            (
+                "GRANT EXECUTE ON FUNCTION pg_catalog.pg_read_file(text) TO PUBLIC",
+                "unexpected_public_execute:pg_catalog.pg_read_file(text)",
+            ),
+            (
+                "REVOKE EXECUTE ON FUNCTION pg_catalog.set_config(text,text,boolean) FROM PUBLIC",
+                "missing_preserved_execute:pg_catalog.set_config(text, text, boolean)",
+            ),
+        ):
+            with self.subTest(blocker=blocker):
+                self.boundary.execute("SAVEPOINT execute_stock")
+                self.boundary.execute(query)
+                before = self.function_acls()
+                self.assertIn(blocker, self.boundary.inspect()["blockers"])
+                with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+                    self.boundary.provision(PASSWORD)
+                self.assertEqual(self.function_acls(), before)
+                self.boundary.execute("ROLLBACK TO SAVEPOINT execute_stock")
+
+    def test_execute_rollback_also_restores_temp_and_console_roles(self):
+        self.public_temp_fixture()
+        self.conn.commit()
+        before_functions, before_database = self.function_acls(), self.database_acl()
+        self.conn.rollback()
+        execute = self.boundary.execute
+        seen = []
+
+        def fail_after_execute_revoke(query, args=()):
+            execute(query, args)
+            if isinstance(query, sql.Composed) and query.as_string(self.conn).startswith(
+                "REVOKE EXECUTE"
+            ):
+                seen.append(True)
+                self.assertNotEqual(self.function_acls(), before_functions)
+                self.assertFalse(
+                    self.boundary.rows(
+                        "SELECT has_database_privilege('public',current_database(),'TEMPORARY')"
+                    )[0][0]
+                )
+                raise ValueError("injected_after_execute_revoke")
+
+        with self.assertRaisesRegex(ValueError, "injected_after_execute_revoke"), self.conn:
+            with patch.object(self.boundary, "execute", side_effect=fail_after_execute_revoke):
+                self.boundary.provision(PASSWORD)
+        self.assertEqual(seen, [True])
+        self.assertEqual(self.function_acls(), before_functions)
+        self.assertEqual(self.database_acl(), before_database)
+        self.assertEqual(
+            self.boundary.rows(
+                "SELECT 1 FROM pg_roles WHERE rolname IN (%s,%s)", (console.OWNER, console.READER)
+            ),
+            [],
+        )
+
     def fixture_module(self):
         source = (ROLE / "library/uranus_sql_console.py").read_text()
         source = source.replace('database="oklab"', "database=" + repr(self.database))
@@ -786,6 +1136,7 @@ class ConsoleDatabaseTests(unittest.TestCase):
         self.public_temp_fixture()
         self.conn.commit()
         original_acl = self.database_acl()
+        original_function_acls = self.function_acls()
         self.conn.rollback()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -868,6 +1219,8 @@ class ConsoleDatabaseTests(unittest.TestCase):
             self.assertEqual(check.returncode, 0, check.stdout + check.stderr)
             self.assertIn("would create role uranus_console_reader", check.stdout)
             self.assertIn("would revoke PUBLIC TEMPORARY", check.stdout)
+            self.assertIn("would revoke PUBLIC EXECUTE pg_catalog.set_config", check.stdout)
+            self.assertEqual(self.function_acls(), original_function_acls)
             for role in CONTRACT["database_temp_roles"]:
                 self.assertIn("would grant explicit TEMPORARY " + role, check.stdout)
             self.assertEqual(self.database_acl(), original_acl)

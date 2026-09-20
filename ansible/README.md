@@ -129,7 +129,7 @@ Er erhält keine Rechte zum Schreiben in `uranus`.
 Capability: `SQL_CONSOLE_DATABASE_URL` muss im Environment-Vertrag des authentifizierten
 Release-Manifests stehen. Alte Releases planen keine Console-Änderungen und löschen
 vorhandene Console-Objekte nicht. Der eigene
-[Contract v2](roles/uranus_admin/files/sql_console_contract.json) pinnt Uranus
+[Contract v3](roles/uranus_admin/files/sql_console_contract.json) pinnt Uranus
 `7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d`: vier Views (`event_date`, `event`,
 `venue`, `organization`), 31 explizite Spalten und Datentypen.
 
@@ -166,10 +166,35 @@ bevor dieselbe Console-Provisionierungstransaktion committet. Ein Fehler rollt a
 Grant Options und ungeprüfte TEMP-Membership-Pfade blockieren ohne Teiländerung.
 Auch indirekte SET-ROLE-Pfade werden geprüft; NOINHERIT allein genügt dafür nicht.
 
-Andere gemeinsame Rechte, insbesondere PUBLIC CREATE, Funktions-/Extension-Rechte
-und PostGIS-Metadatenrechte, bleiben Blocker. Ansible repariert keine beliebige
-Shared-Database-Konfiguration und ändert durch TEMP-Reconcile weder CONNECT noch
-CREATE oder Funktionsrechte. Kein Unsafe-Override und keine heimliche Ersatz-DB.
+Der Function-/Extension-Vertrag in Contract v3 prüft reproduzierbare Katalog-Fingerprints
+und konkrete Signaturen für PostgreSQL 16/PostGIS 3.4.3 sowie PostgreSQL 17/PostGIS 3.5.2
+(gepinnten CI-Images zugeordnet). Neue Versionen oder Definitionen benötigen ein neues
+Review. Sichere geprüfte PostGIS-IMMUTABLE/STABLE-Funktionen behalten PUBLIC EXECUTE;
+Schema, Extension-Zugehörigkeit, Owner, Sprache/C-Bibliothek und Sicherheitsattribute
+werden geprüft. Kein pauschales PostGIS-Allowlisting und kein `oid >= 16384`-Blocker.
+
+Für konkret geprüfte gefährliche Signaturen inventarisiert Ansible PUBLIC-/direktes und
+effektives EXECUTE sowie Membership-/SET-ROLE-Pfade. Nur bekannte Verbraucher erlauben
+den atomaren Übergang: vorhandene PUBLIC-Rechte durch explizite Grants an dieselben vier
+App-Rollen erhalten, PUBLIC EXECUTE dieser Signatur entziehen, vollständige Grenze erneut
+prüfen, erst dann Commit. Beide Console-Rollen bleiben ohne gefährliches EXECUTE.
+Unbekannte Verbraucher/Funktionen/Extensions, SECURITY DEFINER, Zusatzgrants und
+Membership-Pfade blockieren. Bereits nicht öffentliche privilegierte Funktionen erhalten
+keine neuen App-Grants. Der Plan zeigt jede betroffene Signatur, Erhaltungsrollen und
+geplante Grants/REVOKEs; Fehler rollen auch TEMP und Console-Objekte zurück. Zweiter Apply:
+`changed=0`. Keine pauschale Manipulation von Funktionsrechten.
+
+Die drei fingerprintgeprüften Standard-Metadatenobjekte von PostGIS behalten ausschließlich
+ihr vorhandenes SELECT. Die Testfixture verwendet unverändertes `CREATE EXTENSION postgis`,
+keine vorbereitenden pauschalen PUBLIC-REVOKEs. Der Search-Path bleibt
+`pg_catalog, uranus_console`; sichere schemaqualifizierte PostGIS-Aufrufe sind möglich.
+Details, Signaturmengen, Audit-Reproduktion und Grenzen stehen im
+[Function-/Extension-Vertrag](../backend/docs/sql-console-infrastructure.md#public-temp-und-function-extension-grenze).
+
+Andere gemeinsame Rechte, insbesondere PUBLIC CREATE, bleiben Blocker. Kein allgemeines
+Aufräumen von CONNECT, CREATE, Extensions oder sonstigen PUBLIC-Grants. Kein Unsafe-Override
+und keine heimliche Ersatz-DB. Phase 3 benötigt zusätzlich AST-/Function-Denylist und
+Ressourcen-, Timeout-, Zeilen- und Parallelitätslimits; kein freier Executor in diesem PR.
 
 Secret ausschließlich als `SQL_CONSOLE_DATABASE_URL` in geschützter `operator.env`
 (root:root 0600) oder bereits expliziter Runtime-Konfiguration bereitstellen. Lokales
@@ -185,7 +210,7 @@ sql_console:
   required: true
   role: uranus_console_reader
   schema: uranus_console
-  contract_version: 2
+  contract_version: 3
   owner_role: uranus_console_owner
   changes_planned:
     - would grant explicit TEMPORARY uranus_reader
@@ -207,6 +232,29 @@ sql_console:
     would_grant_explicit:
       [uranus_reader, admin_user, admin_migrator, admin_auth_operator]
     would_revoke_public_temp: true
+  extensions:
+    - name: plpgsql
+      version: "1.0"
+      status: allowed
+      reviewed_functions: 3
+      restricted_functions: 0
+      blocked_functions: 0
+    - name: postgis
+      version: "3.5.2"
+      status: reconcile_required
+      reviewed_functions: 776
+      restricted_functions: 86
+      blocked_functions: 0
+  execute_reconcile:
+    allowed: true
+    changes: # Auszug; der echte Plan zeigt jede betroffene Signatur.
+      - signature: pg_catalog.set_config(text, text, boolean)
+        catalog: core
+        retained_roles:
+          [uranus_reader, admin_user, admin_migrator, admin_auth_operator]
+        would_grant_explicit:
+          [uranus_reader, admin_user, admin_migrator, admin_auth_operator]
+        would_revoke_public_execute: true
   blockers: []
 ```
 

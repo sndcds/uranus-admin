@@ -27,7 +27,7 @@ Erneut gegen das Repository geprüft am 20.09.2026:
   ausgeschlossenen Secretspalten wurden erneut gegen diesen Stand geprüft.
 - Keine Produktionsverbindung und keine Quellwerte gelesen.
 
-Der maschinenlesbare [Contract v2](../../ansible/roles/uranus_admin/files/sql_console_contract.json)
+Der maschinenlesbare [Contract v3](../../ansible/roles/uranus_admin/files/sql_console_contract.json)
 enthält Quellcommit, SHA256 der vier geprüften DDL-Dateien, Spaltenreihenfolge,
 PostgreSQL-Typen, Basistabellen, Owner-Spaltengrants, Reader-Grants, Search Path und
 die Allowlist für explizite Datenbank-TEMP-Grants.
@@ -184,7 +184,7 @@ mit `has_database_privilege` geprüft. Die echte Runtime-Anmeldung muss `oklab`,
 
 PostgreSQL-Rechte sind additiv. Ein REVOKE nur vom Reader kann PUBLIC TEMP nicht
 aufheben. [PostgreSQL: GRANT](https://www.postgresql.org/docs/17/sql-grant.html).
-Contract v2 enthält `database_temp_roles` mit genau den vier bestehenden App-Rollen:
+Contract v3 enthält `database_temp_roles` mit genau den vier bestehenden App-Rollen:
 `uranus_reader`, `admin_user`, `admin_migrator`, `admin_auth_operator`. Ansible liest
 vor jeder Änderung die Datenbank-ACL und prüft zusätzlich die effektiven Rechte mit
 `has_database_privilege`. Der geheimnisfreie Plan berichtet `public_temp`, alle
@@ -220,33 +220,132 @@ Check Mode zeigt `temp_reconcile.allowed`, `would_grant_explicit` und
 
 Für einen kompatiblen, versionierten Produktionszustand ist kein manueller psql-Schritt
 mehr nötig. Dieser PR liest Production nicht und bestätigt deshalb keinen konkreten
-Produktionskatalog. Andere gemeinsame Rechte bleiben außerhalb dieses engen Vertrags:
-kein automatisches Aufräumen von CONNECT, CREATE, Funktionen oder Extensions.
+Produktionskatalog.
 
-Dasselbe Prinzip gilt für gemeinsame Funktions-/Extension-Rechte. Der Vertrag
-benötigt keine eigenen Funktionen. Zugängliche SECURITY-DEFINER-Funktionen,
-Nicht-Core-Funktionen (auch als STABLE/IMMUTABLE deklarierte), bekannte gefährliche
-Core-Datei-/Large-Object-Funktionen, dblink, fremde Extensions, Foreign-Server-
-Rechte/User-Mappings, Large-Object-Rechte, Event-Trigger und ungeprüfte Default-ACLs
-blockieren. Zusätzliche Systemkatalog-Grants und PUBLIC-Zugriffe auf Passwort-,
-Verbindungs- oder Statistikwerte werden ebenfalls abgewiesen. Es werden keine
-Funktionsrechte anderer Anwendungen verändert.
-`plpgsql` und `postgis` dürfen installiert sein; ihre Installation ist keine
-pauschale EXECUTE- oder Tabellenfreigabe für die Console. Insbesondere PostGIS-
-PUBLIC-Metadaten/-Funktionen können zusätzliche Blocker auslösen.
+Der versionierte Function-/Extension-Vertrag in Contract v3 ersetzt den pauschalen
+Nicht-Core-/OID-Blocker. `function_policy` Version 1 bindet die Freigabe an die beiden
+gepinnten CI-Images, PostgreSQL-Major, konkrete Extension-Version und reproduzierbare
+SHA-256-Katalog-Fingerprints. Aktuell geprüft sind PostgreSQL 16/PostGIS **3.4.3** und
+PostgreSQL 17/PostGIS **3.5.2**, jeweils mit `plpgsql` 1.0. Die zusätzlichen Major-/Minor-
+Grenzen erlauben keine automatische Freigabe neuer Patchstände: neue Versionen oder
+abweichende Kataloge benötigen einen überprüften Contract-Commit. Dies ist keine
+Aussage über die Kompatibilität eines ungeprüften Produktionskatalogs.
 
-Die Tests verwenden eine neue lokale Datenbank mit ausdrücklich isolierten
-Fixture-Defaults. Nur dort werden zusätzliche Tabellen- und Funktionsrechte entzogen.
-Tests prüfen den erlaubten atomaren PUBLIC-TEMP-Reconcile, unbekannte Verbraucher,
-Memberships, Rollback, Idempotenz und den Abbruch bei anderen gemeinsamen Rechten.
-Diese Fixtures sind kein Deployment-SQL und keine Bestätigung eines kompatiblen
-Produktionskatalogs.
+Der Fingerprint umfasst die genaue Funktionsmenge mit schemaqualifizierten Signaturen,
+Argumenten, Definitionen, Sicherheitsattributen, Sprache, C-Bibliothek und
+Extension-Zugehörigkeit über `pg_depend`/`pg_extension`; Aggregate einschließlich ihrer
+Implementierungsabhängigkeiten. OIDs und ACLs gehören nicht zum Fingerprint. Ownership
+und ACLs werden separat geprüft: Extension- und Funktionsowner müssen privilegierte
+Installationsrollen sein, dürfen niemals Console-Rollen sein, und Extension-Funktionen
+müssen ihrem Extension-Owner gehören. Der alte Test `oid >= 16384` entfällt vollständig.
 
-Kein Anspruch auf magische Vollständigkeit: Katalog-/PostgreSQL-Funktionen wie
-`set_config`, `pg_sleep`, Advisory Locks und intern autorisierte Backend-Signale
-sind zusätzlich im späteren AST-/Function-Denylist-Vertrag zu begrenzen, ebenso
-Ergebnismengen, Laufzeit und Parallelität. DB Boundary bleibt die primäre
-Vertraulichkeits- und Berechtigungsgrenze; Phase 3 bleibt READ ONLY.
+Zwei Klassen:
+
+- **A:** geprüfter Core sowie konkret fingerprintgebundene PostGIS-Funktionen mit
+  IMMUTABLE/STABLE, erwarteter Extension, Schema `public`, überprüfter Sprache und
+  bei C-Funktionen `$libdir/postgis-3`. Kein SECURITY DEFINER und kein Treffer der
+  zusätzlichen Namens-/Pfad-Denylist. PUBLIC EXECUTE bleibt hier unverändert.
+  Die drei exakt geprüften `plpgsql`-Sprachhandler bilden einen eigenen Contract;
+  dies ist keine allgemeine Freigabe für VOLATILE-Funktionen.
+- **B:** alle geprüften PostGIS-VOLATILE-Funktionen einschließlich DDL-/Upgrade-Helfern,
+  zusätzlich `ST_EstimatedExtent`/`_postgis_index_extent` wegen Statistik-/Indexzugriffen,
+  `AddGeometryColumn`, `ST_FromFlatGeobufToTable` und `ST_FindExtent` wegen DDL/dynamischem
+  Tabellen-SQL sowie `ST_Transform*`, `ST_InverseTransformPipeline` und deren C-Helfer
+  wegen frei steuerbarer PROJ-/Grid-Parameter, sowie die expliziten
+  Core-Dateisystem-/Server-/Large-Object-/Session-/Signalling-/Advisory-Lock- und
+  Replikationspfade, Statistik-Reset, Konfigurationsdatei- und Indexwartungshelfer. Unter anderem bleiben `set_config`, `pg_sleep*`, `pg_cancel_backend`,
+  `pg_terminate_backend`, `lo_*`, `loread`, `lowrite` und Dateifunktionen für beide
+  Console-Rollen ohne EXECUTE. Erreichbare SECURITY-DEFINER- oder dblink-Funktionen,
+  unbekannte Extensions und unbekannte Nicht-Core-Funktionen bleiben Blocker;
+  sie werden niemals allein aufgrund einer Eigenschaft wie STABLE übernommen.
+  Auch eine private ACL legitimiert keine unbekannte Implementierung, die etwa über
+  Typ-/Operatorabhängigkeiten erreichbar werden könnte.
+
+Die konkreten B-Signaturen, ursprüngliches PUBLIC EXECUTE, Definition-Hashes und
+bestehende privilegierte Grantees stehen in `function_policy.catalogs`. Von 777
+PostGIS-Funktionen in 3.4.3 sind 95 eingeschränkt (79 VOLATILE plus 16 weitere Signaturen); von 776 in 3.5.2
+sind es 86 (70 VOLATILE plus 16).
+Die konservativen zusätzlichen Ausschlüsse gelten auch für STABLE/IMMUTABLE:
+[ST_FromFlatGeobufToTable](https://postgis.net/docs/ST_FromFlatGeobufToTable.html)
+erzeugt Tabellen; [Transform-Pipelines](https://postgis.net/docs/ST_TransformPipeline.html)
+nehmen unter anderem Grid-Dateiparameter an. Solche Aufrufe werden nicht allein wegen
+der Volatility-Deklaration freigegeben. Der Core-Vertrag enthält 153 beziehungsweise
+158 eingeschränkte Signaturen (davon 96 beziehungsweise 101 ursprünglich PUBLIC).
+Nur die darin ausdrücklich als ursprünglich PUBLIC ausführbar verzeichneten
+Funktionen dürfen automatisch reconciled werden. Vorher nicht öffentliche
+Dateifunktionen erhalten keine App-Grants; vorhandene geprüfte `pg_monitor`-Grants
+bleiben unverändert. Unerwartetes PUBLIC EXECUTE auf solchen privilegierten Funktionen
+führt zu `unexpected_public_execute:<signature>`.
+
+EXECUTE-Reconcile liest dieselben vier App-Rollen über
+`preserve_role_contract: database_temp_roles`, ohne zweite hardcodierte Rollenliste.
+Vor Änderungen werden direkte ACLs, effektives EXECUTE aller LOGIN-Rollen und beider
+Console-Rollen sowie transitive Membership-/SET-ROLE-Pfade inventarisiert. Auch ein
+fehlendes Schema-USAGE dient nicht als Ausnahme: Aufrufe über qualifizierte Namen,
+Operatoren oder vorhandene Ausdrucksabhängigkeiten dürfen die Grenze nicht umgehen.
+Superuser und der Funktionsowner behalten ihre intrinsischen Rechte. Unbekannte
+Verbraucher (`unexpected_execute_consumer:<signature>:<role>`), zusätzliche direkte
+Grantees, Grant Options und ungeprüfte Membership-Pfade blockieren den gesamten Apply.
+
+Innerhalb derselben abgesicherten Console-Provisionierungstransaktion:
+
+1. Nur bei vollständig bestandenem Plan bestehendes PUBLIC EXECUTE der konkreten
+   B-Signatur durch fehlende explizite Grants an die vier App-Rollen erhalten.
+2. PUBLIC EXECUTE genau dieser Signatur entziehen; keine Console-EXECUTE-Grants.
+3. Den vollständigen Vertrag erneut prüfen: beide Console-Rollen ohne B-EXECUTE,
+   bestehende App-/privilegierte Rechte erhalten, keine weiteren Änderungen nötig.
+4. Erst dann Commit. Jeder Fehler rollt EXECUTE, TEMP und Console-Objekte gemeinsam
+   zurück. Ein erneuter Apply bleibt `changed=0`.
+
+Fehlt PUBLIC EXECUTE bereits, müssen die vertraglichen Erhaltungsgrants schon vorhanden
+sein. Andernfalls wird mit `missing_preserved_execute:<signature>` abgebrochen, statt
+zuvor entfernte Rechte neu einzuführen. Direkt erteilte Console-Grants werden ebenfalls
+abgewiesen, nicht still bereinigt. Keine generelle Shared-Database-Reparatur und keine
+Änderung von CONNECT, CREATE, Extensions oder sonstigen PUBLIC-Grants durch diesen
+Reconcile. Check Mode zeigt `execute_inventory` und unter `execute_reconcile.changes`
+für jede betroffene Signatur die erhaltenen Rollen, fehlenden expliziten Grants und den
+geplanten PUBLIC-Entzug. Normale Extension-Berichte nennen Version, Status und Anzahlen,
+keine Liste aller erlaubten Funktionen. Blocker nennen konkrete Signaturen; Änderungen
+an der geprüften Funktionsmenge/Definition führen zusätzlich zu einem Katalog-Blocker.
+
+Die drei normalen PostGIS-Metadatenobjekte `spatial_ref_sys`, `geometry_columns` und
+`geography_columns` dürfen ihr vorhandenes SELECT behalten. Extension-Zugehörigkeit,
+Owner, Spalten/Typen, View-Definitionen und Optionen sind ebenfalls fingerprintgebunden;
+keine Writes oder Grant Options. Das gibt keine Uranus-/Admin-Datenrechte frei.
+`public` wird nicht in den Console-Search-Path aufgenommen: er bleibt
+`pg_catalog, uranus_console`. Eine sichere schemaqualifizierte Funktion wie
+`public.st_x(public.st_point(1,2))` ist weiterhin ausführbar.
+
+Die Fixture installiert PostGIS unverändert: keine pauschalen Funktions- oder
+Tabellen-REVOKEs zur Vorbereitung. Der echte Provisionierer stellt die geprüfte Grenze
+her. Nur das Test-Cleanup setzt nach tatsächlich committenden Subprozess-Tests die
+gezielt veränderten ACLs auf ihren ursprünglichen Fixture-Zustand zurück.
+
+Für ein reproduzierbares Review erzeugt
+[`audit_sql_console_functions.py`](../../ansible/tests/audit_sql_console_functions.py)
+einen **Kandidaten**, niemals eine automatische Contract-Aktualisierung. In jedem
+gepinnten CI-Image eine neue lokale `*_test`-Datenbank FROM `template0` anlegen und nur
+PostGIS installieren; dann mit expliziter synthetischer Test-URL aus dem Repository:
+
+```sh
+uv run --no-project --python 3.13 \
+  --with-requirements ansible/requirements-test.txt \
+  python ansible/tests/audit_sql_console_functions.py
+```
+
+Das Skript verlangt `ANSIBLE_TEST_DATABASE_URL`, lokalen Host, Test-Datenbanknamen,
+keine Anwendungsschemas und ausschließlich `plpgsql`/`postgis`. Es liest ausschließlich
+Kataloge in READ ONLY; Funktionsdefinitionen werden serverseitig gehasht, nicht geloggt.
+Ein neuer Kandidat benötigt Signatur-/Definitions-/Quellenreview und Tests, bevor seine
+Freigaben in den versionierten Contract übernommen werden.
+
+FDW-/Foreign-Server-/User-Mapping-Pfade, Large-Object-Rechte, Event-Trigger, ungeprüfte
+Default-ACLs, zusätzliche Systemkatalog-Grants und Zugriffe auf Passwort-, Verbindungs-
+oder Statistikwerte bleiben abgewiesen. Die DB Boundary ist die primäre Rechte- und
+Vertraulichkeitsgrenze, kein Anspruch auf vollständige Verhinderung jedes Seiteneffekts.
+Phase 3 bleibt getrennt und READ ONLY; sie benötigt zusätzlich AST-Validierung,
+Function-Denylist, Ressourcen-/Timeout-/Zeilen-/Parallelitätsgrenzen. Dieser PR fügt
+keinen freien SQL-Executor hinzu.
 
 ## Secrets, Runtime und Recovery
 

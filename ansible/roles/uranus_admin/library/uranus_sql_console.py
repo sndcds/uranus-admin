@@ -9,6 +9,7 @@ No catalog exception, DSN, password or SQL is returned to Ansible.
 import base64
 import hashlib
 import hmac
+import json
 import re
 import secrets
 from urllib.parse import unquote, urlsplit
@@ -21,39 +22,6 @@ READER = "uranus_console_reader"
 SCHEMA = "uranus_console"
 SEARCH_PATH = "pg_catalog, uranus_console"
 VIEWS = {"event_date", "event", "venue", "organization"}
-DANGEROUS = [
-    "lo_get",
-    "lo_open",
-    "loread",
-    "lo_close",
-    "lo_lseek",
-    "lo_lseek64",
-    "lo_tell",
-    "lo_tell64",
-    "lo_create",
-    "lo_creat",
-    "lo_from_bytea",
-    "lo_put",
-    "lo_unlink",
-    "lo_import",
-    "lo_export",
-    "lowrite",
-    "lo_truncate",
-    "lo_truncate64",
-    "pg_read_file",
-    "pg_read_binary_file",
-    "pg_ls_dir",
-    "pg_stat_file",
-    "pg_write_file",
-    "pg_file_write",
-    "pg_file_rename",
-    "pg_file_unlink",
-    "pg_logdir_ls",
-    "pg_reload_conf",
-    "pg_rotate_logfile",
-    "pg_promote",
-    "pg_signal_backend",
-]
 
 
 def require(condition, code):
@@ -107,7 +75,7 @@ def password_matches(password, verifier):
 
 def validate_contract(contract):
     require(
-        contract["version"] == 2
+        contract["version"] == 3
         and contract["uranus_sha"] == "7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d"
         and contract["schema"] == SCHEMA
         and contract["owner_role"] == OWNER
@@ -125,6 +93,27 @@ def validate_contract(contract):
         and not {OWNER, READER, "public"}.intersection(temp_roles),
         "invalid_database_temp_roles",
     )
+    policy = contract["function_policy"]
+    require(
+        policy["version"] == 1
+        and policy["preserve_role_contract"] == "database_temp_roles"
+        and set(contract["allowed_extensions"]) == {"plpgsql", "postgis"}
+        and set(policy["catalogs"]) == {"16", "17"},
+        "invalid_function_policy",
+    )
+    for snapshot in policy["catalogs"].values():
+        for name in ("core", "plpgsql", "postgis"):
+            require(
+                re.fullmatch(r"[0-9a-f]{64}", snapshot[name]["catalog_sha256"]),
+                "invalid_function_catalog_digest",
+            )
+            for function in snapshot[name]["restricted_functions"].values():
+                require(
+                    isinstance(function["public_execute"], bool)
+                    and isinstance(function["privileged_grantees"], list)
+                    and re.fullmatch(r"[0-9a-f]{64}", function["definition_sha256"]),
+                    "invalid_restricted_function",
+                )
     for name, view in contract["views"].items():
         require(view["source_table"] == "uranus." + name, "invalid_source_table")
         require(view["reader_grants"] == ["SELECT"], "invalid_reader_grants")
@@ -146,6 +135,114 @@ def definition(name, view):
 
 def normalized(value):
     return " ".join(value.rstrip("; \n").split())
+
+
+def catalog_digest(value):
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def function_catalog(connection):
+    """Canonical definitions, never OID thresholds; ACLs are audited separately.
+
+    Search path is fixed to pg_catalog by the caller. No source rows/passwords.
+    Function bodies are hashed on the server and never enter the report.
+    Aggregate implementation dependencies are part of the fingerprint too.
+    """
+    with connection.cursor() as cur:
+        cur.execute("""
+            SELECT p.oid, n.nspname, p.proname, oidvectortypes(p.proargtypes),
+                format('%I.%I(%s)',n.nspname,p.proname,oidvectortypes(p.proargtypes)),
+                e.extname, p.proowner, r.rolsuper, p.provolatile, p.prosecdef,
+                l.lanname, p.probin, p.prokind,
+                encode(sha256(convert_to(CASE WHEN p.prokind<>'a'
+                  THEN pg_get_functiondef(p.oid) ELSE jsonb_build_array(
+                    pg_get_function_arguments(p.oid),pg_get_function_result(p.oid),
+                    p.provolatile,p.prosecdef,p.proleakproof,p.proisstrict,p.proparallel,
+                    p.proconfig,p.procost,p.prorows,p.prosrc,
+                    a.aggkind,a.aggnumdirectargs,a.aggtransfn::regprocedure::text,
+                    a.aggfinalfn::regprocedure::text,a.aggcombinefn::regprocedure::text,
+                    a.aggserialfn::regprocedure::text,a.aggdeserialfn::regprocedure::text,
+                    a.aggmtransfn::regprocedure::text,a.aggminvtransfn::regprocedure::text,
+                    a.aggmfinalfn::regprocedure::text,a.aggfinalextra,a.aggmfinalextra,
+                    a.aggfinalmodify,a.aggmfinalmodify,a.aggsortop::regoperator::text,
+                    a.aggtranstype::regtype::text,a.aggtransspace,
+                    a.aggmtranstype::regtype::text,a.aggmtransspace,
+                    a.agginitval,a.aggminitval)::text END,'UTF8')),'hex')
+            FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+            JOIN pg_roles r ON r.oid=p.proowner JOIN pg_language l ON l.oid=p.prolang
+            LEFT JOIN pg_aggregate a ON a.aggfnoid=p.oid
+            LEFT JOIN pg_depend d ON d.classid='pg_proc'::regclass AND d.objid=p.oid
+              AND d.refclassid='pg_extension'::regclass AND d.deptype='e'
+            LEFT JOIN pg_extension e ON e.oid=d.refobjid ORDER BY 5
+        """)
+        keys = (
+            "oid",
+            "schema",
+            "name",
+            "arguments",
+            "signature",
+            "extension",
+            "owner",
+            "superuser_owner",
+            "volatility",
+            "security_definer",
+            "language",
+            "library",
+            "kind",
+            "definition_sha256",
+        )
+        return [dict(zip(keys, row, strict=True)) for row in cur.fetchall()]
+
+
+def function_set_digest(functions):
+    # Ownership identities may differ; trusted ownership is checked independently.
+    return catalog_digest(
+        sorted(
+            [
+                {
+                    key: value
+                    for key, value in f.items()
+                    if key not in {"oid", "owner", "superuser_owner"}
+                }
+                for f in functions
+            ],
+            key=lambda f: f["signature"],
+        )
+    )
+
+
+def restricted_function(function, policy):
+    return (
+        function["security_definer"]
+        or function["name"] in policy["denied_names"]
+        or any(function["name"].startswith(prefix) for prefix in policy["denied_prefixes"])
+        or (function["extension"] == "postgis" and function["volatility"] not in {"i", "s"})
+    )
+
+
+def postgis_metadata(connection):
+    with connection.cursor() as cur:
+        cur.execute("""
+            SELECT c.oid,n.nspname,c.relname,c.relowner,
+                jsonb_build_array(c.relkind,c.relrowsecurity,c.relforcerowsecurity,c.reloptions,
+                  CASE WHEN c.relkind='v' THEN pg_get_viewdef(c.oid,false) ELSE NULL END,
+                  (SELECT jsonb_agg(jsonb_build_array(a.attname,
+                    format_type(a.atttypid,a.atttypmod),a.attnotnull) ORDER BY a.attnum)
+                   FROM pg_attribute a WHERE a.attrelid=c.oid
+                    AND a.attnum>0 AND NOT a.attisdropped))
+            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            JOIN pg_depend d ON d.classid='pg_class'::regclass AND d.objid=c.oid
+              AND d.refclassid='pg_extension'::regclass AND d.deptype='e'
+            JOIN pg_extension e ON e.oid=d.refobjid
+            WHERE e.extname='postgis' AND c.relkind IN ('r','p','v','m','f','S')
+            ORDER BY n.nspname,c.relname
+        """)
+        return [
+            dict(oid=o, schema=n, name=t, owner=r, definition_sha256=catalog_digest(v))
+            for o, n, t, r, v in cur.fetchall()
+        ]
 
 
 class Boundary:
@@ -170,6 +267,7 @@ class Boundary:
         self.actions.append((label, query, args))
 
     def inspect(self, password=None):
+        self.execute("SET LOCAL search_path=pg_catalog")
         self.actions, self.blockers = [], []
         if self.conn.server_version // 10000 not in (16, 17):
             self.issue("unsupported_postgresql_major")
@@ -211,6 +309,7 @@ class Boundary:
             if not password_matches(password, verifier):
                 self.issue("console_password_mismatch_no_automatic_rotation")
         self.ids = ids
+        self.inspect_functions(ids)
         for name in (OWNER, READER):
             oid = ids.get(name, 0)
             for privilege, grantable, grantee in self.rows(
@@ -344,7 +443,9 @@ class Boundary:
                 )
                 for privilege, grantable in grants:
                     if not (
-                        approved and role == READER and privilege == "SELECT" and not grantable
+                        (approved and role == READER or oid in self.reviewed_metadata)
+                        and privilege == "SELECT"
+                        and not grantable
                     ):
                         self.issue(
                             "unexpected_relation_grant:"
@@ -623,6 +724,261 @@ class Boundary:
             (oid,),
         )
 
+    def inspect_functions(self, ids):
+        """Only reviewed catalogs authorize narrowly scoped PUBLIC EXECUTE changes.
+
+        Fingerprints include definitions and extension membership, not ACLs/OIDs.
+        An ACL transition is allowed only from the recorded stock PUBLIC grant to
+        explicit app grants. Already restricted builtins never acquire app grants.
+        Unknown direct grants and transitive MEMBER/SET paths cannot be adopted.
+        """
+        policy = self.contract["function_policy"]
+        approved = self.contract[policy["preserve_role_contract"]]
+        snapshot = policy["catalogs"].get(str(self.conn.server_version // 10000), {})
+        functions = function_catalog(self.conn)
+        extensions = self.rows("""SELECT e.extname,e.extversion,n.nspname,e.extowner,r.rolsuper
+            FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace
+            JOIN pg_roles r ON r.oid=e.extowner ORDER BY e.extname""")
+        groups = {name: [] for name in ("core", *self.contract["allowed_extensions"])}
+        unknown = []
+        for function in functions:
+            group = function["extension"] or (
+                "core" if function["schema"] in {"pg_catalog", "information_schema"} else None
+            )
+            if group in groups:
+                groups[group].append(function)
+            else:
+                unknown.append(function)
+        valid = {}
+        extension_owners = {}
+        self.extension_report = []
+        for name, version, schema, owner, superuser in extensions:
+            expected = self.contract["allowed_extensions"].get(name)
+            extension_owners[name] = owner
+            valid[name] = bool(expected and name in snapshot)
+            if not expected:
+                self.issue("unreviewed_extension:" + name)
+            elif not valid[name] or version != snapshot[name]["version"]:
+                self.issue("unreviewed_extension_version:" + name + ":" + version)
+                valid[name] = False
+            elif schema != expected["schema"] or not superuser or owner in ids.values():
+                self.issue("unreviewed_extension_schema_or_owner:" + name)
+                valid[name] = False
+            elif name == "postgis" and (
+                version.split(".")[0] != str(expected["major_version"])
+                or int(version.split(".")[1]) not in expected["minor_versions"]
+            ):
+                self.issue("unreviewed_extension_version:" + name + ":" + version)
+                valid[name] = False
+            self.extension_report.append(dict(name=name, version=version, status="blocked"))
+        for missing in set(self.contract["allowed_extensions"]) - set(extension_owners):
+            self.issue("required_extension_missing:" + missing)
+        valid["core"] = "core" in snapshot
+        for name, members in groups.items():
+            expected = snapshot.get(name)
+            valid[name] = valid.get(name, False) and bool(expected)
+            if not valid[name]:
+                continue
+            if function_set_digest(members) != expected["catalog_sha256"]:
+                self.issue("unreviewed_function_catalog:" + name)
+                valid[name] = False
+            restricted = {f["signature"] for f in members if restricted_function(f, policy)}
+            if restricted != set(expected["restricted_functions"]):
+                self.issue("unreviewed_function_classification:" + name)
+                valid[name] = False
+            for function in members:
+                trusted = function["superuser_owner"] and function["owner"] not in ids.values()
+                if name != "core":
+                    trusted = trusted and function["owner"] == extension_owners[name]
+                if name == "postgis":
+                    extension_policy = self.contract["allowed_extensions"][name]
+                    trusted = trusted and (
+                        function["schema"] == extension_policy["schema"]
+                        and function["language"] in extension_policy["languages"]
+                        and (
+                            function["language"] != "c"
+                            or function["library"] == extension_policy["library"]
+                        )
+                    )
+                if not trusted:
+                    self.issue("unreviewed_function_owner_or_language:" + function["signature"])
+                    valid[name] = False
+        self.reviewed_metadata = set()
+        metadata = postgis_metadata(self.conn)
+        if valid.get("postgis"):
+            if {
+                m["schema"] + "." + m["name"]: m["definition_sha256"] for m in metadata
+            } != snapshot["postgis"]["metadata_select"] or any(
+                m["owner"] != extension_owners["postgis"] for m in metadata
+            ):
+                self.issue("unreviewed_postgis_metadata")
+                valid["postgis"] = False
+            else:
+                self.reviewed_metadata = {m["oid"] for m in metadata}
+
+        grants = {}
+        for oid, grantee, grantable in self.rows("""SELECT p.oid,a.grantee,a.is_grantable
+            FROM pg_proc p,LATERAL aclexplode(coalesce(proacl,acldefault('f',proowner))) a
+            WHERE a.privilege_type='EXECUTE'"""):
+            grants.setdefault(oid, {})[grantee] = grantable
+        roles = {
+            oid: dict(name=name, login=login, superuser=superuser)
+            for oid, name, login, superuser in self.rows(
+                "SELECT oid,rolname,rolcanlogin,rolsuper FROM pg_roles"
+            )
+        }
+        role_ids = {r["name"]: oid for oid, r in roles.items()}
+        memberships = self.rows("""SELECT r.oid,s.oid,pg_has_role(r.oid,s.oid,'USAGE'),
+            pg_has_role(r.oid,s.oid,'SET') FROM pg_roles r CROSS JOIN pg_roles s
+            WHERE NOT r.rolsuper AND r.oid<>s.oid AND pg_has_role(r.oid,s.oid,'MEMBER')""")
+        restricted_oids = [f["oid"] for f in functions if restricted_function(f, policy)]
+        effective = {}
+        for oid, role_oid in self.rows(
+            """SELECT p.oid,r.oid FROM pg_proc p CROSS JOIN pg_roles r
+            WHERE p.oid=ANY(%s) AND (r.rolcanlogin OR r.rolname=ANY(%s))
+            AND has_function_privilege(r.oid,p.oid,'EXECUTE')""",
+            (restricted_oids, [OWNER, READER]),
+        ):
+            effective.setdefault(oid, set()).add(role_oid)
+        # No schema-visibility exemption: an explicit qualified call, operator, cast,
+        # or an existing expression dependency must not evade the function boundary.
+        for function in unknown:
+            # Private ACLs alone do not establish safety for type/operator helpers.
+            # Every non-core implementation must belong to the reviewed catalog.
+            self.issue("unreviewed_function_path:" + function["signature"])
+        changes, inventory = [], []
+        start_blockers = len(self.blockers)
+        for name, members in groups.items():
+            if not valid.get(name):
+                for function in members:
+                    if restricted_function(function, policy) and effective.get(function["oid"]):
+                        self.issue("unreviewed_function_path:" + function["signature"])
+                continue
+            for function in members:
+                signature = function["signature"]
+                expected = snapshot[name]["restricted_functions"].get(signature)
+                if expected is None:
+                    continue
+                acl = grants.get(function["oid"], {})
+                public = 0 in acl
+                preserve = approved if expected["public_execute"] else []
+                privileged = expected["privileged_grantees"]
+                permitted = set(preserve + privileged)
+                consumers = effective.get(function["oid"], set())
+                issues = []
+                if public and not expected["public_execute"]:
+                    issues.append("unexpected_public_execute:" + signature)
+                for grantee, grantable in acl.items():
+                    if grantee in (0, function["owner"]):
+                        continue
+                    role = roles[grantee]["name"]
+                    if role not in permitted or grantable:
+                        issues.append("unexpected_function_grantee:" + signature + ":" + role)
+                sources = {
+                    function["owner"],
+                    *(oid for oid in acl if oid),
+                    *(role_ids[r] for r in permitted if r in role_ids),
+                }
+                paths = []
+                for member, source, inherited, set_role in memberships:
+                    if source in sources:
+                        paths.append(
+                            dict(
+                                role=roles[member]["name"],
+                                source=roles[source]["name"],
+                                inherited=inherited,
+                                set_role=set_role,
+                            )
+                        )
+                        issues.append(
+                            "unexpected_execute_membership_path:"
+                            + signature
+                            + ":"
+                            + roles[member]["name"]
+                            + ":"
+                            + roles[source]["name"]
+                        )
+                for oid in consumers:
+                    role = roles[oid]
+                    if role["superuser"] or oid == function["owner"]:
+                        continue
+                    if role["name"] in (OWNER, READER) and public and expected["public_execute"]:
+                        continue  # only this exact planned PUBLIC removal can authorize transition
+                    if role["name"] not in permitted:
+                        issues.append(
+                            "unexpected_execute_consumer:" + signature + ":" + role["name"]
+                        )
+                missing = [r for r in preserve if role_ids.get(r) not in acl]
+                if missing and not public:
+                    # Never create rights that no longer exist in a manually hardened DB.
+                    issues.append("missing_preserved_execute:" + signature)
+                if any(r not in role_ids or not roles[role_ids[r]]["login"] for r in preserve):
+                    issues.append("missing_execute_contract_login_role:" + signature)
+                if any(role_ids.get(r) not in acl for r in privileged):
+                    issues.append("missing_privileged_execute_grant:" + signature)
+                for issue in issues:
+                    self.issue(issue)
+                if public or issues:
+                    inventory.append(
+                        dict(
+                            signature=signature,
+                            public_execute=public,
+                            effective_login_roles=sorted(
+                                roles[o]["name"] for o in consumers if roles[o]["login"]
+                            ),
+                            direct_grants=sorted(roles[o]["name"] for o in acl if o),
+                            membership_paths=paths,
+                        )
+                    )
+                if public and expected["public_execute"] and not issues:
+                    changes.append(
+                        dict(
+                            signature=signature,
+                            catalog=name,
+                            would_grant_explicit=missing,
+                            retained_roles=preserve,
+                            would_revoke_public_execute=True,
+                        )
+                    )
+                    target = sql.SQL("{}.{}({})").format(
+                        sql.Identifier(function["schema"]),
+                        sql.Identifier(function["name"]),
+                        sql.SQL(function["arguments"]),
+                    )
+                    if missing:
+                        self.action(
+                            "would preserve EXECUTE " + signature + " for " + ", ".join(missing),
+                            sql.SQL("GRANT EXECUTE ON FUNCTION {} TO {}").format(
+                                target, sql.SQL(", ").join(map(sql.Identifier, missing))
+                            ),
+                        )
+                    self.action(
+                        "would revoke PUBLIC EXECUTE " + signature,
+                        sql.SQL("REVOKE EXECUTE ON FUNCTION {} FROM PUBLIC").format(target),
+                    )
+            for report in self.extension_report:
+                if report["name"] == name:
+                    report.update(
+                        status="allowed" if valid[name] else "blocked",
+                        reviewed_functions=len(members),
+                        restricted_functions=len(snapshot[name]["restricted_functions"]),
+                    )
+        self.execute_reconcile = dict(
+            allowed=not self.blockers, changes=changes if not self.blockers else []
+        )
+        self.execute_inventory = inventory
+        for report in self.extension_report:
+            members = groups.get(report["name"], [])
+            report["blocked_functions"] = sum(
+                any(f["signature"] in blocker for blocker in self.blockers) for f in members
+            )
+            if not valid.get(report["name"]):
+                report["status"] = "blocked"
+            elif len(self.blockers) > start_blockers:
+                report["status"] = "blocked"
+            elif any(c["catalog"] == report["name"] for c in changes):
+                report["status"] = "reconcile_required"
+
     def inspect_paths(self, ids):
         for role in (OWNER, READER):
             oid = ids.get(role, 0)
@@ -682,24 +1038,6 @@ class Boundary:
                 (oid, oid),
             ):
                 self.issue("foreign_wrapper_or_parameter_grant:" + role)
-            # All overloads; absent roles are evaluated against PUBLIC grants.
-            paths = self.rows(
-                """SELECT n.nspname,p.proname FROM pg_proc p
-                JOIN pg_namespace n ON n.oid=p.pronamespace
-                WHERE (p.proowner=%s OR EXISTS(SELECT 1 FROM aclexplode(coalesce(
-                    p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee IN (0,%s)
-                    AND a.privilege_type='EXECUTE'))
-                AND (p.prosecdef OR p.proname=ANY(%s) OR p.proname LIKE 'dblink%%'
-                    OR p.oid>=16384 OR (n.nspname NOT IN ('pg_catalog','information_schema')))
-                AND (n.nspname IN ('pg_catalog','uranus_console') OR (%s=%s AND n.nspname='uranus')
-                    OR EXISTS(SELECT 1 FROM
-                      aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a
-                      WHERE a.grantee IN (0,%s) AND a.privilege_type='USAGE'))
-            """,
-                (oid, oid, DANGEROUS, role, OWNER, oid),
-            )
-            for ns, name in paths:
-                self.issue("unreviewed_function_path:" + role + ":" + ns + "." + name)
             if self.rows(
                 """SELECT 1 FROM pg_foreign_server s WHERE srvowner=%s OR EXISTS(
                 SELECT 1 FROM aclexplode(srvacl) a WHERE a.grantee IN (0,%s))""",
@@ -768,8 +1106,6 @@ class Boundary:
                 self.issue("unexpected_sql_console_object")
         if self.rows("SELECT 1 FROM pg_event_trigger WHERE evtenabled<>'D'"):
             self.issue("unreviewed_event_trigger")
-        if self.rows("SELECT 1 FROM pg_extension WHERE extname NOT IN ('plpgsql','postgis')"):
-            self.issue("unreviewed_extension")
         if self.rows("SELECT 1 FROM pg_proc WHERE pronamespace=to_regnamespace(%s)", (SCHEMA,)):
             self.issue("unexpected_sql_console_object")
         if self.rows(
@@ -795,12 +1131,13 @@ class Boundary:
             "temp_reconcile": self.temp_reconcile,
             "fallback": False,
             "postgresql_version": self.conn.server_version,
-            "extensions": [
-                dict(name=n, version=v)
-                for n, v in self.rows(
-                    "SELECT extname,extversion FROM pg_extension ORDER BY extname"
-                )
-            ],
+            "extensions": self.extension_report,
+            "execute_inventory": self.execute_inventory,
+            "execute_reconcile": {
+                **self.execute_reconcile,
+                "allowed": not self.blockers,
+                "changes": self.execute_reconcile["changes"] if not self.blockers else [],
+            },
         }
 
     def provision(self, password):
