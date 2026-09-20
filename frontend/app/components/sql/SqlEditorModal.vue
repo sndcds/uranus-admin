@@ -1,36 +1,41 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, useTemplateRef } from 'vue'
-import AppModal from '../AppModal.vue'
+import SqlWorkspaceModal from './SqlWorkspaceModal.vue'
+import SqlQueryPanel from './SqlQueryPanel.vue'
+import RecordMarkLink from '../RecordMarkLink.vue'
 import StatusBadge from '../StatusBadge.vue'
 import SeverityBadge from '../SeverityBadge.vue'
 import EntityTypeBadge from '../EntityTypeBadge.vue'
-import SqlCodeEditor from './SqlCodeEditor.vue'
-import SqlParameterTable from './SqlParameterTable.vue'
-import SqlResultTable from './SqlResultTable.vue'
 import SqlRuleEvaluation from './SqlRuleEvaluation.vue'
 import type { Finding, SqlDiagnosticDefinition, SqlDiagnosticResult } from '#shared/contracts'
+import { sqlFindingLink } from '~/utils/sql-finding-link'
 import { asFailure } from '#shared/errors'
 import { dateTime, findingStatusLabels } from '~/utils/presentation'
 
 const { $adminApi } = useNuxtApp()
-const dialog = useTemplateRef<InstanceType<typeof AppModal>>('dialog')
+const dialog = useTemplateRef<InstanceType<typeof SqlWorkspaceModal>>('dialog')
 const finding = ref<Finding | null>(null)
 const definition = ref<SqlDiagnosticDefinition | null>(null)
 const result = ref<SqlDiagnosticResult | null>(null)
 const loading = ref(false)
 const running = ref(false)
 const error = ref('')
-const copyFeedback = ref('')
+const tab = ref('SQL Editor')
+const navigation = [
+  { label: 'SQL Editor', icon: 'code' },
+  { label: 'Befund-Details', icon: 'list' },
+  { label: 'Regel-Informationen', icon: 'quality' },
+  { label: 'Markierungen & Notizen', icon: 'mail' },
+  { label: 'Historie', icon: 'history' },
+] as const
 let revision = 0
-let copyTimer: ReturnType<typeof setTimeout> | undefined
 function reset() {
   revision++
-  clearTimeout(copyTimer)
   finding.value = null
   definition.value = null
   result.value = null
   error.value = ''
-  copyFeedback.value = ''
+  tab.value = 'SQL Editor'
   loading.value = false
   running.value = false
 }
@@ -71,126 +76,165 @@ async function execute() {
     if (current === revision) running.value = false
   }
 }
-async function copy() {
-  if (!definition.value) return
-  const current = revision
-  clearTimeout(copyTimer)
-  try {
-    await navigator.clipboard.writeText(definition.value.copy_sql)
-    if (current === revision) copyFeedback.value = 'SQL kopiert'
-  } catch {
-    if (current === revision) copyFeedback.value = 'SQL konnte nicht kopiert werden.'
-  }
-  if (current === revision)
-    copyTimer = setTimeout(() => {
-      copyFeedback.value = ''
-    }, 2500)
-}
 defineExpose({ open })
 </script>
 
 <template>
-  <AppModal ref="dialog" title="SQL Editor" wide close-label="SQL Editor schließen" @close="reset">
-    <template #badge><StatusBadge label="READ ONLY" /></template>
-    <p class="mt-1 text-sm text-slate-600">
-      Analyse und Überprüfung der Datenquelle zu diesem Befund.
-    </p>
-    <p class="mt-1 text-xs text-slate-500">Die Abfrage wird ausschließlich lesend ausgeführt.</p>
-    <div v-if="finding" class="mt-6 min-w-0 space-y-6 text-sm">
-      <section aria-label="Finding" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p class="text-xs font-semibold text-slate-500">Finding</p>
-        <div class="mt-2 flex flex-wrap items-center gap-2">
-          <h3 class="min-w-0 break-words text-base font-semibold">{{ finding.entity_name }}</h3>
-          <SeverityBadge :severity="finding.severity" />
-          <EntityTypeBadge :type="finding.entity_type" />
-          <StatusBadge
-            v-if="finding.status"
-            :label="findingStatusLabels[finding.status] ?? finding.status"
+  <SqlWorkspaceModal
+    ref="dialog"
+    title="SQL Editor"
+    subtitle="Analyse und Überprüfung der Datenquelle zu diesem Befund."
+    close-label="SQL Editor schließen"
+    @close="reset"
+  >
+    <template #actions
+      ><a
+        v-if="finding"
+        :href="sqlFindingLink(finding)"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="button text-xs"
+        aria-label="SQL Editor in neuem Tab öffnen"
+        ><AppIcon name="external" :size="14" /><span class="hidden sm:inline"
+          >In neuem Tab öffnen</span
+        ></a
+      ></template
+    >
+    <template #context>
+      <section v-if="finding" aria-label="Finding" class="space-y-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <span
+            aria-hidden="true"
+            class="size-2.5 rounded-full"
+            :class="
+              finding.severity === 'error'
+                ? 'bg-rose-500'
+                : finding.severity === 'warning'
+                  ? 'bg-amber-500'
+                  : 'bg-sky-500'
+            "
           />
+          <h3 class="min-w-0 break-words font-semibold text-slate-950">
+            {{ finding.entity_name }}
+          </h3>
+          <SeverityBadge :severity="finding.severity" />
         </div>
-        <p class="mt-2 break-words text-slate-700">{{ finding.message }}</p>
-        <dl class="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+        <p class="break-words text-slate-600">{{ finding.message }}</p>
+        <dl class="space-y-1 text-xs text-slate-500">
           <div>
-            <dt class="text-xs text-slate-500">Feld</dt>
-            <dd class="mt-1 break-all font-mono text-xs">{{ finding.field }}</dd>
+            <dt class="inline">Feld:</dt>
+            <dd class="ml-1 inline break-all">{{ finding.field }}</dd>
           </div>
           <div>
-            <dt class="text-xs text-slate-500">Organisation</dt>
-            <dd class="mt-1 break-words">
+            <dt class="inline">Quelle:</dt>
+            <dd class="ml-1 inline break-words">
               {{ finding.organization_name || 'Keine eindeutige Organisation' }}
             </dd>
           </div>
           <div>
-            <dt class="text-xs text-slate-500">Objekt-ID</dt>
-            <dd class="mt-1 break-all font-mono text-xs">{{ finding.entity_key }}</dd>
+            <dt class="inline">Beobachtet:</dt>
+            <dd class="ml-1 inline">{{ dateTime(finding.last_seen_at) }}</dd>
           </div>
           <div>
-            <dt class="text-xs text-slate-500">Finding zuletzt beobachtet</dt>
-            <dd class="mt-1">{{ dateTime(finding.last_seen_at) }}</dd>
+            <dt class="inline">ID:</dt>
+            <dd class="ml-1 inline break-all">{{ finding.entity_key }}</dd>
           </div>
         </dl>
       </section>
-      <p v-if="loading" role="status" class="text-slate-600">SQL-Diagnose wird geladen…</p>
-      <div v-if="error && !definition" role="alert" class="space-y-2">
-        <p class="font-semibold">SQL-Diagnose konnte nicht geladen werden.</p>
-        <p>{{ error }}</p>
-        <button class="button" :disabled="loading" @click="load">Erneut versuchen</button>
+    </template>
+    <template #navigation>
+      <button
+        v-for="item in navigation"
+        :key="item.label"
+        class="sql-nav"
+        :aria-current="tab === item.label ? 'page' : undefined"
+        @click="tab = item.label"
+      >
+        <AppIcon :name="item.icon" :size="16" />{{ item.label }}
+      </button>
+    </template>
+    <template v-if="finding">
+      <div v-show="tab === 'SQL Editor'">
+        <p v-if="loading" role="status">SQL-Diagnose wird geladen…</p>
+        <div v-if="error && !definition" role="alert" class="space-y-2">
+          <p class="font-semibold">SQL-Diagnose konnte nicht geladen werden.</p>
+          <p>{{ error }}</p>
+          <button class="button" :disabled="loading" @click="load">Erneut versuchen</button>
+        </div>
+        <SqlQueryPanel
+          v-if="definition"
+          :key="finding.id"
+          :sql="definition.sql"
+          :copy-sql="definition.copy_sql"
+          description="Die zugrunde liegende SQL-Abfrage für diesen Befund."
+          :parameters="definition.parameters"
+          executable
+          :running="running"
+          :error="error"
+          :result="result"
+          @execute="execute"
+        >
+          <SqlRuleEvaluation v-if="result" :evaluation="result.evaluation" />
+        </SqlQueryPanel>
       </div>
-      <template v-if="definition">
-        <section aria-label="SQL-Abfrage" class="space-y-3">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 class="font-semibold">SQL-Abfrage</h3>
-              <p class="mt-1 text-xs text-slate-500">
-                {{ definition.title }} · {{ definition.datasource }}
-              </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <button class="button" @click="copy">SQL kopieren</button>
-              <button class="button-primary" :disabled="running" @click="execute">
-                Abfrage ausführen
-              </button>
-            </div>
-          </div>
-          <p v-if="copyFeedback" role="status" class="text-xs text-slate-600">{{ copyFeedback }}</p>
-          <SqlCodeEditor :sql="definition.sql" readonly />
-          <p class="text-xs text-slate-500">{{ definition.explanation }}</p>
-        </section>
-        <SqlParameterTable :parameters="definition.parameters" />
-        <section aria-label="Ergebnis" class="space-y-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h3 class="font-semibold">Ergebnis</h3>
-            <p v-if="result" class="text-xs tabular-nums text-slate-500">
-              {{ result.row_count }} {{ result.row_count === 1 ? 'Zeile' : 'Zeilen' }} ·
-              {{ result.duration_ms }} ms
-            </p>
-          </div>
-          <p v-if="running" role="status" class="text-slate-600">Abfrage wird ausgeführt…</p>
-          <div v-else-if="error" role="alert">
-            <p class="font-semibold">Abfrage konnte nicht ausgeführt werden.</p>
-            <p class="mt-1">{{ error }}</p>
-          </div>
-          <p
-            v-else-if="!result"
-            class="rounded-xl border border-dashed border-slate-200 p-4 text-slate-500"
-          >
-            Noch keine Abfrage ausgeführt.
-          </p>
-          <template v-if="result">
-            <p class="text-xs text-slate-500">
-              Aktuelle Diagnose: {{ dateTime(result.observed_at) }}
-            </p>
-            <SqlResultTable :columns="result.columns" :rows="result.rows" />
-          </template>
-          <p
-            v-if="typeof definition.parameters.diagnostic_limit === 'number'"
-            class="text-xs text-slate-500"
-          >
-            Maximal {{ definition.parameters.diagnostic_limit }} Zeilen werden angezeigt.
-          </p>
-        </section>
+      <section v-if="tab === 'Befund-Details'" class="space-y-4" aria-label="Befund-Details">
+        <h3 class="font-semibold">Befund-Details</h3>
+        <div class="flex flex-wrap gap-2">
+          <EntityTypeBadge :type="finding.entity_type" /><StatusBadge
+            v-if="finding.status"
+            :label="findingStatusLabels[finding.status] ?? finding.status"
+          />
+        </div>
+        <p>{{ finding.message }}</p>
+        <p class="break-all text-xs text-slate-500">Befund-ID: {{ finding.id }}</p>
+        <NuxtLink v-if="finding.action" :to="finding.action.href" class="button"
+          >Im Admin ansehen</NuxtLink
+        >
+      </section>
+      <section
+        v-if="tab === 'Regel-Informationen'"
+        class="space-y-4"
+        aria-label="Regel-Informationen"
+      >
+        <h3 class="font-semibold">Regel-Informationen</h3>
+        <p class="break-all font-mono text-xs">{{ finding.rule }}</p>
+        <p v-if="definition">{{ definition.explanation }}</p>
+        <p v-if="definition" class="text-xs text-slate-500">
+          {{ definition.title }} · {{ definition.datasource }}
+        </p>
         <SqlRuleEvaluation v-if="result" :evaluation="result.evaluation" />
-      </template>
-    </div>
-  </AppModal>
+      </section>
+      <section
+        v-if="tab === 'Markierungen & Notizen'"
+        class="space-y-4"
+        aria-label="Markierungen & Notizen"
+      >
+        <h3 class="font-semibold">Markierungen & Notizen</h3>
+        <p>{{ finding.comment || 'Keine Review-Notiz zu diesem Befund.' }}</p>
+        <p v-if="finding.exception_reason">{{ finding.exception_reason }}</p>
+        <RecordMarkLink :entity-type="finding.entity_type" :entity-key="finding.entity_key" />
+      </section>
+      <section v-if="tab === 'Historie'" class="space-y-4" aria-label="Historie">
+        <h3 class="font-semibold">Historie</h3>
+        <dl class="space-y-3">
+          <div>
+            <dt class="text-xs text-slate-500">Erstmals beobachtet</dt>
+            <dd>{{ dateTime(finding.first_seen_at) }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-slate-500">Zuletzt beobachtet</dt>
+            <dd>{{ dateTime(finding.last_seen_at) }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-slate-500">Zuletzt geprüft</dt>
+            <dd>{{ dateTime(finding.reviewed_at) }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-slate-500">Aufgelöst</dt>
+            <dd>{{ dateTime(finding.resolved_at) }}</dd>
+          </div>
+        </dl>
+      </section>
+    </template>
+  </SqlWorkspaceModal>
 </template>

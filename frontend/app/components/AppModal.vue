@@ -1,9 +1,20 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, useId } from 'vue'
-withDefaults(defineProps<{ title: string; closeLabel?: string; wide?: boolean }>(), {
-  closeLabel: 'Schließen',
-  wide: false,
-})
+withDefaults(
+  defineProps<{
+    title: string
+    closeLabel?: string
+    wide?: boolean
+    workspace?: boolean
+    subtitle?: string
+  }>(),
+  {
+    closeLabel: 'Schließen',
+    wide: false,
+    workspace: false,
+    subtitle: '',
+  },
+)
 const emit = defineEmits<{ close: [] }>()
 const titleId = useId()
 const dialog = ref<HTMLDialogElement | null>(null)
@@ -33,25 +44,42 @@ defineExpose({ open, close })
     ref="dialog"
     aria-modal="true"
     :aria-labelledby="titleId"
-    class="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-2xl border-0 bg-white p-6 shadow-soft backdrop:bg-slate-900/40"
-    :class="wide ? 'max-w-5xl' : 'max-w-xl'"
+    class="fixed inset-0 m-auto overflow-y-auto rounded-2xl border-0 bg-white shadow-soft backdrop:bg-slate-900/40"
+    :class="[
+      wide ? 'max-w-5xl' : 'max-w-xl',
+      workspace
+        ? 'w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] p-0'
+        : 'w-[calc(100%-2rem)] max-h-[90dvh] p-6',
+    ]"
     @cancel.prevent="close"
     @close="close"
   >
     <template v-if="opened">
-      <div class="flex items-start justify-between gap-4">
+      <div
+        class="flex justify-between gap-4"
+        :class="
+          workspace ? 'items-center border-b border-slate-200 px-4 py-4 sm:px-5' : 'items-start'
+        "
+      >
         <div class="flex min-w-0 flex-wrap items-center gap-3">
-          <h2 :id="titleId" class="min-w-0 break-words text-xl font-bold">{{ title }}</h2>
+          <slot name="icon" />
+          <div class="min-w-0">
+            <h2 :id="titleId" class="min-w-0 break-words text-xl font-bold">{{ title }}</h2>
+            <p v-if="subtitle" class="text-xs text-slate-500 sm:text-sm">{{ subtitle }}</p>
+          </div>
           <slot name="badge" />
         </div>
-        <button
-          type="button"
-          class="shrink-0 rounded-lg p-2"
-          :aria-label="closeLabel"
-          @click="close"
-        >
-          <AppIcon name="close" />
-        </button>
+        <div class="flex shrink-0 items-center gap-3">
+          <slot name="actions" />
+          <button
+            type="button"
+            class="shrink-0 rounded-lg p-2"
+            :aria-label="closeLabel"
+            @click="close"
+          >
+            <AppIcon name="close" />
+          </button>
+        </div>
       </div>
       <slot />
     </template>

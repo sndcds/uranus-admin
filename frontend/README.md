@@ -234,8 +234,11 @@ Uranus delegation and per-operation authorization contract exists. There is no c
 capability override or browser-visible Uranus credential. See the current audit in
 `backend/docs/open-issues-audit.md` and the write-contract matrix in `backend/docs/contracts.md`.
 
-## Finding SQL Editor
+## SQL Workspace
 
 Der [SQL Editor](docs/sql-editor.md) öffnet verfügbare registrierte Finding-Diagnosen in einem
-breiten Nur-Lese-Modal mit Syntax-Highlighting, Parametern, Ergebnissen und Regelauswertung.
+breiten Nur-Lese-Workspace mit Kontextspalte, formatiertem SQL, Parametern und Ergebnissen.
+SQL / Datenherkunft verwendet dieselben Komponenten mit Quell-Tabs und Nachbearbeitung.
+Auch `copy_sql` wird vor dem Kopieren formatiert; Ergebnisse lassen sich als Tabelle, JSON
+oder CSV anzeigen bzw. herunterladen.
 Die Ausführung sendet weiterhin ausschließlich die Finding-ID, niemals den sichtbaren SQL-Text.

@@ -4,6 +4,7 @@ import { detailFixture } from '../fixtures/entities'
 import definitions from '../fixtures/sql-provenance.json' with { type: 'json' }
 import { provenanceDefinitionSchema } from '../../shared/sql-provenance'
 
+import { formatPostgresql } from '../../app/utils/sql-formatter'
 const cases = [
   { view: 'dashboard', path: '/?period=24h', expected: { period: '24h' } },
   {
@@ -25,7 +26,7 @@ const cases = [
 for (const scenario of cases)
   test(`${scenario.view} provenance is lazy, filtered, read-only and keyboard accessible`, async ({
     page,
-  }) => {
+  }, testInfo) => {
     let loads = 0
     const executions: string[] = []
     const definition = provenanceDefinitionSchema.parse(definitions[scenario.view])
@@ -92,21 +93,51 @@ for (const scenario of cases)
     await page.keyboard.press('Enter')
     const dialog = page.getByRole('dialog', { name: 'SQL / Datenherkunft' })
     await expect(dialog).toBeVisible()
-    await expect(dialog.locator('code')).toHaveCount(definition.sources.length)
+    await expect(dialog.locator('code')).toHaveCount(1)
     expect(executions).toHaveLength(0)
     const first = dialog.getByRole('region', { name: definition.sources[0]!.title, exact: true })
     await first.getByRole('button', { name: 'SQL kopieren', exact: true }).click()
     await expect(first.getByText('SQL kopiert', { exact: true })).toBeVisible()
     expect(
       await page.evaluate(() => (window as typeof window & { copiedSql?: string }).copiedSql),
-    ).toBe(definition.sources[0]!.copy_sql)
-    await first.getByRole('button', { name: 'Ausführen', exact: true }).click()
-    await expect(first.getByRole('table')).toContainText('17')
+    ).toBe(formatPostgresql(definition.sources[0]!.copy_sql!))
+    await first.getByRole('button', { name: 'Abfrage ausführen', exact: true }).click()
+    await expect(first.getByRole('table', { name: 'Diagnose-Ergebnis' })).toContainText('17')
     expect(executions).toEqual([definition.sources[0]!.id])
+    await dialog.getByRole('tab').nth(1).click()
     const second = dialog.getByRole('region', { name: definition.sources[1]!.title, exact: true })
-    await second.getByRole('button', { name: 'Ausführen', exact: true }).click()
+    await second.getByRole('button', { name: 'Abfrage ausführen', exact: true }).click()
     await expect(second.getByRole('alert')).toContainText('Zeitlimit')
-    await expect(first.getByRole('table')).toContainText('17')
+    await dialog.getByRole('tab').first().click()
+    await expect(first.getByRole('table', { name: 'Diagnose-Ergebnis' })).toContainText('17')
+    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(
+      true,
+    )
+    if (scenario.view === 'dashboard') {
+      if (testInfo.project.name === 'desktop')
+        await page.setViewportSize({ width: 1536, height: 1024 })
+      await expect(dialog.getByText('SQL kopiert', { exact: true })).toHaveCount(0)
+      await dialog.evaluate((element) => {
+        element.scrollTop = 0
+      })
+      if (testInfo.project.name === 'desktop') {
+        await expect(dialog.getByText('Hinweis · READ ONLY', { exact: true })).toBeInViewport({
+          ratio: 1,
+        })
+        const sidebar = await dialog.locator('aside').boundingBox()
+        const main = await dialog.locator('main').boundingBox()
+        expect(sidebar!.width).toBe(260)
+        expect(main!.x).toBe(sidebar!.x + sidebar!.width)
+        expect(
+          await dialog.locator('main').evaluate((element) => getComputedStyle(element).overflowY),
+        ).toBe('auto')
+      }
+      await page.screenshot({ path: testInfo.outputPath('sql-provenance-modal.png') })
+      await testInfo.attach('SQL Datenherkunft Modal', {
+        path: testInfo.outputPath('sql-provenance-modal.png'),
+        contentType: 'image/png',
+      })
+    }
     await page.keyboard.press('Escape')
     await expect(dialog).not.toBeVisible()
     await expect(button).toBeFocused()
