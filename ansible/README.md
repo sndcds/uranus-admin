@@ -50,6 +50,10 @@ eine geprüfte Backup-Wiederherstellung noch erfolgreiche SMTP-Zustellung.
 die bereits erwarteten Grenzen. Bei fehlenden oder zusätzlichen kritischen Rechten
 ist ein separat geprüfter SQL-Plan nötig; die Rolle repariert nichts automatisch.
 
+Die [Infrastruktur-Übergabe für den SQL Console Reader](../backend/docs/sql-console-infrastructure.md)
+beschreibt die erforderliche Zuständigkeit des Uranus-Datenbankbetreibers. Dieses
+Deployment provisioniert auch für die Console keine Rollen, Views oder Grants.
+
 | Rolle                 | Erwartete Verwendung in `oklab`                                                                                                                                                                                                                        |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `uranus_reader`       | CONNECT; USAGE `uranus`; SELECT auf benötigten Quelltabellen. Keine Ownership, Membership, DML/DDL, Sequenz-USAGE/UPDATE oder Grant Options. Kein Zugriff auf `admin`.                                                                                 |
