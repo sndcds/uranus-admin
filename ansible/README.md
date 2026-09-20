@@ -306,8 +306,20 @@ Die Ansible-Collection wird weiterhin separat über `ansible-galaxy` installiert
 
 ```sh
 uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-galaxy collection install -r ansible/requirements.yml
-uv run --no-project --python 3.13 python ansible/scripts/package_release.py --revision <geprüfter-voller-commit> --output /tmp/uranus-release.tar.gz
+uv run --no-project --python 3.13 python ansible/scripts/package_release.py --output /tmp/uranus-release.tar.gz
 ```
+
+Der Packager ruft bei jedem Aufruf `main` frisch von `origin` ab und paketiert dessen
+neuesten Commit. Der lokale Branch, ein veralteter lokaler `main` und uncommitted
+Änderungen bestimmen das Release nicht. Schlägt der Fetch fehl, bricht der Packager
+ab; es gibt keinen Fallback auf einen alten Stand. Der Checkout wird nicht gewechselt.
+Eine bereits vorhandene Ausgabedatei wird weiterhin nicht überschrieben; beim nächsten
+Release einen neuen Archivpfad wählen.
+
+„Latest main“ gilt zum Zeitpunkt der Paketierung. Danach bleiben Commit und Archiv für
+Dry Run und ausdrückliche Apply-Freigabe unveränderlich. Neue Commits auf `main` erfordern
+ein neues Archiv und eine neue Prüfung/Freigabe; der Echtlauf lädt keinen anderen Stand
+nach. Paketierung allein führt kein Deployment aus.
 
 Der Packager verwendet ausschließlich committed Sources, gibt Commit, Archivpfad
 und SHA256 aus und erstellt byteidentische Archive für denselben Stand. Diese drei
