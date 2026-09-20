@@ -22112,6 +22112,11 @@
             ],
             "title": "Location Suggestion Request Id"
           },
+          "sql_diagnostic_available": {
+            "type": "boolean",
+            "title": "Sql Diagnostic Available",
+            "default": false
+          },
           "action": {
             "anyOf": [
               {

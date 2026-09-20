@@ -23,6 +23,8 @@ from app.services.quality.core import CORE_RULES, RuleResult
 from app.services.quality.engine import scan
 from app.services.quality.priority import priority_details
 from app.services.queues import QUEUE_RULES
+from app.sql_diagnostics.models import StoredFinding
+from app.sql_diagnostics.registry import parameters_for
 
 # Short persistence/review critical section only; scanning never holds this lock.
 LOCK_KEY = 723114905
@@ -104,7 +106,9 @@ async def persist_results(
                 "resolved_at": None,
                 "status": status,
                 "metadata": {
-                    "finding": item.model_dump(mode="json", exclude={"entity_id"}),
+                    "finding": item.model_dump(
+                        mode="json", exclude={"entity_id", "sql_diagnostic_available"}
+                    ),
                     "evidence": evidence,
                 },
             }
@@ -370,6 +374,23 @@ def stored_finding(row: dict[str, Any]) -> Finding:
         }
     )
     payload["entity_key"] = row["entity_key"]
+    # Response capability only: reuse the registry's compatibility/identity checks.
+    # No source query, execution, or persisted metadata can grant this capability.
+    payload["sql_diagnostic_available"] = False
+    try:
+        parameters_for(
+            StoredFinding(
+                id=row["id"],
+                rule=row["rule"],
+                entity_type=row["entity_type"],
+                entity_key=row["entity_key"],
+                field=row["field"],
+                last_seen_at=row["last_seen_at"],
+            )
+        )
+        payload["sql_diagnostic_available"] = True
+    except APIError:
+        pass
     return Finding.model_validate(payload)
 
 

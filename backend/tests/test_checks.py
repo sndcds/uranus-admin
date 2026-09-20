@@ -77,7 +77,7 @@ async def test_persistence_lifecycle_for_source_keys(
     item = next(
         f for f in (await persisted_page(admin_store, filters, now)).items if f.entity_key == key
     )
-    excluded = {"first_seen_at", "last_seen_at", "entity_id"}
+    excluded = {"first_seen_at", "last_seen_at", "entity_id", "sql_diagnostic_available"}
     assert item.model_dump(exclude=excluded) == original.model_dump(exclude=excluded)
     assert item.entity_type == kind
     await review(

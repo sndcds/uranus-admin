@@ -234,4 +234,8 @@ Uranus delegation and per-operation authorization contract exists. There is no c
 capability override or browser-visible Uranus credential. See the current audit in
 `backend/docs/open-issues-audit.md` and the write-contract matrix in `backend/docs/contracts.md`.
 
-[SQL / Datenherkunft – registrierte Queries, Sicherheitsmodell und Coverage](../backend/docs/sql-provenance.md).
+## Finding SQL Editor
+
+Der [SQL Editor](docs/sql-editor.md) öffnet verfügbare registrierte Finding-Diagnosen in einem
+breiten Nur-Lese-Modal mit Syntax-Highlighting, Parametern, Ergebnissen und Regelauswertung.
+Die Ausführung sendet weiterhin ausschließlich die Finding-ID, niemals den sichtbaren SQL-Text.

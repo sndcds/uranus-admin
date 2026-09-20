@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AppModal from './AppModal.vue'
-import SqlDiagnosticPanel from './sql/SqlDiagnosticPanel.vue'
+import SqlEditorModal from './sql/SqlEditorModal.vue'
 import { dateTime } from '~/utils/presentation'
 import type { Finding, ReviewUpdate } from '#shared/contracts'
 const finding = ref<Finding | null>(null)
@@ -39,6 +39,13 @@ async function saveReview() {
   }
 }
 const dialog = useTemplateRef<InstanceType<typeof AppModal>>('detail')
+const sqlEditor = useTemplateRef<InstanceType<typeof SqlEditorModal>>('sqlEditor')
+function openSqlEditor() {
+  if (!finding.value) return
+  const current = finding.value
+  close()
+  sqlEditor.value?.open(current)
+}
 function open(value: Finding) {
   detailRevision++
   finding.value = value
@@ -140,7 +147,9 @@ defineExpose({ open })
           <dd class="break-all text-xs">{{ finding.entity_key }}</dd>
         </div>
       </dl>
-      <SqlDiagnosticPanel :key="finding.id" :finding-id="finding.id" />
+      <button v-if="finding.sql_diagnostic_available" class="button mt-5" @click="openSqlEditor">
+        Im SQL Editor öffnen
+      </button>
       <form
         v-if="finding.first_seen_at && finding.status !== 'resolved'"
         class="mt-5 space-y-3 rounded-xl bg-slate-50 p-4"
@@ -192,4 +201,5 @@ defineExpose({ open })
       <button class="button mt-4" @click="close">Schließen</button>
     </template>
   </AppModal>
+  <SqlEditorModal ref="sqlEditor" />
 </template>

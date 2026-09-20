@@ -9,6 +9,10 @@
     use_proxy: false
     timeout: 10
   register: ua_maintenance_response
+  # A reload is asynchronous; only the full response contract ends this bounded wait.
+  until: ua_maintenance_response is succeeded
+  retries: 10
+  delay: 2
   failed_when: >-
     ua_maintenance_response.status != 503
     or 'id="kulturbytes-maintenance"' not in (ua_maintenance_response.content | default(''))

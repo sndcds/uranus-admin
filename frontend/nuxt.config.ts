@@ -4,7 +4,12 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-09-14',
   modules: ['@pinia/nuxt', '@nuxt/eslint'],
   css: ['~/assets/css/main.css'],
-  vite: { plugins: [tailwindcss()] },
+  vite: {
+    plugins: [tailwindcss()],
+    // Prebundle these CJS entry points in dev to avoid a full-page optimizer reload
+    // on first opening the lazy editor. Production/client loading remains lazy.
+    optimizeDeps: { include: ['prismjs/components/prism-core', 'prismjs/components/prism-sql'] },
+  },
   devtools: { enabled: false },
   typescript: { strict: true },
   runtimeConfig: {

@@ -35,6 +35,7 @@ export const findings: FindingPage = {
     {
       id: 'venue_missing_geolocation:venue:00000000-0000-4000-8000-000000000020:point',
       rule: 'venue_missing_geolocation',
+      sql_diagnostic_available: false,
       severity: 'warning',
       priority: 4,
     priority_score: 3700,
