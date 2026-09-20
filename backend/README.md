@@ -140,4 +140,4 @@ in dieser Testdatenbank administrative Rechte. CI führt den vollständigen DB-L
 
 [SQL / Datenherkunft – registrierte Queries, Sicherheitsmodell und Coverage](docs/sql-provenance.md).
 
-[SQL Console – Infrastruktur-Zuständigkeit, Quell-Audit und Freigabekriterien](docs/sql-console-infrastructure.md).
+[SQL Console – Ansible-Infrastruktur, Quell-Audit und Freigabekriterien](docs/sql-console-infrastructure.md).

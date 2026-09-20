@@ -1,44 +1,37 @@
-# SQL Console: Übergabe der Datenbankgrenze an den Uranus-Betreiber
+# Ansible-managed SQL Console database boundary
 
-## Status und Zuständigkeit
+## Zuständigkeit und Status
 
-**Implementierungsstopp an der Repository-Grenze.** Dieser PR dokumentiert die
-Infrastruktur-Voraussetzungen; er provisioniert keine Console-Rolle, Views oder
-Grants und behauptet keine nachgewiesene neue PostgreSQL-Sicherheitsgrenze.
-Phase 3 mit freiem SQL, WebSocket, Editor und Executor bleibt unimplementiert.
+Das `uranus-admin` Deployment verwaltet ausschließlich die isolierte SQL-Console-Infrastruktur
+(Rollen, `uranus_console`-Schema, explizite Views und minimale Grants).
+Es verändert keine Uranus-Domain-Daten oder Uranus-Tabellendefinitionen.
+`sndcds/uranus` bleibt die authoritative Quelle für Basistabellen und Quell-DDL.
+Admin-Alembic, API und Worker provisionieren keine Console-Infrastruktur.
 
-Geprüft am 20.09.2026:
+Ansible provisioniert die SQL-Console-Infrastruktur vollständig. Es ist kein manueller
+`psql`-Schritt für diese Rollen, Views, Grants oder die Passwortübernahme erforderlich.
+Das setzt einen kompatiblen bestehenden Datenbankkatalog voraus: **gemeinsame PUBLIC-
+Rechte werden nicht verändert**. Bei einem Blocker wird ohne Provisionierung und ohne
+App-Aktivierung abgebrochen. Ein isoliertes Testsystem ist kein Produktionsnachweis.
 
-- `uranus-admin/main`: `e7a48b30bcbd1ddd6629c43474edd93b40a9ecfa`.
-- [Uranus-Quell-DDL](https://github.com/sndcds/uranus/tree/7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d/ddl):
-  alle 72 DDL-Dateien aus `sndcds/uranus/main` bei
-  `7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d`, ausschließlich Repository-Inhalte.
-- Keine Produktionsverbindung, kein Auslesen von Datensätzen oder Secretwerten.
-  Repository-DDL ist kein Nachweis des aktuellen Produktionskatalogs.
+Phase 3 mit frei eingegebenem SQL bleibt unimplementiert: kein `/sql`, Editor, WSS,
+Executor, Streaming oder Cancel. Phase 4 Write Mode ist außerhalb dieses PRs.
 
-Die im Auftrag genannte Eingangsdatei
-`backend/docs/sql-console-phase-3-infrastructure.md` existiert weder auf dieser
-Admin-Basis noch in der verfügbaren lokalen Git-Historie. Die tatsächlichen
-Grundlagen sind die [SQL-Diagnostics](sql-diagnostics.md), der
-[Quellvertrag](../app/source_contract.py) und die unten genannten Betriebsverträge.
+Erneut gegen das Repository geprüft am 20.09.2026:
 
-Der Auftrag verlangt bei externer Source-Infrastruktur ausdrücklich einen Stopp
-mit dokumentierter Übergabe. Die Prüfung ergibt:
+- Admin-Basis: `e7a48b30bcbd1ddd6629c43474edd93b40a9ecfa`.
+- Frisch abgerufenes `sndcds/uranus/main`:
+  [`7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d`](https://github.com/sndcds/uranus/tree/7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d/ddl).
+  Der bestehende Audit umfasst 72 DDL-Dateien; die vier Projektionen und fünf
+  ausgeschlossenen Secretspalten wurden erneut gegen diesen Stand geprüft.
+- Keine Produktionsverbindung und keine Quellwerte gelesen.
 
-| Verantwortung                                                | Nachweis und Übergabe                                                                                                                                                                                                                                                                                                                                   |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Uranus-Tabellen und sourceabhängige Projektionen             | Repository **[sndcds/uranus](https://github.com/sndcds/uranus/tree/7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d)**, insbesondere `ddl/` und der dortige `migrations/`-Vertrag. Der Uranus-Maintainer muss die versionierten Projektionen und deren Ownership verantworten.                                                                                  |
-| Produktionsrollen, Rechte und gemeinsame PostgreSQL-Defaults | **Uranus-/PostgreSQL-Datenbankbetreiber**. Der [dokumentierte Betriebsstand](../../ansible/README.md) nennt `oklab` als Owner des Schemas `uranus`. Rollenanlage und Änderungen an gemeinsamen Rechten benötigen zusätzlich einen dafür berechtigten DB-Operator. Dies ist keine Freigabe, `oklab` oder einen Superuser als Console-Login zu verwenden. |
-| Admin-Anwendungsdeployment                                   | Dieses Repository: [Ansible](../../ansible/README.md) hat ausschließlich lesende PostgreSQL-Tasks. [boundary.sql](../../ansible/roles/uranus_admin/files/boundary.sql) prüft vorhandene Rechte; der [Regressionstest](../../ansible/tests/test_deployment.py) schützt den lesenden Taskumfang. Es gibt keinen bestehenden Console-Provisionierungsweg.  |
-| Spätere Einbindung des freigegebenen Vertrags                | `uranus-admin`: dedizierte DSN, Katalog-Preflight und Tests erst auf Grundlage des vom Uranus-Betreiber gelieferten Vertrags. Keine Ersatz-Provisionierung in Admin-Alembic oder im normalen Deployment.                                                                                                                                                |
-
-Die [manuellen Provisionierungsbeispiele](development.md) für bestehende Rollen
-sind Betreiberanweisungen, kein bereits autorisierter Console-Provisionierungsweg.
-Im geprüften Uranus-Tree wurde kein `CODEOWNERS` und kein eigenes Ansible-/Console-
-Provisionierungspaket gefunden. Ein Personenname oder zusätzliches Infrastruktur-
-Repository lässt sich daraus nicht verifizieren. Der Uranus-Betreiber muss seinen
-konkreten Ausführungsweg benennen; dieser PR erfindet ihn nicht und ändert das
-andere Repository nicht.
+Der maschinenlesbare [Contract v1](../../ansible/roles/uranus_admin/files/sql_console_contract.json)
+enthält Quellcommit, SHA256 der vier geprüften DDL-Dateien, Spaltenreihenfolge,
+PostgreSQL-Typen, Basistabellen, Owner-Spaltengrants, Reader-Grants und Search Path.
+Ansible und Tests verwenden dieselbe Datei. Die Dateihashes dokumentieren den
+Repository-Audit; der Live-Preflight vergleicht Katalogtypen, nicht einen behaupteten
+Produktions-Git-SHA. Neue Basisspalten erweitern den Vertrag niemals automatisch.
 
 ## Threat Model und Ursache des ersten Security-Stops
 
@@ -81,42 +74,45 @@ der Text-, URL- und JSON-Projektionen. Es wurden keine Produktionswerte gelesen.
 | Vorhandene `event_projection` / `event_date_projection`                                                                                                                  | Die DDL beschreibt Projektionstabellen mit weiteren Text-/URL-/JSON-Inhalten; sie sind keine automatisch sicheren Console-Views.                                                    |
 | Admin-Auth, Session-Digests, SMTP-/DB-Credentials                                                                                                                        | Vollständig außerhalb der Console-Freigabe. Aus fehlenden entsprechenden Spalten im Uranus-DDL folgt keine globale Abwesenheit solcher Geheimnisse.                                 |
 
-## Architekturvorschlag für den zuständigen Betreiber
+## Verwalteter Vertrag
 
-**Vorgeschlagen, nicht provisioniert:** ein separates Schema `uranus_console`,
-eine Loginrolle `uranus_console_reader` und ein eng berechtigter
-NOLOGIN-View-Owner, beispielsweise `uranus_console_owner`. Der bisherige
-`uranus_reader` bleibt für kontrollierte interne Queries bestehen.
+`uranus_console_owner`: NOLOGIN, NOSUPERUSER, NOCREATEDB, NOCREATEROLE,
+NOREPLICATION, NOBYPASSRLS, NOINHERIT bei Neuanlage. Ausschließlich Owner des
+Console-Schemas und seiner Views; USAGE auf `uranus`, SELECT auf den unten
+aufgeführten Basisspalten. Kein Tabellen-SELECT, DML oder CREATE auf `uranus`.
+Owner-Rechte auf den eigenen Console-Objekten enthalten naturgemäß deren
+Verwaltung; sie verleihen keine Quellschreibrechte.
 
-Der Reader erhält ausschließlich CONNECT, USAGE auf dem Console-Schema und SELECT
-auf exakt freigegebenen Views. Kein Basistabellen-SELECT, keine Spaltengrants auf
-Basistabellen, kein Zugriff auf `admin`, keine Ownership, Grant Options oder
-Memberships. NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOREPLICATION, NOBYPASSRLS;
-kein CREATE, TEMP, Sequence- oder Large-Object-Recht. Ein SELECT-only-View-Grant
-muss auch automatisch aktualisierbare Views gegen DML absichern.
+`uranus_console_reader`: LOGIN, dieselben negativen privilegierten Attribute und
+NOINHERIT bei Neuanlage. CONNECT auf der ausgewählten DB, USAGE auf `uranus_console`,
+SELECT auf genau vier Views. Kein CREATE/TEMP, kein Zugriff auf `uranus`/`admin`,
+keine Basistabellen-/Spalten-/Sequenzrechte, Memberships oder Grant Options.
+`rolinherit` allein ist ohne Membership kein Rechtezuwachs. Memberships werden
+in beiden Richtungen abgewiesen. Der Reader ist niemals Objekt-Owner.
 
-Folgende Spalten sind ein **minimaler Vorschlag für das Owner-Review**, keine
-bereits freigegebene oder getestete View-Registry. Alle existieren in der geprüften
-Quell-DDL; Namen, Titel, URLs, JSON und sonstiger Freitext fehlen absichtlich:
-
-| Vorgeschlagene View           | Explizite Basisspalten                                                                                                                  |
+| Verwaltete View               | Explizite Basisspalten                                                                                                                  |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `uranus_console.event_date`   | `uuid`, `event_uuid`, `venue_uuid`, `space_uuid`, `release_status`, `start_date`, `start_time`, `end_date`, `end_time`, `all_day`       |
 | `uranus_console.event`        | `uuid`, `org_uuid`, `venue_uuid`, `space_uuid`, `created_at`, `modified_at`, `release_date`, `release_status`, `min_price`, `max_price` |
 | `uranus_console.venue`        | `uuid`, `org_uuid`, `created_at`, `modified_at`, `opened_at`, `closed_at`                                                               |
 | `uranus_console.organization` | `uuid`, `created_at`, `modified_at`, `holding_org_uuid`, `nonprofit`                                                                    |
 
-View-Definitionen müssen jede Spalte auflisten, ohne `SELECT *`, Ganzzeilen-Casts
-oder dynamische SQL-Funktionen. Neue Basisspalten werden dadurch nicht automatisch
-freigegeben. Nach finalem Review ist dieser Vertrag mit Datentypen, Abhängigkeiten,
-Definitionen und Versionskennung im Owner-Repository einzufrieren.
+Diese Liste ist zugleich die exakte Owner-SELECT-Spaltenliste pro Basistabelle.
+Die Views enthalten keine Ausdrücke, Casts, Funktionen, Sternprojektionen oder
+ungeprüften Text-/URL-/JSON-Felder. Es gibt keine User-View und vorerst auch keine
+`organization_member_link`-View; der Owner braucht daher kein `accept_token`-Recht.
+
+Die Typen sind im Contract explizit: UUID, naive Quell-Timestamps, date, time,
+boolean, double precision und das vorhandene Enum `uranus.event_release_status`.
+Die Enum-I/O muss PostgreSQLs `enum_in`/`enum_out` verwenden. Domains, fremde
+Typ-I/O, Quell-Views und RLS auf den vier Basistabellen werden abgewiesen.
 
 **View-Rechtesemantik:** Eine `security_invoker`-View benötigt passende Rechte des
 Aufrufers auf den Basistabellen und passt damit nicht zum gewünschten Modell ohne
 Basistabellenrechte. Normale PostgreSQL-Views prüfen diese Rechte dagegen beim
 View-Owner. Das ist nicht mit einer `SECURITY DEFINER`-Funktion gleichzusetzen.
 [PostgreSQL: CREATE VIEW](https://www.postgresql.org/docs/17/sql-createview.html).
-Für den vorgeschlagenen View-only-Zugang ist diese begrenzte Owner-Prüfung notwendig:
+Für den View-only-Zugang ist diese begrenzte Owner-Prüfung notwendig:
 Der separate NOLOGIN-Owner darf selbst nur die freigegebenen Basisspalten lesen,
 keine Geheimnisse und keine Daten schreiben. Er darf kein Superuser oder mächtiger
 Quellowner sein. Der Reader darf die Owner-Rolle nicht übernehmen. Keine
@@ -125,112 +121,151 @@ SECURITY-DEFINER-Funktion, keine beliebigen SQL-Parameter in privilegierten Helf
 Views, verschachtelte Views, Regeln, RLS, verwendete Typen/Operatoren und Funktionen
 sind Teil des Reviews. `security_barrier` kann bei Zeilenfiltern sinnvoll sein,
 ersetzt aber weder die Spaltenprojektion noch die Prüfung der Abhängigkeiten.
-Geplant ist `search_path=pg_catalog,uranus_console` mit schemaqualifizierten
+Festgelegt ist `search_path=pg_catalog,uranus_console` mit schemaqualifizierten
 Console-Abfragen. `uranus`, `public` und `$user` gehören nicht in diesen Pfad;
 der Pfad allein verbietet aber keine schemaqualifizierten Zugriffe.
 
-## Function-/Extension-Audit und PUBLIC-Blocker
+## Plan, Apply und unabhängige Verifikation
 
-Die Repository-DDL ist kein vollständiger Produktions-Funktions-/ACL-Katalog.
-Der aktuelle Preflight prüft zugängliche SECURITY-DEFINER-Funktionen, beweist aber
-keine vollständige Console-Funktionsgrenze. Der Betreiber muss alle Überladungen,
-direkten/geerbten/PUBLIC-Rechte, Schemazugänge, Funktionsabhängigkeiten und
-Extension-/FDW-Zugriffe rein anhand von Katalogen prüfen.
+Die drei eigenen Taskbereiche sind
+[sql_console_plan.yml](../../ansible/roles/uranus_admin/tasks/sql_console_plan.yml),
+[sql_console_provision.yml](../../ansible/roles/uranus_admin/tasks/sql_console_provision.yml)
+und [sql_console_verify.yml](../../ansible/roles/uranus_admin/tasks/sql_console_verify.yml).
+Der begrenzte [Ansible-Modulcode](../../ansible/roles/uranus_admin/library/uranus_sql_console.py)
+verbindet ausschließlich lokal als `postgres` nach `oklab`. Er besitzt keine
+beliebige SQL-, Rollen-, Datenbank- oder Host-Option.
 
-Mindestens zu bewerten: `pg_read_file`, `pg_read_binary_file`, `pg_ls_dir`,
-`pg_stat_file`, `pg_sleep` und Varianten, `pg_terminate_backend`,
-`pg_cancel_backend`, `set_config`, `lo_import`, `lo_export`, weitere Large-Object-
-Operationen, `dblink*`, Foreign Server/User Mappings, serverseitige Datei-/Programm-
-Zugriffe sowie Extensions mit externen Seiteneffekten. Ein EXECUTE-Grant und eine
-zusätzliche interne Privilegienprüfung sind unterschiedliche Grenzen; beide sind
-zu dokumentieren. Keine pauschale Aussage, jede installierte Funktion sei nutzbar.
+Reihenfolge: Host/System-Preflight einschließlich bestehender Toolchain-Prüfung →
+unveränderter READ-ONLY-Source/Admin-Preflight → geschützter Environment-Plan →
+Console-Katalogplan → freigegebene Console-Provisionierung → separate READ-ONLY-
+Console-Verifikation → Release-Build → tatsächliche Runtime-DSN-Verifikation →
+Maintenance ON → App-Aktivierung → Healthchecks → Maintenance OFF gemäß bisheriger
+Marker-Erhaltungsregel → Erfolg. Console-Fehler erreichen weder Build noch Maintenance.
 
-PostgreSQL vergibt standardmäßig unter anderem TEMP auf Datenbanken und EXECUTE
-auf Funktionen an PUBLIC. Ein REVOKE nur von `uranus_console_reader` entfernt
-diese Rechte **nicht**. [PostgreSQL: Privileges](https://www.postgresql.org/docs/17/ddl-priv.html).
-Der dokumentierte Admin-Betriebsstand nennt bestehende TEMP-Rechte bereits explizit.
-Es gibt keinen rollenbezogenen negativen Grant als Abzug von PUBLIC.
+Die Capability stammt aus `SQL_CONSOLE_DATABASE_URL` in den Environment-Keys des
+SHA256-geprüften Release-Manifests. Das neue optionale Secret-Setting markiert
+Unterstützung, ohne einen Executor einzuführen. Ältere Releases benötigen die
+Infrastruktur nicht, erhalten keine Console-DSN und löschen vorhandene Objekte nicht.
 
-Deshalb muss der Datenbankbetreiber eine gemeinsame Rechteänderung mit vollständiger
-Bestandsaufnahme und Erhalt der nötigen Rechte anderer Anwendungen genehmigen,
-oder eine getrennte Console-Datenbank mit ausschließlich bereinigten Projektionen
-und kontrollierten Defaults vorsehen. Eine getrennte Datenbank wird hier ebenfalls
-nicht aufgebaut. **Keine pauschalen Produktions-REVOKEs, kein stilles Akzeptieren
-gefährlicher effektiver Rechte und keine vorgetäuschte Isolation durch search_path.**
+Die vier bestehenden Apply-Gates (`ua_apply_confirmation`, `ua_reviewed_dry_run`,
+`ua_maintenance_window`, `ua_backup_reference`) und Secret-Adoption bleiben gültig.
+Zusätzlich benötigt ein unterstützender Release `ua_sql_console_provision_approved: true`.
+Inspect und Check Mode planen ohne diese zusätzliche Freigabe; sie provisionieren nichts.
 
-## Console-DSNs und Admin-Datasource
+Der Plan und der separate Verifier laufen in echten READ-ONLY/REPEATABLE-READ-
+Transaktionen, mit 10 Sekunden Statement- und 2 Sekunden Lock-Timeout. Apply
+prüft erneut, serialisiert Console-Applies mit einem Transaktions-Advisory-Lock,
+führt ausschließlich eigene DDL/Grants aus und prüft vor Commit erneut.
+Die unabhängige Verifikation öffnet anschließend eine neue READ-ONLY-Verbindung.
+Parallele manuelle Katalogänderungen sind nicht unterstützt.
 
-`SQL_CONSOLE_DATABASE_URL` bleibt ein geplanter separater Secret-Eingang;
-`SQL_CONSOLE_ADMIN_DATABASE_URL` ist ein späterer optionaler Vertrag. Dieser
-Dokumentations-PR fügt keine Settings, Engines oder DSN-Fallbacks hinzu.
+Fehlende Rollen, Schema, Views und erlaubte Grants werden angelegt. `pg_get_viewdef`
+wird mit den expliziten Projektionen verglichen (beide PostgreSQL-16/17-
+Deparserformen, nur Whitespace normalisiert). Definition und View-Optionen werden
+mit CREATE OR REPLACE auf den Vertrag zurückgeführt. Falsche Spalten/Typen,
+Owner, Zusatzrechte, mächtige Rollen oder Memberships sind harte Blocker, keine
+stille Übernahme fremder Infrastruktur. `unexpected_sql_console_object` verhindert
+automatisches Löschen fremder Views, Funktionen, Typen oder anderer Schemaobjekte.
+Keine Default-Grants für zukünftige Objekte.
 
-Für die spätere Implementierung gilt: fehlende oder unsichere Console-DSN bedeutet
-Datasource unavailable. Niemals auf `DATABASE_URL`, `ADMIN_DATABASE_URL`,
-Migrator- oder Operator-Credentials zurückfallen. Die Identität und effektiven
-Rechte der tatsächlich verbundenen Rolle müssen geprüft werden.
+Die Katalogprüfung umfasst Rollenattribute, Ownership, effektive PUBLIC-/direkte
+Schema-/DB-/Tabellen-/Spalten-/Sequenzrechte einschließlich MAINTAIN ab PG17,
+Grant Options, exakte View-Spalten/-Typen/-Definitionen/-Owner und minimale
+Owner-Spaltengrants. Die fünf Secretspalten werden zusätzlich mit
+`has_column_privilege` geprüft, ohne Werte zu lesen. Effektives CREATE/TEMP wird
+mit `has_database_privilege` geprüft. Die echte Runtime-Anmeldung muss `oklab`,
+`uranus_console_reader` und exakt `pg_catalog, uranus_console` liefern.
 
-Eine Admin-Console-Rolle bleibt ein separater Follow-up. Auch Findings, Notizen,
-Evidenz und Audit-Inhalte können freie Texte enthalten und brauchen explizite
-Projektionen. `admin_user` ist keine zulässige Console-Rolle.
+## PUBLIC TEMP und Function-/Extension-Grenze
 
-## Katalog-Preflight: erforderlicher Vertrag, noch kein Prüfprogramm
+PostgreSQL-Rechte sind additiv. Ein REVOKE nur vom Reader kann PUBLIC TEMP nicht
+aufheben. [PostgreSQL: GRANT](https://www.postgresql.org/docs/17/sql-grant.html).
+Ansible liest daher die effektive Datenbank-ACL und berichtet `public_temp` sowie
+`temp_login_roles`: alle Loginrollen mit effektivem TEMP, einschließlich Superusern.
+Bei PUBLIC TEMP lautet der Blocker
+`public_temp_requires_external_review_no_automatic_revoke`. **Kein pauschales
+REVOKE FROM PUBLIC, kein versteckter Override und kein Ersatz durch READ ONLY.**
 
-Erst nach dem versionierten Owner-Vertrag kann ein Preflight dessen konkrete
-Views und Abhängigkeiten verlässlich prüfen. Ein jetzt erfundener Sollzustand
-wäre kein Nachweis der produktiven Grenze. Der spätere Preflight muss bei jeder
-Unsicherheit abbrechen und ausschließlich gebundene Katalog-/Privilege-Abfragen
-in einer begrenzten READ-ONLY-Transaktion verwenden:
+Die bekannte Bestandsaufnahme nennt TEMP für vier App-Rollen, aber keinen
+belegten PUBLIC-ACL-Ursprung. Dieser PR liest Production nicht; konkrete betroffene
+Anwendungen lassen sich nicht aus Rollennamen allein ableiten. Ein freigegebener
+Katalogplan muss diese Zuordnung mit dem Betreiber klären. Scheitert eine sichere
+gemeinsame Rechtepolitik, ist eine getrennte Console-Datenbank mit ausschließlich
+bereinigten Projektionen und kontrollierten Defaults der isolierte Folgeentwurf.
+Das Playbook baut diese Alternative nicht heimlich auf.
 
-1. Verbundene Console-Identität, erwartete Datenbank, Rollenattribute,
-   Memberships einschließlich möglicher Rollenwechsel und Ownership prüfen.
-2. Effektives CONNECT/USAGE/SELECT und das Fehlen von CREATE/TEMP, DML, MAINTAIN,
-   Sequenz-, Large-Object- und Grant-Option-Rechten einschließlich PUBLIC prüfen.
-3. Mit `has_table_privilege`, `has_any_column_privilege` und
-   `has_column_privilege` jeglichen unerlaubten Basiszugriff erkennen; explizit
-   auch die ausgeschlossenen Secretspalten prüfen, ohne deren Werte zu lesen.
-4. View-Objekttyp, Owner, exakte Spalten/Typen, Definition und Abhängigkeiten gegen
-   den freigegebenen Vertrag vergleichen. Ein harmloser Alias kann einen Secret-
-   Ausdruck verstecken; ein Spaltennamenvergleich allein ist nicht ausreichend.
-5. View-Owner ebenfalls auf minimale Basisrechte prüfen; Rules, RLS, Funktionen,
-   Operatoren, Extensions, FDWs und Default-ACLs in die Kontrolle einbeziehen.
-6. Fehlende Objekte, unvollständige Katalogsicht oder unbekannte Abhängigkeiten
-   als unavailable behandeln. Keine automatische Reparatur oder Grants.
+Dasselbe Prinzip gilt für gemeinsame Funktions-/Extension-Rechte. Der Vertrag
+benötigt keine eigenen Funktionen. Zugängliche SECURITY-DEFINER-Funktionen,
+Nicht-Core-Funktionen (auch als STABLE/IMMUTABLE deklarierte), bekannte gefährliche
+Core-Datei-/Large-Object-Funktionen, dblink, fremde Extensions, Foreign-Server-
+Rechte/User-Mappings, Large-Object-Rechte, Event-Trigger und ungeprüfte Default-ACLs
+blockieren. Zusätzliche Systemkatalog-Grants und PUBLIC-Zugriffe auf Passwort-,
+Verbindungs- oder Statistikwerte werden ebenfalls abgewiesen. Es werden keine
+Funktionsrechte anderer Anwendungen verändert.
+`plpgsql` und `postgis` dürfen installiert sein; ihre Installation ist keine
+pauschale EXECUTE- oder Tabellenfreigabe für die Console. Insbesondere PostGIS-
+PUBLIC-Metadaten/-Funktionen können zusätzliche Blocker auslösen.
 
-Lesbarkeit der freigegebenen Views wird im Produktions-Preflight anhand der
-Privilegien geprüft; tatsächliche Ergebnisabfragen und Angriffe bleiben Teil
-der synthetischen Testdatenbank. Keine Secretabfragen in Production, auch nicht
-mit LIMIT oder unter dem Vorwand eines Smoke-Tests.
+Die Tests verwenden eine neue lokale Datenbank mit ausdrücklich isolierten
+Fixture-Defaults. Nur dort werden PUBLIC TEMP sowie zusätzliche Tabellen- und
+Funktionsrechte entzogen. Tests stellen diese Rechte gezielt wieder her und
+prüfen den Abbruch ohne Provisionierung. Diese Fixtures sind kein Deployment-SQL
+und keine Bestätigung eines kompatiblen Produktionskatalogs.
 
-## Tests und Freigabekriterien
+Kein Anspruch auf magische Vollständigkeit: Katalog-/PostgreSQL-Funktionen wie
+`set_config`, `pg_sleep`, Advisory Locks und intern autorisierte Backend-Signale
+sind zusätzlich im späteren AST-/Function-Denylist-Vertrag zu begrenzen, ebenso
+Ergebnismengen, Laufzeit und Parallelität. DB Boundary bleibt die primäre
+Vertraulichkeits- und Berechtigungsgrenze; Phase 3 bleibt READ ONLY.
 
-**Neue Boundary-Tests: noch nicht implementiert oder bestanden.** Wegen des
-Ownership-Stopps gibt es hier keine Ersatz-Testfixture, die als implementierter
-Source-Vertrag ausgegeben wird. Im Owner-Change müssen automatische Tests auf
-einer frischen, wegwerfbaren lokalen `*_test`-Datenbank den tatsächlichen
-Provisionierungsvertrag anwenden. Ausschließlich synthetische Daten verwenden.
+## Secrets, Runtime und Recovery
 
-| Test mit umgangenem App-Validator                                          | Erforderliches PostgreSQL-Ergebnis                                                    |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Freigegebene Projektion, einschließlich `SELECT *` auf einer sicheren View | Erfolg; nur die explizit freigegebenen Felder.                                        |
-| Direkter `accept_token`-/`password_hash`-Zugriff                           | `insufficient_privilege` / SQLSTATE `42501`.                                          |
-| Secret unter Alias `harmless`                                              | Ebenfalls `42501`.                                                                    |
-| Ausdruck wie `upper(accept_token)`                                         | Ebenfalls `42501`.                                                                    |
-| `to_jsonb(t)` auf sensibler Basistabelle                                   | Ebenfalls `42501`; JSON einer sicheren View enthält keine Secrets.                    |
-| Secret in Subquery oder CTE                                                | Ebenfalls `42501`.                                                                    |
-| INSERT, UPDATE, DELETE, CREATE TABLE, temporäres CREATE                    | Abweisung bereits durch effektive Rollenrechte, zusätzlich READ-ONLY-Snapshot testen. |
-| SET ROLE zu Reader-, Owner-, Admin- oder anderen mächtigeren Rollen        | `42501`.                                                                              |
-| Gefährliche Funktion, Extension oder manipulierte View                     | Kein Zugriff/keine Seiteneffekte; Preflight lehnt unerwartete Fähigkeiten ab.         |
-| Neue Basisspalte, PUBLIC-Grant, Membership oder View-Drift                 | Keine automatische Freigabe; Preflight meldet den Vertragsbruch.                      |
-| Fehlende Console-DSN bei gleichzeitig gesetzten Runtime-DSNs               | Keine Verbindung zu einem Runtime-Zugang; unavailable.                                |
+`SQL_CONSOLE_DATABASE_URL` ist ein eigenes Secret in der geschützten bestehenden
+`operator.env` (root:root 0600), danach auch in `runtime.env` (root:root 0600).
+Eine bereits vorhandene explizite Runtime-DSN wird erhalten und beim geschützten
+Secret-Adoptionsschritt zusätzlich im Operator-Archiv gesichert. So bleibt sie auch
+bei einem späteren Release ohne Console-Capability verfügbar. Andere archivierte
+Werte werden nicht ersetzt; abweichende Console-Werte führen zum Abbruch. Es gibt keine
+Credentials im Inventory, Git, `-e` oder Reports. Keine Ableitung aus `DATABASE_URL`
+oder `ADMIN_DATABASE_URL`; fehlt die DSN, scheitert die Planung.
 
-Der lokale Vorversuch mit der **alten** dokumentierten Reader-Berechtigung hat
-bereits gezeigt, dass direkter Tokenvergleich, Alias und Ganzzeilen-JSON in einer
-READ-ONLY-Transaktion möglich sind. Er lief ausschließlich mit synthetischen Daten
-in einem temporären PostgreSQL-17.10-Cluster. Das ist ein Nachweis des Problems,
-**kein** erfolgreicher Test der vorgeschlagenen neuen Grenze.
+Das Passwort muss ein separates, ausreichend langes ASCII-Secret sein (mindestens
+24 druckbare Zeichen ohne Leerzeichen; reservierte URL-Zeichen percent-encodieren).
+Die neue Rolle erhält einen lokal erzeugten SCRAM-SHA-256-Verifier dieses Passworts.
+Bei bestehender Rolle wird der gespeicherte Verifier geschützt verglichen; bei
+Abweichung Abbruch statt Rotation. Es gibt keinen bei jedem Deploy neu erzeugten
+Zufallsschlüssel. Secret-Tasks sind `no_log`, Diffs unterdrückt; der DB-Schreibschritt
+unterdrückt zusätzlich Statement-/Parameter-/Sampling-Logs seiner Transaktion.
+Keine Passwörter, DSNs, Verifier oder Driver-Exceptions im Report.
 
-Phase 3 bleibt gesperrt, bis der Betreiber den Source-/Rollenvertrag versioniert
-hat, die obigen automatisierten Angriffs- und Regressionstests bestehen und ein
-autorisierter Produktions-Katalogaudit mit Datum, Vertragsversion, PostgreSQL-/
-Extension-Versionen und Ergebnisreferenz vorliegt. Dieser PR enthält weder diesen
-Produktionsnachweis noch eine Deployment-Freigabe.
+Die Runtime-Prüfung stellt mit dieser eigenen DSN eine begrenzte read-only
+Verbindung her und kontrolliert echte Identität, Search Path und CREATE/TEMP.
+Frontend erhält keine Console-DSN. `SQL_CONSOLE_ADMIN_DATABASE_URL` bleibt ein
+optionaler Folgeauftrag ohne Fallback zu `ADMIN_DATABASE_URL`.
+
+System recovery bleibt systemd/Nginx/runtime-bezogen. Console DB infrastructure
+wird nicht destruktiv zurückgerollt. Ein späterer Aktivierungsfehler führt nicht
+zu DROP VIEW/ROLE/SCHEMA; erfolgreich provisionierte Infrastruktur bleibt sicher
+und idempotent bestehen. Ein Fehler innerhalb der Provisionierung verwirft deren
+noch unbestätigte Transaktion; das ist kein nachträglicher Deployment-DB-Rollback.
+
+## Tests und Phase-3-Freigabekriterien
+
+[Console-Tests](../../ansible/tests/test_sql_console.py) verwenden denselben
+Contract und denselben Provisionierer auf PostgreSQL 16/PostGIS 3.4 und PostgreSQL
+17/PostGIS 3.5 in der bestehenden CI-Matrix. Nur lokale Wegwerfcontainer,
+synthetische Daten und abgesicherte `*_test`-Datenbanken sind erlaubt.
+
+Getestet werden echte READ-ONLY-Planung, Ansible `--check --diff` ohne Änderung,
+separate Approval-Sperre, erster Apply, zweiter Apply `changed=0`, erfolgreiche
+Anmeldung und exakter Search Path. Direkter Secretzugriff, Alias, Ausdruck,
+`to_jsonb`, CTE/Subquery, Writes, CREATE/TEMP und Rollenwechsel müssen mit `42501`
+scheitern; sichere Views liefern genau ihre Spalten. Weitere Fälle: neue
+Basisspalte, View-Drift/Reconcile, mächtige Attribute, Memberships, fehlende und
+zusätzliche Grants, PUBLIC TEMP, Funktionen/Extensions, Sequenzen/Large Objects,
+fremde Console-Objekte ohne Löschung, fehlende DSN ohne Fallback und alte Releases.
+
+Vor Phase 3 müssen diese Gates bestehen und zusätzlich ein autorisierter
+Produktions-Preflight mit Datum, Contract-Version, PostgreSQL-/Extension-Versionen
+und Ergebnisreferenz vorliegen. Dieser PR enthält keine Deployment-Freigabe,
+keinen Produktionsnachweis und keine Anwendung für frei eingegebenes SQL.

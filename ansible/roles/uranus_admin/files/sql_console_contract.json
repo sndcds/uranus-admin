@@ -1,0 +1,207 @@
+{
+  "version": 1,
+  "uranus_sha": "7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d",
+  "schema": "uranus_console",
+  "owner_role": "uranus_console_owner",
+  "reader_role": "uranus_console_reader",
+  "search_path": "pg_catalog, uranus_console",
+  "views": {
+    "event_date": {
+      "source_table": "uranus.event_date",
+      "source_ddl_sha256": "1a3a921a06cdfc6a4ddff4ae6a27b8090bfde559149b00d212abcbe5a80456df",
+      "columns": [
+        {
+          "name": "uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "event_uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "venue_uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "space_uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "release_status",
+          "type": "uranus.event_release_status"
+        },
+        {
+          "name": "start_date",
+          "type": "date"
+        },
+        {
+          "name": "start_time",
+          "type": "time without time zone"
+        },
+        {
+          "name": "end_date",
+          "type": "date"
+        },
+        {
+          "name": "end_time",
+          "type": "time without time zone"
+        },
+        {
+          "name": "all_day",
+          "type": "boolean"
+        }
+      ],
+      "owner_select_columns": [
+        "uuid",
+        "event_uuid",
+        "venue_uuid",
+        "space_uuid",
+        "release_status",
+        "start_date",
+        "start_time",
+        "end_date",
+        "end_time",
+        "all_day"
+      ],
+      "reader_grants": ["SELECT"]
+    },
+    "event": {
+      "source_table": "uranus.event",
+      "source_ddl_sha256": "0b0b28a5d82aec138b9cdc8fe5e9c8ba1de9643a0589a6ad58016e2954684c5f",
+      "columns": [
+        {
+          "name": "uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "org_uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "venue_uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "space_uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp without time zone"
+        },
+        {
+          "name": "modified_at",
+          "type": "timestamp without time zone"
+        },
+        {
+          "name": "release_date",
+          "type": "date"
+        },
+        {
+          "name": "release_status",
+          "type": "uranus.event_release_status"
+        },
+        {
+          "name": "min_price",
+          "type": "double precision"
+        },
+        {
+          "name": "max_price",
+          "type": "double precision"
+        }
+      ],
+      "owner_select_columns": [
+        "uuid",
+        "org_uuid",
+        "venue_uuid",
+        "space_uuid",
+        "created_at",
+        "modified_at",
+        "release_date",
+        "release_status",
+        "min_price",
+        "max_price"
+      ],
+      "reader_grants": ["SELECT"]
+    },
+    "venue": {
+      "source_table": "uranus.venue",
+      "source_ddl_sha256": "35e5a4cdc817b7ca54ea8ea909063097c4c601e6dbd65fbd61a2a5d73e24d708",
+      "columns": [
+        {
+          "name": "uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "org_uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp without time zone"
+        },
+        {
+          "name": "modified_at",
+          "type": "timestamp without time zone"
+        },
+        {
+          "name": "opened_at",
+          "type": "date"
+        },
+        {
+          "name": "closed_at",
+          "type": "date"
+        }
+      ],
+      "owner_select_columns": [
+        "uuid",
+        "org_uuid",
+        "created_at",
+        "modified_at",
+        "opened_at",
+        "closed_at"
+      ],
+      "reader_grants": ["SELECT"]
+    },
+    "organization": {
+      "source_table": "uranus.organization",
+      "source_ddl_sha256": "61dac27550fb0ef38aae313bd8f0479d132ed111f452e5f88456453964329dca",
+      "columns": [
+        {
+          "name": "uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp without time zone"
+        },
+        {
+          "name": "modified_at",
+          "type": "timestamp without time zone"
+        },
+        {
+          "name": "holding_org_uuid",
+          "type": "uuid"
+        },
+        {
+          "name": "nonprofit",
+          "type": "boolean"
+        }
+      ],
+      "owner_select_columns": [
+        "uuid",
+        "created_at",
+        "modified_at",
+        "holding_org_uuid",
+        "nonprofit"
+      ],
+      "reader_grants": ["SELECT"]
+    }
+  },
+  "sensitive_columns": {
+    "organization": ["api_import_token"],
+    "user": ["password_hash", "activate_token"],
+    "organization_member_link": ["accept_token"],
+    "password_reset": ["token"]
+  }
+}

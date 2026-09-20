@@ -99,11 +99,30 @@
       no_log: true
       diff: false
 
+    - name: Recheck protected operator archive before adding adopted console credentials
+      ansible.builtin.stat:
+        path: "{{ ua_config_dir }}/operator.env"
+        follow: false
+      register: ua_fresh_operator
+      no_log: true
+
+    - name: Refuse concurrent operator archive changes without overwriting secrets
+      ansible.builtin.assert:
+        that:
+          - ua_fresh_operator.stat.exists == ua_env_stats.results[1].stat.exists
+          - not ua_fresh_operator.stat.exists or (ua_fresh_operator.stat.isreg and not ua_fresh_operator.stat.islnk)
+          - ua_fresh_operator.stat.checksum | default('') == ua_env_stats.results[1].stat.checksum | default('')
+          - ua_fresh_operator.stat.mode | default('') == ua_env_stats.results[1].stat.mode | default('')
+          - ua_fresh_operator.stat.uid | default(-1) == ua_env_stats.results[1].stat.uid | default(-1)
+          - ua_fresh_operator.stat.gid | default(-1) == ua_env_stats.results[1].stat.gid | default(-1)
+      no_log: true
+
     - name: Preserve privileged entries outside runtime access
       ansible.builtin.copy:
         content: "{{ ua_privileged | ua_render_env }}"
         dest: "{{ ua_config_dir }}/operator.env"
-        force: false
+        # Values were compared before merging; only explicit console adoption may add a key.
+        force: true
         owner: root
         group: root
         mode: "0600"

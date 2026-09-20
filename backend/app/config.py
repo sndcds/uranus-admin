@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, ge=1, le=65535)
     database_url: SecretStr = SecretStr("postgresql+asyncpg://localhost/uranus")
     admin_database_url: SecretStr | None = None
+    # Infrastructure capability only; no console executor or fallback.
+    sql_console_database_url: SecretStr | None = None
     auth_public_origin: str | None = None
     auth_session_seconds: int = Field(default=3600, ge=300, le=28800)
     auth_session_heartbeat_seconds: int = Field(default=60, ge=1, le=300)

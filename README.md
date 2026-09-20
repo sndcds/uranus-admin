@@ -2,10 +2,10 @@
 
 Administrationsdashboard für Uranus mit einem FastAPI-Backend und einem Nuxt-Frontend.
 
-| Ordner | Inhalt |
-| --- | --- |
-| [backend/](backend/README.md) | Python-API, Migrationen, Tests und Backend-Dokumentation |
-| [frontend/](frontend/README.md) | Nuxt-Dashboard, Tests und HTML-Mockup |
+| Ordner                          | Inhalt                                                   |
+| ------------------------------- | -------------------------------------------------------- |
+| [backend/](backend/README.md)   | Python-API, Migrationen, Tests und Backend-Dokumentation |
+| [frontend/](frontend/README.md) | Nuxt-Dashboard, Tests und HTML-Mockup                    |
 
 Beide Anwendungen besitzen eigene Abhängigkeiten und `.env`-Dateien.
 Die gemeinsame GitHub-Actions-Konfiguration liegt unter `.github/workflows/`.
@@ -62,7 +62,6 @@ Qualitätsprüfungen werden dauerhaft eingereiht (HTTP 202). Zusätzlich zur API
 mit `cd backend && uv run python -m app.check_worker` laufen. Migration 0006 und Runtime-Grants
 vor dem Start prüfen; ohne Worker bleiben neue Jobs in der Warteschlange.
 
-
 ## Markierungen und Notizen
 
 Datensätze lassen sich unabhängig von Prüfhinweisen mit mehreren Anliegen markieren.
@@ -76,9 +75,9 @@ Voraussetzung: Admin-Migration `0003` und die zusätzlichen
 ## Production-Anmeldung
 
 Das vorsichtige Deployment der bestehenden Installation auf `admin.kulturbytes.de`
-ist in [ansible/README.md](ansible/README.md) beschrieben. Die Rolle prüft PostgreSQL
-ausschließlich lesend und benötigt vor produktiven Änderungen einen geprüften Dry Run
-und eine ausdrückliche Freigabe.
+ist in [ansible/README.md](ansible/README.md) beschrieben. Die Rolle prüft die bestehenden Source/Admin-Grenzen
+ausschließlich lesend und verwaltet separat die isolierte SQL-Console-Infrastruktur.
+Produktive Änderungen benötigen einen geprüften Dry Run und ausdrückliche Freigaben.
 
 FastAPI authentifiziert eigene Admin-Konten; eine separate Tabelle in `admin` vergibt globale
 System-Admin-Rechte. Es gibt keine Uranus-Authentifizierung oder Statusabfrage. Der Browser nutzt

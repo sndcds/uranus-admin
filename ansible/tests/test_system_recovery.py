@@ -1,6 +1,7 @@
 """Exercise real Ansible blocks/handlers and real temporary files, with simulated host I/O."""
 
 import copy
+import hashlib
 import json
 import os
 import shutil
@@ -170,6 +171,8 @@ class ActivationIntegrationTests(unittest.TestCase):
         check=False,
         repeat_without_activation=False,
         maintenance_responses=None,
+        console_archive=False,
+        operator_changed=False,
     ):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -253,11 +256,19 @@ class ActivationIntegrationTests(unittest.TestCase):
                     path.unlink()
                     originals[str(path)] = None
 
+            operator_values = {"ADMIN_MIGRATION_DATABASE_URL": "existing-operator-fixture"}
+            console_values = {**operator_values, "SQL_CONSOLE_DATABASE_URL": "console-fixture"}
+            operator_path = config / "operator.env"
+            if console_archive:
+                operator_path.write_text(filters.render_environment(operator_values))
+                operator_path.chmod(0o600)
+
             def stat(path):
                 return {
                     "stat": {
                         "exists": path.exists(),
-                        "mode": "0640",
+                        "mode": f"{path.stat().st_mode & 0o777:04o}",
+                        "checksum": hashlib.sha1(path.read_bytes()).hexdigest(),
                         "uid": os.getuid(),
                         "gid": os.getgid(),
                     }
@@ -305,7 +316,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "ua_manage_notification_timer": manage,
                 "ua_disable_notification_timer_approved": approved,
                 "ua_runtime": {"APP_ENV": "production", "NOTIFICATIONS_DELIVERY_ENABLED": "false"},
-                "ua_privileged": {},
+                "ua_privileged": console_values if console_archive else {},
                 "ua_node": "/usr/bin/true",
                 "ua_uv": "/usr/bin/true",
                 "ansible_facts": {
@@ -317,7 +328,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "ua_env_stats": {
                     "results": [
                         stat(config / "runtime.env"),
-                        {"stat": {"exists": False}},
+                        stat(operator_path) if console_archive else {"stat": {"exists": False}},
                         stat(legacy / "backend/.env"),
                         stat(legacy / "frontend/.env"),
                     ]
@@ -342,6 +353,8 @@ class ActivationIntegrationTests(unittest.TestCase):
                 + str(actions)
                 + "\nnocows=True\n[connection]\npipelining=True\n"
             )
+            if operator_changed:
+                operator_path.write_text("NEW_OPERATOR_ENTRY=concurrent-fixture\n")
             result = subprocess.run(
                 [
                     sys.executable,
@@ -364,6 +377,17 @@ class ActivationIntegrationTests(unittest.TestCase):
             )
             observed = json.loads(state_path.read_text())
             output = result.stdout + result.stderr
+            if operator_changed:
+                self.assertNotEqual(result.returncode, 0, output)
+                self.assertEqual(
+                    operator_path.read_text(), "NEW_OPERATOR_ENTRY=concurrent-fixture\n"
+                )
+                self.assertFalse(any(e["kind"] == "systemd" for e in observed["events"]))
+                return observed
+            if console_archive:
+                self.assertEqual(
+                    filters.parse_environment(operator_path.read_text()), console_values
+                )
             if check:
                 self.assertEqual(result.returncode, 0, output)
                 self.assertFalse(marker.exists())
@@ -683,6 +707,12 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "Restore affected application services to their actual previous states"
             ),
         )
+
+    def test_console_secret_archive_survives_system_recovery(self):
+        self.run_activation("Check backend liveness and database readiness", console_archive=True)
+
+    def test_concurrent_operator_archive_change_aborts_before_service_mutation(self):
+        self.run_activation(console_archive=True, operator_changed=True)
 
     def test_check_mode_does_not_activate_maintenance(self):
         self.run_activation(check=True)
