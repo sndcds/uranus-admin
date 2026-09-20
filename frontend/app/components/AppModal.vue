@@ -31,6 +31,7 @@ defineExpose({ open, close })
 <template>
   <dialog
     ref="dialog"
+    aria-modal="true"
     :aria-labelledby="titleId"
     class="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-2xl border-0 bg-white p-6 shadow-soft backdrop:bg-slate-900/40"
     :class="wide ? 'max-w-5xl' : 'max-w-xl'"
@@ -39,7 +40,10 @@ defineExpose({ open, close })
   >
     <template v-if="opened">
       <div class="flex items-start justify-between gap-4">
-        <h2 :id="titleId" class="min-w-0 break-words text-xl font-bold">{{ title }}</h2>
+        <div class="flex min-w-0 flex-wrap items-center gap-3">
+          <h2 :id="titleId" class="min-w-0 break-words text-xl font-bold">{{ title }}</h2>
+          <slot name="badge" />
+        </div>
         <button
           type="button"
           class="shrink-0 rounded-lg p-2"

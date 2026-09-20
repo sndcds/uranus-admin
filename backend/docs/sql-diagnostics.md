@@ -21,8 +21,15 @@ Beobachtungszeitpunkt serverseitig aus der Admin-Ablage. Keine Browser-Metadaten
 
 Beide Endpunkte verwenden `get_current_admin`; Cookie-POSTs verlangen exakte Origin
 und `X-Admin-CSRF: 1`. Nitro erlaubt nur feste Pfade, Methoden und typisierte Bodies.
-Antworten sind `private, no-store`. Das Panel lädt beim Aufklappen und führt nur über
-„Prüfen“ aus. Beim Schließen werden Ergebnisse verworfen. Kein Editor/Console-Platzhalter.
+Antworten sind `private, no-store`. Der eigenständige SQL Editor lädt beim Öffnen des
+großen Modals und führt nur über „Abfrage ausführen“ aus. Beim Schließen werden
+Ergebnisse verworfen. Der sichtbare SQL-Text bleibt unveränderlich und wird nie gesendet.
+
+Persistierte Finding-Responses enthalten `sql_diagnostic_available`. Die bestehende
+Registry prüft Regel, Typ, Feld und Identität ohne Quellquery; gespeicherte
+Display-Metadaten können dieses Flag nicht überschreiben. Live-Findings liefern false.
+Auch `resolved` Findings behalten die Diagnoseaktion. Keine neue Route, Migration oder
+Änderung am Execute-Vertrag. [Frontend und Dependency-Audit](../../frontend/docs/sql-editor.md).
 
 ## Sicherheitsmodell
 
