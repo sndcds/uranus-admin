@@ -6,12 +6,36 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.repositories.query import ReadQuery
+
 PROJECTIONS = {
     "organization": "uuid, name, street, house_number, address_addition, "
     "postal_code, city, country, state",
     "venue": "uuid, org_uuid, name, street, house_number, postal_code, "
     "city, country, state, osm_id",
 }
+
+
+def source_query(
+    kind: str,
+    *,
+    ids: list[UUID] | None = None,
+    after: UUID | None = None,
+) -> ReadQuery:
+    columns = PROJECTIONS[kind]  # Closed code-owned mapping, never a SQL identifier from HTTP.
+    predicate = (
+        "uuid = ANY(CAST(:ids AS uuid[]))"
+        if ids is not None
+        else "(CAST(:after AS uuid) IS NULL OR uuid > CAST(:after AS uuid)) "
+        "AND (point IS NULL OR ST_IsEmpty(point))"
+    )
+    return ReadQuery(
+        text(
+            f"SELECT {columns}, (point IS NULL OR ST_IsEmpty(point)) AS point_missing "
+            f"FROM uranus.{kind} WHERE {predicate} ORDER BY uuid LIMIT 500"
+        ),
+        {"ids": ids, "after": after},
+    )
 
 
 async def source_rows(
@@ -21,20 +45,8 @@ async def source_rows(
     ids: list[UUID] | None = None,
     after: UUID | None = None,
 ) -> list[dict[str, Any]]:
-    columns = PROJECTIONS[kind]  # Closed code-owned mapping, never a SQL identifier from HTTP.
-    predicate = (
-        "uuid = ANY(CAST(:ids AS uuid[]))"
-        if ids is not None
-        else "(CAST(:after AS uuid) IS NULL OR uuid > CAST(:after AS uuid)) "
-        "AND (point IS NULL OR ST_IsEmpty(point))"
-    )
-    result = await connection.execute(
-        text(
-            f"SELECT {columns}, (point IS NULL OR ST_IsEmpty(point)) AS point_missing "
-            f"FROM uranus.{kind} WHERE {predicate} ORDER BY uuid LIMIT 500"
-        ),
-        {"ids": ids, "after": after},
-    )
+    query = source_query(kind, ids=ids, after=after)
+    result = await connection.execute(query.statement, query.parameters)
     return [
         {**dict(row), "entity_type": kind, "entity_key": row["uuid"]} for row in result.mappings()
     ]

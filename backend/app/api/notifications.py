@@ -2,7 +2,7 @@
 
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -17,6 +17,7 @@ from app.auth.service import require_origin
 from app.database import ConnectionDep, SettingsDep
 from app.errors import APIError
 from app.repositories.notifications import local_day
+from app.repositories.query import ReadQuery
 from app.schemas.finding import Pagination
 from app.schemas.notifications import (
     DeliveryDetail,
@@ -62,56 +63,25 @@ async def notifications(
     now = datetime.now(UTC)
     capability = await source_capability(source)
     _, issues = validate_configs(await organization_configs(source))
-    conditions = []
-    for column, value in (
-        (n.c.status, status),
-        (n.c.notification_type, notification_type),
-        (n.c.organization_id, organization_id),
-    ):
-        if value is not None:
-            conditions.append(column == value)
-    if days:
-        conditions.append(n.c.last_detected_at >= now - timedelta(days=days))
+    queries = notification_queries(
+        status,
+        notification_type,
+        organization_id,
+        days,
+        page,
+        page_size,
+        now,
+        settings.admin_timezone,
+    )
     async with admin.begin():
-        total = (
-            await admin.execute(select(func.count()).select_from(n).where(*conditions))
-        ).scalar_one()
-        rows = (
-            await admin.execute(
-                select(n)
-                .where(*conditions)
-                .order_by(n.c.last_detected_at.desc(), n.c.id)
-                .limit(page_size)
-                .offset((page - 1) * page_size)
-            )
-        ).mappings()
+        total = (await admin.execute(queries["count"].statement)).scalar_one()
+        rows = (await admin.execute(queries["records"].statement)).mappings()
         items = [NotificationSummary.model_validate(dict(row)) for row in rows]
-        active = (
-            await admin.execute(select(func.count()).select_from(n).where(n.c.status == "active"))
-        ).scalar_one()
-        start, end = local_day(now, settings.admin_timezone)
-        queued = (
-            await admin.execute(
-                select(func.count()).select_from(d).where(d.c.status.in_(["queued", "sending"]))
-            )
-        ).scalar_one()
-        sent = (
-            await admin.execute(
-                select(func.count())
-                .select_from(d)
-                .where(d.c.status == "sent", d.c.sent_at >= start, d.c.sent_at < end)
-            )
-        ).scalar_one()
-        failed = (
-            await admin.execute(
-                select(func.count())
-                .select_from(d)
-                .where(d.c.status.in_(["failed", "permanent_failure"]))
-            )
-        ).scalar_one()
-        temporary = (
-            await admin.execute(select(func.count()).select_from(d).where(d.c.status == "failed"))
-        ).scalar_one()
+        active = (await admin.execute(queries["active"].statement)).scalar_one()
+        queued = (await admin.execute(queries["queued"].statement)).scalar_one()
+        sent = (await admin.execute(queries["sent_today"].statement)).scalar_one()
+        failed = (await admin.execute(queries["failed"].statement)).scalar_one()
+        temporary = (await admin.execute(queries["temporary_failed"].statement)).scalar_one()
     return NotificationPage(
         items=items,
         pagination=Pagination(
@@ -139,19 +109,14 @@ async def detail(
 ) -> NotificationDetail:
     async with admin.begin():
         row = (
-            (await admin.execute(select(n).where(n.c.id == notification_id)))
+            (await admin.execute(notification_detail_query(notification_id)))
             .mappings()
             .one_or_none()
         )
         if row is None:
             raise APIError(404, "not_found", "Notification not found.")
         deliveries = (
-            await admin.execute(
-                select(d)
-                .join(di, di.c.delivery_id == d.c.id)
-                .where(di.c.notification_id == notification_id)
-                .order_by(d.c.created_at.desc(), d.c.id)
-            )
+            await admin.execute(notification_deliveries_query(notification_id))
         ).mappings()
         return NotificationDetail(
             **dict(row),
@@ -178,24 +143,11 @@ async def preview(
 @router.get("/notification-deliveries/{delivery_id}", response_model=DeliveryDetail)
 async def delivery_detail(delivery_id: UUID, admin: AdminConnectionDep) -> DeliveryDetail:
     async with admin.begin():
-        row = (await admin.execute(select(d).where(d.c.id == delivery_id))).mappings().one_or_none()
+        row = (await admin.execute(delivery_detail_query(delivery_id))).mappings().one_or_none()
         if row is None:
             raise APIError(404, "notification_delivery_not_found", "Delivery not found.")
-        items = (
-            await admin.execute(
-                select(n)
-                .join(di, di.c.notification_id == n.c.id)
-                .where(di.c.delivery_id == delivery_id)
-                .order_by(n.c.id)
-            )
-        ).mappings()
-        retries = (
-            await admin.execute(
-                select(d)
-                .where(d.c.retry_of_delivery_id == delivery_id)
-                .order_by(d.c.created_at, d.c.id)
-            )
-        ).mappings()
+        items = (await admin.execute(delivery_notifications_query(delivery_id))).mappings()
+        retries = (await admin.execute(delivery_retries_query(delivery_id))).mappings()
         return DeliveryDetail(
             retries=[NotificationDelivery.model_validate(dict(r)) for r in retries],
             **dict(row),
@@ -214,31 +166,12 @@ async def deliveries(
     page: Annotated[int, Query(ge=1, le=100_000)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> DeliveryPage:
-    conditions = []
-    for column, value in (
-        (d.c.status, status),
-        (d.c.organization_id, organization_id),
-        (d.c.delivery_kind, delivery_kind),
-    ):
-        if value is not None:
-            conditions.append(column == value)
-    if days:
-        conditions.append(d.c.created_at >= datetime.now(UTC) - timedelta(days=days))
-    # Audit name comes from the original mail snapshot; no source or per-row queries.
-    name = d.c.snapshot["payloads"][0]["organization_name"].as_string()
+    queries = delivery_queries(
+        status, delivery_kind, organization_id, days, page, page_size, datetime.now(UTC)
+    )
     async with admin.begin():
-        total = (
-            await admin.execute(select(func.count()).select_from(d).where(*conditions))
-        ).scalar_one()
-        rows = (
-            await admin.execute(
-                select(d, func.coalesce(name, "—").label("organization_name"))
-                .where(*conditions)
-                .order_by(d.c.created_at.desc(), d.c.id)
-                .limit(page_size)
-                .offset((page - 1) * page_size)
-            )
-        ).mappings()
+        total = (await admin.execute(queries["count"].statement)).scalar_one()
+        rows = (await admin.execute(queries["records"].statement)).mappings()
         return DeliveryPage(
             items=[DeliveryListItem.model_validate(dict(r)) for r in rows],
             pagination=Pagination(
@@ -283,3 +216,116 @@ async def retry_delivery(
         },
     )
     return result
+
+
+def notification_detail_query(notification_id: UUID) -> Any:
+    return select(n).where(n.c.id == notification_id)
+
+
+def notification_deliveries_query(notification_id: UUID) -> Any:
+    return (
+        select(d)
+        .join(di, di.c.delivery_id == d.c.id)
+        .where(di.c.notification_id == notification_id)
+        .order_by(d.c.created_at.desc(), d.c.id)
+    )
+
+
+def delivery_detail_query(delivery_id: UUID) -> Any:
+    return select(d).where(d.c.id == delivery_id)
+
+
+def delivery_notifications_query(delivery_id: UUID) -> Any:
+    return (
+        select(n)
+        .join(di, di.c.notification_id == n.c.id)
+        .where(di.c.delivery_id == delivery_id)
+        .order_by(n.c.id)
+    )
+
+
+def delivery_retries_query(delivery_id: UUID) -> Any:
+    return select(d).where(d.c.retry_of_delivery_id == delivery_id).order_by(d.c.created_at, d.c.id)
+
+
+def notification_queries(
+    status: NotificationStatus | None,
+    notification_type: NotificationType | None,
+    organization_id: UUID | None,
+    days: int | None,
+    page: int,
+    page_size: int,
+    now: datetime,
+    timezone: str,
+) -> dict[str, ReadQuery]:
+    conditions = []
+    for column, value in (
+        (n.c.status, status),
+        (n.c.notification_type, notification_type),
+        (n.c.organization_id, organization_id),
+    ):
+        if value is not None:
+            conditions.append(column == value)
+    if days:
+        conditions.append(n.c.last_detected_at >= now - timedelta(days=days))
+    start, end = local_day(now, timezone)
+    return {
+        "count": ReadQuery(select(func.count()).select_from(n).where(*conditions)),
+        "records": ReadQuery(
+            select(n)
+            .where(*conditions)
+            .order_by(n.c.last_detected_at.desc(), n.c.id)
+            .limit(page_size)
+            .offset((page - 1) * page_size)
+        ),
+        "active": ReadQuery(select(func.count()).select_from(n).where(n.c.status == "active")),
+        "queued": ReadQuery(
+            select(func.count()).select_from(d).where(d.c.status.in_(["queued", "sending"]))
+        ),
+        "sent_today": ReadQuery(
+            select(func.count())
+            .select_from(d)
+            .where(d.c.status == "sent", d.c.sent_at >= start, d.c.sent_at < end)
+        ),
+        "failed": ReadQuery(
+            select(func.count())
+            .select_from(d)
+            .where(d.c.status.in_(["failed", "permanent_failure"]))
+        ),
+        "temporary_failed": ReadQuery(
+            select(func.count()).select_from(d).where(d.c.status == "failed")
+        ),
+    }
+
+
+def delivery_queries(
+    status: DeliveryStatus | None,
+    delivery_kind: DeliveryKind | None,
+    organization_id: UUID | None,
+    days: int | None,
+    page: int,
+    page_size: int,
+    now: datetime,
+) -> dict[str, ReadQuery]:
+    conditions = []
+    for column, value in (
+        (d.c.status, status),
+        (d.c.organization_id, organization_id),
+        (d.c.delivery_kind, delivery_kind),
+    ):
+        if value is not None:
+            conditions.append(column == value)
+    if days:
+        conditions.append(d.c.created_at >= now - timedelta(days=days))
+    # Audit name comes from the original mail snapshot; no source or per-row queries.
+    name = d.c.snapshot["payloads"][0]["organization_name"].as_string()
+    return {
+        "count": ReadQuery(select(func.count()).select_from(d).where(*conditions)),
+        "records": ReadQuery(
+            select(d, func.coalesce(name, "—").label("organization_name"))
+            .where(*conditions)
+            .order_by(d.c.created_at.desc(), d.c.id)
+            .limit(page_size)
+            .offset((page - 1) * page_size)
+        ),
+    }

@@ -1,4 +1,10 @@
 import {
+  provenanceDefinitionSchema,
+  provenanceResultSchema,
+  type ProvenanceView,
+  type ProvenanceParams,
+} from '#shared/sql-provenance'
+import {
   sqlDiagnosticDefinitionSchema,
   sqlDiagnosticResultSchema,
   geocodePageSchema,
@@ -47,6 +53,14 @@ import type {
 } from '#shared/contracts'
 import { AdminApiError, failure } from '#shared/errors'
 
+export interface ViewReadContext {
+  query: Record<string, string | number | boolean | undefined>
+  observedAt?: string
+  dataMode?: 'live' | 'persisted'
+  pending: boolean
+  revision: number
+}
+
 export function createAdminApi(
   fetcher: (path: string, options: RequestInit) => Promise<Response> = fetch,
 ) {
@@ -54,6 +68,13 @@ export function createAdminApi(
   let credential = ''
   let accessLost: ((status: number) => void) | undefined
   let accessGeneration = 0
+  const viewReads = new Map<string, ViewReadContext>()
+  const readListeners = new Set<() => void>()
+  let readRevision = 0
+  function publishRead(path: string, context: ViewReadContext) {
+    viewReads.set(path, context)
+    readListeners.forEach((listener) => listener())
+  }
   async function request<T>(
     path: string,
     schema: z.ZodType<T>,
@@ -63,6 +84,9 @@ export function createAdminApi(
     signal?: AbortSignal,
   ) {
     const generation = accessGeneration
+    const inspectable = method === 'GET' && path.startsWith('/api/v1/') && !path.includes('sql-')
+    const readId = ++readRevision
+    if (inspectable) publishRead(path, { query: { ...query }, pending: true, revision: readId })
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(query))
       if (value !== undefined) params.set(key, String(value))
@@ -101,9 +125,50 @@ export function createAdminApi(
     }
     const parsed = schema.safeParse(body)
     if (!parsed.success) throw new AdminApiError(failure(502, 'invalid_response'))
+    if (
+      inspectable &&
+      generation === accessGeneration &&
+      viewReads.get(path)?.revision === readId
+    ) {
+      const data = parsed.data
+      const stamp =
+        data && typeof data === 'object'
+          ? 'observed_at' in data
+            ? data.observed_at
+            : 'to_at' in data
+              ? data.to_at
+              : undefined
+          : undefined
+      const quality = data && typeof data === 'object' && 'quality' in data ? data.quality : null
+      const mode = quality && typeof quality === 'object' && 'mode' in quality ? quality.mode : null
+      publishRead(path, {
+        dataMode: mode === 'live' || mode === 'persisted' ? mode : undefined,
+        query: { ...query },
+        pending: false,
+        revision: readId,
+        observedAt: typeof stamp === 'string' ? stamp : undefined,
+      })
+    }
     return parsed.data
   }
   return {
+    viewRead: (path: string) => viewReads.get(path),
+    subscribeViewReads: (listener: () => void) => {
+      readListeners.add(listener)
+      return () => {
+        readListeners.delete(listener)
+      }
+    },
+    provenance: (view: ProvenanceView, params: ProvenanceParams) =>
+      request('/api/v1/sql-provenance/' + view, provenanceDefinitionSchema, params),
+    executeProvenance: (view: ProvenanceView, source: string, params: ProvenanceParams) =>
+      request(
+        '/api/v1/sql-provenance/' + view + '/' + encodeURIComponent(source) + '/execute',
+        provenanceResultSchema,
+        {},
+        'POST',
+        params,
+      ),
     geocodeRequests: (query: GeocodeFilters) =>
       request('/api/v1/geocode/requests', geocodePageSchema, { ...query }),
     geocodeRequest: (id: string) =>
@@ -174,16 +239,22 @@ export function createAdminApi(
     login: async (login: string, password: string) => {
       const identity = await request('/auth/login', sessionSchema, {}, 'POST', { login, password })
       accessGeneration++
+      viewReads.clear()
+      readListeners.forEach((listener) => listener())
       return identity
     },
     logout: () => request('/auth/logout', logoutSchema, {}, 'POST'),
     setCredential(value: string) {
       accessGeneration++
       credential = value.trim()
+      viewReads.clear()
+      readListeners.forEach((listener) => listener())
     },
     clearCredential() {
       accessGeneration++
       credential = ''
+      viewReads.clear()
+      readListeners.forEach((listener) => listener())
     },
     summary: (period: Period, geo_scope_id?: string) =>
       request('/api/v1/dashboard/summary', summarySchema, { period, geo_scope_id }),

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SqlProvenanceButton from './sql/SqlProvenanceButton.vue'
 defineProps<{ title: string; description?: string; titleId?: string }>()
 </script>
 <template>
@@ -10,6 +11,6 @@ defineProps<{ title: string; description?: string; titleId?: string }>()
       </div>
       <p v-if="description" class="mt-1 text-sm text-slate-500">{{ description }}</p>
     </div>
-    <div v-if="$slots.default" class="flex flex-wrap items-center gap-2"><slot /></div>
+    <div class="flex flex-wrap items-center gap-2"><SqlProvenanceButton /><slot /></div>
   </header>
 </template>

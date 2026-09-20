@@ -1,0 +1,729 @@
+[
+  {
+    "view_id": "dashboard",
+    "endpoint": "/dashboard/summary",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "services.dashboard; repositories.dashboard; services.checks",
+    "sql_capable": true,
+    "query_groups": "8 default; geo/live/compare may add groups",
+    "post_processing": "period_window, source timezone, persisted_counts (unresolved), urgent metadata, check status; geo membership batches",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "dashboard.new_records",
+      "dashboard.unknown_images",
+      "dashboard.quality_counts",
+      "dashboard.preview_count",
+      "dashboard.preview_records",
+      "dashboard.suggestions",
+      "dashboard.latest_run",
+      "dashboard.last_successful_run"
+    ]
+  },
+  {
+    "view_id": "activity",
+    "endpoint": "/dashboard/activity",
+    "datasources": [
+      "uranus"
+    ],
+    "implementation_ref": "repositories.activity; repositories.activity_previews",
+    "sql_capable": true,
+    "query_groups": "4 default; geo/live/compare may add groups",
+    "post_processing": "period/cursor decoding, unknown timestamps, safe previews",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "activity.unknown",
+      "activity.count",
+      "activity.records",
+      "activity.previews"
+    ]
+  },
+  {
+    "view_id": "findings",
+    "endpoint": "/findings",
+    "datasources": [
+      "admin",
+      "uranus"
+    ],
+    "implementation_ref": "services.checks; services.quality.engine; api.findings",
+    "sql_capable": true,
+    "query_groups": "3 default; geo/live/compare may add groups",
+    "post_processing": "stored_finding, priority metadata, active_only, cursor; geo membership before pagination; live Python rules",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "findings.count",
+      "findings.records",
+      "findings.suggestions"
+    ]
+  },
+  {
+    "view_id": "quality",
+    "endpoint": "/dashboard/summary",
+    "datasources": [
+      "admin",
+      "uranus"
+    ],
+    "implementation_ref": "services.dashboard; services.checks",
+    "sql_capable": true,
+    "query_groups": "5 default; geo/live/compare may add groups",
+    "post_processing": "Dashboard summary response; quality counts exclude resolved, zero-filled rule registry; venue explanation is static and links to findings",
+    "coverage": "registered",
+    "source_ids": [
+      "quality.new_records",
+      "quality.unknown_images",
+      "quality.quality_counts",
+      "quality.latest_run",
+      "quality.last_successful_run"
+    ]
+  },
+  {
+    "view_id": "checks",
+    "endpoint": "/check-runs",
+    "datasources": [
+      "admin"
+    ],
+    "implementation_ref": "api.checks",
+    "sql_capable": true,
+    "query_groups": "2 default; geo/live/compare may add groups",
+    "post_processing": "CheckRun validation, pagination",
+    "coverage": "registered",
+    "source_ids": [
+      "checks.count",
+      "checks.records"
+    ]
+  },
+  {
+    "view_id": "checks.detail",
+    "endpoint": "/check-runs/{id}",
+    "datasources": [
+      "admin"
+    ],
+    "implementation_ref": "api.checks",
+    "sql_capable": true,
+    "query_groups": "1 default; geo/live/compare may add groups",
+    "post_processing": "CheckRun validation",
+    "coverage": "registered",
+    "source_ids": [
+      "checks.detail.record"
+    ]
+  },
+  {
+    "view_id": "organizations",
+    "endpoint": "/organizations",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "6 default; geo/live/compare may add groups",
+    "post_processing": "search escaping, period/temporal/geo, records/enrich, workflow counts",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "organizations.count",
+      "organizations.records",
+      "organizations.facts",
+      "organizations.previews",
+      "organizations.finding_count",
+      "organizations.mark_count"
+    ]
+  },
+  {
+    "view_id": "organizations.detail",
+    "endpoint": "/organizations/{id}",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "8 default; geo/live/compare may add groups",
+    "post_processing": "related_page (25), entity/related enrichment; optional graph and marks loaded separately",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "organizations.detail.record",
+      "organizations.detail.related_count",
+      "organizations.detail.related",
+      "organizations.detail.facts",
+      "organizations.detail.previews",
+      "organizations.detail.related_previews",
+      "organizations.detail.finding_count",
+      "organizations.detail.mark_count"
+    ]
+  },
+  {
+    "view_id": "venues",
+    "endpoint": "/venues",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "6 default; geo/live/compare may add groups",
+    "post_processing": "search escaping, period/temporal/geo, records/enrich, workflow counts",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "venues.count",
+      "venues.records",
+      "venues.facts",
+      "venues.previews",
+      "venues.finding_count",
+      "venues.mark_count"
+    ]
+  },
+  {
+    "view_id": "venues.detail",
+    "endpoint": "/venues/{id}",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "8 default; geo/live/compare may add groups",
+    "post_processing": "related_page (25), entity/related enrichment; optional graph and marks loaded separately",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "venues.detail.record",
+      "venues.detail.related_count",
+      "venues.detail.related",
+      "venues.detail.facts",
+      "venues.detail.previews",
+      "venues.detail.related_previews",
+      "venues.detail.finding_count",
+      "venues.detail.mark_count"
+    ]
+  },
+  {
+    "view_id": "spaces",
+    "endpoint": "/spaces",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "6 default; geo/live/compare may add groups",
+    "post_processing": "search escaping, period/temporal/geo, records/enrich, workflow counts",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "spaces.count",
+      "spaces.records",
+      "spaces.facts",
+      "spaces.previews",
+      "spaces.finding_count",
+      "spaces.mark_count"
+    ]
+  },
+  {
+    "view_id": "spaces.detail",
+    "endpoint": "/spaces/{id}",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "8 default; geo/live/compare may add groups",
+    "post_processing": "related_page (25), entity/related enrichment; optional graph and marks loaded separately",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "spaces.detail.record",
+      "spaces.detail.related_count",
+      "spaces.detail.related",
+      "spaces.detail.facts",
+      "spaces.detail.previews",
+      "spaces.detail.related_previews",
+      "spaces.detail.finding_count",
+      "spaces.detail.mark_count"
+    ]
+  },
+  {
+    "view_id": "events",
+    "endpoint": "/events",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "6 default; geo/live/compare may add groups",
+    "post_processing": "search escaping, period/temporal/geo, records/enrich, workflow counts",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "events.count",
+      "events.records",
+      "events.facts",
+      "events.previews",
+      "events.finding_count",
+      "events.mark_count"
+    ]
+  },
+  {
+    "view_id": "events.detail",
+    "endpoint": "/events/{id}",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "8 default; geo/live/compare may add groups",
+    "post_processing": "related_page (25), entity/related enrichment; optional graph and marks loaded separately",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "events.detail.record",
+      "events.detail.related_count",
+      "events.detail.related",
+      "events.detail.facts",
+      "events.detail.previews",
+      "events.detail.related_previews",
+      "events.detail.finding_count",
+      "events.detail.mark_count"
+    ]
+  },
+  {
+    "view_id": "users",
+    "endpoint": "/users",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "6 default; geo/live/compare may add groups",
+    "post_processing": "search escaping, period/temporal/geo, records/enrich, workflow counts",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "users.count",
+      "users.records",
+      "users.facts",
+      "users.previews",
+      "users.finding_count",
+      "users.mark_count"
+    ]
+  },
+  {
+    "view_id": "users.detail",
+    "endpoint": "/users/{id}",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "8 default; geo/live/compare may add groups",
+    "post_processing": "related_page (25), entity/related enrichment; optional graph and marks loaded separately",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "users.detail.record",
+      "users.detail.related_count",
+      "users.detail.related",
+      "users.detail.facts",
+      "users.detail.previews",
+      "users.detail.related_previews",
+      "users.detail.finding_count",
+      "users.detail.mark_count"
+    ]
+  },
+  {
+    "view_id": "images",
+    "endpoint": "/images",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "6 default; geo/live/compare may add groups",
+    "post_processing": "search escaping, period/temporal/geo, records/enrich, workflow counts",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "images.count",
+      "images.records",
+      "images.facts",
+      "images.previews",
+      "images.finding_count",
+      "images.mark_count"
+    ]
+  },
+  {
+    "view_id": "images.detail",
+    "endpoint": "/images/{id}",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "repositories.entities; activity_previews",
+    "sql_capable": true,
+    "query_groups": "8 default; geo/live/compare may add groups",
+    "post_processing": "related_page (25), entity/related enrichment; optional graph and marks loaded separately",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "images.detail.record",
+      "images.detail.related_count",
+      "images.detail.related",
+      "images.detail.facts",
+      "images.detail.previews",
+      "images.detail.related_previews",
+      "images.detail.finding_count",
+      "images.detail.mark_count"
+    ]
+  },
+  {
+    "view_id": "queues.partner_requests",
+    "endpoint": "/work-queues/partner_requests",
+    "datasources": [
+      "uranus"
+    ],
+    "implementation_ref": "repositories.queues; services.queues",
+    "sql_capable": true,
+    "query_groups": "2 default; geo/live/compare may add groups",
+    "post_processing": "map_queue, timezone, age/pending thresholds, identity/action links",
+    "coverage": "registered",
+    "source_ids": [
+      "queues.partner_requests.count",
+      "queues.partner_requests.records"
+    ]
+  },
+  {
+    "view_id": "queues.team_invitations",
+    "endpoint": "/work-queues/team_invitations",
+    "datasources": [
+      "uranus"
+    ],
+    "implementation_ref": "repositories.queues; services.queues",
+    "sql_capable": true,
+    "query_groups": "2 default; geo/live/compare may add groups",
+    "post_processing": "map_queue, timezone, age/pending thresholds, identity/action links",
+    "coverage": "registered",
+    "source_ids": [
+      "queues.team_invitations.count",
+      "queues.team_invitations.records"
+    ]
+  },
+  {
+    "view_id": "queues.user_activation",
+    "endpoint": "/work-queues/user_activation",
+    "datasources": [
+      "uranus"
+    ],
+    "implementation_ref": "repositories.queues; services.queues",
+    "sql_capable": true,
+    "query_groups": "2 default; geo/live/compare may add groups",
+    "post_processing": "map_queue, timezone, age/pending thresholds, identity/action links",
+    "coverage": "registered",
+    "source_ids": [
+      "queues.user_activation.count",
+      "queues.user_activation.records"
+    ]
+  },
+  {
+    "view_id": "geocoding",
+    "endpoint": "/geocode/requests",
+    "datasources": [
+      "admin",
+      "uranus"
+    ],
+    "implementation_ref": "repositories.geocode; geocode_sources",
+    "sql_capable": true,
+    "query_groups": "6 default; geo/live/compare may add groups",
+    "post_processing": "fingerprint/stale comparison; Nominatim candidates are cached admin state; no HTTP during read",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "geocoding.count",
+      "geocoding.records",
+      "geocoding.status_counts",
+      "geocoding.source_organization",
+      "geocoding.source_venue",
+      "geocoding.candidates"
+    ]
+  },
+  {
+    "view_id": "geocoding.detail",
+    "endpoint": "/geocode/requests/{id}",
+    "datasources": [
+      "admin",
+      "uranus"
+    ],
+    "implementation_ref": "repositories.geocode; geocode_sources",
+    "sql_capable": true,
+    "query_groups": "4 default; geo/live/compare may add groups",
+    "post_processing": "current source address/fingerprint vs cached candidate state",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "geocoding.detail.record",
+      "geocoding.detail.source_organization",
+      "geocoding.detail.source_venue",
+      "geocoding.detail.candidates"
+    ]
+  },
+  {
+    "view_id": "marks",
+    "endpoint": "/record-marks",
+    "datasources": [
+      "admin"
+    ],
+    "implementation_ref": "services.marks",
+    "sql_capable": true,
+    "query_groups": "2 default; geo/live/compare may add groups",
+    "post_processing": "status/urgency/reason filters, ordering",
+    "coverage": "registered",
+    "source_ids": [
+      "marks.count",
+      "marks.records"
+    ]
+  },
+  {
+    "view_id": "marks.detail",
+    "endpoint": "/record-marks/{id}",
+    "datasources": [
+      "admin"
+    ],
+    "implementation_ref": "services.marks",
+    "sql_capable": true,
+    "query_groups": "2 default; geo/live/compare may add groups",
+    "post_processing": "immutable event history ordered by version",
+    "coverage": "registered",
+    "source_ids": [
+      "marks.detail.record",
+      "marks.detail.events"
+    ]
+  },
+  {
+    "view_id": "graph",
+    "endpoint": "/graph",
+    "datasources": [
+      "uranus"
+    ],
+    "implementation_ref": "repositories.graph",
+    "sql_capable": true,
+    "query_groups": "4 default; geo/live/compare may add groups",
+    "post_processing": "root nodes, adjacency per frontier, candidate nodes, bounded graph + previews; D3 layout in browser",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "graph.root",
+      "graph.adjacency",
+      "graph.frontier",
+      "graph.previews"
+    ]
+  },
+  {
+    "view_id": "statistics",
+    "endpoint": "/statistics/entities",
+    "datasources": [
+      "uranus"
+    ],
+    "implementation_ref": "repositories.statistics; services.statistics",
+    "sql_capable": true,
+    "query_groups": "2 default; geo/live/compare may add groups",
+    "post_processing": "period_window, natural timezone buckets, DST, previous totals, recent action links",
+    "coverage": "registered",
+    "source_ids": [
+      "statistics.aggregation",
+      "statistics.recent"
+    ]
+  },
+  {
+    "view_id": "statistics.content",
+    "endpoint": "/statistics/events/content",
+    "datasources": [
+      "uranus"
+    ],
+    "implementation_ref": "repositories.event_content; services.event_content",
+    "sql_capable": true,
+    "query_groups": "1 default; geo/live/compare may add groups",
+    "post_processing": "period/previous window, coverage percentages and ranking deltas",
+    "coverage": "registered",
+    "source_ids": [
+      "statistics.content.content"
+    ]
+  },
+  {
+    "view_id": "notifications",
+    "endpoint": "/notifications",
+    "datasources": [
+      "uranus",
+      "admin"
+    ],
+    "implementation_ref": "api.notifications; services.notifications.config",
+    "sql_capable": true,
+    "query_groups": "9 default; geo/live/compare may add groups",
+    "post_processing": "config validation, local_day, delivery_enabled setting; no SMTP",
+    "coverage": "registered_with_dependencies",
+    "source_ids": [
+      "notifications.count",
+      "notifications.records",
+      "notifications.active",
+      "notifications.queued",
+      "notifications.sent_today",
+      "notifications.failed",
+      "notifications.temporary_failed",
+      "notifications.source_capability",
+      "notifications.source_configuration"
+    ]
+  },
+  {
+    "view_id": "notifications.detail",
+    "endpoint": "/notifications/{id}",
+    "datasources": [
+      "admin"
+    ],
+    "implementation_ref": "api.notifications",
+    "sql_capable": true,
+    "query_groups": "2 default; geo/live/compare may add groups",
+    "post_processing": "payload validation; optional preview localized/escaped in Python, no send",
+    "coverage": "registered",
+    "source_ids": [
+      "notifications.detail.record",
+      "notifications.detail.deliveries"
+    ]
+  },
+  {
+    "view_id": "deliveries",
+    "endpoint": "/notification-deliveries",
+    "datasources": [
+      "admin"
+    ],
+    "implementation_ref": "api.notifications",
+    "sql_capable": true,
+    "query_groups": "2 default; geo/live/compare may add groups",
+    "post_processing": "organization name from immutable snapshot; delivery_enabled setting",
+    "coverage": "registered",
+    "source_ids": [
+      "deliveries.count",
+      "deliveries.records"
+    ]
+  },
+  {
+    "view_id": "deliveries.detail",
+    "endpoint": "/notification-deliveries/{id}",
+    "datasources": [
+      "admin"
+    ],
+    "implementation_ref": "api.notifications",
+    "sql_capable": true,
+    "query_groups": "3 default; geo/live/compare may add groups",
+    "post_processing": "immutable mail history, notification association, retries; sandboxed HTML rendering",
+    "coverage": "registered",
+    "source_ids": [
+      "deliveries.detail.record",
+      "deliveries.detail.notifications",
+      "deliveries.detail.retries"
+    ]
+  },
+  {
+    "view_id": "geo.area",
+    "endpoint": "/geo/areas/{id}",
+    "datasources": [
+      "admin"
+    ],
+    "implementation_ref": "services.geo.scopes",
+    "sql_capable": true,
+    "query_groups": "1 default; geo/live/compare may add groups",
+    "post_processing": "cached boundary geometry/metadata",
+    "coverage": "registered",
+    "source_ids": [
+      "geo.area.record"
+    ]
+  },
+  {
+    "view_id": "entity-search",
+    "endpoint": "/entity-search",
+    "datasources": [
+      "uranus"
+    ],
+    "implementation_ref": "repositories.entity_search",
+    "sql_capable": true,
+    "query_groups": "1 default; geo/live/compare may add groups",
+    "post_processing": "type-specific search predicates, escaped substring, scope/period",
+    "coverage": "registered",
+    "source_ids": [
+      "entity-search.records"
+    ]
+  },
+  {
+    "view_id": "graph.search",
+    "endpoint": "/graph/search",
+    "datasources": [
+      "uranus"
+    ],
+    "implementation_ref": "repositories.graph",
+    "sql_capable": true,
+    "query_groups": "1 default; geo/live/compare may add groups",
+    "post_processing": "escaped substring, bounded nodes, geo scope",
+    "coverage": "registered",
+    "source_ids": [
+      "graph.search.records"
+    ]
+  },
+  {
+    "view_id": "quality.venues",
+    "endpoint": "/quality/venues/missing-geolocation",
+    "datasources": [
+      "uranus"
+    ],
+    "implementation_ref": "repositories.venues; services.quality.venues",
+    "sql_capable": true,
+    "query_groups": "2 default; geo/live/compare may add groups",
+    "post_processing": "upcoming/published priority and generic findings",
+    "coverage": "registered",
+    "source_ids": [
+      "quality.venues.count",
+      "quality.venues.records"
+    ]
+  },
+  {
+    "view_id": "login/logout/session",
+    "endpoint": null,
+    "datasources": [],
+    "implementation_ref": "",
+    "sql_capable": false,
+    "query_groups": "0",
+    "post_processing": "Authentication secrets and session control; outside data-view provenance",
+    "coverage": "not_applicable"
+  },
+  {
+    "view_id": "health/ready",
+    "endpoint": null,
+    "datasources": [],
+    "implementation_ref": "",
+    "sql_capable": false,
+    "query_groups": "0",
+    "post_processing": "Operational probes and privilege preflight, not view data",
+    "coverage": "not_applicable"
+  },
+  {
+    "view_id": "commands",
+    "endpoint": null,
+    "datasources": [],
+    "implementation_ref": "",
+    "sql_capable": false,
+    "query_groups": "0",
+    "post_processing": "Writes/enqueue/retry/import/review are outside read provenance",
+    "coverage": "not_applicable"
+  },
+  {
+    "view_id": "geo.search",
+    "endpoint": null,
+    "datasources": [],
+    "implementation_ref": "",
+    "sql_capable": false,
+    "query_groups": "0",
+    "post_processing": "External Nominatim HTTP response, no local SQL",
+    "coverage": "not_applicable"
+  },
+  {
+    "view_id": "static metadata",
+    "endpoint": null,
+    "datasources": [],
+    "implementation_ref": "",
+    "sql_capable": false,
+    "query_groups": "0",
+    "post_processing": "Code-owned labels, rule definitions, navigation; no SQL",
+    "coverage": "not_applicable"
+  }
+]

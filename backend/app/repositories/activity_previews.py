@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
+from app.repositories.query import ReadQuery
 
 # Only page identities enter this query. Lateral lookups use source keys and LIMIT,
 # not one application/database round trip per item. User email is explicitly admin-only;
@@ -180,19 +181,8 @@ async def activity_previews(
     if not items:
         return {}
     local = now.astimezone(ZoneInfo(settings.event_timezone))
-    rows = (
-        await connection.execute(
-            text(PREVIEW_SQL),
-            {
-                "types": [item["entity_type"] for item in items],
-                "keys": [item["entity_key"] for item in items],
-                "today": local.date(),
-                "source_tz": settings.uranus_timestamp_timezone,
-                "admin_tz": settings.admin_timezone,
-                "clock": local.time().replace(tzinfo=None),
-            },
-        )
-    ).mappings()
+    query = preview_query(items, settings, now)
+    rows = (await connection.execute(query.statement, query.parameters)).mappings()
     previews = {}
     # A local/unrelated snapshot must not silently link to records on the public instance.
     public_instance = settings.uranus_api_url.rstrip("/") == PUBLIC_API
@@ -249,3 +239,18 @@ async def activity_previews(
             "public_url": public_url(row) if public_instance else None,
         }
     return previews
+
+
+def preview_query(items: list[dict[str, Any]], settings: Settings, now: datetime) -> ReadQuery:
+    local = now.astimezone(ZoneInfo(settings.event_timezone))
+    return ReadQuery(
+        text(PREVIEW_SQL),
+        {
+            "types": [item["entity_type"] for item in items],
+            "keys": [item["entity_key"] for item in items],
+            "today": local.date(),
+            "source_tz": settings.uranus_timestamp_timezone,
+            "admin_tz": settings.admin_timezone,
+            "clock": local.time().replace(tzinfo=None),
+        },
+    )

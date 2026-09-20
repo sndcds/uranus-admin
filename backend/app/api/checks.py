@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -35,11 +35,7 @@ async def start_check(admin: AdminConnectionDep) -> CheckRun:
 @router.get("/check-runs/{run_id}", response_model=CheckRun, summary="Get check job status")
 async def run_detail(run_id: UUID, admin: AdminConnectionDep) -> CheckRun:
     async with admin.begin():
-        row = (
-            (await admin.execute(select(check_run).where(check_run.c.id == run_id)))
-            .mappings()
-            .one_or_none()
-        )
+        row = (await admin.execute(check_detail_query(run_id))).mappings().one_or_none()
         if row is None:
             raise APIError(404, "check_run_not_found", "Check run does not exist.")
         return CheckRun.model_validate(dict(row))
@@ -58,15 +54,8 @@ async def runs(
     page_size: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> CheckRunPage:
     async with admin.begin():
-        total = int((await admin.execute(select(func.count()).select_from(check_run))).scalar_one())
-        rows = (
-            await admin.execute(
-                select(check_run)
-                .order_by(check_run.c.started_at.desc(), check_run.c.id)
-                .limit(page_size)
-                .offset((page - 1) * page_size)
-            )
-        ).mappings()
+        total = int((await admin.execute(check_count_query())).scalar_one())
+        rows = (await admin.execute(check_list_query(page, page_size))).mappings()
         return CheckRunPage(
             items=[CheckRun.model_validate(dict(row)) for row in rows],
             pagination=Pagination(
@@ -92,3 +81,20 @@ async def update_review(
     principal: Annotated[AdminPrincipal, Depends(get_current_admin)],
 ) -> Finding:
     return await review(admin, connection, body, principal.subject, datetime.now(UTC))
+
+
+def check_detail_query(run_id: UUID) -> Any:
+    return select(check_run).where(check_run.c.id == run_id)
+
+
+def check_count_query() -> Any:
+    return select(func.count()).select_from(check_run)
+
+
+def check_list_query(page: int, page_size: int) -> Any:
+    return (
+        select(check_run)
+        .order_by(check_run.c.started_at.desc(), check_run.c.id)
+        .limit(page_size)
+        .offset((page - 1) * page_size)
+    )

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.repositories.created_period import created_period_filter
+from app.repositories.query import ReadQuery
 from app.repositories.spatial import spatial_predicate
 from app.repositories.temporal import temporal_predicate
 from app.schemas.action import Action
@@ -116,13 +117,12 @@ ORGANIZATION_FILTER = """(CAST(:org AS uuid) IS NULL OR a.organization_id=:org
          OR e.org_uuid=:org))))"""
 
 
-async def entity_search(
-    connection: AsyncConnection,
+def entity_search_query(
     filters: EntitySearchFilters,
     settings: Settings,
     now: datetime,
     geo_scope_wkb: bytes | None = None,
-) -> EntitySearchResponse:
+) -> ReadQuery:
     spatial = (
         spatial_predicate(filters.entity_type, filters.temporal)
         if geo_scope_wkb is not None
@@ -136,9 +136,8 @@ async def entity_search(
     period_sql, period_params = created_period_filter(filters.period, settings, now)
     definition = SEARCH_DEFINITIONS[filters.entity_type]
     query = escape_search(filters.q)
-    rows = (
-        await connection.execute(
-            text(f"""SELECT entity_key,label,subtitle,status FROM ({definition.projection()}) a
+    return ReadQuery(
+        text(f"""SELECT entity_key,label,subtitle,status FROM ({definition.projection()}) a
         WHERE ({definition.matches()}) AND {ORGANIZATION_FILTER}
         AND (CAST(:status AS text) IS NULL OR status=:status)
         AND {temporal} AND {period_sql} AND {spatial}
@@ -146,21 +145,32 @@ async def entity_search(
                       WHEN {definition.matches("prefix")} THEN 1 ELSE 2 END,
                  lower(label) COLLATE "C",entity_key COLLATE "C"
         LIMIT :limit"""),
-            {
-                **period_params,
-                "geo_scope_wkb": geo_scope_wkb,
-                "q": f"%{query}%",
-                "exact": query,
-                "prefix": f"{query}%",
-                "kind": filters.entity_type,
-                "org": filters.organization_id,
-                "status": filters.status,
-                "limit": filters.limit,
-                "event_tz": settings.event_timezone,
-                "temporal_now": now,
-            },
-        )
-    ).mappings()
+        {
+            **period_params,
+            "geo_scope_wkb": geo_scope_wkb,
+            "q": f"%{query}%",
+            "exact": query,
+            "prefix": f"{query}%",
+            "kind": filters.entity_type,
+            "org": filters.organization_id,
+            "status": filters.status,
+            "limit": filters.limit,
+            "event_tz": settings.event_timezone,
+            "temporal_now": now,
+        },
+    )
+
+
+async def entity_search(
+    connection: AsyncConnection,
+    filters: EntitySearchFilters,
+    settings: Settings,
+    now: datetime,
+    geo_scope_wkb: bytes | None = None,
+) -> EntitySearchResponse:
+    query = entity_search_query(filters, settings, now, geo_scope_wkb)
+    result = await connection.execute(query.statement, query.parameters)
+    rows = result.mappings()
     return EntitySearchResponse(
         items=[
             EntitySearchItem(

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { SqlDiagnosticResult } from '#shared/contracts'
+import type { ProvenanceResult } from '#shared/sql-provenance'
 import StatusBadge from '../StatusBadge.vue'
-defineProps<{ columns: SqlDiagnosticResult['columns']; rows: SqlDiagnosticResult['rows'] }>()
+type SqlResult = SqlDiagnosticResult | ProvenanceResult
+defineProps<{ columns: SqlResult['columns']; rows: SqlResult['rows'] }>()
 function display(value: unknown): string {
   return typeof value === 'string' ? value : (JSON.stringify(value) ?? 'NULL')
 }

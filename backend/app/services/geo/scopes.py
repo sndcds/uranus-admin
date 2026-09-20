@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.admin_database import connect_admin
 from app.errors import APIError
+from app.repositories.query import ReadQuery
 from app.schemas.geo import GeoArea
 
 AREA_COLUMNS = """id,source,source_type,source_id,name,display_name,country_code,admin_level,kind,
@@ -24,19 +25,8 @@ class ResolvedGeoScope:
 
 
 async def resolve_geo_scope(admin: AsyncConnection, geo_scope_id: UUID) -> ResolvedGeoScope:
-    row = (
-        (
-            await admin.execute(
-                text(
-                    f"SELECT {AREA_COLUMNS},ST_AsEWKB(geometry) ewkb "
-                    "FROM admin.geo_area WHERE id=:id"
-                ),
-                {"id": geo_scope_id},
-            )
-        )
-        .mappings()
-        .first()
-    )
+    query = geo_scope_query(geo_scope_id)
+    row = (await admin.execute(query.statement, query.parameters)).mappings().first()
     if row is None:
         raise APIError(404, "geo_scope_not_found", "Geo scope was not found.")
     return ResolvedGeoScope(area=GeoArea.model_validate(row), ewkb=bytes(row["ewkb"]))
@@ -47,3 +37,10 @@ async def request_geo_scope(request: Request, geo_scope_id: UUID | None) -> Reso
         return None
     async with connect_admin(request) as admin:
         return await resolve_geo_scope(admin, geo_scope_id)
+
+
+def geo_scope_query(geo_scope_id: UUID) -> ReadQuery:
+    return ReadQuery(
+        text(f"SELECT {AREA_COLUMNS},ST_AsEWKB(geometry) ewkb FROM admin.geo_area WHERE id=:id"),
+        {"id": geo_scope_id},
+    )

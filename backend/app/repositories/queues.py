@@ -4,6 +4,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.repositories.query import ReadQuery
 from app.schemas.queues import QueueFilters, QueueKind
 
 QUEUE_SQL = {
@@ -68,13 +69,12 @@ QUEUE_EXPRESSIONS = {
 }
 
 
-async def queue_page_rows(
-    connection: AsyncConnection,
+def queue_page_queries(
     kind: QueueKind,
     filters: QueueFilters,
     now: datetime,
     source_timezone: str,
-) -> tuple[list[dict[str, Any]], int]:
+) -> dict[str, ReadQuery]:
     key, status, basis, active, organization = QUEUE_EXPRESSIONS[kind]
     conditions = [active]
     params: dict[str, Any] = {
@@ -102,14 +102,32 @@ async def queue_page_rows(
         conditions.append(f"({age}) >= :min_age_days")
         params["min_age_days"] = filters.min_age_days
     source = f"FROM ({QUEUE_SQL[kind]}) s WHERE {' AND '.join(conditions)}"
-    total = int((await connection.execute(text(f"SELECT count(*) {source}"), params)).scalar_one())
-    rows = (
-        await connection.execute(
+    return {
+        "count": ReadQuery(text(f"SELECT count(*) {source}"), params),
+        "records": ReadQuery(
             text(
                 f'SELECT s.* {source} ORDER BY ({age}) DESC NULLS LAST, ({key}) COLLATE "C" '
                 "LIMIT :limit OFFSET :offset"
             ),
             params,
-        )
+        ),
+    }
+
+
+async def queue_page_rows(
+    connection: AsyncConnection,
+    kind: QueueKind,
+    filters: QueueFilters,
+    now: datetime,
+    source_timezone: str,
+) -> tuple[list[dict[str, Any]], int]:
+    queries = queue_page_queries(kind, filters, now, source_timezone)
+    total = int(
+        (
+            await connection.execute(queries["count"].statement, queries["count"].parameters)
+        ).scalar_one()
+    )
+    rows = (
+        await connection.execute(queries["records"].statement, queries["records"].parameters)
     ).mappings()
     return [dict(row) for row in rows], total

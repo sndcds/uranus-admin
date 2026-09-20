@@ -1,0 +1,622 @@
+{
+  "dashboard": {
+    "view_id": "dashboard",
+    "title": "SQL / Datenherkunft",
+    "endpoint": "/api/v1/dashboard/summary?period=24h&mode=persisted",
+    "sources": [
+      {
+        "id": "dashboard.new_records",
+        "title": "new records",
+        "datasource": "uranus",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT 'organizations' AS kind, COUNT(*) AS count FROM uranus.organization WHERE created_at >= :start_at AND created_at < :end_at UNION ALL SELECT 'venues' AS kind, COUNT(*) AS count FROM uranus.venue WHERE created_at >= :start_at AND created_at < :end_at UNION ALL SELECT 'spaces' AS kind, COUNT(*) AS count FROM uranus.space WHERE created_at >= :start_at AND created_at < :end_at UNION ALL SELECT 'events' AS kind, COUNT(*) AS count FROM uranus.event WHERE created_at >= :start_at AND created_at < :end_at UNION ALL SELECT 'event_dates' AS kind, COUNT(*) AS count FROM uranus.event_date WHERE created_at >= :start_at AND created_at < :end_at UNION ALL SELECT 'users' AS kind, COUNT(*) AS count FROM uranus.\"user\" WHERE created_at >= :start_at AND created_at < :end_at UNION ALL SELECT 'partner_requests' AS kind, COUNT(*) AS count FROM uranus.organization_partner_request WHERE created_at >= :start_at AND created_at < :end_at UNION ALL SELECT 'team_memberships' AS kind, COUNT(*) AS count FROM uranus.organization_member_link WHERE created_at >= :start_at AND created_at < :end_at UNION ALL SELECT 'images' AS kind, COUNT(*) AS count FROM uranus.pluto_image WHERE created_at >= :start_at AND created_at < :end_at",
+        "copy_sql": "SELECT 'organizations' AS kind, COUNT(*) AS count FROM uranus.organization WHERE created_at >= '2026-09-30 00:00:00' AND created_at < '2026-10-01 00:00:00' UNION ALL SELECT 'venues' AS kind, COUNT(*) AS count FROM uranus.venue WHERE created_at >= '2026-09-30 00:00:00' AND created_at < '2026-10-01 00:00:00' UNION ALL SELECT 'spaces' AS kind, COUNT(*) AS count FROM uranus.space WHERE created_at >= '2026-09-30 00:00:00' AND created_at < '2026-10-01 00:00:00' UNION ALL SELECT 'events' AS kind, COUNT(*) AS count FROM uranus.event WHERE created_at >= '2026-09-30 00:00:00' AND created_at < '2026-10-01 00:00:00' UNION ALL SELECT 'event_dates' AS kind, COUNT(*) AS count FROM uranus.event_date WHERE created_at >= '2026-09-30 00:00:00' AND created_at < '2026-10-01 00:00:00' UNION ALL SELECT 'users' AS kind, COUNT(*) AS count FROM uranus.\"user\" WHERE created_at >= '2026-09-30 00:00:00' AND created_at < '2026-10-01 00:00:00' UNION ALL SELECT 'partner_requests' AS kind, COUNT(*) AS count FROM uranus.organization_partner_request WHERE created_at >= '2026-09-30 00:00:00' AND created_at < '2026-10-01 00:00:00' UNION ALL SELECT 'team_memberships' AS kind, COUNT(*) AS count FROM uranus.organization_member_link WHERE created_at >= '2026-09-30 00:00:00' AND created_at < '2026-10-01 00:00:00' UNION ALL SELECT 'images' AS kind, COUNT(*) AS count FROM uranus.pluto_image WHERE created_at >= '2026-09-30 00:00:00' AND created_at < '2026-10-01 00:00:00';",
+        "parameters": {
+          "start_at": "2026-09-30T00:00:00",
+          "end_at": "2026-10-01T00:00:00"
+        },
+        "columns": ["kind", "count"],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.dashboard.new_record_queries",
+        "dependencies": []
+      },
+      {
+        "id": "dashboard.unknown_images",
+        "title": "unknown images",
+        "datasource": "uranus",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT COUNT(*) FROM uranus.pluto_image WHERE created_at IS NULL",
+        "copy_sql": "SELECT COUNT(*) FROM uranus.pluto_image WHERE created_at IS NULL;",
+        "parameters": {},
+        "columns": ["count"],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.dashboard.new_record_queries",
+        "dependencies": []
+      },
+      {
+        "id": "dashboard.quality_counts",
+        "title": "quality counts",
+        "datasource": "admin",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT count(*) AS total, count(*) FILTER (WHERE admin.finding.severity = :severity_1) AS errors, count(*) FILTER (WHERE admin.finding.severity = :severity_2) AS warnings, count(*) FILTER (WHERE admin.finding.severity = :severity_3) AS info, count(*) FILTER (WHERE CAST((admin.finding.metadata[:metadata_1] ->> :param_1) AS INTEGER) <= :param_2 OR (admin.finding.metadata[:metadata_2][:param_3] @> :param_4::JSONB)) AS urgent, admin.finding.rule \nFROM admin.finding \nWHERE admin.finding.status != :status_1 GROUP BY admin.finding.rule",
+        "copy_sql": "SELECT count(*) AS total, count(*) FILTER (WHERE admin.finding.severity = 'error') AS errors, count(*) FILTER (WHERE admin.finding.severity = 'warning') AS warnings, count(*) FILTER (WHERE admin.finding.severity = 'info') AS info, count(*) FILTER (WHERE CAST((admin.finding.metadata['finding'] ->> 'priority') AS INTEGER) <= 2 OR (admin.finding.metadata['finding']['priority_reasons'] @> '[\"published_soon\"]'::jsonb)) AS urgent, admin.finding.rule \nFROM admin.finding \nWHERE admin.finding.status != 'resolved' GROUP BY admin.finding.rule;",
+        "parameters": {
+          "severity_1": "error",
+          "severity_2": "warning",
+          "severity_3": "info",
+          "metadata_1": "finding",
+          "param_1": "priority",
+          "param_2": 2,
+          "metadata_2": "finding",
+          "param_3": "priority_reasons",
+          "param_4": ["published_soon"],
+          "status_1": "resolved"
+        },
+        "columns": ["total", "errors", "warnings", "info", "urgent", "rule"],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.services.checks.persisted_count_query",
+        "dependencies": []
+      },
+      {
+        "id": "dashboard.preview_count",
+        "title": "preview count",
+        "datasource": "admin",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT count(*) AS count_1 \nFROM admin.finding \nWHERE admin.finding.status != :status_1",
+        "copy_sql": "SELECT count(*) AS count_1 \nFROM admin.finding \nWHERE admin.finding.status != 'resolved';",
+        "parameters": {
+          "status_1": "resolved"
+        },
+        "columns": ["count_1"],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.services.checks.persisted_queries",
+        "dependencies": []
+      },
+      {
+        "id": "dashboard.preview_records",
+        "title": "preview records",
+        "datasource": "admin",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen. Sicherheitsprojektion: opaque JSON-/Snapshot-/Mailfelder der Runtime werden ausgelassen.",
+        "sql": "SELECT admin.finding.id AS id, admin.finding.rule AS rule, admin.finding.severity AS severity, admin.finding.entity_type AS entity_type, admin.finding.entity_id AS entity_key, admin.finding.field AS field, admin.finding.message AS message, admin.finding.first_seen_at AS first_seen_at, admin.finding.last_seen_at AS last_seen_at, admin.finding.resolved_at AS resolved_at, admin.finding.status AS status, admin.finding.reviewed_by AS reviewed_by, admin.finding.reviewed_at AS reviewed_at, admin.finding.ignored_until AS ignored_until, admin.finding.comment AS comment, admin.finding.assigned_to AS assigned_to, admin.finding.reviewed_subject AS reviewed_subject, admin.finding.snoozed_until AS snoozed_until, admin.finding.exception_reason AS exception_reason \nFROM admin.finding \nWHERE admin.finding.status != :status_1 ORDER BY coalesce(CAST(admin.finding.metadata[:metadata_1] ->> :param_1 AS INTEGER), CASE WHEN (admin.finding.severity = :severity_1) THEN :param_2 WHEN (admin.finding.severity = :severity_2) THEN :param_3 WHEN (admin.finding.severity = :severity_3) THEN :param_4 END) DESC, admin.finding.id COLLATE \"C\" \n LIMIT :param_5 OFFSET :param_6",
+        "copy_sql": "SELECT admin.finding.id AS id, admin.finding.rule AS rule, admin.finding.severity AS severity, admin.finding.entity_type AS entity_type, admin.finding.entity_id AS entity_key, admin.finding.field AS field, admin.finding.message AS message, admin.finding.first_seen_at AS first_seen_at, admin.finding.last_seen_at AS last_seen_at, admin.finding.resolved_at AS resolved_at, admin.finding.status AS status, admin.finding.reviewed_by AS reviewed_by, admin.finding.reviewed_at AS reviewed_at, admin.finding.ignored_until AS ignored_until, admin.finding.comment AS comment, admin.finding.assigned_to AS assigned_to, admin.finding.reviewed_subject AS reviewed_subject, admin.finding.snoozed_until AS snoozed_until, admin.finding.exception_reason AS exception_reason \nFROM admin.finding \nWHERE admin.finding.status != 'resolved' ORDER BY coalesce(CAST(admin.finding.metadata['finding'] ->> 'priority_score' AS INTEGER), CASE WHEN (admin.finding.severity = 'error') THEN 4000 WHEN (admin.finding.severity = 'warning') THEN 2000 WHEN (admin.finding.severity = 'info') THEN 1000 END) DESC, admin.finding.id COLLATE \"C\" \n LIMIT 4 OFFSET 0;",
+        "parameters": {
+          "status_1": "resolved",
+          "metadata_1": "finding",
+          "param_1": "priority_score",
+          "severity_1": "error",
+          "param_2": 4000,
+          "severity_2": "warning",
+          "param_3": 2000,
+          "severity_3": "info",
+          "param_4": 1000,
+          "param_5": 4,
+          "param_6": 0
+        },
+        "columns": [
+          "id",
+          "rule",
+          "severity",
+          "entity_type",
+          "entity_key",
+          "field",
+          "message",
+          "first_seen_at",
+          "last_seen_at",
+          "resolved_at",
+          "status",
+          "reviewed_by",
+          "reviewed_at",
+          "ignored_until",
+          "comment",
+          "assigned_to",
+          "reviewed_subject",
+          "snoozed_until",
+          "exception_reason"
+        ],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.services.checks.persisted_queries",
+        "dependencies": []
+      },
+      {
+        "id": "dashboard.suggestions",
+        "title": "suggestions",
+        "datasource": "admin",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT admin.geocode_request.id, admin.geocode_request.entity_type, admin.geocode_request.entity_key \nFROM admin.geocode_request \nWHERE (admin.geocode_request.entity_type, admin.geocode_request.entity_key) IN (__[POSTCOMPILE_param_1])",
+        "copy_sql": null,
+        "parameters": {
+          "param_1": "[erst aus vorherigem Query-Schritt bekannt]"
+        },
+        "columns": ["id", "entity_type", "entity_key"],
+        "executable": false,
+        "readonly": true,
+        "implementation_ref": "app.api.findings.suggestions_query",
+        "dependencies": ["Ort-Findings der tatsächlich zurückgegebenen Seite."]
+      },
+      {
+        "id": "dashboard.latest_run",
+        "title": "latest run",
+        "datasource": "admin",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen. Sicherheitsprojektion: opaque JSON-/Snapshot-/Mailfelder der Runtime werden ausgelassen.",
+        "sql": "SELECT admin.check_run.id, admin.check_run.started_at, admin.check_run.finished_at, admin.check_run.status, admin.check_run.rule_count, admin.check_run.finding_count, admin.check_run.worker_id, admin.check_run.lease_until \nFROM admin.check_run ORDER BY admin.check_run.started_at DESC, admin.check_run.id DESC \n LIMIT :param_1",
+        "copy_sql": "SELECT admin.check_run.id, admin.check_run.started_at, admin.check_run.finished_at, admin.check_run.status, admin.check_run.rule_count, admin.check_run.finding_count, admin.check_run.worker_id, admin.check_run.lease_until \nFROM admin.check_run ORDER BY admin.check_run.started_at DESC, admin.check_run.id DESC \n LIMIT 1;",
+        "parameters": {
+          "param_1": 1
+        },
+        "columns": [
+          "id",
+          "started_at",
+          "finished_at",
+          "status",
+          "rule_count",
+          "finding_count",
+          "worker_id",
+          "lease_until"
+        ],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.dashboard.check_status_queries",
+        "dependencies": []
+      },
+      {
+        "id": "dashboard.last_successful_run",
+        "title": "last successful run",
+        "datasource": "admin",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen. Sicherheitsprojektion: opaque JSON-/Snapshot-/Mailfelder der Runtime werden ausgelassen.",
+        "sql": "SELECT admin.check_run.id, admin.check_run.started_at, admin.check_run.finished_at, admin.check_run.status, admin.check_run.rule_count, admin.check_run.finding_count, admin.check_run.worker_id, admin.check_run.lease_until \nFROM admin.check_run \nWHERE admin.check_run.status = :status_1 ORDER BY admin.check_run.finished_at DESC NULLS LAST, admin.check_run.id DESC \n LIMIT :param_1",
+        "copy_sql": "SELECT admin.check_run.id, admin.check_run.started_at, admin.check_run.finished_at, admin.check_run.status, admin.check_run.rule_count, admin.check_run.finding_count, admin.check_run.worker_id, admin.check_run.lease_until \nFROM admin.check_run \nWHERE admin.check_run.status = 'success' ORDER BY admin.check_run.finished_at DESC NULLS LAST, admin.check_run.id DESC \n LIMIT 1;",
+        "parameters": {
+          "status_1": "success",
+          "param_1": 1
+        },
+        "columns": [
+          "id",
+          "started_at",
+          "finished_at",
+          "status",
+          "rule_count",
+          "finding_count",
+          "worker_id",
+          "lease_until"
+        ],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.dashboard.check_status_queries",
+        "dependencies": []
+      }
+    ],
+    "post_processing": [
+      "period_window, source timezone, persisted_counts (unresolved), urgent metadata, check status; geo membership batches",
+      "period_window() bestimmt [Start, Ende) mit ADMIN_TIMEZONE; Quellzeiten werden mit URANUS_TIMESTAMP_TIMEZONE interpretiert.",
+      "persisted_counts(): resolved wird ausgeschlossen. Dringend: Priorität 1/2 oder published_soon aus gespeicherten Metadaten.",
+      "Die Arbeitslisten-Vorschau ist eine separate Findings-Abfrage (active_only=true, vier Zeilen, gewählter Schweregrad).",
+      "Prüfstatus ist unabhängig vom Zeitraum. Python summiert die pro Regel gespeicherten Counts."
+    ],
+    "notes": [
+      "Diese Ansicht besteht aus mehreren Abfragen und zusätzlicher Anwendungslogik. Definitionen führen keine View-SQL aus.",
+      "Ausführung: maximal 50 Ergebniszeilen je Query. LIMIT/OFFSET der View bleiben innen erhalten; die Inspektion ergänzt eine äußere Begrenzung.",
+      "Abhängige Schritte zeigen ihre Runtime-Definition; noch unbekannte Ergebnisparameter werden nicht erfunden. Copy/Ausführung ist dort deaktiviert.",
+      "Admin-Provenance nutzt die Runtime-Rolle mit Schreibrechten. READ ONLY ist deshalb eine wichtige zusätzliche Sicherheitsgrenze; keine neue Rolle/Grants.",
+      "as_of bindet die Zeitfensterberechnung. Ausführungen lesen jeweils einen neuen Snapshot, nicht den historischen Seiten-Snapshot."
+    ],
+    "observed_at": "2026-10-01T00:00:00Z",
+    "parameters": {
+      "as_of": "2026-10-01T00:00:00+00:00",
+      "period": "24h",
+      "mode": "persisted"
+    }
+  },
+  "findings": {
+    "view_id": "findings",
+    "title": "SQL / Datenherkunft",
+    "endpoint": "/api/v1/findings?mode=persisted&severity=error&active_only=True&page=1&page_size=50",
+    "sources": [
+      {
+        "id": "findings.count",
+        "title": "count",
+        "datasource": "admin",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT count(*) AS count_1 \nFROM admin.finding \nWHERE admin.finding.status != :status_1 AND admin.finding.severity = :severity_1",
+        "copy_sql": "SELECT count(*) AS count_1 \nFROM admin.finding \nWHERE admin.finding.status != 'resolved' AND admin.finding.severity = 'error';",
+        "parameters": {
+          "status_1": "resolved",
+          "severity_1": "error"
+        },
+        "columns": ["count_1"],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.services.checks.persisted_queries",
+        "dependencies": []
+      },
+      {
+        "id": "findings.records",
+        "title": "records",
+        "datasource": "admin",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen. Sicherheitsprojektion: opaque JSON-/Snapshot-/Mailfelder der Runtime werden ausgelassen.",
+        "sql": "SELECT admin.finding.id AS id, admin.finding.rule AS rule, admin.finding.severity AS severity, admin.finding.entity_type AS entity_type, admin.finding.entity_id AS entity_key, admin.finding.field AS field, admin.finding.message AS message, admin.finding.first_seen_at AS first_seen_at, admin.finding.last_seen_at AS last_seen_at, admin.finding.resolved_at AS resolved_at, admin.finding.status AS status, admin.finding.reviewed_by AS reviewed_by, admin.finding.reviewed_at AS reviewed_at, admin.finding.ignored_until AS ignored_until, admin.finding.comment AS comment, admin.finding.assigned_to AS assigned_to, admin.finding.reviewed_subject AS reviewed_subject, admin.finding.snoozed_until AS snoozed_until, admin.finding.exception_reason AS exception_reason \nFROM admin.finding \nWHERE admin.finding.status != :status_1 AND admin.finding.severity = :severity_1 ORDER BY coalesce(CAST(admin.finding.metadata[:metadata_1] ->> :param_1 AS INTEGER), CASE WHEN (admin.finding.severity = :severity_2) THEN :param_2 WHEN (admin.finding.severity = :severity_3) THEN :param_3 WHEN (admin.finding.severity = :severity_4) THEN :param_4 END) DESC, admin.finding.id COLLATE \"C\" \n LIMIT :param_5 OFFSET :param_6",
+        "copy_sql": "SELECT admin.finding.id AS id, admin.finding.rule AS rule, admin.finding.severity AS severity, admin.finding.entity_type AS entity_type, admin.finding.entity_id AS entity_key, admin.finding.field AS field, admin.finding.message AS message, admin.finding.first_seen_at AS first_seen_at, admin.finding.last_seen_at AS last_seen_at, admin.finding.resolved_at AS resolved_at, admin.finding.status AS status, admin.finding.reviewed_by AS reviewed_by, admin.finding.reviewed_at AS reviewed_at, admin.finding.ignored_until AS ignored_until, admin.finding.comment AS comment, admin.finding.assigned_to AS assigned_to, admin.finding.reviewed_subject AS reviewed_subject, admin.finding.snoozed_until AS snoozed_until, admin.finding.exception_reason AS exception_reason \nFROM admin.finding \nWHERE admin.finding.status != 'resolved' AND admin.finding.severity = 'error' ORDER BY coalesce(CAST(admin.finding.metadata['finding'] ->> 'priority_score' AS INTEGER), CASE WHEN (admin.finding.severity = 'error') THEN 4000 WHEN (admin.finding.severity = 'warning') THEN 2000 WHEN (admin.finding.severity = 'info') THEN 1000 END) DESC, admin.finding.id COLLATE \"C\" \n LIMIT 50 OFFSET 0;",
+        "parameters": {
+          "status_1": "resolved",
+          "severity_1": "error",
+          "metadata_1": "finding",
+          "param_1": "priority_score",
+          "severity_2": "error",
+          "param_2": 4000,
+          "severity_3": "warning",
+          "param_3": 2000,
+          "severity_4": "info",
+          "param_4": 1000,
+          "param_5": 50,
+          "param_6": 0
+        },
+        "columns": [
+          "id",
+          "rule",
+          "severity",
+          "entity_type",
+          "entity_key",
+          "field",
+          "message",
+          "first_seen_at",
+          "last_seen_at",
+          "resolved_at",
+          "status",
+          "reviewed_by",
+          "reviewed_at",
+          "ignored_until",
+          "comment",
+          "assigned_to",
+          "reviewed_subject",
+          "snoozed_until",
+          "exception_reason"
+        ],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.services.checks.persisted_queries",
+        "dependencies": []
+      },
+      {
+        "id": "findings.suggestions",
+        "title": "suggestions",
+        "datasource": "admin",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT admin.geocode_request.id, admin.geocode_request.entity_type, admin.geocode_request.entity_key \nFROM admin.geocode_request \nWHERE (admin.geocode_request.entity_type, admin.geocode_request.entity_key) IN (__[POSTCOMPILE_param_1])",
+        "copy_sql": null,
+        "parameters": {
+          "param_1": "[erst aus vorherigem Query-Schritt bekannt]"
+        },
+        "columns": ["id", "entity_type", "entity_key"],
+        "executable": false,
+        "readonly": true,
+        "implementation_ref": "app.api.findings.suggestions_query",
+        "dependencies": ["Ort-Findings der tatsächlich zurückgegebenen Seite."]
+      }
+    ],
+    "post_processing": [
+      "stored_finding, priority metadata, active_only, cursor; geo membership before pagination; live Python rules",
+      "persisted: stored_finding() liest Prioritäten aus gespeicherten Metadaten; active_only schließt resolved aus.",
+      "Cursor enthält Priorität/ID. Die Query zeigt die echte Keyset-Bedingung; im räumlichen Pfad erfolgt Cursor/Seitenbildung erst nach Membership.",
+      "live: load_sources()/scan() lädt mehrere Snapshots; Python wertet Regeln aus, filtert, priorisiert und paginiert. Einzelne SQL-Ergebnisse sind keine Live-Findings."
+    ],
+    "notes": [
+      "Diese Ansicht besteht aus mehreren Abfragen und zusätzlicher Anwendungslogik. Definitionen führen keine View-SQL aus.",
+      "Ausführung: maximal 50 Ergebniszeilen je Query. LIMIT/OFFSET der View bleiben innen erhalten; die Inspektion ergänzt eine äußere Begrenzung.",
+      "Abhängige Schritte zeigen ihre Runtime-Definition; noch unbekannte Ergebnisparameter werden nicht erfunden. Copy/Ausführung ist dort deaktiviert.",
+      "Admin-Provenance nutzt die Runtime-Rolle mit Schreibrechten. READ ONLY ist deshalb eine wichtige zusätzliche Sicherheitsgrenze; keine neue Rolle/Grants.",
+      "as_of bindet die Zeitfensterberechnung. Ausführungen lesen jeweils einen neuen Snapshot, nicht den historischen Seiten-Snapshot."
+    ],
+    "observed_at": "2026-10-01T00:00:00Z",
+    "parameters": {
+      "as_of": "2026-10-01T00:00:00+00:00",
+      "mode": "persisted",
+      "severity": "error",
+      "active_only": true,
+      "page": 1,
+      "page_size": 50
+    }
+  },
+  "venues.detail": {
+    "view_id": "venues.detail",
+    "title": "SQL / Datenherkunft",
+    "endpoint": "/api/v1/venues/00000000-0000-0000-0000-000000000014?related_page=1",
+    "sources": [
+      {
+        "id": "venues.detail.record",
+        "title": "record",
+        "datasource": "uranus",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT entity_type,entity_key,entity_name,\n        organization_id,organization_name,status,created_at AT TIME ZONE :tz created_at\n        FROM ((\nSELECT 'organization'::text entity_type, o.uuid::text entity_key, o.name entity_name,\n       o.uuid organization_id, o.name organization_name, o.created_at, NULL::text status\nFROM uranus.organization o\n WHERE FALSE) UNION ALL \nSELECT 'venue', v.uuid::text, v.name, o.uuid, o.name, v.created_at, NULL\nFROM uranus.venue v LEFT JOIN uranus.organization o ON o.uuid=v.org_uuid\n) a WHERE entity_key=:key",
+        "copy_sql": "SELECT entity_type,entity_key,entity_name,\n        organization_id,organization_name,status,created_at AT TIME ZONE 'UTC' created_at\n        FROM ((\nSELECT 'organization'::text entity_type, o.uuid::text entity_key, o.name entity_name,\n       o.uuid organization_id, o.name organization_name, o.created_at, NULL::text status\nFROM uranus.organization o\n WHERE FALSE) UNION ALL \nSELECT 'venue', v.uuid::text, v.name, o.uuid, o.name, v.created_at, NULL\nFROM uranus.venue v LEFT JOIN uranus.organization o ON o.uuid=v.org_uuid\n) a WHERE entity_key='00000000-0000-0000-0000-000000000014';",
+        "parameters": {
+          "tz": "UTC",
+          "key": "00000000-0000-0000-0000-000000000014"
+        },
+        "columns": [
+          "entity_type",
+          "entity_key",
+          "entity_name",
+          "organization_id",
+          "organization_name",
+          "status",
+          "created_at"
+        ],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.entities.entity_detail_queries",
+        "dependencies": []
+      },
+      {
+        "id": "venues.detail.related_count",
+        "title": "related count",
+        "datasource": "uranus",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT count(*) FROM (WITH links(entity_type,entity_key) AS (SELECT 'organization' entity_type,(v.org_uuid)::text entity_key FROM uranus.venue v WHERE (v.uuid)=:id::UUID AND (v.org_uuid) IS NOT NULL AND TRUE UNION SELECT 'space' entity_type,(s.uuid)::text entity_key FROM uranus.space s WHERE (s.venue_uuid)=:id::UUID AND (s.uuid) IS NOT NULL AND TRUE UNION SELECT 'event' entity_type,(e.uuid)::text entity_key FROM uranus.event e WHERE (e.venue_uuid)=:id::UUID AND (e.uuid) IS NOT NULL AND TRUE UNION SELECT 'event_date' entity_type,(d.uuid)::text entity_key FROM uranus.event_date d JOIN uranus.event e ON e.uuid=d.event_uuid WHERE (COALESCE(d.venue_uuid,e.venue_uuid))=:id::UUID AND (d.uuid) IS NOT NULL AND TRUE UNION SELECT 'image',pluto_image_uuid::text FROM uranus.pluto_image_link WHERE context='venue' AND context_uuid=:id::UUID), a AS (\nSELECT 'organization'::text entity_type, o.uuid::text entity_key, o.name entity_name,\n       o.uuid organization_id, o.name organization_name, o.created_at, NULL::text status\nFROM uranus.organization o\n\nUNION ALL\n\nSELECT 'venue', v.uuid::text, v.name, o.uuid, o.name, v.created_at, NULL\nFROM uranus.venue v LEFT JOIN uranus.organization o ON o.uuid=v.org_uuid\n\nUNION ALL\n\nSELECT 'space', s.uuid::text, s.name, o.uuid, o.name, s.created_at, NULL\nFROM uranus.space s LEFT JOIN uranus.venue v ON v.uuid=s.venue_uuid\nLEFT JOIN uranus.organization o ON o.uuid=v.org_uuid\n\nUNION ALL\n\nSELECT 'event', e.uuid::text, e.title, o.uuid, o.name, e.created_at, e.release_status::text\nFROM uranus.event e LEFT JOIN uranus.organization o ON o.uuid=e.org_uuid\n\nUNION ALL\n\nSELECT 'event_date', d.uuid::text, COALESCE(e.title,d.uuid::text), o.uuid, o.name,\n       d.created_at, COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text)\nFROM uranus.event_date d LEFT JOIN uranus.event e ON e.uuid=d.event_uuid\nLEFT JOIN uranus.organization o ON o.uuid=e.org_uuid\n\nUNION ALL\n\nSELECT 'user', u.uuid::text, COALESCE(u.display_name,u.username,u.uuid::text), NULL, NULL,\n       u.created_at, CASE WHEN u.is_active THEN 'active' ELSE 'inactive' END\nFROM uranus.\"user\" u\n\nUNION ALL\nSELECT 'partner_request', 'partner-request:'||p.from_org_uuid||':'||p.to_org_uuid,\n       COALESCE(f.name,p.from_org_uuid::text)||' → '||COALESCE(t.name,p.to_org_uuid::text),\n       p.from_org_uuid, f.name, p.created_at, p.status\nFROM uranus.organization_partner_request p\nLEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid\nLEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid\nUNION ALL\nSELECT 'team_membership', 'membership:'||m.org_uuid||':'||m.user_uuid,\n       COALESCE(u.display_name,u.username,m.user_uuid::text), m.org_uuid, o.name, m.created_at,\n       CASE WHEN m.has_joined THEN 'joined' ELSE 'invited' END\nFROM uranus.organization_member_link m LEFT JOIN uranus.organization o ON o.uuid=m.org_uuid\nLEFT JOIN uranus.\"user\" u ON u.uuid=m.user_uuid\nUNION ALL\nSELECT 'image', i.uuid::text, COALESCE(i.alt_text,i.uuid::text), NULL,NULL,i.created_at,NULL\nFROM uranus.pluto_image i\n)\n        SELECT a.* FROM a JOIN links USING (entity_type,entity_key)) r",
+        "copy_sql": "SELECT count(*) FROM (WITH links(entity_type,entity_key) AS (SELECT 'organization' entity_type,(v.org_uuid)::text entity_key FROM uranus.venue v WHERE (v.uuid)='00000000-0000-0000-0000-000000000014' AND (v.org_uuid) IS NOT NULL AND TRUE UNION SELECT 'space' entity_type,(s.uuid)::text entity_key FROM uranus.space s WHERE (s.venue_uuid)='00000000-0000-0000-0000-000000000014' AND (s.uuid) IS NOT NULL AND TRUE UNION SELECT 'event' entity_type,(e.uuid)::text entity_key FROM uranus.event e WHERE (e.venue_uuid)='00000000-0000-0000-0000-000000000014' AND (e.uuid) IS NOT NULL AND TRUE UNION SELECT 'event_date' entity_type,(d.uuid)::text entity_key FROM uranus.event_date d JOIN uranus.event e ON e.uuid=d.event_uuid WHERE (COALESCE(d.venue_uuid,e.venue_uuid))='00000000-0000-0000-0000-000000000014' AND (d.uuid) IS NOT NULL AND TRUE UNION SELECT 'image',pluto_image_uuid::text FROM uranus.pluto_image_link WHERE context='venue' AND context_uuid='00000000-0000-0000-0000-000000000014'), a AS (\nSELECT 'organization'::text entity_type, o.uuid::text entity_key, o.name entity_name,\n       o.uuid organization_id, o.name organization_name, o.created_at, NULL::text status\nFROM uranus.organization o\n\nUNION ALL\n\nSELECT 'venue', v.uuid::text, v.name, o.uuid, o.name, v.created_at, NULL\nFROM uranus.venue v LEFT JOIN uranus.organization o ON o.uuid=v.org_uuid\n\nUNION ALL\n\nSELECT 'space', s.uuid::text, s.name, o.uuid, o.name, s.created_at, NULL\nFROM uranus.space s LEFT JOIN uranus.venue v ON v.uuid=s.venue_uuid\nLEFT JOIN uranus.organization o ON o.uuid=v.org_uuid\n\nUNION ALL\n\nSELECT 'event', e.uuid::text, e.title, o.uuid, o.name, e.created_at, e.release_status::text\nFROM uranus.event e LEFT JOIN uranus.organization o ON o.uuid=e.org_uuid\n\nUNION ALL\n\nSELECT 'event_date', d.uuid::text, COALESCE(e.title,d.uuid::text), o.uuid, o.name,\n       d.created_at, COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text)\nFROM uranus.event_date d LEFT JOIN uranus.event e ON e.uuid=d.event_uuid\nLEFT JOIN uranus.organization o ON o.uuid=e.org_uuid\n\nUNION ALL\n\nSELECT 'user', u.uuid::text, COALESCE(u.display_name,u.username,u.uuid::text), NULL, NULL,\n       u.created_at, CASE WHEN u.is_active THEN 'active' ELSE 'inactive' END\nFROM uranus.\"user\" u\n\nUNION ALL\nSELECT 'partner_request', 'partner-request:'||p.from_org_uuid||':'||p.to_org_uuid,\n       COALESCE(f.name,p.from_org_uuid::text)||' → '||COALESCE(t.name,p.to_org_uuid::text),\n       p.from_org_uuid, f.name, p.created_at, p.status\nFROM uranus.organization_partner_request p\nLEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid\nLEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid\nUNION ALL\nSELECT 'team_membership', 'membership:'||m.org_uuid||':'||m.user_uuid,\n       COALESCE(u.display_name,u.username,m.user_uuid::text), m.org_uuid, o.name, m.created_at,\n       CASE WHEN m.has_joined THEN 'joined' ELSE 'invited' END\nFROM uranus.organization_member_link m LEFT JOIN uranus.organization o ON o.uuid=m.org_uuid\nLEFT JOIN uranus.\"user\" u ON u.uuid=m.user_uuid\nUNION ALL\nSELECT 'image', i.uuid::text, COALESCE(i.alt_text,i.uuid::text), NULL,NULL,i.created_at,NULL\nFROM uranus.pluto_image i\n)\n        SELECT a.* FROM a JOIN links USING (entity_type,entity_key)) r;",
+        "parameters": {
+          "id": "00000000-0000-0000-0000-000000000014"
+        },
+        "columns": ["count"],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.entities.entity_detail_queries",
+        "dependencies": []
+      },
+      {
+        "id": "venues.detail.related",
+        "title": "related",
+        "datasource": "uranus",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT entity_type,entity_key,entity_name,\n        organization_id,organization_name,status,created_at AT TIME ZONE :tz created_at\n        FROM (WITH links(entity_type,entity_key) AS (SELECT 'organization' entity_type,(v.org_uuid)::text entity_key FROM uranus.venue v WHERE (v.uuid)=:id::UUID AND (v.org_uuid) IS NOT NULL AND TRUE UNION SELECT 'space' entity_type,(s.uuid)::text entity_key FROM uranus.space s WHERE (s.venue_uuid)=:id::UUID AND (s.uuid) IS NOT NULL AND TRUE UNION SELECT 'event' entity_type,(e.uuid)::text entity_key FROM uranus.event e WHERE (e.venue_uuid)=:id::UUID AND (e.uuid) IS NOT NULL AND TRUE UNION SELECT 'event_date' entity_type,(d.uuid)::text entity_key FROM uranus.event_date d JOIN uranus.event e ON e.uuid=d.event_uuid WHERE (COALESCE(d.venue_uuid,e.venue_uuid))=:id::UUID AND (d.uuid) IS NOT NULL AND TRUE UNION SELECT 'image',pluto_image_uuid::text FROM uranus.pluto_image_link WHERE context='venue' AND context_uuid=:id::UUID), a AS (\nSELECT 'organization'::text entity_type, o.uuid::text entity_key, o.name entity_name,\n       o.uuid organization_id, o.name organization_name, o.created_at, NULL::text status\nFROM uranus.organization o\n\nUNION ALL\n\nSELECT 'venue', v.uuid::text, v.name, o.uuid, o.name, v.created_at, NULL\nFROM uranus.venue v LEFT JOIN uranus.organization o ON o.uuid=v.org_uuid\n\nUNION ALL\n\nSELECT 'space', s.uuid::text, s.name, o.uuid, o.name, s.created_at, NULL\nFROM uranus.space s LEFT JOIN uranus.venue v ON v.uuid=s.venue_uuid\nLEFT JOIN uranus.organization o ON o.uuid=v.org_uuid\n\nUNION ALL\n\nSELECT 'event', e.uuid::text, e.title, o.uuid, o.name, e.created_at, e.release_status::text\nFROM uranus.event e LEFT JOIN uranus.organization o ON o.uuid=e.org_uuid\n\nUNION ALL\n\nSELECT 'event_date', d.uuid::text, COALESCE(e.title,d.uuid::text), o.uuid, o.name,\n       d.created_at, COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text)\nFROM uranus.event_date d LEFT JOIN uranus.event e ON e.uuid=d.event_uuid\nLEFT JOIN uranus.organization o ON o.uuid=e.org_uuid\n\nUNION ALL\n\nSELECT 'user', u.uuid::text, COALESCE(u.display_name,u.username,u.uuid::text), NULL, NULL,\n       u.created_at, CASE WHEN u.is_active THEN 'active' ELSE 'inactive' END\nFROM uranus.\"user\" u\n\nUNION ALL\nSELECT 'partner_request', 'partner-request:'||p.from_org_uuid||':'||p.to_org_uuid,\n       COALESCE(f.name,p.from_org_uuid::text)||' → '||COALESCE(t.name,p.to_org_uuid::text),\n       p.from_org_uuid, f.name, p.created_at, p.status\nFROM uranus.organization_partner_request p\nLEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid\nLEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid\nUNION ALL\nSELECT 'team_membership', 'membership:'||m.org_uuid||':'||m.user_uuid,\n       COALESCE(u.display_name,u.username,m.user_uuid::text), m.org_uuid, o.name, m.created_at,\n       CASE WHEN m.has_joined THEN 'joined' ELSE 'invited' END\nFROM uranus.organization_member_link m LEFT JOIN uranus.organization o ON o.uuid=m.org_uuid\nLEFT JOIN uranus.\"user\" u ON u.uuid=m.user_uuid\nUNION ALL\nSELECT 'image', i.uuid::text, COALESCE(i.alt_text,i.uuid::text), NULL,NULL,i.created_at,NULL\nFROM uranus.pluto_image i\n)\n        SELECT a.* FROM a JOIN links USING (entity_type,entity_key)) r ORDER BY entity_type COLLATE \"C\",lower(entity_name) COLLATE \"C\",entity_key\n        LIMIT 25 OFFSET :offset",
+        "copy_sql": "SELECT entity_type,entity_key,entity_name,\n        organization_id,organization_name,status,created_at AT TIME ZONE 'UTC' created_at\n        FROM (WITH links(entity_type,entity_key) AS (SELECT 'organization' entity_type,(v.org_uuid)::text entity_key FROM uranus.venue v WHERE (v.uuid)='00000000-0000-0000-0000-000000000014' AND (v.org_uuid) IS NOT NULL AND TRUE UNION SELECT 'space' entity_type,(s.uuid)::text entity_key FROM uranus.space s WHERE (s.venue_uuid)='00000000-0000-0000-0000-000000000014' AND (s.uuid) IS NOT NULL AND TRUE UNION SELECT 'event' entity_type,(e.uuid)::text entity_key FROM uranus.event e WHERE (e.venue_uuid)='00000000-0000-0000-0000-000000000014' AND (e.uuid) IS NOT NULL AND TRUE UNION SELECT 'event_date' entity_type,(d.uuid)::text entity_key FROM uranus.event_date d JOIN uranus.event e ON e.uuid=d.event_uuid WHERE (COALESCE(d.venue_uuid,e.venue_uuid))='00000000-0000-0000-0000-000000000014' AND (d.uuid) IS NOT NULL AND TRUE UNION SELECT 'image',pluto_image_uuid::text FROM uranus.pluto_image_link WHERE context='venue' AND context_uuid='00000000-0000-0000-0000-000000000014'), a AS (\nSELECT 'organization'::text entity_type, o.uuid::text entity_key, o.name entity_name,\n       o.uuid organization_id, o.name organization_name, o.created_at, NULL::text status\nFROM uranus.organization o\n\nUNION ALL\n\nSELECT 'venue', v.uuid::text, v.name, o.uuid, o.name, v.created_at, NULL\nFROM uranus.venue v LEFT JOIN uranus.organization o ON o.uuid=v.org_uuid\n\nUNION ALL\n\nSELECT 'space', s.uuid::text, s.name, o.uuid, o.name, s.created_at, NULL\nFROM uranus.space s LEFT JOIN uranus.venue v ON v.uuid=s.venue_uuid\nLEFT JOIN uranus.organization o ON o.uuid=v.org_uuid\n\nUNION ALL\n\nSELECT 'event', e.uuid::text, e.title, o.uuid, o.name, e.created_at, e.release_status::text\nFROM uranus.event e LEFT JOIN uranus.organization o ON o.uuid=e.org_uuid\n\nUNION ALL\n\nSELECT 'event_date', d.uuid::text, COALESCE(e.title,d.uuid::text), o.uuid, o.name,\n       d.created_at, COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text)\nFROM uranus.event_date d LEFT JOIN uranus.event e ON e.uuid=d.event_uuid\nLEFT JOIN uranus.organization o ON o.uuid=e.org_uuid\n\nUNION ALL\n\nSELECT 'user', u.uuid::text, COALESCE(u.display_name,u.username,u.uuid::text), NULL, NULL,\n       u.created_at, CASE WHEN u.is_active THEN 'active' ELSE 'inactive' END\nFROM uranus.\"user\" u\n\nUNION ALL\nSELECT 'partner_request', 'partner-request:'||p.from_org_uuid||':'||p.to_org_uuid,\n       COALESCE(f.name,p.from_org_uuid::text)||' → '||COALESCE(t.name,p.to_org_uuid::text),\n       p.from_org_uuid, f.name, p.created_at, p.status\nFROM uranus.organization_partner_request p\nLEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid\nLEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid\nUNION ALL\nSELECT 'team_membership', 'membership:'||m.org_uuid||':'||m.user_uuid,\n       COALESCE(u.display_name,u.username,m.user_uuid::text), m.org_uuid, o.name, m.created_at,\n       CASE WHEN m.has_joined THEN 'joined' ELSE 'invited' END\nFROM uranus.organization_member_link m LEFT JOIN uranus.organization o ON o.uuid=m.org_uuid\nLEFT JOIN uranus.\"user\" u ON u.uuid=m.user_uuid\nUNION ALL\nSELECT 'image', i.uuid::text, COALESCE(i.alt_text,i.uuid::text), NULL,NULL,i.created_at,NULL\nFROM uranus.pluto_image i\n)\n        SELECT a.* FROM a JOIN links USING (entity_type,entity_key)) r ORDER BY entity_type COLLATE \"C\",lower(entity_name) COLLATE \"C\",entity_key\n        LIMIT 25 OFFSET 0;",
+        "parameters": {
+          "tz": "UTC",
+          "id": "00000000-0000-0000-0000-000000000014",
+          "offset": 0
+        },
+        "columns": [
+          "entity_type",
+          "entity_key",
+          "entity_name",
+          "organization_id",
+          "organization_name",
+          "status",
+          "created_at"
+        ],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.entities.entity_detail_queries",
+        "dependencies": []
+      },
+      {
+        "id": "venues.detail.facts",
+        "title": "facts",
+        "datasource": "uranus",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT v.uuid id,\n        (SELECT count(*) FROM uranus.space s WHERE s.venue_uuid=v.uuid) spaces\n        FROM uranus.venue v WHERE v.uuid=ANY(:ids::UUID[])",
+        "copy_sql": "SELECT v.uuid id,\n        (SELECT count(*) FROM uranus.space s WHERE s.venue_uuid=v.uuid) spaces\n        FROM uranus.venue v WHERE v.uuid=ANY(ARRAY['00000000-0000-0000-0000-000000000014']::UUID[]);",
+        "parameters": {
+          "ids": ["00000000-0000-0000-0000-000000000014"]
+        },
+        "columns": ["id", "spaces"],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.entities.FACTS",
+        "dependencies": []
+      },
+      {
+        "id": "venues.detail.previews",
+        "title": "previews",
+        "datasource": "uranus",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "\nWITH requested AS (\n SELECT kind,key,CASE WHEN kind NOT IN ('partner_request','team_membership')\n                     THEN key::uuid END id,\n        CASE WHEN kind='team_membership' THEN split_part(key,':',2)::uuid END member_org,\n        CASE WHEN kind='team_membership' THEN split_part(key,':',3)::uuid END member_user\n FROM unnest(CAST(:types::VARCHAR[] AS text[]), CAST(:keys::VARCHAR[] AS text[])) AS r(kind, key)\n), image_contexts AS (\n SELECT l.pluto_image_uuid,\n        CASE WHEN COUNT(DISTINCT (l.context,l.context_uuid))=1\n             THEN MIN(COALESCE(o.name,v.name,e.title)) END name\n FROM requested r JOIN uranus.pluto_image_link l ON r.kind='image' AND l.pluto_image_uuid=r.id\n LEFT JOIN uranus.organization o ON l.context='organization' AND o.uuid=l.context_uuid\n LEFT JOIN uranus.venue v ON l.context='venue' AND v.uuid=l.context_uuid\n LEFT JOIN uranus.event e ON l.context='event' AND e.uuid=l.context_uuid\n GROUP BY l.pluto_image_uuid\n), details AS (\n SELECT r.kind, r.key, o.city subtitle,\n        NULLIF(concat_ws(', ',\n          NULLIF(concat_ws(' ',NULLIF(btrim(o.street),''),NULLIF(btrim(o.house_number),'')),''),\n          NULLIF(btrim(o.address_addition),''),\n          NULLIF(concat_ws(' ',NULLIF(btrim(o.postal_code),''),NULLIF(btrim(o.city),'')),''),\n          NULLIF(btrim(o.country),'')),'') address,\n        NULL::text venue_slug, NULL::uuid event_id, NULL::uuid date_id,\n        NULL::date start_date, NULL::time start_time, NULL::boolean all_day,\n        NULL::text venue_name, NULL::text space_name, NULL::text event_status,\n        NULL::text date_status, 'organization'::text image_context, o.uuid image_target,\n        NULL::uuid direct_image\n FROM requested r JOIN uranus.organization o ON r.kind='organization' AND o.uuid=r.id\n UNION ALL\n SELECT r.kind,r.key,NULL,\n        NULLIF(concat_ws(', ',\n          NULLIF(concat_ws(' ',NULLIF(v.street,''),NULLIF(v.house_number,'')),''),\n          NULLIF(concat_ws(' ',NULLIF(v.postal_code,''),NULLIF(v.city,'')),'')),''),\n        v.slug,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'venue',v.uuid,NULL\n FROM requested r JOIN uranus.venue v ON r.kind='venue' AND v.uuid=r.id\n UNION ALL\n SELECT r.kind,r.key,v.name,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL\n FROM requested r JOIN uranus.space s ON r.kind='space' AND s.uuid=r.id\n LEFT JOIN uranus.venue v ON v.uuid=s.venue_uuid\n UNION ALL\n SELECT r.kind,r.key,e.subtitle,NULL,NULL,e.uuid,d.uuid,d.start_date,d.start_time,d.all_day,\n        NULL,NULL,e.release_status::text,\n        COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text),\n        'event',e.uuid,NULL\n FROM requested r JOIN uranus.event e ON r.kind='event' AND e.uuid=r.id\n LEFT JOIN LATERAL (\n   -- Admin previews include unpublished dates; public_url checks both statuses separately.\n   SELECT d.uuid,d.start_date,d.start_time,d.all_day,d.release_status\n   FROM uranus.event_date d WHERE d.event_uuid=e.uuid\n     AND (d.start_date > CAST(:today AS date) OR (d.start_date=CAST(:today AS date)\n       AND (d.all_day IS TRUE OR d.start_time IS NULL OR d.start_time >= CAST(:clock AS time))))\n   ORDER BY d.start_date,d.start_time NULLS LAST,d.uuid LIMIT 1\n ) d ON TRUE\n UNION ALL\n SELECT r.kind,r.key,NULL,NULL,NULL,e.uuid,d.uuid,d.start_date,d.start_time,d.all_day,\n        v.name,s.name,e.release_status::text,\n        COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text),\n        'event',e.uuid,NULL\n FROM requested r JOIN uranus.event_date d ON r.kind='event_date' AND d.uuid=r.id\n LEFT JOIN uranus.event e ON e.uuid=d.event_uuid\n LEFT JOIN uranus.venue v ON v.uuid=COALESCE(d.venue_uuid,e.venue_uuid)\n LEFT JOIN uranus.space s ON s.uuid=CASE WHEN d.venue_uuid IS NOT NULL THEN d.space_uuid ELSE COALESCE(d.space_uuid,e.space_uuid) END\n UNION ALL\n SELECT r.kind,r.key,\n        CASE WHEN m.invited_at IS NOT NULL THEN 'Eingeladen: ' ||\n          to_char(m.invited_at AT TIME ZONE :source_tz AT TIME ZONE :admin_tz,'DD.MM.YYYY HH24:MI')\n          || ' (' || :admin_tz || ')' END,\n        NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL\n FROM requested r JOIN uranus.organization_member_link m\n ON r.kind='team_membership' AND m.org_uuid=r.member_org AND m.user_uuid=r.member_user\n UNION ALL\n SELECT r.kind,r.key,linked.name,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,\n        NULL,NULL,i.uuid\n FROM requested r JOIN uranus.pluto_image i ON r.kind='image' AND i.uuid=r.id\n LEFT JOIN image_contexts linked ON linked.pluto_image_uuid=i.uuid\n UNION ALL\n SELECT r.kind,r.key,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL\n FROM requested r JOIN uranus.\"user\" u ON r.kind='user' AND u.uuid=r.id\n)\nSELECT d.*, COALESCE(d.direct_image,img.uuid) image_uuid,\n       NULLIF(btrim(u.email),'') email,\n       public.ST_Y(o.point) latitude, public.ST_X(o.point) longitude\nFROM details d\nLEFT JOIN uranus.\"user\" u ON d.kind='user' AND u.uuid=CASE WHEN d.kind='user' THEN d.key::uuid END\nLEFT JOIN uranus.organization o ON d.kind='organization'\n AND o.uuid=CASE WHEN d.kind='organization' THEN d.key::uuid END\nLEFT JOIN LATERAL (\n SELECT i.uuid FROM uranus.pluto_image_link l\n JOIN uranus.pluto_image i ON i.uuid=l.pluto_image_uuid\n WHERE l.context=d.image_context AND l.context_uuid=d.image_target\n   AND ((l.context='organization' AND l.identifier='main_logo')\n     OR (l.context='venue' AND l.identifier IN ('main_photo','main_logo'))\n     OR (l.context='event' AND l.identifier='main'))\n ORDER BY CASE WHEN l.identifier='main_photo' THEN 0 ELSE 1 END,l.identifier,i.uuid LIMIT 1\n) img ON TRUE\n",
+        "copy_sql": "\nWITH requested AS (\n SELECT kind,key,CASE WHEN kind NOT IN ('partner_request','team_membership')\n                     THEN key::uuid END id,\n        CASE WHEN kind='team_membership' THEN split_part(key,':',2)::uuid END member_org,\n        CASE WHEN kind='team_membership' THEN split_part(key,':',3)::uuid END member_user\n FROM unnest(CAST(ARRAY['venue']::VARCHAR[] AS text[]), CAST(ARRAY['00000000-0000-0000-0000-000000000014']::VARCHAR[] AS text[])) AS r(kind, key)\n), image_contexts AS (\n SELECT l.pluto_image_uuid,\n        CASE WHEN COUNT(DISTINCT (l.context,l.context_uuid))=1\n             THEN MIN(COALESCE(o.name,v.name,e.title)) END name\n FROM requested r JOIN uranus.pluto_image_link l ON r.kind='image' AND l.pluto_image_uuid=r.id\n LEFT JOIN uranus.organization o ON l.context='organization' AND o.uuid=l.context_uuid\n LEFT JOIN uranus.venue v ON l.context='venue' AND v.uuid=l.context_uuid\n LEFT JOIN uranus.event e ON l.context='event' AND e.uuid=l.context_uuid\n GROUP BY l.pluto_image_uuid\n), details AS (\n SELECT r.kind, r.key, o.city subtitle,\n        NULLIF(concat_ws(', ',\n          NULLIF(concat_ws(' ',NULLIF(btrim(o.street),''),NULLIF(btrim(o.house_number),'')),''),\n          NULLIF(btrim(o.address_addition),''),\n          NULLIF(concat_ws(' ',NULLIF(btrim(o.postal_code),''),NULLIF(btrim(o.city),'')),''),\n          NULLIF(btrim(o.country),'')),'') address,\n        NULL::text venue_slug, NULL::uuid event_id, NULL::uuid date_id,\n        NULL::date start_date, NULL::time start_time, NULL::boolean all_day,\n        NULL::text venue_name, NULL::text space_name, NULL::text event_status,\n        NULL::text date_status, 'organization'::text image_context, o.uuid image_target,\n        NULL::uuid direct_image\n FROM requested r JOIN uranus.organization o ON r.kind='organization' AND o.uuid=r.id\n UNION ALL\n SELECT r.kind,r.key,NULL,\n        NULLIF(concat_ws(', ',\n          NULLIF(concat_ws(' ',NULLIF(v.street,''),NULLIF(v.house_number,'')),''),\n          NULLIF(concat_ws(' ',NULLIF(v.postal_code,''),NULLIF(v.city,'')),'')),''),\n        v.slug,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'venue',v.uuid,NULL\n FROM requested r JOIN uranus.venue v ON r.kind='venue' AND v.uuid=r.id\n UNION ALL\n SELECT r.kind,r.key,v.name,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL\n FROM requested r JOIN uranus.space s ON r.kind='space' AND s.uuid=r.id\n LEFT JOIN uranus.venue v ON v.uuid=s.venue_uuid\n UNION ALL\n SELECT r.kind,r.key,e.subtitle,NULL,NULL,e.uuid,d.uuid,d.start_date,d.start_time,d.all_day,\n        NULL,NULL,e.release_status::text,\n        COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text),\n        'event',e.uuid,NULL\n FROM requested r JOIN uranus.event e ON r.kind='event' AND e.uuid=r.id\n LEFT JOIN LATERAL (\n   -- Admin previews include unpublished dates; public_url checks both statuses separately.\n   SELECT d.uuid,d.start_date,d.start_time,d.all_day,d.release_status\n   FROM uranus.event_date d WHERE d.event_uuid=e.uuid\n     AND (d.start_date > CAST('2026-10-01' AS date) OR (d.start_date=CAST('2026-10-01' AS date)\n       AND (d.all_day IS TRUE OR d.start_time IS NULL OR d.start_time >= CAST('02:00:00' AS time))))\n   ORDER BY d.start_date,d.start_time NULLS LAST,d.uuid LIMIT 1\n ) d ON TRUE\n UNION ALL\n SELECT r.kind,r.key,NULL,NULL,NULL,e.uuid,d.uuid,d.start_date,d.start_time,d.all_day,\n        v.name,s.name,e.release_status::text,\n        COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text),\n        'event',e.uuid,NULL\n FROM requested r JOIN uranus.event_date d ON r.kind='event_date' AND d.uuid=r.id\n LEFT JOIN uranus.event e ON e.uuid=d.event_uuid\n LEFT JOIN uranus.venue v ON v.uuid=COALESCE(d.venue_uuid,e.venue_uuid)\n LEFT JOIN uranus.space s ON s.uuid=CASE WHEN d.venue_uuid IS NOT NULL THEN d.space_uuid ELSE COALESCE(d.space_uuid,e.space_uuid) END\n UNION ALL\n SELECT r.kind,r.key,\n        CASE WHEN m.invited_at IS NOT NULL THEN 'Eingeladen: ' ||\n          to_char(m.invited_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin','DD.MM.YYYY HH24:MI')\n          || ' (' || 'Europe/Berlin' || ')' END,\n        NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL\n FROM requested r JOIN uranus.organization_member_link m\n ON r.kind='team_membership' AND m.org_uuid=r.member_org AND m.user_uuid=r.member_user\n UNION ALL\n SELECT r.kind,r.key,linked.name,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,\n        NULL,NULL,i.uuid\n FROM requested r JOIN uranus.pluto_image i ON r.kind='image' AND i.uuid=r.id\n LEFT JOIN image_contexts linked ON linked.pluto_image_uuid=i.uuid\n UNION ALL\n SELECT r.kind,r.key,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL\n FROM requested r JOIN uranus.\"user\" u ON r.kind='user' AND u.uuid=r.id\n)\nSELECT d.*, COALESCE(d.direct_image,img.uuid) image_uuid,\n       NULLIF(btrim(u.email),'') email,\n       public.ST_Y(o.point) latitude, public.ST_X(o.point) longitude\nFROM details d\nLEFT JOIN uranus.\"user\" u ON d.kind='user' AND u.uuid=CASE WHEN d.kind='user' THEN d.key::uuid END\nLEFT JOIN uranus.organization o ON d.kind='organization'\n AND o.uuid=CASE WHEN d.kind='organization' THEN d.key::uuid END\nLEFT JOIN LATERAL (\n SELECT i.uuid FROM uranus.pluto_image_link l\n JOIN uranus.pluto_image i ON i.uuid=l.pluto_image_uuid\n WHERE l.context=d.image_context AND l.context_uuid=d.image_target\n   AND ((l.context='organization' AND l.identifier='main_logo')\n     OR (l.context='venue' AND l.identifier IN ('main_photo','main_logo'))\n     OR (l.context='event' AND l.identifier='main'))\n ORDER BY CASE WHEN l.identifier='main_photo' THEN 0 ELSE 1 END,l.identifier,i.uuid LIMIT 1\n) img ON TRUE\n;",
+        "parameters": {
+          "types": ["venue"],
+          "keys": ["00000000-0000-0000-0000-000000000014"],
+          "today": "2026-10-01",
+          "clock": "02:00:00",
+          "source_tz": "UTC",
+          "admin_tz": "Europe/Berlin"
+        },
+        "columns": [
+          "kind",
+          "key",
+          "subtitle",
+          "address",
+          "venue_slug",
+          "event_id",
+          "date_id",
+          "start_date",
+          "start_time",
+          "all_day",
+          "venue_name",
+          "space_name",
+          "event_status",
+          "date_status",
+          "image_context",
+          "image_target",
+          "direct_image",
+          "image_uuid",
+          "email",
+          "latitude",
+          "longitude"
+        ],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.activity_previews.preview_query",
+        "dependencies": []
+      },
+      {
+        "id": "venues.detail.related_previews",
+        "title": "related previews",
+        "datasource": "uranus",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "\nWITH requested AS (\n SELECT kind,key,CASE WHEN kind NOT IN ('partner_request','team_membership')\n                     THEN key::uuid END id,\n        CASE WHEN kind='team_membership' THEN split_part(key,':',2)::uuid END member_org,\n        CASE WHEN kind='team_membership' THEN split_part(key,':',3)::uuid END member_user\n FROM unnest(CAST(:types AS text[]), CAST(:keys AS text[])) AS r(kind, key)\n), image_contexts AS (\n SELECT l.pluto_image_uuid,\n        CASE WHEN COUNT(DISTINCT (l.context,l.context_uuid))=1\n             THEN MIN(COALESCE(o.name,v.name,e.title)) END name\n FROM requested r JOIN uranus.pluto_image_link l ON r.kind='image' AND l.pluto_image_uuid=r.id\n LEFT JOIN uranus.organization o ON l.context='organization' AND o.uuid=l.context_uuid\n LEFT JOIN uranus.venue v ON l.context='venue' AND v.uuid=l.context_uuid\n LEFT JOIN uranus.event e ON l.context='event' AND e.uuid=l.context_uuid\n GROUP BY l.pluto_image_uuid\n), details AS (\n SELECT r.kind, r.key, o.city subtitle,\n        NULLIF(concat_ws(', ',\n          NULLIF(concat_ws(' ',NULLIF(btrim(o.street),''),NULLIF(btrim(o.house_number),'')),''),\n          NULLIF(btrim(o.address_addition),''),\n          NULLIF(concat_ws(' ',NULLIF(btrim(o.postal_code),''),NULLIF(btrim(o.city),'')),''),\n          NULLIF(btrim(o.country),'')),'') address,\n        NULL::text venue_slug, NULL::uuid event_id, NULL::uuid date_id,\n        NULL::date start_date, NULL::time start_time, NULL::boolean all_day,\n        NULL::text venue_name, NULL::text space_name, NULL::text event_status,\n        NULL::text date_status, 'organization'::text image_context, o.uuid image_target,\n        NULL::uuid direct_image\n FROM requested r JOIN uranus.organization o ON r.kind='organization' AND o.uuid=r.id\n UNION ALL\n SELECT r.kind,r.key,NULL,\n        NULLIF(concat_ws(', ',\n          NULLIF(concat_ws(' ',NULLIF(v.street,''),NULLIF(v.house_number,'')),''),\n          NULLIF(concat_ws(' ',NULLIF(v.postal_code,''),NULLIF(v.city,'')),'')),''),\n        v.slug,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'venue',v.uuid,NULL\n FROM requested r JOIN uranus.venue v ON r.kind='venue' AND v.uuid=r.id\n UNION ALL\n SELECT r.kind,r.key,v.name,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL\n FROM requested r JOIN uranus.space s ON r.kind='space' AND s.uuid=r.id\n LEFT JOIN uranus.venue v ON v.uuid=s.venue_uuid\n UNION ALL\n SELECT r.kind,r.key,e.subtitle,NULL,NULL,e.uuid,d.uuid,d.start_date,d.start_time,d.all_day,\n        NULL,NULL,e.release_status::text,\n        COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text),\n        'event',e.uuid,NULL\n FROM requested r JOIN uranus.event e ON r.kind='event' AND e.uuid=r.id\n LEFT JOIN LATERAL (\n   -- Admin previews include unpublished dates; public_url checks both statuses separately.\n   SELECT d.uuid,d.start_date,d.start_time,d.all_day,d.release_status\n   FROM uranus.event_date d WHERE d.event_uuid=e.uuid\n     AND (d.start_date > CAST(:today AS date) OR (d.start_date=CAST(:today AS date)\n       AND (d.all_day IS TRUE OR d.start_time IS NULL OR d.start_time >= CAST(:clock AS time))))\n   ORDER BY d.start_date,d.start_time NULLS LAST,d.uuid LIMIT 1\n ) d ON TRUE\n UNION ALL\n SELECT r.kind,r.key,NULL,NULL,NULL,e.uuid,d.uuid,d.start_date,d.start_time,d.all_day,\n        v.name,s.name,e.release_status::text,\n        COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text),\n        'event',e.uuid,NULL\n FROM requested r JOIN uranus.event_date d ON r.kind='event_date' AND d.uuid=r.id\n LEFT JOIN uranus.event e ON e.uuid=d.event_uuid\n LEFT JOIN uranus.venue v ON v.uuid=COALESCE(d.venue_uuid,e.venue_uuid)\n LEFT JOIN uranus.space s ON s.uuid=CASE WHEN d.venue_uuid IS NOT NULL THEN d.space_uuid ELSE COALESCE(d.space_uuid,e.space_uuid) END\n UNION ALL\n SELECT r.kind,r.key,\n        CASE WHEN m.invited_at IS NOT NULL THEN 'Eingeladen: ' ||\n          to_char(m.invited_at AT TIME ZONE :source_tz AT TIME ZONE :admin_tz,'DD.MM.YYYY HH24:MI')\n          || ' (' || :admin_tz || ')' END,\n        NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL\n FROM requested r JOIN uranus.organization_member_link m\n ON r.kind='team_membership' AND m.org_uuid=r.member_org AND m.user_uuid=r.member_user\n UNION ALL\n SELECT r.kind,r.key,linked.name,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,\n        NULL,NULL,i.uuid\n FROM requested r JOIN uranus.pluto_image i ON r.kind='image' AND i.uuid=r.id\n LEFT JOIN image_contexts linked ON linked.pluto_image_uuid=i.uuid\n UNION ALL\n SELECT r.kind,r.key,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL\n FROM requested r JOIN uranus.\"user\" u ON r.kind='user' AND u.uuid=r.id\n)\nSELECT d.*, COALESCE(d.direct_image,img.uuid) image_uuid,\n       NULLIF(btrim(u.email),'') email,\n       public.ST_Y(o.point) latitude, public.ST_X(o.point) longitude\nFROM details d\nLEFT JOIN uranus.\"user\" u ON d.kind='user' AND u.uuid=CASE WHEN d.kind='user' THEN d.key::uuid END\nLEFT JOIN uranus.organization o ON d.kind='organization'\n AND o.uuid=CASE WHEN d.kind='organization' THEN d.key::uuid END\nLEFT JOIN LATERAL (\n SELECT i.uuid FROM uranus.pluto_image_link l\n JOIN uranus.pluto_image i ON i.uuid=l.pluto_image_uuid\n WHERE l.context=d.image_context AND l.context_uuid=d.image_target\n   AND ((l.context='organization' AND l.identifier='main_logo')\n     OR (l.context='venue' AND l.identifier IN ('main_photo','main_logo'))\n     OR (l.context='event' AND l.identifier='main'))\n ORDER BY CASE WHEN l.identifier='main_photo' THEN 0 ELSE 1 END,l.identifier,i.uuid LIMIT 1\n) img ON TRUE\n",
+        "copy_sql": null,
+        "parameters": {
+          "types": "[erst aus vorherigem Query-Schritt bekannt]",
+          "keys": "[erst aus vorherigem Query-Schritt bekannt]",
+          "today": "2026-10-01",
+          "clock": "02:00:00",
+          "source_tz": "UTC",
+          "admin_tz": "Europe/Berlin"
+        },
+        "columns": [
+          "kind",
+          "key",
+          "subtitle",
+          "address",
+          "venue_slug",
+          "event_id",
+          "date_id",
+          "start_date",
+          "start_time",
+          "all_day",
+          "venue_name",
+          "space_name",
+          "event_status",
+          "date_status",
+          "image_context",
+          "image_target",
+          "direct_image",
+          "image_uuid",
+          "email",
+          "latitude",
+          "longitude"
+        ],
+        "executable": false,
+        "readonly": true,
+        "implementation_ref": "app.repositories.activity_previews.preview_query",
+        "dependencies": ["Identitäten aus related; konditional bei vorhandener Hauptentität."]
+      },
+      {
+        "id": "venues.detail.finding_count",
+        "title": "finding count",
+        "datasource": "admin",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT admin.finding.entity_id, count(*) AS count_1 \nFROM admin.finding \nWHERE admin.finding.entity_type = :entity_type_1 AND admin.finding.entity_id IN (:entity_key_1_1) AND admin.finding.status != :status_1 GROUP BY admin.finding.entity_id",
+        "copy_sql": "SELECT admin.finding.entity_id, count(*) AS count_1 \nFROM admin.finding \nWHERE admin.finding.entity_type = 'venue' AND admin.finding.entity_id IN ('00000000-0000-0000-0000-000000000014') AND admin.finding.status != 'resolved' GROUP BY admin.finding.entity_id;",
+        "parameters": {
+          "entity_type_1": "venue",
+          "status_1": "resolved",
+          "entity_key_1_1": "00000000-0000-0000-0000-000000000014"
+        },
+        "columns": ["entity_id", "count_1"],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.entities.workflow_count_query",
+        "dependencies": []
+      },
+      {
+        "id": "venues.detail.mark_count",
+        "title": "mark count",
+        "datasource": "admin",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT admin.record_mark.entity_key, count(*) AS count_1 \nFROM admin.record_mark \nWHERE admin.record_mark.entity_type = :entity_type_1 AND admin.record_mark.entity_key IN (:entity_key_1_1) GROUP BY admin.record_mark.entity_key",
+        "copy_sql": "SELECT admin.record_mark.entity_key, count(*) AS count_1 \nFROM admin.record_mark \nWHERE admin.record_mark.entity_type = 'venue' AND admin.record_mark.entity_key IN ('00000000-0000-0000-0000-000000000014') GROUP BY admin.record_mark.entity_key;",
+        "parameters": {
+          "entity_type_1": "venue",
+          "entity_key_1_1": "00000000-0000-0000-0000-000000000014"
+        },
+        "columns": ["entity_key", "count_1"],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.entities.workflow_count_query",
+        "dependencies": []
+      }
+    ],
+    "post_processing": [
+      "related_page (25), entity/related enrichment; optional graph and marks loaded separately"
+    ],
+    "notes": [
+      "Diese Ansicht besteht aus mehreren Abfragen und zusätzlicher Anwendungslogik. Definitionen führen keine View-SQL aus.",
+      "Ausführung: maximal 50 Ergebniszeilen je Query. LIMIT/OFFSET der View bleiben innen erhalten; die Inspektion ergänzt eine äußere Begrenzung.",
+      "Abhängige Schritte zeigen ihre Runtime-Definition; noch unbekannte Ergebnisparameter werden nicht erfunden. Copy/Ausführung ist dort deaktiviert.",
+      "Admin-Provenance nutzt die Runtime-Rolle mit Schreibrechten. READ ONLY ist deshalb eine wichtige zusätzliche Sicherheitsgrenze; keine neue Rolle/Grants.",
+      "as_of bindet die Zeitfensterberechnung. Ausführungen lesen jeweils einen neuen Snapshot, nicht den historischen Seiten-Snapshot."
+    ],
+    "observed_at": "2026-10-01T00:00:00Z",
+    "parameters": {
+      "as_of": "2026-10-01T00:00:00+00:00",
+      "id": "00000000-0000-0000-0000-000000000014",
+      "related_page": 1
+    }
+  },
+  "queues.partner_requests": {
+    "view_id": "queues.partner_requests",
+    "title": "SQL / Datenherkunft",
+    "endpoint": "/api/v1/work-queues/partner_requests?status=pending&page=1&page_size=50",
+    "sources": [
+      {
+        "id": "queues.partner_requests.count",
+        "title": "count",
+        "datasource": "uranus",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT count(*) FROM (\nSELECT p.from_org_uuid, p.to_org_uuid, p.from_user_uuid AS user_id, p.status, p.created_at,\n f.name AS from_name, t.name AS to_name, COALESCE(u.display_name,u.username) AS user_name,\n u.uuid IS NOT NULL AS user_exists,\n EXISTS(SELECT 1 FROM uranus.organization_access_grants g\n        WHERE g.src_org_uuid=p.to_org_uuid AND g.dst_org_uuid=p.from_org_uuid) AS grant_exists\nFROM uranus.organization_partner_request p\nLEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid\nLEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid\nLEFT JOIN uranus.\"user\" u ON u.uuid=p.from_user_uuid\n) s WHERE TRUE AND (status)=:status",
+        "copy_sql": "SELECT count(*) FROM (\nSELECT p.from_org_uuid, p.to_org_uuid, p.from_user_uuid AS user_id, p.status, p.created_at,\n f.name AS from_name, t.name AS to_name, COALESCE(u.display_name,u.username) AS user_name,\n u.uuid IS NOT NULL AS user_exists,\n EXISTS(SELECT 1 FROM uranus.organization_access_grants g\n        WHERE g.src_org_uuid=p.to_org_uuid AND g.dst_org_uuid=p.from_org_uuid) AS grant_exists\nFROM uranus.organization_partner_request p\nLEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid\nLEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid\nLEFT JOIN uranus.\"user\" u ON u.uuid=p.from_user_uuid\n) s WHERE TRUE AND (status)='pending';",
+        "parameters": {
+          "status": "pending"
+        },
+        "columns": ["count"],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.queues.queue_page_queries",
+        "dependencies": []
+      },
+      {
+        "id": "queues.partner_requests.records",
+        "title": "records",
+        "datasource": "uranus",
+        "description": "Registrierte Runtime-Abfrage. Ausführung zeigt maximal 50 Zeilen.",
+        "sql": "SELECT s.* FROM (\nSELECT p.from_org_uuid, p.to_org_uuid, p.from_user_uuid AS user_id, p.status, p.created_at,\n f.name AS from_name, t.name AS to_name, COALESCE(u.display_name,u.username) AS user_name,\n u.uuid IS NOT NULL AS user_exists,\n EXISTS(SELECT 1 FROM uranus.organization_access_grants g\n        WHERE g.src_org_uuid=p.to_org_uuid AND g.dst_org_uuid=p.from_org_uuid) AS grant_exists\nFROM uranus.organization_partner_request p\nLEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid\nLEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid\nLEFT JOIN uranus.\"user\" u ON u.uuid=p.from_user_uuid\n) s WHERE TRUE AND (status)=:status ORDER BY (CASE WHEN (created_at AT TIME ZONE :timezone) <= :now THEN floor(extract(epoch FROM (CAST(:now AS timestamptz) - (created_at AT TIME ZONE :timezone))) / 86400)::integer END) DESC NULLS LAST, ('partner-request:' || from_org_uuid::text || ':' || to_org_uuid::text) COLLATE \"C\" LIMIT :limit OFFSET :offset",
+        "copy_sql": "SELECT s.* FROM (\nSELECT p.from_org_uuid, p.to_org_uuid, p.from_user_uuid AS user_id, p.status, p.created_at,\n f.name AS from_name, t.name AS to_name, COALESCE(u.display_name,u.username) AS user_name,\n u.uuid IS NOT NULL AS user_exists,\n EXISTS(SELECT 1 FROM uranus.organization_access_grants g\n        WHERE g.src_org_uuid=p.to_org_uuid AND g.dst_org_uuid=p.from_org_uuid) AS grant_exists\nFROM uranus.organization_partner_request p\nLEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid\nLEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid\nLEFT JOIN uranus.\"user\" u ON u.uuid=p.from_user_uuid\n) s WHERE TRUE AND (status)='pending' ORDER BY (CASE WHEN (created_at AT TIME ZONE 'UTC') <= '2026-10-01 00:00:00+00:00' THEN floor(extract(epoch FROM (CAST('2026-10-01 00:00:00+00:00' AS timestamptz) - (created_at AT TIME ZONE 'UTC'))) / 86400)::integer END) DESC NULLS LAST, ('partner-request:' || from_org_uuid::text || ':' || to_org_uuid::text) COLLATE \"C\" LIMIT 50 OFFSET 0;",
+        "parameters": {
+          "status": "pending",
+          "timezone": "UTC",
+          "now": "2026-10-01T00:00:00+00:00",
+          "limit": 50,
+          "offset": 0
+        },
+        "columns": [
+          "from_org_uuid",
+          "to_org_uuid",
+          "user_id",
+          "status",
+          "created_at",
+          "from_name",
+          "to_name",
+          "user_name",
+          "user_exists",
+          "grant_exists"
+        ],
+        "executable": true,
+        "readonly": true,
+        "implementation_ref": "app.repositories.queues.queue_page_queries",
+        "dependencies": []
+      }
+    ],
+    "post_processing": [
+      "map_queue, timezone, age/pending thresholds, identity/action links",
+      "map_queue(): URANUS_TIMESTAMP_TIMEZONE, belegte Erstellungs-/Einladungszeit, timedelta.days, PENDING_AGE_DAYS / ACTIVATION_AGE_DAYS; keine erfundene Login-/Beitrittshistorie."
+    ],
+    "notes": [
+      "Diese Ansicht besteht aus mehreren Abfragen und zusätzlicher Anwendungslogik. Definitionen führen keine View-SQL aus.",
+      "Ausführung: maximal 50 Ergebniszeilen je Query. LIMIT/OFFSET der View bleiben innen erhalten; die Inspektion ergänzt eine äußere Begrenzung.",
+      "Abhängige Schritte zeigen ihre Runtime-Definition; noch unbekannte Ergebnisparameter werden nicht erfunden. Copy/Ausführung ist dort deaktiviert.",
+      "Admin-Provenance nutzt die Runtime-Rolle mit Schreibrechten. READ ONLY ist deshalb eine wichtige zusätzliche Sicherheitsgrenze; keine neue Rolle/Grants.",
+      "as_of bindet die Zeitfensterberechnung. Ausführungen lesen jeweils einen neuen Snapshot, nicht den historischen Seiten-Snapshot."
+    ],
+    "observed_at": "2026-10-01T00:00:00Z",
+    "parameters": {
+      "as_of": "2026-10-01T00:00:00+00:00",
+      "status": "pending",
+      "page": 1,
+      "page_size": 50
+    }
+  }
+}

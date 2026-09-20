@@ -6,6 +6,7 @@ export interface ApiFailure {
 
 export function failure(status: number, code = 'request_failed'): ApiFailure {
   const retryMessages: Record<string, string> = {
+    provenance_dependency: 'Dieser Query-Schritt benötigt Ergebnisse vorheriger Abfragen.',
     diagnostic_unavailable: 'Keine SQL-Diagnose verfügbar.',
     diagnostic_invalid_finding: 'Für diesen Befund ist keine passende SQL-Diagnose verfügbar.',
     diagnostic_failed: 'Prüfung fehlgeschlagen.',

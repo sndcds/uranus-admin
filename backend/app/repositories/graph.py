@@ -12,6 +12,7 @@ from app.repositories.activity import ENTITY_ACTIVITY_SQL
 from app.repositories.activity_previews import activity_previews
 from app.repositories.entity_search import escape_search
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
+from app.repositories.query import ReadQuery
 from app.repositories.spatial import mixed_spatial_predicate
 from app.schemas.action import Action
 from app.schemas.graph import (
@@ -175,17 +176,16 @@ def node(row: dict[str, Any]) -> GraphNode:
     )
 
 
-async def search(
-    connection: AsyncConnection, filters: GraphSearchFilters, geo_scope_wkb: bytes | None = None
-) -> GraphSearchResponse:
+def graph_search_query(
+    filters: GraphSearchFilters, geo_scope_wkb: bytes | None = None
+) -> ReadQuery:
     if filters.geo_scope_id and filters.entity_type == "user":
         raise APIError(422, "invalid_input", "Users have no spatial membership.")
     geo = " AND " + mixed_spatial_predicate() if geo_scope_wkb is not None else ""
     # Literal substring matching: % and _ in names are not wildcard instructions.
     query = escape_search(filters.q)
-    rows = (
-        await connection.execute(
-            text(f"""
+    return ReadQuery(
+        text(f"""
         SELECT entity_type,entity_key,entity_name,status FROM ({NODES_SQL}) a
         WHERE (entity_name ILIKE :q OR entity_key ILIKE :q)
         AND (CAST(:org AS uuid) IS NULL OR organization_id=:org
@@ -195,21 +195,26 @@ async def search(
         {geo}
         ORDER BY lower(entity_name),entity_type,entity_key LIMIT :limit
     """),
-            {
-                "types": [filters.entity_type] if filters.entity_type else list(TYPES),
-                "q": f"%{query}%",
-                "geo_scope_wkb": geo_scope_wkb,
-                "org": filters.organization_id,
-                "limit": filters.limit,
-            },
-        )
-    ).mappings()
+        {
+            "types": [filters.entity_type] if filters.entity_type else list(TYPES),
+            "q": f"%{query}%",
+            "geo_scope_wkb": geo_scope_wkb,
+            "org": filters.organization_id,
+            "limit": filters.limit,
+        },
+    )
+
+
+async def search(
+    connection: AsyncConnection, filters: GraphSearchFilters, geo_scope_wkb: bytes | None = None
+) -> GraphSearchResponse:
+    query = graph_search_query(filters, geo_scope_wkb)
+    result = await connection.execute(query.statement, query.parameters)
+    rows = result.mappings()
     return GraphSearchResponse(items=[node(dict(row)) for row in rows])
 
 
-async def load_nodes(connection: AsyncConnection, ids: set[str]) -> dict[str, GraphNode]:
-    if not ids:
-        return {}
+def node_query(ids: set[str]) -> ReadQuery:
     grouped = {
         kind: sorted(
             identity.split(":", 1)[1] for identity in ids if identity.startswith(f"{kind}:")
@@ -231,7 +236,14 @@ async def load_nodes(connection: AsyncConnection, ids: set[str]) -> dict[str, Gr
         "organization_name,created_at,status) "
         "ORDER BY entity_type,entity_key"
     )
-    rows = (await connection.execute(text(query), grouped)).mappings()
+    return ReadQuery(text(query), grouped)
+
+
+async def load_nodes(connection: AsyncConnection, ids: set[str]) -> dict[str, GraphNode]:
+    if not ids:
+        return {}
+    query = node_query(ids)
+    rows = (await connection.execute(query.statement, query.parameters)).mappings()
     return {item.id: item for item in (node(dict(row)) for row in rows)}
 
 

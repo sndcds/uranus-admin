@@ -1,4 +1,9 @@
 import {
+  provenanceViews,
+  validProvenanceParams,
+  type ProvenanceView,
+} from '../../shared/sql-provenance'
+import {
   diagnosticRequestSchema,
   geoAreaImportSchema,
   loginSchema,
@@ -194,8 +199,23 @@ export async function forwardAdminRequest(
     /^\/api\/v1\/notifications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/preview$/i.test(
       input.path,
     )
-  const allowed =
-    notificationDetail || notificationRetry || geoDetail || geocodeDetail || geocodeRetry
+  const provenanceMatch = input.path.match(
+    /^\/api\/v1\/sql-provenance\/([a-z_.-]+)(?:\/([a-z_0-9.-]{1,150})\/execute)?$/,
+  )
+  const provenanceView = provenanceMatch?.[1]
+  const provenanceExecute = !!provenanceMatch?.[2]
+  if (
+    provenanceMatch &&
+    (!provenanceView ||
+      !Object.hasOwn(provenanceViews, provenanceView) ||
+      (provenanceExecute && !provenanceMatch[2]!.startsWith(provenanceView + '.')))
+  )
+    return rejected(404, 'route_not_allowed')
+  const allowed = provenanceView
+    ? provenanceExecute
+      ? []
+      : (provenanceViews[provenanceView as ProvenanceView] as readonly string[])
+    : notificationDetail || notificationRetry || geoDetail || geocodeDetail || geocodeRetry
       ? []
       : notificationPreview
         ? ['locale']
@@ -228,6 +248,7 @@ export async function forwardAdminRequest(
     return rejected(405, 'method_not_allowed')
   const write =
     authWrite ||
+    (input.method === 'POST' && provenanceExecute) ||
     (input.method === 'POST' && diagnosticExecute) ||
     (input.method === 'POST' && input.path === '/api/v1/geo/areas') ||
     (input.method === 'POST' && (notificationRetry || geocodeRetry)) ||
@@ -240,6 +261,7 @@ export async function forwardAdminRequest(
     (input.method !== 'GET' ||
       input.path === '/api/v1/finding-reviews' ||
       diagnosticExecute ||
+      provenanceExecute ||
       notificationRetry ||
       geocodeRetry)
   )
@@ -250,6 +272,11 @@ export async function forwardAdminRequest(
   if (input.path === '/api/v1/geo/areas' && input.method !== 'POST')
     return rejected(405, 'method_not_allowed')
   let requestBody: string | undefined
+  if (provenanceExecute && provenanceView) {
+    const params = validProvenanceParams(provenanceView, input.body)
+    if (!params) return rejected(422, 'invalid_input')
+    requestBody = JSON.stringify(params)
+  }
   if (diagnosticExecute) {
     const parsed = diagnosticRequestSchema.safeParse(input.body)
     if (!parsed.success) return rejected(422, 'invalid_input')
@@ -302,6 +329,12 @@ export async function forwardAdminRequest(
       return rejected(422, 'invalid_query')
     }
   }
+  if (
+    provenanceView &&
+    !provenanceExecute &&
+    !validProvenanceParams(provenanceView, Object.fromEntries(input.query))
+  )
+    return rejected(422, 'invalid_query')
   if (
     input.path === '/api/v1/findings/sql-diagnostic' &&
     !diagnosticRequestSchema.safeParse(Object.fromEntries(input.query)).success

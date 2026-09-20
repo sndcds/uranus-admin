@@ -137,3 +137,5 @@ in dieser Testdatenbank administrative Rechte. CI führt den vollständigen DB-L
 - [Nuxt-Frontend](../frontend/README.md).
 
 [Finding SQL Diagnostics – Sicherheitsmodell und Pilotqueries](docs/sql-diagnostics.md).
+
+[SQL / Datenherkunft – registrierte Queries, Sicherheitsmodell und Coverage](docs/sql-provenance.md).

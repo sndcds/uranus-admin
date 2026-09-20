@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.config import Settings
 from app.errors import APIError
 from app.repositories.activity_previews import activity_previews
+from app.repositories.query import ReadQuery
 from app.repositories.spatial import SPATIAL_TYPES, mixed_spatial_predicate
 from app.schemas.action import Action
 from app.schemas.activity import Activity, ActivityFilters, ActivityPage
@@ -83,13 +84,12 @@ def creation_activity_sql(statistics: bool = False) -> str:
     return ACTIVITY_SQL
 
 
-async def activity_page(
-    connection: AsyncConnection,
+def activity_queries(
     settings: Settings,
     filters: ActivityFilters,
     now: datetime,
     geo_scope_wkb: bytes | None = None,
-) -> ActivityPage:
+) -> tuple[dict[str, ReadQuery], datetime | None, datetime | None]:
     if settings.uranus_timestamp_timezone is None:
         raise APIError(503, "source_timezone_unconfigured", "Source timezone must be configured.")
     if filters.geo_scope_id and filters.entity_type and filters.entity_type not in SPATIAL_TYPES:
@@ -143,12 +143,8 @@ async def activity_page(
         params["geo_scope_wkb"] = geo_scope_wkb
     source_sql = creation_activity_sql(filters.creation_basis == "statistics")
     base = f"WITH a AS ({source_sql}) SELECT * FROM a {where}"
-    unknown = int(
-        (
-            await connection.execute(
-                text(f"SELECT COUNT(*) FROM ({base} AND created_at IS NULL) q"), params
-            )
-        ).scalar_one()
+    unknown_query = ReadQuery(
+        text(f"SELECT COUNT(*) FROM ({base} AND created_at IS NULL) q"), dict(params)
     )
     if filters.timestamp_state == "unknown":
         base += " AND created_at IS NULL"
@@ -158,9 +154,7 @@ async def activity_page(
         AND (CAST(:start AS timestamptz) IS NULL OR created_at AT TIME ZONE :tz >= :start)
         AND (CAST(:end AS timestamptz) IS NULL OR created_at AT TIME ZONE :tz < :end)"""
         order = "created_at DESC, entity_type, entity_key"
-    total = int(
-        (await connection.execute(text(f"SELECT COUNT(*) FROM ({base}) q"), params)).scalar_one()
-    )
+    count_query = ReadQuery(text(f"SELECT COUNT(*) FROM ({base}) q"), dict(params))
     cursor_where = ""
     if position:
         params.update(
@@ -177,9 +171,11 @@ async def activity_page(
                 f"(created_at = :cursor_time AND {identity_after}))"
             )
         )
-    rows = (
-        (
-            await connection.execute(
+    return (
+        {
+            "unknown": unknown_query,
+            "count": count_query,
+            "records": ReadQuery(
                 text(
                     "SELECT * FROM (SELECT entity_type, entity_key, entity_name, "
                     "organization_id, organization_name, "
@@ -188,8 +184,35 @@ async def activity_page(
                     f"ORDER BY {order} LIMIT :limit OFFSET :offset"
                 ),
                 params,
-            )
-        )
+            ),
+        },
+        start,
+        end,
+    )
+
+
+async def activity_page(
+    connection: AsyncConnection,
+    settings: Settings,
+    filters: ActivityFilters,
+    now: datetime,
+    geo_scope_wkb: bytes | None = None,
+) -> ActivityPage:
+    queries, start, end = activity_queries(settings, filters, now, geo_scope_wkb)
+    cursor_mode = filters.cursor is not None
+    expected_scope = scope(filters, timezone=settings.uranus_timestamp_timezone)
+    unknown = int(
+        (
+            await connection.execute(queries["unknown"].statement, queries["unknown"].parameters)
+        ).scalar_one()
+    )
+    total = int(
+        (
+            await connection.execute(queries["count"].statement, queries["count"].parameters)
+        ).scalar_one()
+    )
+    rows = (
+        (await connection.execute(queries["records"].statement, queries["records"].parameters))
         .mappings()
         .all()
     )
