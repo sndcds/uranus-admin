@@ -178,7 +178,7 @@ class ArtifactTests(unittest.TestCase):
                 "artifact": str(artifact),
                 "digest": digest,
                 "commit": commit,
-                "ua_release_dir": "/opt/uranus-admin/releases/" + commit,
+                "ua_release_dir": "/var/lib/uranus-admin/releases/" + commit,
                 "ua_config_dir": "/etc/uranus-admin",
                 "ua_uv": "/usr/local/bin/uv",
                 "ua_os_release": {
@@ -523,7 +523,7 @@ class DeploymentBoundaryTests(unittest.TestCase):
     def test_units_and_proxy_preserve_boundaries(self):
         env = Environment(loader=FileSystemLoader(ROLE / "templates"), undefined=StrictUndefined)
         values = {
-            "ua_release_dir": "/opt/uranus-admin/releases/" + "a" * 40,
+            "ua_release_dir": "/var/lib/uranus-admin/releases/" + "a" * 40,
             "ua_config_dir": "/etc/uranus-admin",
             "ua_node": "/usr/bin/node",
             "ua_uv": "/usr/local/bin/uv",

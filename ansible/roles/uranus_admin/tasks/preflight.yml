@@ -54,6 +54,19 @@
 - name: Read service states
   ansible.builtin.service_facts:
 
+- name: Require local storage and free space before installation or database access
+  uranus_local_storage:
+    paths:
+      - "{{ ua_root }}"
+      - "{{ ua_build_root }}"
+      - /var/cache/uranus-admin-build
+    min_free_bytes: "{{ ua_min_free_bytes }}"
+  register: ua_local_storage
+
+- name: Report inspected local build and runtime storage
+  ansible.builtin.debug:
+    var: ua_local_storage.filesystems
+
 - name: Inspect managed directory boundaries without following symlinks
   ansible.builtin.stat:
     path: "{{ item }}"
@@ -63,6 +76,8 @@
     - "{{ ua_root }}/releases"
     - "{{ ua_release_dir }}"
     - "{{ ua_release_dir }}/deployment"
+    - "{{ ua_build_root }}"
+    - "{{ ua_build_dir }}"
     - "{{ ua_config_dir }}"
     - "{{ ua_config_dir }}/recovery"
     - "{{ ua_config_dir }}/recovery/{{ ua_release_sha }}"

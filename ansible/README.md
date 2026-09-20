@@ -31,7 +31,7 @@ für einen späteren Lauf. Grundlage des Anwendungsstands:
 | Notification-Timer ist aktiv, Notification-Service ist ein stündlicher Oneshot        | Standard: unverändert. Nur explizites Notification-Management mit zweiter Zustimmung stoppt/deaktiviert ihn; Recovery stellt dann seinen vorherigen Zustand wieder her.                                                                                         |
 | Kein URL-/Geocode-Service gefunden                                                    | Keine Installation oder Aktivierung dieser Worker.                                                                                                                                                                                                              |
 | Bisherige `.env`-Dateien sind 0664, Backend enthält auch privilegierte Variablennamen | Werte wurden beim Audit nicht veröffentlicht. Übernahme liest sie geschützt, erhält Passwörter und trennt neue Runtime/Operator; Legacy-Backend-Env nur bei Notification-Management bereinigen; keine Behauptung, dass alle gefundenen Variablen befüllt waren. |
-| Check-Worker startet bisher über `uv run`, ohne EnvironmentFile                       | `uv run --no-cache --no-sync --offline --no-python-downloads --no-env-file` aus dem fertigen Release, explizites Runtime-EnvironmentFile; kein Dependency-Sync beim Service-Start.                                                                                         |
+| Check-Worker startet bisher über `uv run`, ohne EnvironmentFile                       | `uv run --no-cache --no-sync --offline --no-python-downloads --no-env-file` aus dem fertigen Release, explizites Runtime-EnvironmentFile; kein Dependency-Sync beim Service-Start.                                                                              |
 | Frontend-Dev-Token-Flag true, vertrauenswürdiger Ingress nicht konfiguriert           | Flag explizit false; Nitro vertraut ausschließlich dem lokalen Nginx-Peer `127.0.0.1`. Das alte Flag allein bewies keinen Production-Auth-Bypass.                                                                                                               |
 | Nginx und Apache aktiv                                                                | Nur den bestehenden Admin-Vhost und einen eigenen Logformat-Snippet verwalten. Apache, andere Sites, TLS-Zertifikate und Rate-Zonen bleiben bestehen.                                                                                                           |
 | Nginx-Limits ohne expliziten 429-Status, Headerverlust im Fehler-Location             | Request-/Connection-Limits liefern 429; vollständige Security-Header auch dort.                                                                                                                                                                                 |
@@ -141,38 +141,83 @@ des aktuellen Head-Checks.
 **CHANGES SYSTEM CONFIGURATION** — folgende Pfade sind der vollständige verwaltete
 Produktionsumfang; temporäre Ansible-/Validierungsdateien kommen technisch hinzu:
 
-| Pfad                                                                       | Aktion                                                                                                                                                                                                  |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/opt/uranus-admin/releases/<commit>/`                                     | Neues getrenntes Release mit Backend-venv und gebautem Nitro-Server; nach Build root-owned. Vorheriges Checkout wird nicht überschrieben.                                                               |
-| `/opt/uranus-admin/releases/<commit>/.complete`                            | SHA256 des fertig gebauten Archivs; vorhandene abweichende Marker führen zum Abbruch.                                                                                                                   |
-| `/opt/uranus-admin/releases/<commit>/deployment/`                          | Prüfprogramme und nichtgeheime Konfigurationskandidaten.                                                                                                                                                |
-| `/opt/uranus-admin/current`                                                | Verweis auf zuletzt erfolgreich aktiviertes Release, erst nach Healthchecks geändert. Units verwenden feste Release-Pfade.                                                                              |
-| `/var/cache/uranus-admin-build/`                                           | Build-Cache von uv/pnpm, Benutzer `oklab`. Kein Laufzeit-Schreibpfad des Services.                                                                                                                      |
-| `/etc/uranus-admin/`                                                       | root:root, 0700.                                                                                                                                                                                        |
-| `/etc/uranus-admin/runtime.env`                                            | root:root, 0600; systemd liest und übergibt ausschließlich Runtime-Konfiguration.                                                                                                                       |
-| `/etc/uranus-admin/operator.env`                                           | root:root, 0600; vorhandene Migrator-/Operator-/Dev-Token-Einträge gesichert, nie in Units geladen. Unterschiedliche bereits gesicherte Werte führen zum Abbruch.                                       |
-| `/etc/uranus-admin/recovery/<commit>/attempt-<zufall>/`                    | Frischer root-only Snapshot pro Aktivierungsversuch: geänderte Altdateien und Manifest mit Existenz, Ownership, Modi, Service-Zuständen und vorherigem current-Verweis. Kein DB-Backup.                 |
-| `/home/oklab/build/uranus-admin/backend/.env`                              | Standard unverändert, weil der bestehende Notification-Service sie liest. Nur mit beiden Notification-Flags bereinigen und auf root:root 0600 setzen; Altdatei im Recovery-Snapshot.                    |
-| `/home/oklab/build/uranus-admin/frontend/.env`                             | Inhalt erhalten, root:root 0600.                                                                                                                                                                        |
+| Pfad                                                                       | Aktion                                                                                                                                                                                                             |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/home/oklab/build/uranus-admin/.deployment-builds/<commit>/`              | Lokaler Arbeitsbereich als `oklab` für uv/pnpm-Befehle. Der laufende Checkout daneben bleibt erhalten. `.build-complete` markiert einen abgeschlossenen Build für die begrenzte Aufbewahrung.                      |
+| `/var/lib/uranus-admin/releases/<commit>/`                                 | Neues getrenntes Release mit Backend-venv und gebautem Nitro-Server; nach Build root-owned. Vorheriges Checkout wird nicht überschrieben.                                                                          |
+| `/var/lib/uranus-admin/releases/<commit>/.complete`                        | SHA256 des fertig gebauten Archivs; vorhandene abweichende Marker führen zum Abbruch.                                                                                                                              |
+| `/var/lib/uranus-admin/releases/<commit>/deployment/`                      | Prüfprogramme und nichtgeheime Konfigurationskandidaten.                                                                                                                                                           |
+| `/var/lib/uranus-admin/current`                                            | Verweis auf zuletzt erfolgreich aktiviertes Release, erst nach Healthchecks geändert. Units verwenden feste Release-Pfade.                                                                                         |
+| `/var/cache/uranus-admin-build/`                                           | Build-Cache von uv/pnpm, Benutzer `oklab`. Kein Laufzeit-Schreibpfad des Services.                                                                                                                                 |
+| `/etc/uranus-admin/`                                                       | root:root, 0700.                                                                                                                                                                                                   |
+| `/etc/uranus-admin/runtime.env`                                            | root:root, 0600; systemd liest und übergibt ausschließlich Runtime-Konfiguration.                                                                                                                                  |
+| `/etc/uranus-admin/operator.env`                                           | root:root, 0600; vorhandene Migrator-/Operator-/Dev-Token-Einträge gesichert, nie in Units geladen. Unterschiedliche bereits gesicherte Werte führen zum Abbruch.                                                  |
+| `/etc/uranus-admin/recovery/<commit>/attempt-<zufall>/`                    | Frischer root-only Snapshot pro Aktivierungsversuch: geänderte Altdateien und Manifest mit Existenz, Ownership, Modi, Service-Zuständen und vorherigem current-Verweis. Kein DB-Backup.                            |
+| `/home/oklab/build/uranus-admin/backend/.env`                              | Standard unverändert, weil der bestehende Notification-Service sie liest. Nur mit beiden Notification-Flags bereinigen und auf root:root 0600 setzen; Altdatei im Recovery-Snapshot.                               |
+| `/home/oklab/build/uranus-admin/frontend/.env`                             | Inhalt erhalten, root:root 0600.                                                                                                                                                                                   |
 | `/etc/systemd/system/uranus-admin-{backend,frontend,check-worker}.service` | Bekannte Units mit festen Release-Pfaden aktualisieren. UMask 0027; Python-Dienste starten über `uv run --no-cache --no-sync --offline --no-python-downloads --no-env-file python`, keine Installation beim Start. |
-| `/etc/nginx/sites-available/uranus-admin`                                  | Bestehenden Vhost aktualisieren. Der vorhandene sites-enabled-Symlink muss bereits genau hierhin zeigen.                                                                                                |
-| `/etc/nginx/conf.d/uranus-admin-logging.conf`                              | Eigenes Access-Logformat ohne Querystring, Referer, Cookies, User-Agent oder fremdes X-Forwarded-For.                                                                                                   |
-| `/var/log/nginx/uranus-admin-access.log`                                   | Nginx schreibt das dedizierte Log; vorhandene Nginx-Logrotation muss diesen `*.log`-Pfad erfassen.                                                                                                      |
+| `/etc/nginx/sites-available/uranus-admin`                                  | Bestehenden Vhost aktualisieren. Der vorhandene sites-enabled-Symlink muss bereits genau hierhin zeigen.                                                                                                           |
+| `/etc/nginx/conf.d/uranus-admin-logging.conf`                              | Eigenes Access-Logformat ohne Querystring, Referer, Cookies, User-Agent oder fremdes X-Forwarded-For.                                                                                                              |
+| `/var/log/nginx/uranus-admin-access.log`                                   | Nginx schreibt das dedizierte Log; vorhandene Nginx-Logrotation muss diesen `*.log`-Pfad erfassen.                                                                                                                 |
 
 Zusätzlich schreibt Nginx `/var/log/nginx/uranus-admin-error.log` mit Level `warn`
 für HTTP und HTTPS. Die Rolle verändert keine globale Logrotate-Konfiguration.
 
-Der neue Release-Pfad ist eine bewusst zu prüfende Änderung gegenüber dem bestehenden
-Checkout unter `/home/oklab/build`. Keine automatische Release-/Cache-/Backup-Bereinigung.
-Ausreichend freien Speicher bereitstellen. Ansible installiert und prüft die benötigte
+Der laufende Checkout unter `/home/oklab/build/uranus-admin` wird beim Build nicht
+überschrieben. uv/pnpm arbeiten in `.deployment-builds/<commit>` darunter. Nur die
+fertige Runtime liegt unter `/var/lib/uranus-admin/releases/<commit>`: Backend-Quellen,
+die direkt am endgültigen Pfad angelegte Python-Umgebung und die standalone Nitro-Ausgabe.
+`UV_PROJECT_ENVIRONMENT` legt die Python-Umgebung direkt am späteren Runtime-Pfad an.
+Sie wird nicht verschoben; Interpreterlinks und Shebangs bleiben nach dem Aufräumen
+gültig. Nitro-Links außerhalb der kopierten
+`.output` werden vor Aktivierung verweigert. Releases und Toolchain liegen unter
+root-kontrollierten Elternverzeichnissen; der Runtime-Benutzer kann sie nicht durch
+Umbenennen eines schreibbaren Home-Elternverzeichnisses ersetzen.
+
+**READ ONLY:** Vor Downloads oder DB-Zugriff prüft Ansible die Mount-Tabelle und alle
+Elternpfade von Build-, Runtime-/Toolchain- und Cache-Verzeichnissen. Nur `ext4`, `xfs`,
+`btrfs` und `zfs` sind zugelassen; NFS, CIFS, unbekannte Dateisysteme, Symlink-Eltern,
+zusätzliche Mounts innerhalb der verwalteten Bäume und Read-only-Dateisysteme führen
+zum Abbruch. Mindestens **6 GiB** müssen auf jedem betroffenen Dateisystem frei sein
+(`ua_min_free_bytes`, nur nach oben anpassbar). Das ist eine Reserve, keine Garantie
+für die Größe künftiger Dependencies. Check Mode prüft dieselben Voraussetzungen
+ohne Dateien anzulegen oder Speicher automatisch freizugeben.
+
+Alte Dateien unter `/opt/uranus-admin` werden weder verwendet noch automatisch
+verschoben, übernommen oder gelöscht. Alte `ua_root`-Overrides müssen entfernt werden;
+es gibt keinen NFS-Fallback. Keine automatische Release-/Cache-/Backup-Bereinigung.
+Ansible installiert und prüft die benötigte
 isolierte Toolchain selbst; globale Runtime-Versionen werden nicht ersetzt oder verwendet.
 Der Build lädt gesperrte Dependencies, kann also Paketregistry-Zugriff benötigen.
 Das Artefakt enthält `pnpm-workspace.yaml` einschließlich der erlaubten Build-Scripts.
 Keine Secrets, Tests oder Test-Fixtures gelangen in das Release-Archiv.
 
+### Drei abgeschlossene Build-Arbeitsverzeichnisse behalten
+
+`ua_cleanup_builds: true` ist der Standard. **CHANGES SYSTEM CONFIGURATION:** Erst
+nach erfolgreicher Aktivierung und allen Healthchecks entfernt Ansible als `oklab`
+ältere abgeschlossene Arbeitsverzeichnisse ausschließlich unter
+`/home/oklab/build/uranus-admin/.deployment-builds`. Die drei neuesten werden anhand
+der Änderungszeit ihres gültigen `.build-complete`-Markers behalten, bei Gleichstand
+entscheidet die Commit-ID. Der Build des aktuellen Deployments bleibt zusätzlich
+geschützt, auch bei einem bewusst älteren Release; dann können mehr als drei bleiben.
+
+Nur Verzeichnisse mit vollständiger 40-stelliger Commit-ID und gültigem Abschlussmarker
+sind Kandidaten. Unbekannte und unvollständige Verzeichnisse bleiben erhalten und werden
+gezählt. Symlink-Eltern, umgeleitete Kandidaten/Marker, abweichende Eigentümer, unsichere
+Rechte und Mounts im Build-Baum führen zum Abbruch. Dateideskriptor-basierte Entfernung
+folgt keinen internen Symlinks. Im Check Mode wird nur `would_remove` gemeldet; ein
+fehlgeschlagenes Deployment oder dessen Recovery erreicht die Bereinigung nicht.
+Ein Bereinigungsfehler nach erfolgreicher Aktivierung wird gemeldet, löst aber keinen
+Rollback der gesunden Anwendung aus. `ua_cleanup_builds: false` deaktiviert die Funktion.
+
+Runtime-Releases, `current`, Toolchain, laufender Checkout, Secrets, Recovery-Snapshots,
+Backup-Dateien und Datenbanken liegen außerhalb dieses Löschbereichs. Diese Funktion
+ist kein SQL-Cleanup und behebt keine volle Platte durch ungeprüftes Löschen.
+
 ## Isolierte, von Ansible verwaltete Toolchain
 
-**CHANGES SYSTEM CONFIGURATION**, ausschließlich unter `/opt/uranus-admin/toolchain`.
+**CHANGES SYSTEM CONFIGURATION**, ausschließlich unter `/var/lib/uranus-admin/toolchain`.
 Auf dem Zielhost ist keine manuelle Python-/uv-/Node-/pnpm-Installation mehr erforderlich.
 `/usr/bin/python3`, `/usr/bin/node`, `/usr/bin/pnpm`, `/usr/local/bin/uv` und globale
 Package-Manager-Zustände bleiben unverändert. Der vorhandene Ubuntu-Systeminterpreter
@@ -206,10 +251,10 @@ Installationen müssen erhalten bleiben, solange ältere Releases sie referenzie
 Finale ausführbare Pfade:
 
 ```text
-/opt/uranus-admin/toolchain/python-3.13.15-20260807/bin/python3.13
-/opt/uranus-admin/toolchain/uv-0.12.5/uv
-/opt/uranus-admin/toolchain/node-22.22.3/bin/node
-/opt/uranus-admin/toolchain/pnpm-12.3.4/pnpm
+/var/lib/uranus-admin/toolchain/python-3.13.15-20260807/bin/python3.13
+/var/lib/uranus-admin/toolchain/uv-0.12.5/uv
+/var/lib/uranus-admin/toolchain/node-22.22.3/bin/node
+/var/lib/uranus-admin/toolchain/pnpm-12.3.4/pnpm
 ```
 
 pnpm 12.3.4 ist ein natives Binary. Sein npm-Launcher würde ein weiteres Binary
@@ -230,9 +275,10 @@ berechtigt nicht zur Wiederverwendung einer Umgebung mit globalem oder anderem P
 Bei Abweichung wird ohne Reparatur/Überschreiben abgebrochen; ein neues geprüftes Release
 ist erforderlich.
 
-Reihenfolge: Input-/Apply-Gates → Host-/OS-/Nginx-Prüfung → Toolchain-Inspektion →
+Reihenfolge: Input-/Apply-Gates → Host-/OS-/lokale Speicher-/Nginx-Prüfung → Toolchain-Inspektion →
 bei freigegebenem Echtlauf Provisionierung und Verifikation → unveränderter READ-ONLY-
-DB-Preflight → Environment-Plan → Release-Bau/Runtime-Prüfung → Aktivierung/Recovery.
+DB-Preflight → Environment-Plan → lokaler Build/Runtime-Prüfung → Aktivierung/Recovery
+→ nur bei Erfolg begrenzte Build-Aufbewahrung.
 Ein Toolchain-Fehler erreicht weder DB-Prüfung noch Secret-Übernahme, Nginx-Mutation
 oder Service-Stop. Die Activation-Recovery bleibt unverändert und greift auf keine DB zu.
 
@@ -330,7 +376,7 @@ neuer Recovery-Snapshot; es laufen nur Healthchecks. Bereits gestoppte betroffen
 App-Services werden bei Erfolg gestartet, bei Fehler dagegen in ihrem alten Zustand belassen.
 Check-Jobs können durch Unterbrechung ihre Lease verlieren und regulär fehlschlagen;
 kein automatisches Requeue oder Resetten. Ein unvollständiger Build wird nicht aktiviert;
-keine automatische Löschung von Releases, Build-Resten oder Snapshots.
+keine automatische Löschung von Releases, unvollständigen Build-Resten oder Snapshots.
 
 ## Secrets und Production-Debug
 
@@ -388,6 +434,8 @@ Die Rolle installiert keine konkurrierende Rotation und verändert keine globale
 
 Der Release-Bau bereitet Python-Abhängigkeiten mit
 `uv run --locked --no-dev --no-env-file --python <Python-Pfad> python --version` vor.
+Arbeitsverzeichnis ist der separate lokale Build; `UV_PROJECT_ENVIRONMENT` zeigt auf
+`/var/lib/uranus-admin/releases/<commit>/backend/.venv`, damit dieser Pfad nie umgezogen wird.
 Dieser Aufruf installiert nur die gesperrten Runtime-Abhängigkeiten und startet keine
 Anwendung. `uv` verwaltet dabei intern weiterhin eine virtuelle Umgebung im Release;
 ein vollständig venv-freier Python-Betrieb ist damit nicht gemeint. Anschließend wird
@@ -563,6 +611,12 @@ Sie prüfen exakte Versionen, Hashes, Eigentümer, Rechte, Symlinks, unbekannte 
 Abbruch ohne Reparatur, Idempotenz, Pfadisolation und Reihenfolge vor dem DB-Preflight.
 Der lokale Smoke-Test der vier oben gepinnten echten Archive ist zusätzlich erforderlich,
 wenn Pins geändert werden.
+
+Lokale Speicher-/Retention-Tests prüfen NFS-Abweisung, Symlink- und Mount-Grenzen,
+Speicherreserve, reine Check-Mode-Planung, Aufbewahrung von drei Builds, Schutz des
+aktuellen und unvollständiger Builds, Idempotenz und den Erhalt externer Daten bei
+internen Symlinks. Ein echter uv-Fixture-Test entfernt das Build-Verzeichnis und startet
+danach weiterhin erfolgreich die unabhängig vorbereitete Runtime-Umgebung.
 
 Die reine Backend-Umgebung enthält keine Ansible-/PyYAML-/psycopg2-Testabhängigkeiten.
 Alternativ zum obigen Controller-Testaufruf funktioniert ohne Änderung der Backend-Dependencies:

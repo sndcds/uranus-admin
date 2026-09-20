@@ -13,8 +13,12 @@ ua_disable_notification_timer_approved: false
 ua_secret_adoption_approved: false
 ua_debug: false
 ua_runtime_overrides: {}
-ua_root: /opt/uranus-admin
+ua_root: /var/lib/uranus-admin
 ua_legacy_root: /home/oklab/build/uranus-admin
+ua_build_root: /home/oklab/build/uranus-admin/.deployment-builds
+# Free-space floor for build, release/toolchain and cache filesystems (not a size guarantee).
+ua_min_free_bytes: 6442450944
+ua_cleanup_builds: true
 ua_config_dir: /etc/uranus-admin
 ua_service_user: oklab
 ua_service_group: oklab

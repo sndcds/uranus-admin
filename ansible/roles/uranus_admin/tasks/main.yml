@@ -12,6 +12,8 @@
     msg:
       - "Database: oklab. Expected admin head: {{ ua_manifest.head }}. Database changes: NONE."
       - "Release: {{ ua_release_dir }}. Artifact: {{ ua_artifact_sha256 }}."
+      - "Local build: {{ ua_build_dir }}. Runtime/toolchain: {{ ua_root }}. Network storage is refused."
+      - "Build retention: {{ 'keep three newest completed workspaces plus current build; only after successful deployment' if ua_cleanup_builds | bool else 'disabled' }}. Runtime releases and backups are never removed."
       - "Secrets: preserve passwords; archive privileged entries root-only; legacy backend .env changes only with notification management."
       - "Notifications: {{ 'explicitly managed with separate approval' if ua_manage_notification_timer | bool else 'timer, service and shared legacy environment unchanged' }}."
       - "New runtime has SMTP delivery disabled. Existing unmanaged notifications retain their configuration. No URL/geocode worker activation."
@@ -21,3 +23,23 @@
 - name: Prepare and activate only the explicitly approved release
   ansible.builtin.import_tasks: deploy.yml
   when: ua_action == 'deploy'
+
+- name: Retain three completed local builds only after successful deployment or plan in check mode
+  uranus_build_retention:
+    current_release: "{{ ua_release_sha }}"
+  become_user: oklab
+  when:
+    - ua_action == 'deploy'
+    - ua_cleanup_builds | bool
+  register: ua_build_retention
+
+- name: Report build retention without touching runtime releases or backups
+  ansible.builtin.debug:
+    msg:
+      would_remove: "{{ ua_build_retention.would_remove }}"
+      removed: "{{ ua_build_retention.removed }}"
+      kept: "{{ ua_build_retention.kept }}"
+      unknown_or_incomplete_skipped: "{{ ua_build_retention.skipped }}"
+  when:
+    - ua_action == 'deploy'
+    - ua_cleanup_builds | bool
