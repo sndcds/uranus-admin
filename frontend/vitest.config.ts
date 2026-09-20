@@ -10,5 +10,9 @@ export default defineConfig({
       '#shared': fileURLToPath(new URL('./shared', import.meta.url)),
     },
   },
-  test: { environment: 'happy-dom', include: ['tests/unit/**/*.test.ts'] },
+  test: {
+    environment: 'happy-dom',
+    include: ['tests/unit/**/*.test.ts'],
+    setupFiles: ['tests/unit/setup.ts'],
+  },
 })

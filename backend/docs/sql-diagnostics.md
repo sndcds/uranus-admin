@@ -207,3 +207,5 @@ Python: url_problem() prüft das gespeicherte Finding-Feld. Keine DNS- oder HTTP
 SELECT uuid, name, web_link FROM uranus.organization WHERE uuid = :entity_key
 LIMIT :diagnostic_limit
 ```
+
+[SQL / Datenherkunft – registrierte Queries, Sicherheitsmodell und Coverage](sql-provenance.md).

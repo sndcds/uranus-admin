@@ -13,6 +13,7 @@ from app.admin_tables import geocode_request as request
 from app.config import Settings
 from app.errors import APIError
 from app.repositories.geocode_sources import lookup_sources
+from app.repositories.query import ReadQuery
 from app.schemas.geocode import (
     GeocodeCandidate,
     GeocodeFilters,
@@ -269,23 +270,25 @@ async def retry(admin: AsyncConnection, source: AsyncConnection, key: UUID) -> N
         )
 
 
+def candidate_query(jobs: list[dict[str, Any]]) -> ReadQuery:
+    return ReadQuery(
+        select(candidate)
+        .where(
+            tuple_(candidate.c.request_id, candidate.c.generation).in_(
+                [(job["id"], job["generation"]) for job in jobs]
+            )
+        )
+        .order_by(candidate.c.request_id, candidate.c.rank)
+    )
+
+
 async def enrich(
     admin: AsyncConnection, source: AsyncConnection, jobs: list[dict[str, Any]]
 ) -> list[GeocodeRequestDetail]:
     sources = await lookup_sources(source, jobs)
     groups: dict[UUID, list[GeocodeCandidate]] = {}
     if jobs:
-        rows = (
-            await admin.execute(
-                select(candidate)
-                .where(
-                    tuple_(candidate.c.request_id, candidate.c.generation).in_(
-                        [(job["id"], job["generation"]) for job in jobs]
-                    )
-                )
-                .order_by(candidate.c.request_id, candidate.c.rank)
-            )
-        ).mappings()
+        rows = (await admin.execute(candidate_query(jobs).statement)).mappings()
         for row in rows:
             groups.setdefault(row["request_id"], []).append(
                 GeocodeCandidate.model_validate(dict(row))
@@ -322,34 +325,12 @@ async def page(
     admin: AsyncConnection, source: AsyncConnection, filters: GeocodeFilters
 ) -> GeocodePage:
     async with admin.begin():
-        predicates = []
-        if filters.status:
-            predicates.append(request.c.status == filters.status)
-        if filters.entity_type:
-            predicates.append(request.c.entity_type == filters.entity_type)
-        total = (
-            await admin.execute(select(func.count()).select_from(request).where(*predicates))
-        ).scalar_one()
-        jobs = [
-            dict(row)
-            for row in (
-                await admin.execute(
-                    select(request)
-                    .where(*predicates)
-                    .order_by(request.c.updated_at.desc(), request.c.id)
-                    .offset((filters.page - 1) * filters.page_size)
-                    .limit(filters.page_size)
-                )
-            ).mappings()
-        ]
+        queries = geocode_queries(filters)
+        total = (await admin.execute(queries["count"].statement)).scalar_one()
+        jobs = [dict(row) for row in (await admin.execute(queries["records"].statement)).mappings()]
         details = await enrich(admin, source, jobs)
         counts = {
-            row[0]: row[1]
-            for row in (
-                await admin.execute(
-                    select(request.c.status, func.count()).group_by(request.c.status)
-                )
-            )
+            row[0]: row[1] for row in (await admin.execute(queries["status_counts"].statement))
         }
 
     return GeocodePage.model_validate(
@@ -373,7 +354,32 @@ async def detail(
     admin: AsyncConnection, source: AsyncConnection, key: UUID
 ) -> GeocodeRequestDetail:
     async with admin.begin():
-        row = (await admin.execute(select(request).where(request.c.id == key))).mappings().first()
+        row = (await admin.execute(geocode_detail_query(key))).mappings().first()
         if row is None:
             raise APIError(404, "geocode_request_not_found", "Location request not found.")
         return (await enrich(admin, source, [dict(row)]))[0]
+
+
+def geocode_detail_query(key: UUID) -> Any:
+    return select(request).where(request.c.id == key)
+
+
+def geocode_queries(filters: GeocodeFilters) -> dict[str, ReadQuery]:
+    predicates = []
+    if filters.status:
+        predicates.append(request.c.status == filters.status)
+    if filters.entity_type:
+        predicates.append(request.c.entity_type == filters.entity_type)
+    return {
+        "count": ReadQuery(select(func.count()).select_from(request).where(*predicates)),
+        "records": ReadQuery(
+            select(request)
+            .where(*predicates)
+            .order_by(request.c.updated_at.desc(), request.c.id)
+            .offset((filters.page - 1) * filters.page_size)
+            .limit(filters.page_size)
+        ),
+        "status_counts": ReadQuery(
+            select(request.c.status, func.count()).group_by(request.c.status)
+        ),
+    }

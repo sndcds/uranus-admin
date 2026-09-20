@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { SqlDiagnosticResult } from '#shared/contracts'
-defineProps<{ columns: SqlDiagnosticResult['columns']; rows: SqlDiagnosticResult['rows'] }>()
+defineProps<{ columns: string[]; rows: Record<string, string | number | boolean | null>[] }>()
 </script>
 <template>
   <div>

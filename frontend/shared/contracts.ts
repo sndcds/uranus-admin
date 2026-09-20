@@ -1247,3 +1247,5 @@ export const sqlDiagnosticResultSchema = z
   )
 export type SqlDiagnosticDefinition = z.infer<typeof sqlDiagnosticDefinitionSchema>
 export type SqlDiagnosticResult = z.infer<typeof sqlDiagnosticResultSchema>
+
+export { provenanceDefinitionSchema, provenanceResultSchema } from './sql-provenance'

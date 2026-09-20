@@ -6,10 +6,23 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.repositories.query import ReadQuery
 from app.repositories.spatial import SPATIAL_TYPES, spatial_predicate
 from app.schemas.finding import Finding
 
 MEMBERSHIP_BATCH_SIZE = 500
+
+
+def membership_query(kind: str, ids: list[UUID], geo_scope_wkb: bytes) -> ReadQuery:
+    if kind not in SPATIAL_TYPES:
+        raise ValueError("Unknown spatial entity kind")
+    return ReadQuery(
+        text(
+            "SELECT a.entity_key FROM unnest(CAST(:ids AS uuid[])) a(entity_key) WHERE "
+            + spatial_predicate(kind, key_expression="a.entity_key")
+        ),
+        {"ids": ids, "geo_scope_wkb": geo_scope_wkb},
+    )
 
 
 async def spatial_membership(
@@ -30,11 +43,12 @@ async def spatial_membership(
         ids = list(keys)
         for start in range(0, len(ids), MEMBERSHIP_BATCH_SIZE):
             rows = await source.execute(
-                text(
-                    "SELECT a.entity_key FROM unnest(CAST(:ids AS uuid[])) a(entity_key) WHERE "
-                    + spatial_predicate(kind, key_expression="a.entity_key")
-                ),
-                {"ids": ids[start : start + MEMBERSHIP_BATCH_SIZE], "geo_scope_wkb": geo_scope_wkb},
+                membership_query(
+                    kind, ids[start : start + MEMBERSHIP_BATCH_SIZE], geo_scope_wkb
+                ).statement,
+                membership_query(
+                    kind, ids[start : start + MEMBERSHIP_BATCH_SIZE], geo_scope_wkb
+                ).parameters,
             )
             for identity in rows.scalars():
                 eligible.update((kind, key) for key in keys[identity])

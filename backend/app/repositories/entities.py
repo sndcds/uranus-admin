@@ -15,6 +15,7 @@ from app.repositories.activity_previews import activity_previews
 from app.repositories.created_period import created_period_filter, require_timezone
 from app.repositories.entity_search import ORGANIZATION_FILTER, SEARCH_DEFINITIONS, escape_search
 from app.repositories.graph import RELATIONS
+from app.repositories.query import ReadQuery
 from app.repositories.spatial import spatial_predicate
 from app.repositories.temporal import temporal_predicate
 from app.schemas.action import Action
@@ -121,14 +122,13 @@ async def records(
     ]
 
 
-async def entity_page(
-    connection: AsyncConnection,
+def entity_page_queries(
     settings: Settings,
     section: EntitySection,
     filters: EntityFilters,
     now: datetime,
     geo_scope_wkb: bytes | None = None,
-) -> EntityPage:
+) -> dict[str, ReadQuery]:
     kind = SECTIONS[section]
     spatial = spatial_predicate(kind, filters.temporal) if geo_scope_wkb is not None else "TRUE"
     temporal = (
@@ -162,17 +162,35 @@ async def entity_page(
         WHERE {search}
         AND (CAST(:status AS text) IS NULL OR status=:status)
         AND {ORGANIZATION_FILTER} AND {temporal} AND {period_sql} AND {spatial}"""
-    total = int(
-        (await connection.execute(text(f"SELECT count(*) FROM ({base}) a"), params)).scalar_one()
-    )
-    rows = (
-        await connection.execute(
+    return {
+        "count": ReadQuery(text(f"SELECT count(*) FROM ({base}) a"), params),
+        "records": ReadQuery(
             text(f"""SELECT entity_type,entity_key,entity_name,
         organization_id,organization_name,status,created_at AT TIME ZONE :tz created_at
         FROM ({base}) a ORDER BY lower(entity_name) COLLATE "C",entity_key COLLATE "C"
         LIMIT :size OFFSET :offset"""),
             params,
-        )
+        ),
+    }
+
+
+async def entity_page(
+    connection: AsyncConnection,
+    settings: Settings,
+    section: EntitySection,
+    filters: EntityFilters,
+    now: datetime,
+    geo_scope_wkb: bytes | None = None,
+) -> EntityPage:
+    kind = SECTIONS[section]
+    queries = entity_page_queries(settings, section, filters, now, geo_scope_wkb)
+    total = int(
+        (
+            await connection.execute(queries["count"].statement, queries["count"].parameters)
+        ).scalar_one()
+    )
+    rows = (
+        await connection.execute(queries["records"].statement, queries["records"].parameters)
     ).mappings()
     return EntityPage(
         items=await records(connection, settings, kind, [dict(r) for r in rows], now),
@@ -218,6 +236,40 @@ def related_sql(kind: str) -> str:
     return " UNION ".join(branches)
 
 
+def entity_detail_queries(
+    settings: Settings,
+    section: EntitySection,
+    key: UUID,
+    page: int,
+    now: datetime,
+) -> dict[str, ReadQuery]:
+    kind = SECTIONS[section]
+    params = {
+        "key": str(key),
+        "id": key,
+        "tz": require_timezone(settings),
+        "offset": (page - 1) * 25,
+    }
+    base = f"""WITH links(entity_type,entity_key) AS ({related_sql(kind)}), a AS ({ACTIVITY_SQL})
+        SELECT a.* FROM a JOIN links USING (entity_type,entity_key)"""
+    return {
+        "record": ReadQuery(
+            text(f"""SELECT entity_type,entity_key,entity_name,
+        organization_id,organization_name,status,created_at AT TIME ZONE :tz created_at
+        FROM ({SOURCES[kind]}) a WHERE entity_key=:key"""),
+            params,
+        ),
+        "related_count": ReadQuery(text(f"SELECT count(*) FROM ({base}) r"), params),
+        "related": ReadQuery(
+            text(f"""SELECT entity_type,entity_key,entity_name,
+        organization_id,organization_name,status,created_at AT TIME ZONE :tz created_at
+        FROM ({base}) r ORDER BY entity_type COLLATE "C",lower(entity_name) COLLATE "C",entity_key
+        LIMIT 25 OFFSET :offset"""),
+            params,
+        ),
+    }
+
+
 async def entity_detail(
     connection: AsyncConnection,
     settings: Settings,
@@ -227,39 +279,23 @@ async def entity_detail(
     now: datetime,
 ) -> EntityDetail:
     kind = SECTIONS[section]
-    params = {
-        "key": str(key),
-        "id": key,
-        "tz": require_timezone(settings),
-        "offset": (page - 1) * 25,
-    }
+    queries = entity_detail_queries(settings, section, key, page, now)
     row = (
-        (
-            await connection.execute(
-                text(f"""SELECT entity_type,entity_key,entity_name,
-        organization_id,organization_name,status,created_at AT TIME ZONE :tz created_at
-        FROM ({SOURCES[kind]}) a WHERE entity_key=:key"""),
-                params,
-            )
-        )
+        (await connection.execute(queries["record"].statement, queries["record"].parameters))
         .mappings()
         .first()
     )
     if row is None:
         raise APIError(404, "record_not_found", "Record not found.")
-    base = f"""WITH links(entity_type,entity_key) AS ({related_sql(kind)}), a AS ({ACTIVITY_SQL})
-        SELECT a.* FROM a JOIN links USING (entity_type,entity_key)"""
     total = int(
-        (await connection.execute(text(f"SELECT count(*) FROM ({base}) r"), params)).scalar_one()
+        (
+            await connection.execute(
+                queries["related_count"].statement, queries["related_count"].parameters
+            )
+        ).scalar_one()
     )
     related = (
-        await connection.execute(
-            text(f"""SELECT entity_type,entity_key,entity_name,
-        organization_id,organization_name,status,created_at AT TIME ZONE :tz created_at
-        FROM ({base}) r ORDER BY entity_type COLLATE "C",lower(entity_name) COLLATE "C",entity_key
-        LIMIT 25 OFFSET :offset"""),
-            params,
-        )
+        await connection.execute(queries["related"].statement, queries["related"].parameters)
     ).mappings()
     return EntityDetail(
         item=(await records(connection, settings, kind, [dict(row)], now))[0],
@@ -280,9 +316,14 @@ async def workflow_counts(admin: AsyncConnection, items: list[EntityRecord]) -> 
         conditions = [table.c.entity_type == kind, table.c.entity_key.in_(keys)]
         if field == "finding_count":
             conditions.append(table.c.status != "resolved")
-        rows = await admin.execute(
-            select(table.c.entity_key, func.count()).where(*conditions).group_by(table.c.entity_key)
-        )
+        query = workflow_count_query(table, conditions)
+        rows = await admin.execute(query.statement, query.parameters)
         counts = dict(rows.tuples().all())
         for item in items:
             setattr(item, field, counts.get(item.entity_key, 0))
+
+
+def workflow_count_query(table: Any, conditions: list[Any]) -> ReadQuery:
+    return ReadQuery(
+        select(table.c.entity_key, func.count()).where(*conditions).group_by(table.c.entity_key), {}
+    )

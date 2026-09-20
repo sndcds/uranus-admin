@@ -233,3 +233,5 @@ inferred. The global create control stays disabled until a verified server-side
 Uranus delegation and per-operation authorization contract exists. There is no client
 capability override or browser-visible Uranus credential. See the current audit in
 `backend/docs/open-issues-audit.md` and the write-contract matrix in `backend/docs/contracts.md`.
+
+[SQL / Datenherkunft – registrierte Queries, Sicherheitsmodell und Coverage](../backend/docs/sql-provenance.md).

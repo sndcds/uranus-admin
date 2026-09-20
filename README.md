@@ -112,3 +112,5 @@ Organization email notifications (DE/DA/EN) use a separate durable worker:
 Migration 0008 and explicit notification runtime grants are required. Delivery defaults off;
 inspect `/notifications` and previews before enabling SMTP. See the
 [notification architecture, source verification and deployment guide](backend/docs/notifications.md).
+
+[SQL / Datenherkunft – registrierte Queries, Sicherheitsmodell und Coverage](backend/docs/sql-provenance.md).

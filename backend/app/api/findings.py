@@ -10,6 +10,7 @@ from app.admin_database import connect_admin
 from app.admin_tables import geocode_request
 from app.database import SettingsDep, get_connection
 from app.errors import APIError
+from app.repositories.query import ReadQuery
 from app.schemas.finding import FindingFilters, FindingPage
 from app.services.checks import persisted_page
 from app.services.geo.scopes import request_geo_scope
@@ -69,22 +70,24 @@ async def with_suggestions(request: Request, page: FindingPage) -> FindingPage:
                 continue
     if not identities or request.app.state.admin_engine is None:
         return page
+    query = suggestions_query(identities)
     async with connect_admin(request) as admin:
-        rows = (
-            await admin.execute(
-                select(
-                    geocode_request.c.id,
-                    geocode_request.c.entity_type,
-                    geocode_request.c.entity_key,
-                ).where(
-                    tuple_(geocode_request.c.entity_type, geocode_request.c.entity_key).in_(
-                        identities
-                    )
-                )
-            )
-        ).mappings()
+        rows = (await admin.execute(query.statement, query.parameters)).mappings()
         by_entity = {(row["entity_type"], str(row["entity_key"])): row["id"] for row in rows}
     for item in page.items:
         if item.rule in {"organization_missing_location", "venue_missing_location"}:
             item.location_suggestion_request_id = by_entity.get((item.entity_type, item.entity_key))
     return page
+
+
+def suggestions_query(identities: list[tuple[str, UUID]]) -> ReadQuery:
+    return ReadQuery(
+        select(
+            geocode_request.c.id,
+            geocode_request.c.entity_type,
+            geocode_request.c.entity_key,
+        ).where(
+            tuple_(geocode_request.c.entity_type, geocode_request.c.entity_key).in_(identities)
+        ),
+        {},
+    )

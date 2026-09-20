@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.admin_tables import check_run, finding
 from app.config import Settings
 from app.errors import APIError
+from app.repositories.query import ReadQuery
 from app.repositories.spatial import SPATIAL_TYPES
 from app.repositories.venues import RULE
 from app.schemas.checks import CheckRun, ReviewUpdate
@@ -387,6 +388,49 @@ def stored_priority_score() -> Any:
     return func.coalesce(finding.c.metadata["finding"]["priority_score"].as_integer(), fallback)
 
 
+def persisted_conditions(filters: FindingFilters) -> list[Any]:
+    conditions = []
+    if filters.active_only:
+        conditions.append(finding.c.status != "resolved")
+    for key in ("severity", "entity_type", "entity_key", "rule", "status"):
+        if (value := getattr(filters, key)) is not None:
+            conditions.append(finding.c[key] == value)
+    if filters.organization_id is not None:
+        conditions.append(
+            finding.c.metadata["finding"]["organization_id"].as_string()
+            == str(filters.organization_id)
+        )
+    return conditions
+
+
+def persisted_queries(filters: FindingFilters) -> dict[str, ReadQuery]:
+    cursor_mode = filters.cursor is not None
+    expected_scope = scope(filters)
+    position = (
+        decode(filters.cursor, FindingCursor, expected_scope)
+        if filters.cursor is not None and filters.cursor != "start"
+        else None
+    )
+    conditions = persisted_conditions(filters)
+    count = ReadQuery(select(func.count()).select_from(finding).where(*conditions))
+    if position:
+        score = stored_priority_score()
+        conditions.append(
+            (score < position.priority_score)
+            | ((score == position.priority_score) & (finding.c.id.collate("C") > position.id))
+        )
+    return {
+        "count": count,
+        "records": ReadQuery(
+            select(*FINDING_COLUMNS)
+            .where(*conditions)
+            .order_by(stored_priority_score().desc(), finding.c.id.collate("C"))
+            .limit(filters.page_size + int(cursor_mode))
+            .offset(0 if cursor_mode else (filters.page - 1) * filters.page_size)
+        ),
+    }
+
+
 async def persisted_page(
     admin: AsyncConnection,
     filters: FindingFilters,
@@ -400,44 +444,11 @@ async def persisted_page(
         return await spatial_persisted_page(admin, source, filters, now, geo_scope_wkb)
     cursor_mode = filters.cursor is not None
     expected_scope = scope(filters)
-    position = (
-        decode(filters.cursor, FindingCursor, expected_scope)
-        if filters.cursor is not None and filters.cursor != "start"
-        else None
-    )
-    conditions = []
-    if filters.active_only:
-        conditions.append(finding.c.status != "resolved")
-    for key in ("severity", "entity_type", "entity_key", "rule", "status"):
-        if (value := getattr(filters, key)) is not None:
-            conditions.append(finding.c[key] == value)
-    if filters.organization_id is not None:
-        conditions.append(
-            finding.c.metadata["finding"]["organization_id"].as_string()
-            == str(filters.organization_id)
-        )
+    queries = persisted_queries(filters)
     async with admin.begin():
         await admin.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
-        total = int(
-            (
-                await admin.execute(select(func.count()).select_from(finding).where(*conditions))
-            ).scalar_one()
-        )
-        if position:
-            score = stored_priority_score()
-            conditions.append(
-                (score < position.priority_score)
-                | ((score == position.priority_score) & (finding.c.id.collate("C") > position.id))
-            )
-        rows = (
-            await admin.execute(
-                select(*FINDING_COLUMNS)
-                .where(*conditions)
-                .order_by(stored_priority_score().desc(), finding.c.id.collate("C"))
-                .limit(filters.page_size + int(cursor_mode))
-                .offset(0 if cursor_mode else (filters.page - 1) * filters.page_size)
-            )
-        ).mappings()
+        total = int((await admin.execute(queries["count"].statement)).scalar_one())
+        rows = (await admin.execute(queries["records"].statement)).mappings()
         items = [stored_finding(dict(row)) for row in rows]
         has_more = cursor_mode and len(items) > filters.page_size
         items = items[: filters.page_size]
@@ -479,32 +490,7 @@ async def persisted_counts(
         return await spatial_persisted_counts(admin, source, geo_scope_wkb)
     # Resolved records remain in history, but no longer count as current quality concerns.
     async with admin.begin():
-        rows = (
-            (
-                await admin.execute(
-                    select(
-                        func.count().label("total"),
-                        func.count().filter(finding.c.severity == "error").label("errors"),
-                        func.count().filter(finding.c.severity == "warning").label("warnings"),
-                        func.count().filter(finding.c.severity == "info").label("info"),
-                        func.count()
-                        .filter(
-                            (finding.c.metadata["finding"]["priority"].as_integer() <= 2)
-                            | finding.c.metadata["finding"]["priority_reasons"].contains(
-                                ["published_soon"]
-                            )
-                        )
-                        .label("urgent"),
-                        finding.c.rule,
-                    )
-                    .select_from(finding)
-                    .where(finding.c.status != "resolved")
-                    .group_by(finding.c.rule)
-                )
-            )
-            .mappings()
-            .all()
-        )
+        rows = (await admin.execute(persisted_count_query().statement)).mappings().all()
         return QualityCounts(
             total=sum(row["total"] for row in rows),
             errors=sum(row["errors"] for row in rows),
@@ -582,6 +568,15 @@ async def review(
         await unlock(admin)
 
 
+def spatial_stored_query(conditions: list[Any]) -> ReadQuery:
+    return ReadQuery(
+        select(*FINDING_COLUMNS)
+        .where(*conditions, finding.c.entity_type.in_(sorted(SPATIAL_TYPES)))
+        .order_by(stored_priority_score().desc(), finding.c.id.collate("C"))
+        .execution_options(yield_per=MEMBERSHIP_BATCH_SIZE)
+    )
+
+
 async def spatial_stored_rows(
     admin: AsyncConnection, source: AsyncConnection, conditions: list[Any], geo_scope_wkb: bytes
 ) -> AsyncIterator[dict[str, Any]]:
@@ -590,12 +585,7 @@ async def spatial_stored_rows(
     Each connection has its own read-only snapshot, not a distributed snapshot. No IDs
     for the complete result set are materialized. Source uses at most five queries/batch.
     """
-    query = (
-        select(*FINDING_COLUMNS)
-        .where(*conditions, finding.c.entity_type.in_(sorted(SPATIAL_TYPES)))
-        .order_by(stored_priority_score().desc(), finding.c.id.collate("C"))
-        .execution_options(yield_per=MEMBERSHIP_BATCH_SIZE)
-    )
+    query = spatial_stored_query(conditions).statement
     async with admin.stream(query) as result:
         async for batch in result.mappings().partitions(MEMBERSHIP_BATCH_SIZE):
             eligible = await spatial_membership(
@@ -620,17 +610,7 @@ async def spatial_persisted_page(
         if filters.cursor and filters.cursor != "start"
         else None
     )
-    conditions = []
-    if filters.active_only:
-        conditions.append(finding.c.status != "resolved")
-    for key in ("severity", "entity_type", "entity_key", "rule", "status"):
-        if (value := getattr(filters, key)) is not None:
-            conditions.append(finding.c[key] == value)
-    if filters.organization_id is not None:
-        conditions.append(
-            finding.c.metadata["finding"]["organization_id"].as_string()
-            == str(filters.organization_id)
-        )
+    conditions = persisted_conditions(filters)
     items: list[Finding] = []
     total = 0
     start = 0 if cursor_mode else (filters.page - 1) * filters.page_size
@@ -711,3 +691,24 @@ async def spatial_persisted_counts(
             urgent += item.priority <= 2 or "published_soon" in item.priority_reasons
     counts.rules = sorted(active_rules)
     return counts, urgent
+
+
+def persisted_count_query() -> ReadQuery:
+    return ReadQuery(
+        select(
+            func.count().label("total"),
+            func.count().filter(finding.c.severity == "error").label("errors"),
+            func.count().filter(finding.c.severity == "warning").label("warnings"),
+            func.count().filter(finding.c.severity == "info").label("info"),
+            func.count()
+            .filter(
+                (finding.c.metadata["finding"]["priority"].as_integer() <= 2)
+                | finding.c.metadata["finding"]["priority_reasons"].contains(["published_soon"])
+            )
+            .label("urgent"),
+            finding.c.rule,
+        )
+        .select_from(finding)
+        .where(finding.c.status != "resolved")
+        .group_by(finding.c.rule)
+    )

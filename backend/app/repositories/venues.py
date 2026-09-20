@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
+from app.repositories.query import ReadQuery
 from app.schemas.finding import FindingFilters, FindingStatus, Severity
 from app.services.quality.priority import venue_priority_score_sql
 
@@ -36,35 +37,40 @@ def matches_live_rule(filters: FindingFilters) -> bool:
     )
 
 
+def venue_queries(settings: Settings, filters: Any, now: datetime) -> dict[str, ReadQuery]:
+    params = query_parameters(settings, now, filters.organization_id)
+    params.update(limit=filters.page_size, offset=(filters.page - 1) * filters.page_size)
+    return {
+        "count": ReadQuery(text("SELECT COUNT(*) FROM (" + QUALITY_SQL + ") AS findings"), params),
+        "records": ReadQuery(
+            text(
+                "SELECT * FROM ("
+                + QUALITY_SQL
+                + """
+        ) AS findings
+        ORDER BY """
+                + venue_priority_score_sql()
+                + """ DESC, uuid
+        LIMIT :limit OFFSET :offset
+        """
+            ),
+            params,
+        ),
+    }
+
+
 async def list_missing_geolocation(
     connection: AsyncConnection, settings: Settings, filters: FindingFilters, now: datetime
 ) -> tuple[list[dict[str, Any]], int]:
     if not matches_live_rule(filters):
         return [], 0
-    params = query_parameters(settings, now, filters.organization_id)
-    # Fixed SQL structure only; all user values are bound parameters.
+    queries = venue_queries(settings, filters, now)
     total = int(
         (
-            await connection.execute(
-                text("SELECT COUNT(*) FROM (" + QUALITY_SQL + ") AS findings"), params
-            )
+            await connection.execute(queries["count"].statement, queries["count"].parameters)
         ).scalar_one()
     )
-    params.update(limit=filters.page_size, offset=(filters.page - 1) * filters.page_size)
-    result = await connection.execute(
-        text(
-            "SELECT * FROM ("
-            + QUALITY_SQL
-            + """
-        ) AS findings
-        ORDER BY """
-            + venue_priority_score_sql()
-            + """ DESC, uuid
-        LIMIT :limit OFFSET :offset
-        """
-        ),
-        params,
-    )
+    result = await connection.execute(queries["records"].statement, queries["records"].parameters)
     return [dict(row) for row in result.mappings()], total
 
 

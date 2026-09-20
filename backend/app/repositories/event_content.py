@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.repositories.query import ReadQuery
 from app.repositories.spatial import spatial_predicate
 from app.services.periods import PeriodWindow
 
@@ -83,14 +84,13 @@ WHERE s.window_id=1 ORDER BY s.dimension,r.rank
 """
 
 
-async def aggregate_event_content(
-    connection: AsyncConnection,
+def event_content_query(
     window: PeriodWindow | None,
     previous: PeriodWindow | None,
     timezone: str,
     status: str | None,
     geo_scope_wkb: bytes | None = None,
-) -> list[dict[str, Any]]:
+) -> ReadQuery:
     windows = [window, previous] if previous else [window]
     sql = CONTENT_SQL
     if geo_scope_wkb is not None:
@@ -98,7 +98,7 @@ async def aggregate_event_content(
             "), assignments AS",
             " AND " + spatial_predicate("event", key_expression="e.uuid") + "), assignments AS",
         )
-    result = await connection.execute(
+    return ReadQuery(
         text(sql),
         {
             "geo_scope_wkb": geo_scope_wkb,
@@ -108,4 +108,16 @@ async def aggregate_event_content(
             "status": status,
         },
     )
+
+
+async def aggregate_event_content(
+    connection: AsyncConnection,
+    window: PeriodWindow | None,
+    previous: PeriodWindow | None,
+    timezone: str,
+    status: str | None,
+    geo_scope_wkb: bytes | None = None,
+) -> list[dict[str, Any]]:
+    query = event_content_query(window, previous, timezone, status, geo_scope_wkb)
+    result = await connection.execute(query.statement, query.parameters)
     return [dict(row) for row in result.mappings()]

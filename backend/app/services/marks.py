@@ -10,6 +10,7 @@ from app.admin_tables import record_mark as marks
 from app.admin_tables import record_mark_event as events
 from app.errors import APIError
 from app.repositories.activity import ACTIVITY_SQL
+from app.repositories.query import ReadQuery
 from app.schemas.finding import Pagination
 from app.schemas.marks import Mark, MarkCreate, MarkDetail, MarkFilters, MarkPage, MarkUpdate
 from app.services.quality.core import entity_key
@@ -57,14 +58,10 @@ async def source_name(source: AsyncConnection, body: MarkCreate) -> str:
 
 
 async def detail_in_transaction(admin: AsyncConnection, mark_id: UUID) -> MarkDetail:
-    row = (await admin.execute(select(marks).where(marks.c.id == mark_id))).mappings().first()
+    row = (await admin.execute(mark_detail_query(mark_id))).mappings().first()
     if row is None:
         raise APIError(404, "mark_not_found", "Mark not found.")
-    history = (
-        await admin.execute(
-            select(events).where(events.c.mark_id == mark_id).order_by(events.c.version)
-        )
-    ).mappings()
+    history = (await admin.execute(mark_events_query(mark_id))).mappings()
     return MarkDetail.model_validate({**dict(row), "events": [dict(event) for event in history]})
 
 
@@ -138,7 +135,7 @@ async def update_mark(
         return await detail_in_transaction(admin, mark_id)
 
 
-async def mark_page(admin: AsyncConnection, filters: MarkFilters) -> MarkPage:
+def mark_queries(filters: MarkFilters) -> dict[str, ReadQuery]:
     conditions = []
     for field in ("entity_type", "entity_key", "urgency"):
         if (value := getattr(filters, field)) is not None:
@@ -155,18 +152,20 @@ async def mark_page(admin: AsyncConnection, filters: MarkFilters) -> MarkPage:
             case((marks.c.urgency == "urgent", 0), (marks.c.urgency == "high", 1), else_=2)
         )
     query = query.order_by(marks.c.created_at.desc(), marks.c.id)
+    return {
+        "count": ReadQuery(select(func.count()).select_from(marks).where(*conditions)),
+        "records": ReadQuery(
+            query.limit(filters.page_size).offset((filters.page - 1) * filters.page_size)
+        ),
+    }
+
+
+async def mark_page(admin: AsyncConnection, filters: MarkFilters) -> MarkPage:
+    queries = mark_queries(filters)
     async with admin.begin():
         await admin.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
-        total = int(
-            (
-                await admin.execute(select(func.count()).select_from(marks).where(*conditions))
-            ).scalar_one()
-        )
-        rows = (
-            await admin.execute(
-                query.limit(filters.page_size).offset((filters.page - 1) * filters.page_size)
-            )
-        ).mappings()
+        total = int((await admin.execute(queries["count"].statement)).scalar_one())
+        rows = (await admin.execute(queries["records"].statement)).mappings()
         return MarkPage(
             items=[Mark.model_validate(dict(row)) for row in rows],
             pagination=Pagination(
@@ -176,3 +175,11 @@ async def mark_page(admin: AsyncConnection, filters: MarkFilters) -> MarkPage:
                 pages=(total + filters.page_size - 1) // filters.page_size,
             ),
         )
+
+
+def mark_detail_query(mark_id: UUID) -> Any:
+    return select(marks).where(marks.c.id == mark_id)
+
+
+def mark_events_query(mark_id: UUID) -> Any:
+    return select(events).where(events.c.mark_id == mark_id).order_by(events.c.version)

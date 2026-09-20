@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.repositories.activity import creation_activity_sql
 from app.repositories.creation_sources import STATISTICS_SOURCES
+from app.repositories.query import ReadQuery
 from app.repositories.spatial import SPATIAL_TYPES, mixed_spatial_predicate, spatial_predicate
 from app.schemas.action import Action
 from app.schemas.statistics import EntityTimeSeries, RecentEntity
@@ -41,25 +42,33 @@ def aggregation_sql(source_timezone: str, geo: bool = False) -> str:
     )
 
 
+def aggregate_query(
+    windows: list[PeriodWindow],
+    timezone: str,
+    geo_scope_wkb: bytes | None = None,
+) -> ReadQuery:
+    return ReadQuery(
+        text(aggregation_sql(timezone, geo_scope_wkb is not None)),
+        {
+            "geo_scope_wkb": geo_scope_wkb,
+            "starts": [w.start for w in windows],
+            "ends": [w.end for w in windows],
+            "tz": timezone,
+            "start": windows[0].start,
+            "end": windows[-1].end,
+        },
+    )
+
+
 async def aggregate(
     connection: AsyncConnection,
     windows: list[PeriodWindow],
     timezone: str,
     geo_scope_wkb: bytes | None = None,
 ) -> list[EntityTimeSeries]:
-    rows = (
-        await connection.execute(
-            text(aggregation_sql(timezone, geo_scope_wkb is not None)),
-            {
-                "geo_scope_wkb": geo_scope_wkb,
-                "starts": [w.start for w in windows],
-                "ends": [w.end for w in windows],
-                "tz": timezone,
-                "start": windows[0].start,
-                "end": windows[-1].end,
-            },
-        )
-    ).mappings()
+    query = aggregate_query(windows, timezone, geo_scope_wkb)
+    result = await connection.execute(query.statement, query.parameters)
+    rows = result.mappings()
     grouped: dict[str, list[dict[str, Any]]] = {kind: [] for kind in STATISTICS_SOURCES}
     for row in rows:
         grouped[row["entity_type"]].append(
@@ -79,31 +88,39 @@ async def aggregate(
     ]
 
 
+def recent_query(
+    window: PeriodWindow,
+    timezone: str,
+    geo_scope_wkb: bytes | None = None,
+) -> ReadQuery:
+    return ReadQuery(
+        text(
+            "SELECT entity_type, entity_key, entity_name, organization_name, "
+            "created_at AT TIME ZONE :tz AS created_at "
+            f"FROM ({creation_activity_sql(True)}) a "
+            "WHERE created_at AT TIME ZONE :tz >= :start "
+            "AND created_at AT TIME ZONE :tz < :end "
+            + (" AND " + mixed_spatial_predicate() if geo_scope_wkb is not None else "")
+            + " ORDER BY created_at DESC, entity_type, entity_key LIMIT 7"
+        ),
+        {
+            "tz": timezone,
+            "start": window.start,
+            "end": window.end,
+            "geo_scope_wkb": geo_scope_wkb,
+        },
+    )
+
+
 async def recent_entities(
     connection: AsyncConnection,
     window: PeriodWindow,
     timezone: str,
     geo_scope_wkb: bytes | None = None,
 ) -> list[RecentEntity]:
-    rows = (
-        await connection.execute(
-            text(
-                "SELECT entity_type, entity_key, entity_name, organization_name, "
-                "created_at AT TIME ZONE :tz AS created_at "
-                f"FROM ({creation_activity_sql(True)}) a "
-                "WHERE created_at AT TIME ZONE :tz >= :start "
-                "AND created_at AT TIME ZONE :tz < :end "
-                + (" AND " + mixed_spatial_predicate() if geo_scope_wkb is not None else "")
-                + " ORDER BY created_at DESC, entity_type, entity_key LIMIT 7"
-            ),
-            {
-                "tz": timezone,
-                "start": window.start,
-                "end": window.end,
-                "geo_scope_wkb": geo_scope_wkb,
-            },
-        )
-    ).mappings()
+    query = recent_query(window, timezone, geo_scope_wkb)
+    result = await connection.execute(query.statement, query.parameters)
+    rows = result.mappings()
     items = []
     for row in rows:
         item = dict(row)
