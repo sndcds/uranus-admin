@@ -110,30 +110,14 @@
   failed_when: ua_timer.rc != 0 or ua_timer.stdout | trim != 'loaded'
   when: ua_manage_notification_timer | bool
 
-- name: Verify existing toolchain without installing system packages
-  ansible.builtin.command:
-    argv: "{{ item.argv }}"
-  loop:
-    - {
-        argv: ["{{ ua_python }}", --version],
-        expected: "Python {{ ua_manifest.python }}.",
-      }
-    - { argv: ["{{ ua_uv }}", --version], expected: "uv {{ ua_manifest.uv }}" }
-    - {
-        argv: ["{{ ua_node }}", --version],
-        expected: "v{{ ua_manifest.node }}",
-      }
-    - { argv: ["{{ ua_pnpm }}", --version], expected: "{{ ua_manifest.pnpm }}" }
-  register: ua_tool
-  changed_when: false
-  check_mode: false
-  failed_when: ua_tool.rc != 0 or item.expected not in ua_tool.stdout
-
 - name: Require a valid existing complete Nginx configuration
   ansible.builtin.command: /usr/sbin/nginx -t
   changed_when: false
   check_mode: false
   no_log: true
+
+- name: Inspect and provision the isolated toolchain before any database access
+  ansible.builtin.import_tasks: toolchain.yml
 
 - name: Read database identity and mandatory object guards
   community.postgresql.postgresql_query:

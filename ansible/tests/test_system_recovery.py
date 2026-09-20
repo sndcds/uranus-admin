@@ -276,6 +276,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "ua_runtime": {"APP_ENV": "production", "NOTIFICATIONS_DELIVERY_ENABLED": "false"},
                 "ua_privileged": {},
                 "ua_node": "/usr/bin/true",
+                "ua_uv": "/usr/bin/true",
                 "ansible_facts": {
                     "services": {
                         name: {"state": "running" if s["active"] else "stopped"}

@@ -11,4 +11,6 @@ all:
           ua_release_sha: "REPLACE_WITH_FULL_COMMIT_SHA"
           ua_artifact: "/absolute/controller/path/release.tar.gz"
           ua_artifact_sha256: "REPLACE_WITH_SHA256"
+          # Python/uv/Node/pnpm paths are derived from the reviewed toolchain pins.
+          # Do not override ua_python, ua_uv, ua_node or ua_pnpm.
           # No passwords, runtime DSNs or operator credentials belong in inventory.

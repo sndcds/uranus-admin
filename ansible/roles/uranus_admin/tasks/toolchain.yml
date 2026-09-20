@@ -1,0 +1,70 @@
+- name: Read reviewed toolchain pins from the controller repository
+  ansible.builtin.set_fact:
+    ua_toolchain_catalog: "{{ lookup('file', role_path + '/files/toolchain-pins.json') | from_json }}"
+
+- name: Inspect isolated toolchain without downloading or changing files
+  uranus_toolchain:
+    catalog: "{{ ua_toolchain_catalog }}"
+    manifest: "{{ ua_manifest }}"
+    state: inspect
+  register: ua_toolchain_inspection
+
+- name: Report missing isolated tools and verified existing tools
+  ansible.builtin.debug:
+    msg: "{{ ua_toolchain_inspection.plan if ua_toolchain_inspection.missing | length else ['Python, uv, Node and pnpm: pinned archives, installed files and versions OK; no changes'] }}"
+
+- name: Use only the managed version-specific toolchain paths
+  ansible.builtin.set_fact:
+    ua_python: "{{ ua_toolchain_inspection.paths.python }}"
+    ua_uv: "{{ ua_toolchain_inspection.paths.uv }}"
+    ua_node: "{{ ua_toolchain_inspection.paths.node }}"
+    ua_pnpm: "{{ ua_toolchain_inspection.paths.pnpm }}"
+    ua_build_path: "{{ ua_toolchain_inspection.paths.node | dirname }}:{{ ua_toolchain_inspection.paths.python | dirname }}:{{ ua_toolchain_inspection.paths.uv | dirname }}:/usr/bin:/bin"
+
+- name: Refuse manual toolchain path overrides
+  ansible.builtin.assert:
+    that:
+      - ua_python == ua_toolchain_inspection.paths.python
+      - ua_uv == ua_toolchain_inspection.paths.uv
+      - ua_node == ua_toolchain_inspection.paths.node
+      - ua_pnpm == ua_toolchain_inspection.paths.pnpm
+      - ua_build_path == (ua_toolchain_inspection.paths.node | dirname) + ':' + (ua_toolchain_inspection.paths.python | dirname) + ':' + (ua_toolchain_inspection.paths.uv | dirname) + ':/usr/bin:/bin'
+
+- name: Provision only during an approved real deployment before database inspection or activation
+  when:
+    - ua_action == 'deploy'
+    - not ansible_check_mode
+    - ua_toolchain_inspection.missing | length > 0
+  block:
+    - name: Create only previously inspected root-owned toolchain directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ ua_root }}"
+        - "{{ ua_root }}/toolchain"
+        - "{{ ua_root }}/toolchain/archives"
+
+    - name: Download only the exact reviewed archives with SHA256 verification
+      ansible.builtin.get_url:
+        url: "{{ item.url }}"
+        dest: "{{ ua_root }}/toolchain/archives/{{ item.directory }}.tar"
+        checksum: "sha256:{{ item.sha256 }}"
+        owner: root
+        group: root
+        mode: "0644"
+        timeout: 60
+        validate_certs: true
+        use_proxy: false
+      loop: "{{ ua_toolchain_inspection.missing }}"
+      loop_control:
+        label: "{{ item.tool }} {{ item.version }}"
+
+    - name: Safely install and verify pinned archives without touching global tools
+      uranus_toolchain:
+        catalog: "{{ ua_toolchain_catalog }}"
+        manifest: "{{ ua_manifest }}"
+        state: install

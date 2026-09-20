@@ -164,11 +164,114 @@ für HTTP und HTTPS. Die Rolle verändert keine globale Logrotate-Konfiguration.
 
 Der neue Release-Pfad ist eine bewusst zu prüfende Änderung gegenüber dem bestehenden
 Checkout unter `/home/oklab/build`. Keine automatische Release-/Cache-/Backup-Bereinigung.
-Ausreichend freien Speicher und eine bereits vorhandene Toolchain bereitstellen:
-Python 3.13, uv 0.12.5, Node 22.22.3, pnpm 12.3.4; Pfade in den Role-Defaults prüfen.
+Ausreichend freien Speicher bereitstellen. Ansible installiert und prüft die benötigte
+isolierte Toolchain selbst; globale Runtime-Versionen werden nicht ersetzt oder verwendet.
 Der Build lädt gesperrte Dependencies, kann also Paketregistry-Zugriff benötigen.
 Das Artefakt enthält `pnpm-workspace.yaml` einschließlich der erlaubten Build-Scripts.
 Keine Secrets, Tests oder Test-Fixtures gelangen in das Release-Archiv.
+
+## Isolierte, von Ansible verwaltete Toolchain
+
+**CHANGES SYSTEM CONFIGURATION**, ausschließlich unter `/opt/uranus-admin/toolchain`.
+Auf dem Zielhost ist keine manuelle Python-/uv-/Node-/pnpm-Installation mehr erforderlich.
+`/usr/bin/python3`, `/usr/bin/node`, `/usr/bin/pnpm`, `/usr/local/bin/uv` und globale
+Package-Manager-Zustände bleiben unverändert. Der vorhandene Ubuntu-Systeminterpreter
+führt weiterhin Ansible-Module aus; er ist kein Python-Interpreter für das Release.
+Die Controller-Aufrufe mit `uv run` bleiben wie unten beschrieben.
+
+Quelle der angeforderten Versionen ist `release.json`: `python`, `uv`, `node`, `pnpm`.
+Die geprüften Artefakte stehen in
+[`toolchain-pins.json`](roles/uranus_admin/files/toolchain-pins.json), nicht nochmals in
+Role-Defaults. Nur Ubuntu 24.04 auf `x86_64` wird unterstützt. Unbekannte Manifest-Versionen,
+Architekturen, fehlende/ungültige Pins oder nicht passende Downloadquellen brechen ab.
+`ua_python`, `ua_uv`, `ua_node`, `ua_pnpm` und der Build-PATH werden intern abgeleitet;
+alte manuelle Inventory-/Extra-Var-Overrides entfernen. Abweichende Overrides werden verweigert.
+
+| Tool                                                           | Offizielle versionierte Quelle                                                                                                                                                                              | SHA256 des Archivs                                                 |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| CPython 3.13.15, Astral python-build-standalone Build 20260807 | [install_only_stripped, GNU/Linux x86_64](https://github.com/astral-sh/python-build-standalone/releases/download/20260807/cpython-3.13.15%2B20260807-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz) | `faae10a9faa9bec06da009ac69326cc1d9691dc138fec6a1b69159dff1781f35` |
+| uv 0.12.5                                                      | [Astral GitHub Release](https://github.com/astral-sh/uv/releases/download/0.12.5/uv-x86_64-unknown-linux-gnu.tar.gz)                                                                                        | `68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2` |
+| Node 22.22.3                                                   | [Node.js Releasearchiv](https://nodejs.org/dist/v22.22.3/node-v22.22.3-linux-x64.tar.xz)                                                                                                                    | `2e5d13569282d016861fae7c8f935e741693c269101a5bebcf761a5376d1f99f` |
+| pnpm 12.3.4                                                    | [pnpm GitHub Release, natives Linux-x64-Artefakt](https://github.com/pnpm/pnpm/releases/download/v12.3.4/pnpm-linux-x64.tar.gz)                                                                             | `9705e5704b4679fb503c963a18d1ac4f105e39aafafca8a2ed346facdf820cd0` |
+
+Die GitHub-Hashes wurden gegen die veröffentlichten Release-Asset-Digests und lokal
+gegen die heruntergeladenen Archive geprüft. Node wurde zusätzlich gegen das offizielle
+[`SHASUMS256.txt`](https://nodejs.org/dist/v22.22.3/SHASUMS256.txt) geprüft.
+Python ist ein portabler CPython-Build von Astral, kein Compiler-Build auf Production.
+Die explizite `python_series`-Zuordnung pinnt Manifest-Serie `3.13` auf den konkreten
+Patch `3.13.15` und Build `20260807`; die Versionsprüfung erwartet exakt `Python 3.13.15`.
+Updates erfordern Review von Quelle, Hash und dieser Zuordnung. Alte Katalogeinträge und
+Installationen müssen erhalten bleiben, solange ältere Releases sie referenzieren.
+
+Finale ausführbare Pfade:
+
+```text
+/opt/uranus-admin/toolchain/python-3.13.15-20260807/bin/python3.13
+/opt/uranus-admin/toolchain/uv-0.12.5/uv
+/opt/uranus-admin/toolchain/node-22.22.3/bin/node
+/opt/uranus-admin/toolchain/pnpm-12.3.4/pnpm
+```
+
+pnpm 12.3.4 ist ein natives Binary. Sein npm-Launcher würde ein weiteres Binary
+nachladen. Deshalb installiert Ansible direkt das offizielle vollständige native
+Release samt mitgelieferten Dateien, ohne npm-Install-Script oder Corepack-Bootstrap.
+Build-Scripts erhalten den isolierten Node-Pfad an erster Stelle des PATH.
+Das vorhandene pnpm-Lockfile enthält auch `packageManagerDependencies` mit Integritätswerten;
+diese müssen erhalten bleiben. Ein frisches Testprojekt ohne diesen Lockfile-Teil würde
+bereits zur Konfigurationsauflösung Registry-Zugriff benötigen.
+`--pm-on-fail=error` und `--runtime-on-fail=error` verhindern alternative Runtime- oder
+Package-Manager-Downloads. HOME/Cache/State liegen explizit unter
+`/var/cache/uranus-admin-build`; Benutzer-Konfiguration wird nicht aus dem Operator-HOME
+gelesen. Backend/Worker verwenden das verwaltete uv, das Frontend den verwalteten Node.
+Die systemd-Units enthalten unveränderliche Versionspfade; ältere Releases bleiben lauffähig.
+Vor der Runtime-DB-Verifikation wird auch der tatsächliche Basisinterpreter der Release-
+Umgebung gegen den verwalteten Python-Pfad geprüft. Ein vorhandener `.complete`-Marker
+berechtigt nicht zur Wiederverwendung einer Umgebung mit globalem oder anderem Python.
+Bei Abweichung wird ohne Reparatur/Überschreiben abgebrochen; ein neues geprüftes Release
+ist erforderlich.
+
+Reihenfolge: Input-/Apply-Gates → Host-/OS-/Nginx-Prüfung → Toolchain-Inspektion →
+bei freigegebenem Echtlauf Provisionierung und Verifikation → unveränderter READ-ONLY-
+DB-Preflight → Environment-Plan → Release-Bau/Runtime-Prüfung → Aktivierung/Recovery.
+Ein Toolchain-Fehler erreicht weder DB-Prüfung noch Secret-Übernahme, Nginx-Mutation
+oder Service-Stop. Die Activation-Recovery bleibt unverändert und greift auf keine DB zu.
+
+`preflight.yml --check --diff` und `deploy.yml --check --diff` installieren nichts und
+führen keine Download-Anfragen aus. Fehlende Tools werden als `missing -> would install`
+gemeldet. Vorhandene Installationen werden auch im Check Mode vollständig geprüft.
+Fehlende Tools sind kein Fehler; falscher Host/OS/Architektur, unsichere Pfade, falsche
+Eigentümer/Rechte, ungültige Pins oder ein nicht beschreibbarer Zielpfad sind Fehler.
+Auch `ua_action=inspect` ohne Check Mode provisioniert nichts.
+
+`get_url` lädt nur fehlende, fest versionierte Archive mit HTTPS und festem SHA256 nach
+`toolchain/archives/<Versionsverzeichnis>.tar`. Der lokale Ansible-Modulcode
+[`uranus_toolchain.py`](roles/uranus_admin/library/uranus_toolchain.py) besitzt keinen
+Downloader. Er extrahiert nach validierter Archivstruktur zunächst in ein neues
+Staging-Verzeichnis unter derselben Toolchain und veröffentlicht das geprüfte Verzeichnis
+per Rename. Die eigene Extraktion ist nötig, um Traversal, Spezialdateien, externe Links
+und Links in Elternpfaden vor dem Schreiben abzulehnen und Rechte zu normalisieren.
+
+Alle Verzeichnisse sind root:root 0755, ausführbare Dateien 0755, Daten/Archive 0644.
+Die vier aufgerufenen Binaries müssen reguläre Dateien sein. Ausschließlich exakt im
+gepinnten Archiv enthaltene relative interne Symlinks sind erlaubt; Archiv-Hardlinks
+werden als unabhängige reguläre Dateien materialisiert. Vor jeder Ausführung werden
+Archiv-SHA256, **alle** installierten Dateien, Dateitypen, Modi, Eigentümer und Linkziele
+geprüft. Ein lokaler Completion-Marker allein ist kein Integritätsnachweis. Danach folgt
+die exakte Versionsprüfung als `oklab`. uv darf den offiziellen Plattform-/Build-Suffix
+anzeigen, aber keine abweichende semantische Version.
+
+Ein zweiter unveränderter Lauf lädt nichts herunter, extrahiert nichts und meldet für
+die Toolchain `changed=0`. Die vollständige Integritätsprüfung bleibt bewusst aktiv;
+sie liest auch große Archiv-/Binary-Dateien. Unbekannte Dateien, unvollständige
+Installationen, manipulierte Archive oder zurückgebliebene `.staging-*`-Verzeichnisse
+führen zum Abbruch, ohne Überschreiben oder Cleanup. Bei einem unterbrochenen Bootstrap
+müssen die Befunde explizit durch den Betreiber untersucht werden. Parallele Deployments
+oder manuelle Änderungen während der Prüfung/Installation sind nicht unterstützt.
+
+Ein schon vorhandenes `toolchain`-Verzeichnis mit `oklab:oklab` ist **nicht** vertrauenswürdig,
+auch wenn es leer wirkt. Ansible übernimmt es nicht automatisch. Eigentümer und Inhalt
+zunächst lesend mit `stat` und `ls -la` prüfen; eine notwendige manuelle Korrektur separat
+bewerten. Der Guard nennt erwartete und tatsächliche numerische UID/GID.
 
 ## Normaler Deploy und optionales Notification-Management
 
@@ -331,6 +434,11 @@ verifizierten SSH-Hostkey verwenden; niemals StrictHostKeyChecking deaktivieren.
 psycopg3. Die Rolle installiert dieses Paket nicht automatisch. Der Operator muss
 über sudo als `postgres` lokal lesen und im späteren Echtlauf Systemdateien verwalten
 können. Bei Bedarf `--ask-become-pass`, kein Passwort im Inventory.
+Die projektlokale `ansible.cfg` verwendet `/tmp` als Basis für private Ansible-Task-
+Unterverzeichnisse. Dadurch benötigt `become_user: postgres` kein schreibbares
+`/var/lib/postgresql/.ansible/tmp`. Eine entsprechende Temp-Fallback-Warnung ist kein
+DB-Fehler und darf nicht durch pauschales Ändern von PostgreSQL-Verzeichnisrechten
+„repariert“ werden. `ANSIBLE_CONFIG` wie unten setzen.
 
 **READ ONLY — erst nach Freigabe der Prüfverbindung:**
 
@@ -437,6 +545,20 @@ lokale/CI-Validierung, kein Deployment-Workflow und besitzt keine Production-Cre
 ```sh
 uv run --no-project --python 3.13 --with-requirements ansible/requirements-test.txt python -m unittest discover -s ansible/tests -v
 uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.example.yml ansible/deploy.yml --syntax-check
+```
+
+Die Toolchain-Tests verwenden ausschließlich synthetische lokale Archive und ein
+lokales Ansible-Check-Mode-Szenario; CI lädt keine realen Toolchain-Artefakte herunter.
+Sie prüfen exakte Versionen, Hashes, Eigentümer, Rechte, Symlinks, unbekannte Dateien,
+Abbruch ohne Reparatur, Idempotenz, Pfadisolation und Reihenfolge vor dem DB-Preflight.
+Der lokale Smoke-Test der vier oben gepinnten echten Archive ist zusätzlich erforderlich,
+wenn Pins geändert werden.
+
+Die reine Backend-Umgebung enthält keine Ansible-/PyYAML-/psycopg2-Testabhängigkeiten.
+Alternativ zum obigen Controller-Testaufruf funktioniert ohne Änderung der Backend-Dependencies:
+
+```sh
+uv run --project backend --with-requirements ansible/requirements-test.txt python -m unittest discover -s ansible/tests -v
 ```
 
 Ohne `ANSIBLE_TEST_DATABASE_URL` werden DB-Tests ausdrücklich übersprungen. Mit dieser

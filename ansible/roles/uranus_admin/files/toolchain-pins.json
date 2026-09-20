@@ -1,0 +1,48 @@
+{
+  "architecture": "x86_64",
+  "packages": [
+    {
+      "tool": "python",
+      "selector": "3.13",
+      "version": "3.13.15",
+      "directory": "python-3.13.15-20260807",
+      "prefix": "python",
+      "binary": "bin/python3.13",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260807/cpython-3.13.15%2B20260807-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+      "sha256": "faae10a9faa9bec06da009ac69326cc1d9691dc138fec6a1b69159dff1781f35"
+    },
+    {
+      "tool": "uv",
+      "selector": "0.12.5",
+      "version": "0.12.5",
+      "directory": "uv-0.12.5",
+      "prefix": "uv-x86_64-unknown-linux-gnu",
+      "binary": "uv",
+      "url": "https://github.com/astral-sh/uv/releases/download/0.12.5/uv-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2"
+    },
+    {
+      "tool": "node",
+      "selector": "22.22.3",
+      "version": "22.22.3",
+      "directory": "node-22.22.3",
+      "prefix": "node-v22.22.3-linux-x64",
+      "binary": "bin/node",
+      "url": "https://nodejs.org/dist/v22.22.3/node-v22.22.3-linux-x64.tar.xz",
+      "sha256": "2e5d13569282d016861fae7c8f935e741693c269101a5bebcf761a5376d1f99f"
+    },
+    {
+      "tool": "pnpm",
+      "selector": "12.3.4",
+      "version": "12.3.4",
+      "directory": "pnpm-12.3.4",
+      "prefix": "",
+      "binary": "pnpm",
+      "url": "https://github.com/pnpm/pnpm/releases/download/v12.3.4/pnpm-linux-x64.tar.gz",
+      "sha256": "9705e5704b4679fb503c963a18d1ac4f105e39aafafca8a2ed346facdf820cd0"
+    }
+  ],
+  "python_series": {
+    "3.13": "python-3.13.15-20260807"
+  }
+}

@@ -18,10 +18,6 @@ ua_legacy_root: /home/oklab/build/uranus-admin
 ua_config_dir: /etc/uranus-admin
 ua_service_user: oklab
 ua_service_group: oklab
-ua_python: /usr/bin/python3.13
-ua_uv: /usr/local/bin/uv
-ua_node: /usr/bin/node
-ua_pnpm: /usr/bin/pnpm
 ua_pg_socket: /var/run/postgresql
 ua_pg_port: 5432
 ua_counts: false
