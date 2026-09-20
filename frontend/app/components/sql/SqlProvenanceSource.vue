@@ -7,7 +7,7 @@ import type {
   ProvenanceParams,
 } from '#shared/sql-provenance'
 import { asFailure } from '#shared/errors'
-import SqlCodeBlock from './SqlCodeBlock.vue'
+import SqlCodeEditor from './SqlCodeEditor.vue'
 import SqlResultTable from './SqlResultTable.vue'
 const props = defineProps<{
   source: ProvenanceSource
@@ -56,7 +56,7 @@ async function copy() {
       {{ source.datasource === 'uranus' ? 'Uranus' : 'Admin' }} · READ ONLY
     </p>
     <p class="text-sm">{{ source.description }}</p>
-    <SqlCodeBlock :sql="source.sql" />
+    <SqlCodeEditor :sql="source.sql" readonly />
     <h4 class="text-sm font-semibold">Parameter</h4>
     <dl class="text-xs">
       <div v-for="(value, key) in source.parameters" :key="key" class="break-all">

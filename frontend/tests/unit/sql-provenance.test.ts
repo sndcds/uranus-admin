@@ -64,6 +64,7 @@ it('loads only on demand, copies a query and isolates source results and errors'
   expect(view.text()).toContain('Uranus · READ ONLY')
   expect(view.text()).toContain('Admin · READ ONLY')
   const panels = view.findAll('section').filter((item) => item.find('code').exists())
+  expect(panels[0]!.get('[aria-label="SQL-Abfrage, Nur-Lese-Modus"] code').text()).toBe(source.sql)
   await panels[0]!.findAll('button')[0]!.trigger('click')
   await flushPromises()
   expect(writeText).toHaveBeenCalledExactlyOnceWith(source.copy_sql)
@@ -75,6 +76,7 @@ it('loads only on demand, copies a query and isolates source results and errors'
     definition.parameters,
   )
   expect(panels[0]!.get('table').text()).toContain('venue')
+  expect(panels[0]!.findAll('th').map((column) => column.text())).toEqual(['kind', 'count'])
   api.executeProvenance.mockRejectedValue(new AdminApiError(failure(504, 'diagnostic_timeout')))
   await panels[1]!.findAll('button')[1]!.trigger('click')
   await flushPromises()
