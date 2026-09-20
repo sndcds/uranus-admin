@@ -493,3 +493,49 @@ async def test_diagnostics_enforce_admin_and_cookie_csrf(settings):
             assert response.status_code == 403
             assert response.json()["error"]["code"] == "admin_access_denied"
             loader.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "rule,kind,key,field,available",
+    [
+        ("venue_missing_location", "venue", str(uid(20)), "point", True),
+        ("url_syntax", "venue", str(uid(20)), "web_link", True),
+        ("unsupported", "venue", str(uid(20)), "point", False),
+        ("venue_missing_location", "event", str(uid(20)), "point", False),
+        ("venue_missing_location", "venue", str(uid(20)), "wrong", False),
+        ("venue_missing_location", "venue", "invalid", "point", False),
+        (
+            "membership_joined_accept_token_present",
+            "team_membership",
+            f"membership:{uid(10)}:{uid(1)}",
+            "accept_token",
+            True,
+        ),
+    ],
+)
+@pytest.mark.parametrize("status", ["open", "resolved"])
+def test_finding_diagnostic_capability_uses_registry(rule, kind, key, field, available, status):
+    from app.schemas.finding import Finding
+    from app.services.checks import stored_finding
+
+    live = Finding(
+        id="fixture",
+        rule=rule,
+        entity_type=kind,
+        entity_key=key,
+        field=field,
+        entity_name="Fixture",
+        message="Fixture",
+        severity="warning",
+        priority=4,
+        priority_score=1,
+        priority_reasons=[],
+        organization_id=None,
+        organization_name=None,
+        last_seen_at=STAMP,
+    )
+    assert live.sql_diagnostic_available is False
+    row = {**live.model_dump(), "status": status, "first_seen_at": STAMP}
+    # Stale or fabricated capability in persisted display metadata is never trusted.
+    row["metadata"] = {"finding": {"sql_diagnostic_available": not available}}
+    assert stored_finding(row).sql_diagnostic_available is available

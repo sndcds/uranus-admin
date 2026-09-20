@@ -115,6 +115,7 @@ export const actionSchema = z
   }, 'Invalid internal action target')
 
 export const findingSchema = z.object({
+  sql_diagnostic_available: z.boolean().optional().default(false),
   location_suggestion_request_id: z.uuid().nullable().optional(),
   id: z.string(),
   rule: z.string(),

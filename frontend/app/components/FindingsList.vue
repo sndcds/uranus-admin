@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { dateTime, findingStatusLabels } from '~/utils/presentation'
 import type { Finding } from '#shared/contracts'
+import SqlEditorModal from './sql/SqlEditorModal.vue'
 defineProps<{ items: Finding[] }>()
 const detail = useTemplateRef('detail')
+const sqlEditor = useTemplateRef('sqlEditor')
 </script>
 
 <template>
@@ -44,11 +46,22 @@ const detail = useTemplateRef('detail')
           class="mt-2 flex flex-wrap items-center lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0 lg:max-w-40 lg:justify-end gap-x-4 gap-y-2 text-xs [&_a]:mt-0 [&_a]:p-0 [&_a]:border-0 [&_a]:text-xs"
         >
           <button
-            class="rounded font-semibold text-fuchsia-700 hover:underline"
+            v-if="finding.sql_diagnostic_available"
+            class="inline-flex items-center gap-1 rounded font-semibold text-fuchsia-700 hover:underline"
+            :aria-label="`SQL Editor für ${finding.entity_name}`"
+            @click="sqlEditor?.open(finding)"
+          >
+            SQL Editor <AppIcon name="arrow" :size="14" />
+          </button>
+          <button
+            class="rounded hover:underline"
+            :class="
+              finding.sql_diagnostic_available ? 'text-slate-500' : 'font-semibold text-fuchsia-700'
+            "
             :aria-label="`Befund zu ${finding.entity_name} ansehen`"
             @click="detail?.open(finding)"
           >
-            Ansehen
+            {{ finding.sql_diagnostic_available ? 'Details' : 'Ansehen' }}
           </button>
           <NuxtLink
             v-if="finding.action"
@@ -68,4 +81,5 @@ const detail = useTemplateRef('detail')
     </li>
   </ul>
   <FindingDetail ref="detail" />
+  <SqlEditorModal ref="sqlEditor" />
 </template>
