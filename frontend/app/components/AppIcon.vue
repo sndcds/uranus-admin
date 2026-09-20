@@ -36,8 +36,18 @@ import {
   Clock,
   Plus,
   LogOut,
+  Database,
+  Code,
+  Play,
+  Download,
+  Table2,
 } from '@lucide/vue'
 const icons = {
+  database: Database,
+  code: Code,
+  play: Play,
+  download: Download,
+  table: Table2,
   chart: ChartNoAxesCombined,
   mail: Mail,
   info: Info,
