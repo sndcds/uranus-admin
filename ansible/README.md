@@ -149,6 +149,7 @@ Produktionsumfang; temporäre Ansible-/Validierungsdateien kommen technisch hinz
 | `/var/lib/uranus-admin/releases/<commit>/deployment/`                      | Prüfprogramme und nichtgeheime Konfigurationskandidaten.                                                                                                                                                           |
 | `/var/lib/uranus-admin/current`                                            | Verweis auf zuletzt erfolgreich aktiviertes Release, erst nach Healthchecks geändert. Units verwenden feste Release-Pfade.                                                                                         |
 | `/var/cache/uranus-admin-build/`                                           | Build-Cache von uv/pnpm, Benutzer `oklab`. Kein Laufzeit-Schreibpfad des Services.                                                                                                                                 |
+| `/var/lib/uranus-admin/maintenance/` | Root-owned statische Wartungsseite, lokale Assets und Marker `enabled`; Details unter [Wartungsmodus](#wartungsmodus). |
 | `/etc/uranus-admin/`                                                       | root:root, 0700.                                                                                                                                                                                                   |
 | `/etc/uranus-admin/runtime.env`                                            | root:root, 0600; systemd liest und übergibt ausschließlich Runtime-Konfiguration.                                                                                                                                  |
 | `/etc/uranus-admin/operator.env`                                           | root:root, 0600; vorhandene Migrator-/Operator-/Dev-Token-Einträge gesichert, nie in Units geladen. Unterschiedliche bereits gesicherte Werte führen zum Abbruch.                                                  |
@@ -356,14 +357,19 @@ fehlgeschlagener Aktivierung werden die ursprünglichen Zustände wiederhergeste
 3. **CHANGES SYSTEM CONFIGURATION** — root-only Recovery-Kopien pro Versuch erstellen,
    bevor irgendein Service gestoppt oder eine verwaltete Konfiguration ersetzt wird.
 4. Lauf-/Enablement-Zustände unmittelbar vor Aktivierung als Facts erfassen und ins
-   Recovery-Manifest schreiben. Übergangszustände, Maskierung oder nicht unterstützte
+   Recovery-Manifest schreiben, einschließlich ursprünglichem Maintenance-Markerzustand.
+   Übergangszustände, Maskierung oder nicht unterstützte
    Enablement-Arten führen zum Abbruch. Nginx muss bereits laufen.
-5. Ein Handler fordert die Aktivierung an. Anschließend stoppt ein normaler
-   `block`/`rescue` nur betroffene Services; Notification-Eingriffe sind zusätzlich
-   durch beide Flags begrenzt. Der Handler selbst verändert keine Services.
+5. Ein Handler fordert die Aktivierung an. Ein normaler `block`/`rescue` bereitet die
+   [Wartungsseite](#wartungsmodus) vor, aktiviert den Marker und lädt nach `nginx -t`
+   den gesicherten Proxy-Kandidaten. Erst nach öffentlicher 503-Verifikation und
+   Abwarten alter Nginx-Worker stoppt er betroffene Services. Notification-Eingriffe
+   sind zusätzlich durch beide Flags begrenzt. Der Handler selbst verändert keine Services.
 6. Geprüfte Dateien installieren, gegebenenfalls `daemon-reload`, vollständiges `nginx -t`.
 7. Betroffene App-Services starten; Nginx nur bei eigener Config-Änderung reloaden.
-8. **READ ONLY** — Backend `/health`, `/ready` und HTTPS-HEAD `/login` prüfen.
+8. **READ ONLY** — lokal Backend `/health`, `/ready` und Frontend `/login` prüfen.
+   Bei ursprünglich OFF: Maintenance deaktivieren, `nginx -t`, Reload und öffentliches
+   HTTPS-GET `/login` prüfen. Ursprüngliches ON erhalten und öffentlich 503 verifizieren.
 9. Erst danach `current` umstellen und `ua_activation_succeeded=true` setzen.
 
 Fehler in Schritt 5–9 führen zum **SYSTEM ROLLBACK** unten. Auch ein fehlgeschlagenes
@@ -542,6 +548,125 @@ Sie sind keine automatische Prüfung der Backup-Güte. Erst dann:
 uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.local.yml ansible/deploy.yml -e @ansible/approvals.local.yml
 ```
 
+## Wartungsmodus
+
+Standardmäßig ist `ua_maintenance_page_enabled: true`. Der Wartungsmodus gehört zum
+bewachten Playbook-Ablauf; es gibt keinen zusätzlichen manuellen Umschalt-Schritt.
+Die unveränderten Freigaben und READ-ONLY-Preflights gelten weiterhin.
+
+Reihenfolge bei einer erforderlichen Aktivierung:
+
+1. Release bauen, Runtime und Konfigurationskandidaten prüfen.
+2. Frischen Recovery-Snapshot einschließlich ursprünglichem Markerzustand erstellen.
+3. Statische Wartungsdateien vollständig installieren, noch ohne Aktivierung.
+4. Marker atomar anlegen (vorhandenen Inhalt erhalten). Den bereits geprüften,
+   gesicherten Nginx-Kandidaten bei Bedarf vorziehen: Bei der ersten Übernahme kennt
+   der alte VHost den Marker noch nicht. `nginx -t`, Reload.
+5. Öffentliches HTTPS-GET `/` auf **503**, festen HTML-Marker, escaped Titel,
+   `Retry-After` und `Cache-Control: no-store` prüfen. Redirects werden abgewiesen,
+   Zertifikate geprüft. Danach das Ende der vor dem Reload erfassten Nginx-Worker abwarten
+   (maximal 60 Sekunden pro Worker); auch alte, noch laufende Requests dürfen nicht
+   durch den Service-Stopp abbrechen. Timeout bricht ohne App-Stopp ab, ohne Worker
+   zu beenden oder andere Sites zu verändern. Erst danach App-Services stoppen.
+6. Optionale explizit verwaltete Notifications und betroffene App-Services stoppen,
+   übrige Konfiguration installieren, geänderte Units neu laden, `nginx -t` ausführen,
+   betroffene Services starten und geändertes Nginx reloaden.
+7. Lokal `127.0.0.1:8011/health`, `/ready` und `127.0.0.1:3011/login` prüfen.
+8. War Maintenance vorher OFF: Marker entfernen, `nginx -t`, Reload, öffentliches
+   HTTPS-GET `/login` auf 200 prüfen. Jeder Fehler löst Activation-Recovery aus.
+   War Maintenance vorher ON: Marker erhalten und öffentlich erneut 503 prüfen;
+   der Login wird in diesem Fall ausschließlich lokal geprüft.
+9. Erst danach `current` veröffentlichen und Aktivierung als erfolgreich markieren.
+
+Ein unveränderter Lauf schaltet Maintenance nicht um und reloadet Nginx nicht.
+Öffentliche Wartungstexte/Assets werden auch ohne Service-Umschaltung idempotent
+aktualisiert; ein vorher aktiver Marker bleibt dabei erhalten.
+`ua_maintenance_page_enabled: false` lässt den bisherigen Ablauf ohne Wartungsseite
+zu; ein vorhandener aktiver Marker verhindert diese Deaktivierung ausdrücklich.
+
+### Dateien, HTTP und öffentliche Angaben
+
+| Pfad | Eigentümer/Modus | Zweck |
+| --- | --- | --- |
+| `/var/lib/uranus-admin/maintenance/` und `assets/` | root:root 0755 | Nginx-lesbare statische Dateien |
+| `maintenance/maintenance.html` | root:root 0644 | Gerendertes deutsches HTML |
+| `maintenance/assets/lottie.min.js` | root:root 0644 | Lokal vendorte Lottie-Light-Runtime |
+| `maintenance/assets/maintenance.json` | root:root 0644 | Kleine eigene Server-/Update-Animation |
+| `maintenance/assets/maintenance.js` | root:root 0644 | Lokaler Initializer, Reduced-Motion-Unterstützung |
+| `maintenance/assets/LICENSE.lottie-web.txt` | root:root 0644 | MIT-Copyright-/Lizenzhinweis |
+| `/var/lib/uranus-admin/maintenance/enabled` | root:root 0644 | Einzige ON/OFF-Quelle |
+
+Die relativen Dateizeilen liegen ebenfalls unter `/var/lib/uranus-admin/`.
+Die App-Services können diese Dateien nicht schreiben. Der Marker liegt bewusst
+außerhalb von `/etc/uranus-admin` (0700), damit Nginx keine Leserechte auf Secrets braucht.
+Symlinks und ungeeignete Verzeichnisse/Marker werden abgewiesen.
+
+Bei ON liefern `/`, `/login`, `/api/admin/…` und `/_nuxt/…` die interne statische Seite
+mit **503 Service Unavailable**, `Retry-After: 300` (konfigurierbar durch
+`ua_maintenance_retry_after`, 1–86400 Sekunden), `Cache-Control: no-store`,
+`X-Robots-Tag: noindex, nofollow, noarchive` und den vorhandenen Sicherheitsheadern.
+Die Fehlerseite wird nicht mit Status 200 ausgeliefert. Exakte Asset-Routen unter
+`/__maintenance_assets/` funktionieren nur bei ON; unbekannte Assets und direkter
+Zugriff auf `/__maintenance.html` ergeben 404. Bei OFF bleiben die Proxy-Routen erhalten.
+HTTP leitet weiterhin auf HTTPS um. Sicherheitsbedingte Deny-/Rate-Limit-Antworten
+bleiben bestehen.
+
+Die strengere Maintenance-CSP erlaubt keine externen Ressourcen oder Verbindungen.
+`connect-src 'self'` ist ausschließlich für die lokale Lottie-JSON-Anfrage nötig;
+kein `unsafe-eval`, keine externen Fonts oder CDNs. Die eigene dekorative Animation
+hat `aria-hidden="true"`; `prefers-reduced-motion` blendet sie aus und verhindert bzw.
+pausiert die Wiedergabe. Alle Informationen stehen im HTML und funktionieren ohne JS.
+[Quelle, feste Version, Hash und Lizenz](roles/uranus_admin/files/maintenance/README.md):
+Lottie-Web 5.13.0 Light/SVG unter MIT mit installiertem Lizenzhinweis, eigene Animation
+und Initializer unter Projektlizenz AGPL-3.0. Keine Drittgrafik unklarer Herkunft.
+
+`ua_maintenance_public_title`, `ua_maintenance_public_message` und
+`ua_maintenance_public_window` sind bewusst **öffentliche** Texte und werden HTML-escaped.
+Beispiel: `ua_maintenance_public_window: "20.09.2026 · 13:30–14:00 Uhr"`.
+Bei leerem Zeitraum entfällt der Abschnitt. Die interne Freigabevariable
+`ua_maintenance_window` wird niemals in die Seite übernommen. Öffentliche Texte
+enthalten keine Secrets oder internen Freigabereferenzen.
+
+### Check Mode und Recovery
+
+`--check --diff` meldet `maintenance_page`, `maintenance_marker`,
+`maintenance_public_window`, `would_enable_before_service_stop`, `would_verify_http_503`
+und `would_disable_after_healthchecks`. Der sichere Report enthält außerdem
+`maintenance.enabled`, `public_window`, `activation_before_service_stop`,
+`expected_status`, `retry_after` und `external_assets: false`. Er beschreibt den Plan,
+keine erfolgte Verifikation. Check Mode erzeugt keinen Marker, stoppt keine Services
+und führt keinen Nginx-Reload aus.
+
+Die Recovery stellt zuerst einen möglicherweise schon entfernten Marker wieder her.
+Ist die öffentliche Aktivierungsprüfung fehlgeschlagen, werden App-Services auch im
+Rescue-Pfad **nicht** gestoppt. Nach begonnener Service-Umschaltung: betroffene neue
+Services stoppen, bisherige Dateien/Metadaten und gegebenenfalls `current` restaurieren,
+Units neu laden und restaurierte Nginx-Konfiguration prüfen. Alte Service-/Notification-
+Zustände wiederherstellen, **erst dann** die alte Nginx-Konfiguration laden (diese kann
+bei Erstübernahme noch ohne Maintenance-Unterstützung sein). Zuletzt den ursprünglichen
+Markerzustand wiederherstellen. Das bestehende Recovery-Verhalten führt weiterhin
+keine HTTP- oder DB-Readiness-Probes aus; vorher gestoppte Services bleiben gestoppt.
+Der Snapshot enthält den ursprünglichen Markerzustand und -pfad im `manifest.json`.
+
+Bei erfolgreicher Recovery wird OFF wieder OFF; vorheriges ON bleibt ON. Das Deployment
+endet trotzdem failed. Scheitert Recovery, wird kein Marker blind entfernt; ein bereits
+entfernter Marker wird nach Möglichkeit wieder angelegt. Ausgabe:
+`SYSTEM RECOVERY FAILED. Maintenance mode remains active where activation was possible.`
+Manueller Operator-Eingriff ist erforderlich. Der zuletzt geladene Wartungs-VHost bleibt
+während der Dateirestaurierung aktiv. Ein Host-/Nginx-Ausfall oder verlorener Controller
+kann durch diesen Mechanismus nicht zuverlässig aufgefangen werden.
+
+**NO DATABASE ROLLBACK. Keine Datenbankänderungen:** Maintenance und Recovery führen
+keine SQL-, Alembic-, PostgreSQL-, Grant- oder Daten-Restore-Aufrufe aus. Unveränderte
+lokale `/ready`-Prüfungen gehören nur zum regulären Aktivierungs-Healthcheck.
+
+Nur lesende Notfall-Diagnose, kein normaler Deployment-Umschaltweg:
+
+```sh
+test -f /var/lib/uranus-admin/maintenance/enabled && echo active || echo inactive
+curl -I https://admin.kulturbytes.de/
+```
+
 ## Automatische System-Recovery und Produktionsverifikation
 
 **NO DATABASE ROLLBACK.** Der Rescue-Pfad ist auf `systemd`, Nginx, Runtime-/Legacy-
@@ -560,7 +685,9 @@ Verzeichnisse bleiben erhalten. Jeder Versuch verwendet einen eigenen Snapshot, 
 bei gleichem Release-SHA; alte Sicherungen werden nicht versehentlich als aktueller Zustand benutzt.
 
 Danach: bei geänderten Units `daemon-reload`, restauriertes Nginx mit `nginx -t` prüfen,
-bei Bedarf reloaden und nur vorher laufende betroffene App-Services wieder starten.
+nur vorher laufende betroffene App-Services wieder starten und erst danach bei Bedarf
+das restaurierte Nginx reloaden. Anschließend den ursprünglichen Maintenance-Markerzustand
+wiederherstellen.
 Vorher gestoppte oder fehlgeschlagene Services bleiben gestoppt; Enabled/Disabled wird
 zurückgesetzt. Der ursprüngliche systemd-Fehlerstatus selbst wird nicht künstlich reproduziert.
 Beispiel: Backend/Frontend vorher aktiv, Check-Worker vorher gestoppt → nur Backend und
@@ -581,7 +708,8 @@ keine neuen DB-Rechte vergeben und keine alten Datenstände zurückgespielt.
 
 Ein erfolgreich zurückgesetztes Deployment endet trotzdem **fehlgeschlagen**, mit Verweis
 auf seinen Recovery-Snapshot. Scheitert die Recovery selbst, wird ebenfalls abgebrochen
-und manuelle System-Recovery verlangt, ohne weitere Fallbacks. Ungültige restaurierte
+und manuelle System-Recovery verlangt, ohne weitere Konfigurations-Fallbacks.
+Der Maintenance-Marker bleibt dabei nach Möglichkeit aktiv. Ungültige restaurierte
 Nginx-Konfiguration wird nicht reloadet; betroffene App-Services bleiben dann gestoppt.
 Host-Ausfall, verlorene SSH-Verbindung, Controller-Abbruch und bestimmte Ansible-Syntax-
 oder Unreachable-Fehler können nicht zuverlässig durch `rescue` aufgefangen werden.
@@ -631,12 +759,14 @@ vorhandene `uranus`-/`admin`-Schemas und ohne Projektrollen. Der Test legt synth
 Katalogobjekte/Rollen an; niemals gegen `oklab` oder eine produktive Instanz ausführen.
 Für jeden kompletten Testlauf einen frischen Container verwenden. CI prüft PostgreSQL
 16/PostGIS 3.4 und PostgreSQL 17/PostGIS 3.5 mit gepinnten Images. Die Nginx-Prüfung
-verwendet ein temporäres Testzertifikat/unprivilegierte Ports, startet keinen Webservice.
+verwendet ein temporäres Testzertifikat/unprivilegierte Loopback-Ports und einen lokalen Fixture-Proxy;
+sie verbindet sich nicht mit Production.
 
 Zusätzliche Tests führen echte Ansible-Handler/Blocks/Rescue und Dateioperationen in
 temporären Verzeichnissen aus. Nur Host-I/O (systemd, Nginx-Aufruf, HTTP) ist simuliert;
 Fehler bei Kandidatenprüfung, Verify/Reload und Healthchecks werden gezielt injiziert.
-Sie prüfen Dateiwiederherstellung, frühzeitige Snapshots, Service-/Timer-Zustände und
+Sie prüfen Dateiwiederherstellung, frühzeitige Snapshots, Service-/Timer-Zustände,
+Maintenance-Reihenfolge und Marker-Erhalt einschließlich Recovery-Fehlern sowie
 spätes Setzen von `current`. Rescue-Includes werden rekursiv auf den erlaubten Scope geprüft.
 
 Es gibt weiterhin keinen vollständigen Apply-/Idempotenzlauf auf einem systemd-Abbild des

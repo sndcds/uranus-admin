@@ -1,0 +1,17 @@
+- name: Disable maintenance only after local healthchecks
+  when: ua_maintenance_page_enabled and not ua_previous_maintenance.stat.exists and not ansible_check_mode
+  block:
+    - name: Remove the deployment maintenance marker
+      ansible.builtin.file:
+        path: "{{ ua_maintenance_marker }}"
+        state: absent
+
+    - name: Validate nginx before leaving maintenance
+      ansible.builtin.command: /usr/sbin/nginx -t
+      changed_when: false
+      no_log: true
+
+    - name: Reload nginx after maintenance removal
+      ansible.builtin.systemd_service:
+        name: nginx.service
+        state: reloaded

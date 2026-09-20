@@ -1,0 +1,28 @@
+- name: Inspect maintenance directory boundaries
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop:
+    - "{{ ua_maintenance_root }}"
+    - "{{ ua_maintenance_root }}/assets"
+  register: ua_maintenance_directories
+
+- name: Reject redirected maintenance directories
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+      - not item.stat.exists or (item.stat.isdir and item.stat.uid == 0 and item.stat.mode == '0755')
+  loop: "{{ ua_maintenance_directories.results }}"
+
+- name: Snapshot original maintenance marker
+  ansible.builtin.stat:
+    path: "{{ ua_maintenance_marker }}"
+    follow: false
+  register: ua_previous_maintenance
+
+- name: Reject unsafe markers or disabling an existing maintenance mode
+  ansible.builtin.assert:
+    that:
+      - not (ua_previous_maintenance.stat.islnk | default(false))
+      - not ua_previous_maintenance.stat.exists or (ua_previous_maintenance.stat.isreg and ua_previous_maintenance.stat.uid == 0 and ua_previous_maintenance.stat.mode == '0644')
+      - not ua_previous_maintenance.stat.exists or ua_maintenance_page_enabled

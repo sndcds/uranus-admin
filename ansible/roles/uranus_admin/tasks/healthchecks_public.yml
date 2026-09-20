@@ -1,0 +1,19 @@
+- name: Check the public HTTPS login route
+  ansible.builtin.uri:
+    url: https://admin.kulturbytes.de/login
+    method: GET
+    status_code: 200
+    validate_certs: true
+    follow_redirects: none
+    return_content: false
+    use_proxy: false
+    timeout: 10
+  register: ua_public_health
+  until: ua_public_health.status == 200
+  retries: 10
+  delay: 2
+  when: not ua_previous_maintenance.stat.exists
+
+- name: Verify preserved public maintenance instead of expecting a public login
+  ansible.builtin.import_tasks: maintenance_verify.yml
+  when: ua_previous_maintenance.stat.exists

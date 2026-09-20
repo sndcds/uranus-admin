@@ -69,6 +69,20 @@
 - name: Report only safe file names and service decisions
   ansible.builtin.debug:
     msg:
+      maintenance:
+        enabled: "{{ ua_maintenance_page_enabled }}"
+        public_window: "{{ ua_maintenance_public_window }}"
+        activation_before_service_stop: "{{ ua_maintenance_page_enabled }}"
+        expected_status: 503
+        retry_after: "{{ ua_maintenance_retry_after }}"
+        external_assets: false
+      maintenance_page: "{{ 'enabled' if ua_maintenance_page_enabled else 'disabled' }}"
+      maintenance_marker: "{{ ua_maintenance_marker }}"
+      maintenance_public_window: "{{ ua_maintenance_public_window }}"
+      would_enable_before_service_stop: "{{ ua_maintenance_page_enabled }}"
+      would_verify_http_503: "{{ ua_maintenance_page_enabled }}"
+      would_disable_after_healthchecks: "{{ ua_maintenance_page_enabled }}"
+      maintenance_state_policy: "Preserve an already active marker; otherwise disable after local healthchecks."
       changed_files: "{{ ua_changed_paths }}"
       restart_services: "{{ ua_restart_services | default([]) }}"
       nginx_reload: "{{ ua_nginx_changed }}"

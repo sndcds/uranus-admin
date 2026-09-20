@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>{{ ua_maintenance_public_title | e }} · Kulturbytes Admin</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, sans-serif; color: #0f172a; background: #f8fafc; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 1.5rem; }
+    main { width: min(100%, 38rem); padding: clamp(1.5rem, 5vw, 3.5rem); background: #fff; border: 1px solid #e2e8f0; border-radius: 1.5rem; box-shadow: 0 8px 30px #0f172a0f; }
+    .brand { font-size: .875rem; font-weight: 650; letter-spacing: .04em; color: #86198f; }
+    .animation { width: 7rem; height: 7rem; margin: 1.5rem 0; }
+    h1 { font-size: clamp(1.65rem, 5vw, 2.25rem); line-height: 1.2; margin: 1.5rem 0 1rem; letter-spacing: -.035em; }
+    p { color: #475569; line-height: 1.75; overflow-wrap: anywhere; }
+    .window { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0; }
+    .window h2 { font-size: .875rem; margin: 0; }
+    .window p { margin-bottom: 0; }
+    @media (prefers-reduced-motion: reduce) { .animation { display: none; } }
+  </style>
+  <script defer src="/__maintenance_assets/lottie.min.js"></script>
+  <script defer src="/__maintenance_assets/maintenance.js"></script>
+</head>
+<body>
+  <main id="kulturbytes-maintenance">
+    <div class="brand">Kulturbytes / Admin</div>
+    <div class="animation" id="maintenance-animation" aria-hidden="true"></div>
+    <h1>{{ ua_maintenance_public_title | e }}</h1>
+    <p>{{ ua_maintenance_public_message | e }}</p>
+{% if ua_maintenance_public_window %}
+    <section class="window" aria-labelledby="window-title">
+      <h2 id="window-title">Wartungsfenster</h2>
+      <p>{{ ua_maintenance_public_window | e }}</p>
+    </section>
+{% endif %}
+  </main>
+</body>
+</html>

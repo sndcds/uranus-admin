@@ -1,0 +1,50 @@
+# Preparation never creates the enabled marker or reloads nginx.
+- name: Prepare maintenance files without activation
+  when: ua_maintenance_page_enabled and not ansible_check_mode
+  block:
+    - name: Inspect maintenance file destinations
+      ansible.builtin.stat:
+        path: "{{ ua_maintenance_root }}/{{ item }}"
+        follow: false
+      loop:
+        - maintenance.html
+        - assets/lottie.min.js
+        - assets/maintenance.json
+        - assets/maintenance.js
+        - assets/LICENSE.lottie-web.txt
+      register: ua_maintenance_files
+
+    - name: Reject redirected maintenance files
+      ansible.builtin.assert:
+        that:
+          - not (item.stat.islnk | default(false))
+          - not item.stat.exists or item.stat.isreg
+      loop: "{{ ua_maintenance_files.results }}"
+
+    - name: Create root-owned maintenance directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ ua_maintenance_root }}"
+        - "{{ ua_maintenance_root }}/assets"
+
+    - name: Render escaped public maintenance information
+      ansible.builtin.template:
+        src: maintenance.html.j2
+        dest: "{{ ua_maintenance_root }}/maintenance.html"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Install local maintenance animation and license
+      ansible.builtin.copy:
+        src: "maintenance/{{ item }}"
+        dest: "{{ ua_maintenance_root }}/assets/{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop: [lottie.min.js, maintenance.json, maintenance.js, LICENSE.lottie-web.txt]

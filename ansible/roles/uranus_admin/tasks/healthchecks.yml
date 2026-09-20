@@ -1,24 +1,5 @@
-- name: Check backend liveness and database readiness
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:8011/{{ item }}"
-    status_code: 200
-    return_content: false
-    follow_redirects: none
-  loop: [health, ready]
-  register: ua_health
-  until: ua_health.status == 200
-  retries: 10
-  delay: 2
+- name: Verify local application health
+  ansible.builtin.import_tasks: healthchecks_local.yml
 
-- name: Check the public HTTPS login route
-  ansible.builtin.uri:
-    url: https://admin.kulturbytes.de/login
-    method: HEAD
-    status_code: 200
-    validate_certs: true
-    follow_redirects: none
-    return_content: false
-  register: ua_public_health
-  until: ua_public_health.status == 200
-  retries: 10
-  delay: 2
+- name: Verify expected public state
+  ansible.builtin.import_tasks: healthchecks_public.yml

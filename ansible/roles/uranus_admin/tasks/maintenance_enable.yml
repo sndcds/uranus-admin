@@ -1,0 +1,61 @@
+- name: Enable and verify maintenance before any service stop
+  when: ua_maintenance_page_enabled and not ansible_check_mode
+  block:
+    - name: Record the maintenance activation attempt
+      ansible.builtin.set_fact:
+        ua_maintenance_attempted: true
+
+    - name: Atomically enable maintenance without replacing an existing marker
+      ansible.builtin.copy:
+        content: "Ansible-managed maintenance\n"
+        dest: "{{ ua_maintenance_marker }}"
+        force: false
+        owner: root
+        group: root
+        mode: "0644"
+
+    # First adoption also needs the candidate proxy before services are stopped.
+    # Both files are already backed up by the ordinary recovery manifest.
+    - name: Record early proxy installation for recovery
+      ansible.builtin.set_fact:
+        ua_install_attempted: true
+
+    - name: Install the maintenance-capable proxy before service interruption
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: "{{ item.path }}"
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop: "{{ ua_files[3:5] }}"
+      when: item.path in ua_changed_paths
+      no_log: true
+      diff: false
+
+    - name: Validate nginx before enabling public maintenance
+      ansible.builtin.command: /usr/sbin/nginx -t
+      changed_when: false
+      no_log: true
+
+    - name: Capture nginx workers serving the previous configuration
+      ansible.builtin.command:
+        argv: [/usr/bin/pgrep, -f, '^nginx: worker process']
+      changed_when: false
+      register: ua_previous_nginx_workers
+
+    - name: Reload nginx for maintenance activation
+      ansible.builtin.systemd_service:
+        name: nginx.service
+        state: reloaded
+
+    - name: Verify public maintenance response
+      ansible.builtin.import_tasks: maintenance_verify.yml
+
+    # Reload is asynchronous. Old workers can still hold requests to the old app.
+    # Never kill them or interrupt other sites: timeout aborts before any app stop.
+    - name: Drain previous nginx workers before stopping applications
+      ansible.builtin.wait_for:
+        path: "/proc/{{ item }}/stat"
+        state: absent
+        timeout: 60
+      loop: "{{ ua_previous_nginx_workers.stdout_lines }}"

@@ -1,3 +1,6 @@
+- name: Inspect maintenance paths before any mutation
+  ansible.builtin.import_tasks: maintenance_inspect.yml
+
 - name: Inspect the previous successful release pointer
   ansible.builtin.stat:
     path: "{{ ua_root }}/current"
@@ -113,7 +116,7 @@
 
     - name: Save recovery metadata without environment contents
       ansible.builtin.copy:
-        content: "{{ {'files': ua_recovery_files, 'services': ua_previous_services, 'current': ua_previous_current.stat, 'frontend_env': ua_previous_frontend_env.stat} | to_nice_json }}"
+        content: "{{ {'files': ua_recovery_files, 'services': ua_previous_services, 'current': ua_previous_current.stat, 'frontend_env': ua_previous_frontend_env.stat, 'maintenance': {'enabled': ua_previous_maintenance.stat.exists, 'marker': ua_maintenance_marker}} | to_nice_json }}"
         dest: "{{ ua_recovery_directory.path }}/manifest.json"
         owner: root
         group: root
@@ -133,6 +136,10 @@
     - name: Run activation inside a normal task block with reliable rescue semantics
       ansible.builtin.import_tasks: activate.yml
       when: ua_activate_requested | default(false) | bool
+
+- name: Refresh public maintenance files without switching an unchanged installation
+  ansible.builtin.import_tasks: maintenance_prepare.yml
+  when: not (ua_activation_required | bool)
 
 - name: Check an unchanged installation without restarting it
   ansible.builtin.import_tasks: healthchecks.yml
