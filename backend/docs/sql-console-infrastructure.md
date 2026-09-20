@@ -398,3 +398,39 @@ Vor Phase 3 müssen diese Gates bestehen und zusätzlich ein autorisierter
 Produktions-Preflight mit Datum, Contract-Version, PostgreSQL-/Extension-Versionen
 und Ergebnisreferenz vorliegen. Dieser PR enthält keine Deployment-Freigabe,
 keinen Produktionsnachweis und keine Anwendung für frei eingegebenes SQL.
+
+## Phase-3-Anschlussvertrag
+
+Nach erfolgreicher Produktionsverifikation dieser Datenbankgrenze kann die
+interaktive READ-ONLY SQL Console umgesetzt werden.
+
+Der geplante Anwendungsscope bleibt:
+
+- gemeinsamer editierbarer SQL-Editor nach dem freigegebenen Mockup;
+- große SQL-Workspace-Ansicht und dedizierte `/sql`-Seite;
+- Same-Origin-WebSocket mit bestehender Admin-Session;
+- exakte Origin-Prüfung;
+- keine Auth-Tokens in URLs;
+- genau eine aktive Query pro Verbindung;
+- echter Datenbankabbruch bei Cancel und Disconnect;
+- Cursor-/Row-Batches mit Backpressure;
+- sichere Fehler ohne SQL-, DSN- oder Driver-Leaks;
+- Audit ohne Result Rows und ohne vollständiges SQL mit sensitiven Literalen.
+
+Geplante Ressourcenlimits:
+
+- Statement Timeout: 5 Sekunden;
+- Gesamtdeadline: 8 Sekunden;
+- Standardlimit: 50 Zeilen;
+- Hard Limit: 500 Zeilen;
+- maximale SQL-Länge: 32 KiB;
+- maximale Zellgröße: 16 KiB;
+- maximale serialisierte Ergebnisgröße: 1 MiB.
+
+Die Finding-basierte Diagnose und freie SQL-Ausführung bleiben semantisch getrennt:
+Wird die ursprüngliche registrierte Diagnosequery verändert, darf die bestehende
+Finding-Regelauswertung nicht mehr als Bewertung der benutzerdefinierten Query
+dargestellt werden.
+
+Phase 3 bleibt ausschließlich READ ONLY. Phase 4 mit Schreibzugriff benötigt ein
+eigenes Security Review.
