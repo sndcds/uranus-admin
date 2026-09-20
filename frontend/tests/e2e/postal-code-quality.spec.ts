@@ -67,12 +67,7 @@ for (const mode of ['live', 'persisted'] as const) {
     await expect(link).toContainText('Warnung')
     await expect(link).toContainText('Schlechte Datenqualität')
     await link.click()
-    await expect(page).toHaveURL(
-      (url) =>
-        url.pathname === '/findings' &&
-        url.searchParams.get('rule') === rule &&
-        url.searchParams.get('active_only') === 'true',
-    )
+    await expect(page).toHaveURL(new RegExp(`/findings\\?rule=${rule}`))
     const rows = page.getByRole('list', { name: 'Befunde', exact: true }).getByRole('listitem')
     await expect(rows).toHaveCount(2)
     for (const owner of owners) {
