@@ -1,0 +1,9 @@
+- name: Inspect the existing Uranus Admin installation
+  hosts: uranus_admin
+  gather_facts: false
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  roles:
+    - role: uranus_admin
+      ua_action: inspect

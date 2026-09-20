@@ -1,0 +1,31 @@
+- name: Require a fixed target and safe paths
+  ansible.builtin.assert:
+    that:
+      - ua_action in ['inspect', 'deploy']
+      - ua_expected_hostname == 'webserver'
+      - ua_root == '/opt/uranus-admin'
+      - ua_legacy_root == '/home/oklab/build/uranus-admin'
+      - ua_config_dir == '/etc/uranus-admin'
+      - ua_service_user == 'oklab' and ua_service_group == 'oklab'
+      - ua_pg_port | int == 5432
+      - ua_pg_socket == '/var/run/postgresql'
+      - ansible_run_tags | list | unique | sort == ['all']
+      - ansible_skip_tags | length == 0
+    fail_msg: "This adoption targets the audited host only. Do not bypass preflight with tags."
+
+- name: Require the reviewed maintenance and secret-adoption decisions for a real apply
+  ansible.builtin.assert:
+    that:
+      - ua_apply_confirmation == 'Ja, führe das Deployment jetzt aus.'
+      - ua_reviewed_dry_run | length > 0
+      - ua_maintenance_window | length > 0
+      - ua_backup_reference | length > 0
+      - not (ua_manage_notification_timer | bool) or (ua_disable_notification_timer_approved | bool)
+      - ua_secret_adoption_approved | bool
+    fail_msg: "Apply requires reviewed dry run, backup reference, maintenance window, secret approval and separate approval when managing notifications."
+  when: ua_action == 'deploy' and not ansible_check_mode
+
+- name: Authenticate and inspect the controller artifact without extraction
+  ansible.builtin.set_fact:
+    ua_manifest: "{{ ua_artifact | ua_manifest(ua_artifact_sha256, ua_release_sha) }}"
+    ua_release_dir: "{{ ua_root }}/releases/{{ ua_release_sha }}"

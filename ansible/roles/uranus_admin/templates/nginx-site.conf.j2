@@ -1,0 +1,88 @@
+{% macro headers() %}
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.kulturbytes.de; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self'; upgrade-insecure-requests;" always;
+    add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+{% endmacro %}
+server {
+    listen 80;
+    listen [::]:80;
+    server_name admin.kulturbytes.de;
+    access_log /var/log/nginx/uranus-admin-access.log uranus_admin_safe;
+    # Error messages may contain request details: restrict access and rotate this log.
+    error_log /var/log/nginx/uranus-admin-error.log warn;
+    return 301 https://admin.kulturbytes.de$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name admin.kulturbytes.de;
+    ssl_certificate /etc/letsencrypt/live/admin.kulturbytes.de/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/admin.kulturbytes.de/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:uranus_admin_ssl:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+    access_log /var/log/nginx/uranus-admin-access.log uranus_admin_safe;
+    error_log /var/log/nginx/uranus-admin-error.log warn;
+{{ headers() }}
+    client_max_body_size 2m;
+    client_body_timeout 15s;
+    client_header_timeout 15s;
+    keepalive_timeout 30s;
+    send_timeout 30s;
+    limit_conn uranus_admin_conn 20;
+    limit_req_status 429;
+    limit_conn_status 429;
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    location ~* \.(?:env|ini|log|sql|bak|backup|old|orig|swp)$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+{% for location in ['^~ /_nuxt/', '^~ /api/admin/', '/'] %}
+    location {{ location }} {
+{% if location == '^~ /api/admin/' %}
+        limit_req zone=uranus_admin_api burst=20 nodelay;
+{% elif location == '/' %}
+        limit_req zone=uranus_admin_general burst=50 nodelay;
+{% endif %}
+        proxy_pass http://127.0.0.1:3011;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        proxy_intercept_errors off;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_buffering on;
+        proxy_buffers 16 16k;
+        proxy_buffer_size 16k;
+{% if location != '^~ /_nuxt/' %}
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "private, no-store" always;
+{% endif %}
+{{ headers() }}
+    }
+{% endfor %}
+    error_page 429 = @rate_limited;
+    location @rate_limited {
+        default_type application/json;
+        add_header Cache-Control "private, no-store" always;
+{{ headers() }}
+        return 429 '{"error":{"code":"rate_limited","message":"Too many requests."}}';
+    }
+}

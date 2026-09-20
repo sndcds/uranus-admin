@@ -1,0 +1,111 @@
+- name: Initialize activation outcome
+  ansible.builtin.set_fact:
+    ua_activation_succeeded: false
+    ua_pointer_attempted: false
+    ua_install_attempted: false
+
+- name: Activate validated system configuration with bounded recovery
+  block:
+    - name: Disable the notification timer only under both explicit flags
+      ansible.builtin.systemd_service:
+        name: uranus-admin-notification-worker.timer
+        state: stopped
+        enabled: false
+      when:
+        - ua_manage_notification_timer | bool
+        - ua_disable_notification_timer_approved | bool
+
+    - name: Stop the notification invocation only under both explicit flags
+      ansible.builtin.systemd_service:
+        name: uranus-admin-notification-worker.service
+        state: stopped
+      when:
+        - ua_manage_notification_timer | bool
+        - ua_disable_notification_timer_approved | bool
+
+    - name: Stop only affected application services
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+      loop: "{{ ua_restart_services }}"
+
+    - name: Record that configuration installation may have partially occurred
+      ansible.builtin.set_fact:
+        ua_install_attempted: true
+
+    - name: Install reviewed configuration
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: "{{ item.path }}"
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop: "{{ ua_files }}"
+      when: item.path in ua_changed_paths
+      no_log: true
+      diff: false
+
+    - name: Restrict the legacy frontend environment without replacing contents
+      ansible.builtin.file:
+        path: "{{ ua_legacy_root }}/frontend/.env"
+        owner: root
+        group: root
+        mode: "0600"
+      when: ua_previous_frontend_env.stat.exists
+
+    - name: Reload changed systemd units
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: ua_units_changed | bool
+
+    - name: Verify the complete installed nginx configuration
+      ansible.builtin.command: /usr/sbin/nginx -t
+      changed_when: false
+      no_log: true
+
+    - name: Start affected application services
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop: "{{ ua_restart_services }}"
+
+    - name: Reload changed nginx configuration
+      ansible.builtin.systemd_service:
+        name: nginx.service
+        state: reloaded
+      when: ua_nginx_changed | bool
+
+    - name: Verify activation before publishing the release pointer
+      ansible.builtin.import_tasks: healthchecks.yml
+
+    - name: Record that the release pointer may have changed
+      ansible.builtin.set_fact:
+        ua_pointer_attempted: true
+
+    - name: Publish the successfully checked release pointer
+      ansible.builtin.file:
+        src: "{{ ua_release_dir }}"
+        dest: "{{ ua_root }}/current"
+        state: link
+        follow: false
+        owner: root
+        group: root
+
+    - name: Mark activation successful
+      ansible.builtin.set_fact:
+        ua_activation_succeeded: true
+
+  rescue:
+    - name: Recover only system configuration and original service states
+      block:
+        - name: Run bounded system recovery
+          ansible.builtin.import_tasks: system_recovery.yml
+      rescue:
+        - name: Report incomplete system recovery without another fallback
+          ansible.builtin.fail:
+            msg: "Activation and SYSTEM ROLLBACK failed. Manual system recovery required using {{ ua_recovery_directory.path }}. No database recovery was attempted."
+
+    - name: Keep a recovered deployment failed
+      ansible.builtin.fail:
+        msg: "Activation failed; SYSTEM ROLLBACK completed. Previous configuration and service states restored. Snapshot: {{ ua_recovery_directory.path }}. No database recovery was attempted."
