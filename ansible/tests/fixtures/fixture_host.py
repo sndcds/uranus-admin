@@ -43,7 +43,10 @@ class ActionModule(ActionBase):
             event["unit"] = unit
         elif kind == "command" and args.get("argv", [""])[0] == "/usr/bin/pgrep":
             result.update(rc=0, stdout_lines=["12345"])
-        elif name in state["fail_tasks"]:
+        elif name in state["fail_tasks"] and not (
+            name == "Check public HTTP 503 maintenance content and headers"
+            and state["maintenance_responses"]
+        ):
             result.update(failed=True, msg="Injected local fixture failure", status=502, rc=1)
         elif kind == "systemd":
             manifests = list(Path(state["config_dir"]).glob("recovery/*/attempt-*/manifest.json"))
@@ -66,10 +69,15 @@ class ActionModule(ActionBase):
                 unit = args["name"]
                 event.update(unit=unit, state=args.get("state"), enabled=args.get("enabled"))
                 if unit == "nginx.service" and args.get("state") == "reloaded":
-                    state["loaded_maintenance_capable"] = (
+                    capable = (
                         "error_page 503 =503 /__maintenance.html;"
                         in Path(state["nginx_site"]).read_text()
                     )
+                    if name == "Reload nginx for maintenance activation":
+                        # Reload returns before old workers finish using their old config.
+                        state["pending_maintenance_capable"] = capable
+                    else:
+                        state["loaded_maintenance_capable"] = capable
                 if "state" in args:
                     state["services"][unit]["active"] = args["state"] != "stopped"
                 if "enabled" in args:
@@ -77,6 +85,8 @@ class ActionModule(ActionBase):
                         "enabled" if args["enabled"] else "disabled"
                     )
             result["changed"] = True
+        elif kind == "wait_for":
+            state["loaded_maintenance_capable"] = state.pop("pending_maintenance_capable")
         elif kind == "uri":
             event["pointer"] = str(Path(state["current"]).resolve())
             result["status"] = (
@@ -88,6 +98,15 @@ class ActionModule(ActionBase):
                     retry_after=str(task_vars["ua_maintenance_retry_after"]),
                     cache_control="no-store",
                 )
+            if name == "Check public HTTP 503 maintenance content and headers":
+                responses = state["maintenance_responses"]
+                if responses:
+                    index = state.get("maintenance_response_index", 0)
+                    result.update(responses[min(index, len(responses) - 1)])
+                    state["maintenance_response_index"] = index + 1
+                event["response_status"] = result["status"]
+                # Match uri failure for an unexpected status; failed_when also checks content.
+                result["failed"] = result["status"] != args["status_code"]
         else:
             result.update(rc=0, stdout="Candidate valid")
         state["events"].append(event)

@@ -48,9 +48,6 @@
         name: nginx.service
         state: reloaded
 
-    - name: Verify public maintenance response
-      ansible.builtin.import_tasks: maintenance_verify.yml
-
     # Reload is asynchronous. Old workers can still hold requests to the old app.
     # Never kill them or interrupt other sites: timeout aborts before any app stop.
     - name: Drain previous nginx workers before stopping applications
@@ -59,3 +56,6 @@
         state: absent
         timeout: 60
       loop: "{{ ua_previous_nginx_workers.stdout_lines }}"
+
+    - name: Verify public maintenance response
+      ansible.builtin.import_tasks: maintenance_verify.yml
