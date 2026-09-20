@@ -1,5 +1,10 @@
 # Finding SQL Editor
 
+Phase 3 (freely editable SQL and WebSocket execution) is blocked on the
+[console reader infrastructure follow-up](../../backend/docs/sql-console.md).
+The requested two-column mockup and `/sql` page are not implemented by that
+documentation change; the registered-query editor described below remains current.
+
 The shared FindingsList opens a dedicated read-only SQL Editor from both the prioritized
 work list and `/findings`. AppModal's existing `wide` prop provides `max-w-5xl`, viewport
 width minus 2rem and `max-h-[90dvh]` with vertical scrolling. Other modals retain their
