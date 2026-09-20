@@ -61,6 +61,7 @@
         chdir: "{{ ua_release_dir }}/backend"
       become_user: oklab
       environment:
+        PATH: "{{ ua_build_path }}"
         UV_CACHE_DIR: /var/cache/uranus-admin-build/uv
         UV_PYTHON_DOWNLOADS: never
       changed_when: true
@@ -71,6 +72,9 @@
           [
             "{{ ua_pnpm }}",
             install,
+            --pm-on-fail=error,
+            --runtime-on-fail=error,
+            --userconfig=/dev/null,
             --frozen-lockfile,
             --store-dir,
             /var/cache/uranus-admin-build/pnpm,
@@ -79,12 +83,33 @@
       become_user: oklab
       changed_when: true
 
+      environment:
+        PATH: "{{ ua_build_path }}"
+        HOME: /var/cache/uranus-admin-build
+        PNPM_CONFIG_DIR: /nonexistent
+        XDG_CONFIG_HOME: /nonexistent
+        XDG_CACHE_HOME: /var/cache/uranus-admin-build/cache
+        XDG_STATE_HOME: /var/cache/uranus-admin-build/state
+
     - name: Build the production Nitro server without runtime secrets
       ansible.builtin.command:
-        argv: ["{{ ua_pnpm }}", build]
+        argv:
+          [
+            "{{ ua_pnpm }}",
+            --pm-on-fail=error,
+            --runtime-on-fail=error,
+            --userconfig=/dev/null,
+            build,
+          ]
         chdir: "{{ ua_release_dir }}/frontend"
       become_user: oklab
       environment:
+        PATH: "{{ ua_build_path }}"
+        HOME: /var/cache/uranus-admin-build
+        PNPM_CONFIG_DIR: /nonexistent
+        XDG_CONFIG_HOME: /nonexistent
+        XDG_CACHE_HOME: /var/cache/uranus-admin-build/cache
+        XDG_STATE_HOME: /var/cache/uranus-admin-build/state
         NODE_ENV: production
         NITRO_PRESET: node-server
       changed_when: true
@@ -123,6 +148,24 @@
     group: root
     mode: "0644"
   loop: [verify_runtime.py, validate_nginx.py]
+
+- name: Refuse an existing release environment backed by a different Python interpreter
+  ansible.builtin.command:
+    argv:
+      - "{{ ua_uv }}"
+      - run
+      - --no-sync
+      - --offline
+      - --no-python-downloads
+      - --no-env-file
+      - python
+      - -B
+      - -c
+      - "import os,sys; sys.exit(0 if os.path.realpath(sys._base_executable) == os.path.realpath(sys.argv[1]) else 1)"
+      - "{{ ua_python }}"
+    chdir: "{{ ua_release_dir }}/backend"
+  become_user: oklab
+  changed_when: false
 
 - name: Validate production settings and the actual runtime DSNs before stopping services
   ansible.builtin.command:
