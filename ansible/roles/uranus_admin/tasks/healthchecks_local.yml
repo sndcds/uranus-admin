@@ -1,0 +1,27 @@
+- name: Check backend liveness and database readiness
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8011/{{ item }}"
+    status_code: 200
+    return_content: false
+    follow_redirects: none
+    use_proxy: false
+    timeout: 10
+  loop: [health, ready]
+  register: ua_health
+  until: ua_health.status == 200
+  retries: 10
+  delay: 2
+
+- name: Check local frontend login while public maintenance is active
+  ansible.builtin.uri:
+    url: http://127.0.0.1:3011/login
+    method: GET
+    status_code: 200
+    follow_redirects: none
+    return_content: false
+    use_proxy: false
+    timeout: 10
+  register: ua_frontend_health
+  until: ua_frontend_health.status == 200
+  retries: 10
+  delay: 2

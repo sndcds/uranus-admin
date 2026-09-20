@@ -100,6 +100,7 @@ class StaticRecoveryBoundaries(unittest.TestCase):
             "block",
             "rescue",
             "always",
+            "ignore_errors",
         }
 
         def audit(tasks, in_rescue=False):
@@ -164,6 +165,10 @@ class ActivationIntegrationTests(unittest.TestCase):
         approved=False,
         first_adoption=False,
         notification_active=True,
+        originally_on=False,
+        recovery_fail_task=None,
+        check=False,
+        repeat_without_activation=False,
     ):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -180,6 +185,12 @@ class ActivationIntegrationTests(unittest.TestCase):
                 text = path.read_text()
                 for old, new in replacements.items():
                     text = text.replace(old, new)
+                # Match root ownership checks to the unprivileged fixture owner.
+                if path.name in ("deploy.yml", "prepare_activation.yml"):
+                    text = text.replace(".stat.uid != 0", f".stat.uid != {os.getuid()}")
+                    text = text.replace(".stat.gid != 0", f".stat.gid != {os.getgid()}")
+                if path.name == "maintenance_inspect.yml":
+                    text = text.replace(".uid == 0", f".uid == {os.getuid()}")
                 tasks = yaml.safe_load(text)
                 if isinstance(tasks, list):
                     self.adapt_host_io(tasks)
@@ -208,6 +219,14 @@ class ActivationIntegrationTests(unittest.TestCase):
             (release_root / "current").symlink_to(old_release)
             if first_adoption:
                 (release_root / "current").unlink()
+            maintenance = release_root / "maintenance"
+            marker = maintenance / "enabled"
+            if originally_on:
+                (maintenance / "assets").mkdir(parents=True)
+                maintenance.chmod(0o755)
+                (maintenance / "assets").chmod(0o755)
+                marker.write_text("original maintenance marker\n")
+                marker.chmod(0o644)
             files = [
                 *(root / "etc/systemd/system" / name for name in APP_SERVICES),
                 root / "etc/nginx/sites-available/uranus-admin",
@@ -219,7 +238,10 @@ class ActivationIntegrationTests(unittest.TestCase):
             originals = {}
             for path in files:
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text("original " + path.name + "\n")
+                original = "original " + path.name + "\n"
+                if originally_on and path == root / "etc/nginx/sites-available/uranus-admin":
+                    original += "error_page 503 =503 /__maintenance.html;\n"
+                path.write_text(original)
                 path.chmod(0o640)
                 originals[str(path)] = (path.read_text(), 0o640)
             if first_adoption:
@@ -253,7 +275,12 @@ class ActivationIntegrationTests(unittest.TestCase):
             state = {
                 "services": services,
                 "events": [],
-                "fail_tasks": [fail_task] if fail_task else [],
+                "fail_tasks": [t for t in (fail_task, recovery_fail_task) if t],
+                "originals": {k: v[0] for k, v in originals.items() if v},
+                "marker": str(marker),
+                "maintenance": str(maintenance),
+                "nginx_site": str(root / "etc/nginx/sites-available/uranus-admin"),
+                "loaded_maintenance_capable": originally_on,
                 "config_dir": str(config),
                 "current": str(release_root / "current"),
             }
@@ -266,6 +293,8 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "fixture_state": str(state_path),
                 "ua_config_dir": str(config),
                 "ua_root": str(release_root),
+                "ua_maintenance_root": str(maintenance),
+                "ua_maintenance_marker": str(marker),
                 "ua_release_dir": str(release),
                 "ua_release_sha": "a" * 40,
                 "ua_legacy_root": str(legacy),
@@ -309,7 +338,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                 + str(plugin_dir)
                 + "\naction_plugins="
                 + str(actions)
-                + "\nnocows=True\n"
+                + "\nnocows=True\n[connection]\npipelining=True\n"
             )
             result = subprocess.run(
                 [
@@ -319,6 +348,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                     "-i",
                     "localhost,",
                     str(root / "play.yml"),
+                    *(["--check", "--diff"] if check else []),
                 ],
                 env={
                     **os.environ,
@@ -327,11 +357,30 @@ class ActivationIntegrationTests(unittest.TestCase):
                 },
                 capture_output=True,
                 text=True,
-                timeout=90,
+                # Real file/module work grows with maintenance and recovery coverage.
+                timeout=240,
             )
             observed = json.loads(state_path.read_text())
             output = result.stdout + result.stderr
+            if check:
+                self.assertEqual(result.returncode, 0, output)
+                self.assertFalse(marker.exists())
+                self.assertFalse(maintenance.exists())
+                self.assertFalse(any(e["kind"] == "systemd" for e in observed["events"]))
+                self.assertIn("would_verify_http_503", output)
+                self.assertIn("would_enable_before_service_stop", output)
+                return observed
             if fail_task:
+                self.assertTrue(any(e["task"] == fail_task for e in observed["events"]), output)
+                if recovery_fail_task:
+                    self.assertTrue(
+                        any(e["task"] == recovery_fail_task for e in observed["events"]), output
+                    )
+                    self.assertNotEqual(result.returncode, 0, output)
+                    self.assertIn("SYSTEM RECOVERY FAILED", output)
+                    self.assertIn("Maintenance mode remains active", output)
+                    self.assertTrue(marker.is_file(), output)
+                    return observed
                 self.assertNotEqual(result.returncode, 0, output)
                 if fail_task != "Validate prepared candidates":
                     self.assertIn("SYSTEM ROLLBACK completed", output)
@@ -352,10 +401,19 @@ class ActivationIntegrationTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, output)
                 self.assertEqual((release_root / "current").resolve(), release)
                 health_events = [event for event in observed["events"] if event["kind"] == "uri"]
-                self.assertEqual(len(health_events), 3)
+                self.assertEqual(len(health_events), 5)
                 self.assertTrue(
                     all(event["pointer"] == str(old_release) for event in health_events)
                 )
+            self.assertEqual(marker.exists(), originally_on, output)
+            if originally_on:
+                self.assertTrue(observed["loaded_maintenance_capable"], output)
+                self.assertEqual(marker.read_text(), "original maintenance marker\n", output)
+            if fail_task != "Validate prepared candidates":
+                metadata = json.loads(
+                    next(config.glob("recovery/*/attempt-*/manifest.json")).read_text()
+                )
+                self.assertEqual(metadata["maintenance"]["enabled"], originally_on)
             if not manage:
                 self.assertEqual(
                     {k: observed["services"][k] for k in NOTIFICATION},
@@ -369,23 +427,111 @@ class ActivationIntegrationTests(unittest.TestCase):
             mutations = [e for e in observed["events"] if e["kind"] == "systemd"]
             if fail_task == "Validate prepared candidates":
                 self.assertFalse(mutations)
-            else:
+            elif mutations:
                 self.assertTrue(mutations[0]["backups_match_originals"])
+            stops = [
+                e
+                for e in observed["events"]
+                if e.get("unit") in APP_SERVICES and e.get("state") == "stopped"
+            ]
+            if fail_task == "Check public HTTP 503 maintenance content and headers":
+                self.assertFalse(stops, output)
+            elif stops:
+                drain = next(
+                    e
+                    for e in observed["events"]
+                    if e["task"] == "Drain previous nginx workers before stopping applications"
+                )
+                self.assertLess(observed["events"].index(drain), observed["events"].index(stops[0]))
+                verify = next(
+                    e
+                    for e in observed["events"]
+                    if e["task"] == "Check public HTTP 503 maintenance content and headers"
+                )
+                self.assertTrue(verify["maintenance_files_ready"], output)
+                self.assertTrue(verify["maintenance_active"], output)
+                self.assertLess(
+                    observed["events"].index(verify), observed["events"].index(stops[0])
+                )
+                self.assertTrue(
+                    all(e["maintenance_active"] and e["public_maintenance"] for e in stops), output
+                )
+                recovery_starts = [
+                    e
+                    for e in observed["events"]
+                    if e["task"]
+                    == "Restore affected application services to their actual previous states"
+                ]
+                self.assertTrue(
+                    all(
+                        e["maintenance_active"] and e["public_maintenance"] for e in recovery_starts
+                    ),
+                    output,
+                )
+                if recovery_starts:
+                    reload = next(
+                        e
+                        for e in observed["events"]
+                        if e["task"] == "Reload the valid previous nginx configuration"
+                    )
+                    self.assertGreater(
+                        observed["events"].index(reload),
+                        observed["events"].index(recovery_starts[-1]),
+                    )
+            if repeat_without_activation:
+                count = len(observed["events"])
+                variables["ua_maintenance_public_title"] = "Aktualisiertes öffentliches Zeitfenster"
+                (root / "play.yml").write_text(yaml.safe_dump(play))
+                repeated = subprocess.run(
+                    result.args,
+                    env={
+                        **os.environ,
+                        "ANSIBLE_CONFIG": str(root / "ansible.cfg"),
+                        "ANSIBLE_LOCAL_TEMP": str(root / "tmp"),
+                    },
+                    capture_output=True,
+                    text=True,
+                    timeout=240,
+                )
+                self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
+                after = json.loads(state_path.read_text())
+                self.assertFalse(any(e["kind"] == "systemd" for e in after["events"][count:]))
+                self.assertEqual(marker.exists(), originally_on)
+                self.assertIn(
+                    variables["ua_maintenance_public_title"],
+                    (maintenance / "maintenance.html").read_text(),
+                )
             return observed
 
     @staticmethod
     def adapt_host_io(tasks):
-        for index, task in list(enumerate(tasks)):
-            if task.get("name") == "Publish the successfully checked release pointer":
+        for index, task in reversed(list(enumerate(tasks))):
+            if task.get("name") in (
+                "Publish the successfully checked release pointer",
+                "Install reviewed configuration",
+                "Stop only affected application services",
+            ):
                 tasks.insert(
                     index + 1,
-                    {"name": "After pointer publication", "fixture_host": {"kind": "command"}},
+                    {
+                        "name": (
+                            "After pointer publication"
+                            if task["name"].startswith("Publish")
+                            else (
+                                "After service stop"
+                                if task["name"].startswith("Stop")
+                                else "After configuration installation"
+                            )
+                        ),
+                        "fixture_host": {"kind": "command"},
+                    },
                 )
         for task in tasks:
             for name, kind in (
                 ("ansible.builtin.systemd_service", "systemd"),
                 ("ansible.builtin.command", "command"),
                 ("ansible.builtin.uri", "uri"),
+                ("ansible.builtin.wait_for", "wait_for"),
             ):
                 if name in task:
                     args = task.pop(name)
@@ -395,7 +541,11 @@ class ActivationIntegrationTests(unittest.TestCase):
                     }
                     if kind == "uri":
                         task["retries"], task["delay"] = 0, 0
-            for name in ("ansible.builtin.copy", "ansible.builtin.file"):
+            for name in (
+                "ansible.builtin.copy",
+                "ansible.builtin.file",
+                "ansible.builtin.template",
+            ):
                 if name in task:
                     for key, value in (("owner", str(os.getuid())), ("group", str(os.getgid()))):
                         if task[name].get(key) == "root":
@@ -450,6 +600,56 @@ class ActivationIntegrationTests(unittest.TestCase):
 
     def test_failure_after_first_pointer_change_restores_absence(self):
         self.run_activation("After pointer publication", first_adoption=True)
+
+    def test_maintenance_verification_failure_never_stops_apps(self):
+        self.run_activation("Check public HTTP 503 maintenance content and headers")
+
+    def test_unchanged_release_refreshes_public_copy_without_switching(self):
+        self.run_activation(originally_on=True, repeat_without_activation=True)
+
+    def test_original_maintenance_on_is_preserved_on_success(self):
+        self.run_activation(originally_on=True)
+
+    def test_original_maintenance_on_is_preserved_on_recovery(self):
+        self.run_activation("Check backend liveness and database readiness", originally_on=True)
+
+    def test_failure_immediately_after_service_stop(self):
+        self.run_activation("After service stop")
+
+    def test_local_frontend_failure_recovers(self):
+        self.run_activation("Check local frontend login while public maintenance is active")
+
+    def test_drain_failure_never_interrupts_apps(self):
+        observed = self.run_activation("Drain previous nginx workers before stopping applications")
+        self.assertFalse(
+            any(e.get("unit") in APP_SERVICES for e in observed["events"] if e["kind"] == "systemd")
+        )
+
+    def test_service_start_failure_keeps_maintenance_through_recovery(self):
+        self.run_activation("Start affected application services")
+
+    def test_failure_immediately_after_file_installation(self):
+        self.run_activation("After configuration installation")
+
+    def test_failed_disable_rearms_maintenance_before_recovery_stops(self):
+        self.run_activation("Reload nginx after maintenance removal")
+
+    def test_failed_recovery_keeps_marker_and_reports_operator_action(self):
+        self.run_activation(
+            "Check backend liveness and database readiness",
+            recovery_fail_task="Verify restored nginx configuration before any reload",
+        )
+
+    def test_failed_service_recovery_keeps_marker(self):
+        self.run_activation(
+            "Reload nginx after maintenance removal",
+            recovery_fail_task=(
+                "Restore affected application services to their actual previous states"
+            ),
+        )
+
+    def test_check_mode_does_not_activate_maintenance(self):
+        self.run_activation(check=True)
 
 
 if __name__ == "__main__":

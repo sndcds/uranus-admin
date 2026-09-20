@@ -1,9 +1,20 @@
 # Only bounded files and service state. No application CLI, HTTP probes or database access.
+- name: Reestablish maintenance before system recovery including failed disable
+  ansible.builtin.copy:
+    content: "Ansible-managed maintenance\n"
+    dest: "{{ ua_maintenance_marker }}"
+    force: false
+    owner: root
+    group: root
+    mode: "0644"
+  when: ua_maintenance_attempted | bool
+
 - name: Stop affected application services before restoring their configuration
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     state: stopped
   loop: "{{ ua_restart_services }}"
+  when: ua_services_stop_attempted | bool
 
 - name: Restore previous managed file contents and permissions
   ansible.builtin.copy:
@@ -61,18 +72,13 @@
   changed_when: false
   no_log: true
 
-- name: Reload the valid previous nginx configuration
-  ansible.builtin.systemd_service:
-    name: nginx.service
-    state: reloaded
-  when: ua_nginx_changed | bool and ua_install_attempted | bool
-
 - name: Restore affected application services to their actual previous states
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     state: "{{ 'started' if ua_previous_services[item].active else 'stopped' }}"
     enabled: "{{ ua_previous_services[item].enabled }}"
   loop: "{{ ua_restart_services }}"
+  when: ua_services_stop_attempted | bool
 
 - name: Restore the managed notification service and timer to their previous states
   ansible.builtin.systemd_service:
@@ -83,5 +89,20 @@
     - uranus-admin-notification-worker.service
     - uranus-admin-notification-worker.timer
   when:
+    - ua_services_stop_attempted | bool
     - ua_manage_notification_timer | bool
     - ua_disable_notification_timer_approved | bool
+
+# Keep the loaded maintenance-capable proxy while old services are restored.
+# First adoption may restore a legacy vhost without marker support.
+- name: Reload the valid previous nginx configuration
+  ansible.builtin.systemd_service:
+    name: nginx.service
+    state: reloaded
+  when: ua_nginx_changed | bool and ua_install_attempted | bool
+
+- name: Restore originally inactive maintenance only after successful system recovery
+  ansible.builtin.file:
+    path: "{{ ua_maintenance_marker }}"
+    state: absent
+  when: ua_maintenance_attempted | bool and not ua_previous_maintenance.stat.exists

@@ -29,3 +29,16 @@ ua_services:
   - uranus-admin-backend.service
   - uranus-admin-check-worker.service
   - uranus-admin-frontend.service
+
+# Public copy is separate from the private operator approval ua_maintenance_window.
+ua_maintenance_page_enabled: true
+ua_maintenance_root: /var/lib/uranus-admin/maintenance
+# Nginx cannot traverse the secret configuration directory (0700).
+ua_maintenance_marker: /var/lib/uranus-admin/maintenance/enabled
+ua_maintenance_retry_after: 300
+ua_maintenance_public_title: "Kurze Wartungsarbeiten"
+ua_maintenance_public_message: >-
+  Wir aktualisieren gerade das Kulturbytes Admin-System.
+  Die Anwendung ist in Kürze wieder verfügbar.
+  Bitte versuche es in wenigen Minuten erneut.
+ua_maintenance_public_window: ""

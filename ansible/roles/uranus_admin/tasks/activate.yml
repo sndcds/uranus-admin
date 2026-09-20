@@ -3,9 +3,22 @@
     ua_activation_succeeded: false
     ua_pointer_attempted: false
     ua_install_attempted: false
+    ua_services_stop_attempted: false
+    ua_maintenance_attempted: false
 
 - name: Activate validated system configuration with bounded recovery
+  when: not ansible_check_mode
   block:
+    - name: Prepare maintenance before interruption
+      ansible.builtin.import_tasks: maintenance_prepare.yml
+
+    - name: Enable publicly verified maintenance
+      ansible.builtin.import_tasks: maintenance_enable.yml
+
+    - name: Record that service interruption may have begun
+      ansible.builtin.set_fact:
+        ua_services_stop_attempted: true
+
     - name: Disable the notification timer only under both explicit flags
       ansible.builtin.systemd_service:
         name: uranus-admin-notification-worker.timer
@@ -76,8 +89,14 @@
         state: reloaded
       when: ua_nginx_changed | bool
 
-    - name: Verify activation before publishing the release pointer
-      ansible.builtin.import_tasks: healthchecks.yml
+    - name: Verify local activation while maintenance is active
+      ansible.builtin.import_tasks: healthchecks_local.yml
+
+    - name: Restore public availability after healthy activation
+      ansible.builtin.import_tasks: maintenance_disable.yml
+
+    - name: Verify public state before publishing the release pointer
+      ansible.builtin.import_tasks: healthchecks_public.yml
 
     - name: Record that the release pointer may have changed
       ansible.builtin.set_fact:
@@ -102,9 +121,20 @@
         - name: Run bounded system recovery
           ansible.builtin.import_tasks: system_recovery.yml
       rescue:
+        - name: Keep maintenance enabled after incomplete recovery
+          ansible.builtin.copy:
+            content: "Ansible-managed maintenance\n"
+            dest: "{{ ua_maintenance_marker }}"
+            force: false
+            owner: root
+            group: root
+            mode: "0644"
+          when: ua_maintenance_attempted | bool
+          ignore_errors: true
+
         - name: Report incomplete system recovery without another fallback
           ansible.builtin.fail:
-            msg: "Activation and SYSTEM ROLLBACK failed. Manual system recovery required using {{ ua_recovery_directory.path }}. No database recovery was attempted."
+            msg: "Activation and SYSTEM ROLLBACK failed. SYSTEM RECOVERY FAILED. Maintenance mode remains active where activation was possible. Manual operator intervention required using {{ ua_recovery_directory.path }}. No database recovery was attempted."
 
     - name: Keep a recovered deployment failed
       ansible.builtin.fail:

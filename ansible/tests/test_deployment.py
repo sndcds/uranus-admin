@@ -546,7 +546,9 @@ class DeploymentBoundaryTests(unittest.TestCase):
         frontend = env.get_template("frontend.service.j2").render(values)
         self.assertNotIn("EnvironmentFile=", frontend)
         self.assertIn("NUXT_TRUSTED_INGRESS_IPS=127.0.0.1", frontend)
-        site = env.get_template("nginx-site.conf.j2").render(values)
+        site = env.get_template("nginx-site.conf.j2").render(
+            {**yaml.safe_load((ROLE / "defaults/main.yml").read_text()), **values}
+        )
         self.assertIn("limit_req_status 429;", site)
         self.assertIn("limit_conn_status 429;", site)
         self.assertNotIn("unsafe-eval", site)
@@ -609,7 +611,9 @@ class DeploymentBoundaryTests(unittest.TestCase):
                 check=True,
                 capture_output=True,
             )
-            site = env.get_template("nginx-site.conf.j2").render()
+            site = env.get_template("nginx-site.conf.j2").render(
+                yaml.safe_load((ROLE / "defaults/main.yml").read_text())
+            )
             for old, new in {
                 "listen 80;": "listen 127.0.0.1:18080;",
                 "listen [::]:80;": "",

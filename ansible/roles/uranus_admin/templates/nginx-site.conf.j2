@@ -1,10 +1,14 @@
-{% macro headers() %}
+{% macro headers(maintenance=false) %}
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+{% if maintenance %}
+    add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none';" always;
+{% else %}
     add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.kulturbytes.de; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self'; upgrade-insecure-requests;" always;
+{% endif %}
     add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
 {% endmacro %}
 server {
@@ -49,8 +53,35 @@ server {
         access_log off;
         log_not_found off;
     }
+{% if ua_maintenance_page_enabled %}
+    error_page 503 =503 /__maintenance.html;
+    location = /__maintenance.html {
+        internal;
+        alias {{ ua_maintenance_root }}/maintenance.html;
+        default_type text/html;
+        add_header Retry-After "{{ ua_maintenance_retry_after }}" always;
+        add_header Cache-Control "no-store" always;
+{{ headers(true) }}
+    }
+{% for asset, mime in [('lottie.min.js', 'application/javascript'), ('maintenance.js', 'application/javascript'), ('maintenance.json', 'application/json'), ('LICENSE.lottie-web.txt', 'text/plain')] %}
+    location = /__maintenance_assets/{{ asset }} {
+        open_file_cache off;
+        if (!-f {{ ua_maintenance_marker }}) { return 404; }
+        alias {{ ua_maintenance_root }}/assets/{{ asset }};
+        default_type {{ mime }};
+        access_log off;
+        add_header Cache-Control "no-store" always;
+{{ headers(true) }}
+    }
+{% endfor %}
+    location ^~ /__maintenance_assets/ { return 404; }
+{% endif %}
 {% for location in ['^~ /_nuxt/', '^~ /api/admin/', '/'] %}
     location {{ location }} {
+{% if ua_maintenance_page_enabled %}
+        open_file_cache off;
+        if (-f {{ ua_maintenance_marker }}) { return 503; }
+{% endif %}
 {% if location == '^~ /api/admin/' %}
         limit_req zone=uranus_admin_api burst=20 nodelay;
 {% elif location == '/' %}

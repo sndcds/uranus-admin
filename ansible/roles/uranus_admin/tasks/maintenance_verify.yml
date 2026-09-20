@@ -1,0 +1,17 @@
+- name: Check public HTTP 503 maintenance content and headers
+  ansible.builtin.uri:
+    url: https://admin.kulturbytes.de/
+    method: GET
+    status_code: 503
+    return_content: true
+    validate_certs: true
+    follow_redirects: none
+    use_proxy: false
+    timeout: 10
+  register: ua_maintenance_response
+  failed_when: >-
+    ua_maintenance_response.status != 503
+    or 'id="kulturbytes-maintenance"' not in (ua_maintenance_response.content | default(''))
+    or (ua_maintenance_public_title | e) not in (ua_maintenance_response.content | default(''))
+    or ua_maintenance_response.retry_after | default('') != ua_maintenance_retry_after | string
+    or ua_maintenance_response.cache_control | default('') != 'no-store'
