@@ -220,7 +220,7 @@ class ToolchainTests(unittest.TestCase):
         (role / "tasks/main.yml").write_text("- ansible.builtin.import_tasks: toolchain.yml\n")
         (role / "files/toolchain-pins.json").write_text(json.dumps(self.catalog))
         module = MODULE.read_text().replace(
-            'ROOT = Path("/opt/uranus-admin/toolchain")', f"ROOT = Path({str(self.root)!r})"
+            'ROOT = Path("/var/lib/uranus-admin/toolchain")', f"ROOT = Path({str(self.root)!r})"
         )
         module = module.replace(
             'runtime_user="oklab",',
@@ -280,10 +280,18 @@ class ToolchainTests(unittest.TestCase):
         self.assertIn("sys._base_executable", " ".join(guard["ansible.builtin.command"]["argv"]))
         self.assertFalse(guard["changed_when"])
         build = next(task["block"] for task in release if "block" in task)
-        commands = [task for task in build if "ansible.builtin.command" in task]
+        commands = [
+            task
+            for task in build
+            if task.get("ansible.builtin.command", {}).get("argv", [None])[0]
+            in ("{{ ua_uv }}", "{{ ua_pnpm }}")
+        ]
         self.assertEqual(len(commands), 3)
         for task in commands:
             argv = task["ansible.builtin.command"]["argv"]
+            self.assertTrue(
+                task["ansible.builtin.command"]["chdir"].startswith("{{ ua_build_dir }}")
+            )
             self.assertIn(argv[0], ("{{ ua_uv }}", "{{ ua_pnpm }}"))
             self.assertEqual(task["environment"]["PATH"], "{{ ua_build_path }}")
             if argv[0] == "{{ ua_pnpm }}":
@@ -293,6 +301,10 @@ class ToolchainTests(unittest.TestCase):
             else:
                 self.assertIn("{{ ua_python }}", argv)
                 self.assertEqual(task["environment"]["UV_PYTHON_DOWNLOADS"], "never")
+                self.assertEqual(
+                    task["environment"]["UV_PROJECT_ENVIRONMENT"],
+                    "{{ ua_release_dir }}/backend/.venv",
+                )
         self.assertIn(
             "ExecStart={{ ua_uv }} run --no-cache --no-sync --offline --no-python-downloads",
             (ROLE / "templates/python.service.j2").read_text(),
@@ -323,7 +335,7 @@ class ToolchainTests(unittest.TestCase):
         )
         self.assertEqual(download["checksum"], "sha256:{{ item.sha256 }}")
         self.assertTrue(download["validate_certs"])
-        self.assertEqual(toolchain.ROOT, Path("/opt/uranus-admin/toolchain"))
+        self.assertEqual(toolchain.ROOT, Path("/var/lib/uranus-admin/toolchain"))
         text = (ROLE / "tasks/toolchain.yml").read_text() + MODULE.read_text()
         for forbidden in ("community.postgresql", "psql", "alembic", "rescue:", "curl ", "shell:"):
             self.assertNotIn(forbidden, text)

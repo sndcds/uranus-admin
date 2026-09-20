@@ -37,12 +37,24 @@
         - { path: "{{ ua_release_dir }}", owner: oklab }
         - { path: /var/cache/uranus-admin-build, owner: oklab }
 
+    - name: Create separate build directories as the unprivileged build user
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      become_user: oklab
+      loop:
+        - "{{ ua_build_root }}"
+        - "{{ ua_build_dir }}"
+
     - name: Extract only the previously validated source archive
       ansible.builtin.unarchive:
         src: "{{ ua_artifact }}"
-        dest: "{{ ua_release_dir }}"
-        owner: oklab
-        group: oklab
+        dest: "{{ item }}"
+      become_user: oklab
+      loop:
+        - "{{ ua_build_dir }}"
+        - "{{ ua_release_dir }}"
 
     - name: Install locked Python runtime dependencies into the new release
       ansible.builtin.command:
@@ -58,12 +70,14 @@
             python,
             --version,
           ]
-        chdir: "{{ ua_release_dir }}/backend"
+        chdir: "{{ ua_build_dir }}/backend"
       become_user: oklab
       environment:
         PATH: "{{ ua_build_path }}"
         UV_CACHE_DIR: /var/cache/uranus-admin-build/uv
         UV_PYTHON_DOWNLOADS: never
+        # Keep interpreter links and script shebangs at their final runtime location.
+        UV_PROJECT_ENVIRONMENT: "{{ ua_release_dir }}/backend/.venv"
       changed_when: true
 
     - name: Install locked frontend dependencies into the new release
@@ -79,7 +93,7 @@
             --store-dir,
             /var/cache/uranus-admin-build/pnpm,
           ]
-        chdir: "{{ ua_release_dir }}/frontend"
+        chdir: "{{ ua_build_dir }}/frontend"
       become_user: oklab
       changed_when: true
 
@@ -101,7 +115,7 @@
             --userconfig=/dev/null,
             build,
           ]
-        chdir: "{{ ua_release_dir }}/frontend"
+        chdir: "{{ ua_build_dir }}/frontend"
       become_user: oklab
       environment:
         PATH: "{{ ua_build_path }}"
@@ -113,6 +127,23 @@
         NODE_ENV: production
         NITRO_PRESET: node-server
       changed_when: true
+
+    - name: Copy only the standalone Nitro output into the local runtime release
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/cp
+          - --archive
+          - --no-preserve=ownership
+          - --
+          - "{{ ua_build_dir }}/frontend/.output"
+          - "{{ ua_release_dir }}/frontend/"
+      become_user: oklab
+      changed_when: true
+
+    - name: Verify Nitro output is standalone before allowing build retention
+      uranus_frontend_output:
+        path: "{{ ua_release_dir }}/frontend/.output"
+      become_user: oklab
 
     - name: Make the completed application tree owned by root
       ansible.builtin.file:
@@ -131,6 +162,13 @@
         owner: root
         group: root
         mode: "0644"
+
+    - name: Mark the separate workspace eligible for bounded build retention
+      ansible.builtin.copy:
+        content: "{{ ua_artifact_sha256 }}\n"
+        dest: "{{ ua_build_dir }}/.build-complete"
+        mode: "0644"
+      become_user: oklab
 
 - name: Create a directory for reviewed verification files
   ansible.builtin.file:

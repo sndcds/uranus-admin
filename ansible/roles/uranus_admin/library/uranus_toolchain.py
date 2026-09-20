@@ -15,7 +15,7 @@ import subprocess
 import tarfile
 from pathlib import Path, PurePosixPath
 
-ROOT = Path("/opt/uranus-admin/toolchain")
+ROOT = Path("/var/lib/uranus-admin/toolchain")
 SOURCES = {
     "python": "https://github.com/astral-sh/python-build-standalone/releases/download/",
     "uv": "https://github.com/astral-sh/uv/releases/download/",
@@ -90,7 +90,7 @@ class Toolchain:
         architecture,
         uid=0,
         gid=0,
-        anchor=Path("/opt"),
+        anchor=Path("/var/lib"),
         runtime_user=None,
     ):
         self.root, self.catalog = Path(root), catalog
