@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "uranus_sha": "7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d",
   "schema": "uranus_console",
   "owner_role": "uranus_console_owner",
@@ -223,11 +223,43 @@
       "policy": "reviewed_immutable_stable",
       "languages": ["c", "sql", "plpgsql", "internal"],
       "library": "$libdir/postgis-3"
+    },
+    "hstore": {
+      "schema": "public",
+      "versions": ["1.8"],
+      "optional": true,
+      "policy": "reviewed_restricted",
+      "languages": ["c"],
+      "library": "$libdir/hstore"
+    },
+    "pg_trgm": {
+      "schema": "public",
+      "versions": ["1.6"],
+      "optional": true,
+      "policy": "reviewed_restricted",
+      "languages": ["c"],
+      "library": "$libdir/pg_trgm"
+    },
+    "pgcrypto": {
+      "schema": "public",
+      "versions": ["1.3"],
+      "optional": true,
+      "policy": "reviewed_restricted",
+      "languages": ["c"],
+      "library": "$libdir/pgcrypto"
+    },
+    "unaccent": {
+      "schema": "public",
+      "versions": ["1.1"],
+      "optional": true,
+      "policy": "reviewed_restricted",
+      "languages": ["c"],
+      "library": "$libdir/unaccent"
     }
   },
   "function_policy": {
-    "version": 2,
-    "preserve_role_contract": "database_temp_roles",
+    "version": 3,
+    "preserve_role_contract": "execute_roles",
     "denied_names": [
       "loread",
       "lowrite",
@@ -1581,7 +1613,692 @@
                   "public_execute": true
                 }
               },
-              "version": "3.4.2"
+              "version": "3.4.2",
+              "metadata_source_owner": "oklab"
+            },
+            "hstore": {
+              "version": "1.8",
+              "catalog_sha256": "2316812ebb7444b4a1ed24e16275239c0116e1c3cf429d4aeb94575d0ba6228d",
+              "functions": 60,
+              "restricted_functions": {
+                "public.akeys(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "9b538551854257a01d6ba5b1038f4d65e24c5f50cbdb60c9e3ca79c7e18b8852"
+                },
+                "public.avals(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "d9b1b0486ba31fc6650db07a15e3c04f5137cf03276b51aaee769eefb03aaeba"
+                },
+                "public.defined(public.hstore, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "eb310e01c14727885e2f97bd07e29c4c61a2a7438d56fc8438359078e90bb7de"
+                },
+                "public.delete(public.hstore, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "0b55dd131033092f0681d41a927d4848a2f27af4ea3643cf8d8fd65030e06a3b"
+                },
+                "public.delete(public.hstore, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "72bbbfe56815808f72d97e4f09255662bf257bd5f1066386c311fbc9b837e78d"
+                },
+                "public.delete(public.hstore, text[])": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "150c1f3da9d247e53538d48dd74544d053a5623c4822f5a4e409f6874a040511"
+                },
+                "public.each(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "53e2730b2336e0029e925adbc0f231ed3050840633f7310d67a874c14c59e40f"
+                },
+                "public.exist(public.hstore, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "deaa32dc40e93ec32f861c74bba766d71a26dcf6addc0d269b4d0cead1f921fc"
+                },
+                "public.exists_all(public.hstore, text[])": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "abdaa9a283e7ddedb64852caca65cdf54969e5bb562f9ecaf3964dc993caec60"
+                },
+                "public.exists_any(public.hstore, text[])": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "8e97082eae7acb447530b6528835661943d880d767db8e8eb9da7d9a8bbcd0ca"
+                },
+                "public.fetchval(public.hstore, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "bc25b6a92e417d1a9f247f10d3072a5421a826434640dec4a2e1550e0b3e8982"
+                },
+                "public.ghstore_compress(internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "19b7ac2313eea2a284005f5cb6b531389b42f5718ea8c0b286ccd183dde9a978"
+                },
+                "public.ghstore_consistent(internal, public.hstore, smallint, oid, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "75b5d9152181debf4635935bdd6bead85624e515203841e36a6a077b688a1e70"
+                },
+                "public.ghstore_decompress(internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "7099138d8b22c8294f11d3a1db72a9a02bcc76ccbead3a226126d6ac38fc4ad1"
+                },
+                "public.ghstore_in(cstring)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "bc401e460b7acb0fef3a309c0e6304c1662cfa038ca5767c96c55c4881e9c922"
+                },
+                "public.ghstore_options(internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "ea88cd1af8cf69d3dcb463404b963cc0a8c4c8bf535dd57636a7eff87a71430f"
+                },
+                "public.ghstore_out(public.ghstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "c0be582fbc804a367c3b2f9b8df4694493abd4e958edb2464322b3309b0e1e69"
+                },
+                "public.ghstore_penalty(internal, internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "653762c18f42b1a77acf9ec9e4e61aca265d2eab4bc4d05cc07a746119389321"
+                },
+                "public.ghstore_picksplit(internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "77ce6415cdc000f536beb8527f478e3ac5f944502e11c2e60c1557c574f7987e"
+                },
+                "public.ghstore_same(public.ghstore, public.ghstore, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "4e0b2ead36e678202597157dbdaf086253ead6c94f2b6ca2af12a9f2c6cbed5a"
+                },
+                "public.ghstore_union(internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "227c7aa3483a34a022a641a96965432957bdc243da7a27b44a01fd05310f0cd4"
+                },
+                "public.gin_consistent_hstore(internal, smallint, public.hstore, integer, internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "739cb4268691ad3dd892c6be7b1bb72e70c7ca1c630b586ba68a426c8884a9b1"
+                },
+                "public.gin_extract_hstore(public.hstore, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "24f2324137582e075332ad7fcc7f6bfaa74a855cd6f7c4c261f30bdc9dfccf29"
+                },
+                "public.gin_extract_hstore_query(public.hstore, internal, smallint, internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "870f9f4d82d7c5bbc95d595de629028f89bd27dc0ccb70f384bf184fd53692d8"
+                },
+                "public.hs_concat(public.hstore, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "f02856741ea31528016b1e0f64dffa9eba1046afc0e8329980f87e895f1328ff"
+                },
+                "public.hs_contained(public.hstore, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "29a7a724562d970326749f6423662a367cfc31f22e580dffeee3d7f69aa9ed39"
+                },
+                "public.hs_contains(public.hstore, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "a5caacf9aa1bd2500f612730d5b763c9faaefa5a58c59c22c60ba446f4c8d296"
+                },
+                "public.hstore(record)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "f06cba01b307eafe5557ff6c45be3097c6f9d034cc24f7b8182dbbec2b46b931"
+                },
+                "public.hstore(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "21e14500236f8ad3ee81374d67a1005901b9cf24189c64b225689855157d7c82"
+                },
+                "public.hstore(text[])": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "c4b64342ba0c1dd32513033682854ad015346747bada0bade574a153b8f2d5f8"
+                },
+                "public.hstore(text[], text[])": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "8b1fd2fcf872c5dc74a13e7479282a7747c29016400188229fa0e47730f43c1a"
+                },
+                "public.hstore_cmp(public.hstore, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "2824440d271ad3cf4ac3be951092b3852b275bc840d8b41eb3554bb6551570b6"
+                },
+                "public.hstore_eq(public.hstore, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "f48d64cb7e8824df33d676546fb0a4bcc9c7df83c6459a96f5e759ec907a82fa"
+                },
+                "public.hstore_ge(public.hstore, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "1d98dfdae3a09b4df83cf54ae96dbe048c4cffde9ef32e599460c0ab38d58b1b"
+                },
+                "public.hstore_gt(public.hstore, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "637757168daf1a76c0091f9efb15f2e4ea71e8f92354ce49fee39067326e1d3c"
+                },
+                "public.hstore_hash(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "59448778ca662e129b2fd9ecdacc5f28322d11ead976facede43cef6fb0c763a"
+                },
+                "public.hstore_hash_extended(public.hstore, bigint)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "f1700143f4db4d23f1607cbb41c3e0a5f370df2853eb0a051d4ca87f56fab1bc"
+                },
+                "public.hstore_in(cstring)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "3e38533ba3f3639069560fbfdc36010084e2c0fba1291bb3d764ea7396869fc6"
+                },
+                "public.hstore_le(public.hstore, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "3accc11d084be05969c594c330b458fc0f60aee586ef06b5a3274057f6940cc8"
+                },
+                "public.hstore_lt(public.hstore, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "ed0f21e7a819ac88921368e45186e080e19440e3814ab85d4083f128df323933"
+                },
+                "public.hstore_ne(public.hstore, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "e545429b38f49f9e03fdd3c8ba023b9e795f141a3830fb8e1b742ee86e1efd45"
+                },
+                "public.hstore_out(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "75fa26ede6646d6d004d66889093893d0ac482262fc8176c086926a74a8f82de"
+                },
+                "public.hstore_recv(internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "662799f1578542da83381c6950a105bb88ca03955931be8df580b0d1bafcc47a"
+                },
+                "public.hstore_send(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "feba20f0c707665a98eec2dd892b4b56d6e8ffd377ec90bed19b1dc9ada75c8c"
+                },
+                "public.hstore_subscript_handler(internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "7081c61e0fadac9b9186bbb54b6d78042782d7e26e92c4fe02487ddff2603a92"
+                },
+                "public.hstore_to_array(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "ba822525b3bcba478d97f03097f6f5123107411b02f1b90a9803bfa7992a317e"
+                },
+                "public.hstore_to_json(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "8a116a68241a3f0966c05df23b70ff10b584ad34eb3128c1547b2b6f92acb7a6"
+                },
+                "public.hstore_to_json_loose(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "6511addc11532f5e421b05425fa14a218be46f172d2ef7775fead40a3e9d5e7b"
+                },
+                "public.hstore_to_jsonb(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "8801fb73dc1f75ca1d6bcae3544695f0bf3cad6b37467fe386a826a156f86b6a"
+                },
+                "public.hstore_to_jsonb_loose(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "2ebb8ce971ee87bed9e21da8f7b7851a83d5105acd3db88ff0fc916bd9fa59c9"
+                },
+                "public.hstore_to_matrix(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "7e25d10a324fb8b9fc3b06b08c9c133ec01d0bc28fd1e50786b599f7e23a4727"
+                },
+                "public.hstore_version_diag(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "d5b468a4509c422e6fb906567608247f56d2badd42e9e1e6f3ea5afd32b486af"
+                },
+                "public.isdefined(public.hstore, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "c8444a6ea0a76374ccae0c0b2c5ddfd740a3ace705010972351cd6d88806aa0d"
+                },
+                "public.isexists(public.hstore, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "c384e6528df63fca2339ce77fe8549587c17aa17bafdde43b3075edd2e4278e6"
+                },
+                "public.populate_record(anyelement, public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "992f6dea5c4967ce44cbf4a8dfcc60d2672e545066c26bc1845e28f686b23296"
+                },
+                "public.skeys(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "0dfc5931bf7affe34616aeb542a1cbcc711a23469c78faf9858ad381186574ee"
+                },
+                "public.slice(public.hstore, text[])": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "af87cc7f7cb024303e73065a6feee0abf04348dd4405f832960ea165ee8991ee"
+                },
+                "public.slice_array(public.hstore, text[])": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "1dbe98bb7762a8d0fb46d7aa51c51226750d5c273799bd3050fe06bb080ce29a"
+                },
+                "public.svals(public.hstore)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "ac7da781333fbe96de7ca650cff4b197cd1aad1a86bf5df2f085e1cda59ff866"
+                },
+                "public.tconvert(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "a7c0f02c52ececad3c7564bb00e45cd4ddba9c5d59a74a433a2cec06cd69556b"
+                }
+              }
+            },
+            "pg_trgm": {
+              "version": "1.6",
+              "catalog_sha256": "c3575538cb70ecf7ec3c57bbea2867c94fbfedf1a677fb6bbfed94db47af3d1c",
+              "functions": 31,
+              "restricted_functions": {
+                "public.gin_extract_query_trgm(text, internal, smallint, internal, internal, internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "2633d1c103c3496a46e3f4b4dd5c1721ce5affdb778869c49b66efcd563a8251"
+                },
+                "public.gin_extract_value_trgm(text, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "88259d8e61daa75604a64d432698fd89d14d93ebc4d1bf0a8309af922eadb53b"
+                },
+                "public.gin_trgm_consistent(internal, smallint, text, integer, internal, internal, internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "d9590f3b9d97121c789e48b94978f3ab098bf0564a490e360dad699c6fc3e91d"
+                },
+                "public.gin_trgm_triconsistent(internal, smallint, text, integer, internal, internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "5c344da62f36f7f626fe499a74936d678a2fd58b78c05a97fd14c89148890d1a"
+                },
+                "public.gtrgm_compress(internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "dd52c06dee03d713d5ead9787ccf0e2ce86887beb5793f0f4f0318ee20ad4272"
+                },
+                "public.gtrgm_consistent(internal, text, smallint, oid, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "e60e58e2f93f178146610881d18d2f2065e96879501e40bdb7378abb620641f0"
+                },
+                "public.gtrgm_decompress(internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "dbe7067dd1e25f8554047a441083bd04af0d4e8547a5ec27db1cc44a6df52af3"
+                },
+                "public.gtrgm_distance(internal, text, smallint, oid, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "aecf54eab926b7015654189ad895f16ae735577c7002d6fa79282632045cbb56"
+                },
+                "public.gtrgm_in(cstring)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "20aa5d8809ccadcb4a7f15152885371cd98f176a431efefae0e9029a0b25700a"
+                },
+                "public.gtrgm_options(internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "b45e3e19c9e459208cc6a19b2e193b7c94082ffe784af226e2a57b3122b8b82b"
+                },
+                "public.gtrgm_out(public.gtrgm)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "c7882f3b67d4437378ba6799b8e8430c868c3e806e17a6328f9ebb635efbc9bc"
+                },
+                "public.gtrgm_penalty(internal, internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "58365b2814737597bd47d120abf5e686db6dcbb4911e4103a95ccaa1638108e1"
+                },
+                "public.gtrgm_picksplit(internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "a71bff99e818ea372a8cf2b0edc86edb469cf1bbb596a02501976694c26b8a1b"
+                },
+                "public.gtrgm_same(public.gtrgm, public.gtrgm, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "3f80a74fdccdbdc666a05a9d49b9f7a7e1a033064a09d85c77b2feb2d7ff88de"
+                },
+                "public.gtrgm_union(internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "3053a537345c520ded9d1c4518c0ec56a58df90dd180833accc9c00d8aed17c6"
+                },
+                "public.set_limit(real)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "67acd5231d35871ba4383a28e0398433bce265da30187c98198881f8239a2741"
+                },
+                "public.show_limit()": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "549a414a374739f9a67d488df42a2ec7a081e8df18ed17bb5a3d687575990877"
+                },
+                "public.show_trgm(text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "6663fa8b420527aad84ded96ceb534bb94c650e86d539fdf41807b742f5370f5"
+                },
+                "public.similarity(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "17e9d14395c92faa22e268a37101cf78433fd910212dcb80e1b23fb8b587f3ef"
+                },
+                "public.similarity_dist(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "05089dbc8b372a51621dcf9049cc08e1180e22bf684e315f2a3beb9789ed23df"
+                },
+                "public.similarity_op(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "e4097c5f7de416170af0daf5b0bb833c6b60e220c91e0ba928cc69c1ab3e5376"
+                },
+                "public.strict_word_similarity(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "0b1678e2df8640fc49d5c70fcaa107b782daae53b9e1f3f740d28ce89efdee2c"
+                },
+                "public.strict_word_similarity_commutator_op(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "31757e88e5f83bb39c9875d571f677c16b262e5cf90a70c1ae93e974c5d5a18e"
+                },
+                "public.strict_word_similarity_dist_commutator_op(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "41e124a77c9c0a2f714c0808b3c6748a4818ec903facc8ace06532c4469a040c"
+                },
+                "public.strict_word_similarity_dist_op(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "09ee946f659ba2d9f031d6a1d0929b452f911b066b1b60e4ddc25635f9337d91"
+                },
+                "public.strict_word_similarity_op(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "61c1a391a5264fb62e4de82afbebd072a890822f4463d05eeb3b4c54db28e423"
+                },
+                "public.word_similarity(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "a35aef86556291fd9b29ab2a6ade5c32f87a9ac5f094aaf0d6a246b86231b208"
+                },
+                "public.word_similarity_commutator_op(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "83d8d5021b4e17e8990be55582dc47369a33a2999aafb9b28b9aab430b7035dd"
+                },
+                "public.word_similarity_dist_commutator_op(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "0e1a5b1cb73e8e0d7909171f6623be4330d747fb78f50dd667bc0a759f5899a6"
+                },
+                "public.word_similarity_dist_op(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "6370e1b0e84b9cf3b6cd0052988b16dcfc2a2736944cec97f241a6fbf45bbe5b"
+                },
+                "public.word_similarity_op(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "518a9e13d0deb0d1f514df0751c589ef5a4a682ad5b9e1809478cdf8a9061658"
+                }
+              }
+            },
+            "pgcrypto": {
+              "version": "1.3",
+              "catalog_sha256": "604e37402ca09551c05b3e2e2978db82b39b2cb65c9ed0c109fe6a235b8234f3",
+              "functions": 36,
+              "restricted_functions": {
+                "public.armor(bytea)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "db4ffff028873da5cb47e8e2269c27ead2e43599842f9eaf1e2aaef684cb4fdf"
+                },
+                "public.armor(bytea, text[], text[])": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "d7149b80bc9353ae8619d6b30fe2fbf55835b2f0b8d40946a8a2ffed8cd06077"
+                },
+                "public.crypt(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "591f322099cdb2147b414ab6198e871b586a92c3e6d55e922fd57598ef1ebc89"
+                },
+                "public.dearmor(text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "c566a0d63cfdc19f3b793c843dbc5ac7a4efbdcb7a186628f1d8c9a340992c2e"
+                },
+                "public.decrypt(bytea, bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "ae2dcb5aec1b71b14a079106473e68332a3cedc9aeb144104695ef4f0129433c"
+                },
+                "public.decrypt_iv(bytea, bytea, bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "479caeef667287ff402586793c50b8a731fdf4a416f4c88514f64f7dcc3edf79"
+                },
+                "public.digest(bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "80ee243bb975482cebe0c882dde1cfd062a2d4fe4a66b3f96dfebbf0b29cb5ca"
+                },
+                "public.digest(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "124dccf4fa7554899e3c698925fb8818b516daf19a0dd3507dfd94bd52909b88"
+                },
+                "public.encrypt(bytea, bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "fd10ad8c5f206ff894fd986863657dfab6f0f6c2311e9a8171d1c8f9185a366f"
+                },
+                "public.encrypt_iv(bytea, bytea, bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "e73397ad3aea7989236b8eb15d3e26e2a535cded042fda51a7ebe03a33680fa3"
+                },
+                "public.gen_random_bytes(integer)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "3e5d4a298efb95a8c94a2e47a06244bb747c33f2400461b01531b7b12bc010b6"
+                },
+                "public.gen_random_uuid()": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "25638e75fc207943fb8c90fd9b288fc578f1895e6efa498bbbb9c348bab75ca3"
+                },
+                "public.gen_salt(text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "4804fccf376c05f751913792c8aecff27c8955d6db09902c57d9723cf3db2b10"
+                },
+                "public.gen_salt(text, integer)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "18b38955c3d8ac21f639aeefbd6c345134b33e2cbe2e560673c9086015d4f643"
+                },
+                "public.hmac(bytea, bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "113fd543511a4b0e578190991d390af2653090d976f498ee65b9c0dedd9e2412"
+                },
+                "public.hmac(text, text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "6b7a87a21f69a4f927b52b636b3b195833e70a89b995b8248a1eb540bf8aebbb"
+                },
+                "public.pgp_armor_headers(text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "ac60bc5af106d5c213df59d56f92e71292cfc39667ef649be6ceac4d02f4d854"
+                },
+                "public.pgp_key_id(bytea)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "d769d3a75aaf5dfdf00f4a1457532c56e65a0e9b04b6e968fb7958d4fc75422e"
+                },
+                "public.pgp_pub_decrypt(bytea, bytea)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "894a93085937fdf29e3a3f5570b9b906f678d59a2c469ae311347c1862967980"
+                },
+                "public.pgp_pub_decrypt(bytea, bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "e3cace7ae2a8cb3472125d613935cffa1e520dbbc33c94261156357b05069b2e"
+                },
+                "public.pgp_pub_decrypt(bytea, bytea, text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "682e9df46a0297830e973abd4a799a8d667f4673d03c7c16c9b07d22c2062878"
+                },
+                "public.pgp_pub_decrypt_bytea(bytea, bytea)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "332805431b8a49290591eac0b42cff25f5839d0c104e34daa0bb8f11d603b0c1"
+                },
+                "public.pgp_pub_decrypt_bytea(bytea, bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "46a1d20972c28adb7fe916b0b5d1c1ee0172fa56e7bcc1a78fde14038c248b54"
+                },
+                "public.pgp_pub_decrypt_bytea(bytea, bytea, text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "5116c861b7912d89456065021ae8f917b61cd317aecef33ad7a59d7654941f31"
+                },
+                "public.pgp_pub_encrypt(text, bytea)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "6fc65f69a342baaf36cd9acb3377961b7d1ecd511ce3e1634c2baaba438ad2c3"
+                },
+                "public.pgp_pub_encrypt(text, bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "690f2a590a982d99dbe8eef3e17fbbee1b1b173ae24d1ca16290690f9f87a2d4"
+                },
+                "public.pgp_pub_encrypt_bytea(bytea, bytea)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "27e5da163964c8fc6c7896f0d3225f126f4fd807c1046937d4a131ef9f777773"
+                },
+                "public.pgp_pub_encrypt_bytea(bytea, bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "f0fb74a2f873c08eb994e5cbd4f70850b90cddd19094a19a30783a10a18045a1"
+                },
+                "public.pgp_sym_decrypt(bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "5a0c2ceb815303b3cbae7c555191529bde22bc202a1005ad8080d40a7273a0d5"
+                },
+                "public.pgp_sym_decrypt(bytea, text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "04ea7eb20d69fd20422e1fd16a6a7febfa47509dc0fc3ca27123db8574c06f62"
+                },
+                "public.pgp_sym_decrypt_bytea(bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "bfbc21b4c0535cccf97d1c0821fb1b0e78cba917cfa23f60a28dc4c5528437f8"
+                },
+                "public.pgp_sym_decrypt_bytea(bytea, text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "38060617cad7da4af3ec3c1aeb23a39f931be5a04050dd961e6a7a9ca6b8e95e"
+                },
+                "public.pgp_sym_encrypt(text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "4363b0ef60e3183efca1bef3a5516f624c4d8a28169580f7a9d78c5155cec303"
+                },
+                "public.pgp_sym_encrypt(text, text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "2f016bc9276f05bc98ff9e5e9677ff83570631649a2513a3f031ec362eb43b4d"
+                },
+                "public.pgp_sym_encrypt_bytea(bytea, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "74a3ff713523d0d61e52a97e51411708826f90d1722e1e7d08d2a9f542b7ec49"
+                },
+                "public.pgp_sym_encrypt_bytea(bytea, text, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "48aa7cc7acd97708f773bd4f181d95ebba1eeef643011ac3daa8c814a6528ce3"
+                }
+              },
+              "source_owner": "oklab"
+            },
+            "unaccent": {
+              "version": "1.1",
+              "catalog_sha256": "498de0f29eefb59526a777f7b3c785e286ae79dc4a2e8748c3a852a017703aa6",
+              "functions": 4,
+              "restricted_functions": {
+                "public.unaccent(regdictionary, text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "e9112366312e0220f4bcbbf22e23cb1b60f6d221396d4270f1e76d2121fce8b4"
+                },
+                "public.unaccent(text)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "2c09ff3d0897acc65ddc1d12a3b750dda9940bc76032fb8081bf3a11e37ce8db"
+                },
+                "public.unaccent_init(internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "cf83cd2677d344c88bcf2556e4cab6b88440d582a7183fffed55a2c476b63663"
+                },
+                "public.unaccent_lexize(internal, internal, internal, internal)": {
+                  "public_execute": true,
+                  "privileged_grantees": [],
+                  "definition_sha256": "eb43b6142b62fd27a052aae9a448bfad129c72f6706cc5fd187422dfd6b05ba7"
+                }
+              }
             }
           },
           "3.4.3": {
@@ -4108,6 +4825,167 @@
           }
         }
       }
+    },
+    "custom_functions": {
+      "public.normalize_german(text)": {
+        "definition_sha256": "d5d9b313b7bbab22ae35599144db739cd55324dbb88ba0574e029610c802b7c6",
+        "owner": "oklab",
+        "language": "sql",
+        "kind": "f",
+        "volatility": "i",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      },
+      "public.unaccent_immutable(text)": {
+        "definition_sha256": "2b388371a1acc8843458491dbb7f28bc40bb66e5b1948298c35495ac8f10e9ac",
+        "owner": "oklab",
+        "language": "sql",
+        "kind": "f",
+        "volatility": "i",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      },
+      "uranus.check_event_date_space_venue()": {
+        "definition_sha256": "66976de092d59f95088f9461664591b2381b05401f273c7f1d8b813ef8f07dc1",
+        "owner": "oklab",
+        "language": "plpgsql",
+        "kind": "f",
+        "volatility": "v",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      },
+      "uranus.event_search_rank(tsvector, tsvector, text, text, text, text)": {
+        "definition_sha256": "0ae5bd064aabe9b4e9308aaf1f0b4cf22df833b886a73c5587ed43bd5e4c98b7",
+        "owner": "oklab",
+        "language": "sql",
+        "kind": "f",
+        "volatility": "i",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      },
+      "uranus.event_search_text_trigger()": {
+        "definition_sha256": "b00a69404836763a876d6acce295568b97372e4bed5611d4ab4cd7ab6dbe88fa",
+        "owner": "oklab",
+        "language": "plpgsql",
+        "kind": "f",
+        "volatility": "v",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      },
+      "uranus.event_update_search_text()": {
+        "definition_sha256": "76387e16664baf3242845c647646f062d23fb123abf217ec3789291d19680944",
+        "owner": "oklab",
+        "language": "plpgsql",
+        "kind": "f",
+        "volatility": "v",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      },
+      "uranus.normalize_german(text)": {
+        "definition_sha256": "5beea20a46d7490444c6df897ffc6e7e34ef9b143bb25f503626797d9fdac08c",
+        "owner": "oklab",
+        "language": "plpgsql",
+        "kind": "f",
+        "volatility": "i",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      },
+      "uranus.randomish_from_timestamp(timestamp without time zone, bigint)": {
+        "definition_sha256": "0af2633fc48118833892e2043680076af2017f22acb7b84d5e6f39ed90abb131",
+        "owner": "oklab",
+        "language": "plpgsql",
+        "kind": "f",
+        "volatility": "i",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      },
+      "uranus.set_default_event_date_venue()": {
+        "definition_sha256": "ed161aef2bad54ff93d00732b823cf796dd6929c990783a2bf460b5638e2cd2c",
+        "owner": "oklab",
+        "language": "plpgsql",
+        "kind": "f",
+        "volatility": "v",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      },
+      "uranus.update_document_multilang()": {
+        "definition_sha256": "7a87209b1c2526c3e5e7b575bea1badefdde4b5f88ce82f8e766bc60d02deb73",
+        "owner": "oklab",
+        "language": "plpgsql",
+        "kind": "f",
+        "volatility": "v",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      },
+      "uranus.update_event_types_array()": {
+        "definition_sha256": "bea35f98e22dd1c63e1a9462870a33935e1d863990728403d6664a40e67a5666",
+        "owner": "oklab",
+        "language": "plpgsql",
+        "kind": "f",
+        "volatility": "v",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      },
+      "uranus.update_modified_at()": {
+        "definition_sha256": "770f46f55e9a1a68799c4cb91017a6b8e61d79c861a906de72529a78fbea647c",
+        "owner": "oklab",
+        "language": "plpgsql",
+        "kind": "f",
+        "volatility": "v",
+        "security_definer": false,
+        "public_execute": true,
+        "privileged_grantees": []
+      }
     }
-  }
+  },
+  "additional_database_temp_roles": [
+    "hackathon_user",
+    "hedgedoc_user",
+    "icinga2",
+    "ocp_packages_auth",
+    "osm",
+    "plausible",
+    "registry_promoter",
+    "registry_reader",
+    "tirex",
+    "typo3",
+    "typo3user",
+    "wohnortkompass",
+    "wordpress",
+    "zabbix"
+  ],
+  "execute_roles": [
+    "uranus_reader",
+    "admin_user",
+    "admin_migrator",
+    "admin_auth_operator"
+  ],
+  "additional_execute_roles": [
+    "hackathon_user",
+    "hedgedoc_user",
+    "icinga2",
+    "ocp_packages_auth",
+    "oklab",
+    "osm",
+    "plausible",
+    "registry_promoter",
+    "registry_reader",
+    "tirex",
+    "typo3",
+    "typo3user",
+    "wohnortkompass",
+    "wordpress",
+    "zabbix"
+  ]
 }

@@ -25,9 +25,10 @@ Erneut gegen das Repository geprüft am 20.09.2026:
   [`7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d`](https://github.com/sndcds/uranus/tree/7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d/ddl).
   Der bestehende Audit umfasst 72 DDL-Dateien; die vier Projektionen und fünf
   ausgeschlossenen Secretspalten wurden erneut gegen diesen Stand geprüft.
-- Keine Produktionsverbindung und keine Quellwerte gelesen.
+- Für diese Quell-DDL-Prüfung keine Produktionsverbindung und keine Quellwerte gelesen.
+  Der später separat genehmigte Katalogaudit ist im Bestandskatalog dokumentiert.
 
-Der maschinenlesbare [Contract v4](../../ansible/roles/uranus_admin/files/sql_console_contract.json)
+Der maschinenlesbare [Contract v5](../../ansible/roles/uranus_admin/files/sql_console_contract.json)
 enthält Quellcommit, SHA256 der vier geprüften DDL-Dateien, Spaltenreihenfolge,
 PostgreSQL-Typen, Basistabellen, Owner-Spaltengrants, Reader-Grants, Search Path und
 die Allowlist für explizite Datenbank-TEMP-Grants.
@@ -184,8 +185,10 @@ mit `has_database_privilege` geprüft. Die echte Runtime-Anmeldung muss `oklab`,
 
 PostgreSQL-Rechte sind additiv. Ein REVOKE nur vom Reader kann PUBLIC TEMP nicht
 aufheben. [PostgreSQL: GRANT](https://www.postgresql.org/docs/17/sql-grant.html).
-Contract v4 enthält `database_temp_roles` mit genau den vier bestehenden App-Rollen:
-`uranus_reader`, `admin_user`, `admin_migrator`, `admin_auth_operator`. Ansible liest
+Contract v5 enthält `database_temp_roles` mit genau den vier bestehenden App-Rollen:
+`uranus_reader`, `admin_user`, `admin_migrator`, `admin_auth_operator`.
+`additional_database_temp_roles` ergänzt 14 bekannte weitere Verbraucher nur bei
+vorhandener Rolle. Ansible liest
 vor jeder Änderung die Datenbank-ACL und prüft zusätzlich die effektiven Rechte mit
 `has_database_privilege`. Der geheimnisfreie Plan berichtet `public_temp`, alle
 Loginrollen mit effektivem TEMP (`temp_login_roles`) sowie `temp_inventory`:
@@ -203,11 +206,11 @@ müssen weiterhin den strengen Console-Vertrag erfüllen.
 
 In derselben abgesicherten Console-Provisionierungstransaktion:
 
-1. Fehlende explizite TEMP-Grants ausschließlich an die vier vorhandenen LOGIN-App-Rollen.
+1. Fehlende explizite TEMP-Grants an die vier App-Rollen und geprüfte weitere vorhandene LOGIN-Rollen, solange PUBLIC TEMP besteht.
 2. `REVOKE TEMPORARY ... FROM PUBLIC` ausschließlich bei bestandenem Katalogplan.
 3. Rollen/Views/übrige Console-Grants gemäß bestehendem Vertrag provisionieren.
 4. Gesamte Grenze erneut prüfen: PUBLIC TEMP aus, beide Console-Rollen effektiv TEMP-frei,
-   alle vier App-Rollen mit explizitem und effektivem TEMP, keine weiteren Änderungen nötig.
+   alle Erhaltungsrollen mit explizitem und effektivem TEMP, keine weiteren Änderungen nötig.
 5. Erst dann Commit; jeder Fehler davor rollt auch die TEMP-ACL vollständig zurück.
 
 Unbekannte Verbraucher führen zu `unexpected_public_temp_consumer:<role>`, unerlaubte
@@ -219,11 +222,11 @@ Check Mode zeigt `temp_reconcile.allowed`, `would_grant_explicit` und
 `would_revoke_public_temp`, verändert aber nichts. Der zweite Apply hat `changed=0`.
 
 Für einen kompatiblen, versionierten Produktionszustand ist kein manueller psql-Schritt
-mehr nötig. Dieser PR liest Production nicht und bestätigt deshalb keinen konkreten
-Produktionskatalog.
+mehr nötig. Der separat freigegebene Audit vom 20. September 2026 bestätigt den
+erfassten Bestand; ein neuer Apply benötigt weiterhin einen aktuellen geprüften Plan.
 
-Der versionierte Function-/Extension-Vertrag in Contract v4 ersetzt den pauschalen
-Nicht-Core-/OID-Blocker. `function_policy` Version 2 wählt über
+Der versionierte Function-/Extension-Vertrag in Contract v5 ersetzt den pauschalen
+Nicht-Core-/OID-Blocker. `function_policy` Version 3 wählt über
 `catalogs[PostgreSQL-Major].postgis_versions[exakte extversion]` jeweils einen vollständigen
 Core-/plpgsql-/PostGIS-Snapshot. Geprüfte Kombinationen (jeweils plpgsql 1.0):
 
@@ -251,7 +254,10 @@ Der Fingerprint umfasst die genaue Funktionsmenge mit schemaqualifizierten Signa
 Argumenten, Definitionen, Sicherheitsattributen, Sprache, C-Bibliothek und
 Extension-Zugehörigkeit über `pg_depend`/`pg_extension`; Aggregate einschließlich ihrer
 Implementierungsabhängigkeiten. OIDs und ACLs gehören nicht zum Fingerprint. Ownership
-und ACLs werden separat geprüft: Extension- und Funktionsowner müssen privilegierte
+und ACLs werden separat geprüft. Die untenstehenden Regeln gelten als Normalfall;
+Contract v5 ergänzt ausschließlich die konkret beschriebenen
+[Eigentümerregeln des Bestandskatalogs](sql-console-reviewed-catalog.md#konkrete-eigentümerregeln).
+Im Normalfall: Extension- und Funktionsowner müssen privilegierte
 Installationsrollen sein, dürfen niemals Console-Rollen sein, und Extension-Funktionen
 müssen ihrem Extension-Owner gehören. Der alte Test `oid >= 16384` entfällt vollständig.
 
@@ -295,8 +301,9 @@ Dateifunktionen erhalten keine App-Grants; vorhandene geprüfte `pg_monitor`-Gra
 bleiben unverändert. Unerwartetes PUBLIC EXECUTE auf solchen privilegierten Funktionen
 führt zu `unexpected_public_execute:<signature>`.
 
-EXECUTE-Reconcile liest dieselben vier App-Rollen über
-`preserve_role_contract: database_temp_roles`, ohne zweite hardcodierte Rollenliste.
+EXECUTE-Reconcile verwendet unabhängig vom TEMP-Vertrag
+`preserve_role_contract: execute_roles` und `additional_execute_roles`. Die zweite
+Liste berücksichtigt vorhandene zusätzliche Verbraucher einschließlich `oklab`.
 Vor Änderungen werden direkte ACLs, effektives EXECUTE aller LOGIN-Rollen und beider
 Console-Rollen sowie transitive Membership-/SET-ROLE-Pfade inventarisiert. Auch ein
 fehlendes Schema-USAGE dient nicht als Ausnahme: Aufrufe über qualifizierte Namen,
@@ -308,7 +315,7 @@ Grantees, Grant Options und ungeprüfte Membership-Pfade blockieren den gesamten
 Innerhalb derselben abgesicherten Console-Provisionierungstransaktion:
 
 1. Nur bei vollständig bestandenem Plan bestehendes PUBLIC EXECUTE der konkreten
-   B-Signatur durch fehlende explizite Grants an die vier App-Rollen erhalten.
+   B-Signatur durch fehlende explizite Grants an die vorhandenen EXECUTE-Erhaltungsrollen erhalten.
 2. PUBLIC EXECUTE genau dieser Signatur entziehen; keine Console-EXECUTE-Grants.
 3. Den vollständigen Vertrag erneut prüfen: beide Console-Rollen ohne B-EXECUTE,
    bestehende App-/privilegierte Rechte erhalten, keine weiteren Änderungen nötig.
@@ -454,3 +461,12 @@ dargestellt werden.
 
 Phase 3 bleibt ausschließlich READ ONLY. Phase 4 mit Schreibzugriff benötigt ein
 eigenes Security Review.
+
+## Bestandskatalog vom 20. September 2026
+
+Contract v5 / Policy v3 trennt TEMP- und EXECUTE-Erhaltungsrollen und ergänzt vier
+optionale Contrib-Kataloge sowie zwölf fingerprintgebundene eigene Funktionen,
+deren EXECUTE für beide Console-Rollen entzogen wird. Konkrete Eigentümerregeln
+ersetzen keine Eigentümer und gestatten keine unbekannten Implementierungen.
+Review, Hashes, indirekte Pfade, Tests und verbleibende Apply-Gates stehen im
+[Bestandskatalog-Vertrag](sql-console-reviewed-catalog.md).

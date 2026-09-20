@@ -61,7 +61,7 @@ class ConsoleContractTests(unittest.TestCase):
             self.assertNotIn("*", definition)
             self.assertNotIn("(", definition)
             self.assertEqual(view["owner_select_columns"], [c["name"] for c in view["columns"]])
-        self.assertEqual(CONTRACT["version"], 4)
+        self.assertEqual(CONTRACT["version"], 5)
         self.assertEqual(
             set(CONTRACT["database_temp_roles"]),
             {"uranus_reader", "admin_user", "admin_migrator", "admin_auth_operator"},
@@ -248,7 +248,8 @@ class ConsoleDatabaseTests(unittest.TestCase):
         # Committed synthetic objects are visible to a separate genuinely read-only
         # connection. Cleanup runs even if the audit assertions fail.
         self.boundary.execute("CREATE ROLE audit_extra2 LOGIN NOINHERIT")
-        self.boundary.execute("CREATE EXTENSION pg_trgm")
+        self.boundary.execute("CREATE EXTENSION pg_trgm WITH SCHEMA public")
+        self.boundary.execute("ALTER FUNCTION public.similarity(text,text) COST 123")
         self.boundary.execute("""CREATE FUNCTION public.audit_literal() RETURNS text
             LANGUAGE sql AS $$ SELECT 'audit-secret-literal'::text $$""")
         self.boundary.execute("ALTER VIEW public.geometry_columns OWNER TO audit_extra2")
@@ -268,7 +269,15 @@ class ConsoleDatabaseTests(unittest.TestCase):
             serialized = json.dumps(audit)
             self.assertNotIn("audit-secret-literal", serialized)
             self.assertNotIn("fixture-secret", serialized)
-            self.assertIn("unreviewed_extension:pg_trgm", audit["plan"]["blockers"])
+            self.assertTrue(
+                any(
+                    b in audit["plan"]["blockers"]
+                    for b in (
+                        "unreviewed_function_catalog:pg_trgm",
+                        "unreviewed_extension_version:pg_trgm:1.6",
+                    )
+                )
+            )
             self.assertIn("audit_extra2", {r["name"] for r in audit["roles"]})
             custom = next(f for f in audit["functions"] if f["name"] == "audit_literal")
             self.assertRegex(custom["definition_sha256"], r"^[a-f0-9]{64}$")
