@@ -35,7 +35,7 @@
       - "Notifications: {{ 'explicitly managed with separate approval' if ua_manage_notification_timer | bool else 'timer, service and shared legacy environment unchanged' }}."
       - "New runtime has SMTP delivery disabled. Existing unmanaged notifications retain their configuration. No URL/geocode worker activation."
       - "Check mode cannot build the new release, validate its runtime DB logins or prove service startup."
-      - "PUBLIC TEMP blocks console provisioning; shared privileges and existing uranus_reader grants are never changed."
+      - "PUBLIC TEMP is reconciled only under the versioned approved TEMP contract; unknown consumers block. Other shared privileges and existing source grants remain unchanged."
 
 - name: Prepare and activate only the explicitly approved release
   ansible.builtin.import_tasks: deploy.yml

@@ -6,8 +6,9 @@ Der bestehende Source/Admin-Preflight bleibt **READ ONLY**; es gibt keine
 Admin-Migration und keinen Datenbank-Restore. Ein eigener, zusätzlich freigegebener
 Schritt verwaltet ausschließlich die isolierte SQL-Console-Infrastruktur.
 Er verändert keine Uranus-Domain-Daten, Uranus-Tabellendefinitionen oder bestehenden
-App-Rollen. Der automatische Fehlerpfad stellt ausschließlich Systemkonfiguration
-und Service-Zustände wieder her. Unpassende bestehende Grenzen bleiben ein Abbruchgrund.
+App-Rollenattribute. Der versionierte TEMP-Vertrag erhält die TEMP-Rechte der vier
+App-Rollen durch explizite Grants. Der automatische Fehlerpfad stellt ausschließlich
+Systemkonfiguration und Service-Zustände wieder her. Unpassende bestehende Grenzen bleiben ein Abbruchgrund.
 
 Die Implementierung darf lokal geprüft werden. Ein produktiver Check Mode benötigt
 eine gesonderte Freigabe; ein Echtlauf zusätzlich die ausdrückliche Bestätigung
@@ -28,7 +29,7 @@ für einen späteren Lauf. Grundlage des Anwendungsstands:
 | `admin.alembic_version = 0011`, 16 Admin-Tabellen                                     | Head/Grant-Matrix stammen aus dem ausgewählten Release. Abweichung stoppt, ohne automatische Migration.                                                                                                                                                         |
 | Reader besitzt SELECT auf 72 Quellobjekten, keine Sequenzrechte                       | Mindestens die 19 benötigten Quellobjekte werden geprüft. Bestehende weitere Leserechte bleiben erhalten; kein pauschales SELECT auf Sequenzen.                                                                                                                 |
 | Vier getrennte App-Rollen, keine Memberships, keine privilegierten Attribute          | Attribute, Memberships in beide Richtungen, Ownership, Tabellen-/Spaltenrechte und indirekte Schreibmöglichkeiten werden erneut geprüft.                                                                                                                        |
-| App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | TEMP wird nicht pauschal über PUBLIC entzogen. Das wäre ein eigener, serverweiter Berechtigungsvorschlag.                                                                                                                                                       |
+| App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | PUBLIC TEMP wird ausschließlich nach Prüfung des versionierten Vier-Rollen-Vertrags atomar auf explizite TEMP-Grants umgestellt; unbekannte Verbraucher blockieren.                                                                                             |
 | Backend, Frontend, Check-Worker existieren und laufen                                 | Nur diese drei bekannten Services werden übernommen. Keine zusätzlichen Service-Namen.                                                                                                                                                                          |
 | Notification-Timer ist aktiv, Notification-Service ist ein stündlicher Oneshot        | Standard: unverändert. Nur explizites Notification-Management mit zweiter Zustimmung stoppt/deaktiviert ihn; Recovery stellt dann seinen vorherigen Zustand wieder her.                                                                                         |
 | Kein URL-/Geocode-Service gefunden                                                    | Keine Installation oder Aktivierung dieser Worker.                                                                                                                                                                                                              |
@@ -128,7 +129,7 @@ Er erhält keine Rechte zum Schreiben in `uranus`.
 Capability: `SQL_CONSOLE_DATABASE_URL` muss im Environment-Vertrag des authentifizierten
 Release-Manifests stehen. Alte Releases planen keine Console-Änderungen und löschen
 vorhandene Console-Objekte nicht. Der eigene
-[Contract v1](roles/uranus_admin/files/sql_console_contract.json) pinnt Uranus
+[Contract v2](roles/uranus_admin/files/sql_console_contract.json) pinnt Uranus
 `7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d`: vier Views (`event_date`, `event`,
 `venue`, `organization`), 31 explizite Spalten und Datentypen.
 
@@ -141,20 +142,34 @@ vorhandene Console-Objekte nicht. Der eigene
    und App-Aktivierung. Recovery bleibt ausschließlich systembezogen.
 
 `uranus_console_owner` ist NOLOGIN; `uranus_console_reader` ist LOGIN. Beide erhalten
-NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/NOBYPASSRLS und bei Neuanlage NOINHERIT.
+NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/NOBYPASSRLS und NOINHERIT. Bestehende
+INHERIT-Rollen führen zu `unsafe_role_inherit:<role>`; keine automatische Reparatur.
 Keine Memberships. Nur der Owner besitzt Console-Schema/Views und exakte Quellspaltenrechte.
 Nur der Reader erhält View-SELECT, Console-USAGE und CONNECT. Überprivilegierte bestehende
 Rollen, falsche Owner und Zusatzrechte werden abgewiesen, nicht still repariert.
 Abweichende View-Definitionen bei unverändertem Spaltenvertrag werden reconciled;
 unbekannte Objekte führen zu `unexpected_sql_console_object`, niemals automatischem DROP.
 
-PUBLIC TEMP ist ein harter Blocker. Der Report inventarisiert die tatsächliche
-DB-ACL und Loginrollen mit effektivem TEMP; Anwendungen müssen vor einer gemeinsamen
-Rechteänderung separat zugeordnet werden. Auch zusätzliche PUBLIC-Funktions- und
-PostGIS-Metadatenrechte können blockieren. **Ansible entzieht keine gemeinsamen
-PUBLIC-Rechte.** Es gibt keinen Unsafe-Override. Falls gemeinsame Defaults nicht
-sicher getrennt werden können, bleibt eine getrennte Console-DB ein gesonderter
-Entwurf; dieses Playbook weicht nicht heimlich auf eine andere DB aus.
+PUBLIC TEMP wird nur dann automatisch reconciled, wenn alle betroffenen normalen
+Login-Rollen vom versionierten `database_temp_roles`-Vertrag abgedeckt sind:
+`uranus_reader`, `admin_user`, `admin_migrator`, `admin_auth_operator`. Diese vier
+bestehenden LOGIN-Rollen müssen vorhanden sein. Der Plan inventarisiert effektive
+Rechte, direkte TEMP-Grants, Membership-Pfade und privilegierte Identitäten.
+Superuser und der Datenbank-Owner mit eigener TEMP-ACL verlieren keine Rechte und
+werden separat ausgewiesen. Die Console-Rollen sind ausdrückliche TEMP-freie Ziele.
+
+Apply vergibt zuerst fehlende explizite TEMP-Grants an die vier App-Rollen, entzieht
+anschließend ausschließlich PUBLIC TEMP und prüft den gesamten Sollzustand erneut,
+bevor dieselbe Console-Provisionierungstransaktion committet. Ein Fehler rollt alle
+Änderungen zurück. Der zweite Apply bleibt unverändert. Unbekannte Login-Verbraucher
+(`unexpected_public_temp_consumer:<role>`), nicht erlaubte direkte Grants,
+Grant Options und ungeprüfte TEMP-Membership-Pfade blockieren ohne Teiländerung.
+Auch indirekte SET-ROLE-Pfade werden geprüft; NOINHERIT allein genügt dafür nicht.
+
+Andere gemeinsame Rechte, insbesondere PUBLIC CREATE, Funktions-/Extension-Rechte
+und PostGIS-Metadatenrechte, bleiben Blocker. Ansible repariert keine beliebige
+Shared-Database-Konfiguration und ändert durch TEMP-Reconcile weder CONNECT noch
+CREATE oder Funktionsrechte. Kein Unsafe-Override und keine heimliche Ersatz-DB.
 
 Secret ausschließlich als `SQL_CONSOLE_DATABASE_URL` in geschützter `operator.env`
 (root:root 0600) oder bereits expliziter Runtime-Konfiguration bereitstellen. Lokales
@@ -170,9 +185,11 @@ sql_console:
   required: true
   role: uranus_console_reader
   schema: uranus_console
-  contract_version: 1
+  contract_version: 2
   owner_role: uranus_console_owner
   changes_planned:
+    - would grant explicit TEMPORARY uranus_reader
+    - would revoke PUBLIC TEMPORARY
     - would create role uranus_console_owner
     - would create role uranus_console_reader
     - would create schema uranus_console
@@ -182,15 +199,22 @@ sql_console:
     - would set role search_path
   runtime_dsn_present: true
   fallback: false
-  public_temp: false
+  public_temp: true
+  temp_login_roles:
+    [admin_auth_operator, admin_migrator, admin_user, postgres, uranus_reader]
+  temp_reconcile:
+    allowed: true
+    would_grant_explicit:
+      [uranus_reader, admin_user, admin_migrator, admin_auth_operator]
+    would_revoke_public_temp: true
   blockers: []
 ```
 
 `--check --diff` zeigt den Plan auch ohne Console-Approval und führt keine Console-
 Mutationen aus. Ein Blocker wird nach dem Report als Fehler ausgegeben. Inspect
 provisioniert auch ohne Check Mode nicht. Keine erfolgreiche echte Runtime-Anmeldung
-wird im Check Mode behauptet. Für die Console-Objekte ist kein manueller psql-Schritt
-nötig; inkompatible gemeinsame DB-Rechte bleiben ausdrücklich außerhalb dieser Freigabe.
+wird im Check Mode behauptet. Für einen kompatiblen, versionierten Produktionszustand
+ist kein manueller psql-Schritt nötig; ungeprüfte gemeinsame DB-Rechte bleiben ausdrücklich außerhalb dieser Freigabe.
 Details und Phase-3-Kriterien: [Console-Infrastruktur](../backend/docs/sql-console-infrastructure.md).
 
 ### Alembic-Audit des Ausgangsstands

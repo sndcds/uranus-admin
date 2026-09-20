@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from urllib.parse import unquote, urlsplit
 
 import psycopg2
@@ -31,6 +32,17 @@ class ConsoleContractTests(unittest.TestCase):
             self.assertNotIn("*", definition)
             self.assertNotIn("(", definition)
             self.assertEqual(view["owner_select_columns"], [c["name"] for c in view["columns"]])
+        self.assertEqual(CONTRACT["version"], 2)
+        self.assertEqual(
+            set(CONTRACT["database_temp_roles"]),
+            {"uranus_reader", "admin_user", "admin_migrator", "admin_auth_operator"},
+        )
+        for roles in ([], [console.READER], [console.OWNER], ["public"], ["a", "a"], ["bad;sql"]):
+            with (
+                self.subTest(roles=roles),
+                self.assertRaisesRegex(ValueError, "invalid_database_temp_roles"),
+            ):
+                console.validate_contract({**CONTRACT, "database_temp_roles": roles})
         self.assertNotIn("user", CONTRACT["views"])
         self.assertNotIn("organization_member_link", CONTRACT["views"])
 
@@ -122,6 +134,7 @@ class ConsoleDatabaseTests(unittest.TestCase):
         cls.parent = psycopg2.connect(TEST_URL)
         cls.parent.autocommit = True
         cls.database = url.path[1:-5] + "_console_test"
+        cls.created_app_roles = []
         with cls.parent.cursor() as cur:
             cur.execute(
                 "SELECT 1 FROM pg_roles WHERE rolname IN (%s,%s)", (console.OWNER, console.READER)
@@ -131,6 +144,13 @@ class ConsoleDatabaseTests(unittest.TestCase):
             cur.execute("SELECT 1 FROM pg_database WHERE datname=%s", (cls.database,))
             if cur.fetchone():
                 raise RuntimeError("Refuse pre-existing console fixture database")
+            for role in CONTRACT["database_temp_roles"]:
+                cur.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (role,))
+                if not cur.fetchone():
+                    cur.execute(
+                        sql.SQL("CREATE ROLE {} LOGIN NOINHERIT").format(sql.Identifier(role))
+                    )
+                    cls.created_app_roles.append(role)
             cur.execute(
                 sql.SQL("CREATE DATABASE {} TEMPLATE template0").format(
                     sql.Identifier(cls.database)
@@ -169,12 +189,18 @@ class ConsoleDatabaseTests(unittest.TestCase):
                 "('00000000-0000-0000-0000-000000000001','2026-09-20')"
             )
             # These are isolated FIXTURE defaults, never deployment operations. Separate
-            # tests below restore PUBLIC exposure and prove the production module blocks.
+            # tests below exercise the versioned PUBLIC TEMP migration and blockers.
             cur.execute(
                 sql.SQL("REVOKE TEMPORARY, CREATE ON DATABASE {} FROM PUBLIC").format(
                     sql.Identifier(cls.database)
                 )
             )
+            for role in CONTRACT["database_temp_roles"]:
+                cur.execute(
+                    sql.SQL("GRANT TEMPORARY ON DATABASE {} TO {}").format(
+                        sql.Identifier(cls.database), sql.Identifier(role)
+                    )
+                )
             cur.execute(
                 """SELECT p.oid::regprocedure::text FROM pg_proc p JOIN pg_namespace n
                 ON n.oid=p.pronamespace WHERE p.proname=ANY(%s) OR p.prosecdef OR p.oid>=16384 OR
@@ -192,6 +218,8 @@ class ConsoleDatabaseTests(unittest.TestCase):
         cls.conn.close()
         with cls.parent.cursor() as cur:
             cur.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(cls.database)))
+            for role in cls.created_app_roles:
+                cur.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(role)))
         cls.parent.close()
 
     def setUp(self):
@@ -208,6 +236,17 @@ class ConsoleDatabaseTests(unittest.TestCase):
                 if cur.fetchone():
                     cur.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(role)))
                     cur.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(role)))
+            cur.execute(
+                sql.SQL("REVOKE TEMPORARY ON DATABASE {} FROM PUBLIC").format(
+                    sql.Identifier(self.database)
+                )
+            )
+            for role in CONTRACT["database_temp_roles"]:
+                cur.execute(
+                    sql.SQL("GRANT TEMPORARY ON DATABASE {} TO {}").format(
+                        sql.Identifier(self.database), sql.Identifier(role)
+                    )
+                )
         self.conn.commit()
 
     def provision(self):
@@ -345,24 +384,316 @@ class ConsoleDatabaseTests(unittest.TestCase):
             self.boundary.execute("GRANT MAINTAIN ON uranus.event TO uranus_console_reader")
             self.assertTrue(self.boundary.inspect()["blockers"])
 
-    def test_public_temp_inventory_blocks_without_revoke(self):
+    def public_temp_fixture(self):
+        for role in CONTRACT["database_temp_roles"]:
+            self.boundary.execute(
+                sql.SQL("REVOKE TEMPORARY ON DATABASE {} FROM {}").format(
+                    sql.Identifier(self.database), sql.Identifier(role)
+                )
+            )
         self.boundary.execute(
             sql.SQL("GRANT TEMPORARY ON DATABASE {} TO PUBLIC").format(
                 sql.Identifier(self.database)
             )
         )
+
+    def database_acl(self):
+        return self.boundary.rows(
+            "SELECT datacl::text FROM pg_database WHERE datname=current_database()"
+        )
+
+    def test_public_temp_safe_migration_preserves_app_roles_and_other_privileges(self):
+        self.public_temp_fixture()
+        before = self.database_acl()
         report = self.boundary.inspect()
         self.assertTrue(report["public_temp"])
-        self.assertIn("postgres", report["temp_login_roles"])
-        self.assertIn(
-            "public_temp_requires_external_review_no_automatic_revoke", report["blockers"]
+        self.assertEqual(report["blockers"], [])
+        self.assertEqual(
+            report["temp_inventory"]["public_consumers"], sorted(CONTRACT["database_temp_roles"])
         )
+        self.assertEqual(
+            report["temp_reconcile"],
+            {
+                "allowed": True,
+                "would_grant_explicit": CONTRACT["database_temp_roles"],
+                "would_revoke_public_temp": True,
+            },
+        )
+        self.assertEqual(self.database_acl(), before)
+        # Pre-existing direct TEMP on an approved role is already in the desired state.
+        role = CONTRACT["database_temp_roles"][0]
+        self.boundary.execute(
+            sql.SQL("GRANT TEMPORARY ON DATABASE {} TO {}").format(
+                sql.Identifier(self.database), sql.Identifier(role)
+            )
+        )
+        self.assertNotIn(role, self.boundary.inspect()["temp_reconcile"]["would_grant_explicit"])
+        attributes = self.boundary.rows(
+            "SELECT oid,rolname,rolcanlogin,rolinherit FROM pg_roles ORDER BY oid"
+        )
+        other_acl = self.boundary.rows("""SELECT grantee,privilege_type,is_grantable
+            FROM pg_database d, LATERAL aclexplode(datacl) a
+            WHERE datname=current_database() AND privilege_type<>'TEMPORARY' ORDER BY 1,2""")
+        self.provision()
+        self.assertFalse(self.boundary.inspect()["public_temp"])
+        self.assertFalse(self.boundary.provision(PASSWORD))
+        for role in CONTRACT["database_temp_roles"] + [console.READER, console.OWNER]:
+            self.assertEqual(
+                self.boundary.rows(
+                    "SELECT has_database_privilege(%s,current_database(),'TEMPORARY')", (role,)
+                )[0][0],
+                role in CONTRACT["database_temp_roles"],
+            )
+        self.assertEqual(
+            self.boundary.rows(
+                """SELECT grantee,privilege_type,is_grantable
+            FROM pg_database d, LATERAL aclexplode(datacl) a
+            WHERE datname=current_database() AND privilege_type<>'TEMPORARY'
+            AND grantee<>(SELECT oid FROM pg_roles WHERE rolname=%s) ORDER BY 1,2""",
+                (console.READER,),
+            ),
+            other_acl,
+        )
+        self.assertEqual(
+            self.boundary.rows(
+                "SELECT oid,rolname,rolcanlogin,rolinherit FROM pg_roles "
+                "WHERE rolname NOT IN (%s,%s) ORDER BY oid",
+                (console.READER, console.OWNER),
+            ),
+            attributes,
+        )
+        self.denied("CREATE TEMP TABLE test(id int)")
+
+    def test_unknown_public_temp_consumer_blocks_without_acl_changes(self):
+        self.public_temp_fixture()
+        self.boundary.execute("CREATE ROLE reporting_user LOGIN")
+        before = self.database_acl()
+        report = self.boundary.inspect()
+        self.assertIn("unexpected_public_temp_consumer:reporting_user", report["blockers"])
+        self.assertFalse(report["temp_reconcile"]["allowed"])
         with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
             self.boundary.provision(PASSWORD)
+        self.assertEqual(self.database_acl(), before)
         self.assertEqual(
             self.boundary.rows("SELECT 1 FROM pg_roles WHERE rolname=%s", (console.READER,)), []
         )
+
+    def test_direct_unauthorized_temp_and_membership_paths_block(self):
+        self.boundary.execute("CREATE ROLE reporting_user LOGIN")
+        for grantee in ("reporting_user", "temp_group"):
+            self.boundary.execute("SAVEPOINT temp_path")
+            if grantee == "temp_group":
+                self.boundary.execute("CREATE ROLE temp_group NOLOGIN")
+                self.boundary.execute("GRANT temp_group TO reporting_user")
+            self.boundary.execute(
+                sql.SQL("GRANT TEMPORARY ON DATABASE {} TO {}").format(
+                    sql.Identifier(self.database), sql.Identifier(grantee)
+                )
+            )
+            before = self.database_acl()
+            report = self.boundary.inspect()
+            self.assertIn("unexpected_direct_temp_grantee:" + grantee, report["blockers"])
+            if grantee == "temp_group":
+                self.assertIn(
+                    "unexpected_temp_membership_path:reporting_user:temp_group", report["blockers"]
+                )
+                self.assertIn(
+                    dict(role="reporting_user", source="temp_group", inherited=True, set_role=True),
+                    report["temp_inventory"]["membership_paths"],
+                )
+            with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+                self.boundary.provision(PASSWORD)
+            self.assertEqual(self.database_acl(), before)
+            self.boundary.execute("ROLLBACK TO SAVEPOINT temp_path")
+        # Even NOINHERIT / indirect SET ROLE paths to approved TEMP are not adopted.
+        self.boundary.execute("ALTER ROLE reporting_user NOINHERIT")
+        self.boundary.execute("CREATE ROLE temp_bridge NOLOGIN NOINHERIT")
+        self.boundary.execute(
+            sql.SQL("GRANT {} TO temp_bridge").format(
+                sql.Identifier(CONTRACT["database_temp_roles"][0])
+            )
+        )
+        self.boundary.execute("GRANT temp_bridge TO reporting_user")
+        report = self.boundary.inspect()
+        self.assertIn(
+            "unexpected_temp_membership_path:reporting_user:" + CONTRACT["database_temp_roles"][0],
+            report["blockers"],
+        )
+        self.assertFalse(
+            self.boundary.rows(
+                "SELECT has_database_privilege('reporting_user',current_database(),'TEMPORARY')"
+            )[0][0]
+        )
+
+    def test_public_temp_with_existing_console_roles_and_direct_temp_attack(self):
+        self.provision()
+        self.public_temp_fixture()
+        self.assertEqual(self.boundary.inspect()["blockers"], [])
+        self.assertTrue(self.boundary.provision(PASSWORD))
+        for role in (console.READER, console.OWNER):
+            self.boundary.execute("SAVEPOINT console_temp")
+            self.public_temp_fixture()
+            self.boundary.execute(
+                sql.SQL("GRANT TEMPORARY ON DATABASE {} TO {}").format(
+                    sql.Identifier(self.database), sql.Identifier(role)
+                )
+            )
+            self.assertIn(
+                "unexpected_direct_temp_grantee:" + role, self.boundary.inspect()["blockers"]
+            )
+            with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+                self.boundary.provision(PASSWORD)
+            self.boundary.execute("ROLLBACK TO SAVEPOINT console_temp")
+
+    def test_temp_rollback_after_revoke_before_final_verification(self):
+        self.public_temp_fixture()
+        self.conn.commit()
+        before = self.database_acl()
+        self.conn.rollback()
+        execute = self.boundary.execute
+        seen = []
+
+        def fail_after_revoke(query, args=()):
+            execute(query, args)
+            if isinstance(query, sql.Composed) and query.as_string(self.conn).startswith(
+                "REVOKE TEMPORARY"
+            ):
+                seen.append(True)
+                self.assertFalse(
+                    self.boundary.rows(
+                        "SELECT has_database_privilege('public',current_database(),'TEMPORARY')"
+                    )[0][0]
+                )
+                raise ValueError("injected_after_revoke")
+
+        with self.assertRaisesRegex(ValueError, "injected_after_revoke"), self.conn:
+            with patch.object(self.boundary, "execute", side_effect=fail_after_revoke):
+                self.boundary.provision(PASSWORD)
+        self.assertEqual(seen, [True])
+        self.assertEqual(self.database_acl(), before)
         self.assertTrue(self.boundary.inspect()["public_temp"])
+        self.assertEqual(
+            self.boundary.rows(
+                "SELECT 1 FROM pg_roles WHERE rolname IN (%s,%s)", (console.READER, console.OWNER)
+            ),
+            [],
+        )
+
+    def test_temp_contract_missing_roles_grant_options_and_owner_dependency(self):
+        self.public_temp_fixture()
+        app_role = CONTRACT["database_temp_roles"][0]
+        cases = (
+            (
+                sql.SQL("ALTER ROLE {} NOLOGIN").format(sql.Identifier(app_role)),
+                "missing_temp_contract_login_role:" + app_role,
+            ),
+            (
+                sql.SQL("GRANT TEMPORARY ON DATABASE {} TO {} WITH GRANT OPTION").format(
+                    sql.Identifier(self.database), sql.Identifier(app_role)
+                ),
+                "unexpected_temp_grant_option:" + app_role,
+            ),
+        )
+        for query, blocker in cases:
+            self.boundary.execute("SAVEPOINT temp_contract")
+            self.boundary.execute(query)
+            self.assertIn(blocker, self.boundary.inspect()["blockers"])
+            with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+                self.boundary.provision(PASSWORD)
+            self.boundary.execute("ROLLBACK TO SAVEPOINT temp_contract")
+        self.boundary.execute("CREATE ROLE fixture_database_owner LOGIN")
+        self.boundary.execute(
+            sql.SQL("ALTER DATABASE {} OWNER TO fixture_database_owner").format(
+                sql.Identifier(self.database)
+            )
+        )
+        # The intrinsic database owner retains its own ACL, without any new grant.
+        self.assertEqual(self.boundary.inspect()["blockers"], [])
+        self.boundary.execute(
+            sql.SQL("REVOKE TEMPORARY ON DATABASE {} FROM fixture_database_owner").format(
+                sql.Identifier(self.database)
+            )
+        )
+        self.assertIn(
+            "database_owner_temp_depends_on_public:fixture_database_owner",
+            self.boundary.inspect()["blockers"],
+        )
+
+    def test_real_module_failure_rolls_back_temp_and_console_objects(self):
+        self.public_temp_fixture()
+        self.conn.commit()
+        before = self.database_acl()
+        self.conn.rollback()
+        with tempfile.TemporaryDirectory() as directory:
+            module = Path(directory) / "console_failure_fixture.py"
+            source = self.fixture_module()
+            # Inject a failure at the real post-apply verification boundary. Production
+            # has no failure/bypass switch. The module's own finally/close must rollback.
+            needle = "        self.inspect(password)\n        require(\n"
+            self.assertEqual(source.count(needle), 1)
+            source = source.replace(
+                needle,
+                '        require(self.rows("SELECT has_database_privilege('
+                "'public',current_database(),'TEMPORARY')\")[0][0], "
+                '"injected_after_revoke")\n' + needle,
+            )
+            module.write_text(source)
+            result = subprocess.run(
+                [sys.executable, str(module)],
+                input=json.dumps(
+                    {
+                        "ANSIBLE_MODULE_ARGS": {
+                            "state": "provision",
+                            "contract": CONTRACT,
+                            "dsn": "postgresql+asyncpg://uranus_console_reader:"
+                            + PASSWORD
+                            + "@localhost/"
+                            + self.database,
+                        }
+                    }
+                ),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("boundary rejected", json.loads(result.stdout)["msg"])
+            self.assertNotIn(PASSWORD, result.stdout + result.stderr)
+        self.assertEqual(self.database_acl(), before)
+        self.assertTrue(self.boundary.inspect()["public_temp"])
+        self.assertEqual(
+            self.boundary.rows(
+                "SELECT 1 FROM pg_roles WHERE rolname IN (%s,%s)", (console.READER, console.OWNER)
+            ),
+            [],
+        )
+        self.assertEqual(
+            self.boundary.rows("SELECT 1 FROM pg_namespace WHERE nspname=%s", (console.SCHEMA,)), []
+        )
+
+    def test_new_roles_noinherit_and_existing_inherit_roles_refused(self):
+        self.provision()
+        self.assertEqual(
+            self.boundary.rows(
+                "SELECT rolinherit FROM pg_roles WHERE rolname IN (%s,%s)",
+                (console.READER, console.OWNER),
+            ),
+            [(False,), (False,)],
+        )
+        for role in (console.READER, console.OWNER):
+            self.boundary.execute("SAVEPOINT inherit_role")
+            self.boundary.execute(sql.SQL("ALTER ROLE {} INHERIT").format(sql.Identifier(role)))
+            before = self.database_acl()
+            self.assertIn("unsafe_role_inherit:" + role, self.boundary.inspect()["blockers"])
+            with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+                self.boundary.provision(PASSWORD)
+            self.assertTrue(
+                self.boundary.rows("SELECT rolinherit FROM pg_roles WHERE rolname=%s", (role,))[0][
+                    0
+                ]
+            )
+            self.assertEqual(self.database_acl(), before)
+            self.boundary.execute("ROLLBACK TO SAVEPOINT inherit_role")
 
     def test_unexpected_object_not_dropped(self):
         self.provision()
@@ -452,6 +783,9 @@ class ConsoleDatabaseTests(unittest.TestCase):
         )
 
     def test_real_ansible_check_diff_approval_and_idempotency(self):
+        self.public_temp_fixture()
+        self.conn.commit()
+        original_acl = self.database_acl()
         self.conn.rollback()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -533,6 +867,10 @@ class ConsoleDatabaseTests(unittest.TestCase):
             check = run(True)
             self.assertEqual(check.returncode, 0, check.stdout + check.stderr)
             self.assertIn("would create role uranus_console_reader", check.stdout)
+            self.assertIn("would revoke PUBLIC TEMPORARY", check.stdout)
+            for role in CONTRACT["database_temp_roles"]:
+                self.assertIn("would grant explicit TEMPORARY " + role, check.stdout)
+            self.assertEqual(self.database_acl(), original_acl)
             self.assertIn("changed=0", check.stdout)
             self.assertFalse((root / "reached").exists())
             self.assertEqual(

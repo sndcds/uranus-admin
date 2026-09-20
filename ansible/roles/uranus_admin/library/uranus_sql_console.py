@@ -107,7 +107,7 @@ def password_matches(password, verifier):
 
 def validate_contract(contract):
     require(
-        contract["version"] == 1
+        contract["version"] == 2
         and contract["uranus_sha"] == "7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d"
         and contract["schema"] == SCHEMA
         and contract["owner_role"] == OWNER
@@ -115,6 +115,15 @@ def validate_contract(contract):
         and contract["search_path"] == SEARCH_PATH
         and set(contract["views"]) == VIEWS,
         "unsupported_sql_console_contract",
+    )
+    temp_roles = contract["database_temp_roles"]
+    require(
+        isinstance(temp_roles, list)
+        and bool(temp_roles)
+        and all(isinstance(r, str) and re.fullmatch(r"[a-z_]+", r) for r in temp_roles)
+        and len(temp_roles) == len(set(temp_roles))
+        and not {OWNER, READER, "public"}.intersection(temp_roles),
+        "invalid_database_temp_roles",
     )
     for name, view in contract["views"].items():
         require(view["source_table"] == "uranus." + name, "invalid_source_table")
@@ -164,25 +173,11 @@ class Boundary:
         self.actions, self.blockers = [], []
         if self.conn.server_version // 10000 not in (16, 17):
             self.issue("unsupported_postgresql_major")
-        db_oid, _db_owner, public_temp = self.rows("""
-            SELECT oid, datdba, EXISTS(SELECT 1 FROM aclexplode(coalesce(datacl,
-              acldefault('d',datdba))) a WHERE a.grantee=0 AND a.privilege_type='TEMPORARY')
-            FROM pg_database WHERE datname=current_database()
-        """)[0]
-        self.public_temp = public_temp
-        self.temp_roles = [
-            r[0]
-            for r in self.rows("""
-            SELECT rolname FROM pg_roles WHERE rolcanlogin AND
-            has_database_privilege(oid,current_database(),'TEMPORARY') ORDER BY rolname
-        """)
-        ]
-        if public_temp:
-            self.issue("public_temp_requires_external_review_no_automatic_revoke")
+        db_oid = self.inspect_temp()
         roles = self.rows(
             """
             SELECT oid,rolname,rolcanlogin,rolsuper,rolcreatedb,rolcreaterole,
-                   rolreplication,rolbypassrls,rolconfig,rolvaliduntil
+                   rolreplication,rolbypassrls,rolinherit,rolconfig,rolvaliduntil
             FROM pg_roles WHERE rolname IN (%s,%s)
         """,
             (OWNER, READER),
@@ -190,8 +185,10 @@ class Boundary:
         ids = {row[1]: row[0] for row in roles}
         for row in roles:
             oid, name, login, *rest = row
-            if login != (name == READER) or any(rest[:5]) or rest[5] or rest[6]:
+            if login != (name == READER) or any(rest[:5]) or rest[6] or rest[7]:
                 self.issue("unsafe_role_attributes_or_settings:" + name)
+            if rest[5]:
+                self.issue("unsafe_role_inherit:" + name)
             if self.rows("SELECT 1 FROM pg_auth_members WHERE member=%s OR roleid=%s", (oid, oid)):
                 self.issue("role_membership:" + name)
             if self.rows("SELECT 1 FROM pg_database WHERE datdba=%s", (oid,)):
@@ -216,23 +213,25 @@ class Boundary:
         self.ids = ids
         for name in (OWNER, READER):
             oid = ids.get(name, 0)
-            for privilege, grantable in self.rows(
+            for privilege, grantable, grantee in self.rows(
                 """
-                SELECT privilege_type,is_grantable FROM pg_database,
+                SELECT privilege_type,is_grantable,a.grantee FROM pg_database,
                   LATERAL aclexplode(coalesce(datacl,acldefault('d',datdba))) a
                 WHERE oid=%s AND a.grantee IN (0,%s)
             """,
                 (db_oid, oid),
             ):
+                # PUBLIC TEMP is handled exclusively by the audited atomic plan.
+                # Direct console TEMP and every other shared privilege still fail.
+                if privilege == "TEMPORARY" and grantee == 0 and self.temp_reconcile["allowed"]:
+                    continue
                 if privilege != "CONNECT" or grantable:
                     self.issue("database_privilege:" + name + ":" + privilege)
             if (
                 oid
-                and self.rows(
-                    "SELECT has_database_privilege(%s,%s,'CREATE,TEMPORARY')", (oid, db_oid)
-                )[0][0]
+                and self.rows("SELECT has_database_privilege(%s,%s,'CREATE')", (oid, db_oid))[0][0]
             ):
-                self.issue("effective_database_create_or_temp:" + name)
+                self.issue("effective_database_create:" + name)
             if name == READER and (
                 not oid
                 or not self.rows(
@@ -502,6 +501,120 @@ class Boundary:
             self.issue("unexpected_owner_database_role_settings")
         return self.report()
 
+    def inspect_temp(self):
+        """Inventory effective TEMP and its sources before scheduling any mutations.
+
+        Superusers and the database owner's own ACL are not PUBLIC dependants.
+        Console identities are explicit removal targets, never preservation targets.
+        All other LOGIN consumers must belong to the repository's reviewed contract.
+        """
+        db_oid, db_owner, self.public_temp = self.rows("""
+            SELECT oid,datdba,EXISTS(SELECT 1 FROM aclexplode(coalesce(datacl,
+              acldefault('d',datdba))) a WHERE a.grantee=0 AND a.privilege_type='TEMPORARY')
+            FROM pg_database WHERE datname=current_database()
+        """)[0]
+        approved = self.contract["database_temp_roles"]
+        roles = self.rows(
+            """SELECT oid,rolname,rolcanlogin,rolsuper,
+                has_database_privilege(oid,%s,'TEMPORARY') FROM pg_roles ORDER BY rolname""",
+            (db_oid,),
+        )
+        direct = self.rows(
+            """SELECT r.rolname,a.is_grantable FROM pg_database d,
+                LATERAL aclexplode(coalesce(d.datacl,acldefault('d',d.datdba))) a
+                JOIN pg_roles r ON r.oid=a.grantee
+                WHERE d.oid=%s AND a.privilege_type='TEMPORARY' ORDER BY r.rolname""",
+            (db_oid,),
+        )
+        direct_names = {name for name, _ in direct}
+        by_name = {r[1]: r for r in roles}
+        issues = []
+        for name in approved:
+            if name not in by_name or not by_name[name][2]:
+                issues.append("missing_temp_contract_login_role:" + name)
+        for name, grantable in direct:
+            if by_name[name][0] == db_owner:
+                continue  # Preserve the owner's existing ACL, never grant or revoke it.
+            if name not in approved:
+                issues.append("unexpected_direct_temp_grantee:" + name)
+            elif grantable:
+                issues.append("unexpected_temp_grant_option:" + name)
+        paths = self.rows(
+            """SELECT r.rolname,s.rolname,pg_has_role(r.oid,s.oid,'USAGE'),
+                pg_has_role(r.oid,s.oid,'SET') FROM pg_roles r CROSS JOIN pg_roles s
+                WHERE NOT r.rolsuper AND r.oid<>s.oid
+                AND pg_has_role(r.oid,s.oid,'MEMBER')
+                AND (s.rolname=ANY(%s) OR s.oid=%s OR s.rolsuper)
+                ORDER BY r.rolname,s.rolname""",
+            (sorted(direct_names | set(approved)), db_owner),
+        )
+        for member, source, _, _ in paths:
+            issues.append("unexpected_temp_membership_path:" + member + ":" + source)
+        self.temp_roles = [name for _, name, login, _, effective in roles if login and effective]
+        self.temp_inventory = {
+            "direct_grants": [dict(role=n, grant_option=g) for n, g in direct],
+            "membership_paths": [
+                dict(role=m, source=s, inherited=i, set_role=t) for m, s, i, t in paths
+            ],
+            "public_consumers": [],
+            "privileged_roles": [
+                dict(
+                    role=n,
+                    superuser=superuser,
+                    database_owner=oid == db_owner,
+                    effective_temp=effective,
+                )
+                for oid, n, _, superuser, effective in roles
+                if superuser or oid == db_owner
+            ],
+        }
+        for oid, name, login, superuser, effective in roles:
+            if name in (OWNER, READER):
+                # With no PUBLIC TEMP, any effective TEMP is necessarily unapproved.
+                if effective and not self.public_temp:
+                    issues.append("effective_console_temp:" + name)
+                continue
+            if superuser or oid == db_owner:
+                # An owner lacking its own TEMP ACL would lose PUBLIC-derived TEMP.
+                if (
+                    oid == db_owner
+                    and not superuser
+                    and self.public_temp
+                    and name not in direct_names
+                ):
+                    issues.append("database_owner_temp_depends_on_public:" + name)
+                continue
+            if login and effective and self.public_temp:
+                self.temp_inventory["public_consumers"].append(name)
+                if name not in approved:
+                    issues.append("unexpected_public_temp_consumer:" + name)
+            elif effective and not self.public_temp and name not in approved:
+                issues.append("unexpected_effective_temp:" + name)
+        missing = [name for name in approved if name not in direct_names]
+        self.temp_reconcile = {
+            "allowed": not issues,
+            "would_grant_explicit": missing if not issues else [],
+            "would_revoke_public_temp": self.public_temp and not issues,
+        }
+        for issue in issues:
+            self.issue(issue)
+        if not issues:
+            for name in missing:
+                self.action(
+                    "would grant explicit TEMPORARY " + name,
+                    sql.SQL("GRANT TEMPORARY ON DATABASE {} TO {}").format(
+                        sql.Identifier(self.conn.info.dbname), sql.Identifier(name)
+                    ),
+                )
+            if self.public_temp:
+                self.action(
+                    "would revoke PUBLIC TEMPORARY",
+                    sql.SQL("REVOKE TEMPORARY ON DATABASE {} FROM PUBLIC").format(
+                        sql.Identifier(self.conn.info.dbname)
+                    ),
+                )
+        return db_oid
+
     def columns(self, oid):
         return self.rows(
             "SELECT attname,format_type(atttypid,atttypmod) FROM "
@@ -678,6 +791,8 @@ class Boundary:
             "blockers": sorted(set(self.blockers)),
             "public_temp": self.public_temp,
             "temp_login_roles": self.temp_roles,
+            "temp_inventory": self.temp_inventory,
+            "temp_reconcile": self.temp_reconcile,
             "fallback": False,
             "postgresql_version": self.conn.server_version,
             "extensions": [

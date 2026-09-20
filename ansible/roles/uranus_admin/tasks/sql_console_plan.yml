@@ -19,5 +19,5 @@
 - name: Refuse console blockers before provisioning build or maintenance
   ansible.builtin.assert:
     that: ua_sql_console_plan.sql_console.blockers | length == 0
-    fail_msg: "Console boundary blocked. Review the catalog plan; shared PUBLIC privileges are never revoked automatically. No app activation."
+    fail_msg: "Console boundary blocked. Review the catalog plan; only the versioned approved TEMP contract permits PUBLIC TEMP reconciliation; unknown consumers and other shared privileges block. No app activation."
   when: ua_sql_console_required

@@ -10,8 +10,9 @@ Admin-Alembic, API und Worker provisionieren keine Console-Infrastruktur.
 
 Ansible provisioniert die SQL-Console-Infrastruktur vollständig. Es ist kein manueller
 `psql`-Schritt für diese Rollen, Views, Grants oder die Passwortübernahme erforderlich.
-Das setzt einen kompatiblen bestehenden Datenbankkatalog voraus: **gemeinsame PUBLIC-
-Rechte werden nicht verändert**. Bei einem Blocker wird ohne Provisionierung und ohne
+Das setzt einen kompatiblen bestehenden Datenbankkatalog voraus: **PUBLIC TEMP wird
+nur unter dem versionierten Allowlist-Vertrag reconciled; andere gemeinsame Rechte
+werden nicht verändert**. Bei einem Blocker wird ohne Provisionierung und ohne
 App-Aktivierung abgebrochen. Ein isoliertes Testsystem ist kein Produktionsnachweis.
 
 Phase 3 mit frei eingegebenem SQL bleibt unimplementiert: kein `/sql`, Editor, WSS,
@@ -26,9 +27,10 @@ Erneut gegen das Repository geprüft am 20.09.2026:
   ausgeschlossenen Secretspalten wurden erneut gegen diesen Stand geprüft.
 - Keine Produktionsverbindung und keine Quellwerte gelesen.
 
-Der maschinenlesbare [Contract v1](../../ansible/roles/uranus_admin/files/sql_console_contract.json)
+Der maschinenlesbare [Contract v2](../../ansible/roles/uranus_admin/files/sql_console_contract.json)
 enthält Quellcommit, SHA256 der vier geprüften DDL-Dateien, Spaltenreihenfolge,
-PostgreSQL-Typen, Basistabellen, Owner-Spaltengrants, Reader-Grants und Search Path.
+PostgreSQL-Typen, Basistabellen, Owner-Spaltengrants, Reader-Grants, Search Path und
+die Allowlist für explizite Datenbank-TEMP-Grants.
 Ansible und Tests verwenden dieselbe Datei. Die Dateihashes dokumentieren den
 Repository-Audit; der Live-Preflight vergleicht Katalogtypen, nicht einen behaupteten
 Produktions-Git-SHA. Neue Basisspalten erweitern den Vertrag niemals automatisch.
@@ -77,17 +79,18 @@ der Text-, URL- und JSON-Projektionen. Es wurden keine Produktionswerte gelesen.
 ## Verwalteter Vertrag
 
 `uranus_console_owner`: NOLOGIN, NOSUPERUSER, NOCREATEDB, NOCREATEROLE,
-NOREPLICATION, NOBYPASSRLS, NOINHERIT bei Neuanlage. Ausschließlich Owner des
+NOREPLICATION, NOBYPASSRLS, NOINHERIT. Ausschließlich Owner des
 Console-Schemas und seiner Views; USAGE auf `uranus`, SELECT auf den unten
 aufgeführten Basisspalten. Kein Tabellen-SELECT, DML oder CREATE auf `uranus`.
 Owner-Rechte auf den eigenen Console-Objekten enthalten naturgemäß deren
 Verwaltung; sie verleihen keine Quellschreibrechte.
 
 `uranus_console_reader`: LOGIN, dieselben negativen privilegierten Attribute und
-NOINHERIT bei Neuanlage. CONNECT auf der ausgewählten DB, USAGE auf `uranus_console`,
+NOINHERIT. CONNECT auf der ausgewählten DB, USAGE auf `uranus_console`,
 SELECT auf genau vier Views. Kein CREATE/TEMP, kein Zugriff auf `uranus`/`admin`,
 keine Basistabellen-/Spalten-/Sequenzrechte, Memberships oder Grant Options.
-`rolinherit` allein ist ohne Membership kein Rechtezuwachs. Memberships werden
+Auch bestehende Rollen müssen `rolinherit=false` haben; andernfalls
+`unsafe_role_inherit:<role>` ohne automatische Reparatur. Memberships werden
 in beiden Richtungen abgewiesen. Der Reader ist niemals Objekt-Owner.
 
 | Verwaltete View               | Explizite Basisspalten                                                                                                                  |
@@ -155,7 +158,8 @@ Inspect und Check Mode planen ohne diese zusätzliche Freigabe; sie provisionier
 Der Plan und der separate Verifier laufen in echten READ-ONLY/REPEATABLE-READ-
 Transaktionen, mit 10 Sekunden Statement- und 2 Sekunden Lock-Timeout. Apply
 prüft erneut, serialisiert Console-Applies mit einem Transaktions-Advisory-Lock,
-führt ausschließlich eigene DDL/Grants aus und prüft vor Commit erneut.
+führt Console-DDL und die Grants/Revoke des versionierten Vertrags aus und prüft
+vor Commit erneut.
 Die unabhängige Verifikation öffnet anschließend eine neue READ-ONLY-Verbindung.
 Parallele manuelle Katalogänderungen sind nicht unterstützt.
 
@@ -180,19 +184,44 @@ mit `has_database_privilege` geprüft. Die echte Runtime-Anmeldung muss `oklab`,
 
 PostgreSQL-Rechte sind additiv. Ein REVOKE nur vom Reader kann PUBLIC TEMP nicht
 aufheben. [PostgreSQL: GRANT](https://www.postgresql.org/docs/17/sql-grant.html).
-Ansible liest daher die effektive Datenbank-ACL und berichtet `public_temp` sowie
-`temp_login_roles`: alle Loginrollen mit effektivem TEMP, einschließlich Superusern.
-Bei PUBLIC TEMP lautet der Blocker
-`public_temp_requires_external_review_no_automatic_revoke`. **Kein pauschales
-REVOKE FROM PUBLIC, kein versteckter Override und kein Ersatz durch READ ONLY.**
+Contract v2 enthält `database_temp_roles` mit genau den vier bestehenden App-Rollen:
+`uranus_reader`, `admin_user`, `admin_migrator`, `admin_auth_operator`. Ansible liest
+vor jeder Änderung die Datenbank-ACL und prüft zusätzlich die effektiven Rechte mit
+`has_database_privilege`. Der geheimnisfreie Plan berichtet `public_temp`, alle
+Loginrollen mit effektivem TEMP (`temp_login_roles`) sowie `temp_inventory`:
+direkte Grants einschließlich Grant Options, PUBLIC-Verbraucher, transitive
+Membership-Pfade mit `pg_has_role(..., 'MEMBER'/'USAGE'/'SET')` und privilegierte Rollen.
+Siehe [PostgreSQL: Rechteprüfung](https://www.postgresql.org/docs/17/functions-info.html#FUNCTIONS-INFO-ACCESS-TABLE).
 
-Die bekannte Bestandsaufnahme nennt TEMP für vier App-Rollen, aber keinen
-belegten PUBLIC-ACL-Ursprung. Dieser PR liest Production nicht; konkrete betroffene
-Anwendungen lassen sich nicht aus Rollennamen allein ableiten. Ein freigegebener
-Katalogplan muss diese Zuordnung mit dem Betreiber klären. Scheitert eine sichere
-gemeinsame Rechtepolitik, ist eine getrennte Console-Datenbank mit ausschließlich
-bereinigten Projektionen und kontrollierten Defaults der isolierte Folgeentwurf.
-Das Playbook baut diese Alternative nicht heimlich auf.
+Nur wenn alle betroffenen normalen Loginrollen dem versionierten Vertrag entsprechen,
+darf Ansible PUBLIC TEMP automatisch reconciliieren. Superuser und der Datenbank-Owner
+mit eigener TEMP-ACL sind keine von PUBLIC abhängigen Verbraucher; sie werden separat
+inventarisiert und ihre eigenen Rechte bleiben erhalten. Ein nicht privilegierter
+Owner ohne eigene TEMP-ACL blockiert, statt unbemerkt TEMP zu verlieren. Bestehende
+Console-Rollen sind ausschließlich Entzugsziele; ihre Attribute und Memberships
+müssen weiterhin den strengen Console-Vertrag erfüllen.
+
+In derselben abgesicherten Console-Provisionierungstransaktion:
+
+1. Fehlende explizite TEMP-Grants ausschließlich an die vier vorhandenen LOGIN-App-Rollen.
+2. `REVOKE TEMPORARY ... FROM PUBLIC` ausschließlich bei bestandenem Katalogplan.
+3. Rollen/Views/übrige Console-Grants gemäß bestehendem Vertrag provisionieren.
+4. Gesamte Grenze erneut prüfen: PUBLIC TEMP aus, beide Console-Rollen effektiv TEMP-frei,
+   alle vier App-Rollen mit explizitem und effektivem TEMP, keine weiteren Änderungen nötig.
+5. Erst dann Commit; jeder Fehler davor rollt auch die TEMP-ACL vollständig zurück.
+
+Unbekannte Verbraucher führen zu `unexpected_public_temp_consumer:<role>`, unerlaubte
+direkte Grants zu `unexpected_direct_temp_grantee:<role>`. Zusätzliche Grant Options
+und sämtliche ungeprüften Membership-Pfade zu bestehenden oder geplanten TEMP-Quellen
+blockieren ebenfalls. Das umfasst NOLOGIN-Gruppen und indirekte SET-ROLE-Pfade auch
+bei NOINHERIT. Keine automatische Allowlist-Erweiterung, kein stiller Rechteentzug.
+Check Mode zeigt `temp_reconcile.allowed`, `would_grant_explicit` und
+`would_revoke_public_temp`, verändert aber nichts. Der zweite Apply hat `changed=0`.
+
+Für einen kompatiblen, versionierten Produktionszustand ist kein manueller psql-Schritt
+mehr nötig. Dieser PR liest Production nicht und bestätigt deshalb keinen konkreten
+Produktionskatalog. Andere gemeinsame Rechte bleiben außerhalb dieses engen Vertrags:
+kein automatisches Aufräumen von CONNECT, CREATE, Funktionen oder Extensions.
 
 Dasselbe Prinzip gilt für gemeinsame Funktions-/Extension-Rechte. Der Vertrag
 benötigt keine eigenen Funktionen. Zugängliche SECURITY-DEFINER-Funktionen,
@@ -207,10 +236,11 @@ pauschale EXECUTE- oder Tabellenfreigabe für die Console. Insbesondere PostGIS-
 PUBLIC-Metadaten/-Funktionen können zusätzliche Blocker auslösen.
 
 Die Tests verwenden eine neue lokale Datenbank mit ausdrücklich isolierten
-Fixture-Defaults. Nur dort werden PUBLIC TEMP sowie zusätzliche Tabellen- und
-Funktionsrechte entzogen. Tests stellen diese Rechte gezielt wieder her und
-prüfen den Abbruch ohne Provisionierung. Diese Fixtures sind kein Deployment-SQL
-und keine Bestätigung eines kompatiblen Produktionskatalogs.
+Fixture-Defaults. Nur dort werden zusätzliche Tabellen- und Funktionsrechte entzogen.
+Tests prüfen den erlaubten atomaren PUBLIC-TEMP-Reconcile, unbekannte Verbraucher,
+Memberships, Rollback, Idempotenz und den Abbruch bei anderen gemeinsamen Rechten.
+Diese Fixtures sind kein Deployment-SQL und keine Bestätigung eines kompatiblen
+Produktionskatalogs.
 
 Kein Anspruch auf magische Vollständigkeit: Katalog-/PostgreSQL-Funktionen wie
 `set_config`, `pg_sleep`, Advisory Locks und intern autorisierte Backend-Signale
@@ -262,7 +292,7 @@ Anmeldung und exakter Search Path. Direkter Secretzugriff, Alias, Ausdruck,
 `to_jsonb`, CTE/Subquery, Writes, CREATE/TEMP und Rollenwechsel müssen mit `42501`
 scheitern; sichere Views liefern genau ihre Spalten. Weitere Fälle: neue
 Basisspalte, View-Drift/Reconcile, mächtige Attribute, Memberships, fehlende und
-zusätzliche Grants, PUBLIC TEMP, Funktionen/Extensions, Sequenzen/Large Objects,
+zusätzliche Grants, unbekannte TEMP-Verbraucher, INHERIT-Rollen, Funktionen/Extensions, Sequenzen/Large Objects,
 fremde Console-Objekte ohne Löschung, fehlende DSN ohne Fallback und alte Releases.
 
 Vor Phase 3 müssen diese Gates bestehen und zusätzlich ein autorisierter

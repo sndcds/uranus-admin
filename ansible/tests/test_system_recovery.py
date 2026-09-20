@@ -264,6 +264,8 @@ class ActivationIntegrationTests(unittest.TestCase):
                 operator_path.chmod(0o600)
 
             def stat(path):
+                if not path.exists():
+                    return {"stat": {"exists": False}}
                 return {
                     "stat": {
                         "exists": path.exists(),

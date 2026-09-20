@@ -1,10 +1,16 @@
 {
-  "version": 1,
+  "version": 2,
   "uranus_sha": "7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d",
   "schema": "uranus_console",
   "owner_role": "uranus_console_owner",
   "reader_role": "uranus_console_reader",
   "search_path": "pg_catalog, uranus_console",
+  "database_temp_roles": [
+    "uranus_reader",
+    "admin_user",
+    "admin_migrator",
+    "admin_auth_operator"
+  ],
   "views": {
     "event_date": {
       "source_table": "uranus.event_date",
