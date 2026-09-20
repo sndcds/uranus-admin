@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppModal from './AppModal.vue'
+import SqlDiagnosticPanel from './sql/SqlDiagnosticPanel.vue'
 import { dateTime } from '~/utils/presentation'
 import type { Finding, ReviewUpdate } from '#shared/contracts'
 const finding = ref<Finding | null>(null)
@@ -53,6 +54,10 @@ function open(value: Finding) {
   saving.value = false
   void dialog.value?.open()
 }
+function onClose() {
+  detailRevision++
+  finding.value = null
+}
 function close() {
   dialog.value?.close()
 }
@@ -64,7 +69,7 @@ defineExpose({ open })
     ref="detail"
     :title="finding?.entity_name ?? 'Befund'"
     close-label="Details schließen"
-    @close="detailRevision++"
+    @close="onClose"
   >
     <template v-if="finding">
       <div class="mt-3"><SeverityBadge :severity="finding.severity" /></div>
@@ -135,6 +140,7 @@ defineExpose({ open })
           <dd class="break-all text-xs">{{ finding.entity_key }}</dd>
         </div>
       </dl>
+      <SqlDiagnosticPanel :key="finding.id" :finding-id="finding.id" />
       <form
         v-if="finding.first_seen_at && finding.status !== 'resolved'"
         class="mt-5 space-y-3 rounded-xl bg-slate-50 p-4"

@@ -26,6 +26,15 @@ QUEUE_RULES = (
 )
 
 
+def partner_long_pending(row: dict[str, Any], settings: Settings, now: datetime) -> bool:
+    if settings.uranus_timestamp_timezone is None:
+        raise APIError(503, "source_timezone_unconfigured", "Source timezone must be configured.")
+    created = row["created_at"].replace(tzinfo=ZoneInfo(settings.uranus_timestamp_timezone))
+    return bool(
+        row["status"] == "pending" and created < now - timedelta(days=settings.pending_age_days)
+    )
+
+
 def map_queue(kind: QueueKind, row: dict[str, Any], settings: Settings, now: datetime) -> QueueItem:
     if settings.uranus_timestamp_timezone is None:
         raise APIError(503, "source_timezone_unconfigured", "Source timezone must be configured.")
@@ -46,7 +55,7 @@ def map_queue(kind: QueueKind, row: dict[str, Any], settings: Settings, now: dat
             checks.append("partner_missing_user")
         if row["status"] not in {"pending", "accepted"}:
             checks.append("partner_unknown_status")
-        if row["status"] == "pending" and created < now - timedelta(days=settings.pending_age_days):
+        if partner_long_pending(row, settings, now):
             checks.append("partner_long_pending")
         if row["status"] == "accepted" and not row["grant_exists"]:
             checks.append("partner_accepted_without_grant")

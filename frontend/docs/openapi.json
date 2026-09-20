@@ -569,6 +569,243 @@
         }
       }
     },
+    "/api/v1/findings/sql-diagnostic": {
+      "get": {
+        "tags": [
+          "Finding SQL diagnostics"
+        ],
+        "summary": "Get Definition",
+        "description": "Inspect the registered diagnostic for a persisted finding. Does not execute source SQL.",
+        "operationId": "get_definition_api_v1_findings_sql_diagnostic_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192,
+              "title": "Finding Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SqlDiagnosticDefinition"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/findings/sql-diagnostic/execute": {
+      "post": {
+        "tags": [
+          "Finding SQL diagnostics"
+        ],
+        "summary": "Run Diagnostic",
+        "description": "Execute the server-registered read-only diagnostic. Accepts only a persisted finding ID; no SQL or parameter overrides.",
+        "operationId": "run_diagnostic_api_v1_findings_sql_diagnostic_execute_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagnosticRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SqlDiagnosticResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/entity-search": {
       "get": {
         "tags": [
@@ -8081,6 +8318,103 @@
         ],
         "title": "DeliveryPage"
       },
+      "DiagnosticCheck": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "left": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "operator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operator"
+          },
+          "right": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "DiagnosticCheck"
+      },
+      "DiagnosticEvaluation": {
+        "properties": {
+          "matched": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticCheck"
+            },
+            "type": "array",
+            "title": "Checks"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "engine": {
+            "type": "string",
+            "const": "Python",
+            "title": "Engine",
+            "default": "Python"
+          }
+        },
+        "type": "object",
+        "required": [
+          "matched",
+          "checks",
+          "message"
+        ],
+        "title": "DiagnosticEvaluation"
+      },
+      "DiagnosticRequest": {
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Finding Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "finding_id"
+        ],
+        "title": "DiagnosticRequest"
+      },
       "EntityDetail": {
         "properties": {
           "item": {
@@ -10541,6 +10875,7 @@
         "type": "object",
         "title": "HealthResponse"
       },
+      "JsonValue": {},
       "LoginBody": {
         "properties": {
           "login": {
@@ -12492,6 +12827,125 @@
           "info"
         ],
         "title": "Severity"
+      },
+      "SqlDiagnosticDefinition": {
+        "properties": {
+          "recipe_id": {
+            "type": "string",
+            "title": "Recipe Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "datasource": {
+            "type": "string",
+            "const": "uranus",
+            "title": "Datasource",
+            "default": "uranus"
+          },
+          "readonly": {
+            "type": "boolean",
+            "const": true,
+            "title": "Readonly",
+            "default": true
+          },
+          "sql": {
+            "type": "string",
+            "title": "Sql"
+          },
+          "copy_sql": {
+            "type": "string",
+            "title": "Copy Sql"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Parameters"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipe_id",
+          "title",
+          "sql",
+          "copy_sql",
+          "parameters",
+          "explanation",
+          "columns",
+          "last_seen_at"
+        ],
+        "title": "SqlDiagnosticDefinition"
+      },
+      "SqlDiagnosticResult": {
+        "properties": {
+          "recipe_id": {
+            "type": "string",
+            "title": "Recipe Id"
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "row_count": {
+            "type": "integer",
+            "title": "Row Count"
+          },
+          "duration_ms": {
+            "type": "number",
+            "title": "Duration Ms"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "evaluation": {
+            "$ref": "#/components/schemas/DiagnosticEvaluation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipe_id",
+          "columns",
+          "rows",
+          "row_count",
+          "duration_ms",
+          "observed_at",
+          "evaluation"
+        ],
+        "title": "SqlDiagnosticResult"
       },
       "ValidationError": {
         "properties": {

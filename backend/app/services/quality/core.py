@@ -162,6 +162,10 @@ def effective_location(date: dict[str, Any], event: dict[str, Any]) -> tuple[Any
     return event.get("venue_uuid"), date["space_uuid"] or event.get("space_uuid")
 
 
+def date_without_location(date: dict[str, Any], event: dict[str, Any]) -> bool:
+    return effective_location(date, event)[0] is None and not valid_online(event.get("online_link"))
+
+
 class QualityContext:
     """One immutable source snapshot's indexes and relevance aggregates, built in O(rows)."""
 
@@ -384,11 +388,7 @@ def evaluate_core(
             severity = (
                 Severity.error if relevance("event_date", row)["published"] else Severity.warning
             )
-            if (
-                rule == "event_date_without_location"
-                and venue is None
-                and not valid_online(event.get("online_link"))
-            ):
+            if rule == "event_date_without_location" and date_without_location(row, event):
                 emit(
                     "event_date",
                     row,

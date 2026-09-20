@@ -7,12 +7,14 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+POINT_MISSING_SQL = "(point IS NULL OR ST_IsEmpty(point))"
+
 SOURCE_QUERIES = {
     "organization": "SELECT uuid, name, street, house_number, address_addition, postal_code, "
-    "city, country, state, (point IS NULL OR ST_IsEmpty(point)) AS point_missing, "
+    f"city, country, state, {POINT_MISSING_SQL} AS point_missing, "
     "web_link, contact_email FROM uranus.organization",
     "venue": "SELECT uuid, name, org_uuid, street, house_number, postal_code, city, country, "
-    "state, osm_id, (point IS NULL OR ST_IsEmpty(point)) AS point_missing, "
+    f"state, osm_id, {POINT_MISSING_SQL} AS point_missing, "
     "web_link, ticket_link, contact_email FROM uranus.venue",
     "space": "SELECT uuid, name, venue_uuid, web_link, total_capacity, seating_capacity, "
     "area_sqm FROM uranus.space",
