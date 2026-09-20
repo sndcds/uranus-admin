@@ -31,7 +31,7 @@ für einen späteren Lauf. Grundlage des Anwendungsstands:
 | Notification-Timer ist aktiv, Notification-Service ist ein stündlicher Oneshot        | Standard: unverändert. Nur explizites Notification-Management mit zweiter Zustimmung stoppt/deaktiviert ihn; Recovery stellt dann seinen vorherigen Zustand wieder her.                                                                                         |
 | Kein URL-/Geocode-Service gefunden                                                    | Keine Installation oder Aktivierung dieser Worker.                                                                                                                                                                                                              |
 | Bisherige `.env`-Dateien sind 0664, Backend enthält auch privilegierte Variablennamen | Werte wurden beim Audit nicht veröffentlicht. Übernahme liest sie geschützt, erhält Passwörter und trennt neue Runtime/Operator; Legacy-Backend-Env nur bei Notification-Management bereinigen; keine Behauptung, dass alle gefundenen Variablen befüllt waren. |
-| Check-Worker startet bisher über `uv run`, ohne EnvironmentFile                       | `uv run --no-sync --offline --no-python-downloads --no-env-file` aus dem fertigen Release, explizites Runtime-EnvironmentFile; kein Dependency-Sync beim Service-Start.                                                                                         |
+| Check-Worker startet bisher über `uv run`, ohne EnvironmentFile                       | `uv run --no-cache --no-sync --offline --no-python-downloads --no-env-file` aus dem fertigen Release, explizites Runtime-EnvironmentFile; kein Dependency-Sync beim Service-Start.                                                                                         |
 | Frontend-Dev-Token-Flag true, vertrauenswürdiger Ingress nicht konfiguriert           | Flag explizit false; Nitro vertraut ausschließlich dem lokalen Nginx-Peer `127.0.0.1`. Das alte Flag allein bewies keinen Production-Auth-Bypass.                                                                                                               |
 | Nginx und Apache aktiv                                                                | Nur den bestehenden Admin-Vhost und einen eigenen Logformat-Snippet verwalten. Apache, andere Sites, TLS-Zertifikate und Rate-Zonen bleiben bestehen.                                                                                                           |
 | Nginx-Limits ohne expliziten 429-Status, Headerverlust im Fehler-Location             | Request-/Connection-Limits liefern 429; vollständige Security-Header auch dort.                                                                                                                                                                                 |
@@ -154,7 +154,7 @@ Produktionsumfang; temporäre Ansible-/Validierungsdateien kommen technisch hinz
 | `/etc/uranus-admin/recovery/<commit>/attempt-<zufall>/`                    | Frischer root-only Snapshot pro Aktivierungsversuch: geänderte Altdateien und Manifest mit Existenz, Ownership, Modi, Service-Zuständen und vorherigem current-Verweis. Kein DB-Backup.                 |
 | `/home/oklab/build/uranus-admin/backend/.env`                              | Standard unverändert, weil der bestehende Notification-Service sie liest. Nur mit beiden Notification-Flags bereinigen und auf root:root 0600 setzen; Altdatei im Recovery-Snapshot.                    |
 | `/home/oklab/build/uranus-admin/frontend/.env`                             | Inhalt erhalten, root:root 0600.                                                                                                                                                                        |
-| `/etc/systemd/system/uranus-admin-{backend,frontend,check-worker}.service` | Bekannte Units mit festen Release-Pfaden aktualisieren. UMask 0027; Python-Dienste starten über `uv run --no-sync --offline --no-python-downloads --no-env-file python`, keine Installation beim Start. |
+| `/etc/systemd/system/uranus-admin-{backend,frontend,check-worker}.service` | Bekannte Units mit festen Release-Pfaden aktualisieren. UMask 0027; Python-Dienste starten über `uv run --no-cache --no-sync --offline --no-python-downloads --no-env-file python`, keine Installation beim Start. |
 | `/etc/nginx/sites-available/uranus-admin`                                  | Bestehenden Vhost aktualisieren. Der vorhandene sites-enabled-Symlink muss bereits genau hierhin zeigen.                                                                                                |
 | `/etc/nginx/conf.d/uranus-admin-logging.conf`                              | Eigenes Access-Logformat ohne Querystring, Referer, Cookies, User-Agent oder fremdes X-Forwarded-For.                                                                                                   |
 | `/var/log/nginx/uranus-admin-access.log`                                   | Nginx schreibt das dedizierte Log; vorhandene Nginx-Logrotation muss diesen `*.log`-Pfad erfassen.                                                                                                      |
@@ -393,10 +393,20 @@ Anwendung. `uv` verwaltet dabei intern weiterhin eine virtuelle Umgebung im Rele
 ein vollständig venv-freier Python-Betrieb ist damit nicht gemeint. Anschließend wird
 das Release wie bisher root-eigen und für die Dienste schreibgeschützt.
 Backend, Check-Worker und die read-only Runtime-Verifikation verwenden dieselbe
-vorbereitete Umgebung über `uv run --no-sync --offline --no-python-downloads --no-env-file`.
+vorbereitete Umgebung über `uv run --no-cache --no-sync --offline --no-python-downloads --no-env-file`.
 Beim Start erfolgen weder Dependency-Sync noch Downloads oder zusätzliches Laden einer
 `.env` durch uv. Fehlende Abhängigkeiten müssen beim Release-Bau behoben werden,
 nicht durch einen Fallback beim Service-Start.
+
+`--no-cache` verhindert den Zugriff auf den persistenten uv-Cache im Home-Verzeichnis.
+Auch mit `--no-sync --offline` initialisiert uv sonst diesen Cache und kann unter
+`ProtectHome=read-only` mit `Read-only file system` abbrechen. Stattdessen verwendet
+uv ein temporäres Verzeichnis innerhalb des systemd-`PrivateTmp`. `ProtectSystem=strict`
+und `ProtectHome=read-only` bleiben erhalten; es gibt keinen zusätzlichen schreibbaren
+Home-, Release- oder Build-Cache-Pfad für die Dienste. Die vorbereitenden uv-Prüfaufrufe
+verwenden dieselbe Cache-Option. Der lokale Regressionstest startet beide gerenderten
+Python-Service-Befehle gegen harmlose Fixtures mit einem unbenutzbaren Home-Cache;
+er ist kein vollständiger Test der systemd-Sandbox.
 
 ## Lokale Vorbereitung und freizugebender Dry Run
 

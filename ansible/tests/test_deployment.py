@@ -8,6 +8,7 @@ import importlib.util
 import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -382,12 +383,15 @@ class DeploymentBoundaryTests(unittest.TestCase):
 
     def test_runtime_verification_uses_uv_without_sync_or_downloads(self):
         tasks = yaml.safe_load((ROLE / "tasks/release.yml").read_text())
+        interpreter = next(task for task in tasks if "different Python interpreter" in task["name"])
+        self.assertIn("--no-cache", interpreter["ansible.builtin.command"]["argv"])
         verification = next(task for task in tasks if "actual runtime DSNs" in task["name"])
         self.assertEqual(
-            verification["ansible.builtin.command"]["argv"][:7],
+            verification["ansible.builtin.command"]["argv"][:8],
             [
                 "{{ ua_uv }}",
                 "run",
+                "--no-cache",
                 "--no-sync",
                 "--offline",
                 "--no-python-downloads",
@@ -413,11 +417,11 @@ class DeploymentBoundaryTests(unittest.TestCase):
         )
 
     @unittest.skipUnless(shutil.which("uv"), "uv absent")
-    def test_uv_runtime_uses_prepared_environment_without_loading_dotenv_or_writing_release(self):
+    def test_rendered_python_services_start_without_home_cache_or_release_writes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            project = root / "release"
-            project.mkdir()
+            project = root / "release/backend"
+            project.mkdir(parents=True)
             (project / "pyproject.toml").write_text(
                 '[project]\nname = "runtime-fixture"\nversion = "0.0.0"\n'
                 'requires-python = ">=3.13"\ndependencies = []\n'
@@ -425,10 +429,22 @@ class DeploymentBoundaryTests(unittest.TestCase):
             )
             dotenv = root / "unexpected.env"
             dotenv.write_text("UA_TEST_DOTENV=unexpected\n")
+            app = project / "app"
+            app.mkdir()
+            (app / "__init__.py").touch()
+            probe = (
+                "import os, sys\n"
+                "assert sys.prefix != sys.base_prefix\n"
+                "assert 'UA_TEST_DOTENV' not in os.environ\n"
+                "print('runtime-started')\n"
+            )
+            for entrypoint in ("__main__.py", "check_worker.py"):
+                (app / entrypoint).write_text(probe)
             environment = {
                 **os.environ,
                 "UV_CACHE_DIR": str(root / "cache"),
                 "UV_ENV_FILE": str(dotenv),
+                "PYTHONDONTWRITEBYTECODE": "1",
             }
             environment.pop("VIRTUAL_ENV", None)
             environment.pop("UV_PROJECT_ENVIRONMENT", None)
@@ -452,28 +468,53 @@ class DeploymentBoundaryTests(unittest.TestCase):
                 capture_output=True,
                 timeout=30,
             )
+            home = root / "home"
+            (home / ".cache").mkdir(parents=True)
+            # A regular-file sentinel rejects cache directory access even as root.
+            # This reproduces the unavailable Home cache without needing systemd.
+            cache = home / ".cache/uv"
+            cache.write_text("persistent cache unavailable")
+            environment["HOME"] = str(home)
+            for key in ("UV_CACHE_DIR", "XDG_CACHE_HOME", "UV_NO_CACHE"):
+                environment.pop(key, None)
             before = {str(p.relative_to(project)): p.stat().st_mtime_ns for p in project.rglob("*")}
-            result = subprocess.run(
-                [
-                    uv,
-                    "run",
-                    "--no-sync",
-                    "--offline",
-                    "--no-python-downloads",
-                    "--no-env-file",
-                    "python",
-                    "-B",
-                    "-c",
-                    "import os,sys; assert sys.prefix != sys.base_prefix; "
-                    "assert 'UA_TEST_DOTENV' not in os.environ",
-                ],
-                cwd=project,
-                env=environment,
-                capture_output=True,
-                text=True,
-                timeout=30,
+            templates = Environment(
+                loader=FileSystemLoader(ROLE / "templates"), undefined=StrictUndefined
             )
-            self.assertEqual(result.returncode, 0, result.stderr)
+            for component in ("backend", "check-worker"):
+                with self.subTest(component=component):
+                    unit = templates.get_template(component + ".service.j2").render(
+                        ua_release_dir=str(project.parent),
+                        ua_config_dir=str(root / "etc"),
+                        ua_uv=uv,
+                    )
+                    command = shlex.split(
+                        next(
+                            line for line in unit.splitlines() if line.startswith("ExecStart=")
+                        ).removeprefix("ExecStart=")
+                    )
+                    # Negative control: the previous startup fails on this fixture.
+                    old = subprocess.run(
+                        [arg for arg in command if arg != "--no-cache"],
+                        cwd=project,
+                        env=environment,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    self.assertNotEqual(old.returncode, 0)
+                    self.assertIn(str(cache), old.stderr)
+                    result = subprocess.run(
+                        command,
+                        cwd=project,
+                        env=environment,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout.strip(), "runtime-started")
+            self.assertEqual(cache.read_text(), "persistent cache unavailable")
             self.assertEqual(
                 before,
                 {str(p.relative_to(project)): p.stat().st_mtime_ns for p in project.rglob("*")},
@@ -492,13 +533,16 @@ class DeploymentBoundaryTests(unittest.TestCase):
             self.assertIn("User=oklab", unit)
             if name != "frontend":
                 self.assertIn(
-                    "ExecStart=/usr/local/bin/uv run --no-sync --offline "
+                    "ExecStart=/usr/local/bin/uv run --no-cache --no-sync --offline "
                     "--no-python-downloads --no-env-file python -m app",
                     unit,
                 )
                 self.assertNotIn(".venv/bin", unit)
             self.assertIn("UMask=0027", unit)
             self.assertIn("UnsetEnvironment=", unit)
+            for setting in ("ProtectSystem=strict", "ProtectHome=read-only", "PrivateTmp=true"):
+                self.assertIn(setting, unit)
+            self.assertNotIn("ReadWritePaths=", unit)
         frontend = env.get_template("frontend.service.j2").render(values)
         self.assertNotIn("EnvironmentFile=", frontend)
         self.assertIn("NUXT_TRUSTED_INGRESS_IPS=127.0.0.1", frontend)
