@@ -54,7 +54,7 @@ test('dashboard separates period metrics from inventory and labels stale periods
   await expect(attention).toContainText('178 Fehler · 86 Warnungen · 34 Hinweise')
   await expect(attention.getByRole('link', { name: 'Dringend öffnen' })).toHaveAttribute(
     'href',
-    '/findings?mode=persisted&active_only=true',
+    '/findings?mode=persisted',
   )
   await expect(attention).toContainText('gesamte Arbeitsliste öffnen')
   await page.getByLabel('Zeitraum', { exact: true }).selectOption('7d')
@@ -224,7 +224,7 @@ test('quality has honest aggregate counts, bounded dashboard rules and a full ru
   await expect(list.getByRole('listitem')).toHaveCount(6)
   await expect(list.getByRole('link').first()).toHaveAttribute(
     'href',
-    '/findings?active_only=true&rule=venue_missing_geolocation&mode=persisted',
+    '/findings?rule=venue_missing_geolocation&mode=persisted',
   )
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: info.outputPath('quality.png'), fullPage: true })
