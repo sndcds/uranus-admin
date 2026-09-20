@@ -1,5 +1,6 @@
 """Console boundary attacks only in a separate, disposable local *_test database."""
 
+import copy
 import json
 import os
 import re
@@ -24,6 +25,34 @@ PASSWORD = "synthetic-console-credential-only-12345"
 
 
 class ConsoleContractTests(unittest.TestCase):
+    def test_exact_postgresql_and_postgis_snapshot_selection(self):
+        expected = {(16, "3.4.2"), (16, "3.4.3"), (17, "3.5.2")}
+        self.assertEqual(
+            {
+                (int(major), version)
+                for major, catalog in CONTRACT["function_policy"]["catalogs"].items()
+                for version in catalog["postgis_versions"]
+            },
+            expected,
+        )
+        for major, version in expected:
+            with self.subTest(major=major, version=version):
+                selected = console.function_snapshot(CONTRACT, major, version)
+                self.assertEqual(selected["postgis"]["version"], version)
+                self.assertEqual(selected["audited_postgresql_version_num"] // 10000, major)
+        for major in (15, 16, 17, 18):
+            for version in (None, "3.4.2", "3.4.3", "3.4.4", "3.5.1", "3.5.2", "3.5.3", "4.0.0"):
+                if (major, version) not in expected:
+                    self.assertEqual(console.function_snapshot(CONTRACT, major, version), {})
+        production = console.function_snapshot(CONTRACT, 16, "3.4.2")
+        compatibility = console.function_snapshot(CONTRACT, 16, "3.4.3")
+        self.assertEqual(production["audited_postgresql_version_num"], 160015)
+        self.assertNotEqual(
+            production["postgis"]["catalog_sha256"], compatibility["postgis"]["catalog_sha256"]
+        )
+        self.assertEqual(production["core"], compatibility["core"])
+        self.assertEqual(production["plpgsql"], compatibility["plpgsql"])
+
     def test_contract_is_explicit_and_versioned(self):
         console.validate_contract(CONTRACT)
         self.assertEqual(sum(len(v["columns"]) for v in CONTRACT["views"].values()), 31)
@@ -32,7 +61,7 @@ class ConsoleContractTests(unittest.TestCase):
             self.assertNotIn("*", definition)
             self.assertNotIn("(", definition)
             self.assertEqual(view["owner_select_columns"], [c["name"] for c in view["columns"]])
-        self.assertEqual(CONTRACT["version"], 3)
+        self.assertEqual(CONTRACT["version"], 4)
         self.assertEqual(
             set(CONTRACT["database_temp_roles"]),
             {"uranus_reader", "admin_user", "admin_migrator", "admin_auth_operator"},
@@ -242,9 +271,7 @@ class ConsoleDatabaseTests(unittest.TestCase):
                 # Restore the stock ACLs only after subprocess tests that committed.
                 # No fixture pre-hardening: subsequent tests see normal PostGIS again.
                 cur.execute("SET LOCAL search_path=pg_catalog")
-                snapshot = CONTRACT["function_policy"]["catalogs"][
-                    str(self.conn.server_version // 10000)
-                ]
+                snapshot = self.installed_snapshot()
                 for function in console.function_catalog(self.conn):
                     entry = (
                         snapshot.get(function["extension"] or "core", {})
@@ -793,6 +820,12 @@ class ConsoleDatabaseTests(unittest.TestCase):
             self.boundary.inspect("different")["blockers"],
         )
 
+    def installed_snapshot(self, contract=CONTRACT):
+        version = self.boundary.rows("SELECT extversion FROM pg_extension WHERE extname='postgis'")[
+            0
+        ][0]
+        return console.function_snapshot(contract, self.conn.server_version // 10000, version)
+
     def function_acls(self):
         return self.boundary.rows("SELECT oid,proacl::text FROM pg_proc ORDER BY oid")
 
@@ -800,7 +833,15 @@ class ConsoleDatabaseTests(unittest.TestCase):
         before = self.function_acls()
         report = self.boundary.inspect()
         self.assertEqual(report["blockers"], [])
-        snapshot = CONTRACT["function_policy"]["catalogs"][str(self.conn.server_version // 10000)]
+        snapshot = self.installed_snapshot()
+        # CI binds this test to the actual server/image combination, never a mocked
+        # extversion. The production baseline runs on real Ubuntu PG 16.15/3.4.2.
+        self.assertEqual(self.conn.server_version, snapshot["audited_postgresql_version_num"])
+        expected_stack = os.environ.get("ANSIBLE_TEST_EXPECTED_STACK")
+        if expected_stack:
+            self.assertEqual(
+                f"{self.conn.server_version}/{snapshot['postgis']['version']}", expected_stack
+            )
         expected = {
             sig
             for group in ("core", "postgis")
@@ -1019,6 +1060,13 @@ class ConsoleDatabaseTests(unittest.TestCase):
     def test_extension_catalog_version_owner_and_definition_drift(self):
         self.provision()
         cases = (
+            *(
+                (
+                    "UPDATE pg_extension SET extversion='" + version + "' WHERE extname='postgis'",
+                    "unreviewed_extension_version:postgis:" + version,
+                )
+                for version in ("3.4.4", "3.5.1", "3.5.3")
+            ),
             (
                 "UPDATE pg_extension SET extversion='4.0.0' WHERE extname='postgis'",
                 "unreviewed_extension_version:postgis:4.0.0",
@@ -1062,6 +1110,63 @@ class ConsoleDatabaseTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
                     self.boundary.provision(PASSWORD)
                 self.boundary.execute("ROLLBACK TO SAVEPOINT function_drift")
+
+    def test_snapshot_catalog_and_restricted_definition_hashes_fail_closed(self):
+        for group in ("core", "plpgsql", "postgis"):
+            modified = copy.deepcopy(CONTRACT)
+            self.installed_snapshot(modified)[group]["catalog_sha256"] = "0" * 64
+            boundary = console.Boundary(self.conn, modified)
+            before = self.function_acls()
+            self.assertIn("unreviewed_function_catalog:" + group, boundary.inspect()["blockers"])
+            with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+                boundary.provision(PASSWORD)
+            self.assertEqual(self.function_acls(), before)
+        for group in ("core", "postgis"):
+            modified = copy.deepcopy(CONTRACT)
+            restricted = self.installed_snapshot(modified)[group]["restricted_functions"]
+            signature = next(iter(restricted))
+            restricted[signature]["definition_sha256"] = "0" * 64
+            boundary = console.Boundary(self.conn, modified)
+            self.assertIn(
+                "unreviewed_function_definition:" + signature, boundary.inspect()["blockers"]
+            )
+            with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+                boundary.provision(PASSWORD)
+
+    def test_documented_production_baseline_preflight(self):
+        snapshot = self.installed_snapshot()
+        if snapshot["postgis"]["version"] != "3.4.2":
+            # Other matrix entries exercise the same complete boundary below; do not
+            # relabel their catalog as the production stack or introduce test skips.
+            self.assertIn(snapshot["postgis"]["version"], {"3.4.3", "3.5.2"})
+        else:
+            self.assertEqual(self.conn.server_version, 160015)
+            self.assertEqual(snapshot["postgis"]["functions"], 776)
+            self.assertEqual(len(snapshot["postgis"]["restricted_functions"]), 95)
+        self.public_temp_fixture()
+        before_functions, before_database = self.function_acls(), self.database_acl()
+        report = self.boundary.inspect()
+        self.assertEqual(report["blockers"], [])
+        self.assertTrue(report["temp_reconcile"]["would_revoke_public_temp"])
+        self.assertTrue(report["execute_reconcile"]["changes"])
+        self.assertEqual(
+            (self.function_acls(), self.database_acl()), (before_functions, before_database)
+        )
+        self.provision()
+        for role in (console.OWNER, console.READER):
+            self.assertFalse(
+                self.boundary.rows(
+                    "SELECT has_database_privilege(%s,current_database(),'TEMPORARY')", (role,)
+                )[0][0]
+            )
+            for group in ("core", "postgis"):
+                for signature in snapshot[group]["restricted_functions"]:
+                    self.assertFalse(
+                        self.boundary.rows(
+                            "SELECT has_function_privilege(%s,%s,'EXECUTE')", (role, signature)
+                        )[0][0]
+                    )
+        self.assertFalse(self.boundary.provision(PASSWORD))
 
     def test_execute_only_adopts_recorded_stock_public_rights(self):
         for query, blocker in (

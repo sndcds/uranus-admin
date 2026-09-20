@@ -129,7 +129,7 @@ Er erhält keine Rechte zum Schreiben in `uranus`.
 Capability: `SQL_CONSOLE_DATABASE_URL` muss im Environment-Vertrag des authentifizierten
 Release-Manifests stehen. Alte Releases planen keine Console-Änderungen und löschen
 vorhandene Console-Objekte nicht. Der eigene
-[Contract v3](roles/uranus_admin/files/sql_console_contract.json) pinnt Uranus
+[Contract v4](roles/uranus_admin/files/sql_console_contract.json) pinnt Uranus
 `7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d`: vier Views (`event_date`, `event`,
 `venue`, `organization`), 31 explizite Spalten und Datentypen.
 
@@ -166,10 +166,24 @@ bevor dieselbe Console-Provisionierungstransaktion committet. Ein Fehler rollt a
 Grant Options und ungeprüfte TEMP-Membership-Pfade blockieren ohne Teiländerung.
 Auch indirekte SET-ROLE-Pfade werden geprüft; NOINHERIT allein genügt dafür nicht.
 
-Der Function-/Extension-Vertrag in Contract v3 prüft reproduzierbare Katalog-Fingerprints
-und konkrete Signaturen für PostgreSQL 16/PostGIS 3.4.3 sowie PostgreSQL 17/PostGIS 3.5.2
-(gepinnten CI-Images zugeordnet). Neue Versionen oder Definitionen benötigen ein neues
-Review. Sichere geprüfte PostGIS-IMMUTABLE/STABLE-Funktionen behalten PUBLIC EXECUTE;
+Der Function-/Extension-Vertrag in Contract v4 / Policy v2 prüft exakte Katalog-Fingerprints.
+Geprüfte Kombinationen:
+
+- PostgreSQL **16.15 / PostGIS 3.4.2** — dokumentierte Production-Baseline,
+  reproduzierbarer Ubuntu-24.04-Testbuild aus gepinnten Image-/Paketquellen.
+- PostgreSQL **16 / PostGIS 3.4.3** — CI-Kompatibilität (auditiert mit 16.4).
+- PostgreSQL **17 / PostGIS 3.5.2** — CI-Kompatibilität (auditiert mit 17.5).
+
+`function_policy.catalogs[PG-Major].postgis_versions[extversion]` wählt den vollständigen
+Core-/plpgsql-/PostGIS-Snapshot anhand der **tatsächlich installierten exakten** Version.
+Keine 3.4.x-Wildcard, kein nächster Patchstand und kein Core-Fallback zwischen Snapshots.
+Neue PostGIS-Patchstände und abweichende Build-/Katalog-Fingerprints bleiben fail-closed.
+Der [3.4.2-Audit](tests/images/pg16-postgis342/README.md) dokumentiert feste Quellen,
+Definition-/ACL-/Metadatenvergleich und Reproduktion. Core und plpgsql aus Ubuntu 16.15
+wurden geprüft und entsprechen dem bisherigen PG16-CI-Katalog. Production wurde nicht
+abgefragt: unterstützt ist die explizit reproduzierte Baseline; ihr reales Deployment
+muss weiterhin alle exakten Fingerprints erfüllen. Neue Versionen oder Definitionen
+benötigen ein neues Review. Sichere geprüfte PostGIS-IMMUTABLE/STABLE-Funktionen behalten PUBLIC EXECUTE;
 Schema, Extension-Zugehörigkeit, Owner, Sprache/C-Bibliothek und Sicherheitsattribute
 werden geprüft. Kein pauschales PostGIS-Allowlisting und kein `oid >= 16384`-Blocker.
 
@@ -210,7 +224,7 @@ sql_console:
   required: true
   role: uranus_console_reader
   schema: uranus_console
-  contract_version: 3
+  contract_version: 4
   owner_role: uranus_console_owner
   changes_planned:
     - would grant explicit TEMPORARY uranus_reader

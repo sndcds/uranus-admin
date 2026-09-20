@@ -75,7 +75,7 @@ def password_matches(password, verifier):
 
 def validate_contract(contract):
     require(
-        contract["version"] == 3
+        contract["version"] == 4
         and contract["uranus_sha"] == "7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d"
         and contract["schema"] == SCHEMA
         and contract["owner_role"] == OWNER
@@ -95,25 +95,33 @@ def validate_contract(contract):
     )
     policy = contract["function_policy"]
     require(
-        policy["version"] == 1
+        policy["version"] == 2
         and policy["preserve_role_contract"] == "database_temp_roles"
         and set(contract["allowed_extensions"]) == {"plpgsql", "postgis"}
         and set(policy["catalogs"]) == {"16", "17"},
         "invalid_function_policy",
     )
-    for snapshot in policy["catalogs"].values():
-        for name in ("core", "plpgsql", "postgis"):
+    for major, catalogs in policy["catalogs"].items():
+        versions = catalogs["postgis_versions"]
+        require(bool(versions), "empty_postgis_catalogs")
+        for version, snapshot in versions.items():
             require(
-                re.fullmatch(r"[0-9a-f]{64}", snapshot[name]["catalog_sha256"]),
-                "invalid_function_catalog_digest",
+                version == snapshot["postgis"]["version"]
+                and snapshot["audited_postgresql_version_num"] // 10000 == int(major),
+                "invalid_function_catalog_version",
             )
-            for function in snapshot[name]["restricted_functions"].values():
+            for name in ("core", "plpgsql", "postgis"):
                 require(
-                    isinstance(function["public_execute"], bool)
-                    and isinstance(function["privileged_grantees"], list)
-                    and re.fullmatch(r"[0-9a-f]{64}", function["definition_sha256"]),
-                    "invalid_restricted_function",
+                    re.fullmatch(r"[0-9a-f]{64}", snapshot[name]["catalog_sha256"]),
+                    "invalid_function_catalog_digest",
                 )
+                for function in snapshot[name]["restricted_functions"].values():
+                    require(
+                        isinstance(function["public_execute"], bool)
+                        and isinstance(function["privileged_grantees"], list)
+                        and re.fullmatch(r"[0-9a-f]{64}", function["definition_sha256"]),
+                        "invalid_restricted_function",
+                    )
     for name, view in contract["views"].items():
         require(view["source_table"] == "uranus." + name, "invalid_source_table")
         require(view["reader_grants"] == ["SELECT"], "invalid_reader_grants")
@@ -121,6 +129,20 @@ def validate_contract(contract):
         require(columns == view["owner_select_columns"], "invalid_owner_grants")
         require(len(columns) == len(set(columns)), "duplicate_contract_column")
         require(all(re.fullmatch(r"[a-z_]+", c) for c in columns), "invalid_identifier")
+
+
+def function_snapshot(contract, postgresql_major, postgis_version):
+    """Exact installed extversion selects the complete core/language/PostGIS set.
+
+    No patch wildcard, nearest-version selection or core fallback across snapshots.
+    PostgreSQL patch/build differences still have to match all catalog fingerprints.
+    """
+    return (
+        contract["function_policy"]["catalogs"]
+        .get(str(postgresql_major), {})
+        .get("postgis_versions", {})
+        .get(postgis_version, {})
+    )
 
 
 def definition(name, view):
@@ -734,11 +756,14 @@ class Boundary:
         """
         policy = self.contract["function_policy"]
         approved = self.contract[policy["preserve_role_contract"]]
-        snapshot = policy["catalogs"].get(str(self.conn.server_version // 10000), {})
         functions = function_catalog(self.conn)
         extensions = self.rows("""SELECT e.extname,e.extversion,n.nspname,e.extowner,r.rolsuper
             FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace
             JOIN pg_roles r ON r.oid=e.extowner ORDER BY e.extname""")
+        postgis_version = next((e[1] for e in extensions if e[0] == "postgis"), None)
+        snapshot = function_snapshot(
+            self.contract, self.conn.server_version // 10000, postgis_version
+        )
         groups = {name: [] for name in ("core", *self.contract["allowed_extensions"])}
         unknown = []
         for function in functions:
@@ -779,7 +804,10 @@ class Boundary:
             valid[name] = valid.get(name, False) and bool(expected)
             if not valid[name]:
                 continue
-            if function_set_digest(members) != expected["catalog_sha256"]:
+            if (
+                len(members) != expected["functions"]
+                or function_set_digest(members) != expected["catalog_sha256"]
+            ):
                 self.issue("unreviewed_function_catalog:" + name)
                 valid[name] = False
             restricted = {f["signature"] for f in members if restricted_function(f, policy)}
@@ -787,6 +815,12 @@ class Boundary:
                 self.issue("unreviewed_function_classification:" + name)
                 valid[name] = False
             for function in members:
+                restricted_entry = expected["restricted_functions"].get(function["signature"])
+                if restricted_entry and (
+                    function["definition_sha256"] != restricted_entry["definition_sha256"]
+                ):
+                    self.issue("unreviewed_function_definition:" + function["signature"])
+                    valid[name] = False
                 trusted = function["superuser_owner"] and function["owner"] not in ids.values()
                 if name != "core":
                     trusted = trusted and function["owner"] == extension_owners[name]

@@ -55,7 +55,11 @@ def main():
             ):
                 raise ValueError("Unreviewed function in audit input")
             groups[group].append(function)
-        result = {"postgresql_major": conn.server_version // 10000, "groups": {}}
+        result = {
+            "postgresql_major": conn.server_version // 10000,
+            "postgresql_version_num": conn.server_version,
+            "groups": {},
+        }
         for name, members in groups.items():
             entry = {
                 "version": extensions.get(name),

@@ -27,7 +27,7 @@ Erneut gegen das Repository geprüft am 20.09.2026:
   ausgeschlossenen Secretspalten wurden erneut gegen diesen Stand geprüft.
 - Keine Produktionsverbindung und keine Quellwerte gelesen.
 
-Der maschinenlesbare [Contract v3](../../ansible/roles/uranus_admin/files/sql_console_contract.json)
+Der maschinenlesbare [Contract v4](../../ansible/roles/uranus_admin/files/sql_console_contract.json)
 enthält Quellcommit, SHA256 der vier geprüften DDL-Dateien, Spaltenreihenfolge,
 PostgreSQL-Typen, Basistabellen, Owner-Spaltengrants, Reader-Grants, Search Path und
 die Allowlist für explizite Datenbank-TEMP-Grants.
@@ -184,7 +184,7 @@ mit `has_database_privilege` geprüft. Die echte Runtime-Anmeldung muss `oklab`,
 
 PostgreSQL-Rechte sind additiv. Ein REVOKE nur vom Reader kann PUBLIC TEMP nicht
 aufheben. [PostgreSQL: GRANT](https://www.postgresql.org/docs/17/sql-grant.html).
-Contract v3 enthält `database_temp_roles` mit genau den vier bestehenden App-Rollen:
+Contract v4 enthält `database_temp_roles` mit genau den vier bestehenden App-Rollen:
 `uranus_reader`, `admin_user`, `admin_migrator`, `admin_auth_operator`. Ansible liest
 vor jeder Änderung die Datenbank-ACL und prüft zusätzlich die effektiven Rechte mit
 `has_database_privilege`. Der geheimnisfreie Plan berichtet `public_temp`, alle
@@ -222,14 +222,30 @@ Für einen kompatiblen, versionierten Produktionszustand ist kein manueller psql
 mehr nötig. Dieser PR liest Production nicht und bestätigt deshalb keinen konkreten
 Produktionskatalog.
 
-Der versionierte Function-/Extension-Vertrag in Contract v3 ersetzt den pauschalen
-Nicht-Core-/OID-Blocker. `function_policy` Version 1 bindet die Freigabe an die beiden
-gepinnten CI-Images, PostgreSQL-Major, konkrete Extension-Version und reproduzierbare
-SHA-256-Katalog-Fingerprints. Aktuell geprüft sind PostgreSQL 16/PostGIS **3.4.3** und
-PostgreSQL 17/PostGIS **3.5.2**, jeweils mit `plpgsql` 1.0. Die zusätzlichen Major-/Minor-
-Grenzen erlauben keine automatische Freigabe neuer Patchstände: neue Versionen oder
-abweichende Kataloge benötigen einen überprüften Contract-Commit. Dies ist keine
-Aussage über die Kompatibilität eines ungeprüften Produktionskatalogs.
+Der versionierte Function-/Extension-Vertrag in Contract v4 ersetzt den pauschalen
+Nicht-Core-/OID-Blocker. `function_policy` Version 2 wählt über
+`catalogs[PostgreSQL-Major].postgis_versions[exakte extversion]` jeweils einen vollständigen
+Core-/plpgsql-/PostGIS-Snapshot. Geprüfte Kombinationen (jeweils plpgsql 1.0):
+
+- **PostgreSQL 16.15 / PostGIS 3.4.2** — dokumentierte Production-Baseline, reproduziert
+  mit den Ubuntu-Paketen `16.15-0ubuntu0.24.04.1` / `3.4.2+dfsg-1ubuntu3`.
+- **PostgreSQL 16 / PostGIS 3.4.3** — CI-Kompatibilität, auditiert mit PostgreSQL 16.4.
+- **PostgreSQL 17 / PostGIS 3.5.2** — CI-Kompatibilität, auditiert mit PostgreSQL 17.5.
+
+Der zusätzliche CI-Testbuild verwendet ein per Digest gepinntes Ubuntu-24.04-Basisimage
+und das signierte Paketarchiv vom **20260915T000000Z**. Er ist ein lokal/CI gebautes
+Testimage, kein veröffentlichtes kombiniertes PostGIS-Image. Der
+[3.4.2-Auditbericht](../../ansible/tests/images/pg16-postgis342/README.md) enthält Quellen,
+Hashes, Unterschiede und Reproduktionsbefehle. Der vorhandene Read-only-Audit-Helper
+hat den Kandidaten aus einer echten 3.4.2-Installation erzeugt; er verändert den Contract
+nicht. Core und plpgsql wurden aus PostgreSQL 16.15 separat auditiert und stimmen exakt
+mit dem bisherigen 16.4-Katalog überein.
+
+Keine 3.4.x-Wildcard, keine automatische Patchfreigabe: insbesondere 3.4.4, 3.5.1,
+3.5.3 und 4.x sowie ungeprüfte Major-/PostGIS-Kombinationen bleiben blockiert. Auch
+bei gleicher extversion muss der komplette Katalog passen; Paket-Builddatum und
+Definitionen werden nicht aus dem Hash entfernt. Das unterstützt die reproduzierte
+dokumentierte Baseline, bestätigt ohne Production-Abfrage aber keinen Live-Katalog.
 
 Der Fingerprint umfasst die genaue Funktionsmenge mit schemaqualifizierten Signaturen,
 Argumenten, Definitionen, Sicherheitsattributen, Sprache, C-Bibliothek und
@@ -262,7 +278,9 @@ Zwei Klassen:
   Typ-/Operatorabhängigkeiten erreichbar werden könnte.
 
 Die konkreten B-Signaturen, ursprüngliches PUBLIC EXECUTE, Definition-Hashes und
-bestehende privilegierte Grantees stehen in `function_policy.catalogs`. Von 777
+bestehende privilegierte Grantees stehen in `function_policy.catalogs`. Der neue
+3.4.2-Snapshot enthält 776 Funktionen, davon 95 eingeschränkt (79 VOLATILE plus 16 weitere
+Signaturen), mit derselben Restricted-/ACL-Menge wie 3.4.3. Von 777
 PostGIS-Funktionen in 3.4.3 sind 95 eingeschränkt (79 VOLATILE plus 16 weitere Signaturen); von 776 in 3.5.2
 sind es 86 (70 VOLATILE plus 16).
 Die konservativen zusätzlichen Ausschlüsse gelten auch für STABLE/IMMUTABLE:
@@ -381,12 +399,14 @@ noch unbestätigte Transaktion; das ist kein nachträglicher Deployment-DB-Rollb
 ## Tests und Phase-3-Freigabekriterien
 
 [Console-Tests](../../ansible/tests/test_sql_console.py) verwenden denselben
-Contract und denselben Provisionierer auf PostgreSQL 16/PostGIS 3.4 und PostgreSQL
-17/PostGIS 3.5 in der bestehenden CI-Matrix. Nur lokale Wegwerfcontainer,
+Contract und denselben Provisionierer in drei CI-Matrix-Einträgen: PostgreSQL
+16.15/PostGIS 3.4.2, PostgreSQL 16.4/PostGIS 3.4.3 und PostgreSQL 17.5/PostGIS 3.5.2. Nur lokale Wegwerfcontainer,
 synthetische Daten und abgesicherte `*_test`-Datenbanken sind erlaubt.
 
 Getestet werden echte READ-ONLY-Planung, Ansible `--check --diff` ohne Änderung,
-separate Approval-Sperre, erster Apply, zweiter Apply `changed=0`, erfolgreiche
+exakte Snapshot-Auswahl, unbekannte Patchstände, falsche Katalog-/Definition-Hashes,
+die echte Production-Baseline im Wegwerfcontainer, separate Approval-Sperre,
+erster Apply, zweiter Apply `changed=0`, erfolgreiche
 Anmeldung und exakter Search Path. Direkter Secretzugriff, Alias, Ausdruck,
 `to_jsonb`, CTE/Subquery, Writes, CREATE/TEMP und Rollenwechsel müssen mit `42501`
 scheitern; sichere Views liefern genau ihre Spalten. Weitere Fälle: neue
