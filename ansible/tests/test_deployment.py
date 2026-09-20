@@ -15,6 +15,7 @@ import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 from ansible.errors import AnsibleFilterError
@@ -85,6 +86,71 @@ class EnvironmentTests(unittest.TestCase):
 
 
 class ArtifactTests(unittest.TestCase):
+    def test_latest_main_fetches_new_remote_commit_without_switching_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            remote, checkout = root / "remote", root / "checkout"
+
+            def git(path, *args):
+                return subprocess.check_output(
+                    ["git", "-C", str(path), *args], text=True, stderr=subprocess.PIPE
+                ).strip()
+
+            remote.mkdir()
+            git(remote, "init", "--initial-branch=main")
+            git(remote, "config", "user.name", "Local test")
+            git(remote, "config", "user.email", "fixture@example.invalid")
+            (remote / "source").write_text("first")
+            git(remote, "add", "source")
+            git(remote, "commit", "-m", "first")
+            git(root, "clone", str(remote), str(checkout))
+            initial = git(checkout, "rev-parse", "HEAD")
+            git(checkout, "switch", "-c", "unrelated-feature")
+            (checkout / "source").write_text("uncommitted local work")
+            (remote / "source").write_text("latest main")
+            git(remote, "commit", "-am", "second")
+            latest = git(remote, "rev-parse", "HEAD")
+            self.assertNotEqual(initial, latest)
+            self.assertEqual(packager.latest_main(checkout), latest)
+            self.assertEqual(git(checkout, "rev-parse", "HEAD"), initial)
+            self.assertEqual(git(checkout, "branch", "--show-current"), "unrelated-feature")
+            self.assertEqual((checkout / "source").read_text(), "uncommitted local work")
+            # A previously successful fetch must never become an offline fallback.
+            git(checkout, "remote", "set-url", "origin", str(root / "missing"))
+            with self.assertRaises(subprocess.CalledProcessError):
+                packager.latest_main(checkout)
+
+    def test_cli_fetch_failure_never_packages_stale_sources(self):
+        with (
+            patch.object(packager, "latest_main", side_effect=RuntimeError("fetch failed")),
+            patch.object(packager, "package") as package,
+            tempfile.TemporaryDirectory() as directory,
+        ):
+            output = Path(directory) / "release.tar.gz"
+            with self.assertRaisesRegex(RuntimeError, "fetch failed"):
+                packager.main(["--output", str(output)])
+            package.assert_not_called()
+            self.assertFalse(output.exists())
+
+    def test_cli_passes_fetched_commit_to_packager_and_preserves_existing_archive(self):
+        with (
+            patch.object(packager, "latest_main", return_value="a" * 40) as latest,
+            patch.object(packager, "package") as package,
+            tempfile.TemporaryDirectory() as directory,
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            output = Path(directory) / "release.tar.gz"
+            packager.main(["--output", str(output)])
+            package.assert_called_once_with("a" * 40, str(output))
+            output.write_bytes(b"existing archive")
+            latest.reset_mock()
+            package.reset_mock()
+            with self.assertRaises(SystemExit):
+                packager.main(["--output", str(output)])
+            latest.assert_not_called()
+            package.assert_not_called()
+            self.assertEqual(output.read_bytes(), b"existing archive")
+
     def test_controller_filters_and_preflight_expressions_in_check_mode(self):
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
             root = Path(directory)

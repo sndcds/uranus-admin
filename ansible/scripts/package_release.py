@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package committed application sources only; no working-tree files or secrets."""
+"""Fetch and package latest origin/main; no working-tree files or secrets."""
 
 import argparse
 import ast
@@ -19,6 +19,20 @@ def literal_assignment(source, name):
         ):
             return ast.literal_eval(node.value)
     raise ValueError("Required release metadata missing")
+
+
+def latest_main(repository=None):
+    # Never fall back to a stale tracking ref or the currently checked-out branch.
+    subprocess.run(
+        ["git", "fetch", "--no-tags", "origin", "refs/heads/main"],
+        cwd=repository,
+        check=True,
+    )
+    return subprocess.check_output(
+        ["git", "rev-parse", "--verify", "FETCH_HEAD^{commit}"],
+        cwd=repository,
+        text=True,
+    ).strip()
 
 
 def package(revision, output):
@@ -104,11 +118,15 @@ def package(revision, output):
     )
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--revision", required=True)
     parser.add_argument("--output", required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if Path(args.output).exists():
         parser.error("Output already exists; choose a new artifact path")
-    package(args.revision, args.output)
+    commit = latest_main()
+    package(commit, args.output)
+
+
+if __name__ == "__main__":
+    main()
