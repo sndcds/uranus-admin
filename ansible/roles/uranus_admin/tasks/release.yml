@@ -154,6 +154,7 @@
     argv:
       - "{{ ua_uv }}"
       - run
+      - --no-cache
       - --no-sync
       - --offline
       - --no-python-downloads
@@ -173,6 +174,7 @@
       [
         "{{ ua_uv }}",
         run,
+        --no-cache,
         --no-sync,
         --offline,
         --no-python-downloads,

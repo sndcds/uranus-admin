@@ -294,7 +294,7 @@ class ToolchainTests(unittest.TestCase):
                 self.assertIn("{{ ua_python }}", argv)
                 self.assertEqual(task["environment"]["UV_PYTHON_DOWNLOADS"], "never")
         self.assertIn(
-            "ExecStart={{ ua_uv }} run --no-sync --offline --no-python-downloads",
+            "ExecStart={{ ua_uv }} run --no-cache --no-sync --offline --no-python-downloads",
             (ROLE / "templates/python.service.j2").read_text(),
         )
         self.assertIn(
