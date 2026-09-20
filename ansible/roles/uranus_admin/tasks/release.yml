@@ -47,7 +47,17 @@
     - name: Install locked Python runtime dependencies into the new release
       ansible.builtin.command:
         argv:
-          ["{{ ua_uv }}", sync, --locked, --no-dev, --python, "{{ ua_python }}"]
+          [
+            "{{ ua_uv }}",
+            run,
+            --locked,
+            --no-dev,
+            --no-env-file,
+            --python,
+            "{{ ua_python }}",
+            python,
+            --version,
+          ]
         chdir: "{{ ua_release_dir }}/backend"
       become_user: oklab
       environment:
@@ -118,7 +128,13 @@
   ansible.builtin.command:
     argv:
       [
-        "{{ ua_release_dir }}/backend/.venv/bin/python",
+        "{{ ua_uv }}",
+        run,
+        --no-sync,
+        --offline,
+        --no-python-downloads,
+        --no-env-file,
+        python,
         -B,
         "{{ ua_release_dir }}/deployment/verify_runtime.py",
       ]

@@ -31,7 +31,7 @@ für einen späteren Lauf. Grundlage des Anwendungsstands:
 | Notification-Timer ist aktiv, Notification-Service ist ein stündlicher Oneshot        | Standard: unverändert. Nur explizites Notification-Management mit zweiter Zustimmung stoppt/deaktiviert ihn; Recovery stellt dann seinen vorherigen Zustand wieder her.                                                                                         |
 | Kein URL-/Geocode-Service gefunden                                                    | Keine Installation oder Aktivierung dieser Worker.                                                                                                                                                                                                              |
 | Bisherige `.env`-Dateien sind 0664, Backend enthält auch privilegierte Variablennamen | Werte wurden beim Audit nicht veröffentlicht. Übernahme liest sie geschützt, erhält Passwörter und trennt neue Runtime/Operator; Legacy-Backend-Env nur bei Notification-Management bereinigen; keine Behauptung, dass alle gefundenen Variablen befüllt waren. |
-| Check-Worker startet bisher über `uv run`, ohne EnvironmentFile                       | Direkter Python-Aufruf aus dem fertigen Release, explizites Runtime-EnvironmentFile; kein Dependency-Sync beim Service-Start.                                                                                                                                   |
+| Check-Worker startet bisher über `uv run`, ohne EnvironmentFile                       | `uv run --no-sync --offline --no-python-downloads --no-env-file` aus dem fertigen Release, explizites Runtime-EnvironmentFile; kein Dependency-Sync beim Service-Start.                                                                                         |
 | Frontend-Dev-Token-Flag true, vertrauenswürdiger Ingress nicht konfiguriert           | Flag explizit false; Nitro vertraut ausschließlich dem lokalen Nginx-Peer `127.0.0.1`. Das alte Flag allein bewies keinen Production-Auth-Bypass.                                                                                                               |
 | Nginx und Apache aktiv                                                                | Nur den bestehenden Admin-Vhost und einen eigenen Logformat-Snippet verwalten. Apache, andere Sites, TLS-Zertifikate und Rate-Zonen bleiben bestehen.                                                                                                           |
 | Nginx-Limits ohne expliziten 429-Status, Headerverlust im Fehler-Location             | Request-/Connection-Limits liefern 429; vollständige Security-Header auch dort.                                                                                                                                                                                 |
@@ -141,23 +141,23 @@ des aktuellen Head-Checks.
 **CHANGES SYSTEM CONFIGURATION** — folgende Pfade sind der vollständige verwaltete
 Produktionsumfang; temporäre Ansible-/Validierungsdateien kommen technisch hinzu:
 
-| Pfad                                                                       | Aktion                                                                                                                                                                                  |
-| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/opt/uranus-admin/releases/<commit>/`                                     | Neues getrenntes Release mit Backend-venv und gebautem Nitro-Server; nach Build root-owned. Vorheriges Checkout wird nicht überschrieben.                                               |
-| `/opt/uranus-admin/releases/<commit>/.complete`                            | SHA256 des fertig gebauten Archivs; vorhandene abweichende Marker führen zum Abbruch.                                                                                                   |
-| `/opt/uranus-admin/releases/<commit>/deployment/`                          | Prüfprogramme und nichtgeheime Konfigurationskandidaten.                                                                                                                                |
-| `/opt/uranus-admin/current`                                                | Verweis auf zuletzt erfolgreich aktiviertes Release, erst nach Healthchecks geändert. Units verwenden feste Release-Pfade.                                                              |
-| `/var/cache/uranus-admin-build/`                                           | Build-Cache von uv/pnpm, Benutzer `oklab`. Kein Laufzeit-Schreibpfad des Services.                                                                                                      |
-| `/etc/uranus-admin/`                                                       | root:root, 0700.                                                                                                                                                                        |
-| `/etc/uranus-admin/runtime.env`                                            | root:root, 0600; systemd liest und übergibt ausschließlich Runtime-Konfiguration.                                                                                                       |
-| `/etc/uranus-admin/operator.env`                                           | root:root, 0600; vorhandene Migrator-/Operator-/Dev-Token-Einträge gesichert, nie in Units geladen. Unterschiedliche bereits gesicherte Werte führen zum Abbruch.                       |
-| `/etc/uranus-admin/recovery/<commit>/attempt-<zufall>/`                    | Frischer root-only Snapshot pro Aktivierungsversuch: geänderte Altdateien und Manifest mit Existenz, Ownership, Modi, Service-Zuständen und vorherigem current-Verweis. Kein DB-Backup. |
-| `/home/oklab/build/uranus-admin/backend/.env`                              | Standard unverändert, weil der bestehende Notification-Service sie liest. Nur mit beiden Notification-Flags bereinigen und auf root:root 0600 setzen; Altdatei im Recovery-Snapshot.    |
-| `/home/oklab/build/uranus-admin/frontend/.env`                             | Inhalt erhalten, root:root 0600.                                                                                                                                                        |
-| `/etc/systemd/system/uranus-admin-{backend,frontend,check-worker}.service` | Bekannte Units mit festen Release-Pfaden aktualisieren. UMask 0027; Worker startet direkt `.venv/bin/python`, keine Installation beim Start.                                            |
-| `/etc/nginx/sites-available/uranus-admin`                                  | Bestehenden Vhost aktualisieren. Der vorhandene sites-enabled-Symlink muss bereits genau hierhin zeigen.                                                                                |
-| `/etc/nginx/conf.d/uranus-admin-logging.conf`                              | Eigenes Access-Logformat ohne Querystring, Referer, Cookies, User-Agent oder fremdes X-Forwarded-For.                                                                                   |
-| `/var/log/nginx/uranus-admin-access.log`                                   | Nginx schreibt das dedizierte Log; vorhandene Nginx-Logrotation muss diesen `*.log`-Pfad erfassen.                                                                                      |
+| Pfad                                                                       | Aktion                                                                                                                                                                                                  |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/opt/uranus-admin/releases/<commit>/`                                     | Neues getrenntes Release mit Backend-venv und gebautem Nitro-Server; nach Build root-owned. Vorheriges Checkout wird nicht überschrieben.                                                               |
+| `/opt/uranus-admin/releases/<commit>/.complete`                            | SHA256 des fertig gebauten Archivs; vorhandene abweichende Marker führen zum Abbruch.                                                                                                                   |
+| `/opt/uranus-admin/releases/<commit>/deployment/`                          | Prüfprogramme und nichtgeheime Konfigurationskandidaten.                                                                                                                                                |
+| `/opt/uranus-admin/current`                                                | Verweis auf zuletzt erfolgreich aktiviertes Release, erst nach Healthchecks geändert. Units verwenden feste Release-Pfade.                                                                              |
+| `/var/cache/uranus-admin-build/`                                           | Build-Cache von uv/pnpm, Benutzer `oklab`. Kein Laufzeit-Schreibpfad des Services.                                                                                                                      |
+| `/etc/uranus-admin/`                                                       | root:root, 0700.                                                                                                                                                                                        |
+| `/etc/uranus-admin/runtime.env`                                            | root:root, 0600; systemd liest und übergibt ausschließlich Runtime-Konfiguration.                                                                                                                       |
+| `/etc/uranus-admin/operator.env`                                           | root:root, 0600; vorhandene Migrator-/Operator-/Dev-Token-Einträge gesichert, nie in Units geladen. Unterschiedliche bereits gesicherte Werte führen zum Abbruch.                                       |
+| `/etc/uranus-admin/recovery/<commit>/attempt-<zufall>/`                    | Frischer root-only Snapshot pro Aktivierungsversuch: geänderte Altdateien und Manifest mit Existenz, Ownership, Modi, Service-Zuständen und vorherigem current-Verweis. Kein DB-Backup.                 |
+| `/home/oklab/build/uranus-admin/backend/.env`                              | Standard unverändert, weil der bestehende Notification-Service sie liest. Nur mit beiden Notification-Flags bereinigen und auf root:root 0600 setzen; Altdatei im Recovery-Snapshot.                    |
+| `/home/oklab/build/uranus-admin/frontend/.env`                             | Inhalt erhalten, root:root 0600.                                                                                                                                                                        |
+| `/etc/systemd/system/uranus-admin-{backend,frontend,check-worker}.service` | Bekannte Units mit festen Release-Pfaden aktualisieren. UMask 0027; Python-Dienste starten über `uv run --no-sync --offline --no-python-downloads --no-env-file python`, keine Installation beim Start. |
+| `/etc/nginx/sites-available/uranus-admin`                                  | Bestehenden Vhost aktualisieren. Der vorhandene sites-enabled-Symlink muss bereits genau hierhin zeigen.                                                                                                |
+| `/etc/nginx/conf.d/uranus-admin-logging.conf`                              | Eigenes Access-Logformat ohne Querystring, Referer, Cookies, User-Agent oder fremdes X-Forwarded-For.                                                                                                   |
+| `/var/log/nginx/uranus-admin-access.log`                                   | Nginx schreibt das dedizierte Log; vorhandene Nginx-Logrotation muss diesen `*.log`-Pfad erfassen.                                                                                                      |
 
 Zusätzlich schreibt Nginx `/var/log/nginx/uranus-admin-error.log` mit Level `warn`
 für HTTP und HTTPS. Die Rolle verändert keine globale Logrotate-Konfiguration.
@@ -283,15 +283,30 @@ freigegebenen Deployment lesend geprüft werden. Eine Wildcard wie `/var/log/ngi
 kann beide Dateien erfassen, ist hier aber nicht als produktiver Befund bestätigt.
 Die Rolle installiert keine konkurrierende Rotation und verändert keine globale Nginx-Konfiguration.
 
+Der Release-Bau bereitet Python-Abhängigkeiten mit
+`uv run --locked --no-dev --no-env-file --python <Python-Pfad> python --version` vor.
+Dieser Aufruf installiert nur die gesperrten Runtime-Abhängigkeiten und startet keine
+Anwendung. `uv` verwaltet dabei intern weiterhin eine virtuelle Umgebung im Release;
+ein vollständig venv-freier Python-Betrieb ist damit nicht gemeint. Anschließend wird
+das Release wie bisher root-eigen und für die Dienste schreibgeschützt.
+Backend, Check-Worker und die read-only Runtime-Verifikation verwenden dieselbe
+vorbereitete Umgebung über `uv run --no-sync --offline --no-python-downloads --no-env-file`.
+Beim Start erfolgen weder Dependency-Sync noch Downloads oder zusätzliches Laden einer
+`.env` durch uv. Fehlende Abhängigkeiten müssen beim Release-Bau behoben werden,
+nicht durch einen Fallback beim Service-Start.
+
 ## Lokale Vorbereitung und freizugebender Dry Run
 
-Controller Python 3.12+; Beispiel aus dem Repository-Root:
+Alle Controller-Aufrufe laufen mit `uv run` aus dem Repository-Root. Es gibt keinen
+manuellen `uv venv`-/`uv pip install`-Schritt und keine Aktivierung oder direkten Aufrufe
+aus `ansible/.venv`. `uv` stellt Python 3.13 und die gepinnten Requirements in einer
+verwalteten Cache-Umgebung bereit; `--no-project` verhindert die Verwendung einer
+lokalen Projektumgebung. Die erste Ausführung benötigt Zugriff auf die Paketquellen.
+Die Ansible-Collection wird weiterhin separat über `ansible-galaxy` installiert:
 
 ```sh
-uv venv ansible/.venv
-uv pip install --python ansible/.venv/bin/python -r ansible/requirements-controller.txt
-ansible/.venv/bin/ansible-galaxy collection install -r ansible/requirements.yml
-python3 ansible/scripts/package_release.py --revision <geprüfter-voller-commit> --output /tmp/uranus-release.tar.gz
+uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-galaxy collection install -r ansible/requirements.yml
+uv run --no-project --python 3.13 python ansible/scripts/package_release.py --revision <geprüfter-voller-commit> --output /tmp/uranus-release.tar.gz
 ```
 
 Der Packager verwendet ausschließlich committed Sources, gibt Commit, Archivpfad
@@ -309,8 +324,8 @@ können. Bei Bedarf `--ask-become-pass`, kein Passwort im Inventory.
 
 ```sh
 export ANSIBLE_CONFIG="$PWD/ansible/ansible.cfg"
-ansible/.venv/bin/ansible-playbook -i ansible/inventory.local.yml ansible/preflight.yml --check --diff
-ansible/.venv/bin/ansible-playbook -i ansible/inventory.local.yml ansible/deploy.yml --check --diff
+uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.local.yml ansible/preflight.yml --check --diff
+uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.local.yml ansible/deploy.yml --check --diff
 ```
 
 Der zweite Aufruf zeigt Pfade, konkrete Restart-Liste, Nginx-Reload und Secret-/Timer-
@@ -346,7 +361,7 @@ Diese Angaben müssen tatsächlich zutreffen; nicht bloß befüllen, um Guards z
 Sie sind keine automatische Prüfung der Backup-Güte. Erst dann:
 
 ```sh
-ansible/.venv/bin/ansible-playbook -i ansible/inventory.local.yml ansible/deploy.yml -e @ansible/approvals.local.yml
+uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.local.yml ansible/deploy.yml -e @ansible/approvals.local.yml
 ```
 
 ## Automatische System-Recovery und Produktionsverifikation
@@ -408,9 +423,8 @@ Backup und Wiederherstellbarkeit bleiben eine separate Betriebsaufgabe.
 lokale/CI-Validierung, kein Deployment-Workflow und besitzt keine Production-Credentials.
 
 ```sh
-uv pip install --python ansible/.venv/bin/python -r ansible/requirements-test.txt
-ansible/.venv/bin/python -m unittest discover -s ansible/tests -v
-ansible/.venv/bin/ansible-playbook -i ansible/inventory.example.yml ansible/deploy.yml --syntax-check
+uv run --no-project --python 3.13 --with-requirements ansible/requirements-test.txt python -m unittest discover -s ansible/tests -v
+uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.example.yml ansible/deploy.yml --syntax-check
 ```
 
 Ohne `ANSIBLE_TEST_DATABASE_URL` werden DB-Tests ausdrücklich übersprungen. Mit dieser

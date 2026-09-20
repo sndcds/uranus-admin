@@ -12,7 +12,7 @@ EnvironmentFile={{ ua_config_dir }}/runtime.env
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=FORWARDED_ALLOW_IPS=127.0.0.1
 UnsetEnvironment=ADMIN_MIGRATION_DATABASE_URL ADMIN_AUTH_MANAGEMENT_DATABASE_URL DEV_ADMIN_TOKEN PYTHONPATH PYTHONHOME
-ExecStart={{ ua_release_dir }}/backend/.venv/bin/python -m {{ ua_module }}
+ExecStart={{ ua_uv }} run --no-sync --offline --no-python-downloads --no-env-file python -m {{ ua_module }}
 Restart=on-failure
 RestartSec=5s
 TimeoutStartSec=30s

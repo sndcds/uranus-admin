@@ -41,13 +41,10 @@ jobs:
           version: "0.12.5"
           python-version: "3.13.15"
           cache-dependency-glob: backend/uv.lock
-      - run: uv sync --locked --project backend
-      - run: uv run --project backend ruff check --config backend/pyproject.toml ansible
-      - run: uv run --project backend ruff format --check --config backend/pyproject.toml ansible
-      - run: uv venv ansible/.venv
-      - run: uv pip install --python ansible/.venv/bin/python -r ansible/requirements-test.txt
-      - run: ansible/.venv/bin/ansible-galaxy collection install -r ansible/requirements.yml
+      - run: uv run --locked --project backend ruff check --config backend/pyproject.toml ansible
+      - run: uv run --locked --project backend ruff format --check --config backend/pyproject.toml ansible
+      - run: uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-galaxy collection install -r ansible/requirements.yml
       - run: sudo apt-get update && sudo apt-get install -y nginx
-      - run: ansible/.venv/bin/ansible-playbook -i ansible/inventory.example.yml ansible/deploy.yml --syntax-check
-      - run: ansible/.venv/bin/ansible-playbook -i ansible/inventory.example.yml ansible/preflight.yml --syntax-check
-      - run: ansible/.venv/bin/python -m unittest discover -s ansible/tests -v
+      - run: uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.example.yml ansible/deploy.yml --syntax-check
+      - run: uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.example.yml ansible/preflight.yml --syntax-check
+      - run: uv run --no-project --python 3.13 --with-requirements ansible/requirements-test.txt python -m unittest discover -s ansible/tests -v

@@ -113,6 +113,7 @@ class ArtifactTests(unittest.TestCase):
                 "commit": commit,
                 "ua_release_dir": "/opt/uranus-admin/releases/" + commit,
                 "ua_config_dir": "/etc/uranus-admin",
+                "ua_uv": "/usr/local/bin/uv",
                 "ua_os_release": {
                     "content": base64.b64encode(b'ID=ubuntu\nVERSION_ID="24.04"\n').decode()
                 },
@@ -313,17 +314,123 @@ class DeploymentBoundaryTests(unittest.TestCase):
         self.assertNotIn("app.check_worker", modules)
         self.assertIn("app.source_schema_verify", modules)
 
+    def test_runtime_verification_uses_uv_without_sync_or_downloads(self):
+        tasks = yaml.safe_load((ROLE / "tasks/release.yml").read_text())
+        verification = next(task for task in tasks if "actual runtime DSNs" in task["name"])
+        self.assertEqual(
+            verification["ansible.builtin.command"]["argv"][:7],
+            [
+                "{{ ua_uv }}",
+                "run",
+                "--no-sync",
+                "--offline",
+                "--no-python-downloads",
+                "--no-env-file",
+                "python",
+            ],
+        )
+        build = next(task for task in tasks if "block" in task)["block"]
+        install = next(task for task in build if "Python runtime dependencies" in task["name"])
+        self.assertEqual(
+            install["ansible.builtin.command"]["argv"],
+            [
+                "{{ ua_uv }}",
+                "run",
+                "--locked",
+                "--no-dev",
+                "--no-env-file",
+                "--python",
+                "{{ ua_python }}",
+                "python",
+                "--version",
+            ],
+        )
+
+    @unittest.skipUnless(shutil.which("uv"), "uv absent")
+    def test_uv_runtime_uses_prepared_environment_without_loading_dotenv_or_writing_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "release"
+            project.mkdir()
+            (project / "pyproject.toml").write_text(
+                '[project]\nname = "runtime-fixture"\nversion = "0.0.0"\n'
+                'requires-python = ">=3.13"\ndependencies = []\n'
+                "[tool.uv]\npackage = false\n"
+            )
+            dotenv = root / "unexpected.env"
+            dotenv.write_text("UA_TEST_DOTENV=unexpected\n")
+            environment = {
+                **os.environ,
+                "UV_CACHE_DIR": str(root / "cache"),
+                "UV_ENV_FILE": str(dotenv),
+            }
+            environment.pop("VIRTUAL_ENV", None)
+            environment.pop("UV_PROJECT_ENVIRONMENT", None)
+            environment.pop("UA_TEST_DOTENV", None)
+            uv = shutil.which("uv")
+            subprocess.run(
+                [
+                    uv,
+                    "run",
+                    "--offline",
+                    "--no-python-downloads",
+                    "--no-env-file",
+                    "--python",
+                    sys.executable,
+                    "python",
+                    "--version",
+                ],
+                cwd=project,
+                env=environment,
+                check=True,
+                capture_output=True,
+                timeout=30,
+            )
+            before = {str(p.relative_to(project)): p.stat().st_mtime_ns for p in project.rglob("*")}
+            result = subprocess.run(
+                [
+                    uv,
+                    "run",
+                    "--no-sync",
+                    "--offline",
+                    "--no-python-downloads",
+                    "--no-env-file",
+                    "python",
+                    "-B",
+                    "-c",
+                    "import os,sys; assert sys.prefix != sys.base_prefix; "
+                    "assert 'UA_TEST_DOTENV' not in os.environ",
+                ],
+                cwd=project,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                before,
+                {str(p.relative_to(project)): p.stat().st_mtime_ns for p in project.rglob("*")},
+            )
+
     def test_units_and_proxy_preserve_boundaries(self):
         env = Environment(loader=FileSystemLoader(ROLE / "templates"), undefined=StrictUndefined)
         values = {
             "ua_release_dir": "/opt/uranus-admin/releases/" + "a" * 40,
             "ua_config_dir": "/etc/uranus-admin",
             "ua_node": "/usr/bin/node",
+            "ua_uv": "/usr/local/bin/uv",
         }
         for name in ("backend", "check-worker", "frontend"):
             unit = env.get_template(name + ".service.j2").render(values)
             self.assertIn("User=oklab", unit)
-            self.assertNotIn("uv run", unit)
+            if name != "frontend":
+                self.assertIn(
+                    "ExecStart=/usr/local/bin/uv run --no-sync --offline "
+                    "--no-python-downloads --no-env-file python -m app",
+                    unit,
+                )
+                self.assertNotIn(".venv/bin", unit)
             self.assertIn("UMask=0027", unit)
             self.assertIn("UnsetEnvironment=", unit)
         frontend = env.get_template("frontend.service.j2").render(values)
@@ -344,14 +451,14 @@ class DeploymentBoundaryTests(unittest.TestCase):
         env = Environment(loader=FileSystemLoader(ROLE / "templates"), undefined=StrictUndefined)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "backend/.venv/bin").mkdir(parents=True)
-            (root / "backend/.venv/bin/python").symlink_to(sys.executable)
+            (root / "backend").mkdir()
             (root / "frontend").mkdir()
             (root / "runtime.env").write_text("")
             values = {
                 "ua_release_dir": directory,
                 "ua_config_dir": directory,
                 "ua_node": "/usr/bin/true",
+                "ua_uv": "/usr/bin/true",
             }
             paths = []
             for name in ("backend", "check-worker", "frontend"):
