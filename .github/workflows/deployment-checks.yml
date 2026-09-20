@@ -66,6 +66,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y nginx
       - run: uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.example.yml ansible/deploy.yml --syntax-check
       - run: uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.example.yml ansible/preflight.yml --syntax-check
+      - run: uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.example.yml ansible/sql-console-audit.yml --syntax-check
       # Toolchain tests use local synthetic archives; no toolchain release downloads.
       - run: uv run --no-project --python 3.13 --with-requirements ansible/requirements-test.txt python -m unittest discover -s ansible/tests -v
       - name: Remove disposable fixture

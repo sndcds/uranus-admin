@@ -1,0 +1,11 @@
+- name: Export read-only SQL console catalog evidence
+  hosts: uranus_admin
+  gather_facts: false
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: Collect evidence without deployment or secret adoption
+      ansible.builtin.include_role:
+        name: uranus_admin
+        tasks_from: sql_console_audit.yml
