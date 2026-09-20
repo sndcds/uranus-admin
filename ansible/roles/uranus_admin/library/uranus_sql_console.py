@@ -76,7 +76,7 @@ def password_matches(password, verifier):
 
 def validate_contract(contract):
     require(
-        contract["version"] == 4
+        contract["version"] == 5
         and contract["uranus_sha"] == "7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d"
         and contract["schema"] == SCHEMA
         and contract["owner_role"] == OWNER
@@ -85,20 +85,35 @@ def validate_contract(contract):
         and set(contract["views"]) == VIEWS,
         "unsupported_sql_console_contract",
     )
-    temp_roles = contract["database_temp_roles"]
-    require(
-        isinstance(temp_roles, list)
-        and bool(temp_roles)
-        and all(isinstance(r, str) and re.fullmatch(r"[a-z_]+", r) for r in temp_roles)
-        and len(temp_roles) == len(set(temp_roles))
-        and not {OWNER, READER, "public"}.intersection(temp_roles),
-        "invalid_database_temp_roles",
-    )
+    for key in (
+        "database_temp_roles",
+        "additional_database_temp_roles",
+        "execute_roles",
+        "additional_execute_roles",
+    ):
+        roles = contract[key]
+        require(
+            isinstance(roles, list)
+            and bool(roles)
+            and all(isinstance(r, str) and re.fullmatch(r"[a-z_][a-z0-9_]*", r) for r in roles)
+            and len(roles) == len(set(roles))
+            and not {OWNER, READER, "public"}.intersection(roles),
+            "invalid_" + key,
+        )
+    for base, additional in (
+        ("database_temp_roles", "additional_database_temp_roles"),
+        ("execute_roles", "additional_execute_roles"),
+    ):
+        require(
+            not set(contract[base]).intersection(contract[additional]),
+            "overlapping_preservation_roles",
+        )
     policy = contract["function_policy"]
     require(
-        policy["version"] == 2
-        and policy["preserve_role_contract"] == "database_temp_roles"
-        and set(contract["allowed_extensions"]) == {"plpgsql", "postgis"}
+        policy["version"] == 3
+        and policy["preserve_role_contract"] == "execute_roles"
+        and set(contract["allowed_extensions"])
+        == {"plpgsql", "postgis", "hstore", "pg_trgm", "pgcrypto", "unaccent"}
         and set(policy["catalogs"]) == {"16", "17"},
         "invalid_function_policy",
     )
@@ -111,7 +126,7 @@ def validate_contract(contract):
                 and snapshot["audited_postgresql_version_num"] // 10000 == int(major),
                 "invalid_function_catalog_version",
             )
-            for name in ("core", "plpgsql", "postgis"):
+            for name in ("core", *[n for n in contract["allowed_extensions"] if n in snapshot]):
                 require(
                     re.fullmatch(r"[0-9a-f]{64}", snapshot[name]["catalog_sha256"]),
                     "invalid_function_catalog_digest",
@@ -123,6 +138,18 @@ def validate_contract(contract):
                         and re.fullmatch(r"[0-9a-f]{64}", function["definition_sha256"]),
                         "invalid_restricted_function",
                     )
+    for signature, entry in policy["custom_functions"].items():
+        require(
+            re.fullmatch(r"[0-9a-f]{64}", entry["definition_sha256"])
+            and entry["owner"] == "oklab"
+            and entry["language"] in {"sql", "plpgsql"}
+            and entry["kind"] == "f"
+            and entry["security_definer"] is False
+            and entry["public_execute"] is True
+            and entry["privileged_grantees"] == []
+            and signature.startswith(("public.", "uranus.")),
+            "invalid_custom_function_contract",
+        )
     for name, view in contract["views"].items():
         require(view["source_table"] == "uranus." + name, "invalid_source_table")
         require(view["reader_grants"] == ["SELECT"], "invalid_reader_grants")
@@ -242,6 +269,10 @@ def restricted_function(function, policy):
         or function["name"] in policy["denied_names"]
         or any(function["name"].startswith(prefix) for prefix in policy["denied_prefixes"])
         or (function["extension"] == "postgis" and function["volatility"] not in {"i", "s"})
+        # Contrib implementations are reviewed, but direct calls are not needed
+        # by the console. Type/operator callbacks are audited separately below.
+        or function["extension"] in {"hstore", "pg_trgm", "pgcrypto", "unaccent"}
+        or function["signature"] in policy["custom_functions"]
     )
 
 
@@ -805,7 +836,6 @@ class Boundary:
               acldefault('d',datdba))) a WHERE a.grantee=0 AND a.privilege_type='TEMPORARY')
             FROM pg_database WHERE datname=current_database()
         """)[0]
-        approved = self.contract["database_temp_roles"]
         roles = self.rows(
             """SELECT oid,rolname,rolcanlogin,rolsuper,
                 has_database_privilege(oid,%s,'TEMPORARY') FROM pg_roles ORDER BY rolname""",
@@ -820,6 +850,9 @@ class Boundary:
         )
         direct_names = {name for name, _ in direct}
         by_name = {r[1]: r for r in roles}
+        approved = self.contract["database_temp_roles"] + [
+            r for r in self.contract["additional_database_temp_roles"] if r in by_name
+        ]
         issues = []
         for name in approved:
             if name not in by_name or not by_name[name][2]:
@@ -883,6 +916,8 @@ class Boundary:
             elif effective and not self.public_temp and name not in approved:
                 issues.append("unexpected_effective_temp:" + name)
         missing = [name for name in approved if name not in direct_names]
+        if missing and not self.public_temp:
+            issues.append("missing_preserved_temp")
         self.temp_reconcile = {
             "allowed": not issues,
             "would_grant_explicit": missing if not issues else [],
@@ -915,6 +950,25 @@ class Boundary:
             (oid,),
         )
 
+    def reviewed_source_owner(self, oid):
+        """One observed owner profile, never a general database-owner exception.
+
+        oklab already controls the source data. Accept its ownership only at
+        explicitly fingerprinted objects, with the audited attributes and no
+        role membership in either direction. This never transfers ownership.
+        """
+        return bool(
+            self.rows(
+                """SELECT 1 FROM pg_roles r JOIN pg_database d ON d.datdba=r.oid
+            WHERE r.oid=%s AND r.rolname='oklab' AND d.datname=current_database()
+              AND r.rolcanlogin AND r.rolcreatedb AND r.rolinherit
+              AND NOT (r.rolsuper OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+              AND NOT EXISTS (SELECT 1 FROM pg_auth_members m
+                              WHERE m.member=r.oid OR m.roleid=r.oid)""",
+                (oid,),
+            )
+        )
+
     def inspect_functions(self, ids):
         """Only reviewed catalogs authorize narrowly scoped PUBLIC EXECUTE changes.
 
@@ -924,21 +978,27 @@ class Boundary:
         Unknown direct grants and transitive MEMBER/SET paths cannot be adopted.
         """
         policy = self.contract["function_policy"]
-        approved = self.contract[policy["preserve_role_contract"]]
+        present = {r[0] for r in self.rows("SELECT rolname FROM pg_roles")}
+        approved = self.contract[policy["preserve_role_contract"]] + [
+            r for r in self.contract["additional_execute_roles"] if r in present
+        ]
         functions = function_catalog(self.conn)
         extensions = self.rows("""SELECT e.extname,e.extversion,n.nspname,e.extowner,r.rolsuper
             FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace
             JOIN pg_roles r ON r.oid=e.extowner ORDER BY e.extname""")
         postgis_version = next((e[1] for e in extensions if e[0] == "postgis"), None)
-        snapshot = function_snapshot(
-            self.contract, self.conn.server_version // 10000, postgis_version
+        snapshot = dict(
+            function_snapshot(self.contract, self.conn.server_version // 10000, postgis_version)
         )
         groups = {name: [] for name in ("core", *self.contract["allowed_extensions"])}
+        groups["custom"] = []
         unknown = []
         for function in functions:
             group = function["extension"] or (
                 "core" if function["schema"] in {"pg_catalog", "information_schema"} else None
             )
+            if group is None and function["signature"] in policy["custom_functions"]:
+                group = "custom"
             if group in groups:
                 groups[group].append(function)
             else:
@@ -955,7 +1015,18 @@ class Boundary:
             elif not valid[name] or version != snapshot[name]["version"]:
                 self.issue("unreviewed_extension_version:" + name + ":" + version)
                 valid[name] = False
-            elif schema != expected["schema"] or not superuser or owner in ids.values():
+            elif (
+                schema != expected["schema"]
+                or owner in ids.values()
+                or not (
+                    superuser
+                    or (
+                        name == "pgcrypto"
+                        and snapshot[name].get("source_owner") == "oklab"
+                        and self.reviewed_source_owner(owner)
+                    )
+                )
+            ):
                 self.issue("unreviewed_extension_schema_or_owner:" + name)
                 valid[name] = False
             elif name == "postgis" and (
@@ -966,9 +1037,42 @@ class Boundary:
                 valid[name] = False
             self.extension_report.append(dict(name=name, version=version, status="blocked"))
         for missing in set(self.contract["allowed_extensions"]) - set(extension_owners):
-            self.issue("required_extension_missing:" + missing)
+            if not self.contract["allowed_extensions"][missing].get("optional", False):
+                self.issue("required_extension_missing:" + missing)
         valid["core"] = "core" in snapshot
+        # Custom implementations are optional, individually pinned and always
+        # restricted. No live definition is promoted into the contract.
+        valid["custom"] = (
+            bool(snapshot) and self.conn.server_version == 160015 and postgis_version == "3.4.2"
+        )
+        custom_entries = {
+            f["signature"]: policy["custom_functions"][f["signature"]] for f in groups["custom"]
+        }
+        snapshot["custom"] = {"restricted_functions": custom_entries}
+        for function in groups["custom"]:
+            expected = custom_entries[function["signature"]]
+            if any(
+                function[k] != expected[k]
+                for k in ("definition_sha256", "language", "kind", "security_definer", "volatility")
+            ) or not self.reviewed_source_owner(function["owner"]):
+                self.issue("unreviewed_custom_function:" + function["signature"])
+                valid["custom"] = False
+        custom_oids = [f["oid"] for f in groups["custom"]]
+        # Function EXECUTE ACLs do not guard every type/operator callback. Known
+        # triggers are inert for SELECT; any other dependent object needs review.
+        for (oid,) in self.rows(
+            """SELECT DISTINCT refobjid FROM pg_depend
+            WHERE refclassid='pg_proc'::regclass AND refobjid=ANY(%s)
+              AND classid<>'pg_trigger'::regclass
+              AND NOT (classid='pg_proc'::regclass AND objid=ANY(%s))""",
+            (custom_oids, custom_oids),
+        ):
+            signature = next(f["signature"] for f in groups["custom"] if f["oid"] == oid)
+            self.issue("unreviewed_custom_function_dependency:" + signature)
+            valid["custom"] = False
         for name, members in groups.items():
+            if name == "custom":
+                continue
             expected = snapshot.get(name)
             valid[name] = valid.get(name, False) and bool(expected)
             if not valid[name]:
@@ -992,8 +1096,15 @@ class Boundary:
                     valid[name] = False
                 trusted = function["superuser_owner"] and function["owner"] not in ids.values()
                 if name != "core":
-                    trusted = trusted and function["owner"] == extension_owners[name]
-                if name == "postgis":
+                    trusted = trusted and (
+                        function["owner"] == extension_owners[name]
+                        or (
+                            name == "pgcrypto"
+                            and expected.get("source_owner") == "oklab"
+                            and self.reviewed_source_owner(extension_owners[name])
+                        )
+                    )
+                if name not in {"core", "plpgsql"}:
                     extension_policy = self.contract["allowed_extensions"][name]
                     trusted = trusted and (
                         function["schema"] == extension_policy["schema"]
@@ -1012,7 +1123,12 @@ class Boundary:
             if {
                 m["schema"] + "." + m["name"]: m["definition_sha256"] for m in metadata
             } != snapshot["postgis"]["metadata_select"] or any(
-                m["owner"] != extension_owners["postgis"] for m in metadata
+                m["owner"] != extension_owners["postgis"]
+                and not (
+                    snapshot["postgis"].get("metadata_source_owner") == "oklab"
+                    and self.reviewed_source_owner(m["owner"])
+                )
+                for m in metadata
             ):
                 self.issue("unreviewed_postgis_metadata")
                 valid["postgis"] = False

@@ -7,7 +7,8 @@ Admin-Migration und keinen Datenbank-Restore. Ein eigener, zusätzlich freigegeb
 Schritt verwaltet ausschließlich die isolierte SQL-Console-Infrastruktur.
 Er verändert keine Uranus-Domain-Daten, Uranus-Tabellendefinitionen oder bestehenden
 App-Rollenattribute. Der versionierte TEMP-Vertrag erhält die TEMP-Rechte der vier
-App-Rollen durch explizite Grants. Der automatische Fehlerpfad stellt ausschließlich
+App-Rollen und der explizit geprüften weiteren Verbraucher durch gezielte Grants.
+Der automatische Fehlerpfad stellt ausschließlich
 Systemkonfiguration und Service-Zustände wieder her. Unpassende bestehende Grenzen bleiben ein Abbruchgrund.
 
 Die Implementierung darf lokal geprüft werden. Ein produktiver Check Mode benötigt
@@ -29,7 +30,7 @@ für einen späteren Lauf. Grundlage des Anwendungsstands:
 | `admin.alembic_version = 0011`, 16 Admin-Tabellen                                     | Head/Grant-Matrix stammen aus dem ausgewählten Release. Abweichung stoppt, ohne automatische Migration.                                                                                                                                                         |
 | Reader besitzt SELECT auf 72 Quellobjekten, keine Sequenzrechte                       | Mindestens die 19 benötigten Quellobjekte werden geprüft. Bestehende weitere Leserechte bleiben erhalten; kein pauschales SELECT auf Sequenzen.                                                                                                                 |
 | Vier getrennte App-Rollen, keine Memberships, keine privilegierten Attribute          | Attribute, Memberships in beide Richtungen, Ownership, Tabellen-/Spaltenrechte und indirekte Schreibmöglichkeiten werden erneut geprüft.                                                                                                                        |
-| App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | PUBLIC TEMP wird ausschließlich nach Prüfung des versionierten Vier-Rollen-Vertrags atomar auf explizite TEMP-Grants umgestellt; unbekannte Verbraucher blockieren.                                                                                             |
+| App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | PUBLIC TEMP wird ausschließlich nach Prüfung des versionierten Vertrags der Erhaltungsrollen atomar auf explizite TEMP-Grants umgestellt; unbekannte Verbraucher blockieren.                                                                                             |
 | Backend, Frontend, Check-Worker existieren und laufen                                 | Nur diese drei bekannten Services werden übernommen. Keine zusätzlichen Service-Namen.                                                                                                                                                                          |
 | Notification-Timer ist aktiv, Notification-Service ist ein stündlicher Oneshot        | Standard: unverändert. Nur explizites Notification-Management mit zweiter Zustimmung stoppt/deaktiviert ihn; Recovery stellt dann seinen vorherigen Zustand wieder her.                                                                                         |
 | Kein URL-/Geocode-Service gefunden                                                    | Keine Installation oder Aktivierung dieser Worker.                                                                                                                                                                                                              |
@@ -129,7 +130,7 @@ Er erhält keine Rechte zum Schreiben in `uranus`.
 Capability: `SQL_CONSOLE_DATABASE_URL` muss im Environment-Vertrag des authentifizierten
 Release-Manifests stehen. Alte Releases planen keine Console-Änderungen und löschen
 vorhandene Console-Objekte nicht. Der eigene
-[Contract v4](roles/uranus_admin/files/sql_console_contract.json) pinnt Uranus
+[Contract v5](roles/uranus_admin/files/sql_console_contract.json) pinnt Uranus
 `7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d`: vier Views (`event_date`, `event`,
 `venue`, `organization`), 31 explizite Spalten und Datentypen.
 
@@ -151,14 +152,15 @@ Abweichende View-Definitionen bei unverändertem Spaltenvertrag werden reconcile
 unbekannte Objekte führen zu `unexpected_sql_console_object`, niemals automatischem DROP.
 
 PUBLIC TEMP wird nur dann automatisch reconciled, wenn alle betroffenen normalen
-Login-Rollen vom versionierten `database_temp_roles`-Vertrag abgedeckt sind:
+Login-Rollen vom versionierten TEMP-Vertrag abgedeckt sind. `database_temp_roles` enthält:
 `uranus_reader`, `admin_user`, `admin_migrator`, `admin_auth_operator`. Diese vier
-bestehenden LOGIN-Rollen müssen vorhanden sein. Der Plan inventarisiert effektive
-Rechte, direkte TEMP-Grants, Membership-Pfade und privilegierte Identitäten.
+bestehenden LOGIN-Rollen müssen vorhanden sein. `additional_database_temp_roles`
+ergänzt 14 bekannte weitere Verbraucher, sofern sie bereits existieren. Der Plan
+inventarisiert effektive Rechte, direkte TEMP-Grants, Membership-Pfade und privilegierte Identitäten.
 Superuser und der Datenbank-Owner mit eigener TEMP-ACL verlieren keine Rechte und
 werden separat ausgewiesen. Die Console-Rollen sind ausdrückliche TEMP-freie Ziele.
 
-Apply vergibt zuerst fehlende explizite TEMP-Grants an die vier App-Rollen, entzieht
+Apply vergibt zuerst fehlende explizite TEMP-Grants an die geprüften vorhandenen Rollen, entzieht
 anschließend ausschließlich PUBLIC TEMP und prüft den gesamten Sollzustand erneut,
 bevor dieselbe Console-Provisionierungstransaktion committet. Ein Fehler rollt alle
 Änderungen zurück. Der zweite Apply bleibt unverändert. Unbekannte Login-Verbraucher
@@ -166,7 +168,7 @@ bevor dieselbe Console-Provisionierungstransaktion committet. Ein Fehler rollt a
 Grant Options und ungeprüfte TEMP-Membership-Pfade blockieren ohne Teiländerung.
 Auch indirekte SET-ROLE-Pfade werden geprüft; NOINHERIT allein genügt dafür nicht.
 
-Der Function-/Extension-Vertrag in Contract v4 / Policy v2 prüft exakte Katalog-Fingerprints.
+Der Function-/Extension-Vertrag in Contract v5 / Policy v3 prüft exakte Katalog-Fingerprints.
 Geprüfte Kombinationen:
 
 - PostgreSQL **16.15 / PostGIS 3.4.2** — dokumentierte Production-Baseline,
@@ -180,23 +182,30 @@ Keine 3.4.x-Wildcard, kein nächster Patchstand und kein Core-Fallback zwischen 
 Neue PostGIS-Patchstände und abweichende Build-/Katalog-Fingerprints bleiben fail-closed.
 Der [3.4.2-Audit](tests/images/pg16-postgis342/README.md) dokumentiert feste Quellen,
 Definition-/ACL-/Metadatenvergleich und Reproduktion. Core und plpgsql aus Ubuntu 16.15
-wurden geprüft und entsprechen dem bisherigen PG16-CI-Katalog. Production wurde nicht
-abgefragt: unterstützt ist die explizit reproduzierte Baseline; ihr reales Deployment
-muss weiterhin alle exakten Fingerprints erfüllen. Neue Versionen oder Definitionen
+wurden geprüft und entsprechen dem bisherigen PG16-CI-Katalog. Der separat genehmigte
+Katalogaudit vom 20. September 2026 bestätigt diese Baseline für den erfassten Bestand.
+Jeder spätere Lauf muss die Fingerprints erneut prüfen. Neue Versionen oder Definitionen
 benötigen ein neues Review. Sichere geprüfte PostGIS-IMMUTABLE/STABLE-Funktionen behalten PUBLIC EXECUTE;
 Schema, Extension-Zugehörigkeit, Owner, Sprache/C-Bibliothek und Sicherheitsattribute
 werden geprüft. Kein pauschales PostGIS-Allowlisting und kein `oid >= 16384`-Blocker.
 
 Für konkret geprüfte gefährliche Signaturen inventarisiert Ansible PUBLIC-/direktes und
 effektives EXECUTE sowie Membership-/SET-ROLE-Pfade. Nur bekannte Verbraucher erlauben
-den atomaren Übergang: vorhandene PUBLIC-Rechte durch explizite Grants an dieselben vier
-App-Rollen erhalten, PUBLIC EXECUTE dieser Signatur entziehen, vollständige Grenze erneut
+den atomaren Übergang: vorhandene PUBLIC-Rechte durch explizite Grants an die separat
+geprüften EXECUTE-Erhaltungsrollen erhalten, PUBLIC EXECUTE dieser Signatur entziehen,
+vollständige Grenze erneut
 prüfen, erst dann Commit. Beide Console-Rollen bleiben ohne gefährliches EXECUTE.
 Unbekannte Verbraucher/Funktionen/Extensions, SECURITY DEFINER, Zusatzgrants und
 Membership-Pfade blockieren. Bereits nicht öffentliche privilegierte Funktionen erhalten
 keine neuen App-Grants. Der Plan zeigt jede betroffene Signatur, Erhaltungsrollen und
 geplante Grants/REVOKEs; Fehler rollen auch TEMP und Console-Objekte zurück. Zweiter Apply:
 `changed=0`. Keine pauschale Manipulation von Funktionsrechten.
+
+Contract v5 ergänzt vier optionale Contrib-Extensions, zwölf stets eingeschränkte
+eigene Funktionen und konkrete Eigentümerregeln für den erfassten Bestand. TEMP-
+und EXECUTE-Erhaltungslisten sind getrennt; zusätzliche Rollen werden nie angelegt.
+Details, Review-Nachweise und Grenzen stehen im
+[Bestandskatalog-Vertrag](../backend/docs/sql-console-reviewed-catalog.md).
 
 Die drei fingerprintgeprüften Standard-Metadatenobjekte von PostGIS behalten ausschließlich
 ihr vorhandenes SELECT. Die Testfixture verwendet unverändertes `CREATE EXTENSION postgis`,
@@ -268,7 +277,7 @@ sql_console:
   required: true
   role: uranus_console_reader
   schema: uranus_console
-  contract_version: 4
+  contract_version: 5
   owner_role: uranus_console_owner
   changes_planned:
     - would grant explicit TEMPORARY uranus_reader
