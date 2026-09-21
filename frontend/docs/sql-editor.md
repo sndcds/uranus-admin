@@ -172,6 +172,7 @@ Nach `pnpm install --frozen-lockfile` und `pnpm build` im Verzeichnis `frontend/
 docker run --rm --init --ipc=host \
   --user "$(id -u):$(id -g)" \
   --volume "$PWD:/work" --workdir /work \
+  --volume "$(command -v node):/usr/local/bin/node:ro" \
   --env TEST_PRODUCTION=1 \
   mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27 \
   node node_modules/@playwright/test/cli.js test
@@ -183,3 +184,24 @@ danach ohne Update erneut testen. Bei einem Playwright-Upgrade müssen Paketvers
 Image und Referenzbilder gemeinsam geprüft werden. Readonly und CodeMirror teilen
 weiterhin **ein** SQL-Panel-Referenzbild. CI sichert bei Fehlern Screenshots, Diffs
 und Traces aus `test-results/` für sieben Tage; alle Daten stammen aus Test-Fixtures.
+
+Der Linux-Befehl bindet Node **22.22.3** vom Host ein (in CI durch `setup-node`
+installiert), damit Build und E2E dieselbe Node-Version verwenden; das Image
+enthält sonst Node 24. Der Build verwendet pnpm **12.3.4**. Browser und Schriften
+kommen weiterhin ausschließlich aus dem gepinnten Playwright-**1.63.0**-Image.
+
+Die ursprünglichen Fehler wurden in dieser Ubuntu-24.04-Schriftumgebung mit exakt
+**7.783** abweichenden Pixeln für `/sql` und **10.928** für den Readonly-Dialog
+reproduziert. Expected/Actual/Diff zeigten die abweichende System-Fallback-Schrift
+der umgebenden UI; das isolierte SQL-Panel bestand bereits unverändert. Weder
+Gutter, Zeilenhöhe, Badge, Scrollbars noch Viewport, Status oder CSP waren die Ursache.
+Commit `7c8ee64` korrigierte die sechs betroffenen Workspace-Referenzen
+(`sql-console`, `sql-results`, `sql-error`, `sql-running-cancel`, `finding-readonly`,
+`finding-editable`); `sql-theme-parity` blieb unverändert.
+
+Die Tests warten auf geladene Fonts, CodeMirror-Inhalt/Token und den jeweils
+erwarteten Status. Playwright verlangt anschließend stabile aufeinanderfolgende
+Bilder. Native Carets, Animationen und der von CodeMirror gezeichnete Cursor werden
+nur während der Aufnahme ausgeblendet; Fokus, Selektion und Theme bleiben unverändert.
+Keine pauschalen Sleeps. Die Toleranz bleibt **0.001**; Tokenfarben, Typografie,
+Hintergrund und Gutter-/Textgeometrie werden weiterhin zusätzlich exakt verglichen.

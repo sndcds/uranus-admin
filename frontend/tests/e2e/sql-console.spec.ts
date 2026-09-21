@@ -2,6 +2,21 @@ import { test, expect } from '../fixtures/authenticated'
 import { findings } from '../fixtures/api'
 import { diagnosticDefinition } from '../fixtures/sql-diagnostics'
 
+const screenshotOptions = {
+  animations: 'disabled',
+  caret: 'hide',
+  // CodeMirror draws its own caret; Playwright's native caret option misses it.
+  // Applied only during capture, without changing theme, selection or focus.
+  style: '.cm-cursor, .cm-dropCursor { visibility: hidden !important; }',
+  maxDiffPixelRatio: 0.001,
+} as const
+
+async function fontsReady(page: import('@playwright/test').Page) {
+  await page.evaluate(async () => {
+    await document.fonts.ready
+  })
+}
+
 async function replaceSql(page: import('@playwright/test').Page, sql: string) {
   await page.getByRole('textbox', { name: 'SQL-Abfrage bearbeiten' }).fill(sql)
 }
@@ -43,14 +58,16 @@ test('console: same-origin relay, formatting, results, error, cancel and screens
   }
   await page.goto('/sql')
   await expect(page.getByRole('textbox', { name: 'SQL-Abfrage bearbeiten' })).toBeVisible()
+  await expect(page.locator('.cm-line').first()).toHaveText('SELECT')
+  await expect(page.locator('.token.keyword').first()).toHaveText('SELECT')
+  await expect(page.getByText('Idle', { exact: true })).toBeVisible()
+  await expect(page.getByText('getrennt', { exact: true })).toBeVisible()
   expect((await page.locator('.sql-code').boundingBox())!.height).toBeGreaterThanOrEqual(420)
   const screenshot = async (name: string) => {
+    await fontsReady(page)
     if (info.project.name === 'desktop' && process.env.TEST_PRODUCTION === '1')
-      await expect(page.locator('.sql-workspace')).toHaveScreenshot(name, {
-        animations: 'disabled',
-        maxDiffPixelRatio: 0.001,
-      })
-    await page.screenshot({ path: info.outputPath(name), fullPage: true })
+      await expect(page.locator('.sql-workspace')).toHaveScreenshot(name, screenshotOptions)
+    await page.screenshot({ ...screenshotOptions, path: info.outputPath(name), fullPage: true })
     await info.attach(name, { path: info.outputPath(name), contentType: 'image/png' })
   }
   await screenshot('sql-console.png')
@@ -112,6 +129,7 @@ test('finding: readonly/editable parity and Escape cancels before closing', asyn
   await page.getByRole('button', { name: `SQL Editor für ${finding.entity_name}` }).click()
   const dialog = page.getByRole('dialog', { name: 'SQL Editor', exact: true })
   await expect(dialog.locator('.token.keyword').first()).toBeVisible()
+  await fontsReady(page)
   const sample = async () =>
     page.locator('.sql-code').evaluate((element) => {
       const style = getComputedStyle(element)
@@ -134,23 +152,34 @@ test('finding: readonly/editable parity and Escape cancels before closing', asyn
     })
   const readonly = await sample()
   if (info.project.name === 'desktop')
-    await expect(dialog.locator('.sql-code')).toHaveScreenshot('sql-theme-parity.png', {
-      maxDiffPixelRatio: 0.001,
-    })
+    await expect(dialog.locator('.sql-code')).toHaveScreenshot(
+      'sql-theme-parity.png',
+      screenshotOptions,
+    )
   if (info.project.name === 'desktop' && process.env.TEST_PRODUCTION === '1')
-    await expect(dialog).toHaveScreenshot('finding-readonly.png', { maxDiffPixelRatio: 0.001 })
-  await page.screenshot({ path: info.outputPath('finding-readonly.png'), fullPage: true })
+    await expect(dialog).toHaveScreenshot('finding-readonly.png', screenshotOptions)
+  await page.screenshot({
+    ...screenshotOptions,
+    path: info.outputPath('finding-readonly.png'),
+    fullPage: true,
+  })
   await dialog.getByRole('button', { name: 'SQL bearbeiten', exact: true }).click()
   await expect(dialog.locator('.cm-editor')).toBeVisible()
   await expect(dialog.locator('.token.parameter').first()).toBeVisible()
+  await fontsReady(page)
   expect(await sample()).toEqual(readonly)
   if (info.project.name === 'desktop')
-    await expect(dialog.locator('.sql-code')).toHaveScreenshot('sql-theme-parity.png', {
-      maxDiffPixelRatio: 0.001,
-    })
+    await expect(dialog.locator('.sql-code')).toHaveScreenshot(
+      'sql-theme-parity.png',
+      screenshotOptions,
+    )
   if (info.project.name === 'desktop' && process.env.TEST_PRODUCTION === '1')
-    await expect(dialog).toHaveScreenshot('finding-editable.png', { maxDiffPixelRatio: 0.001 })
-  await page.screenshot({ path: info.outputPath('finding-editable.png'), fullPage: true })
+    await expect(dialog).toHaveScreenshot('finding-editable.png', screenshotOptions)
+  await page.screenshot({
+    ...screenshotOptions,
+    path: info.outputPath('finding-editable.png'),
+    fullPage: true,
+  })
   await replaceSql(page, 'SELECT 1 -- fixture_running')
   await expect(dialog.getByText('Benutzerdefinierte Abfrage', { exact: true })).toBeVisible()
   await page.keyboard.press('Control+Enter')
