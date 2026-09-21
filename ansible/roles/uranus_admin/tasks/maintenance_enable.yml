@@ -27,13 +27,18 @@
         owner: root
         group: root
         mode: "{{ item.mode }}"
-      loop: "{{ ua_files[3:5] }}"
+      loop: "{{ ua_files | selectattr('path', 'match', '^/etc/nginx/') | list }}"
       when: item.path in ua_changed_paths
       no_log: true
       diff: false
 
+    - name: Link the bootstrap site before maintenance verification
+      ansible.builtin.import_tasks: bootstrap_link.yml
+
     - name: Validate nginx before enabling public maintenance
       ansible.builtin.command: /usr/sbin/nginx -t
+      register: ua_nginx_validation
+      failed_when: ua_nginx_validation.rc != 0 or 'conflicting server name' in (ua_nginx_validation.stderr | default(''))
       changed_when: false
       no_log: true
 

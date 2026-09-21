@@ -7,6 +7,14 @@
 - name: Inspect and prepare secret separation in memory
   ansible.builtin.import_tasks: environment_plan.yml
 
+- name: Prepare the pinned bootstrap toolchain after successful database preflight
+  ansible.builtin.import_tasks: toolchain.yml
+  when: ua_target_environment in ['staging', 'test']
+
+- name: Reject conflicting bootstrap infrastructure before console provisioning
+  ansible.builtin.import_tasks: file_plan.yml
+  when: ua_target_environment in ['staging', 'test']
+
 - name: Plan isolated console infrastructure using read-only catalog inspection
   ansible.builtin.import_tasks: sql_console_plan.yml
 

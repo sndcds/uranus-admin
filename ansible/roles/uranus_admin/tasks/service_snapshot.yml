@@ -8,10 +8,11 @@
   loop: "{{ ua_services + ['nginx.service'] + (['uranus-admin-notification-worker.timer', 'uranus-admin-notification-worker.service'] if ua_manage_notification_timer | bool else []) }}"
   changed_when: false
   register: ua_service_status
+  failed_when: ua_service_status.rc != 0 and not (ua_target_environment in ['staging', 'test'] and ua_service_status.rc == 4 and 'LoadState=not-found' in ua_service_status.stdout)
 
 - name: Keep exact active and enablement states for system recovery
   ansible.builtin.set_fact:
-    ua_previous_services: "{{ ua_service_status.results | ua_service_snapshot }}"
+    ua_previous_services: "{{ ua_service_status.results | ua_service_snapshot(ua_target_environment) }}"
 
 - name: Refresh the restart set from actual service states
   ansible.builtin.set_fact:

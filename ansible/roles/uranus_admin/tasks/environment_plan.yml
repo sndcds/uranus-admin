@@ -18,6 +18,14 @@
   loop_control:
     label: "{{ item.item }}"
 
+- name: Require an explicit existing secret source and preserve production adoption
+  ansible.builtin.assert:
+    that:
+      - ua_env_stats.results[0].stat.exists or ua_env_stats.results[2].stat.exists
+      - ua_target_environment != 'production' or ua_env_stats.results[2].stat.exists
+      - ua_target_environment == 'production' or not ua_env_stats.results[0].stat.exists or (ua_env_stats.results[0].stat.uid == 0 and ua_env_stats.results[0].stat.gid == 0 and ua_env_stats.results[0].stat.mode == '0600')
+    fail_msg: "Prepare explicit runtime credentials in a protected runtime.env or the reviewed legacy source; credentials are never generated or inferred."
+
 - name: Read canonical runtime configuration, or existing legacy file on first adoption
   ansible.builtin.slurp:
     src: "{{ ua_config_dir + '/runtime.env' if ua_env_stats.results[0].stat.exists else ua_legacy_root + '/backend/.env' }}"
@@ -29,6 +37,7 @@
     src: "{{ ua_legacy_root }}/backend/.env"
   register: ua_legacy_env
   no_log: true
+  when: ua_env_stats.results[2].stat.exists
 
 - name: Require a protected operator secret source
   ansible.builtin.assert:
@@ -47,8 +56,8 @@
 
 - name: Validate configuration and prepare separate environments without logging values
   ansible.builtin.set_fact:
-    ua_runtime: "{{ ((ua_env_source.content | b64decode | ua_parse_env) | ua_console_environment((ua_existing_operator.content | default('') | b64decode | ua_parse_env), ua_manifest.environment_keys)) | ua_runtime_env(ua_manifest.environment_keys, ua_runtime_overrides, ua_debug | bool) }}"
-    ua_privileged: "{{ ua_legacy_env.content | b64decode | ua_parse_env | ua_privileged_env }}"
+    ua_runtime: "{{ ((ua_env_source.content | b64decode | ua_parse_env) | ua_console_environment((ua_existing_operator.content | default('') | b64decode | ua_parse_env), ua_manifest.environment_keys)) | ua_runtime_env(ua_manifest.environment_keys, ua_runtime_overrides, ua_debug | bool, ua_public_origin) }}"
+    ua_privileged: "{{ ua_legacy_env.content | default(ua_env_source.content) | b64decode | ua_parse_env | ua_privileged_env }}"
   no_log: true
 
 - name: Refuse overwriting different previously protected operator secrets

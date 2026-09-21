@@ -234,7 +234,7 @@
     owner: root
     group: root
     mode: "0644"
-  loop: "{{ ua_files[:5] }}"
+  loop: "{{ ua_files[:5] + (ua_files | selectattr('path', 'equalto', '/etc/nginx/conf.d/uranus-admin-ratelimit.conf') | list) }}"
   loop_control:
     label: "{{ item.path }}"
   diff: false

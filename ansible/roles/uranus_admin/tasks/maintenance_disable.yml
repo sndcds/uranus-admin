@@ -8,6 +8,8 @@
 
     - name: Validate nginx before leaving maintenance
       ansible.builtin.command: /usr/sbin/nginx -t
+      register: ua_nginx_validation
+      failed_when: ua_nginx_validation.rc != 0 or 'conflicting server name' in (ua_nginx_validation.stderr | default(''))
       changed_when: false
       no_log: true
 

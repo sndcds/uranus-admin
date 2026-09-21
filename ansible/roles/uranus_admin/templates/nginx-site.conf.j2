@@ -14,19 +14,19 @@
 server {
     listen 80;
     listen [::]:80;
-    server_name admin.kulturbytes.de;
+    server_name {{ ua_nginx_server_name | default("admin.kulturbytes.de") }};
     access_log /var/log/nginx/uranus-admin-access.log uranus_admin_safe;
     # Error messages may contain request details: restrict access and rotate this log.
     error_log /var/log/nginx/uranus-admin-error.log warn;
-    return 301 https://admin.kulturbytes.de$request_uri;
+    return 301 {{ ua_public_origin | default("https://admin.kulturbytes.de") }}$request_uri;
 }
 
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name admin.kulturbytes.de;
-    ssl_certificate /etc/letsencrypt/live/admin.kulturbytes.de/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/admin.kulturbytes.de/privkey.pem;
+    server_name {{ ua_nginx_server_name | default("admin.kulturbytes.de") }};
+    ssl_certificate {{ ua_tls_certificate | default("/etc/letsencrypt/live/admin.kulturbytes.de/fullchain.pem") }};
+    ssl_certificate_key {{ ua_tls_certificate_key | default("/etc/letsencrypt/live/admin.kulturbytes.de/privkey.pem") }};
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_session_cache shared:uranus_admin_ssl:10m;
     ssl_session_timeout 1d;

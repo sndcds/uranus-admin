@@ -1,6 +1,6 @@
 - name: Check public HTTP 503 maintenance content and headers
   ansible.builtin.uri:
-    url: https://admin.kulturbytes.de/
+    url: "{{ ua_public_origin }}/"
     method: GET
     status_code: 503
     return_content: true

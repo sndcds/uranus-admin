@@ -1,96 +1,5 @@
-- name: Render the exact desired files in memory
-  ansible.builtin.set_fact:
-    ua_files:
-      - path: /etc/systemd/system/uranus-admin-backend.service
-        content: "{{ lookup('template', 'backend.service.j2') }}"
-        mode: "0644"
-      - path: /etc/systemd/system/uranus-admin-check-worker.service
-        content: "{{ lookup('template', 'check-worker.service.j2') }}"
-        mode: "0644"
-      - path: /etc/systemd/system/uranus-admin-frontend.service
-        content: "{{ lookup('template', 'frontend.service.j2') }}"
-        mode: "0644"
-      - path: /etc/nginx/sites-available/uranus-admin
-        content: "{{ lookup('template', 'nginx-site.conf.j2') }}"
-        mode: "0644"
-      - path: /etc/nginx/conf.d/uranus-admin-logging.conf
-        content: "{{ lookup('template', 'nginx-logging.conf.j2') }}"
-        mode: "0644"
-      - path: "{{ ua_config_dir }}/runtime.env"
-        content: "{{ ua_runtime | ua_render_env }}"
-        mode: "0600"
-  no_log: true
-
-- name: Sanitize the shared legacy environment only with notification management
-  ansible.builtin.set_fact:
-    ua_files: "{{ ua_files + [{'path': ua_legacy_root + '/backend/.env', 'content': ua_runtime | ua_render_env, 'mode': '0600'}] }}"
-  # Planning also works before the second approval; the real apply gate still requires it.
-  when: ua_manage_notification_timer | bool
-  no_log: true
-
-- name: Compare installed files without emitting old contents or secret diffs
-  ansible.builtin.stat:
-    path: "{{ item.path }}"
-    follow: false
-    checksum_algorithm: sha256
-  loop: "{{ ua_files }}"
-  register: ua_file_stats
-  no_log: true
-
-- name: Reject symlinks at managed file destinations
-  ansible.builtin.assert:
-    that:
-      - not (item.stat.islnk | default(false))
-      - not item.stat.exists or item.stat.isreg
-  loop: "{{ ua_file_stats.results }}"
-  no_log: true
-
-- name: Determine which file contents or permissions need changing
-  ansible.builtin.set_fact:
-    ua_changed_paths: "{{ (ua_changed_paths | default([])) + [item.item.path] }}"
-  loop: "{{ ua_file_stats.results }}"
-  when: >-
-    not item.stat.exists or item.stat.checksum != (item.item.content | hash('sha256'))
-    or item.stat.mode != item.item.mode or item.stat.uid != 0 or item.stat.gid != 0
-  no_log: true
-
-- name: Determine service-specific activation requirements
-  ansible.builtin.set_fact:
-    ua_activation: "{{ (ua_changed_paths | default([])) | ua_activation_plan(ansible_facts.services, ua_config_dir) }}"
-
-- name: Store the exact activation plan
-  ansible.builtin.set_fact:
-    ua_changed_paths: "{{ ua_changed_paths | default([]) }}"
-    ua_runtime_changed: "{{ ua_activation.runtime_changed }}"
-    ua_nginx_changed: "{{ ua_activation.nginx_changed }}"
-    ua_units_changed: "{{ ua_activation.units_changed }}"
-    ua_restart_services: "{{ ua_activation.restart_services }}"
-
-- name: Report only safe file names and service decisions
-  ansible.builtin.debug:
-    msg:
-      maintenance:
-        enabled: "{{ ua_maintenance_page_enabled }}"
-        public_window: "{{ ua_maintenance_public_window }}"
-        activation_before_service_stop: "{{ ua_maintenance_page_enabled }}"
-        expected_status: 503
-        retry_after: "{{ ua_maintenance_retry_after }}"
-        external_assets: false
-      maintenance_page: "{{ 'enabled' if ua_maintenance_page_enabled else 'disabled' }}"
-      maintenance_marker: "{{ ua_maintenance_marker }}"
-      maintenance_public_window: "{{ ua_maintenance_public_window }}"
-      would_enable_before_service_stop: "{{ ua_maintenance_page_enabled }}"
-      would_verify_http_503: "{{ ua_maintenance_page_enabled }}"
-      would_disable_after_healthchecks: "{{ ua_maintenance_page_enabled }}"
-      maintenance_state_policy: "Preserve an already active marker; otherwise disable after local healthchecks."
-      changed_files: "{{ ua_changed_paths }}"
-      restart_services: "{{ ua_restart_services | default([]) }}"
-      nginx_reload: "{{ ua_nginx_changed }}"
-      notification_timer: "{{ 'Disable only under the separate approval; recover original state on failure' if ua_manage_notification_timer | bool else 'UNCHANGED (including shared legacy environment)' }}"
-      secret_diffs: "Suppressed, including old unit contents. No password rotation."
-      legacy_frontend_env: "Existing file will be restricted to root:root 0600 without content changes."
-      release: "{{ ua_release_dir }} (build only when the verified completion marker is absent)"
-      protected_paths: "{{ ua_config_dir }} (0700), operator.env and recovery files (0600)"
+- name: Plan managed application files and conflicts
+  ansible.builtin.import_tasks: file_plan.yml
 
 - name: Stage the release and verify it before interrupting existing services
   ansible.builtin.import_tasks: release.yml
@@ -108,7 +17,8 @@
     label: "{{ item.path }}"
   # Old unit/site files could contain inline credentials. Review the new templates locally.
   diff: false
-  when: ansible_check_mode
+  # Missing parents are reported by the read-only bootstrap plan; copy cannot simulate them.
+  when: ansible_check_mode and ua_target_environment == 'production'
 
 - name: Prepare a per-attempt system snapshot and dispatch guarded activation
   ansible.builtin.import_tasks: prepare_activation.yml

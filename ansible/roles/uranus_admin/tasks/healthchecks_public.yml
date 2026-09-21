@@ -1,6 +1,6 @@
 - name: Check the public HTTPS login route
   ansible.builtin.uri:
-    url: https://admin.kulturbytes.de/login
+    url: "{{ ua_public_origin }}/login"
     method: GET
     status_code: 200
     validate_certs: true

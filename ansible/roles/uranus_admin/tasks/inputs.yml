@@ -1,8 +1,15 @@
-- name: Require a fixed target and safe paths
+- name: Require a valid target environment and safe paths
   ansible.builtin.assert:
     that:
       - ua_action in ['inspect', 'deploy']
-      - ua_expected_hostname == 'webserver'
+      - ua_target_environment is string
+      - ua_target_environment in ['production', 'staging', 'test']
+      - ua_public_origin | ua_valid_target_origin(ua_target_environment)
+      - ua_nginx_server_name == (ua_public_origin | urlsplit('hostname'))
+      - ua_tls_certificate is match('^/[A-Za-z0-9_./-]+$') and '..' not in ua_tls_certificate.split('/')
+      - ua_tls_certificate_key is match('^/[A-Za-z0-9_./-]+$') and '..' not in ua_tls_certificate_key.split('/')
+      - ua_target_environment != 'production' or ua_tls_certificate == '/etc/letsencrypt/live/admin.kulturbytes.de/fullchain.pem'
+      - ua_target_environment != 'production' or ua_tls_certificate_key == '/etc/letsencrypt/live/admin.kulturbytes.de/privkey.pem'
       - ua_root == '/var/lib/uranus-admin'
       - ua_legacy_root == '/home/oklab/build/uranus-admin'
       - ua_build_root == '/home/oklab/build/uranus-admin/.deployment-builds'
@@ -17,11 +24,12 @@
       - ua_maintenance_public_message is string and 0 < ua_maintenance_public_message | length <= 2000
       - ua_maintenance_public_window is string and ua_maintenance_public_window | length <= 200
       - ua_service_user == 'oklab' and ua_service_group == 'oklab'
+      - ua_services == ['uranus-admin-backend.service', 'uranus-admin-check-worker.service', 'uranus-admin-frontend.service']
       - ua_pg_port | int == 5432
       - ua_pg_socket == '/var/run/postgresql'
       - ansible_run_tags | list | unique | sort == ['all']
       - ansible_skip_tags | length == 0
-    fail_msg: "This adoption targets the audited host only. Do not bypass preflight with tags."
+    fail_msg: "Target does not satisfy the Uranus Admin deployment contract. Do not bypass preflight or safety gates."
 
 - name: Require the reviewed maintenance and secret-adoption decisions for a real apply
   ansible.builtin.assert:
