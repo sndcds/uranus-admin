@@ -528,6 +528,7 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
                     "hosts": "localhost",
                     "connection": "local",
                     "gather_facts": False,
+                    "vars": {"ansible_python_interpreter": sys.executable},
                     "vars_files": [str(variables)],
                     "tasks": [
                         {
@@ -570,6 +571,9 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
                         "ANSIBLE_LIBRARY": str(library),
                         "ANSIBLE_LOCAL_TEMP": str(root / "local"),
                         "ANSIBLE_REMOTE_TEMP": str(root / "remote"),
+                        # CI's system Python need not contain the uv test dependencies.
+                        # Reject fallback even when a developer has psycopg2 globally.
+                        "ANSIBLE_PYTHON_INTERPRETER": str(root / "unexpected-target-python"),
                     },
                     text=True,
                     capture_output=True,
