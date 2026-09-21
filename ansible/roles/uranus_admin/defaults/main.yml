@@ -9,7 +9,7 @@ ua_tls_certificate_key: "/etc/letsencrypt/live/{{ ua_nginx_server_name }}/privke
 ua_release_sha: ""
 ua_artifact: ""
 ua_artifact_sha256: ""
-# Every real deployment needs explicit approval after a reviewed dry run.
+# Production uses manual approval; the test/staging controller can record a successful dry run.
 ua_apply_confirmation: ""
 ua_reviewed_dry_run: ""
 ua_maintenance_window: ""

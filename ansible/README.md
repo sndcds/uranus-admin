@@ -36,10 +36,13 @@ PostgreSQL-Cluster und Uranus-Schemas/-Daten werden nicht angelegt. Admin-Migrat
 sind ausschließlich im unten beschriebenen sauberen Test-/Staging-Erstaufbau erlaubt.
 Der Service-/Build-User `oklab` muss bereits existieren.
 
-Alle drei Umgebungen verwenden dieselben Preflight- und Apply-Gates. Ein Echtlauf
+Alle drei Umgebungen verwenden dieselben technischen Preflight- und Apply-Gates. Ein Echtlauf
 benötigt weiterhin die exakte Apply-Bestätigung, geprüften Dry Run, Wartungsfenster,
 Backup-Referenz und Secret-Adoption-Freigabe sowie gegebenenfalls separate Console-
-und Notification-Freigaben. `test` und `staging` überspringen keine Sicherheitsprüfung;
+und Notification-Freigaben. Für Test/Staging kann der unten beschriebene explizite
+Controller-Aufruf die Freigaben nach erfolgreichem Dry Run automatisch dokumentieren
+und direkt anwenden. Production bleibt beim manuellen Review-/Apply-Ablauf.
+`test` und `staging` überspringen keine Sicherheitsprüfung;
 Tags, Skip-Tags und `--start-at-task` bleiben verboten. Der Controller-Callback in
 `ansible.cfg` verweigert selektive Ausführung vor der ersten Aufgabe, damit auch
 der Input-Guard nicht übersprungen werden kann. Ein Target-Marker ist nicht nötig.
@@ -973,6 +976,71 @@ Unterverzeichnisse. Dadurch benötigt `become_user: postgres` kein schreibbares
 DB-Fehler und darf nicht durch pauschales Ändern von PostgreSQL-Verzeichnisrechten
 „repariert“ werden. `ANSIBLE_CONFIG` wie unten setzen.
 
+### Automatischer Dry Run und Apply für Test/Staging
+
+Der explizite Deploy-Aufruf führt den vollständigen Deployment-Dry-Run mit
+`--check --diff` aus, aktualisiert bei Erfolg `ansible/approvals.local.yml` und
+startet unmittelbar danach den echten Apply. Er ist ausschließlich für einen
+konkret benannten Host mit `ua_target_environment: test` oder `staging` verfügbar.
+Production wird vor dem ersten Playbook-Aufruf abgewiesen.
+
+Beim ersten Aufruf die tatsächlichen Angaben zu Wartungsfenster und geprüftem
+Backup-/Recovery-Nachweis übergeben:
+
+```sh
+uv run --no-project --python 3.13 \
+  --with-requirements ansible/requirements-controller.txt \
+  python ansible/scripts/deploy.py \
+  -i ansible/inventory.lxd.yml --host uranus-admin-test \
+  --maintenance-window "<bestätigtes Zeitfenster>" \
+  --backup-reference "<geprüfter Backup-/Recovery-Nachweis>"
+```
+
+Die Platzhalter durch echte Angaben ersetzen. Sind beide Angaben bereits in der
+Approval-Datei hinterlegt und weiterhin gültig, reicht:
+
+```sh
+uv run --no-project --python 3.13 \
+  --with-requirements ansible/requirements-controller.txt \
+  python ansible/scripts/deploy.py \
+  -i ansible/inventory.lxd.yml --host uranus-admin-test
+```
+
+`--approvals` wählt optional eine andere lokale Approval-Datei. Eine vorhandene
+Datei muss dem ausführenden Benutzer gehören und Modus `0600` haben; neue Dateien
+werden atomar mit diesem Modus angelegt. Das Script erhält vorhandene Backup- und
+Wartungsangaben oder ersetzt sie durch explizite CLI-Angaben. Es erfindet keine
+Referenzen und prüft nicht selbst die Qualität eines Backups. Keine Credentials
+in diese Angaben oder ins Inventory aufnehmen. Bei Bedarf `--ask-become-pass`
+ergänzen; Ansible kann für beide Phasen separat nach dem sudo-Passwort fragen.
+
+Der Aufruf erteilt für das gewählte Test-/Staging-Ziel die normalen Deployment-
+Freigaben: Secret-Adoption, sauberen Admin-Erstaufbau und Console-Provisionierung.
+Nach erfolgreichem Dry Run setzt das Script `ua_apply_confirmation`, die drei
+zugehörigen Approval-Booleans und `ua_reviewed_dry_run` automatisch. Letzteres
+bezeichnet ausdrücklich eine **automatische Prüfung**, keinen menschlichen Review.
+Notification-Management bleibt standardmäßig aus; eine vorhandene Aktivierung
+benötigt weiterhin die bereits separat erteilte Notification-Freigabe.
+
+Beide Phasen verwenden private Kopien derselben aufgelösten Hostvariablen und
+dieselben Release-/Archiv-Hashes. Statische Inventory-Datei, aufgelöste Variablen,
+Archiv, Controller-Code und bestehende Approval-Datei werden vor dem Apply erneut
+auf Änderungen geprüft. Abweichungen oder ein fehlgeschlagener Dry Run verhindern
+den Apply und lassen die Approval-Datei unverändert. Eine Dateisperre verhindert
+parallele Aufrufe mit derselben Approval-Datei. Connection-Einstellungen müssen
+literal sein; referenzierte Pfade müssen ohne `inventory_dir`/`inventory_file`
+auskommen. Es gibt keine Weitergabe beliebiger Extra-Vars, Tags oder Start-Tasks.
+
+Private Eingabekopien und `result.json` liegen unter
+`ansible/deploy-runs.local/run-*/` (Verzeichnisse `0700`, Dateien `0600`, gitignored).
+Der Nachweis enthält Ziel, Release-/Eingabe-Hashes, UTC-Zeitpunkt und Exitcodes;
+er enthält keine Funktionsdefinitionen oder Environment-Secrets. Ein gescheiterter
+Apply wird als Fehler zurückgegeben und nicht automatisch wiederholt. Jeder neue
+Script-Aufruf führt einen neuen Dry Run aus. Normale `ansible-playbook --check`-
+Aufrufe bleiben lesende Prüfungen ohne anschließenden Apply.
+
+### Manueller Review und Apply, insbesondere Production
+
 **READ ONLY — erst nach Freigabe der Prüfverbindung:**
 
 ```sh
@@ -1007,6 +1075,8 @@ ua_manage_notification_timer: false
 ua_secret_adoption_approved: true
 # Zusätzlich bei einem Release mit SQL_CONSOLE_DATABASE_URL:
 ua_sql_console_provision_approved: true
+# Nur für einen freigegebenen sauberen Admin-Erstaufbau auf Test/Staging:
+# ua_admin_database_bootstrap_approved: true
 # Nur bei ausdrücklichem Notification-Management zusätzlich:
 # ua_manage_notification_timer: true
 # ua_disable_notification_timer_approved: true
