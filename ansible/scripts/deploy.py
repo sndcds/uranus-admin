@@ -23,6 +23,7 @@ import yaml
 
 ANSIBLE = Path(__file__).resolve().parents[1]
 CONFIRMATION = "Ja, führe das Deployment jetzt aus."
+RELEASE_KEYS = {"ua_release_sha", "ua_artifact", "ua_artifact_sha256"}
 APPROVAL_KEYS = {
     "ua_apply_confirmation",
     "ua_reviewed_dry_run",
@@ -97,8 +98,15 @@ def approval_lock(path):
 
 def decisions(original, maintenance_window, backup_reference):
     values = yaml.safe_load(original) if original else {}
-    if not isinstance(values, dict) or set(values) - APPROVAL_KEYS:
-        raise WorkflowError("Approval file contains unsupported keys; use only approval decisions.")
+    if not isinstance(values, dict) or set(values) - (APPROVAL_KEYS | RELEASE_KEYS):
+        raise WorkflowError(
+            "Approval file contains unsupported keys; "
+            "use approval decisions and optional release pins."
+        )
+    if values.keys() & RELEASE_KEYS and not RELEASE_KEYS <= values.keys():
+        raise WorkflowError(
+            "Approval release pins require commit, artifact path and SHA256 together."
+        )
     for key, override in (
         ("ua_maintenance_window", maintenance_window),
         ("ua_backup_reference", backup_reference),
@@ -173,14 +181,26 @@ def inventory_host(path, host, env):
         raise WorkflowError(
             "Use literal connection settings and absolute inventory-relative paths."
         )
-    if not re.fullmatch(r"[0-9a-f]{40}", values.get("ua_release_sha", "")) or not re.fullmatch(
-        r"[0-9a-f]{64}", values.get("ua_artifact_sha256", "")
-    ):
-        raise WorkflowError("Inventory must pin the release commit and artifact SHA256.")
-    artifact = values.get("ua_artifact")
-    if not isinstance(artifact, str) or not Path(artifact).is_absolute():
-        raise WorkflowError("Inventory must specify an absolute artifact path.")
     return values
+
+
+def release_target(inventory_values, approval):
+    """Honor the bounded release tuple from the former -e approval-file workflow."""
+    selected = {
+        **inventory_values,
+        **{key: approval[key] for key in RELEASE_KEYS if key in approval},
+    }
+    for key, pattern in (
+        ("ua_release_sha", r"[0-9a-f]{40}"),
+        ("ua_artifact_sha256", r"[0-9a-f]{64}"),
+    ):
+        value = selected.get(key)
+        if not isinstance(value, str) or not re.fullmatch(pattern, value):
+            raise WorkflowError("The effective release must pin its commit and artifact SHA256.")
+    artifact = selected.get("ua_artifact")
+    if not isinstance(artifact, str) or not Path(artifact).is_absolute():
+        raise WorkflowError("The effective release must specify an absolute artifact path.")
+    return selected
 
 
 def controller_digest():
@@ -210,7 +230,8 @@ def run(args):
         approval = decisions(original, args.maintenance_window, args.backup_reference)
         controller = controller_digest()
         source_digest = digest(inventory)
-        selected = inventory_host(inventory, args.host, env)
+        inventory_values = inventory_host(inventory, args.host, env)
+        selected = release_target(inventory_values, approval)
         if digest(selected["ua_artifact"]) != selected["ua_artifact_sha256"]:
             raise WorkflowError("Artifact checksum does not match the pinned release.")
         # Each run keeps private, frozen inputs and an honest machine-check receipt.
@@ -268,7 +289,7 @@ def run(args):
         if (
             controller_digest() != controller
             or digest(inventory) != source_digest
-            or inventory_host(inventory, args.host, env) != selected
+            or inventory_host(inventory, args.host, env) != inventory_values
             or digest(selected["ua_artifact"]) != selected["ua_artifact_sha256"]
             or private_read(approvals) != original
         ):

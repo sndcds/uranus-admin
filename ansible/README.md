@@ -1014,6 +1014,15 @@ Referenzen und prüft nicht selbst die Qualität eines Backups. Keine Credential
 in diese Angaben oder ins Inventory aufnehmen. Bei Bedarf `--ask-become-pass`
 ergänzen; Ansible kann für beide Phasen separat nach dem sudo-Passwort fragen.
 
+Vorhandene Release-Angaben in der Approval-Datei bleiben ebenfalls erhalten:
+`ua_release_sha`, `ua_artifact` und `ua_artifact_sha256` dürfen gemeinsam angegeben
+werden und haben wie beim bisherigen `-e @ansible/approvals.local.yml` Vorrang vor
+den Inventory-Werten. Ohne Release-Angaben gelten die Inventory-Werte;
+unvollständige Release-Angaben werden abgelehnt. Das tatsächlich gewählte Archiv
+muss einen absoluten Pfad und die passende SHA256 haben. Beide Phasen verwenden
+dieselbe Auswahl; ihre Hashes werden im Laufnachweis festgehalten. Zielumgebung,
+Verbindungsparameter und beliebige andere Extra-Vars gehören nicht in diese Datei.
+
 Der Aufruf erteilt für das gewählte Test-/Staging-Ziel die normalen Deployment-
 Freigaben: Secret-Adoption, sauberen Admin-Erstaufbau und Console-Provisionierung.
 Nach erfolgreichem Dry Run setzt das Script `ua_apply_confirmation`, die drei

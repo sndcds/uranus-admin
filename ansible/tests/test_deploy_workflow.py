@@ -130,6 +130,90 @@ class DeployWorkflowTests(unittest.TestCase):
         self.assertEqual(values["ua_maintenance_window"], "Existing chosen window")
         self.assertTrue(values["ua_disable_notification_timer_approved"])
 
+    def test_release_pins_from_approval_file_override_inventory_and_are_preserved(self):
+        artifact = self.root / "approved-release.tar.gz"
+        artifact.write_bytes(b"explicitly approved synthetic release")
+        release = dict(
+            ua_release_sha="b" * 40,
+            ua_artifact=str(artifact),
+            ua_artifact_sha256=workflow.digest(artifact),
+        )
+        self.write_approvals(release)
+        # The effective release must be validated, rather than reading an obsolete
+        # inventory path or requiring unused inventory release placeholders to parse.
+        self.values.update(ua_artifact="/missing/old-release.tar.gz", ua_release_sha="placeholder")
+
+        def verify_release(check):
+            command = self.commands[-1]
+            variables = json.loads(Path(command[command.index("-e") + 1][1:]).read_text())
+            self.assertEqual({key: variables[key] for key in release}, release)
+
+        self.phase_hook = verify_release
+        self.assertEqual(self.run_workflow(), 0)
+        persisted = yaml.safe_load(self.approvals.read_text())
+        self.assertEqual({key: persisted[key] for key in release}, release)
+        record = next((self.controller / "deploy-runs.local").glob("*/result.json"))
+        result = json.loads(record.read_text())
+        self.assertEqual(result["release_sha"], release["ua_release_sha"])
+        self.assertEqual(result["artifact_sha256"], release["ua_artifact_sha256"])
+
+    def test_invalid_or_partial_approval_release_pins_never_start_dry_run(self):
+        release = {
+            key: self.values[key] for key in ("ua_release_sha", "ua_artifact", "ua_artifact_sha256")
+        }
+        for values in (
+            {"ua_release_sha": "a" * 40},
+            {**release, "ua_release_sha": "invalid"},
+            {**release, "ua_artifact_sha256": False},
+            {**release, "ua_artifact_sha256": "0" * 64},
+            {**release, "ua_artifact": "relative.tar.gz"},
+            {**release, "ua_target_environment": "test"},
+            {**release, "ansible_host": "different.invalid"},
+        ):
+            with self.subTest(keys=sorted(values)):
+                self.write_approvals(values)
+                original = self.approvals.read_bytes()
+                with self.assertRaises(workflow.WorkflowError):
+                    self.run_workflow()
+                self.assertEqual(self.commands, [])
+                self.assertEqual(self.approvals.read_bytes(), original)
+
+    def test_approval_selected_artifact_drift_prevents_apply(self):
+        artifact = self.root / "approved-release.tar.gz"
+        artifact.write_bytes(b"approved synthetic artifact")
+        self.write_approvals(
+            dict(
+                ua_release_sha="b" * 40,
+                ua_artifact=str(artifact),
+                ua_artifact_sha256=workflow.digest(artifact),
+            )
+        )
+        original = self.approvals.read_bytes()
+
+        def mutate(check):
+            self.assertTrue(check)
+            artifact.write_bytes(b"changed during dry run")
+
+        self.phase_hook = mutate
+        with self.assertRaisesRegex(workflow.WorkflowError, "inputs changed"):
+            self.run_workflow()
+        self.assertEqual(len(self.commands), 1)
+        self.assertEqual(self.approvals.read_bytes(), original)
+
+    def test_release_pins_do_not_allow_automatic_production_apply(self):
+        self.write_approvals(
+            {
+                key: self.values[key]
+                for key in ("ua_release_sha", "ua_artifact", "ua_artifact_sha256")
+            }
+        )
+        self.values["ua_target_environment"] = "production"
+        original = self.approvals.read_bytes()
+        with self.assertRaisesRegex(workflow.WorkflowError, "production is manual"):
+            self.run_workflow()
+        self.assertEqual(self.commands, [])
+        self.assertEqual(self.approvals.read_bytes(), original)
+
     def test_failed_dry_run_never_applies_or_changes_approvals(self):
         for existing in (False, True):
             with self.subTest(existing=existing):
