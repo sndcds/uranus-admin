@@ -157,3 +157,29 @@ bestehenden Prism-Tokens über Decorations; Layoutmapping in `sql-codemirror.ts`
 Die registrierte Ausführung bleibt erhalten; der Bearbeitungsmodus verwendet den
 separaten Console-WebSocket ohne Befundbewertung.
 [Runtime-Vertrag und Verifikation](../../backend/docs/sql-console-runtime.md).
+
+### Reproduzierbare visuelle Tests
+
+Die Produktions-E2E-Tests laufen in CI im per Digest gepinnten offiziellen
+Playwright-Image aus [ci.yml](../../.github/workflows/ci.yml). Browser, Linux und
+Systemschriften müssen bei Referenzbildern und Vergleichen übereinstimmen. Ein
+lokaler Linux-Host kann andere UI-Schriften verwenden, obwohl das SQL-Panel bereits
+pixelgleich ist. Anwendungsschriften und Vergleichstoleranzen bleiben unverändert.
+
+Nach `pnpm install --frozen-lockfile` und `pnpm build` im Verzeichnis `frontend/`:
+
+```sh
+docker run --rm --init --ipc=host \
+  --user "$(id -u):$(id -g)" \
+  --volume "$PWD:/work" --workdir /work \
+  --env TEST_PRODUCTION=1 \
+  mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27 \
+  node node_modules/@playwright/test/cli.js test
+```
+
+Für eine beabsichtigte Aktualisierung am Ende des Befehls
+`tests/e2e/sql-console.spec.ts --update-snapshots` ergänzen, die Bilder prüfen und
+danach ohne Update erneut testen. Bei einem Playwright-Upgrade müssen Paketversion,
+Image und Referenzbilder gemeinsam geprüft werden. Readonly und CodeMirror teilen
+weiterhin **ein** SQL-Panel-Referenzbild. CI sichert bei Fehlern Screenshots, Diffs
+und Traces aus `test-results/` für sieben Tage; alle Daten stammen aus Test-Fixtures.
