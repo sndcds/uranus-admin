@@ -1516,6 +1516,7 @@ class ConsoleDatabaseTests(unittest.TestCase):
                 "ansible_become": False,
                 "ua_action": "deploy",
                 "ua_manifest": {"environment_keys": ["SQL_CONSOLE_DATABASE_URL"]},
+                "ua_admin_database_plan": {"admin_database": {"state": "READY"}},
                 "ua_sql_console_provision_approved": False,
                 "ua_runtime": {
                     "SQL_CONSOLE_DATABASE_URL": "postgresql+asyncpg://uranus_console_reader:"

@@ -1,0 +1,545 @@
+"""Real Alembic from a packaged release; only disposable local *_test databases."""
+
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+from urllib.parse import urlsplit
+
+import psycopg2
+import yaml
+from psycopg2 import sql
+from test_deployment import ROLE, ROOT, filters, load, packager
+
+admin_db = load("admin_bootstrap", ROLE / "library/uranus_admin_database.py")
+TEST_URL = os.environ.get("ANSIBLE_TEST_DATABASE_URL", "")
+BOUNDARY = (ROLE / "files/boundary.sql").read_text()
+PASSWORD = "synthetic-admin-bootstrap-credential-only"
+
+
+class AdminBootstrapContractTests(unittest.TestCase):
+    def diagnostic_manifest(self):
+        return {
+            "commit": "a" * 40,
+            "head": "0011",
+            "runtime_grants": {"alembic_version": ["SELECT"]},
+            "operator_grants": admin_db.OPERATOR_GRANTS,
+            "admin_indexes": [],
+            "admin_columns": {},
+        }
+
+    def test_malformed_boundary_fails_with_explicit_safe_stage(self):
+        for boundary in ("", "source_tables(name) AS (('event'))"):
+            diagnostic = {}
+            with self.assertRaisesRegex(ValueError, "^invalid_source_contract$"):
+                admin_db.AdminDatabase(None, self.diagnostic_manifest(), boundary, diagnostic)
+            self.assertEqual(diagnostic, {"check": "source_contract"})
+
+    def test_module_diagnostics_never_include_exception_text(self):
+        secret = "postgresql://admin:secret-value@private-host/db SELECT sensitive FROM admin"
+        for error_type in (
+            IndexError,
+            KeyError,
+            psycopg2.ProgrammingError,
+            psycopg2.InternalError,
+        ):
+            for stage in ("postgres_connect", "construct_boundary", "inspect"):
+                with self.subTest(error=error_type.__name__, stage=stage):
+                    module = MagicMock()
+                    module.params = {
+                        "state": "plan",
+                        "environment": "production",
+                        "approved": False,
+                        "manifest": self.diagnostic_manifest(),
+                        "boundary": BOUNDARY,
+                    }
+                    module.check_mode = True
+                    module.fail_json.side_effect = SystemExit(1)
+                    conn = MagicMock()
+                    if stage == "construct_boundary":
+                        # A malformed manifest must fail before any inspection query.
+                        module.params["manifest"].pop("commit")
+                        expected_type, check = "KeyError", "release_contract"
+                    else:
+                        expected_type = error_type.__name__
+                        check = "inspection_session" if stage == "inspect" else "none"
+                    conn.cursor.return_value.__enter__.return_value.execute.side_effect = (
+                        error_type(secret)
+                    )
+                    with (
+                        patch(
+                            "ansible.module_utils.basic.AnsibleModule",
+                            return_value=module,
+                        ),
+                        patch.object(admin_db.psycopg2, "connect", return_value=conn) as connect,
+                    ):
+                        if stage == "postgres_connect":
+                            connect.side_effect = error_type(secret)
+                        with self.assertRaises(SystemExit):
+                            admin_db.main()
+                    message = module.fail_json.call_args.kwargs["msg"]
+                    self.assertIn(
+                        f"stage={stage}, check={check}, exception_type={expected_type}",
+                        message,
+                    )
+                    for forbidden in (
+                        secret,
+                        "secret-value",
+                        "private-host",
+                        "sensitive",
+                        "postgresql://",
+                    ):
+                        self.assertNotIn(forbidden, message)
+                    module.exit_json.assert_not_called()
+                    if stage != "postgres_connect":
+                        conn.close.assert_called_once()
+
+    def test_only_missing_role_console_dependencies_are_deferred(self):
+        plan = {
+            "state": "ABSENT",
+            "bootstrap_allowed": True,
+            "missing_roles": ["admin_user"],
+        }
+        blocked = [
+            "missing_temp_contract_login_role:admin_user",
+            "missing_execute_contract_login_role:pg_catalog.pg_sleep(double precision)",
+            "unreviewed_function_path:public.evil()",
+            "missing_preserved_temp",
+            "missing_temp_contract_login_role:foreign_role",
+        ]
+        self.assertEqual(filters.console_bootstrap_blockers(blocked, plan), blocked[2:])
+        self.assertEqual(
+            filters.console_bootstrap_blockers(blocked, {**plan, "state": "READY"}),
+            blocked,
+        )
+        self.assertEqual(
+            filters.console_bootstrap_blockers(blocked, {**plan, "bootstrap_allowed": False}),
+            blocked,
+        )
+
+    def test_real_apply_gate_and_source_guard_are_separate(self):
+        tasks = yaml.safe_load((ROLE / "tasks/preflight.yml").read_text())
+        source = next(
+            t for t in tasks if t["name"] == "Read database identity and mandatory object guards"
+        )
+        self.assertNotIn(
+            "admin.alembic_version",
+            source["community.postgresql.postgresql_query"]["query"],
+        )
+        gate = next(
+            t for t in tasks if t["name"].startswith("Require separate admin bootstrap approval")
+        )
+        self.assertEqual(
+            gate["ansible.builtin.assert"]["that"],
+            "ua_admin_database_bootstrap_approved is sameas true",
+        )
+        self.assertIn("not ansible_check_mode", gate["when"])
+        mutation = yaml.safe_load((ROLE / "tasks/admin_database_bootstrap.yml").read_text())
+        self.assertIn(
+            "ua_target_environment in ['staging', 'test']",
+            mutation[0]["ansible.builtin.assert"]["that"],
+        )
+        guarded = next(t for t in mutation if "block" in t)["block"][0]
+        module = guarded["block"][0]
+        self.assertEqual(guarded["always"][0]["uranus_admin_database"]["state"], "revoke_create")
+        self.assertTrue(module["no_log"])
+        self.assertFalse(module["diff"])
+        self.assertNotIn("credentials", module.get("register", ""))
+        for task in yaml.safe_load((ROLE / "tasks/activate.yml").read_text()):
+            self.assertNotIn("ADMIN_MIGRATION_DATABASE_URL", str(task))
+
+
+@unittest.skipUnless(TEST_URL, "No explicitly disposable ANSIBLE_TEST_DATABASE_URL supplied")
+class AdminBootstrapDatabaseTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        url = urlsplit(TEST_URL)
+        if (
+            url.hostname not in {"127.0.0.1", "localhost", "::1"}
+            or not re.fullmatch(r"/[a-z][a-z0-9_]*_test", url.path)
+            or url.query
+            or url.fragment
+        ):
+            raise RuntimeError("Refuse non-local or non-test database")
+        cls.url = url
+        cls.parent = psycopg2.connect(TEST_URL)
+        cls.parent.autocommit = True
+        with cls.parent.cursor() as cur:
+            cur.execute("SELECT 1 FROM pg_roles WHERE rolname=ANY(%s)", (list(admin_db.ROLES),))
+            if cur.fetchone():
+                raise RuntimeError("Refuse pre-existing project roles")
+        cls.temporary = tempfile.TemporaryDirectory()
+        cls.root = Path(cls.temporary.name)
+        archive = cls.root / "release.tar.gz"
+        packager.package("HEAD", archive)
+        cls.archive_hash = hashlib.sha256(archive.read_bytes()).hexdigest()
+        with tarfile.open(archive) as source:
+            cls.manifest = json.load(source.extractfile("release.json"))
+            cls.release = cls.root / cls.manifest["commit"]
+            cls.release.mkdir()
+            source.extractall(cls.release, filter="data")
+        (cls.release / ".complete").write_text(cls.archive_hash + "\n")
+        (cls.release / "backend/.venv").symlink_to(ROOT / "backend/.venv")
+        (cls.release / "deployment").mkdir()
+        shutil.copy(ROLE / "files/admin_database_migrate.py", cls.release / "deployment")
+        if not (cls.release / "backend/.venv/bin/python").exists():
+            raise RuntimeError("Install locked backend dependencies before migration tests")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.parent.close()
+        cls.temporary.cleanup()
+
+    def setUp(self):
+        self.database = "uranus_admin_first_install_test"
+        with self.parent.cursor() as cur:
+            cur.execute(
+                sql.SQL("CREATE DATABASE {} TEMPLATE template0").format(
+                    sql.Identifier(self.database)
+                )
+            )
+        args = self.parent.get_dsn_parameters()
+        args["dbname"] = self.database
+        self.conn = psycopg2.connect(**args)
+        self.addCleanup(self.cleanup)
+        self.boundary = admin_db.AdminDatabase(self.conn, self.manifest, BOUNDARY)
+        self.execute("CREATE EXTENSION postgis")
+        self.execute("CREATE SCHEMA uranus")
+        for name in self.boundary.source_tables:
+            self.execute(
+                sql.SQL("CREATE TABLE uranus.{} (id integer PRIMARY KEY)").format(
+                    sql.Identifier(name)
+                )
+            )
+        self.execute("INSERT INTO uranus.event VALUES (17)")
+        self.conn.commit()
+        self.values = {
+            key: (
+                f"postgresql+asyncpg://{role}:{PASSWORD}@127.0.0.1:"
+                f"{self.url.port or 5432}/{self.database}"
+            )
+            for role, key in admin_db.ROLES.items()
+        }
+
+    def cleanup(self):
+        self.conn.close()
+        with self.parent.cursor() as cur:
+            cur.execute(
+                sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(self.database))
+            )
+            for role in admin_db.ROLES:
+                cur.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role)))
+
+    def execute(self, query, params=()):
+        return self.boundary.rows(query, params)
+
+    def migrate(self, dsn):
+        with (
+            patch.object(admin_db, "RELEASE_ROOT", self.root),
+            patch.object(admin_db, "OWNER_UID", os.getuid()),
+        ):
+            admin_db.release_migration(str(self.release), self.manifest, self.archive_hash)(dsn)
+
+    def bootstrap(self, environment="test", approved=True, migrate=None):
+        return self.boundary.bootstrap(environment, approved, self.values, migrate or self.migrate)
+
+    def snapshot_source(self):
+        return {
+            "objects": self.execute("""SELECT c.relname,c.relkind,c.relowner,c.relacl::text
+                FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                WHERE n.nspname='uranus' ORDER BY c.relname"""),
+            "data": self.execute("SELECT id FROM uranus.event ORDER BY id"),
+            "extensions": self.execute(
+                "SELECT extname,extversion,extowner FROM pg_extension ORDER BY extname"
+            ),
+        }
+
+    def prepare_existing_roles(self):
+        self.boundary.prepare_roles(self.boundary.credentials(self.values), list(admin_db.ROLES))
+
+    def test_absent_plan_read_only_and_no_approval(self):
+        self.conn.set_session(readonly=True)
+        plan = self.boundary.inspect("test")
+        self.assertEqual(plan["state"], "ABSENT")
+        self.assertTrue(plan["would_run_alembic"])
+        self.assertFalse(plan["bootstrap_approved"])
+        self.assertEqual(self.execute("SELECT to_regnamespace('admin')"), [(None,)])
+        self.conn.rollback()
+        self.conn.set_session(readonly=False)
+        with self.assertRaisesRegex(ValueError, "not_authorized"):
+            self.bootstrap(approved=False)
+        self.assertEqual(
+            self.execute(
+                "SELECT rolname FROM pg_roles WHERE rolname=ANY(%s)",
+                (list(admin_db.ROLES),),
+            ),
+            [],
+        )
+
+    def test_production_absent_never_bootstraps_even_with_approval(self):
+        for approved in (False, True):
+            self.assertFalse(self.boundary.inspect("production", approved)["bootstrap_allowed"])
+            with self.assertRaisesRegex(ValueError, "production_bootstrap_forbidden"):
+                self.bootstrap(environment="production", approved=approved)
+
+    def test_success_head_grants_create_revocation_and_idempotence(self):
+        self.prepare_existing_roles()
+        before = self.snapshot_source()
+        self.assertTrue(self.bootstrap())
+        self.assertEqual(self.snapshot_source(), before)
+        self.assertEqual(self.boundary.inspect("test")["state"], "READY")
+        self.assertEqual(
+            self.execute("SELECT version_num FROM admin.alembic_version"),
+            [(self.manifest["head"],)],
+        )
+        self.assertEqual(
+            self.execute(
+                "SELECT has_database_privilege('admin_migrator',current_database(),'CREATE')"
+            ),
+            [(False,)],
+        )
+        with patch.object(
+            self.boundary,
+            "prepare_roles",
+            side_effect=AssertionError("must not prepare"),
+        ):
+            self.assertFalse(self.bootstrap(migrate=lambda _: self.fail("must not migrate")))
+        for role in ("admin_user", "admin_auth_operator"):
+            self.assertEqual(
+                self.execute("SELECT has_schema_privilege(%s,'admin','CREATE')", (role,)),
+                [(False,)],
+            )
+
+    def test_staging_missing_roles_bootstrap(self):
+        self.assertTrue(self.bootstrap(environment="staging"))
+        self.assertEqual(self.boundary.inspect("staging")["state"], "READY")
+
+    def test_partial_schema_is_drifted_not_repaired(self):
+        self.execute("CREATE SCHEMA admin")
+        self.conn.commit()
+        self.assertEqual(self.boundary.inspect("test")["state"], "DRIFTED")
+        with self.assertRaisesRegex(ValueError, "not_authorized"):
+            self.bootstrap()
+
+    def test_ready_drift_head_owners_grants_objects_and_membership(self):
+        self.bootstrap()
+        mutations = (
+            "UPDATE admin.alembic_version SET version_num='0000'",
+            "ALTER SCHEMA admin OWNER TO postgres",
+            "ALTER TABLE admin.finding OWNER TO admin_user",
+            "GRANT admin_user TO admin_auth_operator",
+            "GRANT CREATE ON DATABASE uranus_admin_first_install_test TO admin_migrator",
+            "CREATE TABLE admin.unknown(id int)",
+            "CREATE INDEX unknown_admin_index ON admin.finding(rule)",
+            "ALTER TABLE admin.finding ADD COLUMN unexpected text",
+            "ALTER TABLE admin.alembic_version RENAME TO old_version; "
+            "CREATE VIEW admin.alembic_version AS SELECT version_num FROM admin.old_version",
+            "CREATE FUNCTION admin.unknown() RETURNS int LANGUAGE sql AS 'SELECT 1'",
+            "GRANT SELECT ON admin.finding TO PUBLIC",
+            "GRANT DELETE ON admin.finding TO admin_user",
+            "REVOKE SELECT ON admin.auth_account FROM admin_auth_operator",
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                self.execute(mutation)
+                self.assertEqual(self.boundary.inspect("test")["state"], "DRIFTED")
+                with self.assertRaisesRegex(ValueError, "not_authorized"):
+                    self.bootstrap()
+                self.conn.rollback()
+
+    def test_existing_unsafe_roles_source_rls_and_owner_fail_before_mutation(self):
+        self.prepare_existing_roles()
+        for mutation in (
+            "ALTER ROLE admin_user CREATEDB",
+            "GRANT admin_migrator TO admin_user",
+            "GRANT CREATE ON DATABASE uranus_admin_first_install_test TO admin_user",
+            "ALTER TABLE uranus.event ENABLE ROW LEVEL SECURITY",
+            "ALTER TABLE uranus.event OWNER TO admin_user",
+            "GRANT UPDATE ON uranus.event TO admin_user",
+        ):
+            with self.subTest(mutation=mutation):
+                self.execute(mutation)
+                self.assertEqual(self.boundary.inspect("test")["state"], "DRIFTED")
+                with self.assertRaisesRegex(ValueError, "not_authorized"):
+                    self.bootstrap()
+                self.conn.rollback()
+
+    def test_alembic_failure_revokes_create_and_no_runtime_grants(self):
+        def fail(_):
+            self.assertEqual(
+                self.execute(
+                    "SELECT has_database_privilege('admin_migrator',current_database(),'CREATE')"
+                ),
+                [(True,)],
+            )
+            raise ValueError("injected_alembic_failure")
+
+        with self.assertRaisesRegex(ValueError, "injected_alembic_failure"):
+            self.bootstrap(migrate=fail)
+        self.assertEqual(
+            self.execute(
+                "SELECT has_database_privilege('admin_migrator',current_database(),'CREATE')"
+            ),
+            [(False,)],
+        )
+        self.assertEqual(self.execute("SELECT to_regnamespace('admin')"), [(None,)])
+
+    def test_committed_migration_grant_failure_rolls_back_grants_not_schema(self):
+        original = self.boundary.rows
+
+        def fail(query, params=()):
+            if "GRANT" in str(query) and "auth_account" in str(query):
+                raise ValueError("injected_grant_failure")
+            return original(query, params)
+
+        with patch.object(self.boundary, "rows", side_effect=fail):
+            with self.assertRaisesRegex(ValueError, "injected_grant_failure"):
+                self.bootstrap()
+        self.assertEqual(
+            self.execute("SELECT has_schema_privilege('admin_user','admin','USAGE')"),
+            [(False,)],
+        )
+        self.assertEqual(
+            self.execute(
+                "SELECT has_table_privilege('admin_user','admin.alembic_version','SELECT')"
+            ),
+            [(False,)],
+        )
+        self.assertEqual(
+            self.execute(
+                "SELECT has_database_privilege('admin_migrator',current_database(),'CREATE')"
+            ),
+            [(False,)],
+        )
+        self.assertEqual(
+            self.execute("SELECT version_num FROM admin.alembic_version"),
+            [(self.manifest["head"],)],
+        )
+        self.assertEqual(self.boundary.inspect("test")["state"], "DRIFTED")
+
+    def test_release_manifest_and_archive_mismatch_fail_before_execution(self):
+        with (
+            patch.object(admin_db, "RELEASE_ROOT", self.root),
+            patch.object(admin_db, "OWNER_UID", os.getuid()),
+        ):
+            with self.assertRaisesRegex(ValueError, "incomplete_release"):
+                admin_db.release_migration(str(self.release), self.manifest, "0" * 64)
+
+    def test_actual_alembic_failure_rolls_back_ddl_and_revokes_create(self):
+        # Inject a failure after real migration DDL but before its transaction commits.
+        env = self.release / "backend/migrations/env.py"
+        original = env.read_text()
+        env.write_text(
+            original.replace(
+                "context.run_migrations()",
+                "context.run_migrations(); raise RuntimeError('injected')",
+            )
+        )
+        try:
+            with self.assertRaisesRegex(ValueError, "release_migration_failed"):
+                self.bootstrap()
+            self.assertEqual(self.execute("SELECT to_regnamespace('admin')"), [(None,)])
+            self.assertEqual(
+                self.execute(
+                    "SELECT has_database_privilege('admin_migrator',current_database(),'CREATE')"
+                ),
+                [(False,)],
+            )
+        finally:
+            env.write_text(original)
+
+    def test_independent_create_cleanup_is_idempotent(self):
+        self.prepare_existing_roles()
+        self.execute(
+            sql.SQL("GRANT CREATE ON DATABASE {} TO admin_migrator").format(
+                sql.Identifier(self.database)
+            )
+        )
+        self.conn.commit()
+        self.assertTrue(self.boundary.revoke_create())
+        self.assertFalse(self.boundary.revoke_create())
+
+    def test_actual_ansible_check_apply_and_second_apply(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            library = root / "library"
+            library.mkdir()
+            code = (ROLE / "library/uranus_admin_database.py").read_text()
+            start = code.index("        conn = psycopg2.connect(", code.index("def main():"))
+            end = code.index("        conn.set_session", start)
+            args = self.parent.get_dsn_parameters()
+            args["dbname"] = self.database
+            code = code[:start] + f"        conn = psycopg2.connect(**{args!r})\n" + code[end:]
+            code = code.replace(
+                'Path("/var/lib/uranus-admin/releases")', f"Path({str(self.root)!r})"
+            )
+            code = code.replace("OWNER_UID = 0", f"OWNER_UID = {os.getuid()}")
+            (library / "uranus_admin_database.py").write_text(code)
+            variables = root / "secrets.yml"
+            variables.write_text(yaml.safe_dump({"adopted_credentials": self.values}))
+            variables.chmod(0o600)
+            play = [
+                {
+                    "hosts": "localhost",
+                    "connection": "local",
+                    "gather_facts": False,
+                    "vars_files": [str(variables)],
+                    "tasks": [
+                        {
+                            "uranus_admin_database": {
+                                "state": "bootstrap",
+                                "environment": "test",
+                                "approved": True,
+                                "manifest": self.manifest,
+                                "boundary": BOUNDARY,
+                                "credentials": "{{ adopted_credentials }}",
+                                "release": str(self.release),
+                                "archive_hash": self.archive_hash,
+                            },
+                            "register": "outcome",
+                            "no_log": True,
+                        },
+                        {"ansible.builtin.debug": {"var": "outcome.admin_database"}},
+                    ],
+                }
+            ]
+            playbook = root / "play.yml"
+            playbook.write_text(yaml.safe_dump(play))
+            for check, changed, state in (
+                (True, 0, "ABSENT"),
+                (False, 1, "READY"),
+                (False, 0, "READY"),
+            ):
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "ansible.cli.playbook",
+                        "-i",
+                        "localhost,",
+                        str(playbook),
+                        *(["--check", "--diff"] if check else []),
+                    ],
+                    env={
+                        **os.environ,
+                        "ANSIBLE_LIBRARY": str(library),
+                        "ANSIBLE_LOCAL_TEMP": str(root / "local"),
+                        "ANSIBLE_REMOTE_TEMP": str(root / "remote"),
+                    },
+                    text=True,
+                    capture_output=True,
+                    timeout=90,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn(f'"state": "{state}"', result.stdout)
+                self.assertRegex(result.stdout, rf"changed={changed}\s")
+                self.assertNotIn(PASSWORD, result.stdout + result.stderr)
+                self.assertNotIn("postgresql+asyncpg://", result.stdout + result.stderr)

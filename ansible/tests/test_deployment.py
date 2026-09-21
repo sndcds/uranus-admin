@@ -290,6 +290,30 @@ class ArtifactTests(unittest.TestCase):
                         path, hashlib.sha256(path.read_bytes()).hexdigest(), "a" * 40
                     )
 
+    def test_old_admin_manifest_is_rejected_before_target_access(self):
+        complete = {
+            "commit": "a" * 40,
+            "head": "0011",
+            "runtime_grants": {"finding": ["SELECT"]},
+            "environment_keys": ["DATABASE_URL"],
+            "operator_grants": {"alembic_version": ["SELECT"]},
+            "admin_indexes": ["alembic_version_pkc"],
+            "admin_columns": {"alembic_version": ["version_num"]},
+        }
+        for key in ("operator_grants", "admin_indexes", "admin_columns"):
+            with self.subTest(key=key), tempfile.TemporaryDirectory() as directory:
+                manifest = {k: v for k, v in complete.items() if k != key}
+                path = Path(directory) / "old-manifest.tar.gz"
+                content = json.dumps(manifest).encode()
+                with tarfile.open(path, "w:gz") as archive:
+                    entry = tarfile.TarInfo("release.json")
+                    entry.mode, entry.size = 0o644, len(content)
+                    archive.addfile(entry, io.BytesIO(content))
+                with self.assertRaisesRegex(AnsibleFilterError, "Repackage the selected release"):
+                    filters.artifact_manifest(
+                        path, hashlib.sha256(path.read_bytes()).hexdigest(), "a" * 40
+                    )
+
     def test_reproducible_committed_sources_and_current_metadata(self):
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):

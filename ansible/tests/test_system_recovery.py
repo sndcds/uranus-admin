@@ -107,7 +107,7 @@ class StaticRecoveryBoundaries(unittest.TestCase):
             "failed_when",
         }
 
-        def audit(tasks, in_rescue=False):
+        def audit(tasks, in_rescue=False, admin_bootstrap=False):
             for task in tasks:
                 if in_rescue:
                     serialized = json.dumps(task)
@@ -117,7 +117,15 @@ class StaticRecoveryBoundaries(unittest.TestCase):
                     )
                     for key, args in task.items():
                         # Reject aliases/action/local_action as well as unknown FQCNs.
-                        self.assertIn(key, allowed | keywords)
+                        extra = (
+                            {"uranus_admin_database", "ansible.builtin.debug", "become_user"}
+                            if admin_bootstrap
+                            else set()
+                        )
+                        self.assertIn(key, allowed | keywords | extra)
+                        if key == "uranus_admin_database":
+                            self.assertEqual(args["state"], "plan")
+                            self.assertNotIn("credentials", args)
                         if key == "ansible.builtin.command":
                             self.assertEqual(args, "/usr/sbin/nginx -t")
                         if key == "ansible.builtin.import_tasks":
@@ -125,10 +133,13 @@ class StaticRecoveryBoundaries(unittest.TestCase):
                             audit(yaml.safe_load((ROLE / "tasks" / args).read_text()), True)
                 for block in ("block", "rescue", "always"):
                     if block in task:
-                        audit(task[block], in_rescue or block == "rescue")
+                        audit(task[block], in_rescue or block == "rescue", admin_bootstrap)
 
         for path in (ROLE / "tasks").glob("*.yml"):
-            audit(yaml.safe_load(path.read_text()))
+            audit(
+                yaml.safe_load(path.read_text()),
+                admin_bootstrap=path.name == "admin_database_bootstrap.yml",
+            )
 
     def test_postgresql_modules_stay_in_read_only_preflight(self):
         def walk(tasks, path):
