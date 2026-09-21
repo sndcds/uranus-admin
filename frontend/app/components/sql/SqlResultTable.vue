@@ -1,10 +1,18 @@
 <script setup lang="ts">
-import type { SqlDiagnosticResult } from '#shared/contracts'
-import type { ProvenanceResult } from '#shared/sql-provenance'
 import StatusBadge from '../StatusBadge.vue'
-type SqlResult = SqlDiagnosticResult | ProvenanceResult
-defineProps<{ columns: SqlResult['columns']; rows: SqlResult['rows'] }>()
+defineProps<{ columns: string[]; rows: Record<string, unknown>[] }>()
+function truncated(value: unknown): value is { value: string; truncated: true } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'truncated' in value &&
+    value.truncated === true &&
+    'value' in value &&
+    typeof value.value === 'string'
+  )
+}
 function display(value: unknown): string {
+  if (truncated(value)) return `${value.value} … [gekürzt]`
   return typeof value === 'string' ? value : (JSON.stringify(value) ?? 'NULL')
 }
 </script>

@@ -1,7 +1,7 @@
 # Shared SQL workspace
 
 Finding SQL Editor/Diagnostics and SQL / Datenherkunft/Provenance use the same
-`SqlWorkspaceModal`, `SqlQueryPanel`, `SqlCodeEditor`, `SqlParameterTable`,
+`SqlWorkspace`/`SqlWorkspaceModal`, `SqlQueryPanel`, `SqlCodeEditor`, `SqlParameterTable`,
 `SqlResultTable`, `SqlJsonResult` and `SqlReadonlyNotice`. `SqlSourceTabs` selects one
 provenance query at a time. The former vertical finding card and stacked provenance
 code boxes are replaced; both existing controllers retain their execution contracts.
@@ -14,7 +14,7 @@ with a database icon, subtitle and native close control. At desktop widths its g
 `260px minmax(0, 1fr)`: finding/source context and navigation on the left, then SQL,
 parameters, results, and optional rule evaluation/postprocessing on the right. The
 read-only notice sits at the bottom left. The dark slate editor has numbered lines,
-fuchsia keywords, a 256px minimum height and a 384px maximum height; longer content
+fuchsia keywords, a 280px minimum height and a 480px maximum height; longer content
 scrolls. On desktop the right pane scrolls independently so the context and notice remain
 visible. Copy and fuchsia execution actions sit above it. Other modals retain their
 normal size and padding.
@@ -39,7 +39,7 @@ by that list can open; the fragment never contains SQL, parameters or results.
 Provenance context exposes the view, source, endpoint, actual filters and metadata.
 Results are retained per visited source until the workspace closes.
 
-## Formatting, copying and execution
+## Formatting, copying and registered execution
 
 The existing dependency audit found Prism but no SQL formatter. The workspace uses
 [sql-formatter 15.8.2](https://github.com/sql-formatter-org/sql-formatter), MIT, with its
@@ -148,3 +148,60 @@ Validated locally: frozen dependency install, ESLint, Nuxt typecheck, 402 unit t
 production build, 14 targeted development Chromium tests, and the complete production
 Chromium suite (216 passed, none skipped), including CSP and shared desktop/mobile
 layout checks. Documentation formatting, relative links and `git diff --check` pass.
+
+## Phase 3
+
+Readonly, CodeMirror und `/sql` teilen `SqlWorkspace`, `SqlQueryPanel` und die
+visuelle Definition `app/components/sql/sql-theme.css`. CodeMirror übernimmt die
+bestehenden Prism-Tokens über Decorations; Layoutmapping in `sql-codemirror.ts`.
+Die registrierte Ausführung bleibt erhalten; der Bearbeitungsmodus verwendet den
+separaten Console-WebSocket ohne Befundbewertung.
+[Runtime-Vertrag und Verifikation](../../backend/docs/sql-console-runtime.md).
+
+### Reproduzierbare visuelle Tests
+
+Die Produktions-E2E-Tests laufen in CI im per Digest gepinnten offiziellen
+Playwright-Image aus [ci.yml](../../.github/workflows/ci.yml). Browser, Linux und
+Systemschriften müssen bei Referenzbildern und Vergleichen übereinstimmen. Ein
+lokaler Linux-Host kann andere UI-Schriften verwenden, obwohl das SQL-Panel bereits
+pixelgleich ist. Anwendungsschriften und Vergleichstoleranzen bleiben unverändert.
+
+Nach `pnpm install --frozen-lockfile` und `pnpm build` im Verzeichnis `frontend/`:
+
+```sh
+docker run --rm --init --ipc=host \
+  --user "$(id -u):$(id -g)" \
+  --volume "$PWD:/work" --workdir /work \
+  --volume "$(command -v node):/usr/local/bin/node:ro" \
+  --env TEST_PRODUCTION=1 \
+  mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27 \
+  node node_modules/@playwright/test/cli.js test
+```
+
+Für eine beabsichtigte Aktualisierung am Ende des Befehls
+`tests/e2e/sql-console.spec.ts --update-snapshots` ergänzen, die Bilder prüfen und
+danach ohne Update erneut testen. Bei einem Playwright-Upgrade müssen Paketversion,
+Image und Referenzbilder gemeinsam geprüft werden. Readonly und CodeMirror teilen
+weiterhin **ein** SQL-Panel-Referenzbild. CI sichert bei Fehlern Screenshots, Diffs
+und Traces aus `test-results/` für sieben Tage; alle Daten stammen aus Test-Fixtures.
+
+Der Linux-Befehl bindet Node **22.22.3** vom Host ein (in CI durch `setup-node`
+installiert), damit Build und E2E dieselbe Node-Version verwenden; das Image
+enthält sonst Node 24. Der Build verwendet pnpm **12.3.4**. Browser und Schriften
+kommen weiterhin ausschließlich aus dem gepinnten Playwright-**1.63.0**-Image.
+
+Die ursprünglichen Fehler wurden in dieser Ubuntu-24.04-Schriftumgebung mit exakt
+**7.783** abweichenden Pixeln für `/sql` und **10.928** für den Readonly-Dialog
+reproduziert. Expected/Actual/Diff zeigten die abweichende System-Fallback-Schrift
+der umgebenden UI; das isolierte SQL-Panel bestand bereits unverändert. Weder
+Gutter, Zeilenhöhe, Badge, Scrollbars noch Viewport, Status oder CSP waren die Ursache.
+Commit `7c8ee64` korrigierte die sechs betroffenen Workspace-Referenzen
+(`sql-console`, `sql-results`, `sql-error`, `sql-running-cancel`, `finding-readonly`,
+`finding-editable`); `sql-theme-parity` blieb unverändert.
+
+Die Tests warten auf geladene Fonts, CodeMirror-Inhalt/Token und den jeweils
+erwarteten Status. Playwright verlangt anschließend stabile aufeinanderfolgende
+Bilder. Native Carets, Animationen und der von CodeMirror gezeichnete Cursor werden
+nur während der Aufnahme ausgeblendet; Fokus, Selektion und Theme bleiben unverändert.
+Keine pauschalen Sleeps. Die Toleranz bleibt **0.001**; Tokenfarben, Typografie,
+Hintergrund und Gutter-/Textgeometrie werden weiterhin zusätzlich exakt verglichen.

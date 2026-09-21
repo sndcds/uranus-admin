@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.config import Settings
 from app.errors import APIError
 from app.repositories.query import ReadQuery
+from app.sql_console.initial import initial_sql
 from app.sql_diagnostics.evaluation import evaluate
 from app.sql_diagnostics.models import SqlDiagnosticDefinition, SqlDiagnosticResult, StoredFinding
 from app.sql_diagnostics.readonly import read_registered_rows
@@ -24,6 +25,7 @@ def definition(finding: StoredFinding) -> SqlDiagnosticDefinition:
         title=item.title,
         sql=item.sql,
         copy_sql=copy_sql(item.sql, dict(parameters)),
+        console_sql=initial_sql(copy_sql(item.sql, dict(parameters))),
         parameters={key: json_value(value) for key, value in parameters.items()},
         explanation=item.explanation,
         columns=list(item.result_fields),

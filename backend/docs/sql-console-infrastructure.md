@@ -369,8 +369,9 @@ Default-ACLs, zusätzliche Systemkatalog-Grants und Zugriffe auf Passwort-, Verb
 oder Statistikwerte bleiben abgewiesen. Die DB Boundary ist die primäre Rechte- und
 Vertraulichkeitsgrenze, kein Anspruch auf vollständige Verhinderung jedes Seiteneffekts.
 Phase 3 bleibt getrennt und READ ONLY; sie benötigt zusätzlich AST-Validierung,
-Function-Denylist, Ressourcen-/Timeout-/Zeilen-/Parallelitätsgrenzen. Dieser PR fügt
-keinen freien SQL-Executor hinzu.
+Function-Denylist, Ressourcen-/Timeout-/Zeilen-/Parallelitätsgrenzen. Die
+DB-Provisionierung allein enthält keinen SQL-Executor. Der separate Phase-3-
+Executor ist im [Runtime-Vertrag](sql-console-runtime.md) beschrieben.
 
 ## Secrets, Runtime und Recovery
 
@@ -421,17 +422,19 @@ Basisspalte, View-Drift/Reconcile, mächtige Attribute, Memberships, fehlende un
 zusätzliche Grants, unbekannte TEMP-Verbraucher, INHERIT-Rollen, Funktionen/Extensions, Sequenzen/Large Objects,
 fremde Console-Objekte ohne Löschung, fehlende DSN ohne Fallback und alte Releases.
 
-Vor Phase 3 müssen diese Gates bestehen und zusätzlich ein autorisierter
-Produktions-Preflight mit Datum, Contract-Version, PostgreSQL-/Extension-Versionen
-und Ergebnisreferenz vorliegen. Dieser PR enthält keine Deployment-Freigabe,
-keinen Produktionsnachweis und keine Anwendung für frei eingegebenes SQL.
+Vor der Produktionsaktivierung von Phase 3 müssen diese Gates bestehen und
+zusätzlich ein autorisierter Produktions-Preflight mit Datum, Contract-Version, PostgreSQL-/Extension-Versionen
+und Ergebnisreferenz vorliegen. Die implementierte Runtime und ihre lokalen Tests
+sind keine Deployment-Freigabe und kein Produktionsnachweis.
 
 ## Phase-3-Anschlussvertrag
 
-Nach erfolgreicher Produktionsverifikation dieser Datenbankgrenze kann die
-interaktive READ-ONLY SQL Console umgesetzt werden.
+Erst nach erfolgreicher Produktionsverifikation dieser Datenbankgrenze darf die
+interaktive READ-ONLY SQL Console in Produktion aktiviert werden.
 
-Der geplante Anwendungsscope bleibt:
+Der inzwischen implementierte Anwendungsscope ist im
+[Phase-3-Runtime-Vertrag](sql-console-runtime.md) dokumentiert.
+Die folgenden Grenzen gelten weiterhin:
 
 - gemeinsamer editierbarer SQL-Editor nach dem freigegebenen Mockup;
 - große SQL-Workspace-Ansicht und dedizierte `/sql`-Seite;
@@ -444,7 +447,7 @@ Der geplante Anwendungsscope bleibt:
 - sichere Fehler ohne SQL-, DSN- oder Driver-Leaks;
 - Audit ohne Result Rows und ohne vollständiges SQL mit sensitiven Literalen.
 
-Geplante Ressourcenlimits:
+Phase-3-Ressourcenlimits:
 
 - Statement Timeout: 5 Sekunden;
 - Gesamtdeadline: 8 Sekunden;

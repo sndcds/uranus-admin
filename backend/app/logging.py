@@ -21,6 +21,7 @@ class JsonFormatter(logging.Formatter):
         }
         for key in (
             "request_id",
+            "query_hash",
             "candidate_count",
             "entities_scanned",
             "requests_synchronized",

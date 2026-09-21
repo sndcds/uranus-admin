@@ -1195,6 +1195,7 @@ export const sqlDiagnosticDefinitionSchema = z
     readonly: z.literal(true),
     sql: z.string(),
     copy_sql: z.string(),
+    console_sql: z.string().nullable().optional(),
     parameters: z.record(z.string(), diagnosticValueSchema),
     explanation: z.string(),
     columns: z.array(diagnosticColumnSchema),

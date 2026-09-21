@@ -1,0 +1,108 @@
+/* Audited from PR #77's SqlCodeEditor: Tailwind Slate panel and Prism tokens.
+   This is the sole visual definition for readonly and editable SQL. */
+.sql-code {
+  --sql-background: var(--color-slate-900);
+  --sql-foreground: var(--color-slate-100);
+  --sql-border: var(--color-slate-800);
+  --sql-gutter-border: var(--color-slate-700);
+  --sql-line-number: var(--color-slate-400);
+  --sql-keyword: #f0abfc;
+  --sql-string: #a7f3d0;
+  --sql-number: #7dd3fc;
+  --sql-parameter: #c4b5fd;
+  --sql-comment: #94a3b8;
+  --sql-operator: #cbd5e1;
+  --sql-function: #fde68a;
+  --sql-identifier: var(--sql-foreground);
+  --sql-cast: var(--sql-foreground);
+  --sql-punctuation: var(--sql-operator);
+  --sql-selection: Highlight;
+  --sql-cursor: var(--sql-foreground);
+  --sql-active-line: transparent;
+  --sql-error: var(--color-rose-400);
+  --sql-font: var(--font-mono);
+  --sql-font-size: 12px;
+  --sql-line-height: 20px;
+  --sql-font-weight: 400;
+  --sql-letter-spacing: normal;
+  --sql-padding-y: 12px;
+  --sql-padding-x: 16px;
+  --sql-gutter-padding: 12px;
+  --sql-radius: 8px;
+  position: relative;
+  min-height: 280px;
+  max-height: 480px;
+  overflow: auto;
+  border: 1px solid var(--sql-border);
+  border-radius: var(--sql-radius);
+  background: var(--sql-background);
+  color: var(--sql-foreground);
+  font-family: var(--sql-font);
+  font-size: var(--sql-font-size);
+  line-height: var(--sql-line-height);
+  font-weight: var(--sql-font-weight);
+  letter-spacing: var(--sql-letter-spacing);
+}
+.sql-code.sql-page-editor {
+  min-height: 420px;
+  max-height: 65dvh;
+}
+.sql-code .token.keyword {
+  color: var(--sql-keyword);
+}
+.sql-code .token.string {
+  color: var(--sql-string);
+}
+.sql-code .token.number,
+.sql-code .token.boolean {
+  color: var(--sql-number);
+}
+.sql-code .token.parameter,
+.sql-code .token.variable {
+  color: var(--sql-parameter);
+}
+.sql-code .token.comment {
+  color: var(--sql-comment);
+}
+.sql-code .token.operator {
+  color: var(--sql-operator);
+}
+.sql-code .token.punctuation {
+  color: var(--sql-punctuation);
+}
+.sql-code .token.function {
+  color: var(--sql-function);
+}
+.sql-code .token.identifier {
+  color: var(--sql-identifier);
+}
+.sql-code .token.cast {
+  color: var(--sql-cast);
+}
+.sql-code ::selection {
+  background: var(--sql-selection);
+}
+.sql-code .sql-lines {
+  display: flex;
+  padding: var(--sql-padding-y) 20px var(--sql-padding-y) 0;
+}
+.sql-code .sql-gutter {
+  flex-shrink: 0;
+  user-select: none;
+  border-right: 1px solid var(--sql-gutter-border);
+  padding: 0 var(--sql-gutter-padding);
+  color: var(--sql-line-number);
+  text-align: right;
+}
+.sql-code .sql-text {
+  margin: 0;
+  padding: 0 var(--sql-padding-x);
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  min-width: 0;
+}
+.sql-code .sql-error-position {
+  text-decoration: underline wavy var(--sql-error);
+}

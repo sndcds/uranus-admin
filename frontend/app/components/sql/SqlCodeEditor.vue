@@ -1,99 +1,82 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
-import { formatSql } from '~/utils/sql-format'
-import type { SqlToken } from '~/utils/sql-highlighter'
-
-// This phase deliberately exposes no edit event or mutable SQL model.
-const props = defineProps<{ sql: string; readonly?: true }>()
-const tokens = shallowRef<SqlToken[]>([])
-const highlightedSql = shallowRef<string | null>(null)
-const displayedTokens = computed(() =>
-  highlightedSql.value === props.sql ? tokens.value : [{ text: props.sql, type: '' }],
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import type { EditorView } from '@codemirror/view'
+import SqlReadonlyCode from './SqlReadonlyCode.vue'
+import './sql-theme.css'
+const props = withDefaults(
+  defineProps<{ sql: string; readonly?: boolean; page?: boolean; errorPosition?: number | null }>(),
+  { readonly: true, errorPosition: null },
 )
-const lineCount = computed(
-  () =>
-    displayedTokens.value
-      .map((token) => token.text)
-      .join('')
-      .split('\n').length,
-)
-let revision = 0
-async function highlight() {
-  const current = ++revision
-  const sql = props.sql
+const emit = defineEmits<{ 'update:sql': [value: string]; execute: []; format: [] }>()
+const host = ref<HTMLElement | null>(null)
+const failed = ref(false)
+let editor: EditorView | undefined
+let disposed = false
+onMounted(async () => {
+  if (props.readonly) return
   try {
-    const formatted = await formatSql(sql)
-    if (current !== revision) return
-    tokens.value = [{ text: formatted, type: '' }]
-    highlightedSql.value = sql
-    const { highlightSql } = await import('~/utils/sql-highlighter')
-    const result = highlightSql(formatted)
-    if (current === revision) {
-      tokens.value = result
-      highlightedSql.value = sql
-    }
+    const module = await import('./sql-codemirror')
+    if (disposed || !host.value) return
+    editor = module.createSqlEditor(
+      host.value,
+      props.sql,
+      (value) => emit('update:sql', value),
+      () => emit('execute'),
+      () => emit('format'),
+    )
+    watch(
+      () => props.errorPosition,
+      (position) => {
+        editor?.dispatch({ effects: module.errorPosition.of(position) })
+        if (position && editor) {
+          editor.dispatch({
+            selection: { anchor: Math.min(position - 1, editor.state.doc.length) },
+            scrollIntoView: true,
+          })
+          editor.focus()
+        }
+      },
+    )
   } catch {
-    // Preserve readable plain SQL if the optional highlighting chunk cannot load.
+    failed.value = true
   }
-}
-onMounted(() => {
-  void highlight()
-  watch(() => props.sql, highlight)
 })
-onBeforeUnmount(() => revision++)
+watch(
+  () => props.sql,
+  (value) => {
+    if (!editor || value === editor.state.doc.toString()) return
+    const selection = editor.state.selection.main
+    editor.dispatch({
+      changes: { from: 0, to: editor.state.doc.length, insert: value },
+      selection: {
+        anchor: Math.min(selection.anchor, value.length),
+        head: Math.min(selection.head, value.length),
+      },
+    })
+  },
+)
+onBeforeUnmount(() => {
+  disposed = true
+  editor?.destroy()
+})
+defineExpose({ focus: () => editor?.focus() })
 </script>
-
 <template>
+  <SqlReadonlyCode v-if="readonly" :sql="sql" />
   <div
-    class="relative min-h-64 max-h-96 overflow-auto rounded-lg border border-slate-800 bg-slate-900 text-slate-100"
-    :spellcheck="false"
-    tabindex="0"
+    v-else
+    ref="host"
+    class="sql-code"
+    :class="{ 'sql-page-editor': page }"
     role="region"
-    aria-label="SQL-Abfrage, Nur-Lese-Modus"
+    aria-label="SQL-Abfrage, Bearbeitungsmodus"
   >
-    <div class="sticky top-0 right-0 h-0 text-right" aria-hidden="true">
+    <div class="sticky top-0 right-0 z-10 h-0 text-right pointer-events-none" aria-hidden="true">
       <span
         class="mr-2 mt-2 inline-block rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[10px] text-slate-200"
         >SQL (PostgreSQL)</span
       >
     </div>
-    <div class="flex min-w-max py-3 pr-5 font-mono text-xs leading-5">
-      <div
-        aria-hidden="true"
-        class="select-none border-r border-slate-700 px-3 text-right text-slate-400"
-      >
-        <div v-for="line in lineCount" :key="line">{{ line }}</div>
-      </div>
-      <pre
-        class="m-0 px-4 font-inherit leading-inherit"
-      ><code class="language-sql"><span v-for="(token, index) in displayedTokens" :key="index" :class="token.type ? `token ${token.type}` : undefined">{{ token.text }}</span></code></pre>
-    </div>
+    <p v-if="failed" role="alert">SQL Editor konnte nicht geladen werden. Bitte Seite neu laden.</p>
   </div>
 </template>
-
-<style scoped>
-.token.keyword {
-  color: #f0abfc;
-}
-.token.string {
-  color: #a7f3d0;
-}
-.token.number,
-.token.boolean {
-  color: #7dd3fc;
-}
-.token.parameter,
-.token.variable {
-  color: #c4b5fd;
-}
-.token.comment {
-  color: #94a3b8;
-}
-.token.operator,
-.token.punctuation {
-  color: #cbd5e1;
-}
-.token.function {
-  color: #fde68a;
-}
-</style>

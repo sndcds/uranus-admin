@@ -76,13 +76,13 @@ server {
 {% endfor %}
     location ^~ /__maintenance_assets/ { return 404; }
 {% endif %}
-{% for location in ['^~ /_nuxt/', '^~ /api/admin/', '/'] %}
+{% for location in ['^~ /_nuxt/', '= /api/admin/api/v1/sql-console/ws', '^~ /api/admin/', '/'] %}
     location {{ location }} {
 {% if ua_maintenance_page_enabled %}
         open_file_cache off;
         if (-f {{ ua_maintenance_marker }}) { return 503; }
 {% endif %}
-{% if location == '^~ /api/admin/' %}
+{% if location in ['^~ /api/admin/', '= /api/admin/api/v1/sql-console/ws'] %}
         limit_req zone=uranus_admin_api burst=20 nodelay;
 {% elif location == '/' %}
         limit_req zone=uranus_admin_general burst=50 nodelay;
@@ -94,7 +94,12 @@ server {
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;
+{% if location == '= /api/admin/api/v1/sql-console/ws' %}
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+{% else %}
         proxy_set_header Connection "";
+{% endif %}
         proxy_intercept_errors off;
         proxy_connect_timeout 5s;
         proxy_read_timeout 60s;

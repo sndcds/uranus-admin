@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, useId } from 'vue'
-withDefaults(
+const props = withDefaults(
   defineProps<{
+    closeBlocked?: boolean
     title: string
     closeLabel?: string
     wide?: boolean
@@ -15,7 +16,7 @@ withDefaults(
     subtitle: '',
   },
 )
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; 'close-blocked': [] }>()
 const titleId = useId()
 const dialog = ref<HTMLDialogElement | null>(null)
 const opened = ref(false)
@@ -29,6 +30,10 @@ async function open() {
 }
 function close() {
   if (!opened.value) return
+  if (props.closeBlocked) {
+    emit('close-blocked')
+    return
+  }
   opened.value = false
   dialog.value?.close()
   if (trigger?.isConnected) trigger.focus()

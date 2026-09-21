@@ -30,7 +30,7 @@ für einen späteren Lauf. Grundlage des Anwendungsstands:
 | `admin.alembic_version = 0011`, 16 Admin-Tabellen                                     | Head/Grant-Matrix stammen aus dem ausgewählten Release. Abweichung stoppt, ohne automatische Migration.                                                                                                                                                         |
 | Reader besitzt SELECT auf 72 Quellobjekten, keine Sequenzrechte                       | Mindestens die 19 benötigten Quellobjekte werden geprüft. Bestehende weitere Leserechte bleiben erhalten; kein pauschales SELECT auf Sequenzen.                                                                                                                 |
 | Vier getrennte App-Rollen, keine Memberships, keine privilegierten Attribute          | Attribute, Memberships in beide Richtungen, Ownership, Tabellen-/Spaltenrechte und indirekte Schreibmöglichkeiten werden erneut geprüft.                                                                                                                        |
-| App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | PUBLIC TEMP wird ausschließlich nach Prüfung des versionierten Vertrags der Erhaltungsrollen atomar auf explizite TEMP-Grants umgestellt; unbekannte Verbraucher blockieren.                                                                                             |
+| App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | PUBLIC TEMP wird ausschließlich nach Prüfung des versionierten Vertrags der Erhaltungsrollen atomar auf explizite TEMP-Grants umgestellt; unbekannte Verbraucher blockieren.                                                                                    |
 | Backend, Frontend, Check-Worker existieren und laufen                                 | Nur diese drei bekannten Services werden übernommen. Keine zusätzlichen Service-Namen.                                                                                                                                                                          |
 | Notification-Timer ist aktiv, Notification-Service ist ein stündlicher Oneshot        | Standard: unverändert. Nur explizites Notification-Management mit zweiter Zustimmung stoppt/deaktiviert ihn; Recovery stellt dann seinen vorherigen Zustand wieder her.                                                                                         |
 | Kein URL-/Geocode-Service gefunden                                                    | Keine Installation oder Aktivierung dieser Worker.                                                                                                                                                                                                              |
@@ -142,6 +142,17 @@ vorhandene Console-Objekte nicht. Der eigene
 4. Erst dann Release-Build und echte Console-DSN-Verifikation, anschließend Maintenance
    und App-Aktivierung. Recovery bleibt ausschließlich systembezogen.
 
+Die Phase-3-Runtime ist in diesen Ablauf eingebunden: Das Release enthält die
+gelockten Runtime-Abhängigkeiten `pglast` und `wsproto`; der Backend-Service startet
+`python -m app` mit dem expliziten, begrenzten WebSocket-Treiber. Nginx erhält nur
+`location = /api/admin/api/v1/sql-console/ws` mit Upgrade/Connection und denselben
+Maintenance-, Rate-Limit- und Security-Regeln wie die vorhandene API. Die Console-DSN
+wird weiterhin geschützt übernommen und bleibt aus dem Frontend-Service entfernt.
+Ohne explizite DSN scheitert die Environment-Planung; es gibt keinen Fallback.
+Der normale Release-Packager verwendet ausschließlich frisch gefetchtes `main`:
+Ein noch offener Phase-3-PR wird dadurch nicht vorzeitig deployt. Tests und
+Implementierung ersetzen keine Produktionsfreigabe.
+
 `uranus_console_owner` ist NOLOGIN; `uranus_console_reader` ist LOGIN. Beide erhalten
 NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/NOBYPASSRLS und NOINHERIT. Bestehende
 INHERIT-Rollen führen zu `unsafe_role_inherit:<role>`; keine automatische Reparatur.
@@ -217,7 +228,8 @@ Details, Signaturmengen, Audit-Reproduktion und Grenzen stehen im
 Andere gemeinsame Rechte, insbesondere PUBLIC CREATE, bleiben Blocker. Kein allgemeines
 Aufräumen von CONNECT, CREATE, Extensions oder sonstigen PUBLIC-Grants. Kein Unsafe-Override
 und keine heimliche Ersatz-DB. Phase 3 benötigt zusätzlich AST-/Function-Denylist und
-Ressourcen-, Timeout-, Zeilen- und Parallelitätslimits; kein freier Executor in diesem PR.
+Ressourcen-, Timeout-, Zeilen- und Parallelitätslimits. Diese sind im
+[Phase-3-Runtime-Vertrag](../backend/docs/sql-console-runtime.md) beschrieben.
 
 Secret ausschließlich als `SQL_CONSOLE_DATABASE_URL` in geschützter `operator.env`
 (root:root 0600) oder bereits expliziter Runtime-Konfiguration bereitstellen. Lokales

@@ -241,4 +241,15 @@ breiten Nur-Lese-Workspace mit Kontextspalte, formatiertem SQL, Parametern und E
 SQL / Datenherkunft verwendet dieselben Komponenten mit Quell-Tabs und Nachbearbeitung.
 Auch `copy_sql` wird vor dem Kopieren formatiert; Ergebnisse lassen sich als Tabelle, JSON
 oder CSV anzeigen bzw. herunterladen.
-Die Ausführung sendet weiterhin ausschließlich die Finding-ID, niemals den sichtbaren SQL-Text.
+Die registrierte Diagnose sendet weiterhin ausschließlich die Finding-ID, niemals den sichtbaren SQL-Text.
+
+### Interaktive READ-ONLY Console (Phase 3)
+
+`/sql` und „SQL bearbeiten“ im Finding-Workspace verwenden denselben SQL-Editor und
+Ergebnisbereich. CodeMirror 6 wird clientseitig lazy geladen und verwendet dieselbe
+Prism-/CSS-Definition wie der Readonly-Renderer. Formatieren und Copy verwenden den
+bestehenden PostgreSQL-Formatter. Die registrierte Diagnose bleibt separat verfügbar.
+Freies SQL läuft über den exakten Same-Origin-WebSocket und ausschließlich den
+Console-Reader: 5s Statement, 8s Gesamtdeadline, 50/500 Zeilen, quittierte Batches,
+echter Cancel. Keine Writes und keine serverseitige Query-History.
+[Runtime, Protokoll, Grenzen und Tests](../backend/docs/sql-console-runtime.md).

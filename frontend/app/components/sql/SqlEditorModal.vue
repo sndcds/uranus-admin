@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, useTemplateRef } from 'vue'
+import { defineAsyncComponent, onBeforeUnmount, ref, useTemplateRef } from 'vue'
 import SqlWorkspaceModal from './SqlWorkspaceModal.vue'
 import SqlQueryPanel from './SqlQueryPanel.vue'
 import RecordMarkLink from '../RecordMarkLink.vue'
@@ -12,6 +12,10 @@ import { sqlFindingLink } from '~/utils/sql-finding-link'
 import { asFailure } from '#shared/errors'
 import { dateTime, findingStatusLabels } from '~/utils/presentation'
 
+const SqlConsolePanel = defineAsyncComponent(() => import('./SqlConsolePanel.vue'))
+const editing = ref(false),
+  consoleBusy = ref(false)
+const consolePanel = ref<{ cancel: () => void } | null>(null)
 const { $adminApi } = useNuxtApp()
 const dialog = useTemplateRef<InstanceType<typeof SqlWorkspaceModal>>('dialog')
 const finding = ref<Finding | null>(null)
@@ -31,6 +35,8 @@ const navigation = [
 let revision = 0
 function reset() {
   revision++
+  editing.value = false
+  consoleBusy.value = false
   finding.value = null
   definition.value = null
   result.value = null
@@ -85,6 +91,8 @@ defineExpose({ open })
     title="SQL Editor"
     subtitle="Analyse und Überprüfung der Datenquelle zu diesem Befund."
     close-label="SQL Editor schließen"
+    :busy="consoleBusy"
+    @cancel="consolePanel?.cancel()"
     @close="reset"
   >
     <template #actions
@@ -161,8 +169,34 @@ defineExpose({ open })
           <p>{{ error }}</p>
           <button class="button" :disabled="loading" @click="load">Erneut versuchen</button>
         </div>
+        <div v-if="definition" class="mb-3 flex flex-wrap gap-2">
+          <button
+            class="button"
+            :disabled="consoleBusy || running"
+            :aria-pressed="!editing"
+            @click="editing = false"
+          >
+            Registrierte Diagnose
+          </button>
+          <button
+            class="button"
+            :disabled="consoleBusy || running"
+            :aria-pressed="editing"
+            @click="editing = true"
+          >
+            SQL bearbeiten
+          </button>
+        </div>
+        <SqlConsolePanel
+          v-if="editing && definition"
+          ref="consolePanel"
+          :sql="definition.console_sql ?? definition.copy_sql"
+          :parameters="definition.parameters"
+          finding
+          @busy="consoleBusy = $event"
+        />
         <SqlQueryPanel
-          v-if="definition"
+          v-if="definition && !editing"
           :key="finding.id"
           :sql="definition.sql"
           :copy-sql="definition.copy_sql"

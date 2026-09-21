@@ -1,5 +1,6 @@
 // Controlled E2E backend only. Never imported by the Nuxt application.
 import http from 'node:http'
+import { WebSocketServer } from 'ws'
 import { randomBytes } from 'node:crypto'
 import { summary, findings } from './api.ts'
 import { geoArea, geoSearchItem } from './geo.ts'
@@ -8,7 +9,7 @@ const sessions = new Map()
 const production = process.env.TEST_PRODUCTION === '1'
 const cookieName = production ? '__Host-admin_session' : 'admin_session'
 const attributes = `Path=/; HttpOnly; SameSite=Strict${production ? '; Secure' : ''}`
-http
+const server = http
   .createServer(async (request, response) => {
     response.setHeader('Content-Type', 'application/json')
     response.setHeader('Cache-Control', 'private, no-store')
@@ -89,3 +90,74 @@ http
     return deny(404, 'route_not_allowed')
   })
   .listen(31902, '127.0.0.1')
+
+// Controlled protocol fixture: exercises Nitro relay, never claims DB execution.
+const wss = new WebSocketServer({ noServer: true, maxPayload: 200000 })
+server.on('upgrade', (request, socket, head) => {
+  const token = (request.headers.cookie ?? '')
+    .split('; ')
+    .find((part) => part.startsWith(`${cookieName}=`))
+    ?.slice(cookieName.length + 1)
+  if (
+    request.url !== '/api/v1/sql-console/ws' ||
+    request.headers.origin !== 'http://127.0.0.1:3100' ||
+    !sessions.get(token)?.system_admin
+  ) {
+    socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
+    return
+  }
+  wss.handleUpgrade(request, socket, head, (ws) => wss.emit('connection', ws))
+})
+wss.on('connection', (socket) => {
+  let active = null
+  socket.on('message', (data) => {
+    const message = JSON.parse(data.toString())
+    const send = (body) =>
+      socket.send(JSON.stringify({ v: 1, request_id: message.request_id, ...body }))
+    if (message.type === 'cancel') {
+      active = null
+      send({ type: 'cancelled', duration_ms: 24 })
+      return
+    }
+    if (message.type === 'ack') {
+      if (active) send({ type: 'complete', row_count: 2, truncated: false, duration_ms: 14 })
+      active = null
+      return
+    }
+    if (message.type !== 'execute') return
+    active = message.request_id
+    send({ type: 'started' })
+    if (message.sql.includes('fixture_running')) return
+    if (message.sql.includes('fixture_error')) {
+      send({ type: 'error', code: 'syntax_error', position: 8, duration_ms: 2 })
+      active = null
+      return
+    }
+    send({
+      type: 'columns',
+      columns: ['uuid', 'event_uuid', 'start_date', 'start_time', 'end_date', 'end_time'],
+    })
+    send({
+      type: 'rows',
+      batch: 1,
+      rows: [
+        {
+          uuid: '00000000-0000-4000-8000-000000000030',
+          event_uuid: '00000000-0000-4000-8000-000000000031',
+          start_date: '2026-10-12',
+          start_time: '18:00:00',
+          end_date: '2026-10-11',
+          end_time: '17:00:00',
+        },
+        {
+          uuid: '00000000-0000-4000-8000-000000000032',
+          event_uuid: '00000000-0000-4000-8000-000000000033',
+          start_date: '2026-10-13',
+          start_time: '19:00:00',
+          end_date: null,
+          end_time: null,
+        },
+      ],
+    })
+  })
+})
