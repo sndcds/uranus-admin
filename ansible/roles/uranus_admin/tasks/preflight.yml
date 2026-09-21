@@ -204,7 +204,6 @@
       to_regclass('uranus.event_date') IS NOT NULL AS event_date,
       to_regclass('uranus.venue') IS NOT NULL AS venue,
       to_regclass('uranus.organization') IS NOT NULL AS organization,
-      to_regclass('admin.alembic_version') IS NOT NULL AS version_table,
       EXISTS(SELECT 1 FROM pg_extension WHERE extname='postgis') AS postgis
   become_user: postgres
   changed_when: false
@@ -213,28 +212,37 @@
 - name: Stop on missing or wrong database objects without repairing anything
   ansible.builtin.assert:
     that: ua_db_guard.query_result[0].values() | list | min
-    fail_msg: "Wrong database or missing source/admin/PostGIS objects; no provisioning or migration is permitted."
+    fail_msg: "Wrong database or missing source/PostGIS objects; source provisioning is never permitted."
 
-- name: Audit current head and effective privileges in a read-only transaction
-  community.postgresql.postgresql_query:
-    login_db: oklab
-    login_user: postgres
-    login_unix_socket: "{{ ua_pg_socket }}"
-    login_port: "{{ ua_pg_port }}"
-    connect_params:
-      options: "-c default_transaction_read_only=on -c statement_timeout=10000 -c lock_timeout=2000 -c search_path=pg_catalog"
-    query: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
-    named_args:
-      head: "{{ ua_manifest.head }}"
-      grants: "{{ ua_manifest.runtime_grants | to_json }}"
+- name: Classify admin database state without changing objects or privileges
+  uranus_admin_database:
+    state: plan
+    environment: "{{ ua_target_environment }}"
+    approved: "{{ ua_admin_database_bootstrap_approved }}"
+    manifest: "{{ ua_manifest }}"
+    boundary: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
   become_user: postgres
-  changed_when: false
-  register: ua_boundary
+  register: ua_admin_database_plan
 
-- name: Refuse unsafe privileges, dependencies or a different migration head
+- name: Report the safe admin database contract and proposed first installation
+  ansible.builtin.debug:
+    msg:
+      admin_database: "{{ ua_admin_database_plan.admin_database }}"
+
+- name: Require READY or a clean non-production ABSENT database
   ansible.builtin.assert:
-    that: ua_boundary.query_result[0].violations | length == 0
-    fail_msg: "Database preflight failed: {{ ua_boundary.query_result[0].violations }}. No automatic repair."
+    that:
+      - ua_admin_database_plan.admin_database.state == 'READY' or ua_admin_database_plan.admin_database.bootstrap_allowed
+    fail_msg: "Admin database is absent in production or DRIFTED. No automatic repair or migration is permitted. Review admin_database.blockers."
+
+- name: Require separate admin bootstrap approval before any real preparation
+  ansible.builtin.assert:
+    that: ua_admin_database_bootstrap_approved is sameas true
+    fail_msg: "Clean admin bootstrap requires ua_admin_database_bootstrap_approved=true in the protected local approval file."
+  when:
+    - ua_admin_database_plan.admin_database.state == 'ABSENT'
+    - ua_action == 'deploy'
+    - not ansible_check_mode
 
 - name: Read optional orientation counts without any equality guard
   community.postgresql.postgresql_query:

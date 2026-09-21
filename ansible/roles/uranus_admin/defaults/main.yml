@@ -17,6 +17,7 @@ ua_backup_reference: ""
 ua_manage_notification_timer: false
 ua_disable_notification_timer_approved: false
 ua_secret_adoption_approved: false
+ua_admin_database_bootstrap_approved: false
 ua_sql_console_provision_approved: false
 ua_debug: false
 ua_runtime_overrides: {}

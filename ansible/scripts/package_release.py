@@ -35,6 +35,53 @@ def latest_main(repository=None):
     ).strip()
 
 
+def admin_indexes(source):
+    """Inventory declared index names without executing code from the release."""
+    names = {"alembic_version_pkc"}
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr == "Index":
+            names.add(ast.literal_eval(node.args[0]))
+        elif node.func.attr == "Table":
+            table = ast.literal_eval(node.args[0])
+            names.add(table + "_pkey")
+            for argument in node.args[2:]:
+                if not isinstance(argument, ast.Call) or not isinstance(
+                    argument.func, ast.Attribute
+                ):
+                    continue
+                if argument.func.attr == "UniqueConstraint":
+                    names.add(
+                        next(
+                            ast.literal_eval(k.value) for k in argument.keywords if k.arg == "name"
+                        )
+                    )
+                elif argument.func.attr == "Column" and any(
+                    k.arg == "unique" and ast.literal_eval(k.value) for k in argument.keywords
+                ):
+                    names.add(table + "_" + ast.literal_eval(argument.args[0]) + "_key")
+    return sorted(names)
+
+
+def admin_columns(source):
+    columns = {"alembic_version": ["version_num"]}
+    for node in ast.walk(ast.parse(source)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "Table"
+        ):
+            columns[ast.literal_eval(node.args[0])] = sorted(
+                ast.literal_eval(argument.args[0])
+                for argument in node.args[2:]
+                if isinstance(argument, ast.Call)
+                and isinstance(argument.func, ast.Attribute)
+                and argument.func.attr == "Column"
+            )
+    return columns
+
+
 def package(revision, output):
     commit = subprocess.check_output(
         ["git", "rev-parse", "--verify", revision + "^{commit}"], text=True
@@ -90,6 +137,11 @@ def package(revision, output):
         "runtime_grants": literal_assignment(
             files["backend/app/storage_preflight.py"], "RUNTIME_GRANTS"
         ),
+        "operator_grants": literal_assignment(
+            files["backend/app/auth/diagnostics.py"], "OPERATOR_GRANTS"
+        ),
+        "admin_indexes": admin_indexes(files["backend/app/admin_tables.py"]),
+        "admin_columns": admin_columns(files["backend/app/admin_tables.py"]),
         "python": "3.13",
         "node": "22.22.3",
         "uv": "0.12.5",

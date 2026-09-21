@@ -1,0 +1,92 @@
+- name: Reassert the clean first-install approval at the mutation boundary
+  ansible.builtin.assert:
+    that:
+      - ua_target_environment in ['staging', 'test']
+      - ua_admin_database_plan.admin_database.state == 'ABSENT'
+      - ua_admin_database_bootstrap_approved is sameas true
+      - ua_action == 'deploy'
+      - not ansible_check_mode
+
+- name: Install the bounded migration launcher beside the verified release
+  ansible.builtin.copy:
+    src: admin_database_migrate.py
+    dest: "{{ ua_release_dir }}/deployment/admin_database_migrate.py"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Bootstrap with independent cleanup and safe failure reporting
+  block:
+    - name: Run the approved bootstrap with a guaranteed cleanup task
+      block:
+        - name: Bootstrap admin using release Alembic and adopted operator credentials
+          uranus_admin_database:
+            state: bootstrap
+            environment: "{{ ua_target_environment }}"
+            approved: "{{ ua_admin_database_bootstrap_approved }}"
+            manifest: "{{ ua_manifest }}"
+            boundary: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
+            credentials: "{{ (ua_existing_operator.content | default('') | b64decode | ua_parse_env) | combine(ua_privileged) | combine(ua_runtime) }}"
+            release: "{{ ua_release_dir }}"
+            archive_hash: "{{ ua_artifact_sha256 }}"
+          become_user: postgres
+          no_log: true
+          diff: false
+      always:
+        - name: Independently revoke any temporary migrator database CREATE
+          uranus_admin_database:
+            state: revoke_create
+            environment: "{{ ua_target_environment }}"
+            approved: "{{ ua_admin_database_bootstrap_approved }}"
+            manifest: "{{ ua_manifest }}"
+            boundary: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
+          become_user: postgres
+  rescue:
+    - name: Inspect the remaining state without attempting repair
+      uranus_admin_database:
+        state: plan
+        environment: "{{ ua_target_environment }}"
+        manifest: "{{ ua_manifest }}"
+        boundary: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
+      become_user: postgres
+      register: ua_admin_database_failure
+    - name: Report only safe bootstrap failure state
+      ansible.builtin.debug:
+        msg:
+          admin_database: "{{ ua_admin_database_failure.admin_database }}"
+    - name: Stop after failed admin bootstrap without system activation or schema removal
+      ansible.builtin.fail:
+        msg: "Admin bootstrap failed. Review the reported state and cleanup result; no automatic repair or database restore is attempted."
+
+- name: Verify the committed admin boundary in a new read-only connection
+  uranus_admin_database:
+    state: plan
+    environment: "{{ ua_target_environment }}"
+    manifest: "{{ ua_manifest }}"
+    boundary: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
+  become_user: postgres
+  register: ua_admin_database_verified
+
+- name: Require READY after bootstrap without permitting partial success
+  ansible.builtin.assert:
+    that: ua_admin_database_verified.admin_database.state == 'READY'
+
+- name: Report verified admin bootstrap without secrets
+  ansible.builtin.debug:
+    msg:
+      admin_database: "{{ ua_admin_database_verified.admin_database }}"
+
+- name: Use READY for the subsequent full console verification
+  ansible.builtin.set_fact:
+    ua_admin_database_plan: "{{ ua_admin_database_verified }}"
+
+- name: Inspect console infrastructure after its prerequisite roles exist
+  ansible.builtin.import_tasks: sql_console_plan.yml
+
+- name: Provision only the separately approved SQL console boundary
+  ansible.builtin.import_tasks: sql_console_provision.yml
+  when: ua_sql_console_required
+
+- name: Verify the separate SQL console boundary before runtime validation
+  ansible.builtin.import_tasks: sql_console_verify.yml
+  when: ua_sql_console_required

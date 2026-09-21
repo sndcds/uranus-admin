@@ -7,6 +7,9 @@
 - name: Inspect and prepare secret separation in memory
   ansible.builtin.import_tasks: environment_plan.yml
 
+- name: Plan isolated console infrastructure using read-only catalog inspection
+  ansible.builtin.import_tasks: sql_console_plan.yml
+
 - name: Prepare the pinned bootstrap toolchain after successful database preflight
   ansible.builtin.import_tasks: toolchain.yml
   when: ua_target_environment in ['staging', 'test']
@@ -15,27 +18,26 @@
   ansible.builtin.import_tasks: file_plan.yml
   when: ua_target_environment in ['staging', 'test']
 
-- name: Plan isolated console infrastructure using read-only catalog inspection
-  ansible.builtin.import_tasks: sql_console_plan.yml
-
 - name: Provision isolated console infrastructure before release build or maintenance
   ansible.builtin.import_tasks: sql_console_provision.yml
   when:
-    - ua_sql_console_required
+    - ua_admin_database_plan.admin_database.state == 'READY'
+    - ua_sql_console_required | default(false)
     - ua_action == 'deploy'
     - not ansible_check_mode
 
 - name: Verify reconciled console infrastructure in a separate read-only transaction
   ansible.builtin.import_tasks: sql_console_verify.yml
   when:
-    - ua_sql_console_required
+    - ua_admin_database_plan.admin_database.state == 'READY'
+    - ua_sql_console_required | default(false)
     - ua_action == 'deploy'
     - not ansible_check_mode
 
 - name: Report the proposed deployment without secrets
   ansible.builtin.debug:
     msg:
-      - "Database: oklab. Expected admin head: {{ ua_manifest.head }}. Source/admin changes: NONE. Console infrastructure: {{ ua_sql_console_required }}."
+      - "Database: oklab. Expected admin head: {{ ua_manifest.head }}. Source DDL/data changes: NONE. Admin state: {{ ua_admin_database_plan.admin_database.state }}; first-install plan: {{ ua_admin_database_plan.admin_database.changes_planned }}. Console infrastructure: {{ ua_sql_console_required }}."
       - "Release: {{ ua_release_dir }}. Artifact: {{ ua_artifact_sha256 }}."
       - "Local build: {{ ua_build_dir }}. Runtime/toolchain: {{ ua_root }}. Network storage is refused."
       - "Build retention: {{ 'keep three newest completed workspaces plus current build; only after successful deployment' if ua_cleanup_builds | bool else 'disabled' }}. Runtime releases and backups are never removed."

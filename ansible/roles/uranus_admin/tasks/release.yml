@@ -206,6 +206,10 @@
   become_user: oklab
   changed_when: false
 
+- name: Bootstrap only the explicitly approved clean non-production admin database
+  ansible.builtin.import_tasks: admin_database_bootstrap.yml
+  when: ua_admin_database_plan.admin_database.state | default('READY') == 'ABSENT'
+
 - name: Validate production settings and the actual runtime DSNs before stopping services
   ansible.builtin.command:
     argv:
@@ -220,6 +224,7 @@
         python,
         -B,
         "{{ ua_release_dir }}/deployment/verify_runtime.py",
+        "{{ ua_public_origin }}",
       ]
     chdir: "{{ ua_release_dir }}/backend"
   become_user: oklab
