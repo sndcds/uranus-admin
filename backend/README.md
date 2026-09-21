@@ -141,3 +141,6 @@ in dieser Testdatenbank administrative Rechte. CI führt den vollständigen DB-L
 [SQL / Datenherkunft – registrierte Queries, Sicherheitsmodell und Coverage](docs/sql-provenance.md).
 
 [SQL Console – Ansible-Infrastruktur, Quell-Audit und Freigabekriterien](docs/sql-console-infrastructure.md).
+
+[Phase 3 – interaktive READ-ONLY SQL Console](docs/sql-console-runtime.md):
+Same-Origin-WebSocket, eigene Console-DSN, AST-Prüfung, begrenztes Streaming und echter Query-Abbruch.

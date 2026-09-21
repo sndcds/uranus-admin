@@ -1,7 +1,7 @@
 # Shared SQL workspace
 
 Finding SQL Editor/Diagnostics and SQL / Datenherkunft/Provenance use the same
-`SqlWorkspaceModal`, `SqlQueryPanel`, `SqlCodeEditor`, `SqlParameterTable`,
+`SqlWorkspace`/`SqlWorkspaceModal`, `SqlQueryPanel`, `SqlCodeEditor`, `SqlParameterTable`,
 `SqlResultTable`, `SqlJsonResult` and `SqlReadonlyNotice`. `SqlSourceTabs` selects one
 provenance query at a time. The former vertical finding card and stacked provenance
 code boxes are replaced; both existing controllers retain their execution contracts.
@@ -14,7 +14,7 @@ with a database icon, subtitle and native close control. At desktop widths its g
 `260px minmax(0, 1fr)`: finding/source context and navigation on the left, then SQL,
 parameters, results, and optional rule evaluation/postprocessing on the right. The
 read-only notice sits at the bottom left. The dark slate editor has numbered lines,
-fuchsia keywords, a 256px minimum height and a 384px maximum height; longer content
+fuchsia keywords, a 280px minimum height and a 480px maximum height; longer content
 scrolls. On desktop the right pane scrolls independently so the context and notice remain
 visible. Copy and fuchsia execution actions sit above it. Other modals retain their
 normal size and padding.
@@ -39,7 +39,7 @@ by that list can open; the fragment never contains SQL, parameters or results.
 Provenance context exposes the view, source, endpoint, actual filters and metadata.
 Results are retained per visited source until the workspace closes.
 
-## Formatting, copying and execution
+## Formatting, copying and registered execution
 
 The existing dependency audit found Prism but no SQL formatter. The workspace uses
 [sql-formatter 15.8.2](https://github.com/sql-formatter-org/sql-formatter), MIT, with its
@@ -148,3 +148,12 @@ Validated locally: frozen dependency install, ESLint, Nuxt typecheck, 402 unit t
 production build, 14 targeted development Chromium tests, and the complete production
 Chromium suite (216 passed, none skipped), including CSP and shared desktop/mobile
 layout checks. Documentation formatting, relative links and `git diff --check` pass.
+
+## Phase 3
+
+Readonly, CodeMirror und `/sql` teilen `SqlWorkspace`, `SqlQueryPanel` und die
+visuelle Definition `app/components/sql/sql-theme.css`. CodeMirror übernimmt die
+bestehenden Prism-Tokens über Decorations; Layoutmapping in `sql-codemirror.ts`.
+Die registrierte Ausführung bleibt erhalten; der Bearbeitungsmodus verwendet den
+separaten Console-WebSocket ohne Befundbewertung.
+[Runtime-Vertrag und Verifikation](../../backend/docs/sql-console-runtime.md).
