@@ -583,14 +583,17 @@ class DeploymentBoundaryTests(unittest.TestCase):
         websocket = site.split("location = /api/admin/api/v1/sql-console/ws {", 1)[1]
         websocket = websocket.split("location ^~ /api/admin/", 1)[0]
         for directive in (
-            'proxy_set_header Upgrade $http_upgrade;',
+            "proxy_set_header Upgrade $http_upgrade;",
             'proxy_set_header Connection "upgrade";',
-            'limit_req zone=uranus_admin_api burst=20 nodelay;',
-            'Content-Security-Policy', "connect-src 'self'",
-            'if (-f ', 'return 503;', 'Cache-Control "private, no-store"',
+            "limit_req zone=uranus_admin_api burst=20 nodelay;",
+            "Content-Security-Policy",
+            "connect-src 'self'",
+            "if (-f ",
+            "return 503;",
+            'Cache-Control "private, no-store"',
         ):
             self.assertIn(directive, websocket)
-        self.assertEqual(site.count('proxy_set_header Upgrade $http_upgrade;'), 1)
+        self.assertEqual(site.count("proxy_set_header Upgrade $http_upgrade;"), 1)
         self.assertEqual(site.count("error_log /var/log/nginx/uranus-admin-error.log warn;"), 2)
         self.assertNotIn("error_log /dev/null", site)
         error_block = site.split("location @rate_limited", 1)[1]
