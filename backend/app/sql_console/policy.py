@@ -10,7 +10,9 @@ POLICY = json.loads(Path(__file__).with_name("function_policy.json").read_text()
 MAX_SQL_BYTES = 32768
 # Additional transport privacy guard: all console sessions share one DB identity.
 # PostgreSQL activity functions can expose another console user's SQL; SQL/XML
-# wrappers can execute a hidden query string that cannot be checked by this AST.
+# wrappers and text-search helpers can execute SQL strings outside this AST.
+# Deny whole names, including overloads; do not attempt to parse SQL in literals.
+PRIVACY_NAMES = frozenset({"ts_stat", "ts_rewrite"})
 PRIVACY_PREFIXES = (
     "pg_stat_get_",
     "query_to_",
@@ -30,8 +32,10 @@ class ConsoleError(Exception):
 
 def denied_function(name: str) -> bool:
     name = name.lower()
-    return name in POLICY["names"] or any(
-        name.startswith(p) for p in (*POLICY["prefixes"], *PRIVACY_PREFIXES)
+    return (
+        name in PRIVACY_NAMES
+        or name in POLICY["names"]
+        or any(name.startswith(p) for p in (*POLICY["prefixes"], *PRIVACY_PREFIXES))
     )
 
 

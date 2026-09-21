@@ -80,6 +80,43 @@ derselben DB-Identität offenlegen oder SQL in Stringargumenten verstecken. Dies
 zusätzliche Begrenzung ist ausdrücklich eine Runtime-Policy, keine Behauptung über
 weitergehende ACLs des unveränderten DB-Contracts.
 
+### Audit dynamischer SQL- und Privacy-Funktionen (PostgreSQL 16/17)
+
+Die ergänzende zentrale Policy in `app/sql_console/policy.py` sperrt außerdem
+**`ts_stat` und `ts_rewrite`**. Der äußere AST enthält bei diesen Aufrufen nur
+`FuncCall` und Stringargumente; das darin versteckte SQL wird nicht als eigener
+Query-Baum geprüft. PostgreSQL führt es intern aus. READ ONLY verhindert dabei
+keine Offenlegung von Querytexten anderer Sitzungen derselben DB-Identität.
+
+Gezielt geprüft anhand der PostgreSQL-Dokumentation für
+[16](https://www.postgresql.org/docs/16/textsearch-features.html) und
+[17](https://www.postgresql.org/docs/17/textsearch-features.html):
+
+| Funktionsgruppe | Befund / Runtime-Policy |
+| --- | --- |
+| `ts_stat(text)` / `ts_stat(text, text)` | Führt SQL-Text aus und liefert dessen Lexeme; beide Überladungen neu gesperrt. |
+| `ts_rewrite(tsquery, text)` | Führt eine SQL-Abfrage nach Ersetzungsregeln aus; Name neu gesperrt. Konservativ ist auch die reine Drei-`tsquery`-Überladung gesperrt, entsprechend der bestehenden namensbasierten Policy. |
+| `query_to_xml*` | SQL-Text-Ausführung; durch `query_to_` bereits gesperrt, einschließlich XML-Schema-Varianten. |
+| `table_to_xml*`, `schema_to_xml*`, `database_to_xml*` | Indirekter Zugriff auf Relationsinhalte/-definitionen über Namen bzw. `regclass`; bestehende Präfixsperren bleiben erhalten. |
+| `cursor_to_xml*` | Liest Cursorinhalte/-definitionen; bestehende `cursor_to_`-Sperre bleibt erhalten. |
+| `pg_stat_get_activity`, `pg_stat_get_backend_activity` | Können fremde Sitzungstexte derselben Rolle offenlegen; bereits durch `pg_stat_get_` gesperrt. |
+| `current_query`, `pg_cursor`, `pg_prepared_statement` | Beziehen sich auf die eigene Sitzung; kein zusätzlicher fremder Session-SQL-Pfad. Keine neue Namenssperre. |
+| `to_tsvector`, `to_tsquery`, `plainto_tsquery`, `querytree` | Verarbeiten Textsuchdaten, keinen SQL-Text; bleiben erlaubt. |
+
+Quellen: [SQL/XML-Mapping](https://www.postgresql.org/docs/17/functions-xml.html#FUNCTIONS-XML-MAPPING),
+[Activity-Funktionen](https://www.postgresql.org/docs/17/monitoring-stats.html),
+[Core-Funktionskatalog](https://github.com/postgres/postgres/blob/REL_17_STABLE/src/include/catalog/pg_proc.dat).
+Dies ist ein gezielter Core-Audit, keine Freigabe beliebiger Extensions oder
+benutzerdefinierter Wrapper. Die bestehenden dblink-/Datei-/Contrib-/Custom-Sperren
+aus dem DB-Contract bleiben unverändert.
+
+Tests prüfen `function_denied`, Schemaqualifikation, Groß-/Kleinschreibung,
+gequotete Namen, beide `ts_stat`-Überladungen, Verschachtelung und Abweisung vor
+dem Verbindungsaufbau. Literale, Kommentare, Aliase und harmlose Textfunktionen
+bleiben erlaubt. Gequotete Großbuchstaben bezeichnen in PostgreSQL zwar einen
+anderen Namen; die Policy sperrt diese Schreibweise zusätzlich konservativ.
+DB-Rolle, Ansible-Contract, Grants und DSN-Auswahl werden nicht verändert.
+
 `function_policy.json` ist eine kontrolliert abgeleitete statische Teilmenge des
 Ansible-DB-Contracts: verbotene Namen/Präfixe, geprüfte gesperrte Signaturen,
 Custom Functions und View-Namen. Der Drift-Test berechnet sie aus dem DB-Contract

@@ -42,6 +42,83 @@ def test_select_ast(sql):
 
 
 @pytest.mark.parametrize(
+    "name", ["ts_stat", "pg_catalog.ts_stat", "TS_STAT", '"ts_stat"', 'pg_catalog."TS_STAT"']
+)
+@pytest.mark.parametrize("weights", ["", ", 'ab'"])
+def test_ts_stat_hidden_query_denied(name, weights):
+    sql = (
+        f"SELECT * FROM {name}("
+        "$$SELECT to_tsvector('simple', query) FROM pg_catalog.pg_stat_activity$$"
+        f"{weights})"
+    )
+    with pytest.raises(ConsoleError) as exc:
+        validate_sql(sql)
+    assert exc.value.code == "function_denied"
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT ts_rewrite('a'::tsquery, "
+        "$$SELECT 'a'::tsquery, plainto_tsquery(query) FROM pg_catalog.pg_stat_activity$$)",
+        "SELECT pg_catalog.ts_rewrite('a'::tsquery, 'SELECT a, b FROM private_rules')",
+        "SELECT \"TS_REWRITE\"('a'::tsquery, 'SELECT a, b FROM private_rules')",
+        # The name-based policy intentionally also denies the non-SQL overload.
+        "SELECT ts_rewrite('a'::tsquery, 'a'::tsquery, 'b'::tsquery)",
+        "WITH x AS (SELECT ts_stat('SELECT secret FROM private_data')) SELECT * FROM x",
+        "SELECT (SELECT count(*) FROM pg_catalog.ts_stat(query => 'SELECT secret'))",
+    ],
+)
+def test_nested_dynamic_sql_functions_denied(sql):
+    with pytest.raises(ConsoleError) as exc:
+        validate_sql(sql)
+    assert exc.value.code == "function_denied"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "query_to_xml",
+        "query_to_xmlschema",
+        "query_to_xml_and_xmlschema",
+        "table_to_xml",
+        "table_to_xmlschema",
+        "table_to_xml_and_xmlschema",
+        "schema_to_xml",
+        "schema_to_xmlschema",
+        "schema_to_xml_and_xmlschema",
+        "database_to_xml",
+        "database_to_xmlschema",
+        "database_to_xml_and_xmlschema",
+        "cursor_to_xml",
+        "cursor_to_xmlschema",
+        "pg_stat_get_activity",
+        "pg_stat_get_backend_activity",
+    ],
+)
+def test_existing_dynamic_sql_and_activity_guards(name):
+    # Raw parsing does not resolve signatures; all overloads must stay denied.
+    with pytest.raises(ConsoleError) as exc:
+        validate_sql(f"SELECT pg_catalog.\"{name}\"('hidden SQL')")
+    assert exc.value.code == "function_denied"
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT 'ts_stat', $$ts_stat('SELECT query FROM pg_stat_activity')$$",
+        "SELECT 'ts_rewrite', 'query_to_xml', 'pg_stat_get_activity'",
+        "SELECT 1 AS ts_stat /* ts_stat('hidden SQL') */ -- TS_REWRITE\n",
+        "SELECT to_tsvector('simple', 'text'), plainto_tsquery('simple', 'text')",
+        "SELECT lower('TS_STAT'), length('ts_stat'), COALESCE(NULL, 'text'), COUNT(*)",
+        "SELECT querytree(to_tsquery('simple', 'text')), current_query()",
+    ],
+)
+def test_privacy_guard_preserves_literals_and_safe_functions(sql):
+    validate_sql(sql)
+
+
+@pytest.mark.parametrize(
     "sql",
     [
         "SELECT pg_sleep(10)",
@@ -472,6 +549,30 @@ async def test_misconfigured_identity_never_connects(identity):
         )
         connect.assert_not_called()
     assert messages[-1]["code"] == "unsafe_identity"
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT * FROM ts_stat($$SELECT to_tsvector('simple', query) "
+        "FROM pg_catalog.pg_stat_activity$$)",
+        "SELECT ts_rewrite('a'::tsquery, 'SELECT a, b FROM private_rules')",
+    ],
+)
+async def test_dynamic_sql_rejected_before_connection(sql):
+    send = AsyncMock()
+    with patch("app.sql_console.runtime.asyncpg.connect", AsyncMock()) as connect:
+        await ConsoleRuntime(configured()).execute(
+            Execute(v=1, type="execute", request_id=uuid4(), sql=sql),
+            "admin:fixture",
+            send,
+            AsyncMock(),
+        )
+        connect.assert_not_called()
+    send.assert_awaited_once()
+    response = send.await_args.args[0]
+    assert response["type"] == "error"
+    assert response["code"] == "function_denied"
 
 
 async def test_driver_error_does_not_leak_sql_password_or_repr():
