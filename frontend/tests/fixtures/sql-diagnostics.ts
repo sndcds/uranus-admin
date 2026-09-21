@@ -8,7 +8,7 @@ export const diagnosticDefinition: SqlDiagnosticDefinition = {
   copy_sql:
     "SELECT uuid, point IS NULL AS point_missing FROM uranus.venue WHERE uuid = '00000000-0000-4000-8000-000000000020' LIMIT 50;",
   console_sql:
-    "SELECT uuid, point IS NULL AS point_missing FROM uranus_console.venue WHERE uuid = '00000000-0000-4000-8000-000000000020' LIMIT 50;",
+    "SELECT uuid, point IS NULL AS point_missing FROM uranus.venue WHERE uuid = '00000000-0000-4000-8000-000000000020' LIMIT 50;",
   parameters: { entity_key: '00000000-0000-4000-8000-000000000020', diagnostic_limit: 50 },
   explanation: 'point IS NULL OR ST_IsEmpty(point)',
   columns: ['uuid', 'point_missing'],

@@ -3,14 +3,13 @@ import { ref } from 'vue'
 import SqlWorkspace from '~/components/sql/SqlWorkspace.vue'
 import SqlConsolePanel from '~/components/sql/SqlConsolePanel.vue'
 const connected = ref(false)
-const initialSql =
-  'SELECT\n    uuid,\n    event_uuid,\n    start_date,\n    start_time,\n    end_date,\n    end_time\nFROM uranus_console.event_date\nLIMIT 50;'
+const initialSql = 'SELECT\n    *\nFROM uranus.event\nLIMIT 50;'
 </script>
 <template>
   <div class="space-y-5">
     <PageHeader
       title="SQL Console"
-      description="Interaktive Abfragen auf freigegebenen Uranus-Daten."
+      description="Systemadministratoren können alle Tabellen und Spalten des Uranus-Schemas lesen."
     />
     <section class="card overflow-hidden">
       <SqlWorkspace>
@@ -19,11 +18,15 @@ const initialSql =
           <dl class="mt-4 space-y-4 text-xs">
             <div>
               <dt class="text-slate-500">Datasource</dt>
-              <dd>Uranus Console</dd>
+              <dd>Uranus</dd>
             </div>
             <div>
               <dt class="text-slate-500">Mode</dt>
               <dd>READ ONLY</dd>
+            </div>
+            <div>
+              <dt class="text-slate-500">Scope</dt>
+              <dd>uranus.*</dd>
             </div>
             <div>
               <dt class="text-slate-500">Connection</dt>

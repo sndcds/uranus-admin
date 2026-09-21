@@ -50,8 +50,8 @@ defineExpose({ cancel: session.cancel })
       </p>
       <p>Die ursprüngliche Befundregel wird für diese geänderte Abfrage nicht ausgewertet.</p>
       <p>
-        Startwerte wurden serverseitig eingesetzt. Zugriff ausschließlich auf freigegebene
-        Console-Views.
+        Startwerte wurden serverseitig eingesetzt. Alle Tabellen und Spalten in uranus.* sind für
+        Systemadministratoren lesbar, einschließlich sensibler Werte.
       </p>
       <button v-if="changed" class="button mt-2" :disabled="busy" @click="rawSql = original">
         Original wiederherstellen
@@ -60,7 +60,7 @@ defineExpose({ cancel: session.cancel })
     <SqlQueryPanel
       :sql="rawSql"
       :copy-sql="rawSql"
-      description="Uranus Console · READ ONLY · Ctrl/Cmd + Enter ausführen · Shift + Alt + F formatieren"
+      description="Uranus · uranus.* · READ ONLY · Ctrl/Cmd + Enter ausführen · Shift + Alt + F formatieren"
       :parameters="parameters"
       executable
       :running="busy"

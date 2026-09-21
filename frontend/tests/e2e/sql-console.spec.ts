@@ -57,6 +57,11 @@ test('console: same-origin relay, formatting, results, error, cancel and screens
     })
   }
   await page.goto('/sql')
+  await expect(page.locator('.sql-workspace dd').filter({ hasText: /^Uranus$/ })).toHaveCount(1)
+  await expect(page.getByText('uranus.*', { exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'SQL-Abfrage bearbeiten' })).toContainText(
+    'FROM uranus.event',
+  )
   await expect(page.getByRole('textbox', { name: 'SQL-Abfrage bearbeiten' })).toBeVisible()
   await expect(page.locator('.cm-line').first()).toHaveText('SELECT')
   await expect(page.locator('.token.keyword').first()).toHaveText('SELECT')
@@ -73,14 +78,14 @@ test('console: same-origin relay, formatting, results, error, cancel and screens
   await screenshot('sql-console.png')
   await replaceSql(
     page,
-    'SELECT uuid,event_uuid,start_date FROM uranus_console.event_date WHERE uuid=:entity_key LIMIT 50',
+    'SELECT uuid,event_uuid,start_date FROM uranus.event_date WHERE uuid=:entity_key LIMIT 50',
   )
   await page.getByRole('button', { name: 'SQL formatieren', exact: true }).click()
   await expect(page.locator('.cm-line').first()).toHaveText('SELECT')
   await expect(page.locator('.cm-line').nth(1)).toHaveText('    uuid,')
   await replaceSql(
     page,
-    'SELECT uuid,event_uuid,start_date,start_time,end_date,end_time FROM uranus_console.event_date LIMIT 50;',
+    'SELECT uuid,event_uuid,start_date,start_time,end_date,end_time FROM uranus.event_date LIMIT 50;',
   )
   await page.getByRole('button', { name: 'SQL formatieren', exact: true }).click()
   await page.getByRole('button', { name: 'Abfrage ausführen', exact: true }).click()
@@ -117,7 +122,7 @@ test('finding: readonly/editable parity and Escape cancels before closing', asyn
 }, info) => {
   const finding = { ...findings.items[0]!, sql_diagnostic_available: true }
   const sql =
-    "SELECT :entity_key, 123.45, 'text'::text, COUNT(*), ST_X(point), COALESCE(title, 'x')\nFROM uranus_console.event AS e\nLEFT JOIN uranus_console.event_date AS d ON e.uuid = d.event_uuid\nWHERE e.uuid IS NOT NULL AND TRUE OR FALSE\n-- comment\n/* comment */"
+    "SELECT :entity_key, 123.45, 'text'::text, COUNT(*), ST_X(point), COALESCE(title, 'x')\nFROM uranus.event AS e\nLEFT JOIN uranus.event_date AS d ON e.uuid = d.event_uuid\nWHERE e.uuid IS NOT NULL AND TRUE OR FALSE\n-- comment\n/* comment */"
   await page.route('**/api/admin/api/v1/findings**', (route) =>
     route.fulfill({
       json: route.request().url().includes('sql-diagnostic')
