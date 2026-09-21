@@ -19,9 +19,9 @@ from pathlib import Path
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
-from test_deployment import ROLE
+from test_deployment import ROLE, nginx_defaults
 
-DEFAULTS = yaml.safe_load((ROLE / "defaults/main.yml").read_text())
+DEFAULTS = nginx_defaults()
 TEMPLATES = Environment(loader=FileSystemLoader(ROLE / "templates"), undefined=StrictUndefined)
 
 

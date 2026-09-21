@@ -86,6 +86,7 @@ class StaticRecoveryBoundaries(unittest.TestCase):
             "ansible.builtin.copy",
             "ansible.builtin.file",
             "ansible.builtin.systemd_service",
+            "ansible.builtin.service_facts",
             "ansible.builtin.command",
             "ansible.builtin.fail",
             "ansible.builtin.import_tasks",
@@ -102,6 +103,8 @@ class StaticRecoveryBoundaries(unittest.TestCase):
             "rescue",
             "always",
             "ignore_errors",
+            "register",
+            "failed_when",
         }
 
         def audit(tasks, in_rescue=False):
@@ -173,7 +176,10 @@ class ActivationIntegrationTests(unittest.TestCase):
         maintenance_responses=None,
         console_archive=False,
         operator_changed=False,
+        bootstrap=False,
+        bootstrap_environment="test",
     ):
+        first_adoption = first_adoption or bootstrap
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             role = root / "roles/uranus_admin"
@@ -184,13 +190,24 @@ class ActivationIntegrationTests(unittest.TestCase):
             replacements = {
                 "/etc/systemd": str(root / "etc/systemd"),
                 "/etc/nginx": str(root / "etc/nginx"),
+                "/etc/uranus-admin": str(root / "config"),
+                "/var/log/nginx": str(root / "var/log/nginx"),
+                "/run/systemd": str(root / "run/systemd"),
+                "/usr/lib/systemd": str(root / "usr/lib/systemd"),
             }
+            infrastructure_module = role / "library/uranus_infrastructure.py"
+            module_text = infrastructure_module.read_text().replace(
+                "OWNER = 0", f"OWNER = {os.getuid()}"
+            )
+            for old, new in replacements.items():
+                module_text = module_text.replace(old, new)
+            infrastructure_module.write_text(module_text)
             for path in role.rglob("*.yml"):
                 text = path.read_text()
                 for old, new in replacements.items():
                     text = text.replace(old, new)
                 # Match root ownership checks to the unprivileged fixture owner.
-                if path.name in ("deploy.yml", "prepare_activation.yml"):
+                if path.name in ("deploy.yml", "file_plan.yml", "prepare_activation.yml"):
                     text = text.replace(".stat.uid != 0", f".stat.uid != {os.getuid()}")
                     text = text.replace(".stat.gid != 0", f".stat.gid != {os.getgid()}")
                 if path.name == "maintenance_inspect.yml":
@@ -255,6 +272,13 @@ class ActivationIntegrationTests(unittest.TestCase):
                 ):
                     path.unlink()
                     originals[str(path)] = None
+            if bootstrap:
+                for path in files[:5]:
+                    path.unlink(missing_ok=True)
+                    originals[str(path)] = None
+                default_site = root / "etc/nginx/sites-enabled/default"
+                default_site.parent.mkdir(parents=True, exist_ok=True)
+                default_site.write_text("unrelated default site\n")
 
             operator_values = {"ADMIN_MIGRATION_DATABASE_URL": "existing-operator-fixture"}
             console_values = {**operator_values, "SQL_CONSOLE_DATABASE_URL": "console-fixture"}
@@ -286,6 +310,9 @@ class ActivationIntegrationTests(unittest.TestCase):
                 for name in NOTIFICATION:
                     services[name]["active"] = False
                 services[NOTIFICATION[1]]["unit_file_state"] = "disabled"
+            if bootstrap:
+                for name in APP_SERVICES:
+                    services.pop(name)
             state = {
                 "services": services,
                 "events": [],
@@ -298,10 +325,15 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "maintenance_responses": maintenance_responses or [],
                 "config_dir": str(config),
                 "current": str(release_root / "current"),
+                "unit_dir": str(root / "etc/systemd/system"),
+                "app_units": APP_SERVICES,
             }
             initial_services = copy.deepcopy(services)
             state_path = root / "state.json"
             state_path.write_text(json.dumps(state))
+            if bootstrap:
+                # Exercise first creation of the private config/recovery directory too.
+                config.rmdir()
             variables = {
                 "ansible_remote_tmp": str(root / "remote-tmp"),
                 "ansible_python_interpreter": sys.executable,
@@ -315,6 +347,10 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "ua_legacy_root": str(legacy),
                 "ua_services": APP_SERVICES,
                 "ua_action": "deploy",
+                "ua_target_environment": bootstrap_environment if bootstrap else "production",
+                "ua_public_origin": "https://fixture.example.invalid"
+                if bootstrap
+                else "https://admin.kulturbytes.de",
                 "ua_manage_notification_timer": manage,
                 "ua_disable_notification_timer_approved": approved,
                 "ua_runtime": {"APP_ENV": "production", "NOTIFICATIONS_DELIVERY_ENABLED": "false"},
@@ -379,6 +415,51 @@ class ActivationIntegrationTests(unittest.TestCase):
             )
             observed = json.loads(state_path.read_text())
             output = result.stdout + result.stderr
+            if bootstrap:
+                self.assertEqual(default_site.read_text(), "unrelated default site\n")
+                if check:
+                    self.assertFalse(config.exists(), output)
+                else:
+                    self.assertEqual(config.stat().st_mode & 0o777, 0o700, output)
+                managed = [
+                    *files[:5],
+                    root / "etc/nginx/conf.d/uranus-admin-ratelimit.conf",
+                    config / "managed-infrastructure.json",
+                ]
+                link = root / "etc/nginx/sites-enabled/uranus-admin"
+                if check or fail_task:
+                    self.assertEqual(result.returncode == 0, check, output)
+                    if check:
+                        self.assertIn("would_create_nginx_site_symlink", output)
+                        self.assertIn("would_install_units", output)
+                    else:
+                        self.assertIn("SYSTEM ROLLBACK completed", output)
+                    self.assertTrue(all(not p.exists() for p in managed), output)
+                    self.assertFalse(link.is_symlink(), output)
+                    self.assertEqual(observed["services"], initial_services, output)
+                    self.assertFalse((release_root / "current").is_symlink(), output)
+                else:
+                    self.assertEqual(result.returncode, 0, output)
+                    self.assertTrue(all(p.is_file() for p in managed), output)
+                    self.assertEqual(link.resolve(), files[3])
+                    self.assertTrue(
+                        all(observed["services"][name]["active"] for name in APP_SERVICES)
+                    )
+                    self.assertEqual((release_root / "current").resolve(), release)
+                    repeated = subprocess.run(
+                        result.args,
+                        env={
+                            **os.environ,
+                            "ANSIBLE_CONFIG": str(root / "ansible.cfg"),
+                            "ANSIBLE_LOCAL_TEMP": str(root / "tmp"),
+                        },
+                        capture_output=True,
+                        text=True,
+                        timeout=240,
+                    )
+                    self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
+                    self.assertRegex(repeated.stdout, r"changed=0\s")
+                return observed
             if operator_changed:
                 self.assertNotEqual(result.returncode, 0, output)
                 self.assertEqual(
@@ -564,6 +645,7 @@ class ActivationIntegrationTests(unittest.TestCase):
         for task in tasks:
             for name, kind in (
                 ("ansible.builtin.systemd_service", "systemd"),
+                ("ansible.builtin.service_facts", "service_facts"),
                 ("ansible.builtin.command", "command"),
                 ("ansible.builtin.uri", "uri"),
                 ("ansible.builtin.wait_for", "wait_for"),
@@ -718,6 +800,21 @@ class ActivationIntegrationTests(unittest.TestCase):
 
     def test_check_mode_does_not_activate_maintenance(self):
         self.run_activation(check=True)
+
+    def test_bootstrap_check_mode_creates_nothing(self):
+        self.run_activation(bootstrap=True, check=True)
+
+    def test_bootstrap_apply_and_second_apply_changed_zero(self):
+        self.run_activation(bootstrap=True)
+
+    def test_staging_bootstrap_apply_and_second_apply_changed_zero(self):
+        self.run_activation(bootstrap=True, bootstrap_environment="staging")
+
+    def test_bootstrap_failure_removes_new_files_link_and_services(self):
+        self.run_activation("Check backend liveness and database readiness", bootstrap=True)
+
+    def test_bootstrap_failure_before_daemon_reload_removes_new_units(self):
+        self.run_activation("After configuration installation", bootstrap=True)
 
 
 if __name__ == "__main__":
