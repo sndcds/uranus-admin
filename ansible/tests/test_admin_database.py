@@ -102,6 +102,35 @@ class AdminBootstrapContractTests(unittest.TestCase):
                     if stage != "postgres_connect":
                         conn.close.assert_called_once()
 
+    def test_fixture_cleans_created_database_when_connect_fails(self):
+        case = AdminBootstrapDatabaseTests("test_absent_plan_read_only_and_no_approval")
+        case.parent = MagicMock()
+        url = "postgresql://postgres:synthetic%40password@127.0.0.1:5432/fixture_test"
+        with (
+            patch.dict(globals(), TEST_URL=url),
+            patch.object(psycopg2, "connect", side_effect=psycopg2.OperationalError) as connect,
+        ):
+            with self.assertRaises(psycopg2.OperationalError):
+                case.setUp()
+            connect.assert_called_once_with(url, dbname="uranus_admin_first_install_test")
+            self.assertTrue(case.doCleanups())
+        calls = case.parent.cursor.return_value.__enter__.return_value.execute.call_args_list
+        self.assertIn("CREATE DATABASE", str(calls[0]))
+        self.assertIn("DROP DATABASE", str(calls[1]))
+        self.assertIn("uranus_admin_first_install_test", str(calls[1]))
+        self.assertFalse(case._cleanups)
+
+    def test_fixture_never_cleans_database_it_did_not_create(self):
+        case = AdminBootstrapDatabaseTests("test_absent_plan_read_only_and_no_approval")
+        case.parent = MagicMock()
+        execute = case.parent.cursor.return_value.__enter__.return_value.execute
+        execute.side_effect = psycopg2.errors.DuplicateDatabase
+        with self.assertRaises(psycopg2.errors.DuplicateDatabase):
+            case.setUp()
+        self.assertTrue(case.doCleanups())
+        execute.assert_called_once()
+        self.assertIn("CREATE DATABASE", str(execute.call_args))
+
     def test_only_missing_role_console_dependencies_are_deferred(self):
         plan = {
             "state": "ABSENT",
@@ -206,10 +235,12 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
                     sql.Identifier(self.database)
                 )
             )
-        args = self.parent.get_dsn_parameters()
-        args["dbname"] = self.database
-        self.conn = psycopg2.connect(**args)
+        self.conn = None
+        # Register immediately after CREATE: setUp failures do not call tearDown.
         self.addCleanup(self.cleanup)
+        # get_dsn_parameters() deliberately omits the password. Preserve the validated
+        # test URL, overriding only the name of the database this fixture just created.
+        self.conn = psycopg2.connect(TEST_URL, dbname=self.database)
         self.boundary = admin_db.AdminDatabase(self.conn, self.manifest, BOUNDARY)
         self.execute("CREATE EXTENSION postgis")
         self.execute("CREATE SCHEMA uranus")
@@ -230,7 +261,8 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
         }
 
     def cleanup(self):
-        self.conn.close()
+        if self.conn is not None:
+            self.conn.close()
         with self.parent.cursor() as cur:
             cur.execute(
                 sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(self.database))
@@ -475,9 +507,14 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
             code = (ROLE / "library/uranus_admin_database.py").read_text()
             start = code.index("        conn = psycopg2.connect(", code.index("def main():"))
             end = code.index("        conn.set_session", start)
-            args = self.parent.get_dsn_parameters()
-            args["dbname"] = self.database
-            code = code[:start] + f"        conn = psycopg2.connect(**{args!r})\n" + code[end:]
+            # Credentials remain in the inherited test environment, not generated code.
+            code = (
+                code[:start]
+                + "        from os import environ\n"
+                + "        conn = psycopg2.connect(environ['ANSIBLE_TEST_DATABASE_URL'], "
+                + f"dbname={self.database!r})\n"
+                + code[end:]
+            )
             code = code.replace(
                 'Path("/var/lib/uranus-admin/releases")', f"Path({str(self.root)!r})"
             )
