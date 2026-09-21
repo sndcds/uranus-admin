@@ -14,11 +14,20 @@ dependencies = [
   "argon2-cffi>=25.1,<26",
   "httpx>=0.28,<0.29",
   "httpcore>=1.0.9,<1.1",
+  "pglast>=7,<8",
+  "websockets>=15,<17",
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.3,<10", "pytest-asyncio>=0.25,<2", "httpx>=0.28,<1",
-       "ruff>=0.9,<1", "mypy>=1.14,<2"]
+dev = [
+    "pytest>=8.3,<10",
+    "pytest-asyncio>=0.25,<2",
+    "httpx>=0.28,<1",
+    "ruff>=0.9,<1",
+    "mypy>=1.14,<2",
+    "psycopg2-binary==2.9.11",
+    "ansible-core==2.20.7rc1",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

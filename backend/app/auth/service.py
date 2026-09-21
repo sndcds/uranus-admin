@@ -17,6 +17,7 @@ from sqlalchemy import case, delete, exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+from starlette.requests import HTTPConnection
 
 from app.admin_database import assert_admin_boundary
 from app.admin_tables import auth_account, auth_login_bucket, auth_session, auth_system_admin
@@ -55,7 +56,7 @@ def require_origin(request: Request, settings: Settings) -> None:
 
 
 @asynccontextmanager
-async def storage(request: Request) -> AsyncIterator[AsyncConnection]:
+async def storage(request: HTTPConnection) -> AsyncIterator[AsyncConnection]:
     engine: AsyncEngine | None = getattr(request.app.state, "admin_engine", None)
     if engine is None:
         raise APIError(503, "admin_auth_unconfigured", "Administrator storage is not configured.")
@@ -202,7 +203,9 @@ async def login(
         return token, AdminPrincipal(subject=f"admin:{row['id']}", system_admin=granted)
 
 
-async def session_identity(request: Request, settings: Settings, token: str) -> AdminPrincipal:
+async def session_identity(
+    request: HTTPConnection, settings: Settings, token: str
+) -> AdminPrincipal:
     if not re.fullmatch(r"[A-Za-z0-9_-]{43}", token):
         raise invalid()
     now = datetime.now(UTC)

@@ -32,6 +32,7 @@ class SqlDiagnosticDefinition(BaseModel):
     readonly: Literal[True] = True
     sql: str
     copy_sql: str
+    console_sql: str | None = None
     parameters: dict[str, JsonValue]
     explanation: str
     columns: list[str]

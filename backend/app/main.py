@@ -26,6 +26,7 @@ from app.api import (
     notifications,
     quality,
     queues,
+    sql_console,
     sql_diagnostics,
     sql_provenance,
     statistics,
@@ -44,6 +45,7 @@ from app.errors import (
     validation_error_handler,
 )
 from app.logging import RequestLoggingMiddleware, configure_logging
+from app.sql_console.runtime import ConsoleRuntime
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -60,9 +62,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         application.state.engine = engine
         admin_engine = create_admin_engine(settings)
         application.state.admin_engine = admin_engine
+        application.state.sql_console = ConsoleRuntime(settings)
         try:
             yield
         finally:
+            await application.state.sql_console.close()
             await engine.dispose()
             if admin_engine is not None:
                 await admin_engine.dispose()
@@ -103,6 +107,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     application.include_router(health.router)
     application.include_router(auth_router)
+    # WebSocket uses cookie-only authorization, including exact Origin, in its handshake.
+    application.include_router(sql_console.router)
     admin = APIRouter(
         prefix="/api/v1",
         dependencies=[Depends(get_current_admin)],
