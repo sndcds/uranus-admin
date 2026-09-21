@@ -1,6 +1,7 @@
 # Vorsichtiges Deployment für admin.kulturbytes.de
 
-Diese Rolle übernimmt die **bereits vorhandene** Installation auf `webserver`.
+Diese Rolle unterstützt **Production-Adoption** und **Staging-/Test-Bootstrap** auf
+Zielsystemen, die den technischen Deployment-Vertrag erfüllen.
 Sie ist kein Datenbank-Bootstrap und kein allgemeines Server-Provisioning.
 Der bestehende Source/Admin-Preflight bleibt **READ ONLY**; es gibt keine
 Admin-Migration und keinen Datenbank-Restore. Ein eigener, zusätzlich freigegebener
@@ -15,6 +16,107 @@ Die Implementierung darf lokal geprüft werden. Ein produktiver Check Mode benö
 eine gesonderte Freigabe; ein Echtlauf zusätzlich die ausdrückliche Bestätigung
 `Ja, führe das Deployment jetzt aus.` nach Prüfung seines Dry Runs.
 Diese Rolle erteilt diese Freigaben nicht selbst. `mach weiter` genügt nicht.
+
+## Zielumgebung und Hostidentität
+
+`ua_target_environment` bezeichnet das logische Zielumfeld: `production` (Default),
+`staging` oder `test`. Andere Werte, leere Werte und `null` werden abgelehnt.
+Der Hostname ist kein Sicherheitsanker: Inventory- und Systemhostname erscheinen
+nur diagnostisch im Report und müssen weder einem festen Namen entsprechen noch
+untereinander übereinstimmen. Ist der Systemhostname nicht lesbar, meldet die
+Diagnose `unavailable`; alle technischen Prüfungen laufen weiterhin.
+
+LXD-, Staging- und Testziele mit beliebigen Hostnamen können damit geprüft werden.
+Auch sie müssen Ubuntu 24.04, systemd 255, den geprüften PostgreSQL-/PostGIS-Stand,
+lokale Pfade, Socket/Port und die Datenbank-/Rollenverträge erfüllen. Nginx muss
+installiert, gültig konfiguriert und gestartet sein. Betriebssystempakete,
+PostgreSQL-Cluster, Uranus-Schemas/-Daten und Admin-Migrationen werden nicht angelegt
+oder ausgeführt. Der Service-/Build-User `oklab` muss bereits existieren.
+
+Alle drei Umgebungen verwenden dieselben Preflight- und Apply-Gates. Ein Echtlauf
+benötigt weiterhin die exakte Apply-Bestätigung, geprüften Dry Run, Wartungsfenster,
+Backup-Referenz und Secret-Adoption-Freigabe sowie gegebenenfalls separate Console-
+und Notification-Freigaben. `test` und `staging` überspringen keine Sicherheitsprüfung;
+Tags, Skip-Tags und `--start-at-task` bleiben verboten. Der Controller-Callback in
+`ansible.cfg` verweigert selektive Ausführung vor der ersten Aufgabe, damit auch
+der Input-Guard nicht übersprungen werden kann. Ein Target-Marker ist nicht nötig.
+Das [Beispielinventory](inventory.example.yml) zeigt die Environment-Konfiguration;
+SSH-Ziel und Hostschlüssel müssen für das tatsächliche Ziel eingerichtet werden.
+
+## Adoption und verwalteter Bootstrap
+
+**Production: adopt existing installation.** Die vorhandene Nginx-Site, ihr korrekter
+Symlink, die exakten Rate-Zonen und die drei App-Services sind Voraussetzungen.
+Fehlende Baseline-Objekte bleiben Blocker; Production erhält keinen Bootstrap-Pfad.
+Der bestehende Ablauf inklusive Maintenance vor Service-Unterbrechung bleibt erhalten.
+
+**Staging/Test: bootstrap managed Uranus Admin application infrastructure.** Fehlende
+App-Units (`backend`, `check-worker`, `frontend`), die eigene Nginx-Site samt Symlink,
+Rate-Zonen und benötigte verwaltete Verzeichnisse dürfen nach erfolgreichen Prüfungen
+angelegt werden. Alle DB-Guards und Apply-Freigaben gelten weiterhin. Das ist kein
+allgemeines Server-Provisioning. Eine fremde Default-Site wird weder entfernt noch
+umgeschrieben; konkurrierende Servernamen und ungültige Gesamt-Nginx-Konfigurationen
+blockieren vor einem Reload.
+
+Vorhandene Objekte müssen passen: falsche Symlinks, Dateien statt Links, Verzeichnisse
+statt Konfigurationsdateien, abweichende Rate-Zonen, fremde Unit-/Site-Inhalte und
+Systemd-Drop-ins bleiben Blocker. Ohne bisherigen Verwaltungsnachweis werden nur
+exakt zum gewünschten Template passende Dateien mit `root:root 0644` übernommen.
+Die Rolle speichert danach SHA256-Hashes der sechs nicht geheimen Infrastrukturdateien
+in `/etc/uranus-admin/managed-infrastructure.json` (`root:root 0600`). Folge-Releases
+dürfen diese Dateien aktualisieren, solange ihr Istzustand zum letzten Nachweis passt.
+Ungeprüfte manuelle Änderungen werden abgelehnt. Der Nachweis enthält keine Secrets
+und wird zusammen mit den betroffenen Dateien in die System-Recovery aufgenommen.
+
+Ein neuer Test-/Staging-Host braucht eine ausdrücklich vorbereitete Secret-Quelle:
+entweder `/etc/uranus-admin/runtime.env` (`root:root 0600`) mit den bestehenden
+dedizierten lokalen DSNs oder die bisher unterstützte Legacy-Backend-`.env`.
+Eine Legacy-Datei ist bei vorhandenem geschütztem Runtime-Environment außerhalb
+von Production nicht erforderlich. Privilegierte Einträge bleiben ausschließlich
+im geschützten Operator-Archiv; Zugangsdaten werden nicht erzeugt oder aus anderen
+Rollen abgeleitet. Ohne passende DB-Basis und Secrets wird nicht gebootstrappt.
+
+Die öffentliche HTTPS-Origin wird explizit mit `ua_public_origin` angegeben. Für
+Production bleiben Origin und Zertifikatspfade unverändert. Staging/Test müssen
+eine andere Origin wählen; Auth-Origin, Nginx-Vhost und Healthchecks verwenden
+denselben Wert. DNS/Routing und ein vertrauenswürdiges TLS-Zertifikat sind
+Voraussetzungen; TLS-Verifikation wird auch im Test nicht abgeschaltet.
+
+```yaml
+all:
+  children:
+    uranus_admin:
+      hosts:
+        my-lxd-target:
+          ansible_host: 10.220.0.169
+          ansible_user: awendelk
+          ua_target_environment: test # oder staging
+          ua_public_origin: https://admin-test.example.org
+          # Defaults liegen unter /etc/letsencrypt/live/<Origin-Hostname>/.
+          ua_tls_certificate: /etc/uranus-admin-tls/fullchain.pem
+          ua_tls_certificate_key: /etc/uranus-admin-tls/privkey.pem
+          ua_release_sha: REPLACE_WITH_FULL_COMMIT_SHA
+          ua_artifact: /absolute/controller/path/release.tar.gz
+          ua_artifact_sha256: REPLACE_WITH_SHA256
+```
+
+`--check --diff` meldet `would_create_files`, `would_create_nginx_site_symlink`,
+`would_install_units` und `would_create_directories`, ohne sie anzulegen oder
+Secret-Diffs auszugeben. Fehlende Production-Baseline-Objekte brechen weiterhin ab.
+
+Beim ersten Bootstrap ohne vorhandene App-Services wird der Maintenance-Marker
+vor der öffentlichen Aktivierung vorbereitet. Nach Build und Recovery-Snapshot
+werden Units, Rate-Zonen, Site und Symlink installiert, Units und die vollständige
+Nginx-Konfiguration validiert, Systemd neu geladen und die Apps gestartet.
+Erst nach Nginx-Reload und erfolgreichen Healthchecks wird `current` veröffentlicht.
+Bei Teil-Bootstrap mit vorhandenen Services bleibt die öffentliche Maintenance-
+Prüfung vor dem Stoppen dieser Services erforderlich.
+
+Recovery stoppt und deaktiviert neu installierte Services, entfernt vorher fehlende
+Konfigurationsdateien und den neu angelegten Site-Link, lädt Systemd neu und stellt
+vorhandene Dateien inklusive Owner/Mode sowie vorherige Service-Zustände wieder her.
+Release-/Build-Verzeichnisse und geschützte Recovery-Belege bleiben zur Diagnose
+erhalten; fremde Inhalte werden nicht rekursiv gelöscht. Es gibt keinen DB-Rollback.
 
 ## Berücksichtigter Befund
 
@@ -1003,6 +1105,20 @@ lokale/CI-Validierung, kein Deployment-Workflow und besitzt keine Production-Cre
 uv run --no-project --python 3.13 --with-requirements ansible/requirements-test.txt python -m unittest discover -s ansible/tests -v
 uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-playbook -i ansible/inventory.example.yml ansible/deploy.yml --syntax-check
 ```
+
+Die Target-Contract-Tests führen die echten Input-Tasks mit synthetischen Artefakten
+und beliebigen lokalen Inventory-Aliasen aus. Sie prüfen alle drei Umgebungen,
+ungültige Environment-Werte, Pfad-/Socket-/Port-/Maintenance-Grenzen, Tags/Skip-Tags
+und die unveränderten Apply-, Console- und Notification-Freigaben. Die Hostdiagnose
+wird ohne OS-/Service-Änderungen ausgeführt; das ist kein vollständiger LXD-Deploytest.
+
+Bootstrap-Tests verwenden echte Ansible-Dateioperationen in temporären Verzeichnissen:
+Check Mode ohne Änderungen, Test-/Staging-Apply, zweiter Apply mit `changed=0` und
+Recovery vor und nach dem Service-Start. Systemd und HTTP werden dabei synthetisch
+abgebildet; separate lokale Nginx-Tests prüfen echte Syntax und HTTPS-Maintenance.
+Konflikttests decken Dateien, Symlinks, Rate-Zonen, Verwaltungsnachweise und Drop-ins
+ab. Eine vorbereitete private `runtime.env` ohne Legacy-Datei wird ebenfalls geprüft;
+Production verlangt weiterhin die bestehende Legacy-Adoption.
 
 Die Toolchain-Tests verwenden ausschließlich synthetische lokale Archive und ein
 lokales Ansible-Check-Mode-Szenario; CI lädt keine realen Toolchain-Artefakte herunter.
