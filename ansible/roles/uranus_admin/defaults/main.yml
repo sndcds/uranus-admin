@@ -1,5 +1,11 @@
 ua_action: inspect
-ua_expected_hostname: webserver
+# Logical environment only; all targets require the same safety gates.
+ua_target_environment: production
+# Bootstrap targets must explicitly select their own HTTPS origin and trusted certificate.
+ua_public_origin: https://admin.kulturbytes.de
+ua_nginx_server_name: "{{ ua_public_origin | urlsplit('hostname') }}"
+ua_tls_certificate: "/etc/letsencrypt/live/{{ ua_nginx_server_name }}/fullchain.pem"
+ua_tls_certificate_key: "/etc/letsencrypt/live/{{ ua_nginx_server_name }}/privkey.pem"
 ua_release_sha: ""
 ua_artifact: ""
 ua_artifact_sha256: ""

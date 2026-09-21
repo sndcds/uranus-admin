@@ -9,12 +9,31 @@
     mode: "0644"
   when: ua_maintenance_attempted | bool
 
+- name: Inspect services installed during bootstrap before recovery
+  ansible.builtin.service_facts:
+  register: ua_recovery_service_facts
+  when: ua_target_environment in ['staging', 'test']
+
 - name: Stop affected application services before restoring their configuration
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     state: stopped
   loop: "{{ ua_restart_services }}"
-  when: ua_services_stop_attempted | bool
+  when: ua_services_stop_attempted | bool and (ua_previous_services[item].exists or item in ua_recovery_service_facts.ansible_facts.services)
+
+- name: Disable newly installed services before removing their units
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop: "{{ ua_restart_services }}"
+  when: not ua_previous_services[item].exists and item in ua_recovery_service_facts.ansible_facts.services
+
+- name: Remove only the site link absent before bootstrap
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/uranus-admin
+    state: absent
+  when: ua_target_environment in ['staging', 'test'] and ua_infrastructure.would_create_symlink and ua_install_attempted
 
 - name: Restore previous managed file contents and permissions
   ansible.builtin.copy:
@@ -69,6 +88,8 @@
 
 - name: Verify restored nginx configuration before any reload
   ansible.builtin.command: /usr/sbin/nginx -t
+  register: ua_nginx_validation
+  failed_when: ua_nginx_validation.rc != 0 or 'conflicting server name' in (ua_nginx_validation.stderr | default(''))
   changed_when: false
   no_log: true
 
@@ -78,7 +99,7 @@
     state: "{{ 'started' if ua_previous_services[item].active else 'stopped' }}"
     enabled: "{{ ua_previous_services[item].enabled }}"
   loop: "{{ ua_restart_services }}"
-  when: ua_services_stop_attempted | bool
+  when: ua_services_stop_attempted | bool and ua_previous_services[item].exists
 
 - name: Restore the managed notification service and timer to their previous states
   ansible.builtin.systemd_service:

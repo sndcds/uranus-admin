@@ -1,0 +1,10 @@
+- name: Enable only the previously absent managed Nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/uranus-admin
+    dest: /etc/nginx/sites-enabled/uranus-admin
+    state: link
+    follow: false
+    force: false
+    owner: root
+    group: root
+  when: ua_target_environment in ['staging', 'test'] and ua_infrastructure.would_create_symlink

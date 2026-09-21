@@ -17,6 +17,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import urlsplit
 
 import yaml
 from ansible.errors import AnsibleFilterError
@@ -36,6 +37,18 @@ def load(name, path):
 
 filters = load("deployment_filters", ANSIBLE / "filter_plugins/uranus_admin.py")
 packager = load("packager", ANSIBLE / "scripts/package_release.py")
+
+
+def nginx_defaults():
+    """Resolve the nested Ansible defaults for tests using plain Jinja rather than Ansible."""
+    values = yaml.safe_load((ROLE / "defaults/main.yml").read_text())
+    name = urlsplit(values["ua_public_origin"]).hostname
+    values.update(
+        ua_nginx_server_name=name,
+        ua_tls_certificate=f"/etc/letsencrypt/live/{name}/fullchain.pem",
+        ua_tls_certificate_key=f"/etc/letsencrypt/live/{name}/privkey.pem",
+    )
+    return values
 
 
 class EnvironmentTests(unittest.TestCase):
@@ -653,9 +666,7 @@ class DeploymentBoundaryTests(unittest.TestCase):
                 check=True,
                 capture_output=True,
             )
-            site = env.get_template("nginx-site.conf.j2").render(
-                yaml.safe_load((ROLE / "defaults/main.yml").read_text())
-            )
+            site = env.get_template("nginx-site.conf.j2").render(nginx_defaults())
             for old, new in {
                 "listen 80;": "listen 127.0.0.1:18080;",
                 "listen [::]:80;": "",

@@ -2,12 +2,15 @@ all:
   children:
     uranus_admin:
       hosts:
-        webserver:
-          ansible_host: webserver
+        admin-production:
+          ansible_host: admin-production.example.invalid
           ansible_user: awendelk
           ansible_port: 22
           # Keep strict host key verification; use your existing verified SSH alias.
-          ua_expected_hostname: webserver
+          # Logical deployment environment, not a hostname allowlist.
+          # Allowed: production, staging, test.
+          ua_target_environment: production
+          # Staging/test require their own HTTPS ua_public_origin; see README.
           ua_release_sha: "REPLACE_WITH_FULL_COMMIT_SHA"
           ua_artifact: "/absolute/controller/path/release.tar.gz"
           ua_artifact_sha256: "REPLACE_WITH_SHA256"

@@ -32,7 +32,14 @@ class ActionModule(ActionBase):
         result = {"changed": False}
         if kind == "command" and args.get("argv", [""])[0] == "systemctl":
             unit = args["argv"][2]
-            previous = state["services"][unit]
+            previous = state["services"].get(unit)
+            if previous is None:
+                result.update(
+                    rc=4, stdout="LoadState=not-found\nActiveState=inactive\nUnitFileState="
+                )
+                state["events"].append(event)
+                path.write_text(json.dumps(state))
+                return result
             result["stdout"] = (
                 "LoadState=loaded\nActiveState="
                 + ("active" if previous["active"] else "inactive")
@@ -48,11 +55,26 @@ class ActionModule(ActionBase):
             and state["maintenance_responses"]
         ):
             result.update(failed=True, msg="Injected local fixture failure", status=502, rc=1)
+        elif kind == "service_facts":
+            result["ansible_facts"] = {
+                "services": {
+                    name: {"state": "running" if values["active"] else "stopped"}
+                    for name, values in state["services"].items()
+                }
+            }
         elif kind == "systemd":
             manifests = list(Path(state["config_dir"]).glob("recovery/*/attempt-*/manifest.json"))
             if not manifests:
                 return {"failed": True, "msg": "Service mutation before recovery preparation"}
             event["snapshot_prepared"] = True
+            if args.get("daemon_reload"):
+                for unit in state.get("app_units", []):
+                    if (Path(state["unit_dir"]) / unit).is_file():
+                        state["services"].setdefault(
+                            unit, {"active": False, "unit_file_state": "disabled"}
+                        )
+                    elif unit in state["services"] and not state["services"][unit]["active"]:
+                        state["services"].pop(unit)
             if not any(e["kind"] == "systemd" for e in state["events"]):
                 metadata = json.loads(manifests[-1].read_text())
                 for entry in metadata["files"]:
@@ -70,7 +92,8 @@ class ActionModule(ActionBase):
                 event.update(unit=unit, state=args.get("state"), enabled=args.get("enabled"))
                 if unit == "nginx.service" and args.get("state") == "reloaded":
                     capable = (
-                        "error_page 503 =503 /__maintenance.html;"
+                        Path(state["nginx_site"]).is_file()
+                        and "error_page 503 =503 /__maintenance.html;"
                         in Path(state["nginx_site"]).read_text()
                     )
                     if name == "Reload nginx for maintenance activation":

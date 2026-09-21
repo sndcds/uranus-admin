@@ -60,7 +60,17 @@ def render_environment(values):
     return "\n".join(lines) + "\n"
 
 
-def runtime_environment(values, allowed, overrides=None, debug=False):
+def valid_target_origin(origin, environment):
+    if not isinstance(origin, str) or not re.fullmatch(
+        r"https://[a-z0-9]+(?:[.-][a-z0-9]+)*", origin
+    ):
+        return False
+    return (origin == "https://admin.kulturbytes.de") == (environment == "production")
+
+
+def runtime_environment(
+    values, allowed, overrides=None, debug=False, public_origin="https://admin.kulturbytes.de"
+):
     values = dict(values)
     # Older releases neither require nor receive an adopted console credential.
     if "SQL_CONSOLE_DATABASE_URL" not in allowed:
@@ -106,8 +116,8 @@ def runtime_environment(values, allowed, overrides=None, debug=False):
             "APP_PORT": "8011",
             "DEV_AUTH_ENABLED": "false",
             "OPENAPI_ENABLED": "false",
-            "AUTH_PUBLIC_ORIGIN": "https://admin.kulturbytes.de",
-            "ADMIN_PUBLIC_BASE_URL": "https://admin.kulturbytes.de",
+            "AUTH_PUBLIC_ORIGIN": public_origin,
+            "ADMIN_PUBLIC_BASE_URL": public_origin,
             "NOTIFICATIONS_DELIVERY_ENABLED": "false",
             "CORS_ORIGINS": "",
             "APP_DEBUG": "true" if debug else "false",
@@ -202,7 +212,7 @@ def activation_plan(changed_paths, service_states, config_dir):
             if (
                 "/etc/systemd/system/" + name in changed_paths
                 or (runtime_changed and name != "uranus-admin-frontend.service")
-                or service_states[name]["state"] != "running"
+                or service_states.get(name, {}).get("state") != "running"
             )
         ],
     }
@@ -216,6 +226,7 @@ class FilterModule:
             "ua_archive_console": archive_console,
             "ua_render_env": render_environment,
             "ua_runtime_env": runtime_environment,
+            "ua_valid_target_origin": valid_target_origin,
             "ua_privileged_env": privileged_environment,
             "ua_manifest": artifact_manifest,
             "ua_activation_plan": activation_plan,
@@ -224,12 +235,32 @@ class FilterModule:
         }
 
 
-def service_snapshot(results):
+def service_snapshot(results, environment="production"):
     """Accept stable states that can be restored without unmasking or inventing enablement."""
     snapshot = {}
     for result in results:
         name = result["item"]
         fields = dict(line.split("=", 1) for line in result["stdout"].splitlines() if "=" in line)
+        if (
+            environment in {"staging", "test"}
+            and name
+            in {
+                "uranus-admin-backend.service",
+                "uranus-admin-check-worker.service",
+                "uranus-admin-frontend.service",
+            }
+            and fields.get("LoadState") == "not-found"
+            and fields.get("ActiveState") == "inactive"
+            and fields.get("UnitFileState", "") == ""
+        ):
+            snapshot[name] = {
+                "exists": False,
+                "state": "stopped",
+                "active": False,
+                "enabled": False,
+                "unit_file_state": "",
+            }
+            continue
         allowed = {"enabled", "disabled"}
         if name == "uranus-admin-notification-worker.service":
             allowed.add("static")
@@ -242,6 +273,7 @@ def service_snapshot(results):
                 "Unstable, masked or unsupported unit state; review before activation"
             )
         snapshot[name] = {
+            "exists": True,
             "state": "running" if fields["ActiveState"] == "active" else "stopped",
             "active": fields["ActiveState"] == "active",
             "enabled": fields["UnitFileState"] == "enabled",

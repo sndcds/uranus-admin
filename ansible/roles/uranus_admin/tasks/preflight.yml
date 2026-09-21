@@ -2,11 +2,17 @@
   ansible.builtin.command: hostname
   changed_when: false
   check_mode: false
+  # Diagnostic only; every technical preflight below remains mandatory.
+  failed_when: false
   register: ua_hostname
 
-- name: Refuse a different machine
-  ansible.builtin.assert:
-    that: ua_hostname.stdout == ua_expected_hostname
+- name: Report target identity for diagnosis only
+  ansible.builtin.debug:
+    msg:
+      target_environment: "{{ ua_target_environment }}"
+      host_identity:
+        inventory_hostname: "{{ inventory_hostname }}"
+        system_hostname: "{{ ua_hostname.stdout | default('') | trim if ua_hostname.rc == 0 else 'unavailable' }}"
 
 - name: Read the operating system release
   ansible.builtin.slurp:
@@ -35,13 +41,45 @@
 - name: Reject a different reverse proxy routing arrangement
   ansible.builtin.assert:
     that:
-      - ua_nginx_site_link.stat.islnk | default(false)
-      - ua_nginx_site_link.stat.lnk_source | default('') == '/etc/nginx/sites-available/uranus-admin'
+      - >-
+        (not ua_nginx_site_link.stat.exists and ua_target_environment in ['staging', 'test'])
+        or (ua_nginx_site_link.stat.islnk | default(false)
+            and ua_nginx_site_link.stat.lnk_source | default('') == '/etc/nginx/sites-available/uranus-admin')
+    fail_msg: "Nginx site link conflicts with the deployment contract."
+
+- name: Inspect the managed site without following links
+  ansible.builtin.stat:
+    path: /etc/nginx/sites-available/uranus-admin
+    follow: false
+  register: ua_site_stat
+
+- name: Require the production site baseline and reject conflicting site objects
+  ansible.builtin.assert:
+    that:
+      - ua_site_stat.stat.exists or ua_target_environment in ['staging', 'test']
+      - not ua_site_stat.stat.exists or ua_site_stat.stat.isreg | default(false)
+      - not ua_site_stat.stat.islnk | default(false)
+    fail_msg: "Nginx site conflicts with the deployment contract."
+
+- name: Inspect the rate-zone file without following links
+  ansible.builtin.stat:
+    path: /etc/nginx/conf.d/uranus-admin-ratelimit.conf
+    follow: false
+  register: ua_rate_zone_stat
+
+- name: Require an existing rate-zone baseline in production and reject redirected files
+  ansible.builtin.assert:
+    that:
+      - ua_rate_zone_stat.stat.exists or ua_target_environment in ['staging', 'test']
+      - not ua_rate_zone_stat.stat.exists or ua_rate_zone_stat.stat.isreg | default(false)
+      - not ua_rate_zone_stat.stat.islnk | default(false)
+    fail_msg: "Rate-zone file conflicts with the deployment contract."
 
 - name: Read the existing rate-zone definitions
   ansible.builtin.slurp:
     src: /etc/nginx/conf.d/uranus-admin-ratelimit.conf
   register: ua_rate_zones
+  when: ua_rate_zone_stat.stat.exists
 
 - name: Require the audited rate zones without silently changing shared definitions
   ansible.builtin.assert:
@@ -50,6 +88,7 @@
         (ua_rate_zones.content | b64decode | regex_replace('\\s+', ' ') | trim) ==
         'limit_req_zone $binary_remote_addr zone=uranus_admin_general:10m rate=10r/s; limit_req_zone $binary_remote_addr zone=uranus_admin_api:10m rate=5r/s; limit_conn_zone $binary_remote_addr zone=uranus_admin_conn:10m;'
     fail_msg: "Rate-zone configuration differs; review it before deployment."
+  when: ua_rate_zones.content is defined
 
 - name: Read service states
   ansible.builtin.service_facts:
@@ -96,7 +135,7 @@
 - name: Require the audited existing installation
   ansible.builtin.assert:
     that:
-      - item in ansible_facts.services
+      - item in ansible_facts.services or (ua_target_environment in ['staging', 'test'] and item in ua_services)
     fail_msg: "Expected service missing; do not create an alternative installation automatically."
   loop: "{{ ua_services + ['nginx.service'] + (['uranus-admin-notification-worker.service'] if ua_manage_notification_timer | bool else []) }}"
 
@@ -107,7 +146,19 @@
   changed_when: false
   check_mode: false
   register: ua_dropins
-  failed_when: ua_dropins.rc != 0 or ua_dropins.stdout | trim | length > 0
+  failed_when: >-
+    ua_dropins.stdout | trim | length > 0 or
+    (ua_dropins.rc != 0 and not (ua_dropins.rc == 4 and ua_target_environment in ['staging', 'test'] and item not in ansible_facts.services))
+
+- name: Reject alternate loaded unit locations on bootstrap targets
+  ansible.builtin.command:
+    argv: [systemctl, show, "{{ item }}", --property=FragmentPath, --value]
+  loop: "{{ ua_services }}"
+  changed_when: false
+  check_mode: false
+  register: ua_unit_fragment
+  failed_when: ua_unit_fragment.rc != 0 or ua_unit_fragment.stdout | trim != '/etc/systemd/system/' + item
+  when: ua_target_environment in ['staging', 'test'] and item in ansible_facts.services
 
 - name: Require a stopped or reviewed existing notification timer
   ansible.builtin.command:
@@ -127,12 +178,15 @@
 
 - name: Require a valid existing complete Nginx configuration
   ansible.builtin.command: /usr/sbin/nginx -t
+  register: ua_nginx_validation
+  failed_when: ua_nginx_validation.rc != 0 or 'conflicting server name' in (ua_nginx_validation.stderr | default(''))
   changed_when: false
   check_mode: false
   no_log: true
 
 - name: Inspect and provision the isolated toolchain before any database access
   ansible.builtin.import_tasks: toolchain.yml
+  when: ua_target_environment == 'production'
 
 - name: Read database identity and mandatory object guards
   community.postgresql.postgresql_query:

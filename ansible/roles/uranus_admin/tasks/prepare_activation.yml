@@ -24,6 +24,13 @@
 - name: Refresh service states after the potentially long build
   ansible.builtin.import_tasks: service_snapshot.yml
 
+- name: Recheck bootstrap ownership and drop-ins after the build
+  uranus_infrastructure:
+    environment: "{{ ua_target_environment }}"
+    candidates: "{{ ua_files[:5] + (ua_files | selectattr('path', 'equalto', '/etc/nginx/conf.d/uranus-admin-ratelimit.conf') | list) }}"
+    services: "{{ ua_previous_services | dict2items | selectattr('value.exists') | map(attribute='key') | list }}"
+  when: ua_target_environment in ['staging', 'test']
+
 - name: Recheck managed files after the build without revealing contents
   ansible.builtin.stat:
     path: "{{ item.item.path }}"
@@ -58,6 +65,24 @@
              (ua_previous_services['uranus-admin-notification-worker.timer'].active
               or ua_previous_services['uranus-admin-notification-worker.timer'].enabled
               or ua_previous_services['uranus-admin-notification-worker.service'].active)) }}
+
+- name: Recheck the bootstrap site link after the build
+  ansible.builtin.stat:
+    path: /etc/nginx/sites-enabled/uranus-admin
+    follow: false
+  register: ua_fresh_site_link
+  when: ua_target_environment in ['staging', 'test']
+
+- name: Refuse concurrent site link changes before activation
+  ansible.builtin.assert:
+    that:
+      - ua_fresh_site_link.stat.exists == (not ua_infrastructure.would_create_symlink)
+      - not ua_fresh_site_link.stat.exists or (ua_fresh_site_link.stat.islnk | default(false) and ua_fresh_site_link.stat.lnk_source == '/etc/nginx/sites-available/uranus-admin')
+  when: ua_target_environment in ['staging', 'test']
+
+- name: Identify first bootstrap with no previous applications or site
+  ansible.builtin.set_fact:
+    ua_first_bootstrap: "{{ ua_target_environment in ['staging', 'test'] and ua_infrastructure.would_create_symlink and (ua_services | map('extract', ua_previous_services) | selectattr('exists') | list | length == 0) }}"
 
 - name: Prepare recovery before any service is interrupted
   when: ua_activation_required | bool

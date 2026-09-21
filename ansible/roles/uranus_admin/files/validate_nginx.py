@@ -11,19 +11,23 @@ def main():
     if any(c in str(candidate) for c in '\n\r";{}'):
         return 1
     with tempfile.TemporaryDirectory(prefix="uranus-admin-nginx-") as directory:
+        rate_file = candidate.parent / "uranus-admin-ratelimit.conf"
+        if not rate_file.exists():
+            rate_file = Path("/etc/nginx/conf.d/uranus-admin-ratelimit.conf")
         config = Path(directory) / "nginx.conf"
         config.write_text(
             "pid " + directory + "/nginx.pid;\nerror_log /dev/null;\nevents {}\nhttp {\n"
             "include /etc/nginx/mime.types;\n"
-            "include /etc/nginx/conf.d/uranus-admin-ratelimit.conf;\n"
+            'include "' + str(rate_file) + '";\n'
             'include "' + str(candidate.parent / "uranus-admin-logging.conf") + '";\n'
             'include "' + str(candidate) + '";\n}\n'
         )
         result = subprocess.run(
             ["/usr/sbin/nginx", "-t", "-c", str(config)], capture_output=True, timeout=20
         )
-    print("Nginx candidate valid" if result.returncode == 0 else "Nginx candidate invalid")
-    return result.returncode
+    invalid = result.returncode != 0 or b"conflicting server name" in result.stderr
+    print("Nginx candidate invalid" if invalid else "Nginx candidate valid")
+    return int(invalid)
 
 
 if __name__ == "__main__":

@@ -9,11 +9,37 @@
 - name: Activate validated system configuration with bounded recovery
   when: not ansible_check_mode
   block:
+    - name: Create only inspected missing application infrastructure parents
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "{{ '0700' if item == ua_config_dir else '0755' }}"
+      loop: "{{ ua_infrastructure.would_create_directories | default([]) }}"
+      when: ua_target_environment in ['staging', 'test']
+
     - name: Prepare maintenance before interruption
       ansible.builtin.import_tasks: maintenance_prepare.yml
 
     - name: Enable publicly verified maintenance
       ansible.builtin.import_tasks: maintenance_enable.yml
+      when: not ua_first_bootstrap
+
+    - name: Prepare the maintenance marker before exposing a first bootstrap
+      when: ua_first_bootstrap and ua_maintenance_page_enabled
+      block:
+        - name: Record first bootstrap maintenance activation
+          ansible.builtin.set_fact:
+            ua_maintenance_attempted: true
+        - name: Create the first bootstrap maintenance marker
+          ansible.builtin.copy:
+            content: "Ansible-managed maintenance\n"
+            dest: "{{ ua_maintenance_marker }}"
+            force: false
+            owner: root
+            group: root
+            mode: "0644"
 
     - name: Record that service interruption may have begun
       ansible.builtin.set_fact:
@@ -41,6 +67,7 @@
         name: "{{ item }}"
         state: stopped
       loop: "{{ ua_restart_services }}"
+      when: ua_previous_services[item].exists
 
     - name: Record that configuration installation may have partially occurred
       ansible.builtin.set_fact:
@@ -58,6 +85,28 @@
       no_log: true
       diff: false
 
+    - name: Link the new managed site after installing its files
+      ansible.builtin.import_tasks: bootstrap_link.yml
+
+    - name: Verify installed bootstrap units before loading or starting them
+      ansible.builtin.command:
+        argv:
+          - systemd-analyze
+          - verify
+          - /etc/systemd/system/uranus-admin-backend.service
+          - /etc/systemd/system/uranus-admin-check-worker.service
+          - /etc/systemd/system/uranus-admin-frontend.service
+      changed_when: false
+      when: ua_target_environment in ['staging', 'test']
+
+    - name: Validate bootstrap Nginx before loading units
+      ansible.builtin.command: /usr/sbin/nginx -t
+      register: ua_nginx_validation
+      failed_when: ua_nginx_validation.rc != 0 or 'conflicting server name' in (ua_nginx_validation.stderr | default(''))
+      changed_when: false
+      no_log: true
+      when: ua_target_environment in ['staging', 'test']
+
     - name: Restrict the legacy frontend environment without replacing contents
       ansible.builtin.file:
         path: "{{ ua_legacy_root }}/frontend/.env"
@@ -73,6 +122,8 @@
 
     - name: Verify the complete installed nginx configuration
       ansible.builtin.command: /usr/sbin/nginx -t
+      register: ua_nginx_validation
+      failed_when: ua_nginx_validation.rc != 0 or 'conflicting server name' in (ua_nginx_validation.stderr | default(''))
       changed_when: false
       no_log: true
 
@@ -88,6 +139,10 @@
         name: nginx.service
         state: reloaded
       when: ua_nginx_changed | bool
+
+    - name: Verify public maintenance on the newly enabled bootstrap site
+      ansible.builtin.import_tasks: maintenance_verify.yml
+      when: ua_first_bootstrap and ua_maintenance_page_enabled
 
     - name: Verify local activation while maintenance is active
       ansible.builtin.import_tasks: healthchecks_local.yml
