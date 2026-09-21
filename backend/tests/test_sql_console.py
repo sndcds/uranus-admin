@@ -29,11 +29,17 @@ from app.sql_console.serialization import CELL_BYTES, RESULT_BYTES, cell, encode
 @pytest.mark.parametrize(
     "sql",
     [
-        "SELECT * FROM uranus_console.event LIMIT 10;",
-        "WITH x AS (SELECT uuid FROM uranus_console.event) SELECT * FROM x",
+        "SELECT * FROM uranus.event LIMIT 10;",
+        'SELECT * FROM uranus."user"',
+        "SELECT * FROM event",
+        "SELECT * FROM uranus.password_reset",
+        "SELECT * FROM uranus.event e JOIN uranus.event_date d ON d.event_uuid=e.uuid",
+        "WITH pg_class AS (SELECT * FROM uranus.event) SELECT * FROM pg_class",
+        "WITH RECURSIVE pg_x AS (SELECT 1 UNION ALL SELECT 1 FROM pg_x) SELECT * FROM pg_x",
+        "WITH x AS (SELECT uuid FROM uranus.event) SELECT * FROM x",
         "SELECT 1 UNION SELECT 2 INTERSECT SELECT 3 EXCEPT SELECT 4",
         "SELECT CASE WHEN EXISTS (SELECT 1) THEN 'pg_sleep(10)' END",
-        "SELECT 'hello'::text, COUNT(*) FROM uranus_console.event",
+        "SELECT 'hello'::text, COUNT(*) FROM uranus.event",
         "SELECT public.ST_X(public.ST_Point(1,2))",
     ],
 )
@@ -138,8 +144,12 @@ def test_privacy_guard_preserves_literals_and_safe_functions(sql):
         "SELECT * INTO new_table FROM foo",
         "SELECT * FROM foo FOR UPDATE",
         "SELECT * FROM foo FOR SHARE",
-        'SELECT * FROM uranus."user"',
         "SELECT * FROM admin.auth_account",
+        "SELECT * FROM public.foo",
+        "SELECT * FROM uranus_console.event",
+        "SELECT * FROM pg_catalog.pg_authid",
+        "WITH pg_class AS (SELECT * FROM pg_class) SELECT * FROM pg_class",
+        "SELECT * FROM pg_class, (WITH pg_class AS (SELECT 1) SELECT * FROM pg_class) x",
         "SELECT $1",
         "SELECT :id",
         "VALUES (1); INSERT INTO foo VALUES(1)",
@@ -219,7 +229,7 @@ def test_every_contract_deny_and_no_contract_drift():
 def test_bound_server_initial_query_keeps_literals():
     sql = "SELECT uuid FROM uranus.event WHERE title='uranus.event :entity_key'"
     result = initial_sql(sql)
-    assert "FROM uranus_console.event" in result
+    assert "FROM uranus.event" in result
     assert "'uranus.event :entity_key'" in result
     assert 'uranus."user"' in initial_sql('SELECT uuid FROM uranus."user"')
 
@@ -371,7 +381,8 @@ class FakeConnection:
         assert kwargs == {"isolation": "repeatable_read", "readonly": True}
         return self.transaction_object
 
-    async def prepare(self, sql):
+    async def prepare(self, sql, *, name):
+        assert name == "console_query"
         return self
 
     def get_attributes(self):
@@ -455,7 +466,7 @@ async def test_cancel_shutdown_deadline_and_global_busy(monkeypatch):
     connection = FakeConnection()
     entered = asyncio.Event()
 
-    async def blocked(sql):
+    async def blocked(sql, *, name):
         entered.set()
         await asyncio.Event().wait()
 
@@ -476,7 +487,7 @@ async def test_cancel_shutdown_deadline_and_global_busy(monkeypatch):
             if reason == "deadline":
                 monkeypatch.setattr("app.sql_console.runtime.DEADLINE_SECONDS", 0.02)
             task = runtime.start(request, "admin:fixture", send, AsyncMock())
-            await entered.wait()
+            await asyncio.wait_for(entered.wait(), timeout=2)
             with pytest.raises(ConsoleError, match="busy"):
                 runtime.start(request, "admin:other", send, AsyncMock())
             if reason == "cancel":

@@ -21,7 +21,7 @@ from psycopg2 import sql
 OWNER = "uranus_console_owner"
 READER = "uranus_console_reader"
 SCHEMA = "uranus_console"
-SEARCH_PATH = "pg_catalog, uranus_console"
+SEARCH_PATH = "pg_catalog, uranus"
 VIEWS = {"event_date", "event", "venue", "organization"}
 
 
@@ -76,13 +76,20 @@ def password_matches(password, verifier):
 
 def validate_contract(contract):
     require(
-        contract["version"] == 5
+        contract["version"] == 6
         and contract["uranus_sha"] == "7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d"
         and contract["schema"] == SCHEMA
         and contract["owner_role"] == OWNER
         and contract["reader_role"] == READER
         and contract["search_path"] == SEARCH_PATH
-        and set(contract["views"]) == VIEWS,
+        and set(contract["views"]) == VIEWS
+        and contract["console_data_scope"]
+        == {
+            "schema": "uranus",
+            "access": "all_tables_all_columns",
+            "privilege": "SELECT",
+        }
+        and contract["source_owner_policy"] == "database_owner",
         "unsupported_sql_console_contract",
     )
     for key in (
@@ -592,11 +599,7 @@ class Boundary:
                     if (
                         privilege == "CREATE"
                         or grantable
-                        or (
-                            privilege == "USAGE"
-                            and ns in {"uranus", "admin"}
-                            and not (role == OWNER and ns == "uranus")
-                        )
+                        or (privilege == "USAGE" and ns == "admin")
                     ):
                         self.issue("schema_privilege:" + role + ":" + ns)
         console = next((s for s in schemas if s[1] == SCHEMA), None)
@@ -609,7 +612,7 @@ class Boundary:
             )
         elif console[2] != ids.get(OWNER):
             self.issue("sql_console_schema_owner")
-        for role, ns in ((OWNER, "uranus"), (READER, SCHEMA)):
+        for role, ns in ((OWNER, "uranus"), (READER, SCHEMA), (READER, "uranus")):
             oid = ids.get(role)
             exists = any(s[1] == ns for s in schemas)
             if (
@@ -618,7 +621,11 @@ class Boundary:
                 or not self.rows("SELECT has_schema_privilege(%s,%s,'USAGE')", (oid, ns))[0][0]
             ):
                 self.action(
-                    "would reconcile USAGE " + role + " " + ns,
+                    (
+                        "would grant USAGE ON SCHEMA uranus"
+                        if role == READER and ns == "uranus"
+                        else "would reconcile USAGE " + role + " " + ns
+                    ),
                     sql.SQL("GRANT USAGE ON SCHEMA {} TO {}").format(
                         sql.Identifier(ns), sql.Identifier(role)
                     ),
@@ -629,6 +636,7 @@ class Boundary:
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname NOT IN ('pg_catalog','information_schema')
             AND n.nspname NOT LIKE 'pg_toast%%' AND n.nspname NOT LIKE 'pg_temp%%'""")
+        self.inspect_source(schemas, relations, ids)
         source = {}
         existing = {}
         for oid, ns, name, kind, owner, rls, force_rls, options in relations:
@@ -665,7 +673,11 @@ class Boundary:
                 )
                 for privilege, grantable in grants:
                     if not (
-                        (approved and role == READER or oid in self.reviewed_metadata)
+                        (
+                            (approved or ns == "uranus" and kind in {"r", "p", "v", "m", "f"})
+                            and role == READER
+                            or oid in self.reviewed_metadata
+                        )
                         and privilege == "SELECT"
                         and not grantable
                     ):
@@ -792,14 +804,6 @@ class Boundary:
                 )
                 if not exists:
                     self.issue("sensitive_source_column_missing:" + table + "." + column)
-                elif (
-                    READER in ids
-                    and self.rows(
-                        "SELECT has_column_privilege(%s,%s,%s,'SELECT')",
-                        (ids[READER], relation, column),
-                    )[0][0]
-                ):
-                    self.issue("sensitive_column_access:" + table + "." + column)
         settings = (
             self.rows(
                 "SELECT setconfig FROM pg_db_role_setting WHERE setdatabase=%s AND setrole=%s",
@@ -815,7 +819,7 @@ class Boundary:
                 self.action(
                     "would set role search_path",
                     sql.SQL(
-                        "ALTER ROLE {} IN DATABASE {} SET search_path = pg_catalog, uranus_console"
+                        "ALTER ROLE {} IN DATABASE {} SET search_path = pg_catalog, uranus"
                     ).format(sql.Identifier(READER), sql.Identifier(self.conn.info.dbname)),
                 )
         if OWNER in ids and self.rows(
@@ -1136,7 +1140,11 @@ class Boundary:
                 self.reviewed_metadata = {m["oid"] for m in metadata}
 
         grants = {}
-        for oid, grantee, grantable in self.rows("""SELECT p.oid,a.grantee,a.is_grantable
+        for (
+            oid,
+            grantee,
+            grantable,
+        ) in self.rows("""SELECT p.oid,a.grantee,a.is_grantable
             FROM pg_proc p,LATERAL aclexplode(coalesce(proacl,acldefault('f',proowner))) a
             WHERE a.privilege_type='EXECUTE'"""):
             grants.setdefault(oid, {})[grantee] = grantable
@@ -1371,8 +1379,11 @@ class Boundary:
                 self.issue("large_object_access:" + role)
             if self.rows(
                 """SELECT 1 FROM pg_default_acl d WHERE defaclrole=%s OR EXISTS(
-                SELECT 1 FROM aclexplode(defaclacl) a WHERE a.grantee IN (0,%s))""",
-                (oid, oid),
+                SELECT 1 FROM aclexplode(defaclacl) a WHERE a.grantee IN (0,%s)
+                AND NOT (a.grantee=%s AND d.defaclrole=%s
+                  AND d.defaclnamespace=to_regnamespace('uranus') AND d.defaclobjtype='r'
+                  AND a.privilege_type='SELECT' AND NOT a.is_grantable))""",
+                (oid, oid, ids.get(READER, -1), self.source_owner_oid),
             ):
                 self.issue("unreviewed_default_privileges:" + role)
             if self.rows("SELECT 1 FROM pg_proc WHERE proowner=%s", (oid,)) or self.rows(
@@ -1435,11 +1446,86 @@ class Boundary:
         ):
             self.issue("unexpected_sql_console_object")
 
+    def inspect_source(self, schemas, relations, ids):
+        """Inventory all source tables; only their verified creator gets defaults.
+
+        The source schema and every source table must belong to this database's
+        owner. Do not infer trust from arbitrary table owners or grant defaults
+        for additional creators. RLS and indirect relation sources need review.
+        """
+        self.source_owner_oid, self.source_owner = self.rows(
+            "SELECT datdba,pg_get_userbyid(datdba) FROM pg_database "
+            "WHERE datname=current_database()"
+        )[0]
+        source_schema = next((s for s in schemas if s[1] == "uranus"), None)
+        if source_schema is None or source_schema[2] != self.source_owner_oid:
+            self.issue("unexpected_source_schema_owner")
+        if self.source_owner_oid in ids.values():
+            self.issue("unexpected_source_database_owner")
+        self.source_tables = []
+        missing_select = False
+        for oid, ns, name, kind, owner, rls, force_rls, _ in relations:
+            if ns != "uranus" or kind not in {"r", "p", "v", "m", "f"}:
+                continue
+            can_select = (
+                bool(ids.get(READER))
+                and self.rows("SELECT has_table_privilege(%s,%s,'SELECT')", (ids[READER], oid))[0][
+                    0
+                ]
+            )
+            self.source_tables.append(
+                {
+                    "name": name,
+                    "kind": kind,
+                    "owner": self.rows("SELECT pg_get_userbyid(%s)", (owner,))[0][0],
+                    "rls": rls,
+                    "force_rls": force_rls,
+                    "select": can_select,
+                }
+            )
+            if owner != self.source_owner_oid:
+                self.issue("unexpected_source_table_owner:" + name)
+            if rls or force_rls:
+                self.issue("source_rls_requires_review:" + name)
+            # Definer views / foreign tables could expose admin or catalog data
+            # despite an outer uranus RangeVar. Never silently grant that path.
+            if kind not in {"r", "p"}:
+                self.issue("indirect_source_relation_requires_review:" + name)
+            missing_select |= not can_select
+        self.source_tables.sort(key=lambda t: t["name"])
+        if not self.source_tables:
+            self.issue("source_tables_missing")
+        if missing_select:
+            self.action(
+                "would grant SELECT ON ALL TABLES IN SCHEMA uranus",
+                sql.SQL("GRANT SELECT ON ALL TABLES IN SCHEMA uranus TO {}").format(
+                    sql.Identifier(READER)
+                ),
+            )
+        if not ids.get(READER) or not self.rows(
+            """SELECT 1 FROM pg_default_acl d, LATERAL aclexplode(defaclacl) a
+            WHERE d.defaclrole=%s AND d.defaclnamespace=to_regnamespace('uranus')
+              AND d.defaclobjtype='r' AND a.grantee=%s
+              AND a.privilege_type='SELECT' AND NOT a.is_grantable""",
+            (self.source_owner_oid, ids.get(READER, 0)),
+        ):
+            self.action(
+                "would configure default SELECT privileges",
+                sql.SQL(
+                    "ALTER DEFAULT PRIVILEGES FOR ROLE {} IN SCHEMA uranus "
+                    "GRANT SELECT ON TABLES TO {}"
+                ).format(sql.Identifier(self.source_owner), sql.Identifier(READER)),
+            )
+
     def report(self):
         return {
             "required": True,
             "role": READER,
-            "schema": SCHEMA,
+            "schema": "uranus",
+            "legacy_schema": SCHEMA,
+            "console_data_scope": self.contract["console_data_scope"],
+            "source_owner": self.source_owner,
+            "source_tables": self.source_tables,
             "owner_role": OWNER,
             "contract_version": self.contract["version"],
             "changes_planned": list(dict.fromkeys(a[0] for a in self.actions)),

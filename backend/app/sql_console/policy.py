@@ -50,29 +50,50 @@ def validate_sql(sql: str) -> None:
     if len(statements) != 1 or set(statements[0]["stmt"]) != {"SelectStmt"}:
         raise ConsoleError("query_only")
 
-    def visit(node: Any, depth: int = 0) -> None:
+    def visit(node: Any, depth: int = 0, ctes: frozenset[str] = frozenset()) -> None:
         if depth > 100:
             raise ConsoleError("query_too_complex")
         if isinstance(node, list):
             for value in node:
-                visit(value, depth + 1)
+                visit(value, depth + 1, ctes)
         elif isinstance(node, dict):
             for kind, value in node.items():
                 if kind.endswith("Stmt") and kind != "SelectStmt":
                     raise ConsoleError("query_only")
                 if kind in {"IntoClause", "intoClause", "LockingClause", "ParamRef"}:
                     raise ConsoleError("query_only")
+                if kind == "SelectStmt":
+                    # PostgreSQL CTE visibility is lexical, and non-recursive WITH
+                    # exposes only preceding CTEs inside each definition.
+                    clause = value.get("withClause", {})
+                    definitions = clause.get("ctes", [])
+                    visible = ctes
+                    if clause.get("recursive"):
+                        visible |= frozenset(c["CommonTableExpr"]["ctename"] for c in definitions)
+                    for definition in definitions:
+                        visit(definition, depth + 1, visible)
+                        visible |= {definition["CommonTableExpr"]["ctename"]}
+                    for field, child in value.items():
+                        if field != "withClause":
+                            visit({field: child}, depth + 1, visible)
+                    continue
                 if kind == "RangeVar":
                     schema = value.get("schemaname")
                     name = value["relname"]
-                    # No system-catalog relations (including unqualified names).
-                    # CTEs and unqualified console views still resolve normally.
-                    if schema not in {None, "uranus_console"} or name.startswith("pg_"):
+                    # pg_catalog precedes uranus in search_path. A lexical CTE
+                    # may shadow a catalog name, but cannot authorize its siblings.
+                    if (
+                        value.get("catalogname")
+                        or schema not in {None, "uranus"}
+                        or schema is None
+                        and name.startswith("pg_")
+                        and name not in ctes
+                    ):
                         raise ConsoleError("permission_denied")
                 if kind == "FuncCall":
                     name = value["funcname"][-1]["String"]["sval"]
                     if denied_function(name):
                         raise ConsoleError("function_denied")
-                visit(value, depth + 1)
+                visit(value, depth + 1, ctes)
 
     visit(statements)

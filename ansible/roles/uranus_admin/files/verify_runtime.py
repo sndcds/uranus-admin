@@ -11,6 +11,7 @@ from app.admin_database import assert_admin_boundary, create_admin_engine  # noq
 from app.config import Settings  # noqa: E402
 from app.database import create_engine  # noqa: E402
 from app.source_schema_verify import verify  # noqa: E402
+from app.sql_console.runtime import assert_identity as assert_console_identity  # noqa: E402
 from app.storage_preflight import RUNTIME_GRANTS, check_grants, check_schema  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
@@ -79,11 +80,13 @@ async def main():
                 if tuple(identity) != (
                     "oklab",
                     "uranus_console_reader",
-                    "pg_catalog, uranus_console",
+                    "pg_catalog, uranus",
                     False,
                     False,
                 ):
                     raise ValueError("Wrong console identity or effective boundary")
+                raw = await conn.get_raw_connection()
+                await assert_console_identity(raw.driver_connection)
         for engine, role in ((source, "uranus_reader"), (admin, "admin_user")):
             async with engine.connect() as conn, conn.begin():
                 await conn.execute(

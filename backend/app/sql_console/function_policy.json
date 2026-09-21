@@ -1,5 +1,5 @@
 {
-  "contract_version": 5,
+  "contract_version": 6,
   "policy_version": 3,
   "names": [
     "_postgis_index_extent",
