@@ -9,7 +9,7 @@ Python 3.13, uv, PostgreSQL mit PostGIS. Python-Abhängigkeiten ausschließlich 
 und uv.lock. Mit `uv sync --locked` installieren, `.env.example` nach `.env` kopieren und bearbeiten.
 
 ```bash
-uv run uvicorn app.main:app --reload --no-access-log
+uv run uvicorn app.main:app --ws wsproto --ws-max-size 200000 --reload --no-access-log
 # Ohne Reload, mit APP_HOST / APP_PORT:
 uv run python -m app
 ```

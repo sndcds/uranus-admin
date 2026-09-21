@@ -11,7 +11,7 @@ Fachliche Uranus-Schreiblogik wird nicht dupliziert.
 cd backend
 uv sync --locked
 cp .env.example .env  # nur bei der ersten Einrichtung
-uv run uvicorn app.main:app --reload --no-access-log
+uv run uvicorn app.main:app --ws wsproto --ws-max-size 200000 --reload --no-access-log
 ```
 
 `DATABASE_URL` verwendet einen SELECT-Account. Source-Zeitzone `URANUS_TIMESTAMP_TIMEZONE=UTC`
@@ -23,7 +23,7 @@ Für lokale Fehlerdiagnose mit Exception-Details und Tracebacks im JSON-Serverlo
 
 ```bash
 APP_ENV=development APP_DEBUG=true LOG_LEVEL=DEBUG \
-uv run uvicorn app.main:app --reload --log-level debug --no-access-log
+uv run uvicorn app.main:app --ws wsproto --ws-max-size 200000 --reload --log-level debug --no-access-log
 ```
 
 `APP_DEBUG=true` aktiviert zusätzliche Exception-Details im Feld `traceback` der
@@ -40,7 +40,7 @@ APP_ENV=production \
 APP_DEBUG=true \
 ALLOW_PRODUCTION_DEBUG=true \
 LOG_LEVEL=DEBUG \
-uv run uvicorn app.main:app --no-access-log
+uv run uvicorn app.main:app --ws wsproto --ws-max-size 200000 --no-access-log
 ```
 
 `ALLOW_PRODUCTION_DEBUG` erlaubt ausschließlich Production-/Staging-Debugging.

@@ -1,6 +1,7 @@
 """Cookie session + exact Origin; no bearer/dev credentials or URL parameters."""
 
 import asyncio
+import logging
 from contextlib import suppress
 from typing import Any
 
@@ -40,6 +41,9 @@ async def console_socket(socket: WebSocket) -> None:
     try:
         await authorize(socket)
     except APIError as exc:
+        logging.getLogger("admin.sql_console").info(
+            "sql_console_handshake_denied", extra={"error_type": exc.code}
+        )
         if "websocket.http.response" in socket.scope.get("extensions", {}):
             await socket.send_denial_response(error_response(exc.status, exc.code, exc.message))
         else:

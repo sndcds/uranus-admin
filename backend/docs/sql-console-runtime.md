@@ -226,3 +226,28 @@ Hintergrund, Gutterbreite und Textposition. Baselines unter
 Result und Error; alle sichtbaren Daten sind kontrollierte Testfixtures.
 Production-E2E prüft CSP/SSR. Die lokale Browserberechtigung im CSP-Test ist nur für
 den Playwright-Loopback-Server erforderlich; sie ändert keine App-/Nginx-Policy.
+
+## Lokaler Start und abgewiesener Handshake
+
+Ohne `SQL_CONSOLE_DATABASE_URL` ist HTTP 503 beim Upgrade beabsichtigt. Die
+Console verwendet keinen anderen Account. Die DSN darf nur auf eine separat
+provisionierte Console-Verbindung als `uranus_console_reader` zeigen. Es werden
+keine lokalen oder produktiven Credentials automatisch ergänzt.
+
+`uv run python -m app` wählt den WebSocket-Treiber und seine Grenzen explizit.
+Bei direktem Uvicorn-Start dieselben Optionen verwenden:
+
+```sh
+uv run --env-file .env uvicorn app.main:app --reload --ws wsproto --no-access-log --ws-max-size 200000
+```
+
+Uvicorn 0.53s automatisch gewählter SansIO-Treiber meldet nach vollständig
+versendeten HTTP-Ablehnungen fälschlich `ASGI callable returned without completing
+handshake`. Der explizite, nicht abgekündigte `wsproto`-Treiber bewahrt 401/403/503 ohne diesen
+Fehlalarm. Uvicorn ab 0.53 begrenzt hier die Frame-Größe und pausiert TCP-Lesen,
+bis die Anwendung Nachrichten verarbeitet. Regressionstests verwenden echte lokale
+TCP-/WebSocket-Verbindungen, einschließlich erfolgreicher Übertragung und Oversize-Abbruch.
+`sql_console_handshake_denied` protokolliert nur die sichere Fehlerkategorie:
+`database_unavailable` bei fehlender Console-DSN, `admin_auth_unconfigured` bei
+fehlendem Auth-Speicher oder die entsprechende Auth-/Origin-Kategorie. Keine DSN,
+Cookies oder SQL-Texte werden geloggt.
