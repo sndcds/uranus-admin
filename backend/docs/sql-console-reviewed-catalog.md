@@ -85,7 +85,8 @@ Typen und sonstige abhängige Objekte führen zu
 `unreviewed_custom_function_dependency`. Damit wird ein bekannter Funktions-Hash
 nicht als allgemeine Freigabe indirekter Aufrufpfade behandelt. Produktive
 Triggerbindungen werden nicht verändert. Der feste Console-search_path bleibt
-`pg_catalog, uranus_console`.
+`pg_catalog, uranus_console` im historischen v5-Modell. Seit [Contract v6](sql-console-infrastructure.md)
+gilt `pg_catalog, uranus`; die hier geprüfte Function Policy v3 bleibt unverändert.
 
 ## Konkrete Eigentümerregeln
 

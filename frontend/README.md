@@ -245,6 +245,13 @@ Die registrierte Diagnose sendet weiterhin ausschließlich die Finding-ID, niema
 
 ### Interaktive READ-ONLY Console (Phase 3)
 
+Datasource **Uranus**, Scope `uranus.*`: Systemadministratoren können bewusst alle
+Tabellen und Spalten lesen, auch sensible Uranus-Werte. Startquery:
+`SELECT * FROM uranus.event LIMIT 50;`. Keine Maskierung oder Legacy-View-Pflicht.
+Finding-Startqueries behalten ihre serverseitigen `uranus.*`-Relationen.
+`admin.*` und Systemkataloge bleiben gesperrt. Ausschließlich `uranus_console_reader`,
+READ ONLY, keine Phase 4. Theme, Editor, Protokoll und Grenzen bleiben unverändert.
+
 `/sql` und „SQL bearbeiten“ im Finding-Workspace verwenden denselben SQL-Editor und
 Ergebnisbereich. CodeMirror 6 wird clientseitig lazy geladen und verwendet dieselbe
 Prism-/CSS-Definition wie der Readonly-Renderer. Formatieren und Copy verwenden den
