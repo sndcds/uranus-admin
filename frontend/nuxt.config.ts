@@ -17,6 +17,7 @@ export default defineNuxtConfig({
       ],
     },
   },
+  nitro: { experimental: { websocket: true } },
   devtools: { enabled: false },
   typescript: { strict: true },
   runtimeConfig: {

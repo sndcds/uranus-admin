@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onBeforeUnmount, onDeactivated, watch } from 'vue'
-import type { SqlDiagnosticDefinition, SqlDiagnosticResult } from '#shared/contracts'
-import type { ProvenanceResult, ProvenanceSource } from '#shared/sql-provenance'
+import type { SqlDiagnosticDefinition } from '#shared/contracts'
+import type { ProvenanceSource } from '#shared/sql-provenance'
 import SqlCodeEditor from './SqlCodeEditor.vue'
 import SqlParameterTable from './SqlParameterTable.vue'
 import SqlResultTable from './SqlResultTable.vue'
@@ -17,9 +17,20 @@ const props = defineProps<{
   executable: boolean
   running: boolean
   error: string
-  result: SqlDiagnosticResult | ProvenanceResult | null
+  result: {
+    columns: string[]
+    rows: Record<string, unknown>[]
+    row_count: number
+    duration_ms: number
+    observed_at: string | null
+    truncated?: boolean
+  } | null
+  editable?: boolean
+  page?: boolean
+  errorPosition?: number | null
+  status?: string
 }>()
-defineEmits<{ execute: [] }>()
+defineEmits<{ execute: []; cancel: []; format: []; 'update:sql': [value: string] }>()
 const feedback = ref(''),
   view = ref<'table' | 'json'>('table')
 let revision = 0,
@@ -90,24 +101,63 @@ function download() {
           <h3 class="font-semibold text-slate-950">SQL Abfrage</h3>
           <p class="mt-1 text-xs text-slate-500">{{ description }}</p>
         </div>
-        <div class="ml-auto flex shrink-0 flex-wrap gap-2">
-          <button class="button" :disabled="!copySql" @click="copy">
+        <div class="ml-auto flex flex-wrap gap-2">
+          <slot name="actions" />
+          <button
+            v-if="editable"
+            class="button"
+            :disabled="running"
+            aria-label="SQL formatieren"
+            @click="$emit('format')"
+          >
+            SQL formatieren
+          </button>
+          <button class="button" aria-label="SQL kopieren" :disabled="!copySql" @click="copy">
             <AppIcon name="copy" :size="14" />SQL kopieren
           </button>
           <button
             v-if="executable"
             class="button-primary"
+            aria-label="Abfrage ausführen"
             :disabled="running"
             @click="$emit('execute')"
           >
             <AppIcon name="play" :size="14" />Abfrage ausführen
           </button>
+          <button
+            v-if="editable"
+            class="button"
+            :disabled="!running || status === 'Cancelling'"
+            aria-label="Abbrechen"
+            @click="$emit('cancel')"
+          >
+            ■ Abbrechen
+          </button>
         </div>
       </div>
       <p v-if="feedback" role="status" class="text-xs text-slate-600">{{ feedback }}</p>
-      <SqlCodeEditor :sql="sql" readonly />
+      <p v-if="status" role="status" aria-live="polite" class="text-xs text-slate-600">
+        <span
+          v-if="running"
+          class="mr-2 inline-block size-3 animate-spin rounded-full border-2 border-slate-300 border-t-fuchsia-700"
+          aria-hidden="true"
+        />{{ status }}
+      </p>
+      <SqlCodeEditor
+        :sql="sql"
+        :readonly="!editable"
+        :page="page"
+        :error-position="errorPosition"
+        @update:sql="$emit('update:sql', $event)"
+        @execute="$emit('execute')"
+        @format="$emit('format')"
+      />
     </section>
-    <SqlParameterTable :parameters="parameters" />
+    <SqlParameterTable
+      v-if="Object.keys(parameters).length"
+      :parameters="parameters"
+      :initial-only="editable"
+    />
     <section aria-label="Ergebnis" class="space-y-3 pt-1">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -117,7 +167,7 @@ function download() {
               {{ result.duration_ms }} ms)</span
             >
           </h3>
-          <p v-if="result" class="mt-1 text-xs text-slate-500">
+          <p v-if="result?.observed_at" class="mt-1 text-xs text-slate-500">
             Aktuelle Diagnose: {{ dateTime(result.observed_at) }}
           </p>
           <p

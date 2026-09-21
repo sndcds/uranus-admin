@@ -5,9 +5,7 @@
     <AppIcon name="info" class="mt-0.5 text-blue-600" :size="16" />
     <div>
       <p class="mb-1 font-semibold text-blue-900">Hinweis · READ ONLY</p>
-      <p>
-        Diese registrierte Abfrage ist schreibgeschützt. Änderungen an Daten sind nicht möglich.
-      </p>
+      <p>Diese Verbindung ist schreibgeschützt. Änderungen an Daten sind nicht möglich.</p>
     </div>
   </div>
 </template>

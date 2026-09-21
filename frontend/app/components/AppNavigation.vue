@@ -21,6 +21,7 @@ const links = [
   { label: 'Benutzer & Teams', icon: 'users', to: '/users' },
   { label: 'Bilder', icon: 'image', to: '/images' },
   { label: 'Beziehungsgraph', icon: 'graph', to: '/graph' },
+  { label: 'SQL Console', icon: 'code', to: '/sql' },
   { label: 'Statistiken', icon: 'chart', to: '/statistics' },
 ] as const
 </script>

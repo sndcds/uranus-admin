@@ -26410,6 +26410,17 @@
             "type": "string",
             "title": "Copy Sql"
           },
+          "console_sql": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Console Sql"
+          },
           "parameters": {
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"

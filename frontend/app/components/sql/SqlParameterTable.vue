@@ -2,6 +2,7 @@
 import type { SqlDiagnosticDefinition } from '#shared/contracts'
 import type { ProvenanceSource } from '#shared/sql-provenance'
 defineProps<{
+  initialOnly?: boolean
   parameters: SqlDiagnosticDefinition['parameters'] | ProvenanceSource['parameters']
 }>()
 function parameterType(value: unknown): string {
@@ -29,7 +30,13 @@ function display(value: unknown): string {
   <section aria-label="Parameter" class="space-y-2">
     <div>
       <h3 class="font-semibold text-slate-950">Parameter</h3>
-      <p class="text-xs text-slate-500">Die tatsächlich verwendeten Parameter für diese Abfrage.</p>
+      <p class="text-xs text-slate-500">
+        {{
+          initialOnly
+            ? 'Ursprüngliche Startwerte der registrierten Diagnose; im Console-SQL als Literale eingesetzt.'
+            : 'Die tatsächlich verwendeten Parameter für diese Abfrage.'
+        }}
+      </p>
     </div>
     <div class="overflow-x-auto rounded-lg border border-slate-200">
       <table class="admin-table">
