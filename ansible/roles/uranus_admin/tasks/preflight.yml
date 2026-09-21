@@ -135,14 +135,14 @@
 - name: Require the audited existing installation
   ansible.builtin.assert:
     that:
-      - item in ansible_facts.services or (ua_target_environment in ['staging', 'test'] and item in ua_services)
+      - item in ansible_facts.services or (ua_target_environment in ['staging', 'test'] and item in ua_services + (ua_notification_units if ua_manage_notification_timer | bool else []))
     fail_msg: "Expected service missing; do not create an alternative installation automatically."
   loop: "{{ ua_services + ['nginx.service'] + (['uranus-admin-notification-worker.service'] if ua_manage_notification_timer | bool else []) }}"
 
 - name: Reject unknown service drop-ins before taking over unit files
   ansible.builtin.command:
     argv: [systemctl, show, "{{ item }}", --property=DropInPaths, --value]
-  loop: "{{ ua_services }}"
+  loop: "{{ ua_services + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else []) }}"
   changed_when: false
   check_mode: false
   register: ua_dropins
@@ -153,12 +153,14 @@
 - name: Reject alternate loaded unit locations on bootstrap targets
   ansible.builtin.command:
     argv: [systemctl, show, "{{ item }}", --property=FragmentPath, --value]
-  loop: "{{ ua_services }}"
+  loop: "{{ ua_services + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else []) }}"
   changed_when: false
   check_mode: false
   register: ua_unit_fragment
-  failed_when: ua_unit_fragment.rc != 0 or ua_unit_fragment.stdout | trim != '/etc/systemd/system/' + item
-  when: ua_target_environment in ['staging', 'test'] and item in ansible_facts.services
+  failed_when: >-
+    not ((ua_unit_fragment.rc == 0 and ua_unit_fragment.stdout | trim == '/etc/systemd/system/' + item) or
+         (ua_unit_fragment.rc in [0, 4] and ua_unit_fragment.stdout | trim == '' and item not in ansible_facts.services))
+  when: ua_target_environment in ['staging', 'test']
 
 - name: Require a stopped or reviewed existing notification timer
   ansible.builtin.command:
@@ -173,7 +175,9 @@
   changed_when: false
   check_mode: false
   register: ua_timer
-  failed_when: ua_timer.rc != 0 or ua_timer.stdout | trim != 'loaded'
+  failed_when: >-
+    (ua_timer.rc != 0 or ua_timer.stdout | trim != 'loaded') and not
+    (ua_target_environment in ['staging', 'test'] and ua_timer.rc in [0, 4] and ua_timer.stdout | trim == 'not-found')
   when: ua_manage_notification_timer | bool
 
 - name: Require a valid existing complete Nginx configuration

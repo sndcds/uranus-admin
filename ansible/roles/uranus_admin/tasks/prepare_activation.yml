@@ -27,7 +27,8 @@
 - name: Recheck bootstrap ownership and drop-ins after the build
   uranus_infrastructure:
     environment: "{{ ua_target_environment }}"
-    candidates: "{{ ua_files[:5] + (ua_files | selectattr('path', 'equalto', '/etc/nginx/conf.d/uranus-admin-ratelimit.conf') | list) }}"
+    manage_notifications: "{{ ua_manage_notification_timer | bool }}"
+    candidates: "{{ ua_infrastructure_candidates }}"
     services: "{{ ua_previous_services | dict2items | selectattr('value.exists') | map(attribute='key') | list }}"
   when: ua_target_environment in ['staging', 'test']
 
@@ -62,9 +63,12 @@
              (ua_previous_frontend_env.stat.mode != '0600' or ua_previous_frontend_env.stat.uid != 0
               or ua_previous_frontend_env.stat.gid != 0))
          or (ua_manage_notification_timer | bool and
-             (ua_previous_services['uranus-admin-notification-worker.timer'].active
-              or ua_previous_services['uranus-admin-notification-worker.timer'].enabled
-              or ua_previous_services['uranus-admin-notification-worker.service'].active)) }}
+             ((not ua_previous_services['uranus-admin-notification-worker.timer'].active
+               or not ua_previous_services['uranus-admin-notification-worker.timer'].enabled)
+              if ua_target_environment in ['staging', 'test'] else
+              (ua_previous_services['uranus-admin-notification-worker.timer'].active
+               or ua_previous_services['uranus-admin-notification-worker.timer'].enabled
+               or ua_previous_services['uranus-admin-notification-worker.service'].active))) }}
 
 - name: Recheck the bootstrap site link after the build
   ansible.builtin.stat:

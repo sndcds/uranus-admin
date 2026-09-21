@@ -593,7 +593,7 @@ class DeploymentBoundaryTests(unittest.TestCase):
             "ua_node": "/usr/bin/node",
             "ua_uv": "/usr/local/bin/uv",
         }
-        for name in ("backend", "check-worker", "frontend"):
+        for name in ("backend", "check-worker", "frontend", "notification-worker"):
             unit = env.get_template(name + ".service.j2").render(values)
             self.assertIn("User=oklab", unit)
             if name != "frontend":
@@ -608,6 +608,12 @@ class DeploymentBoundaryTests(unittest.TestCase):
             for setting in ("ProtectSystem=strict", "ProtectHome=read-only", "PrivateTmp=true"):
                 self.assertIn(setting, unit)
             self.assertNotIn("ReadWritePaths=", unit)
+        notification = env.get_template("notification-worker.service.j2").render(values)
+        self.assertIn("Type=oneshot", notification)
+        self.assertIn("python -m app.notification_worker --once", notification)
+        self.assertIn("EnvironmentFile=/etc/uranus-admin/runtime.env", notification)
+        self.assertNotIn("[Install]", notification)
+        self.assertNotIn("Restart=", notification)
         frontend = env.get_template("frontend.service.j2").render(values)
         self.assertNotIn("EnvironmentFile=", frontend)
         self.assertIn("NUXT_TRUSTED_INGRESS_IPS=127.0.0.1", frontend)
@@ -652,10 +658,13 @@ class DeploymentBoundaryTests(unittest.TestCase):
                 "ua_uv": "/usr/bin/true",
             }
             paths = []
-            for name in ("backend", "check-worker", "frontend"):
+            for name in ("backend", "check-worker", "frontend", "notification-worker"):
                 path = root / ("uranus-admin-" + name + ".service")
                 path.write_text(env.get_template(name + ".service.j2").render(values))
                 paths.append(str(path))
+            timer = root / "uranus-admin-notification-worker.timer"
+            timer.write_text(env.get_template("notification-worker.timer.j2").render(values))
+            paths.append(str(timer))
             result = subprocess.run(
                 ["systemd-analyze", "verify", "--man=no", *paths],
                 capture_output=True,

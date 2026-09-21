@@ -280,6 +280,8 @@ def service_snapshot(results, environment="production"):
                 "uranus-admin-backend.service",
                 "uranus-admin-check-worker.service",
                 "uranus-admin-frontend.service",
+                "uranus-admin-notification-worker.service",
+                "uranus-admin-notification-worker.timer",
             }
             and fields.get("LoadState") == "not-found"
             and fields.get("ActiveState") == "inactive"
@@ -294,11 +296,14 @@ def service_snapshot(results, environment="production"):
             }
             continue
         allowed = {"enabled", "disabled"}
+        active_states = {"active"}
         if name == "uranus-admin-notification-worker.service":
             allowed.add("static")
+            # A running Type=oneshot remains activating until its bounded command exits.
+            active_states.add("activating")
         if (
             fields.get("LoadState") != "loaded"
-            or fields.get("ActiveState") not in {"active", "inactive", "failed"}
+            or fields.get("ActiveState") not in active_states | {"inactive", "failed"}
             or fields.get("UnitFileState") not in allowed
         ):
             raise AnsibleFilterError(
@@ -306,8 +311,8 @@ def service_snapshot(results, environment="production"):
             )
         snapshot[name] = {
             "exists": True,
-            "state": "running" if fields["ActiveState"] == "active" else "stopped",
-            "active": fields["ActiveState"] == "active",
+            "state": "running" if fields["ActiveState"] in active_states else "stopped",
+            "active": fields["ActiveState"] in active_states,
             "enabled": fields["UnitFileState"] == "enabled",
             "unit_file_state": fields["UnitFileState"],
         }

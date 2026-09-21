@@ -807,8 +807,30 @@ ua_disable_notification_timer_approved: true
 wird der Timer gestoppt/deaktiviert, ein laufender Notification-Oneshot gestoppt und
 seine Legacy-Environment-Datei bereinigt. `manage=true` ohne die zweite Zustimmung
 verweigert den Echtlauf vor jedem Host-Eingriff. Die übrigen Apply-Gates gelten unverändert.
-Bei erfolgreicher Aktivierung bleiben verwaltete Notifications deaktiviert; bei
-fehlgeschlagener Aktivierung werden die ursprünglichen Zustände wiederhergestellt.
+Auf **Production** bleiben verwaltete Notifications nach erfolgreicher Aktivierung
+weiterhin deaktiviert; Service und Timer müssen dort bereits vorhanden sein.
+
+Auf **Test/Staging** stellt dieselbe explizite Freigabe zusätzlich den
+`uranus-admin-notification-worker.service` und den zugehörigen `.timer` bereit.
+Der Service führt `app.notification_worker --once` als `oklab` aus und verwendet
+nur `/etc/uranus-admin/runtime.env`, ohne Migrator-/Operator-Credentials. Der Timer
+läuft stündlich (`OnCalendar=hourly`, `Persistent=true`) und wird erst nach
+bestandenen Healthchecks und Veröffentlichung des Release-Pointers aktiviert und
+enabled. Nachgeholte Timer-Ausführungen sind möglich. Der Service selbst bleibt
+statisch und wird ausschließlich vom Timer gestartet. Ein unveränderter zweiter
+Deploy startet den Timer nicht erneut.
+
+Die Versandfreigabe bleibt eine Runtime-Einstellung: Die derzeitige
+Deployment-Konfiguration setzt `NOTIFICATIONS_DELIVERY_ENABLED=false`. Das Aktivieren
+des Timers aktiviert keinen Mailversand. Vorhandene fremde Units, Drop-ins und
+abweichende Dateiinhalte werden weiterhin abgelehnt; bereits verwaltete Units werden
+über den geschützten Infrastruktur-Nachweis aktualisiert. Eine fehlende Legacy-`.env`
+wird auf Test/Staging nicht neu angelegt.
+
+Bei fehlgeschlagener Aktivierung werden ursprüngliche Unit-Dateien und Zustände
+wiederhergestellt. Neu angelegte Notification-Units werden gestoppt und entfernt,
+der neu aktivierte Timer vorher deaktiviert. Ohne Notification-Management bleiben
+Service und Timer unverändert.
 
 ## Aktivierungsreihenfolge
 
@@ -1029,7 +1051,9 @@ Nach erfolgreichem Dry Run setzt das Script `ua_apply_confirmation`, die drei
 zugehörigen Approval-Booleans und `ua_reviewed_dry_run` automatisch. Letzteres
 bezeichnet ausdrücklich eine **automatische Prüfung**, keinen menschlichen Review.
 Notification-Management bleibt standardmäßig aus; eine vorhandene Aktivierung
-benötigt weiterhin die bereits separat erteilte Notification-Freigabe.
+benötigt weiterhin die bereits separat erteilte Notification-Freigabe. Mit beiden
+Flags auf `true` wird der verwaltete Test-/Staging-Timer nach erfolgreichem Deploy
+aktiviert; die Production-Semantik bleibt unverändert.
 
 Beide Phasen verwenden private Kopien derselben aufgelösten Hostvariablen und
 dieselben Release-/Archiv-Hashes. Statische Inventory-Datei, aufgelöste Variablen,
@@ -1274,7 +1298,8 @@ Dafür bleiben Snapshot und Manifest verfügbar. Kein `force_handlers`, keine pa
 Deployments oder manuellen Konfigurationsänderungen während der Aktivierung.
 
 Nach erfolgreichem Deployment zusätzlich read-only prüfen: drei erwartete Units aktiv,
-Notification-Zustand unverändert (oder bei explizitem Management Timer inaktiv/disabled),
+Notification-Zustand unverändert; bei explizitem Management ist der Timer auf
+Test/Staging aktiv/enabled und auf Production inaktiv/disabled. Außerdem prüfen:
 Ports ausschließlich loopback, `/health` und `/ready` erfolgreich, HTTPS-/Cookie-/Header-
 Verhalten. `/ready` beweist keine Worker-Liveness; bestehenden Queue-/Lease-Fortschritt
 getrennt beobachten. Keine SMTP-Zustellung, neuen Jobs oder Auth-Retention als Smoke-Test.

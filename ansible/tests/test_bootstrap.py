@@ -55,6 +55,148 @@ class InfrastructureContractTests(unittest.TestCase):
     def plan(self, environment="test"):
         return infrastructure.inventory(environment, self.candidates, ["nginx.service"])
 
+    def notification_candidates(self):
+        return self.candidates + [
+            {
+                "path": infrastructure.UNIT_ROOT + "/" + unit,
+                "content": "reviewed " + unit,
+                "mode": "0644",
+            }
+            for unit in infrastructure.NOTIFICATION_UNITS
+        ]
+
+    def test_notification_units_require_explicit_test_or_staging_management(self):
+        candidates = self.notification_candidates()
+        for environment in ("test", "staging"):
+            with self.assertRaisesRegex(ValueError, "file set"):
+                infrastructure.inventory(environment, candidates, [])
+            result = infrastructure.inventory(
+                environment, candidates, [], manage_notifications=True
+            )
+            self.assertEqual(result["missing_units"], list(infrastructure.NOTIFICATION_UNITS))
+            self.assertTrue(all(not Path(c["path"]).exists() for c in candidates[-2:]))
+        with self.assertRaisesRegex(ValueError, "requires test or staging"):
+            infrastructure.inventory("production", candidates, [], manage_notifications=True)
+
+    def test_notification_receipt_upgrade_and_unmanaged_repeat_preserve_review(self):
+        receipt = Path(infrastructure.RECEIPT)
+        receipt.write_text(self.plan()["receipt"])
+        receipt.chmod(0o600)
+        candidates = self.notification_candidates()
+        plan = infrastructure.inventory("test", candidates, [], manage_notifications=True)
+        for item in candidates[-2:]:
+            Path(item["path"]).write_text(item["content"])
+            Path(item["path"]).chmod(0o644)
+        receipt.write_text(plan["receipt"])
+        self.assertEqual(json.loads(self.plan()["receipt"]), json.loads(plan["receipt"]))
+        self.assertEqual(
+            infrastructure.inventory("test", candidates, [], manage_notifications=True)[
+                "would_create"
+            ],
+            [],
+        )
+        Path(candidates[-1]["path"]).write_text("unreviewed edit")
+        with self.assertRaisesRegex(ValueError, "Unreviewed"):
+            infrastructure.inventory("test", candidates, [], manage_notifications=True)
+
+    def test_notification_foreign_units_and_timer_dropins_are_rejected(self):
+        candidates = self.notification_candidates()
+        for item in candidates[-2:]:
+            path = Path(item["path"])
+            path.write_text("foreign configuration")
+            path.chmod(0o644)
+            with self.assertRaisesRegex(ValueError, "Unreviewed"):
+                infrastructure.inventory("test", candidates, [], manage_notifications=True)
+            path.unlink()
+        for name in (
+            "timer",
+            "uranus-.timer",
+            "uranus-admin-.timer",
+            "uranus-admin-notification-.service",
+            "uranus-admin-notification-.timer",
+            infrastructure.NOTIFICATION_UNITS[1],
+        ):
+            dropin = Path(infrastructure.UNIT_ROOT) / (name + ".d")
+            dropin.mkdir()
+            (dropin / "override.conf").write_text("foreign drop-in")
+            with self.assertRaisesRegex(ValueError, "drop-ins"):
+                infrastructure.inventory("test", candidates, [], manage_notifications=True)
+            (dropin / "override.conf").unlink()
+            dropin.rmdir()
+
+    def test_notification_missing_snapshot_is_never_allowed_in_production(self):
+        nginx = {
+            "item": "nginx.service",
+            "stdout": "LoadState=loaded\nActiveState=active\nUnitFileState=enabled",
+        }
+        for name in infrastructure.NOTIFICATION_UNITS:
+            missing = {
+                "item": name,
+                "stdout": "LoadState=not-found\nActiveState=inactive\nUnitFileState=",
+            }
+            for environment in ("test", "staging"):
+                self.assertFalse(
+                    filters.service_snapshot([missing, nginx], environment)[name]["exists"]
+                )
+            with self.assertRaises(AnsibleFilterError):
+                filters.service_snapshot([missing, nginx], "production")
+
+    def test_missing_notification_service_preflight_is_environment_scoped(self):
+        gate = next(
+            task
+            for task in yaml.safe_load((ROLE / "tasks/preflight.yml").read_text())
+            if task["name"] == "Require the audited existing installation"
+        )
+        cases = []
+        for environment in ("production", "test", "staging"):
+            cases.append(
+                (
+                    "missing notification " + environment,
+                    "uranus-admin-test",
+                    {
+                        **test_target_contract.APPROVALS,
+                        "ua_target_environment": environment,
+                        "ua_public_origin": "https://admin.kulturbytes.de"
+                        if environment == "production"
+                        else "https://fixture.example.invalid",
+                        "ua_manage_notification_timer": True,
+                        "ua_disable_notification_timer_approved": True,
+                        "ansible_facts": {
+                            "services": {
+                                unit: {} for unit in (*infrastructure.UNITS, "nginx.service")
+                            }
+                        },
+                    },
+                    "One or more items failed" if environment == "production" else None,
+                )
+            )
+        test_target_contract.TargetContractTests().run_cases(cases, extra_tasks=[gate], check=True)
+
+    def test_running_notification_oneshot_is_snapshotted_as_active(self):
+        nginx = {
+            "item": "nginx.service",
+            "stdout": "LoadState=loaded\nActiveState=active\nUnitFileState=enabled",
+        }
+        worker = {
+            "item": infrastructure.NOTIFICATION_UNITS[0],
+            "stdout": "LoadState=loaded\nActiveState=activating\nUnitFileState=static",
+        }
+        for environment in ("production", "test", "staging"):
+            snapshot = filters.service_snapshot([nginx, worker], environment)
+            self.assertTrue(snapshot[worker["item"]]["active"])
+            self.assertEqual(snapshot[worker["item"]]["unit_file_state"], "static")
+            with self.assertRaises(AnsibleFilterError):
+                filters.service_snapshot(
+                    [
+                        nginx,
+                        {
+                            **worker,
+                            "stdout": worker["stdout"].replace("activating", "deactivating"),
+                        },
+                    ],
+                    environment,
+                )
+
     def test_matching_objects_accepted_in_all_environments(self):
         for environment in ("production", "staging", "test"):
             with self.subTest(environment=environment):

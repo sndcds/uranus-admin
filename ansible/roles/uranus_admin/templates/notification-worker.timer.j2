@@ -1,0 +1,10 @@
+[Unit]
+Description=Uranus Admin hourly notification checks
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+Unit=uranus-admin-notification-worker.service
+
+[Install]
+WantedBy=timers.target
