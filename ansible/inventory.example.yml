@@ -10,6 +10,8 @@ all:
           # Logical deployment environment, not a hostname allowlist.
           # Allowed: production, staging, test.
           ua_target_environment: production
+          # Admin DB bootstrap is never allowed in production. On test/staging,
+          # approval belongs only in the gitignored approvals.local.yml; see README.
           # Staging/test require their own HTTPS ua_public_origin; see README.
           ua_release_sha: "REPLACE_WITH_FULL_COMMIT_SHA"
           ua_artifact: "/absolute/controller/path/release.tar.gz"
