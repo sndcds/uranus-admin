@@ -144,3 +144,10 @@ in dieser Testdatenbank administrative Rechte. CI führt den vollständigen DB-L
 
 [Phase 3 – interaktive READ-ONLY SQL Console](docs/sql-console-runtime.md):
 Same-Origin-WebSocket, eigene Console-DSN, AST-Prüfung, begrenztes Streaming und echter Query-Abbruch.
+Contract v6 erlaubt Systemadministratoren bewusst `SELECT *` auf allen Tabellen und Spalten
+in `uranus.*`, einschließlich sensibler Token-/Passwort-Hash-Werte. Ausschließlich
+`uranus_console_reader`, Search Path `pg_catalog, uranus`, kein DSN-Fallback.
+Ansible verwaltet direkte SELECT-Grants und Default Privileges des geprüften Source-Owners.
+`admin.*` und Systemkataloge bleiben für User-SQL verboten; DB-Schreibrechte bleiben entzogen.
+Keine Maskierung, kein Logging von SQL/Ergebnissen und kein Phase-4-Writezugriff.
+Registered Diagnostics und SQL Provenance behalten ihre bisherigen begrenzten Pfade.

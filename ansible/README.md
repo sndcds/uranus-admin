@@ -115,7 +115,7 @@ Statement-Timeout, 2 Sekunden Lock-Timeout und `search_path=pg_catalog`.
 Die Runtime-Verifikation nutzt explizite read-only Transaktionen und die Zeitlimits
 der Anwendung. Source-Queries sind schemaqualifiziert. Der bestehende Datenbank-
 `search_path` bleibt erhalten; nur der dedizierte Console-Reader erhält seine eigene
-Datenbank-Rolleneinstellung `pg_catalog, uranus_console`. Counts können durch legitime parallele Live-
+Datenbank-Rolleneinstellung `pg_catalog, uranus`. Counts können durch legitime parallele Live-
 Schreibvorgänge schwanken und beweisen deshalb keinen unveränderten Datenbestand.
 
 **Source/Admin-Preflight: keine schreibenden SQL-Kommandos.** Der getrennte
@@ -130,9 +130,18 @@ Er erhält keine Rechte zum Schreiben in `uranus`.
 Capability: `SQL_CONSOLE_DATABASE_URL` muss im Environment-Vertrag des authentifizierten
 Release-Manifests stehen. Alte Releases planen keine Console-Änderungen und löschen
 vorhandene Console-Objekte nicht. Der eigene
-[Contract v5](roles/uranus_admin/files/sql_console_contract.json) pinnt Uranus
+[Contract v6](roles/uranus_admin/files/sql_console_contract.json) pinnt Uranus
 `7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d`: vier Views (`event_date`, `event`,
-`venue`, `organization`), 31 explizite Spalten und Datentypen.
+`venue`, `organization`), 31 explizite Legacy-Spalten und Datentypen. Seit v6 bekommt
+`uranus_console_reader` zusätzlich direkten SELECT auf **alle Tabellen und Spalten in
+`uranus.*`, einschließlich sensibler Werte**. `SELECT *` ist beabsichtigt. Schema-USAGE
+und schema-lokale Default-SELECT-Grants werden atomar provisioniert, ohne andere Rechte.
+Der tatsächliche DB-Owner wird aus dem Katalog ermittelt; Source-Schema und alle Tabellen
+müssen diesem Owner gehören. Abweichende Owner, RLS, indirekte Relationen und ungeprüfte
+Defaults blockieren. Künftige Tabellen dieses Owners sind automatisch lesbar.
+[Ausführlicher v6-Vertrag und Check-Mode-Plan](../backend/docs/sql-console-infrastructure.md).
+Die freie Console braucht keine Legacy-Views. `admin.*` bleibt verboten, Systemkataloge
+bleiben für User-SQL gesperrt; Schreiben und Phase 4 bleiben ausgeschlossen.
 
 1. `sql_console_plan.yml`: reine Katalog-READ-ONLY-Prüfung und geheimnisfreier Plan.
 2. `sql_console_provision.yml`: zusätzliches `ua_sql_console_provision_approved: true`
@@ -157,7 +166,7 @@ Implementierung ersetzen keine Produktionsfreigabe.
 NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/NOBYPASSRLS und NOINHERIT. Bestehende
 INHERIT-Rollen führen zu `unsafe_role_inherit:<role>`; keine automatische Reparatur.
 Keine Memberships. Nur der Owner besitzt Console-Schema/Views und exakte Quellspaltenrechte.
-Nur der Reader erhält View-SELECT, Console-USAGE und CONNECT. Überprivilegierte bestehende
+Nur der Reader erhält direkten Uranus-SELECT, Uranus-/Console-USAGE, Legacy-View-SELECT und CONNECT. Überprivilegierte bestehende
 Rollen, falsche Owner und Zusatzrechte werden abgewiesen, nicht still repariert.
 Abweichende View-Definitionen bei unverändertem Spaltenvertrag werden reconciled;
 unbekannte Objekte führen zu `unexpected_sql_console_object`, niemals automatischem DROP.
@@ -179,7 +188,7 @@ bevor dieselbe Console-Provisionierungstransaktion committet. Ein Fehler rollt a
 Grant Options und ungeprüfte TEMP-Membership-Pfade blockieren ohne Teiländerung.
 Auch indirekte SET-ROLE-Pfade werden geprüft; NOINHERIT allein genügt dafür nicht.
 
-Der Function-/Extension-Vertrag in Contract v5 / Policy v3 prüft exakte Katalog-Fingerprints.
+Der Function-/Extension-Vertrag in Contract v6 / Policy v3 prüft exakte Katalog-Fingerprints.
 Geprüfte Kombinationen:
 
 - PostgreSQL **16.15 / PostGIS 3.4.2** — dokumentierte Production-Baseline,
@@ -221,7 +230,7 @@ Details, Review-Nachweise und Grenzen stehen im
 Die drei fingerprintgeprüften Standard-Metadatenobjekte von PostGIS behalten ausschließlich
 ihr vorhandenes SELECT. Die Testfixture verwendet unverändertes `CREATE EXTENSION postgis`,
 keine vorbereitenden pauschalen PUBLIC-REVOKEs. Der Search-Path bleibt
-`pg_catalog, uranus_console`; sichere schemaqualifizierte PostGIS-Aufrufe sind möglich.
+`pg_catalog, uranus`; sichere schemaqualifizierte PostGIS-Aufrufe sind möglich.
 Details, Signaturmengen, Audit-Reproduktion und Grenzen stehen im
 [Function-/Extension-Vertrag](../backend/docs/sql-console-infrastructure.md#public-temp-und-function-extension-grenze).
 
@@ -288,8 +297,13 @@ Beispiel eines gekürzten **Plans**, keine Aussage über Production:
 sql_console:
   required: true
   role: uranus_console_reader
-  schema: uranus_console
-  contract_version: 5
+  schema: uranus
+  legacy_schema: uranus_console
+  contract_version: 6
+  console_data_scope:
+    schema: uranus
+    access: all_tables_all_columns
+    privilege: SELECT
   owner_role: uranus_console_owner
   changes_planned:
     - would grant explicit TEMPORARY uranus_reader
@@ -300,6 +314,9 @@ sql_console:
     - would create view event_date
     - would reconcile owner SELECT event_date.uuid
     - would reconcile reader SELECT event_date
+    - would grant USAGE ON SCHEMA uranus
+    - would grant SELECT ON ALL TABLES IN SCHEMA uranus
+    - would configure default SELECT privileges
     - would set role search_path
   runtime_dsn_present: true
   fallback: false

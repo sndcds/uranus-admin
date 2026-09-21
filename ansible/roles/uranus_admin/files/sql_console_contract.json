@@ -1,10 +1,16 @@
 {
-  "version": 5,
+  "version": 6,
   "uranus_sha": "7ae87ea7fe39692c1f3dcc3a5621f6c9e7bb574d",
   "schema": "uranus_console",
   "owner_role": "uranus_console_owner",
   "reader_role": "uranus_console_reader",
-  "search_path": "pg_catalog, uranus_console",
+  "search_path": "pg_catalog, uranus",
+  "console_data_scope": {
+    "schema": "uranus",
+    "access": "all_tables_all_columns",
+    "privilege": "SELECT"
+  },
+  "source_owner_policy": "database_owner",
   "database_temp_roles": [
     "uranus_reader",
     "admin_user",

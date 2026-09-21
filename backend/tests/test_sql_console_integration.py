@@ -86,10 +86,7 @@ async def test_real_identity_and_db_enforced_boundary(provisioned_console):
     try:
         await assert_identity(conn)
         assert await conn.fetchval("SELECT current_user") == "uranus_console_reader"
-        assert (
-            await conn.fetchval("SELECT current_setting('search_path')")
-            == "pg_catalog, uranus_console"
-        )
+        assert await conn.fetchval("SELECT current_setting('search_path')") == "pg_catalog, uranus"
         assert not await conn.fetchval(
             "SELECT has_database_privilege(current_user,current_database(),'TEMP')"
         )
@@ -98,7 +95,6 @@ async def test_real_identity_and_db_enforced_boundary(provisioned_console):
         )
         # Bypass the application AST deliberately: PostgreSQL must still deny these.
         for sql in [
-            'SELECT * FROM uranus."user"',
             "SELECT * FROM admin.auth_account",
             "SELECT pg_sleep(1)",
             "SELECT pg_read_file('/etc/passwd')",
@@ -294,3 +290,129 @@ async def test_real_socket_disconnect_cancels_db(provisioned_console):
     finally:
         await runtime.close()
         await observer.close()
+
+
+async def test_all_source_tables_sensitive_columns_and_ast_scope(provisioned_console):
+    url, observer = provisioned_console
+    admin = await asyncpg.connect(**observer)
+    conn = await asyncpg.connect(url)
+    try:
+        tables = await admin.fetch(
+            "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname='uranus' "
+            "ORDER BY tablename"
+        )
+        assert len(tables) == 8
+        runtime = runtime_for(url)
+        for table in tables:
+            name = table["tablename"].replace('"', '""')
+            messages = await collect(runtime, f'SELECT * FROM uranus."{name}"')
+            assert messages[-1]["type"] == "complete", messages
+        assert await conn.fetchrow('SELECT password_hash, activate_token FROM uranus."user"') == (
+            "fixture-hash",
+            "fixture-activation",
+        )
+        assert (
+            await conn.fetchval("SELECT api_import_token FROM uranus.organization")
+            == "fixture-import"
+        )
+        assert (
+            await conn.fetchval("SELECT accept_token FROM uranus.organization_member_link")
+            == "fixture-secret"
+        )
+        assert await conn.fetchval("SELECT token FROM uranus.password_reset") == "fixture-reset"
+        for query in (
+            "SELECT * FROM event",
+            "WITH e AS (SELECT * FROM uranus.event) SELECT * FROM e",
+            "SELECT e.uuid FROM uranus.event e JOIN uranus.event_date d ON d.event_uuid=e.uuid",
+            'SELECT count(*) FROM (SELECT * FROM uranus."user") u',
+        ):
+            assert (await collect(runtime, query))[-1]["type"] == "complete"
+        for query in (
+            "SELECT * FROM admin.auth_account",
+            "SELECT * FROM pg_catalog.pg_authid",
+            "SELECT * FROM information_schema.tables",
+            "SELECT * FROM public.spatial_ref_sys",
+            "SELECT * FROM pg_stat_activity",
+            "SELECT * FROM uranus_console.event",
+        ):
+            messages = await collect(runtime, query)
+            assert [m["type"] for m in messages] == ["error"]
+            assert messages[-1]["code"] == "permission_denied"
+        type_messages = await collect(
+            runtime,
+            "SELECT 'draft'::uranus.event_release_status AS status, "
+            "ARRAY['released'::uranus.event_release_status] AS statuses, "
+            "public.ST_Point(1,2) AS location",
+        )
+        assert type_messages[-1]["type"] == "complete", type_messages
+        type_row = next(m for m in type_messages if m["type"] == "rows")["rows"][0]
+        assert type_row["status"] == "draft"
+        assert type_row["statuses"] == "[unsupported result type]"
+        assert isinstance(type_row["location"], str)
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await conn.execute("SELECT set_config('jit','off',false)")
+        await admin.execute("CREATE TABLE uranus.future_runtime (id integer, value text)")
+        await admin.execute("INSERT INTO uranus.future_runtime VALUES (1,'synthetic-future')")
+        await assert_identity(conn)
+        assert await conn.fetchrow("SELECT * FROM future_runtime") == (1, "synthetic-future")
+        for query in (
+            "INSERT INTO uranus.future_runtime VALUES (2,NULL)",
+            "UPDATE uranus.future_runtime SET id=2",
+            "DELETE FROM uranus.future_runtime",
+            "TRUNCATE uranus.future_runtime",
+            "ALTER TABLE uranus.future_runtime ADD bad int",
+            "DROP TABLE uranus.future_runtime",
+            "CREATE TABLE uranus.forbidden(id int)",
+        ):
+            with pytest.raises(asyncpg.InsufficientPrivilegeError):
+                await conn.execute(query)
+    finally:
+        await admin.execute("DROP TABLE IF EXISTS uranus.future_runtime")
+        await conn.close()
+        await admin.close()
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "REVOKE SELECT ON uranus.event FROM uranus_console_reader",
+        "GRANT UPDATE(uuid) ON uranus.event TO uranus_console_reader",
+        "GRANT SELECT ON uranus.event TO uranus_console_reader WITH GRANT OPTION",
+        "GRANT TRIGGER ON uranus.event TO uranus_console_reader",
+        "GRANT REFERENCES ON uranus.event TO uranus_console_reader",
+        "GRANT USAGE ON SCHEMA admin TO uranus_console_reader",
+        "GRANT SELECT ON admin.auth_account TO uranus_console_reader",
+        "ALTER SCHEMA uranus OWNER TO admin_user",
+        "ALTER TABLE uranus.additional_domain OWNER TO admin_user",
+        "ALTER TABLE uranus.additional_domain ENABLE ROW LEVEL SECURITY",
+        "CREATE VIEW uranus.indirect AS SELECT * FROM admin.auth_account",
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA uranus REVOKE SELECT ON TABLES FROM "
+        "uranus_console_reader",
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA uranus GRANT UPDATE ON TABLES TO uranus_console_reader",
+        "ALTER DEFAULT PRIVILEGES GRANT SELECT ON TABLES TO uranus_console_reader",
+        "ALTER DEFAULT PRIVILEGES FOR ROLE admin_user IN SCHEMA uranus GRANT SELECT "
+        "ON TABLES TO uranus_console_reader",
+        "ALTER ROLE uranus_console_reader BYPASSRLS",
+        "GRANT admin_user TO uranus_console_reader",
+    ],
+)
+async def test_runtime_identity_rejects_privilege_owner_rls_and_defaults_drift(
+    provisioned_console, mutation
+):
+    from app.sql_console.policy import ConsoleError
+
+    # Same transaction: evaluate the real catalog as the reader, without committing
+    # deliberately unsafe fixture mutations or sharing them with another test.
+    _, observer = provisioned_console
+    conn = await asyncpg.connect(**observer)
+    transaction = conn.transaction()
+    await transaction.start()
+    try:
+        await conn.execute(mutation)
+        await conn.execute("SET LOCAL SESSION AUTHORIZATION uranus_console_reader")
+        await conn.execute("SET LOCAL search_path=pg_catalog,uranus")
+        with pytest.raises(ConsoleError, match="unsafe_identity"):
+            await assert_identity(conn)
+    finally:
+        await transaction.rollback()
+        await conn.close()

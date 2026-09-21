@@ -86,6 +86,13 @@ class ReviewedCatalogDatabaseTests(unittest.TestCase):
         self.boundary.execute(
             sql.SQL("ALTER DATABASE {} OWNER TO oklab").format(sql.Identifier(self.database))
         )
+        self.boundary.execute("ALTER SCHEMA uranus OWNER TO oklab")
+        for (name,) in self.boundary.rows(
+            "SELECT relname FROM pg_class WHERE relnamespace='uranus'::regnamespace AND relkind='r'"
+        ):
+            self.boundary.execute(
+                sql.SQL("ALTER TABLE uranus.{} OWNER TO oklab").format(sql.Identifier(name))
+            )
         for role in CONTRACT["additional_database_temp_roles"]:
             self.boundary.execute(
                 sql.SQL("CREATE ROLE {} LOGIN NOINHERIT").format(sql.Identifier(role))

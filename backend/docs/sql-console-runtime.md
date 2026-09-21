@@ -1,11 +1,21 @@
 # Phase 3: interaktive READ-ONLY SQL Console
 
-Basis: `main` auf `0b78c749ffccc60bd644361532fd39c8968f1f82` (einschließlich
-PRs #76–79). Phase 3 verwendet den aktuellen Contract v5 / Function Policy v3.
+Phase 3 verwendet Contract v6 / Function Policy v3.
 Es gibt **keinen Write Mode**, kein Commit, keine gespeicherten Scripts, keine
 serverseitige SQL-History und keine Phase-4-Funktion. Dieser PR deployt nichts.
 Die Produktionsfreigaben der [DB-Infrastruktur](sql-console-infrastructure.md)
 gelten weiter; synthetische Tests sind kein Produktionsnachweis.
+
+## Datenumfang seit Contract v6
+
+Die freie System-Admin-Console liest absichtlich alle Tabellen und Spalten in `uranus.*`,
+einschließlich sensibler Token- und Passwort-Hash-Werte. `SELECT *` ist erlaubt; keine
+Projektionspflicht oder Maskierung. Beispiel: `SELECT * FROM uranus.event LIMIT 50;`.
+`admin.*` und Systemkatalog-Relationen bleiben für User-SQL verboten. Die DB erzwingt
+weiterhin fehlende Schreib-/Eskalationsrechte; die AST ergänzt den Katalogschutz.
+Legacy-Views bleiben erhalten, sind aber keine Datenquelle der freien Console.
+[Grants, Owner, Default Privileges und RLS-Stop](sql-console-infrastructure.md).
+Phase 1/2 behalten ihre bisherigen Ausführungspfade. Keine Phase 4.
 
 ## Architektur und Authentifizierung
 
@@ -41,7 +51,7 @@ verboten. Pydantic: `app/sql_console/protocol.py`; Browser/Proxy-Zod:
 der HTTP-OpenAPI-Snapshot enthält die ergänzte servereigene `console_sql`-Definition.
 
 ```json
-{"v":1,"type":"execute","request_id":"00000000-0000-4000-8000-000000000001","sql":"SELECT uuid FROM uranus_console.event LIMIT 50;","params":{},"row_limit":50}
+{"v":1,"type":"execute","request_id":"00000000-0000-4000-8000-000000000001","sql":"SELECT uuid FROM uranus.event LIMIT 50;","params":{},"row_limit":50}
 {"v":1,"type":"ack","request_id":"00000000-0000-4000-8000-000000000001","batch":1}
 {"v":1,"type":"cancel","request_id":"00000000-0000-4000-8000-000000000001"}
 ```
@@ -71,9 +81,10 @@ PostgreSQL-Parser (libpg_query, PostgreSQL 17). Genau ein `SelectStmt` ist erlau
 inklusive CTEs, Subqueries und Mengenoperationen. Rekursive AST-Prüfung sperrt auch
 schreibende CTEs, SELECT INTO, Locking-Klauseln und freie Parameter. Nicht-Query-
 Statements werden generell abgewiesen, nicht über eine unvollständige Regex-Liste.
-Relationen außerhalb `uranus_console` (einschließlich Systemkatalogen) sind zusätzlich
-gesperrt; unqualifizierte Views und CTEs bleiben möglich. Unqualifizierte `pg_*`-
-Relationen sind ebenfalls gesperrt. Eine ergänzende App-Privacy-Sperre verbietet
+Relationen außerhalb `uranus` (einschließlich `admin`, `public`, `uranus_console` und
+Systemkatalogen) sind zusätzlich gesperrt; unqualifizierte Tabellen und lexikalisch
+sichtbare CTEs bleiben möglich, auch CTE-Namen mit `pg_`-Präfix. Unqualifizierte
+`pg_*`-Relationen außerhalb eines solchen CTE-Gültigkeitsbereichs sind gesperrt. Eine ergänzende App-Privacy-Sperre verbietet
 `pg_stat_get_*` und SQL/XML-Wrapper `query_to_*`, `table_to_*`, `schema_to_*`,
 `database_to_*`, `cursor_to_*`: sie könnten sonst Querytexte anderer Sitzungen mit
 derselben DB-Identität offenlegen oder SQL in Stringargumenten verstecken. Diese
@@ -130,13 +141,25 @@ Signaturen**, weil sichere Überladungen im DB-Contract erlaubt sein können.
 
 Die Datenbank bleibt die **primäre** Sicherheitsgrenze. Der Runtime-Preflight prüft
 auf jeder neuen Verbindung `current_user` **und** `session_user` als
-`uranus_console_reader`, den Search Path `pg_catalog, uranus_console`, fehlendes
-CREATE/TEMP, mächtige Rollenattribute/Memberships, Schema-CREATE, direkte
-Uranus-/Admin-Rechte und effektives EXECUTE der gesperrten Funktionen. Er ersetzt
+`uranus_console_reader`, den Search Path `pg_catalog, uranus`, fehlendes
+CREATE/TEMP, mächtige Rollenattribute/Memberships, Objekt-Ownership, Schema-CREATE,
+unerlaubte Uranus-Schreib-/Grant-Rechte, Admin-Rechte und effektives EXECUTE der gesperrten Funktionen.
+Er verlangt USAGE auf Uranus, Tabellen-SELECT auf allen dynamisch inventarisierten
+Tabellen, konsistente Schema-/Tabellen-/DB-Owner und exakt schema-lokale SELECT-Defaults
+dieses Owners. RLS, indirekte Relationen, Sequenzrechte und unerwartete Default Privileges
+führen zu `unsafe_identity`. PG17-MAINTAIN wird über die tatsächliche ACL mit erfasst. Er ersetzt
 nicht das vollständige versionierte Provisionierungs-/Katalog-Audit.
 Keine Rollen-/Grant-Reparatur durch die Anwendung. Keine Fallback-DSN.
 
-Jede Ausführung verwendet eine eigene asyncpg-Verbindung ohne Pool:
+Jede Ausführung verwendet eine eigene asyncpg-Verbindung ohne Pool. `ConsoleConnection`
+führt die unveränderte asyncpg-Typkatalogabfrage ohne dessen internes `set_config`-JIT-
+Wrapping aus; `jit=off` wird als Startup-Setting gesetzt. So funktioniert die Typ-Erkennung
+für Enums, Arrays und PostGIS ohne zusätzliche EXECUTE-Rechte. Die bestehende
+Result-Serialisierung (einschließlich Platzhalter für nicht unterstützte native Typen) bleibt unverändert. Der schmale private Treiber-
+Hook ist durch echte Typ-Integrationstests abgesichert und muss bei asyncpg-Upgrades
+mitgeprüft werden. `set_config` bleibt sowohl DB-seitig als auch in der AST gesperrt.
+
+Ablauf:
 
 1. DSN-Identität und AST prüfen.
 2. `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY`.
@@ -233,10 +256,8 @@ den bisherigen eigenen JSON-Tokenizer. Es gibt keine persistente Query-History.
 
 Findings laden weiterhin die registrierte Definition serverseitig. Das additive
 `console_sql` verwendet vorhandenes sicheres serverseitiges Literal-Rendering und
-AST-basierte Umsetzung bekannter Relationen auf die freigegebenen Console-Views.
-Die originale Phase-1-Query und deren Execution bleiben erhalten. Nicht freigegebene
-Relationen/Spalten werden nicht künstlich zugänglich: solche Console-Abfragen
-können mit Permission-/Objektfehler enden. Parameter sind im Console-Modus als
+AST-basiertes Rendering ohne Umschreiben der `uranus.*`-Relationen.
+Die originale Phase-1-Query und deren Execution bleiben erhalten. Parameter sind im Console-Modus als
 **ursprüngliche Startwerte** beschriftet. Nach Editing erscheint
 „Benutzerdefinierte Abfrage“, mit ausdrücklichem Hinweis, dass keine Befundregel
 bewertet wird; Originalwiederherstellung ist möglich.

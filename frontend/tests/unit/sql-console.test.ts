@@ -8,7 +8,7 @@ import { consoleCookie, consoleUpstream } from '../../server/utils/sql-console-p
 import { formatPostgresql } from '../../app/utils/sql-formatter'
 
 const sample =
-  "SELECT :named_param, 123.45, 'text'::text, COUNT(*), ST_X(point) FROM uranus_console.event AS e LEFT JOIN uranus_console.event_date AS d ON e.uuid=d.event_uuid WHERE e.uuid IS NOT NULL AND TRUE OR FALSE; -- comment\n/* comment */"
+  "SELECT :named_param, 123.45, 'text'::text, COUNT(*), ST_X(point) FROM uranus.event AS e LEFT JOIN uranus.event_date AS d ON e.uuid=d.event_uuid WHERE e.uuid IS NOT NULL AND TRUE OR FALSE; -- comment\n/* comment */"
 it('CodeMirror maps the exact readonly Prism tokens to the same CSS classes', () => {
   const state = EditorState.create({ doc: sample })
   const decorations = sqlDecorations(state)
@@ -57,13 +57,13 @@ it('CodeMirror maps the exact readonly Prism tokens to the same CSS classes', ()
 it('formats exact console example and preserves named values/casts/UNION', () => {
   expect(
     formatPostgresql(
-      'SELECT uuid,event_uuid,start_date FROM uranus_console.event_date WHERE uuid=:entity_key LIMIT 50',
+      'SELECT uuid,event_uuid,start_date FROM uranus.event_date WHERE uuid=:entity_key LIMIT 50',
     ),
   ).toBe(
-    'SELECT\n    uuid,\n    event_uuid,\n    start_date\nFROM uranus_console.event_date\nWHERE uuid = :entity_key\nLIMIT 50;',
+    'SELECT\n    uuid,\n    event_uuid,\n    start_date\nFROM uranus.event_date\nWHERE uuid = :entity_key\nLIMIT 50;',
   )
   const formatted = formatPostgresql(
-    'SELECT "Odd Name"::text FROM uranus_console.event UNION SELECT \'a::text :id\'',
+    'SELECT "Odd Name"::text FROM uranus.event UNION SELECT \'a::text :id\'',
   )
   expect(formatted).toContain('\nUNION\n')
   expect(formatted).toContain('"Odd Name"::text')

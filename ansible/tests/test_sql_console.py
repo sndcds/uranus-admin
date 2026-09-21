@@ -61,7 +61,7 @@ class ConsoleContractTests(unittest.TestCase):
             self.assertNotIn("*", definition)
             self.assertNotIn("(", definition)
             self.assertEqual(view["owner_select_columns"], [c["name"] for c in view["columns"]])
-        self.assertEqual(CONTRACT["version"], 5)
+        self.assertEqual(CONTRACT["version"], 6)
         self.assertEqual(
             set(CONTRACT["database_temp_roles"]),
             {"uranus_reader", "admin_user", "admin_migrator", "admin_auth_operator"},
@@ -212,6 +212,13 @@ class ConsoleDatabaseTests(unittest.TestCase):
             cur.execute("CREATE TABLE uranus.password_reset (token text)")
             cur.execute("CREATE TABLE admin.auth_account (password_hash text)")
             cur.execute("INSERT INTO uranus.organization_member_link VALUES ('fixture-secret')")
+            cur.execute(
+                "INSERT INTO uranus.organization(api_import_token) VALUES ('fixture-import')"
+            )
+            cur.execute("INSERT INTO uranus.\"user\" VALUES ('fixture-hash','fixture-activation')")
+            cur.execute("INSERT INTO uranus.password_reset VALUES ('fixture-reset')")
+            cur.execute("CREATE TABLE uranus.additional_domain (id integer, value text)")
+            cur.execute("INSERT INTO uranus.additional_domain VALUES (1,'fixture-extra')")
             cur.execute(
                 "INSERT INTO uranus.event_date (uuid,start_date) VALUES "
                 "('00000000-0000-0000-0000-000000000001','2026-09-20')"
@@ -398,7 +405,7 @@ class ConsoleDatabaseTests(unittest.TestCase):
         self.provision()
         self.assertFalse(self.boundary.provision(PASSWORD))
 
-    def test_alias_expression_json_cte_and_subquery_attacks(self):
+    def test_all_columns_including_sensitive_expressions_are_intentionally_readable(self):
         self.provision()
         for query in (
             "SELECT accept_token FROM uranus.organization_member_link",
@@ -411,10 +418,13 @@ class ConsoleDatabaseTests(unittest.TestCase):
             'SELECT activate_token FROM uranus."user"',
             "SELECT api_import_token FROM uranus.organization",
             "SELECT token FROM uranus.password_reset",
-            "SELECT password_hash FROM admin.auth_account",
         ):
             with self.subTest(query=query):
-                self.denied(query)
+                self.boundary.execute("SAVEPOINT allowed_read")
+                self.boundary.execute("SET LOCAL SESSION AUTHORIZATION uranus_console_reader")
+                self.assertTrue(self.boundary.rows(query))
+                self.boundary.execute("ROLLBACK TO SAVEPOINT allowed_read")
+        self.denied("SELECT password_hash FROM admin.auth_account")
 
     def test_safe_views_and_new_source_column_not_exposed(self):
         self.provision()
@@ -437,6 +447,12 @@ class ConsoleDatabaseTests(unittest.TestCase):
             "UPDATE uranus_console.event_date SET all_day=true",
             "DELETE FROM uranus_console.event_date",
             "INSERT INTO uranus.event_date (uuid) VALUES (NULL)",
+            "UPDATE uranus.event SET uuid=NULL",
+            "DELETE FROM uranus.event",
+            "TRUNCATE uranus.event",
+            "ALTER TABLE uranus.event ADD forbidden int",
+            "DROP TABLE uranus.event",
+            "CREATE TABLE uranus.x(id int)",
             "CREATE TABLE uranus_console.x(id int)",
             "CREATE TABLE public.x(id int)",
             "CREATE TEMP TABLE x(id int)",
@@ -467,7 +483,6 @@ class ConsoleDatabaseTests(unittest.TestCase):
             "ALTER ROLE uranus_console_reader BYPASSRLS",
             "GRANT uranus_console_owner TO uranus_console_reader",
             "GRANT postgres TO uranus_console_reader",
-            "GRANT SELECT ON uranus.organization TO uranus_console_reader",
             "GRANT SELECT(api_import_token) ON uranus.organization TO uranus_console_reader",
             "GRANT UPDATE(uuid) ON uranus.event TO uranus_console_reader",
             "GRANT SELECT ON uranus.event TO uranus_console_owner",
@@ -494,6 +509,157 @@ class ConsoleDatabaseTests(unittest.TestCase):
         if self.conn.server_version >= 170000:
             self.boundary.execute("GRANT MAINTAIN ON uranus.event TO uranus_console_reader")
             self.assertTrue(self.boundary.inspect()["blockers"])
+
+    def test_all_table_select_inventory_and_future_table_defaults(self):
+        before = self.boundary.inspect()
+        for label in (
+            "would grant USAGE ON SCHEMA uranus",
+            "would grant SELECT ON ALL TABLES IN SCHEMA uranus",
+            "would configure default SELECT privileges",
+        ):
+            self.assertIn(label, before["changes_planned"])
+        self.provision()
+        report = self.boundary.inspect()
+        self.assertEqual(len(report["source_tables"]), 8)
+        self.assertTrue(all(t["select"] for t in report["source_tables"]))
+        for table in report["source_tables"]:
+            privileges = [
+                "SELECT",
+                "INSERT",
+                "UPDATE",
+                "DELETE",
+                "TRUNCATE",
+                "REFERENCES",
+                "TRIGGER",
+            ]
+            if self.conn.server_version >= 170000:
+                privileges.append("MAINTAIN")
+            for privilege in privileges:
+                self.assertEqual(
+                    self.boundary.rows(
+                        "SELECT has_table_privilege(%s,%s,%s)",
+                        (console.READER, 'uranus."' + table["name"] + '"', privilege),
+                    )[0][0],
+                    privilege == "SELECT",
+                )
+            self.boundary.execute("SAVEPOINT table_read")
+            self.boundary.execute("SET LOCAL SESSION AUTHORIZATION uranus_console_reader")
+            self.boundary.rows(
+                sql.SQL("SELECT * FROM uranus.{}").format(sql.Identifier(table["name"]))
+            )
+            self.boundary.execute("ROLLBACK TO SAVEPOINT table_read")
+        self.boundary.execute("CREATE TABLE uranus.future_table(id int, secret text)")
+        self.boundary.execute("INSERT INTO uranus.future_table VALUES(1,'synthetic-future')")
+        self.assertEqual(self.boundary.inspect()["changes_planned"], [])
+        self.assertEqual(len(self.boundary.inspect()["source_tables"]), 9)
+        self.boundary.execute("SAVEPOINT future_read")
+        self.boundary.execute("SET LOCAL SESSION AUTHORIZATION uranus_console_reader")
+        self.assertEqual(
+            self.boundary.rows("SELECT * FROM uranus.future_table"), [(1, "synthetic-future")]
+        )
+        self.boundary.execute("ROLLBACK TO SAVEPOINT future_read")
+        for query in (
+            "INSERT INTO uranus.future_table VALUES(2,'x')",
+            "UPDATE uranus.future_table SET id=2",
+            "DELETE FROM uranus.future_table",
+        ):
+            self.denied(query)
+
+    def test_owner_rls_and_default_privilege_drift_blocked(self):
+        self.provision()
+        for query, blocker in (
+            ("ALTER SCHEMA uranus OWNER TO admin_user", "unexpected_source_schema_owner"),
+            (
+                "ALTER TABLE uranus.additional_domain OWNER TO admin_user",
+                "unexpected_source_table_owner:additional_domain",
+            ),
+            (
+                "ALTER TABLE uranus.additional_domain ENABLE ROW LEVEL SECURITY",
+                "source_rls_requires_review:additional_domain",
+            ),
+            (
+                "CREATE VIEW uranus.indirect AS SELECT * FROM admin.auth_account",
+                "indirect_source_relation_requires_review:indirect",
+            ),
+            (
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA uranus GRANT INSERT ON TABLES TO "
+                "uranus_console_reader",
+                "unreviewed_default_privileges:uranus_console_reader",
+            ),
+            (
+                "ALTER DEFAULT PRIVILEGES GRANT SELECT ON TABLES TO uranus_console_reader",
+                "unreviewed_default_privileges:uranus_console_reader",
+            ),
+            (
+                "ALTER DEFAULT PRIVILEGES FOR ROLE admin_user IN SCHEMA uranus GRANT "
+                "SELECT ON TABLES TO uranus_console_reader",
+                "unreviewed_default_privileges:uranus_console_reader",
+            ),
+            (
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA uranus GRANT SELECT ON TABLES TO PUBLIC",
+                "unreviewed_default_privileges:uranus_console_reader",
+            ),
+        ):
+            with self.subTest(query=query):
+                self.boundary.execute("SAVEPOINT drift")
+                self.boundary.execute(query)
+                self.assertIn(blocker, self.boundary.inspect()["blockers"])
+                with self.assertRaisesRegex(ValueError, "sql_console_blocked"):
+                    self.boundary.provision(PASSWORD)
+                self.boundary.execute("ROLLBACK TO SAVEPOINT drift")
+
+    def test_view_only_to_direct_migration_is_atomic_and_idempotent(self):
+        self.provision()
+        self.boundary.execute("REVOKE USAGE ON SCHEMA uranus FROM uranus_console_reader")
+        self.boundary.execute(
+            "REVOKE SELECT ON ALL TABLES IN SCHEMA uranus FROM uranus_console_reader"
+        )
+        self.boundary.execute(
+            "ALTER DEFAULT PRIVILEGES IN SCHEMA uranus REVOKE SELECT ON TABLES FROM "
+            "uranus_console_reader"
+        )
+        self.boundary.execute(
+            sql.SQL(
+                "ALTER ROLE uranus_console_reader IN DATABASE {} SET "
+                "search_path=pg_catalog,uranus_console"
+            ).format(sql.Identifier(self.database))
+        )
+        self.conn.commit()
+        self.boundary.execute("SAVEPOINT migration")
+        execute = self.boundary.execute
+        observed = []
+
+        def fail_after_defaults(query, args=()):
+            execute(query, args)
+            if isinstance(query, sql.Composed) and query.as_string(self.conn).startswith(
+                "ALTER DEFAULT PRIVILEGES"
+            ):
+                observed.append(True)
+                raise ValueError("injected_after_defaults")
+
+        with patch.object(self.boundary, "execute", side_effect=fail_after_defaults):
+            with self.assertRaisesRegex(ValueError, "injected_after_defaults"):
+                self.boundary.provision(PASSWORD)
+        self.boundary.execute("ROLLBACK TO SAVEPOINT migration")
+        self.assertEqual(observed, [True])
+        self.assertFalse(
+            self.boundary.rows(
+                "SELECT has_schema_privilege(%s,'uranus','USAGE')", (console.READER,)
+            )[0][0]
+        )
+        self.assertFalse(
+            self.boundary.rows(
+                "SELECT has_table_privilege(%s,'uranus.event','SELECT')", (console.READER,)
+            )[0][0]
+        )
+        self.assertEqual(
+            self.boundary.rows(
+                "SELECT 1 FROM pg_default_acl WHERE defaclnamespace='uranus'::regnamespace"
+            ),
+            [],
+        )
+        self.provision()
+        self.assertFalse(self.boundary.provision(PASSWORD))
 
     def public_temp_fixture(self):
         for role in CONTRACT["database_temp_roles"]:
@@ -719,8 +885,12 @@ class ConsoleDatabaseTests(unittest.TestCase):
                 sql.Identifier(self.database)
             )
         )
-        # The intrinsic database owner retains its own ACL, without any new grant.
-        self.assertEqual(self.boundary.inspect()["blockers"], [])
+        # Intrinsic TEMP remains; v6 additionally detects the inconsistent source owner.
+        report = self.boundary.inspect()
+        self.assertNotIn(
+            "database_owner_temp_depends_on_public:fixture_database_owner", report["blockers"]
+        )
+        self.assertIn("unexpected_source_schema_owner", report["blockers"])
         self.boundary.execute(
             sql.SQL("REVOKE TEMPORARY ON DATABASE {} FROM fixture_database_owner").format(
                 sql.Identifier(self.database)
@@ -1274,7 +1444,10 @@ class ConsoleDatabaseTests(unittest.TestCase):
                 )
                 raise ValueError("injected_after_execute_revoke")
 
-        with self.assertRaisesRegex(ValueError, "injected_after_execute_revoke"), self.conn:
+        with (
+            self.assertRaisesRegex(ValueError, "injected_after_execute_revoke"),
+            self.conn,
+        ):
             with patch.object(self.boundary, "execute", side_effect=fail_after_execute_revoke):
                 self.boundary.provision(PASSWORD)
         self.assertEqual(seen, [True])

@@ -3,7 +3,7 @@
 ## Zuständigkeit und Status
 
 Das `uranus-admin` Deployment verwaltet ausschließlich die isolierte SQL-Console-Infrastruktur
-(Rollen, `uranus_console`-Schema, explizite Views und minimale Grants).
+(Rollen, direkte SELECT-Grants auf `uranus`, Default Privileges und bestehende Legacy-Views).
 Es verändert keine Uranus-Domain-Daten oder Uranus-Tabellendefinitionen.
 `sndcds/uranus` bleibt die authoritative Quelle für Basistabellen und Quell-DDL.
 Admin-Alembic, API und Worker provisionieren keine Console-Infrastruktur.
@@ -15,8 +15,74 @@ nur unter dem versionierten Allowlist-Vertrag reconciled; andere gemeinsame Rech
 werden nicht verändert**. Bei einem Blocker wird ohne Provisionierung und ohne
 App-Aktivierung abgebrochen. Ein isoliertes Testsystem ist kein Produktionsnachweis.
 
-Phase 3 mit frei eingegebenem SQL bleibt unimplementiert: kein `/sql`, Editor, WSS,
-Executor, Streaming oder Cancel. Phase 4 Write Mode ist außerhalb dieses PRs.
+Phase 3 ist implementiert: `/sql`, Same-Origin-WebSocket, Editor, Streaming und Cancel.
+[Runtime-Vertrag](sql-console-runtime.md). Phase 4 und jeder Domain-Schreibzugriff bleiben ausgeschlossen.
+
+## Contract v6: absichtlich vollständiger Uranus-Lesezugriff
+
+Systemadministratoren dürfen in der freien Console **alle Tabellen und alle Spalten in
+`uranus.*`** lesen, auch mit `SELECT *`. Sensible Werte sind ausdrücklich eingeschlossen:
+`organization.api_import_token`, `user.password_hash`, `user.activate_token`,
+`organization_member_link.accept_token`, `password_reset.token` und weitere Uranus-Werte.
+Es gibt weder Masking noch eine Spalten-Allowlist für freie Queries. `sensitive_columns`
+dokumentiert weiterhin die Klassifikation, kein Leseverbot. Registered Diagnostics
+(Phase 1) und SQL Provenance (Phase 2) behalten ihre bisherigen Projektionen und Executor-Pfade.
+
+Der v6-Contract deklariert `console_data_scope: {schema: uranus,
+access: all_tables_all_columns, privilege: SELECT}`. Ausschließlich
+`uranus_console_reader` über `SQL_CONSOLE_DATABASE_URL` erhält `USAGE ON SCHEMA uranus`
+und `SELECT ON ALL TABLES IN SCHEMA uranus`. Search Path: `pg_catalog, uranus`.
+Keine andere Tabellenberechtigung, Grant Option, Sequenzberechtigung, CREATE/TEMP,
+Membership oder privilegiertes Rollenattribut ist erlaubt. `admin.*` bleibt durch
+DB-Rechte und AST gesperrt. Systemkatalog-Relationen bleiben für **User-SQL durch die AST**
+gesperrt; der interne Katalog-Preflight benötigt PostgreSQLs normale Metadatenrechte.
+Der Function Contract v3 einschließlich seiner Fingerprints bleibt unverändert.
+
+Der Preflight inventarisiert dynamisch alle Uranus-Tabellen mit Name, Art, Owner,
+RLS-Flags und effektivem SELECT. Schema und sämtliche Tabellen müssen dem tatsächlichen
+Datenbank-Owner gehören (`source_owner_policy: database_owner`); dessen Name wird aus
+`pg_database` ermittelt, nicht hardcodiert. Abweichende Owner blockieren. Nur für diesen
+geprüften Ersteller werden schema-lokale Default Privileges vergeben:
+
+```sql
+ALTER DEFAULT PRIVILEGES FOR ROLE <verified_database_owner> IN SCHEMA uranus
+    GRANT SELECT ON TABLES TO uranus_console_reader;
+```
+
+Die Defaults gelten für künftig von genau diesem Owner angelegte Tabellen, einschließlich
+aller Spalten. Andere Ersteller werden nicht automatisch freigegeben. Globale Defaults,
+PUBLIC-Grants, fremde Default-Owner, zusätzliche Rechte und Grant Options blockieren.
+[PostgreSQL Default Privileges](https://www.postgresql.org/docs/17/sql-alterdefaultprivileges.html).
+Fehlender SELECT wird im Plan sichtbar und beim genehmigten Apply ergänzt; die Runtime
+lehnt fehlenden SELECT oder fehlende Defaults bis zur Provisionierung ab.
+
+RLS wird **nicht** deaktiviert oder umgangen: Jede Tabelle mit RLS/FORCE RLS erscheint
+namentlich als `source_rls_requires_review:<table>` und blockiert Provisionierung und
+Runtime. Ebenso blockieren indirekte Relationen (Views, materialisierte Views, Foreign
+Tables) als `indirect_source_relation_requires_review:<name>`, damit ihre Abhängigkeiten
+keinen ungeprüften Admin-/Katalogzugriff eröffnen. Gewöhnliche und partitionierte Tabellen
+benötigen keine Namens-Allowlist. Kein BYPASSRLS und keine automatische Quell-DDL-Änderung.
+Dies ist ein Prüfvertrag, kein Nachweis des aktuellen Produktionskatalogs.
+
+Die Migration vom View-only-Modell verändert atomar Grants, Defaults und Search Path.
+Bestehende vier `uranus_console`-Views samt eng begrenztem NOLOGIN-Owner bleiben erhalten;
+die freie Console benutzt oder benötigt sie nicht. Plan/Check Mode zeigt ausdrücklich:
+
+- `would grant USAGE ON SCHEMA uranus`
+- `would grant SELECT ON ALL TABLES IN SCHEMA uranus`
+- `would configure default SELECT privileges`
+
+Die vorhandenen Apply-Gates bleiben erforderlich. Fehler einschließlich abschließender
+Verifikation rollen **alle** Änderungen zurück. Ein zweiter Apply ergibt `changed=0`.
+Die Anwendung selbst repariert niemals Rechte. Es gibt keinen DSN-/Rollen-Fallback.
+Audit speichert weiterhin ausschließlich Actor, Request-ID, SQL-Hash, Dauer, Zeilenzahl
+und Status; keine SQL-Texte, Ergebnisse oder Credentialwerte. Limits, Cancel und
+Backpressure bleiben unverändert. Kein Production-Deploy durch diese Änderung.
+
+## Historischer Quell-Audit für die weiterhin erhaltenen Legacy-Views
+
+Die folgenden Ausschlüsse beschreiben den alten Projektionsvertrag, **nicht** den
+v6-Leseumfang der freien Console. Sie bleiben nur für die Legacy-Views maßgeblich.
 
 Erneut gegen das Repository geprüft am 20.09.2026:
 
@@ -28,17 +94,17 @@ Erneut gegen das Repository geprüft am 20.09.2026:
 - Für diese Quell-DDL-Prüfung keine Produktionsverbindung und keine Quellwerte gelesen.
   Der später separat genehmigte Katalogaudit ist im Bestandskatalog dokumentiert.
 
-Der maschinenlesbare [Contract v5](../../ansible/roles/uranus_admin/files/sql_console_contract.json)
+Der maschinenlesbare [Contract v6](../../ansible/roles/uranus_admin/files/sql_console_contract.json)
 enthält Quellcommit, SHA256 der vier geprüften DDL-Dateien, Spaltenreihenfolge,
 PostgreSQL-Typen, Basistabellen, Owner-Spaltengrants, Reader-Grants, Search Path und
 die Allowlist für explizite Datenbank-TEMP-Grants.
 Ansible und Tests verwenden dieselbe Datei. Die Dateihashes dokumentieren den
 Repository-Audit; der Live-Preflight vergleicht Katalogtypen, nicht einen behaupteten
-Produktions-Git-SHA. Neue Basisspalten erweitern den Vertrag niemals automatisch.
+Produktions-Git-SHA. Neue Basisspalten erweitern die Legacy-Views nicht; direkter Tabellen-SELECT umfasst sie automatisch.
 
-## Threat Model und Ursache des ersten Security-Stops
+## Historisches View-only-Threat-Model und erster Security-Stop
 
-Ein angemeldeter Systemadmin darf künftig SQL verändern. Deshalb dürfen auch
+Das ursprüngliche View-only-Modell schloss sensible Werte aus. Deshalb sollten damals auch
 unerwartete SELECT-Ausdrücke, Aliase, Subqueries, Ganzzeilen-JSON und später
 hinzugefügte Quellspalten keine geheimen Werte zugänglich machen. Die Grenze muss
 auch ohne App-Parser und ohne Ergebnisnamenfilter gelten.
@@ -87,9 +153,9 @@ Owner-Rechte auf den eigenen Console-Objekten enthalten naturgemäß deren
 Verwaltung; sie verleihen keine Quellschreibrechte.
 
 `uranus_console_reader`: LOGIN, dieselben negativen privilegierten Attribute und
-NOINHERIT. CONNECT auf der ausgewählten DB, USAGE auf `uranus_console`,
-SELECT auf genau vier Views. Kein CREATE/TEMP, kein Zugriff auf `uranus`/`admin`,
-keine Basistabellen-/Spalten-/Sequenzrechte, Memberships oder Grant Options.
+NOINHERIT. CONNECT auf der ausgewählten DB, USAGE auf `uranus` und auf das historische
+`uranus_console`, SELECT auf alle Uranus-Tabellen und die vier Legacy-Views. Kein
+CREATE/TEMP, kein Zugriff auf `admin`, keine Sequenzrechte, Memberships oder Grant Options.
 Auch bestehende Rollen müssen `rolinherit=false` haben; andernfalls
 `unsafe_role_inherit:<role>` ohne automatische Reparatur. Memberships werden
 in beiden Richtungen abgewiesen. Der Reader ist niemals Objekt-Owner.
@@ -125,8 +191,8 @@ SECURITY-DEFINER-Funktion, keine beliebigen SQL-Parameter in privilegierten Helf
 Views, verschachtelte Views, Regeln, RLS, verwendete Typen/Operatoren und Funktionen
 sind Teil des Reviews. `security_barrier` kann bei Zeilenfiltern sinnvoll sein,
 ersetzt aber weder die Spaltenprojektion noch die Prüfung der Abhängigkeiten.
-Festgelegt ist `search_path=pg_catalog,uranus_console` mit schemaqualifizierten
-Console-Abfragen. `uranus`, `public` und `$user` gehören nicht in diesen Pfad;
+Festgelegt ist seit v6 `search_path=pg_catalog,uranus` mit bevorzugt schemaqualifizierten
+Console-Abfragen. `public` und `$user` gehören nicht in diesen Pfad;
 der Pfad allein verbietet aber keine schemaqualifizierten Zugriffe.
 
 ## Plan, Apply und unabhängige Verifikation
@@ -179,7 +245,7 @@ Grant Options, exakte View-Spalten/-Typen/-Definitionen/-Owner und minimale
 Owner-Spaltengrants. Die fünf Secretspalten werden zusätzlich mit
 `has_column_privilege` geprüft, ohne Werte zu lesen. Effektives CREATE/TEMP wird
 mit `has_database_privilege` geprüft. Die echte Runtime-Anmeldung muss `oklab`,
-`uranus_console_reader` und exakt `pg_catalog, uranus_console` liefern.
+`uranus_console_reader` und exakt `pg_catalog, uranus` liefern.
 
 ## PUBLIC TEMP und Function-/Extension-Grenze
 
@@ -338,7 +404,7 @@ Die drei normalen PostGIS-Metadatenobjekte `spatial_ref_sys`, `geometry_columns`
 Owner, Spalten/Typen, View-Definitionen und Optionen sind ebenfalls fingerprintgebunden;
 keine Writes oder Grant Options. Das gibt keine Uranus-/Admin-Datenrechte frei.
 `public` wird nicht in den Console-Search-Path aufgenommen: er bleibt
-`pg_catalog, uranus_console`. Eine sichere schemaqualifizierte Funktion wie
+`pg_catalog, uranus`. Eine sichere schemaqualifizierte Funktion wie
 `public.st_x(public.st_point(1,2))` ist weiterhin ausführbar.
 
 Die Fixture installiert PostGIS unverändert: keine pauschalen Funktions- oder
@@ -416,8 +482,11 @@ exakte Snapshot-Auswahl, unbekannte Patchstände, falsche Katalog-/Definition-Ha
 die echte Production-Baseline im Wegwerfcontainer, separate Approval-Sperre,
 erster Apply, zweiter Apply `changed=0`, erfolgreiche
 Anmeldung und exakter Search Path. Direkter Secretzugriff, Alias, Ausdruck,
-`to_jsonb`, CTE/Subquery, Writes, CREATE/TEMP und Rollenwechsel müssen mit `42501`
-scheitern; sichere Views liefern genau ihre Spalten. Weitere Fälle: neue
+`to_jsonb` und CTE/Subquery über Uranus sind seit v6 positive Tests. Alle acht aktuellen
+synthetischen Tabellen sind per `SELECT *` lesbar; eine neunte, nachträglich erstellte
+Tabelle erbt SELECT ohne erneuten Apply. Writes auf alte/neue Tabellen, DDL,
+CREATE/TEMP und Rollenwechsel scheitern mit `42501`; Legacy-Views behalten ihre Spalten.
+Zusätzlich: Owner-/RLS-/Default-Drift und atomarer Rollback der v5→v6-Migration. Weitere Fälle: neue
 Basisspalte, View-Drift/Reconcile, mächtige Attribute, Memberships, fehlende und
 zusätzliche Grants, unbekannte TEMP-Verbraucher, INHERIT-Rollen, Funktionen/Extensions, Sequenzen/Large Objects,
 fremde Console-Objekte ohne Löschung, fehlende DSN ohne Fallback und alte Releases.
