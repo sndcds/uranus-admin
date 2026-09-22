@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { detailFixture } from '../fixtures/entities'
 import { graphFixture, graphPath } from '../fixtures/graph'
+import { expectLogoutAvailable, logout } from '../fixtures/authenticated'
 
 async function login(page: Page, username = 'operator') {
   await page.getByLabel('Benutzername', { exact: true }).fill(username)
@@ -106,11 +107,11 @@ test('login, reload, authenticated login redirect, logout and browser Back', asy
   ).toBe(true)
   expect(await ssr.text()).not.toContain(cookie.value)
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
+  await expectLogoutAvailable(page)
   await page.goto('/login')
   await expect(page).toHaveURL('http://127.0.0.1:3100/?period=24h')
   await page.goto('/findings')
-  await page.getByRole('button', { name: 'Abmelden', exact: true }).click()
+  await logout(page)
   await expect(page).toHaveURL('http://127.0.0.1:3100/login')
   await noShell(page)
   expect(
@@ -177,7 +178,7 @@ test('ordinary accounts cannot enter the shell, including after reload', async (
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Zugriff gesperrt' })).toBeVisible()
   await noShell(page)
-  await page.getByRole('button', { name: 'Abmelden', exact: true }).click()
+  await logout(page)
   await expect(page.getByRole('heading', { name: 'Anmeldung', exact: true })).toBeVisible()
 })
 test('expired session redirects from a deep route and clears the shell', async ({
@@ -212,14 +213,14 @@ test('protected 403 shows access denied without logout or login redirect', async
   await page.getByLabel('Zeitraum', { exact: true }).selectOption('today')
   await expect(page.getByText('Zugriff gesperrt').first()).toBeVisible()
   await expect(page).toHaveURL('http://127.0.0.1:3100/?period=today')
-  await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
+  await expectLogoutAvailable(page)
 })
 test('failed server logout clears the shell and reports failed revocation', async ({ page }) => {
   await page.goto('/login')
   await login(page)
   await expect(page.getByText('Test-Hafenbühne')).toBeVisible()
   await page.route('**/api/admin/auth/logout', (route) => route.fulfill({ status: 503, json: {} }))
-  await page.getByRole('button', { name: 'Abmelden', exact: true }).click()
+  await logout(page)
   await expect(page).toHaveURL('http://127.0.0.1:3100/login')
   await noShell(page)
   await expect(page.getByRole('alert')).toContainText('Serversitzung konnte nicht beendet werden')

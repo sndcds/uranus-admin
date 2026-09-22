@@ -45,21 +45,21 @@ function closeMenu() {
     >
       <div class="relative flex h-full flex-col">
         <button
-          class="absolute right-3 top-6 rounded-lg p-2"
+          class="absolute right-3 top-2.5 grid h-11 w-11 place-items-center rounded-lg"
           aria-label="Navigation schließen"
           @click="closeMenu"
         >
           <AppIcon name="close" /></button
-        ><AppNavigation @navigate="closeMenu" />
+        ><AppNavigation mobile :interactive="interactive" @navigate="closeMenu" />
       </div>
     </dialog>
     <div class="min-h-screen min-w-0 lg:pl-64">
       <header class="sticky top-0 z-10 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-        <div class="flex min-h-16 flex-wrap items-center justify-between gap-3 px-5 py-3 sm:px-8">
-          <div class="flex min-w-0 items-center gap-3">
+        <div data-mobile-app-header class="lg:hidden">
+          <div class="flex h-14 min-w-0 items-center gap-3 px-4">
             <button
               ref="menuButton"
-              class="rounded-xl border border-slate-200 p-2 lg:hidden"
+              class="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white"
               aria-label="Navigation öffnen"
               :disabled="!interactive"
               :aria-expanded="menuOpen"
@@ -67,6 +67,19 @@ function closeMenu() {
             >
               <AppIcon name="menu" />
             </button>
+            <h1 class="min-w-0 truncate text-base font-semibold">
+              {{ heading }}
+            </h1>
+          </div>
+          <div class="border-t border-slate-100 px-4 py-2">
+            <GeoScopeSelector compact />
+          </div>
+        </div>
+        <div
+          class="hidden min-h-16 items-center justify-between gap-3 px-8 py-3 lg:flex"
+          data-desktop-app-header
+        >
+          <div class="flex min-w-0 items-center gap-3">
             <div>
               <div class="text-xs font-medium uppercase tracking-wider text-slate-500">
                 {{ dateTime(now) }} · Berlin
@@ -98,7 +111,11 @@ function closeMenu() {
           </div>
         </div>
       </header>
-      <main id="main-content" tabindex="-1" class="mx-auto max-w-7xl space-y-5 p-5 sm:p-8">
+      <main
+        id="main-content"
+        tabindex="-1"
+        class="mx-auto max-w-7xl space-y-4 p-4 sm:space-y-5 sm:p-8"
+      >
         <p v-if="preferences.geoScopeError" role="alert" class="text-sm text-amber-800">
           {{ preferences.geoScopeError }}
         </p>

@@ -40,7 +40,12 @@ onBeforeUnmount(() => unsubscribe?.())
 </script>
 <template>
   <template v-if="target">
-    <button type="button" class="button" :disabled="!state?.parameters" @click="drawer?.open()">
+    <button
+      type="button"
+      class="button min-h-11 whitespace-nowrap sm:min-h-0"
+      :disabled="!state?.parameters"
+      @click="drawer?.open()"
+    >
       SQL / Datenherkunft
     </button>
     <SqlProvenanceDrawer

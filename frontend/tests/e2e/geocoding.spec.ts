@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/authenticated'
+import { test, expect, logout } from '../fixtures/authenticated'
 import { findings } from '../fixtures/api'
 import { geocodeDetail, geocodePage } from '../fixtures/geocoding'
 
@@ -68,7 +68,7 @@ test('missing-location workflow, retry, global queue and session reset', async (
   ).toBeVisible()
   expect(new URL(page.url()).searchParams.has('geo_scope_id')).toBe(false)
   expect(requests.every((q) => !q.includes('geo_scope_id'))).toBe(true)
-  await page.getByRole('button', { name: 'Abmelden', exact: true }).click()
+  await logout(page)
   await expect(page).toHaveURL(/\/login/)
   await expect(page.getByText('Test-Hafenbühne')).toHaveCount(0)
   await page.getByLabel('Benutzername', { exact: true }).fill('operator')

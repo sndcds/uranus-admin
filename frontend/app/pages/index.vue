@@ -76,11 +76,11 @@ function openFilters(filters: FindingFilters) {
       title="Dashboard"
       description="Neue Datensätze im Zeitraum und aktueller Arbeitsbestand."
     >
-      <label class="text-sm"
+      <label class="min-w-0 flex-1 text-sm sm:flex-initial"
         ><span class="sr-only">Zeitraum</span
         ><select
           :value="period"
-          class="input"
+          class="input min-h-11"
           aria-label="Zeitraum"
           @change="setPeriod(($event.target as HTMLSelectElement).value)"
         >
@@ -91,11 +91,14 @@ function openFilters(filters: FindingFilters) {
       >
 
       <button
-        class="button"
+        class="button min-h-11 shrink-0"
+        aria-label="Zahlen aktualisieren"
         :disabled="dashboard.loading"
         @click="dashboard.load($adminApi, period, geoScopeId)"
       >
-        <AppIcon name="refresh" :size="16" /> Zahlen aktualisieren
+        <AppIcon name="refresh" :size="16" />
+        <span class="hidden min-[375px]:inline sm:hidden">Aktualisieren</span>
+        <span class="hidden sm:inline">Zahlen aktualisieren</span>
       </button>
     </PageHeader>
     <RequestState
@@ -115,7 +118,7 @@ function openFilters(filters: FindingFilters) {
     </InlineAlert>
     <section
       id="new-records"
-      class="scroll-mt-28 space-y-3"
+      class="scroll-mt-32 space-y-3 lg:scroll-mt-20"
       :aria-busy="dashboard.loading"
       aria-labelledby="new-records-title"
     >
@@ -141,12 +144,12 @@ function openFilters(filters: FindingFilters) {
           {{ dashboard.data.admin_timezone }}
         </p>
       </div>
-      <ul class="grid grid-cols-2 gap-2 md:grid-cols-3">
+      <ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
         <li v-for="row in recordRows(dashboard.data)" :key="row.key" class="min-w-0">
           <NuxtLink
             :to="recordLink(row.type)"
             :aria-label="`${row.plural}: ${row.value} · ${periodLabels[displayedPeriod]} · Neue Datensätze ansehen`"
-            class="group grid h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
+            class="group grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
           >
             <span
               class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
@@ -154,9 +157,10 @@ function openFilters(filters: FindingFilters) {
               ><AppIcon :name="row.icon" :size="18"
             /></span>
             <div class="min-w-0">
-              <span class="block break-words text-xs text-slate-600 group-hover:text-fuchsia-800">{{
-                row.plural
-              }}</span
+              <span
+                data-dashboard-new-record-label
+                class="block break-normal text-sm text-slate-600 group-hover:text-fuchsia-800"
+                >{{ row.plural }}</span
               ><span v-if="geoScopeId" class="block text-xs font-medium">{{
                 dashboard.data?.new_record_scopes?.[row.key] === 'geo' ? 'Gebiet' : 'Systemweit'
               }}</span
@@ -296,7 +300,11 @@ function openFilters(filters: FindingFilters) {
       </div>
     </section>
 
-    <section id="open-queues" class="scroll-mt-28 space-y-3" aria-labelledby="queues-title">
+    <section
+      id="open-queues"
+      class="scroll-mt-32 space-y-3 lg:scroll-mt-20"
+      aria-labelledby="queues-title"
+    >
       <div>
         <SectionHeader title-id="queues-title" title="Offene Vorgänge" />
         <p class="mt-1 muted">

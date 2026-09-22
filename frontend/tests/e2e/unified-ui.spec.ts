@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/authenticated'
+import { test, expect, expectLogoutAvailable } from '../fixtures/authenticated'
 import { summary, findings } from '../fixtures/api'
 
 test('dashboard separates period metrics from inventory and labels stale periods honestly', async ({
@@ -209,7 +209,7 @@ test('quality has honest aggregate counts, bounded dashboard rules and a full ru
   await expect(
     preview.getByRole('list', { name: 'Qualitätsregeln' }).getByRole('listitem'),
   ).toHaveCount(5)
-  await expect(page.locator('header').getByRole('button', { name: 'Abmelden' })).toBeVisible()
+  await expectLogoutAvailable(page)
   await expect(page.getByRole('region', { name: 'Admin-Anmeldung' })).toHaveCount(0)
   await expect(page.locator('#open-queues li')).toHaveCount(3)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

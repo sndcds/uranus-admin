@@ -47,6 +47,14 @@
   .muted {
     @apply text-sm text-slate-500;
   }
+
+  @media (max-width: 639px) {
+    .button,
+    .button-primary,
+    .input {
+      @apply min-h-11;
+    }
+  }
 }
 
 @layer components {
