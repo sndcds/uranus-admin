@@ -32,6 +32,41 @@
   register: ua_systemd_version
   failed_when: ua_systemd_version.rc != 0 or not ua_systemd_version.stdout.startswith('systemd 255 ')
 
+- name: Read the connection user identity before switching to unprivileged users
+  ansible.builtin.command:
+    argv: [id, -u]
+  become: false
+  vars:
+    ansible_become: false
+  changed_when: false
+  check_mode: false
+  register: ua_connection_uid
+
+# File-transfer actions cannot rely on SSH pipelining to avoid temporary files.
+# Inspect the connection user's PATH, not root's sudo environment.
+- name: Check the connection user can execute setfacl
+  ansible.builtin.command:
+    argv: [setfacl, --version]
+  become: false
+  vars:
+    ansible_become: false
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  register: ua_setfacl
+  when: ua_connection_uid.stdout | trim != '0'
+
+- name: Require ACL tooling before unprivileged file transfers
+  ansible.builtin.assert:
+    that: ua_setfacl.rc == 0
+    fail_msg: >-
+      Ansible needs setfacl in the connection user's PATH to share private temporary
+      files with oklab/postgres. Install Ubuntu's acl package on the target
+      (sudo apt-get install acl), then rerun the full reviewed deployment workflow.
+      The remote temporary filesystem must support POSIX ACLs. Pipelining alone
+      cannot handle file-transfer tasks; do not enable world-readable temporary files.
+  when: ua_connection_uid.stdout | trim != '0'
+
 - name: Require the existing enabled Nginx site to reference the audited file
   ansible.builtin.stat:
     path: /etc/nginx/sites-enabled/uranus-admin

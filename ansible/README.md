@@ -36,6 +36,23 @@ PostgreSQL-Cluster und Uranus-Schemas/-Daten werden nicht angelegt. Admin-Migrat
 sind ausschließlich im unten beschriebenen sauberen Test-/Staging-Erstaufbau erlaubt.
 Der Service-/Build-User `oklab` muss bereits existieren.
 
+Bei Verbindung als Nicht-root-User muss außerdem das Ubuntu-Paket `acl` auf dem
+**Zielhost** installiert und `setfacl` im PATH dieses Verbindungsusers ausführbar
+sein. Der Preflight prüft dies auch im Check Mode vor Toolchain-/DB-Schritten.
+Eine Root-Verbindung benötigt diese Tempdatei-Freigabe nicht. Das von Ansible
+verwendete temporäre Dateisystem (standardmäßig `/tmp`) muss POSIX-ACLs unterstützen;
+die reine Toolprüfung weist diese Dateisystemfähigkeit noch nicht nach.
+
+Fehlt das Paket, auf dem Zielhost `sudo apt-get install acl` ausführen und danach
+den vollständigen Review-/Deployment-Ablauf erneut starten. Die Rolle installiert
+weiterhin keine Betriebssystempakete. Der Fehler
+`chmod: invalid mode: 'A+user:oklab:rx:allow'` ist ein fehlgeschlagener Ansible-Fallback,
+wenn private Tempdateien nicht für den anderen unprivilegierten User freigegeben
+werden konnten. Bereits aktiviertes SSH-Pipelining hilft bei Dateiübertragungen wie
+`unarchive` und `copy` nicht. Keine weltweit lesbaren Tempdateien einschalten und
+die Extraktion weiterhin als `oklab` ausführen. Siehe
+[Ansible: unprivilegierter Benutzerwechsel](https://docs.ansible.com/projects/ansible-core/2.20/playbook_guide/playbooks_privilege_escalation.html#risks-of-becoming-an-unprivileged-user).
+
 Alle drei Umgebungen verwenden dieselben technischen Preflight- und Apply-Gates. Ein Echtlauf
 benötigt weiterhin die exakte Apply-Bestätigung, geprüften Dry Run, Wartungsfenster,
 Backup-Referenz und Secret-Adoption-Freigabe sowie gegebenenfalls separate Console-
