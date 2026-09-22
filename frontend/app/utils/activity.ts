@@ -21,6 +21,8 @@ export function activityStatus(status: string | null): string | null {
   return status ? (Object.hasOwn(statusLabels, status) ? statusLabels[status]! : status) : null
 }
 export function activityName(item: ActivityItem): string {
+  // The backend owns Uranus user presentation, including the final UUID fallback.
+  if (item.entity_type === 'user' || item.entity_type === 'team_membership') return item.entity_name
   const name = item.entity_name.trim()
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   const partnerNames = name.split('→').map((part) => part.trim())

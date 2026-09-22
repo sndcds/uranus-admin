@@ -523,3 +523,14 @@ Der [Regelkatalog](../../backend/docs/quality-rules.md) dokumentiert DDL-Evidenz
 Severity, interne Notification-Policy, Geo-Verhalten und zurückgestellte Kandidaten.
 Die Dashboard-Gesamtzahl bleibt ein Qualitäts-/Workflow-Bestand; Maintenance-Diagnosen
 für Social Posts und Passwort-Reset-Retention sind darin bewusst nicht neu enthalten.
+
+## Uranus user presentation
+
+Canonical Uranus user display label is: display_name → username → email → UUID.
+Blank strings count as missing. The backend supplies `entity_name`, `label` and
+`user_name`; Vue renders these without recomputing identity fallbacks. This applies
+to Activity, memberships, queues, graph nodes/search, entity lists/details/relations
+and Inbox context. Search subtitles omit identity values already used as the label.
+UUIDs remain available as technical details and copy targets. Email labels stay
+inside authenticated admin views, never public links or metadata. Independent
+admin accounts and timeline actor subjects retain their own identity semantics.

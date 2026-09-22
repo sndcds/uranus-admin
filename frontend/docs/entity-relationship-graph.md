@@ -117,8 +117,10 @@ for depth 3, not one request per node. No full graph is fetched on page entry. S
 reverse location lookups can still scan relevant tables; production query plans and missing source
 indexes remain an operational performance limitation, not a claim of production benchmarking.
 
-User nodes expose only name, UUID and activation status. Email and credentials are excluded from
-the graph contract. Public links reuse Activity's existing configured-instance/slug/release checks;
+User nodes expose the canonical label (display_name → username → email → UUID, skipping
+empty strings), UUID and activation status. Email can appear in protected labels; credentials
+remain excluded from the graph contract. Public links reuse Activity's existing
+configured-instance/slug/release checks;
 unsupported public URLs remain null. Admin links use the existing Action model: organizations,
 venues, spaces, events and users link to their canonical detail pages; event dates retain
 the Activity target. Graph search and graph responses reuse the shared Action validation,

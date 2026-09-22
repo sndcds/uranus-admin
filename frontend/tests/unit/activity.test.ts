@@ -411,3 +411,14 @@ it('preserves optional notices in the shared contract and public links on releas
   expect(wrapper.get('a[href^="https://kulturbytes.de/"]').attributes('href')).toBe(item.public_url)
   expect(wrapper.get('time').attributes('datetime')).toBe(item.created_at)
 })
+
+it.each(['user', 'team_membership'] as const)(
+  'renders the authoritative %s label, including email and the last-resort UUID',
+  (entity_type) => {
+    for (const entity_name of ['Max Mustermann', 'max', 'no-name@example.org', first.entity_key]) {
+      const wrapper = row({ ...first, entity_type, entity_name })
+      expect(wrapper.get('h4').text()).toBe(entity_name)
+      wrapper.unmount()
+    }
+  },
+)

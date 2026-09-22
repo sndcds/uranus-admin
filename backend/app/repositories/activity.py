@@ -9,6 +9,7 @@ from app.errors import APIError
 from app.repositories.activity_previews import activity_previews
 from app.repositories.query import ReadQuery
 from app.repositories.spatial import SPATIAL_TYPES, mixed_spatial_predicate
+from app.repositories.user_presentation import USER_DISPLAY_LABEL_SQL
 from app.schemas.action import Action
 from app.schemas.activity import Activity, ActivityFilters, ActivityPage
 from app.schemas.cursor import ActivityCursor, CursorPagination, decode, encode, scope
@@ -41,15 +42,15 @@ SELECT 'event_date', d.uuid::text, COALESCE(e.title,d.uuid::text), o.uuid, o.nam
 FROM uranus.event_date d LEFT JOIN uranus.event e ON e.uuid=d.event_uuid
 LEFT JOIN uranus.organization o ON o.uuid=e.org_uuid
 """,
-    "user": """
-SELECT 'user', u.uuid::text, COALESCE(u.display_name,u.username,u.uuid::text), NULL, NULL,
+    "user": f"""
+SELECT 'user', u.uuid::text, {USER_DISPLAY_LABEL_SQL}, NULL, NULL,
        u.created_at, CASE WHEN u.is_active THEN 'active' ELSE 'inactive' END
 FROM uranus."user" u
 """,
 }
 ACTIVITY_SQL = (
     "\nUNION ALL\n".join(ENTITY_ACTIVITY_SQL.values())
-    + """
+    + f"""
 UNION ALL
 SELECT 'partner_request', 'partner-request:'||p.from_org_uuid||':'||p.to_org_uuid,
        COALESCE(f.name,p.from_org_uuid::text)||' → '||COALESCE(t.name,p.to_org_uuid::text),
@@ -59,7 +60,7 @@ LEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid
 LEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid
 UNION ALL
 SELECT 'team_membership', 'membership:'||m.org_uuid||':'||m.user_uuid,
-       COALESCE(u.display_name,u.username,m.user_uuid::text), m.org_uuid, o.name, m.created_at,
+       COALESCE({USER_DISPLAY_LABEL_SQL},m.user_uuid::text), m.org_uuid, o.name, m.created_at,
        CASE WHEN m.has_joined THEN 'joined' ELSE 'invited' END
 FROM uranus.organization_member_link m LEFT JOIN uranus.organization o ON o.uuid=m.org_uuid
 LEFT JOIN uranus."user" u ON u.uuid=m.user_uuid

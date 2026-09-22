@@ -108,7 +108,7 @@ WITH geocode_counts AS (
 )
 """
 
-PRESENTATION_TYPES = {"event", "organization", "venue", "space", "user", "image"}
+PRESENTATION_TYPES = {"event", "organization", "venue", "space", "user", "team_membership", "image"}
 
 
 def account_id(subject: str) -> UUID | None:

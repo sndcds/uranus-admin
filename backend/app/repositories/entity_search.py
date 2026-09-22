@@ -11,6 +11,7 @@ from app.repositories.created_period import created_period_filter
 from app.repositories.query import ReadQuery
 from app.repositories.spatial import spatial_predicate
 from app.repositories.temporal import temporal_predicate
+from app.repositories.user_presentation import USER_DISPLAY_LABEL_SQL
 from app.schemas.action import Action
 from app.schemas.entities import EntitySearchFilters, EntitySearchItem, EntitySearchResponse
 
@@ -47,8 +48,12 @@ SEARCH_DEFINITIONS = {
     "user": SearchDefinition(
         'uranus."user" u',
         ("u.uuid::text", "u.username", "u.display_name", "u.email", "u.first_name", "u.last_name"),
-        "COALESCE(NULLIF(u.display_name,''),NULLIF(u.username,''),NULLIF(u.email,''),u.uuid::text)",
-        "NULLIF(concat_ws(' · ', '@'||NULLIF(u.username,''),NULLIF(u.email,'')),'')",
+        USER_DISPLAY_LABEL_SQL,
+        # Omit identity fields already used as the primary label.
+        f"NULLIF(concat_ws(' · ',"
+        f"NULLIF('@'||NULLIF(NULLIF(u.username,''),{USER_DISPLAY_LABEL_SQL}),"
+        f"{USER_DISPLAY_LABEL_SQL}),"
+        f"NULLIF(NULLIF(u.email,''),{USER_DISPLAY_LABEL_SQL})), '')",
         created_at="u.created_at",
         status="CASE WHEN u.is_active THEN 'active' ELSE 'inactive' END",
     ),
