@@ -5,34 +5,84 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    - cron: '23 5 * * 1'
+    - cron: "23 5 * * 1"
 
 permissions:
   contents: read
 
 jobs:
-  codeql:
-    name: CodeQL (${{ matrix.language }})
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      ansible: ${{ steps.filter.outputs.ansible }}
+      python: ${{ steps.filter.outputs.python == 'true' || steps.filter.outputs.github_global == 'true' || steps.filter.outputs.global_other == 'true' || steps.filter.outputs.workflow_other == 'true' }}
+      javascript: ${{ steps.filter.outputs.javascript == 'true' || steps.filter.outputs.github_global == 'true' || steps.filter.outputs.global_other == 'true' || steps.filter.outputs.workflow_other == 'true' }}
+      dependency: ${{ steps.filter.outputs.dependency }}
+      docs_only: ${{ steps.filter.outputs.docs == 'true' && steps.filter.outputs.non_docs != 'true' }}
+      workflow: ${{ steps.filter.outputs.workflow }}
+      global: ${{ steps.filter.outputs.github_global == 'true' || steps.filter.outputs.global_other == 'true' || steps.filter.outputs.workflow_other == 'true' }}
+    steps:
+      - name: Select full scheduled scan
+        if: github.event_name == 'schedule'
+        run: echo "Scheduled security scans do not use path filters."
+      - if: github.event_name != 'schedule'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - if: github.event_name != 'schedule'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
+        id: filter
+        with:
+          token: ""
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.ref }}
+          predicate-quantifier: some-with-excludes
+          filters: .github/path-filters.yml
+
+  codeql-python:
+    name: CodeQL (python)
+    needs: changes
+    if: github.event_name == 'schedule' || needs.changes.outputs.python == 'true' || needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
       security-events: write
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [python, javascript-typescript]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         with:
-          languages: ${{ matrix.language }}
+          languages: python
           build-mode: none
       - uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         with:
-          category: /language:${{ matrix.language }}
+          category: /language:python
+
+  codeql-javascript:
+    name: CodeQL (javascript-typescript)
+    needs: changes
+    if: github.event_name == 'schedule' || needs.changes.outputs.javascript == 'true' || needs.changes.outputs.workflow == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+      - uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
+        with:
+          category: /language:javascript-typescript
 
   dependency-review:
     name: Dependency review

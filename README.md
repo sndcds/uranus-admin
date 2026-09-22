@@ -27,10 +27,10 @@ auditierbaren Admin-Oberfläche verwalten möchten.
 
 ## Repository-Struktur
 
-| Ordner                          | Inhalt                                                   |
-| ------------------------------- | -------------------------------------------------------- |
-| [backend/](backend/README.md)   | Python-API, Migrationen, Tests und Backend-Dokumentation |
-| [frontend/](frontend/README.md) | Nuxt-Dashboard, Tests und HTML-Mockup                    |
+| Ordner                          | Inhalt                                                        |
+| ------------------------------- | ------------------------------------------------------------- |
+| [backend/](backend/README.md)   | Python-API, Migrationen, Tests und Backend-Dokumentation      |
+| [frontend/](frontend/README.md) | Nuxt-Dashboard, Tests und HTML-Mockup                         |
 | [ansible/](ansible/README.md)   | Sicheres Deployment, Preflight, systemd, Nginx und DB-Grenzen |
 
 Beide Anwendungen besitzen eigene Abhängigkeiten und `.env`-Dateien.
@@ -85,6 +85,50 @@ Frontend und Backend werden in getrennten CI-Jobs geprüft, einschließlich Fron
 und reproduzierbarer Chromium-Tests. Zusätzlich prüfen CodeQL (Python/JS/TS) und
 Dependency Review (neue high/critical Sicherheitslücken) Änderungen; siehe
 [CI-Gates und Berechtigungen](backend/docs/development.md#security-gates).
+
+### Selective CI
+
+Ein kleiner `changes`-Job klassifiziert den vollständigen PR- beziehungsweise Push-Diff,
+bevor teure Jobs starten. Nicht relevante Jobs bleiben als `skipped` im gestarteten
+Workflow sichtbar; der Workflow selbst wird nicht mit `paths-ignore` unterdrückt. Damit
+bleiben bestehende Required-Check-Kontexte erhalten, ohne dass reine Markdown-Änderungen
+Backend-, Frontend- oder Deployment-Matrizen ausführen.
+
+- Backend-CI läuft für Nicht-Markdown-Dateien unter `backend/`, insbesondere Anwendung,
+  Migrationen, Tests, `pyproject.toml` und `uv.lock`, sowie für die CI-/Security-Workflows.
+- Frontend-CI läuft für Nicht-Markdown-Dateien unter `frontend/`, insbesondere App,
+  Nitro, Shared Contracts, Tests, Build-Konfiguration und pnpm-Abhängigkeiten, sowie für
+  die CI-/Security-Workflows.
+- Deployment-Checks laufen für Nicht-Markdown-Dateien unter `ansible/` und für ihren
+  eigenen Workflow. Ansible-READMEs allein lösen die PostgreSQL/PostGIS-Matrix nicht aus.
+- Unbekannte Nicht-Dokumentationspfade, gemeinsame Actions und der zentrale Filterkatalog
+  gelten konservativ als global. Neue, noch nicht klassifizierte Workflows prüfen alle
+  Hauptbereiche. Scheduled Security führt Python- und JS/TS-CodeQL immer vollständig aus.
+- Dependency Review bleibt bei jedem Pull Request aktiv. Der Check ist gegenüber den
+  Build-/Datenbankmatrizen günstig und schützt auch neue oder indirekte Manifesttypen,
+  die noch nicht ausdrücklich im Filterkatalog stehen.
+
+Die gepflegte Prüfmatrix für `.github/path-filters.yml` lautet:
+
+| Änderung                                      | Backend | Frontend | Deployment | Python CodeQL | JS/TS CodeQL |
+| --------------------------------------------- | ------: | -------: | ---------: | ------------: | -----------: |
+| `README.md`                                   |    skip |     skip |       skip |          skip |         skip |
+| `backend/docs/authentication.md`              |    skip |     skip |       skip |          skip |         skip |
+| `frontend/docs/design-system.md`              |    skip |     skip |       skip |          skip |         skip |
+| `backend/app/service.py`                      |     run |     skip |       skip |           run |         skip |
+| `backend/migrations/versions/revision.py`     |     run |     skip |       skip |           run |         skip |
+| `backend/uv.lock`                             |     run |     skip |       skip |           run |         skip |
+| `frontend/app/pages/example.vue`              |    skip |      run |       skip |          skip |          run |
+| `frontend/tests/unit/example.test.ts`         |    skip |      run |       skip |          skip |          run |
+| `frontend/pnpm-lock.yaml`                     |    skip |      run |       skip |          skip |          run |
+| `ansible/roles/uranus_admin/tasks/deploy.yml` |    skip |     skip |        run |          skip |         skip |
+| `ansible/README.md`                           |    skip |     skip |       skip |          skip |         skip |
+| `ansible/tests/test_deployment.py`            |    skip |     skip |        run |           run |         skip |
+| `.github/workflows/ci.yml`                    |     run |      run |       skip |           run |          run |
+| `.github/workflows/security.yml`              |     run |      run |       skip |           run |          run |
+| `.github/workflows/deployment-checks.yml`     |    skip |     skip |        run |           run |          run |
+| Backend- und Frontend-Code                    |     run |      run |       skip |           run |          run |
+| Markdown plus Backend-Code                    |     run |     skip |       skip |           run |         skip |
 
 Qualitätsprüfungen werden dauerhaft eingereiht (HTTP 202). Zusätzlich zur API muss der
 [Check-Worker](backend/docs/development.md#durable-quality-check-worker-migration-0006)
