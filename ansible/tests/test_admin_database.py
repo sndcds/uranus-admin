@@ -26,6 +26,113 @@ PASSWORD = "synthetic-admin-bootstrap-credential-only"
 
 
 class AdminBootstrapContractTests(unittest.TestCase):
+    def test_migrator_login_probe_is_read_only_and_closes_connection(self):
+        boundary = object.__new__(admin_db.AdminDatabase)
+        boundary.diagnostic = {}
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = ("admin_migrator", "admin_migrator")
+        with (
+            patch.object(boundary, "credentials", return_value={"admin_migrator": {}}),
+            patch.object(admin_db.psycopg2, "connect", return_value=connection),
+        ):
+            boundary.verify_upgrade_credentials({})
+        connection.set_session.assert_called_once_with(readonly=True)
+        cursor.execute.assert_called_once_with("SELECT current_user,session_user")
+        connection.commit.assert_not_called()
+        connection.close.assert_called_once()
+
+    def test_upgrade_authentication_failure_prevents_migration(self):
+        boundary = object.__new__(admin_db.AdminDatabase)
+        boundary.diagnostic = {}
+        migration = MagicMock()
+        with (
+            patch.object(boundary, "inspect", return_value={"state": "UPGRADEABLE"}),
+            patch.object(boundary, "credentials", return_value={"admin_migrator": {}}),
+            patch.object(admin_db.psycopg2, "connect", side_effect=psycopg2.OperationalError),
+        ):
+            with self.assertRaises(psycopg2.OperationalError):
+                boundary.upgrade("production", True, {}, migration)
+        migration.assert_not_called()
+        self.assertEqual(boundary.diagnostic, {"check": "migrator_connection"})
+
+    def test_migrator_login_probe_runs_in_check_mode_without_mutation(self):
+        for check_mode in (False, True):
+            with self.subTest(check_mode=check_mode):
+                module = MagicMock()
+                module.params = {
+                    "state": "verify_upgrade_credentials",
+                    "environment": "production",
+                    "approved": False,
+                    "upgrade_approved": False,
+                    "manifest": {},
+                    "boundary": BOUNDARY,
+                    "credentials": {},
+                }
+                module.check_mode = check_mode
+                connection, boundary = MagicMock(), MagicMock()
+                with (
+                    patch("ansible.module_utils.basic.AnsibleModule", return_value=module),
+                    patch.object(admin_db.psycopg2, "connect", return_value=connection),
+                    patch.object(admin_db, "AdminDatabase", return_value=boundary),
+                    patch.object(admin_db, "release_migration") as migration,
+                ):
+                    admin_db.main()
+                connection.set_session.assert_called_once_with(readonly=True)
+                boundary.verify_upgrade_credentials.assert_called_once_with({})
+                boundary.bootstrap.assert_not_called()
+                boundary.upgrade.assert_not_called()
+                migration.assert_not_called()
+                self.assertFalse(module.exit_json.call_args.kwargs["changed"])
+
+    def test_migrator_probe_precedes_build_and_preserves_secret_suppression(self):
+        tasks = yaml.safe_load((ROLE / "tasks/main.yml").read_text())
+        probe = next(
+            t
+            for t in tasks
+            if t.get("uranus_admin_database", {}).get("state") == "verify_upgrade_credentials"
+        )
+        self.assertTrue(probe["no_log"])
+        self.assertFalse(probe["diff"])
+        self.assertNotIn("check_mode", probe["when"])
+        environment = next(
+            t for t in tasks if t.get("ansible.builtin.import_tasks") == "environment_plan.yml"
+        )
+        deploy = next(t for t in tasks if t.get("ansible.builtin.import_tasks") == "deploy.yml")
+        self.assertLess(tasks.index(environment), tasks.index(probe))
+        self.assertLess(tasks.index(probe), tasks.index(deploy))
+
+    def test_failed_login_reports_actionable_stage_without_driver_secrets(self):
+        module = MagicMock()
+        module.params = {
+            "state": "verify_upgrade_credentials",
+            "environment": "production",
+            "manifest": self.diagnostic_manifest(),
+            "boundary": BOUNDARY,
+            "credentials": {},
+        }
+        module.check_mode = True
+        module.fail_json.side_effect = SystemExit(1)
+        secret = "postgresql://admin_migrator:secret-value@private-host/db"
+        with (
+            patch("ansible.module_utils.basic.AnsibleModule", return_value=module),
+            patch.object(
+                admin_db.AdminDatabase, "credentials", return_value={"admin_migrator": {}}
+            ),
+            patch.object(
+                admin_db.psycopg2,
+                "connect",
+                side_effect=[MagicMock(), psycopg2.OperationalError(secret)],
+            ),
+        ):
+            with self.assertRaises(SystemExit):
+                admin_db.main()
+        message = module.fail_json.call_args.kwargs["msg"]
+        self.assertIn("stage=verify_upgrade_credentials, check=migrator_connection", message)
+        self.assertIn("ADMIN_MIGRATION_DATABASE_URL", message)
+        for forbidden in (secret, "secret-value", "private-host", "postgresql://"):
+            self.assertNotIn(forbidden, message)
+
     def test_console_steps_run_after_bootstrap_changes_absent_to_ready(self):
         release = yaml.safe_load((ROLE / "tasks/release.yml").read_text())
         gate = next(t for t in release if t["name"].startswith("Bootstrap only the explicitly"))
@@ -522,6 +629,29 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
         self.assertEqual(plan["current_head"], "0012")
         self.assertTrue(self.boundary.upgrade("production", True, self.values, self.migrate))
         self.assertEqual(self.boundary.inspect("production")["state"], "READY")
+
+    def test_existing_upgrade_login_is_checked_without_changing_schema(self):
+        self.bootstrap()
+        self.alembic("downgrade", "0011")
+        self.boundary.verify_upgrade_credentials(self.values)
+        self.assertEqual(self.boundary.inspect("production")["state"], "UPGRADEABLE")
+        self.assertEqual(self.execute("SELECT version_num FROM admin.alembic_version"), [("0011",)])
+
+    def test_unusable_migrator_login_blocks_before_alembic(self):
+        self.bootstrap()
+        self.alembic("downgrade", "0011")
+        self.execute("ALTER ROLE admin_migrator NOLOGIN")
+        self.conn.commit()
+        try:
+            with self.assertRaises(psycopg2.OperationalError):
+                self.boundary.verify_upgrade_credentials(self.values)
+            self.assertEqual(self.boundary.diagnostic["check"], "migrator_connection")
+            self.assertEqual(
+                self.execute("SELECT version_num FROM admin.alembic_version"), [("0011",)]
+            )
+        finally:
+            self.execute("ALTER ROLE admin_migrator LOGIN")
+            self.conn.commit()
 
     def test_0011_with_additional_drift_is_never_upgraded(self):
         self.bootstrap()

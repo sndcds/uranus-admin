@@ -245,6 +245,13 @@ lesend den verbleibenden Zustand. Runtime-/Operator-Grants aus den Release-Regis
 zusammen mit der vollständigen Boundary-Verifikation in einer Transaktion angewendet.
 Ein Session-Lock verhindert parallele Bootstrap-/Upgrade-Läufe dieser Rolle.
 
+Bei `UPGRADEABLE` prüft Ansible bereits vor Build und Maintenance die übernommene
+`ADMIN_MIGRATION_DATABASE_URL` durch eine echte Anmeldung als `admin_migrator`
+und eine read-only Identitätsabfrage. Diese Prüfung läuft auch im Check Mode.
+Ein abgelehnter Login wird mit `check=migrator_connection` gemeldet; dafür die
+geschützten Migrator-Zugangsdaten und den PostgreSQL-Login abgleichen. Ansible
+setzt keine Passwörter zurück und gibt keine DSNs oder rohen Treiberfehler aus.
+
 Beim Upgrade werden Maintenance aktiviert und alle drei verwalteten App-Services
 gestoppt, bevor der Release-Launcher startet. Der vorhandene Head muss in
 `admin_upgrade_contracts` stehen; der kanonische SHA256-Fingerprint aus Tabellen,

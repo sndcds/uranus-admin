@@ -449,6 +449,7 @@ class AdminDatabase:
         }
 
     def credentials(self, values):
+        self.mark("adopted_credentials")
         db = self.rows("SELECT current_database()")[0][0]
         port = int(self.conn.get_dsn_parameters()["port"])
         result = {}
@@ -474,6 +475,26 @@ class AdminDatabase:
                 connect_timeout=10,
             )
         return result
+
+    def verify_upgrade_credentials(self, values):
+        """Authenticate before downtime, using only a read-only migrator transaction."""
+        credentials = self.credentials(values)
+        self.mark("migrator_connection")
+        conn = psycopg2.connect(
+            **credentials["admin_migrator"],
+            options="-c search_path=pg_catalog -c statement_timeout=10000 -c lock_timeout=2000",
+        )
+        try:
+            conn.set_session(readonly=True)
+            self.mark("migrator_identity")
+            with conn.cursor() as cur:
+                cur.execute("SELECT current_user,session_user")
+                require(
+                    cur.fetchone() == ("admin_migrator", "admin_migrator"),
+                    "adopted_identity_mismatch",
+                )
+        finally:
+            conn.close()
 
     def prepare_roles(self, credentials, missing):
         for role in ROLES:
@@ -573,14 +594,18 @@ class AdminDatabase:
         report = self.inspect(environment, upgrade_approved=approved)
         if report["state"] == "READY":
             return False
+        self.mark("upgrade_authorization")
         require(
             report["state"] == "UPGRADEABLE" and approved is True,
             "admin_upgrade_not_authorized",
         )
-        self.credentials(values)
+        self.verify_upgrade_credentials(values)
+        self.mark("release_migration")
         migrate(values["ADMIN_MIGRATION_DATABASE_URL"])
+        report = self.inspect(environment, upgrade_approved=approved)
+        self.mark("post_upgrade_boundary")
         require(
-            self.inspect(environment, upgrade_approved=approved)["state"] == "READY",
+            report["state"] == "READY",
             "post_upgrade_boundary_failed",
         )
         return True
@@ -637,7 +662,13 @@ def main():
     module = AnsibleModule(
         argument_spec={
             "state": {
-                "choices": ["plan", "bootstrap", "upgrade", "revoke_create"],
+                "choices": [
+                    "plan",
+                    "verify_upgrade_credentials",
+                    "bootstrap",
+                    "upgrade",
+                    "revoke_create",
+                ],
                 "required": True,
             },
             "environment": {
@@ -661,7 +692,7 @@ def main():
     try:
         p = module.params
         stage = "authorization"
-        writing = p["state"] != "plan" and not module.check_mode
+        writing = p["state"] in {"bootstrap", "upgrade", "revoke_create"} and not module.check_mode
         if writing:
             if p["state"] in {"bootstrap", "revoke_create"}:
                 require(
@@ -684,7 +715,10 @@ def main():
         stage = "construct_boundary"
         boundary = AdminDatabase(conn, p["manifest"], p["boundary"], diagnostic)
         changed = False
-        if writing and p["state"] == "revoke_create":
+        if p["state"] == "verify_upgrade_credentials":
+            stage = "verify_upgrade_credentials"
+            boundary.verify_upgrade_credentials(p["credentials"])
+        elif writing and p["state"] == "revoke_create":
             stage = "revoke_create"
             changed = boundary.revoke_create()
         elif writing:
@@ -717,11 +751,17 @@ def main():
         module.exit_json(changed=changed, admin_database=report)
     except Exception as exc:
         # Never stringify database, filesystem, credential or subprocess exceptions.
+        hint = (
+            " Check the adopted ADMIN_MIGRATION_DATABASE_URL and admin_migrator login; "
+            "deployment does not reset passwords."
+            if diagnostic.get("check") == "migrator_connection"
+            else ""
+        )
         module.fail_json(
             msg="Admin database operation failed; no activation permitted. "
             f"Safe diagnostic stage={stage}, check={diagnostic.get('check', 'none')}, "
             f"exception_type={type(exc).__name__}. "
-            "No exception text, SQL, credentials or connection data are exposed."
+            "No exception text, SQL, credentials or connection data are exposed." + hint
         )
     finally:
         if conn is not None:
