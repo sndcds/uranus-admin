@@ -71,6 +71,10 @@
       loop: "{{ ua_restart_services }}"
       when: ua_previous_services[item].exists
 
+    - name: Upgrade the exact reviewed admin database contract while services are stopped
+      ansible.builtin.include_tasks: admin_database_upgrade.yml
+      when: ua_admin_database_plan.admin_database.state | default('READY') == 'UPGRADEABLE'
+
     - name: Record that configuration installation may have partially occurred
       ansible.builtin.set_fact:
         ua_install_attempted: true

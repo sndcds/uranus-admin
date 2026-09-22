@@ -120,8 +120,11 @@ Findings werden nur an tatsächlich gespeicherten Zeitpunkten zurückgefüllt.
 Migration 0013 ergänzt unabhängige Admin-Zuweisungen und deren append-only Verlauf. Die Runtime
 erhält DML nur auf `assignment` und ausschließlich SELECT/INSERT auf `assignment_event`.
 
-Keine automatische Migration und kein DDL-Fallback auf `DATABASE_URL`. Die Runtime ist nie
-Migrator/Owner. Gespeicherte Standardlisten benötigen die Admin-Ablage; ohne sie bleiben nur
+Keine Migration beim Anwendungsstart und kein DDL-Fallback auf `DATABASE_URL`. Der
+bewachte Ansible-Deployment-Pfad kann einen explizit fingerprint-verifizierten älteren
+Admin-Head nach separater Freigabe mit `admin_migrator` transaktional auf den
+Release-Head migrieren und die exakten Grants anwenden; beliebiger Drift bleibt ein
+Abbruch. Die Runtime ist nie Migrator/Owner. Gespeicherte Standardlisten benötigen die Admin-Ablage; ohne sie bleiben nur
 mit lokalem Dev-Token explizite `mode=live`-Abrufe verfügbar. Production-Anmeldung benötigt
 die Admin-Ablage. Ein `admin_storage_unconfigured` kann eine fehlende DSN
 oder **zu mächtige** Runtime-Rechte bedeuten; die Response-Message unterscheidet beides.

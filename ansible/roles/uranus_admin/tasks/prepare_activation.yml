@@ -57,6 +57,7 @@
   ansible.builtin.set_fact:
     ua_activation_required: >-
       {{ ua_changed_paths | length > 0 or ua_restart_services | length > 0
+         or ua_admin_database_plan.admin_database.state | default('READY') == 'UPGRADEABLE'
          or not ua_previous_current.stat.exists
          or ua_previous_current.stat.lnk_source | default('') != ua_release_dir
          or (ua_previous_frontend_env.stat.exists and

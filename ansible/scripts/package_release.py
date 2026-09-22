@@ -113,6 +113,17 @@ def package(revision, output):
             }
             if backend or frontend:
                 files[member.name] = source.extractfile(member).read()
+    required_release_sources = {
+        "backend/app/admin_upgrade_contracts.py",
+        "backend/app/admin_tables.py",
+        "backend/app/auth/diagnostics.py",
+        "backend/app/storage_preflight.py",
+    }
+    if not required_release_sources <= files.keys():
+        raise ValueError(
+            "Fetched main does not contain the required release database contracts; "
+            "merge and fetch the complete controller/release change before packaging"
+        )
     revisions = {}
     for name, data in files.items():
         if name.startswith("backend/migrations/versions/") and name.endswith(".py"):
@@ -147,6 +158,35 @@ def package(revision, output):
         "uv": "0.12.5",
         "pnpm": json.loads(files["frontend/package.json"])["packageManager"].split("@")[-1],
     }
+    upgrade_target = literal_assignment(
+        files["backend/app/admin_upgrade_contracts.py"], "ADMIN_UPGRADE_TARGET"
+    )
+    upgrade_contracts = literal_assignment(
+        files["backend/app/admin_upgrade_contracts.py"], "ADMIN_UPGRADE_CONTRACTS"
+    )
+    if upgrade_target != manifest["head"]:
+        raise ValueError("Admin upgrade contracts must target the release migration head")
+    manifest["admin_upgrade_contracts"] = {}
+    for origin, contract in upgrade_contracts.items():
+        excluded = set(contract["target_only_tables"])
+        if (
+            not isinstance(origin, str)
+            or origin not in revisions
+            or origin == manifest["head"]
+            or not isinstance(contract["schema_fingerprint"], str)
+            or len(contract["schema_fingerprint"]) != 64
+            or not excluded
+            or not excluded < set(manifest["runtime_grants"])
+        ):
+            raise ValueError("Invalid admin upgrade contract")
+        manifest["admin_upgrade_contracts"][origin] = {
+            "schema_fingerprint": contract["schema_fingerprint"],
+            "runtime_grants": {
+                name: grants
+                for name, grants in manifest["runtime_grants"].items()
+                if name not in excluded
+            },
+        }
     files["release.json"] = json.dumps(manifest, sort_keys=True, indent=2).encode()
     with (
         open(output, "xb") as target,

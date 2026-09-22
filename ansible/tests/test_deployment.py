@@ -294,13 +294,27 @@ class ArtifactTests(unittest.TestCase):
         complete = {
             "commit": "a" * 40,
             "head": "0012",
-            "runtime_grants": {"finding": ["SELECT"]},
+            "runtime_grants": {
+                "finding": ["SELECT"],
+                "finding_event": ["SELECT", "INSERT"],
+            },
             "environment_keys": ["DATABASE_URL"],
             "operator_grants": {"alembic_version": ["SELECT"]},
             "admin_indexes": ["alembic_version_pkc"],
             "admin_columns": {"alembic_version": ["version_num"]},
+            "admin_upgrade_contracts": {
+                "0011": {
+                    "schema_fingerprint": "b" * 64,
+                    "runtime_grants": {"finding": ["SELECT"]},
+                }
+            },
         }
-        for key in ("operator_grants", "admin_indexes", "admin_columns"):
+        for key in (
+            "operator_grants",
+            "admin_indexes",
+            "admin_columns",
+            "admin_upgrade_contracts",
+        ):
             with self.subTest(key=key), tempfile.TemporaryDirectory() as directory:
                 manifest = {k: v for k, v in complete.items() if k != key}
                 path = Path(directory) / "old-manifest.tar.gz"
@@ -325,6 +339,7 @@ class ArtifactTests(unittest.TestCase):
             manifest = filters.artifact_manifest(paths[0], digest, commit)
             self.assertEqual(manifest["head"], "0013")
             self.assertEqual(len(manifest["runtime_grants"]), 19)
+            self.assertEqual(set(manifest["admin_upgrade_contracts"]), {"0011", "0012"})
             self.assertNotIn("DELETE", json.dumps(manifest["runtime_grants"]))
             with self.assertRaises(AnsibleFilterError):
                 filters.artifact_manifest(paths[0], "0" * 64, commit)

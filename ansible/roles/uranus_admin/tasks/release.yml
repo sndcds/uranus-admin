@@ -185,7 +185,7 @@
     owner: root
     group: root
     mode: "0644"
-  loop: [verify_runtime.py, validate_nginx.py]
+  loop: [verify_runtime.py, validate_nginx.py, admin_database_migrate.py]
 
 - name: Refuse an existing release environment backed by a different Python interpreter
   ansible.builtin.command:
@@ -226,6 +226,7 @@
         -B,
         "{{ ua_release_dir }}/deployment/verify_runtime.py",
         "{{ ua_public_origin }}",
+        "{{ 'pre-upgrade' if ua_admin_database_plan.admin_database.state | default('READY') == 'UPGRADEABLE' else 'ready' }}",
       ]
     chdir: "{{ ua_release_dir }}/backend"
   become_user: oklab

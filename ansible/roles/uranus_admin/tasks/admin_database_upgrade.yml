@@ -1,0 +1,78 @@
+- name: Reassert the reviewed upgrade approval at the mutation boundary
+  ansible.builtin.assert:
+    that:
+      - ua_admin_database_plan.admin_database.state == 'UPGRADEABLE'
+      - ua_admin_database_upgrade_approved is sameas true
+      - ua_action == 'deploy'
+      - not ansible_check_mode
+
+- name: Upgrade with safe failure reporting and no generic drift repair
+  block:
+    - name: Upgrade admin using release Alembic and the dedicated migrator identity
+      uranus_admin_database:
+        state: upgrade
+        environment: "{{ ua_target_environment }}"
+        upgrade_approved: "{{ ua_admin_database_upgrade_approved }}"
+        manifest: "{{ ua_manifest }}"
+        boundary: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
+        credentials: "{{ (ua_existing_operator.content | default('') | b64decode | ua_parse_env) | combine(ua_privileged) | combine(ua_runtime) }}"
+        release: "{{ ua_release_dir }}"
+        archive_hash: "{{ ua_artifact_sha256 }}"
+        uv: "{{ ua_uv }}"
+      become_user: postgres
+      no_log: true
+      diff: false
+  rescue:
+    - name: Inspect the remaining state without attempting repair
+      uranus_admin_database:
+        state: plan
+        environment: "{{ ua_target_environment }}"
+        manifest: "{{ ua_manifest }}"
+        boundary: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
+      become_user: postgres
+      register: ua_admin_database_failure
+    - name: Report only the safe upgrade failure state
+      ansible.builtin.debug:
+        msg:
+          admin_database: "{{ ua_admin_database_failure.admin_database }}"
+    - name: Stop after failed admin upgrade without database repair or system activation
+      ansible.builtin.fail:
+        msg: "Admin upgrade did not complete successfully. Review the freshly inspected state; no database repair, downgrade, stamp, or restore was attempted."
+
+- name: Verify the committed upgraded boundary in a new read-only connection
+  uranus_admin_database:
+    state: plan
+    environment: "{{ ua_target_environment }}"
+    manifest: "{{ ua_manifest }}"
+    boundary: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
+  become_user: postgres
+  register: ua_admin_database_verified
+
+- name: Require READY after the reviewed upgrade
+  ansible.builtin.assert:
+    that: ua_admin_database_verified.admin_database.state == 'READY'
+
+- name: Use READY for subsequent activation and reporting
+  ansible.builtin.set_fact:
+    ua_admin_database_plan: "{{ ua_admin_database_verified }}"
+
+- name: Validate all runtime database boundaries after the upgrade
+  ansible.builtin.command:
+    argv:
+      - "{{ ua_uv }}"
+      - run
+      - --no-cache
+      - --no-sync
+      - --offline
+      - --no-python-downloads
+      - --no-env-file
+      - python
+      - -B
+      - "{{ ua_release_dir }}/deployment/verify_runtime.py"
+      - "{{ ua_public_origin }}"
+      - ready
+    chdir: "{{ ua_release_dir }}/backend"
+  become_user: oklab
+  environment: "{{ ua_runtime }}"
+  changed_when: false
+  no_log: true

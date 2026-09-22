@@ -17,9 +17,10 @@ Projektübersicht: [Kulturbytes Admin](../README.md) ·
 Diese Rolle unterstützt **Production-Adoption** und **Staging-/Test-Bootstrap** auf
 Zielsystemen, die den technischen Deployment-Vertrag erfüllen.
 Sie ist kein allgemeines Server- oder Source-Datenbank-Provisioning.
-Der Source/Admin-Preflight bleibt **READ ONLY**. Nur für einen sauberen Erstaufbau
-auf Test/Staging kann ein separat freigegebener Schritt die Admin-Infrastruktur
-mit Alembic aus dem ausgewählten Release anlegen. Production migriert niemals.
+Der Source/Admin-Preflight bleibt **READ ONLY**. Ein separat freigegebener Schritt
+kann die Admin-Infrastruktur aus dem ausgewählten Release entweder sauber auf
+Test/Staging anlegen oder einen exakt geprüften älteren Admin-Vertrag in allen
+Umgebungen auf den Release-Head migrieren. Beliebiger Drift wird niemals repariert.
 Es gibt keinen Datenbank-Restore. Ein eigener, zusätzlich freigegebener
 Schritt verwaltet die isolierte SQL-Console-Infrastruktur.
 Er verändert keine Uranus-Domain-Daten, Uranus-Tabellendefinitionen oder bestehenden
@@ -47,7 +48,7 @@ Auch sie müssen Ubuntu 24.04, systemd 255, den geprüften PostgreSQL-/PostGIS-S
 lokale Pfade, Socket/Port und die Datenbank-/Rollenverträge erfüllen. Nginx muss
 installiert, gültig konfiguriert und gestartet sein. Betriebssystempakete,
 PostgreSQL-Cluster und Uranus-Schemas/-Daten werden nicht angelegt. Admin-Migrationen
-sind ausschließlich im unten beschriebenen sauberen Test-/Staging-Erstaufbau erlaubt.
+sind ausschließlich im unten beschriebenen Erstaufbau bzw. geprüften Upgrade erlaubt.
 Der Service-/Build-User `oklab` muss bereits existieren.
 
 Bei Verbindung als Nicht-root-User muss außerdem das Ubuntu-Paket `acl` auf dem
@@ -80,12 +81,14 @@ der Input-Guard nicht übersprungen werden kann. Ein Target-Marker ist nicht nö
 Das [Beispielinventory](inventory.example.yml) zeigt die Environment-Konfiguration;
 SSH-Ziel und Hostschlüssel müssen für das tatsächliche Ziel eingerichtet werden.
 
-## Adoption und verwalteter Bootstrap
+## Adoption, verwalteter Bootstrap und geprüfte Upgrades
 
 **Production: adopt existing installation.** Die vorhandene Nginx-Site, ihr korrekter
 Symlink, die exakten Rate-Zonen und die drei App-Services sind Voraussetzungen.
 Fehlende Baseline-Objekte bleiben Blocker; Production erhält keinen Bootstrap-Pfad.
-Der bestehende Ablauf inklusive Maintenance vor Service-Unterbrechung bleibt erhalten.
+Ein vorhandener, exakt fingerprint-verifizierter älterer Head darf mit separater
+Freigabe während der Maintenance migriert werden. Der bestehende Ablauf inklusive
+Maintenance vor Service-Unterbrechung bleibt erhalten.
 
 **Staging/Test: bootstrap managed Uranus Admin application infrastructure.** Fehlende
 App-Units (`backend`, `check-worker`, `frontend`), die eigene Nginx-Site samt Symlink,
@@ -155,20 +158,22 @@ vorhandene Dateien inklusive Owner/Mode sowie vorherige Service-Zustände wieder
 Release-/Build-Verzeichnisse und geschützte Recovery-Belege bleiben zur Diagnose
 erhalten; fremde Inhalte werden nicht rekursiv gelöscht. Es gibt keinen DB-Rollback.
 
-## Sauberer Admin-Datenbank-Erstaufbau auf Test/Staging
+## Admin-Datenbank-Erstaufbau und geprüfte Upgrades
 
-Production bleibt **Adoption-only**: Das vollständige Admin-Schema einschließlich
-exaktem Release-Head und Rollen-/Grant-Vertrag muss existieren. Auch
-`ua_admin_database_bootstrap_approved: true` erlaubt dort weder Bootstrap noch
-Migrationen oder Grant-Reparaturen.
+Production bleibt beim **Bootstrap Adoption-only**: Ein fehlendes oder partielles
+Admin-Schema wird dort nie angelegt. Ein vollständig verifizierter älterer Vertrag
+darf dagegen mit `ua_admin_database_upgrade_approved: true` kontrolliert auf den
+Release-Head migriert werden. Die Bootstrap-Freigabe erlaubt weiterhin weder einen
+Production-Erstaufbau noch eine Grant-Reparatur.
 
 Der read-only Preflight unterscheidet deterministisch:
 
-| Zustand   | Bedeutung                                                                                                                     | Verhalten                                                                        |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `ABSENT`  | Kein `admin`-Schema; Source-Basis und vorhandene Rollen entsprechen dem Vertrag.                                              | Nur Test/Staging dürfen einen ausdrücklich freigegebenen Erstaufbau durchführen. |
-| `READY`   | Tabellen, Indizes, Owner, Rollen, Memberships, Head und Grants passen zum Release.                                            | Normaler Deployment-Pfad; kein Bootstrap und keine Migration.                    |
-| `DRIFTED` | Teilweise vorhandenes Schema, fehlende Versionstabelle, falscher Head/Owner, unbekannte Objekte oder unsichere Rechte/Rollen. | Abbruch in jeder Umgebung; keine automatische Reparatur.                         |
+| Zustand      | Bedeutung                                                                                                                              | Verhalten                                                                                 |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `ABSENT`     | Kein `admin`-Schema; Source-Basis und vorhandene Rollen entsprechen dem Vertrag.                                                       | Nur Test/Staging dürfen einen ausdrücklich freigegebenen Erstaufbau durchführen.          |
+| `READY`      | Tabellen, Indizes, Owner, Rollen, Memberships, Head und Grants passen zum Release.                                                     | Normaler Deployment-Pfad; kein Bootstrap und keine Migration.                             |
+| `UPGRADEABLE` | Head, Tabellen, Spalten, Indizes, Owner und Rechte entsprechen exakt einem im Release freigegebenen älteren Fingerprint.              | Separat freigegebenes, transaktionales Upgrade während Maintenance und Service-Stillstand. |
+| `DRIFTED`    | Partielles Schema, unbekannter Head, abweichender Fingerprint, falscher Owner, unbekannte Objekte oder unsichere Rechte/Rollen.        | Abbruch in jeder Umgebung; keine automatische Reparatur.                                  |
 
 Unverhandelbar bleiben die lokale Datenbank `oklab`, das Schema `uranus`, die
 Kerntabellen und sämtliche Tabellen des bestehenden Source-Reader-Vertrags sowie
@@ -176,8 +181,8 @@ PostGIS. Source-Owner müssen zum bestehenden Datenbank-Owner-Vertrag passen;
 RLS, indirekte Relationsquellen und unzulässige Rechte blockieren. Die Rolle erzeugt
 keine Datenbank, Source-Tabelle oder Extension und importiert keine Uranus-Daten.
 
-`ua_admin_database_bootstrap_approved` ist standardmäßig `false`. Ein Echtlauf
-benötigt zusätzlich sämtliche bisherigen Apply-Freigaben. Im nicht geheimen
+`ua_admin_database_bootstrap_approved` und `ua_admin_database_upgrade_approved` sind
+standardmäßig `false`. Ein Echtlauf benötigt zusätzlich sämtliche bisherigen Apply-Freigaben. Im nicht geheimen
 Inventory steht beispielsweise:
 
 ```yaml
@@ -190,6 +195,8 @@ Die zusätzliche Freigabe gehört ausschließlich in die lokale, gitignorierte
 
 ```yaml
 ua_admin_database_bootstrap_approved: true
+# Nur wenn der Preflight UPGRADEABLE meldet:
+ua_admin_database_upgrade_approved: true
 ```
 
 Keine Passwörter oder DSNs in Inventory, Approval-Datei oder CLI aufnehmen. Der
@@ -217,9 +224,10 @@ verwendet ausschließlich den zuvor vollständig geprüften, gepinnten `ua_uv`-P
 `backend/alembic.ini` und den Migrationsbaum dieses Releases. Ein Binary aus der von
 uv intern verwalteten Umgebung wird niemals direkt ausgeführt. SHA/Completion-Marker,
 Manifest, Alembic-Head sowie Runtime-/Operator-Grant-Registries müssen übereinstimmen.
-Neu gepackte Artefakte enthalten dafür zusätzlich `operator_grants` und ohne
-Codeausführung abgeleitete `admin_indexes`-/`admin_columns`-Inventuren; ältere Archive müssen mit dem
-aktuellen Packager neu erzeugt werden. Fehlende Vertragsfelder werden bereits auf dem
+Neu gepackte Artefakte enthalten dafür zusätzlich `operator_grants`, ohne
+Codeausführung abgeleitete `admin_indexes`-/`admin_columns`-Inventuren sowie die
+expliziten `admin_upgrade_contracts`; ältere Archive müssen mit dem aktuellen
+Packager neu erzeugt werden. Fehlende Vertragsfelder werden bereits auf dem
 Controller vor Target-/DB-Zugriff abgelehnt. Die neue Archiv-SHA256 verlangt einen
 neuen Dry Run; ein vorhandener Completion-Marker für eine andere Archiv-Prüfsumme
 wird niemals überschrieben. Kein Controller-Checkout und kein `current`-
@@ -235,7 +243,17 @@ Launcher-Laufzeit. Zusätzlich führt Ansible in `always` einen unabhängigen,
 idempotenten CREATE-Entzug aus. Der Fehlerreport inspiziert danach ausschließlich
 lesend den verbleibenden Zustand. Runtime-/Operator-Grants aus den Release-Registries werden danach
 zusammen mit der vollständigen Boundary-Verifikation in einer Transaktion angewendet.
-Ein Session-Lock verhindert parallele Bootstrap-Läufe dieser Rolle.
+Ein Session-Lock verhindert parallele Bootstrap-/Upgrade-Läufe dieser Rolle.
+
+Beim Upgrade werden Maintenance aktiviert und alle drei verwalteten App-Services
+gestoppt, bevor der Release-Launcher startet. Der vorhandene Head muss in
+`admin_upgrade_contracts` stehen; der kanonische SHA256-Fingerprint aus Tabellen,
+Spalten und Indizes sowie der vollständige alte Rollen-/Grant-Vertrag müssen passen.
+Alembic-DDL und die exakte neue Runtime-/Operator-Grant-Matrix laufen in derselben
+PostgreSQL-Transaktion als `admin_migrator`. Fehler rollen beides zurück. Ein Upgrade
+eines unbekannten Heads, `alembic stamp`, Downgrades und generische Drift-Reparaturen
+bleiben ausgeschlossen. Nach dem Commit prüft Ansible den vollständigen Vertrag über
+eine neue read-only Superuser-Verbindung und anschließend über die echten Runtime-DSNs.
 
 Nach dem Übergang von `ABSENT` zu `READY` laufen Console-Planung, separat
 freigegebene Provisionierung und vollständige Verifikation im selben Durchlauf
@@ -634,10 +652,10 @@ Details und Phase-3-Kriterien: [Console-Infrastruktur](../backend/docs/sql-conso
 Versionstabelle auf `admin`, verlangt `ADMIN_MIGRATION_DATABASE_URL` und besitzt
 einen Admin-Schema-Bootstrap. Es setzt keinen `search_path`. Die geprüften Revisionen
 schreiben nicht nach `uranus`; manche Downgrades löschen jedoch Admin-Daten.
-**Daher kein Upgrade, Bootstrap, Downgrade oder `alembic stamp` in dieser Rolle.**
-Ein neues Head erfordert erneut Migrationsprüfung, vollständigen SQL-/Grant-Plan,
-Backup-/Downtime-Plan und separate Zustimmung. Es gibt keinen Schalter zum Umgehen
-des aktuellen Head-Checks.
+**Daher kein Downgrade, `alembic stamp` oder unklassifiziertes Drift-Repair in dieser
+Rolle.** Ein neuer Head erfordert erneut Migrationsprüfung, aktualisierte und getestete
+Upgrade-Fingerprints, vollständigen SQL-/Grant-Plan, Backup-/Downtime-Plan und separate
+Zustimmung. Es gibt keinen Schalter zum Umgehen der Vertragsprüfung.
 
 ## Releases, systemd und Dateien
 
@@ -1092,7 +1110,8 @@ dieselbe Auswahl; ihre Hashes werden im Laufnachweis festgehalten. Zielumgebung,
 Verbindungsparameter und beliebige andere Extra-Vars gehören nicht in diese Datei.
 
 Der Aufruf erteilt für das gewählte Test-/Staging-Ziel die normalen Deployment-
-Freigaben: Secret-Adoption, sauberen Admin-Erstaufbau und Console-Provisionierung.
+Freigaben: Secret-Adoption, sauberen Admin-Erstaufbau, exakt geprüftes Admin-Upgrade
+und Console-Provisionierung.
 Nach erfolgreichem Dry Run setzt das Script `ua_apply_confirmation`, die drei
 zugehörigen Approval-Booleans und `ua_reviewed_dry_run` automatisch. Letzteres
 bezeichnet ausdrücklich eine **automatische Prüfung**, keinen menschlichen Review.
@@ -1156,6 +1175,8 @@ ua_secret_adoption_approved: true
 ua_sql_console_provision_approved: true
 # Nur für einen freigegebenen sauberen Admin-Erstaufbau auf Test/Staging:
 # ua_admin_database_bootstrap_approved: true
+# Nur wenn der Preflight den exakten Ausgangsstand als UPGRADEABLE klassifiziert:
+# ua_admin_database_upgrade_approved: true
 # Nur bei ausdrücklichem Notification-Management zusätzlich:
 # ua_manage_notification_timer: true
 # ua_disable_notification_timer_approved: true

@@ -5,6 +5,7 @@
       - ua_target_environment is string
       - ua_target_environment in ['production', 'staging', 'test']
       - ua_admin_database_bootstrap_approved is boolean
+      - ua_admin_database_upgrade_approved is boolean
       - ua_public_origin | ua_valid_target_origin(ua_target_environment)
       - ua_nginx_server_name == (ua_public_origin | urlsplit('hostname'))
       - ua_tls_certificate is match('^/[A-Za-z0-9_./-]+$') and '..' not in ua_tls_certificate.split('/')
