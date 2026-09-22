@@ -1,5 +1,35 @@
 import type { InboxPage } from '../../shared/contracts'
 
+// Synthetic event-date finding with the same nullable fields as persisted unassigned tasks.
+export const unassignedFindingInboxFixture: InboxPage = {
+  items: [
+    {
+      id: 'finding:event_date_end_before_start:event_date:00000000-0000-4000-8000-000000000040:end_date',
+      kind: 'finding',
+      title: 'Qualitätsprüfung',
+      summary: 'Das Enddatum liegt vor dem Startdatum.',
+      entity_type: 'event_date',
+      entity_key: '00000000-0000-4000-8000-000000000040',
+      entity_name: 'Testtermin',
+      organization_name: null,
+      entity_action: null,
+      severity: 'error',
+      status: 'open',
+      workflow_status: null,
+      candidate_count: null,
+      occurred_at: '2026-09-20T11:19:16.178685Z',
+      due_at: null,
+      is_overdue: false,
+      due_today: false,
+      assignment: null,
+      href: '/findings?entity_key=00000000-0000-4000-8000-000000000040&rule=event_date_end_before_start',
+    },
+  ],
+  counts: { critical: 1, mine: 0, unassigned: 1, due_today: 0, overdue: 0 },
+  pagination: { page: 1, page_size: 25, total: 1, pages: 1 },
+  observed_at: '2026-09-22T16:47:59.974167Z',
+}
+
 export const inboxFixture: InboxPage = {
   items: [
     {

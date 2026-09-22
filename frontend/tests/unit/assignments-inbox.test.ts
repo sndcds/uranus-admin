@@ -10,6 +10,8 @@ import {
   inboxPageSchema,
 } from '../../shared/contracts'
 import { forwardAdminRequest } from '../../server/utils/admin-proxy'
+import { createAdminApi } from '../../app/utils/admin-api'
+import { unassignedFindingInboxFixture } from '../fixtures/inbox'
 
 const adminId = '00000000-0000-4000-8000-000000000800'
 const findingId = 'finding:one'
@@ -50,6 +52,14 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('assignment and inbox contracts', () => {
+  it('loads unassigned event-date findings without an entity action through the API client', async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json(unassignedFindingInboxFixture))
+    const client = createAdminApi(fetcher)
+    await expect(
+      client.inbox({ scope: 'all', attention: 'all', page: 1, page_size: 25 }),
+    ).resolves.toEqual(unassignedFindingInboxFixture)
+  })
+
   it('keeps administrator identity separate and rejects forged workflow state', () => {
     expect(assignmentSchema.parse(assignment).assigned_to.login).toBe('operator')
     expect(
@@ -166,7 +176,11 @@ describe('assignment and inbox contracts', () => {
       observed_at: '2026-10-25T10:00:00Z',
     }
     expect(inboxPageSchema.safeParse(page).success).toBe(true)
-    for (const href of ['https://evil.invalid', '/findings?entity_key=x&rule=x&token=secret'])
+    for (const href of [
+      '/inbox',
+      'https://evil.invalid',
+      '/findings?entity_key=x&rule=x&token=secret',
+    ])
       expect(
         inboxPageSchema.safeParse({
           ...page,
