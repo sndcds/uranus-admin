@@ -1,0 +1,72 @@
+# Shared by CI, Deployment checks, and Security. Keep exclusions conservative:
+# Markdown alone is documentation, while unknown non-documentation paths are global.
+backend:
+  - "backend/**"
+  - "!backend/**/*.md"
+  - ".github/workflows/ci.yml"
+  - ".github/workflows/security.yml"
+
+frontend:
+  - "frontend/**"
+  - "!frontend/**/*.md"
+  - ".github/workflows/ci.yml"
+  - ".github/workflows/security.yml"
+
+ansible:
+  - "ansible/**"
+  - "!ansible/**/*.md"
+  - ".github/workflows/deployment-checks.yml"
+
+python:
+  - "backend/**"
+  - "!backend/**/*.md"
+  - "**/*.py"
+
+javascript:
+  - "frontend/**"
+  - "!frontend/**/*.md"
+  - "**/*.{js,jsx,mjs,cjs,ts,tsx,vue}"
+
+dependency:
+  - "backend/pyproject.toml"
+  - "backend/uv.lock"
+  - "frontend/package.json"
+  - "frontend/pnpm-lock.yaml"
+  - "frontend/pnpm-workspace.yaml"
+  - "ansible/requirements*.txt"
+  - "ansible/requirements.yml"
+  - ".github/workflows/**"
+  - ".github/actions/**"
+
+docs:
+  - "**/*.md"
+  - "docs/**"
+
+non_docs:
+  - "**"
+  - "!**/*.md"
+  - "!docs/**"
+
+workflow:
+  - ".github/workflows/**"
+
+github_global:
+  - ".github/**"
+  - "!.github/workflows/**"
+
+# Any future non-documentation area is global until it is deliberately classified.
+global_other:
+  - "**"
+  - "!**/*.md"
+  - "!docs/**"
+  - "!backend/**"
+  - "!frontend/**"
+  - "!ansible/**"
+  - "!.github/**"
+
+# Known workflows have narrower contracts above; an added workflow defaults to global.
+workflow_other:
+  - ".github/workflows/**"
+  - "!.github/workflows/ci.yml"
+  - "!.github/workflows/security.yml"
+  - "!.github/workflows/deployment-checks.yml"

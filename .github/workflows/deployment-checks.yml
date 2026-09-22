@@ -8,8 +8,33 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      ansible: ${{ steps.filter.outputs.ansible == 'true' || steps.filter.outputs.github_global == 'true' || steps.filter.outputs.global_other == 'true' || steps.filter.outputs.workflow_other == 'true' }}
+      docs_only: ${{ steps.filter.outputs.docs == 'true' && steps.filter.outputs.non_docs != 'true' }}
+      workflow: ${{ steps.filter.outputs.workflow }}
+      global: ${{ steps.filter.outputs.github_global == 'true' || steps.filter.outputs.global_other == 'true' || steps.filter.outputs.workflow_other == 'true' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
+        id: filter
+        with:
+          token: ""
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.ref }}
+          predicate-quantifier: some-with-excludes
+          filters: .github/path-filters.yml
+
   safety:
     name: safety (${{ matrix.stack }})
+    needs: changes
+    if: needs.changes.outputs.ansible == 'true'
     runs-on: ubuntu-24.04
     strategy:
       matrix:
