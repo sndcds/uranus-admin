@@ -191,6 +191,8 @@ async def test_workflow_assignment_derives_and_verifies_durable_entity_identity(
             query_version=1,
             scoring_version=1,
             attempt_count=1,
+            created_at=NOW,
+            updated_at=NOW,
         )
     )
     await admin_store.commit()
@@ -219,6 +221,8 @@ async def test_workflow_assignment_derives_and_verifies_durable_entity_identity(
             query_version=1,
             scoring_version=1,
             attempt_count=1,
+            created_at=NOW,
+            updated_at=NOW,
         )
     )
     await admin_store.commit()
