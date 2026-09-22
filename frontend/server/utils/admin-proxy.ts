@@ -179,6 +179,10 @@ export async function forwardAdminRequest(
     /^\/api\/v1\/(events|venues|spaces|organizations|users|images)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
     )
+  const entityTimeline =
+    /^\/api\/v1\/entities\/(event|organization|venue|space|user|image)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/timeline$/i.test(
+      input.path,
+    )
   const markDetail =
     /^\/api\/v1\/record-marks\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
@@ -217,26 +221,28 @@ export async function forwardAdminRequest(
       : (provenanceViews[provenanceView as ProvenanceView] as readonly string[])
     : notificationDetail || notificationRetry || geoDetail || geocodeDetail || geocodeRetry
       ? []
-      : notificationPreview
-        ? ['locale']
-        : entityList
-          ? [
-              'q',
-              'organization_id',
-              'status',
-              'period',
-              'temporal',
-              'page',
-              'page_size',
-              ...(spatialList ? ['geo_scope_id'] : []),
-            ]
-          : entityDetail
-            ? ['related_page']
-            : markDetail || checkDetail
-              ? []
-              : Object.hasOwn(routes, input.path)
-                ? routes[input.path]
-                : undefined
+      : entityTimeline
+        ? ['cursor', 'page_size']
+        : notificationPreview
+          ? ['locale']
+          : entityList
+            ? [
+                'q',
+                'organization_id',
+                'status',
+                'period',
+                'temporal',
+                'page',
+                'page_size',
+                ...(spatialList ? ['geo_scope_id'] : []),
+              ]
+            : entityDetail
+              ? ['related_page']
+              : markDetail || checkDetail
+                ? []
+                : Object.hasOwn(routes, input.path)
+                  ? routes[input.path]
+                  : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
   const diagnosticExecute = input.path === '/api/v1/findings/sql-diagnostic/execute'
   const authWrite = input.method === 'POST' && ['/auth/login', '/auth/logout'].includes(input.path)

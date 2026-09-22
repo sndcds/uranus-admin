@@ -1,11 +1,14 @@
 import { test, expect } from '../fixtures/authenticated'
-import { entityFixture, detailFixture } from '../fixtures/entities'
+import { entityFixture, detailFixture, timelineFixture } from '../fixtures/entities'
+import { entitySections } from '../../app/utils/entities'
 import { entitySectionSchema } from '../../shared/contracts'
 for (const section of entitySectionSchema.options) {
   test(`${section} list, detail and workflow links`, async ({ page }) => {
     const fixture = entityFixture(section)
     await page.route('**/api/admin/api/v1/**', (route) => {
       const path = new URL(route.request().url()).pathname
+      if (path.endsWith('/timeline'))
+        return route.fulfill({ json: timelineFixture(entitySections[section].type) })
       return route.fulfill({
         json: path.includes(`/${section}/`) ? detailFixture(section) : fixture,
       })
@@ -27,6 +30,8 @@ for (const section of entitySectionSchema.options) {
     await expect(
       page.getByRole('link', { name: `Markierungen & Notizen zu Fixture ${section}` }),
     ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Verlauf' })).toBeVisible()
+    await expect(page.getByText('Beschreibung fehlt.')).toBeVisible()
     if (section === 'events') {
       await expect(page.getByText('Standardort', { exact: true })).toBeVisible()
       await expect(page.getByText('Standardraum', { exact: true })).toBeVisible()
@@ -49,6 +54,8 @@ for (const section of entitySectionSchema.options) {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true)
+    await page.getByRole('link', { name: 'Details öffnen: Qualitätsproblem erkannt' }).click()
+    await expect(page).toHaveURL(/\/findings\?.*entity_key=/)
   })
 }
 

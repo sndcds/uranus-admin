@@ -88,7 +88,7 @@ MUST NOT be enabled by a browser capability flag.
 
 ## Admin persistence and migrations
 
-Admin owns check runs, findings/reviews, record marks/events, URL observations,
+Admin owns check runs, findings/reviews and append-only finding events, record marks/events, URL observations,
 notification intents/deliveries/items, accounts, grants, sessions and login buckets.
 The authoritative table definitions are in `backend/app/admin_tables.py`.
 
@@ -100,7 +100,7 @@ The authoritative table definitions are in `backend/app/admin_tables.py`.
 - Runtime has SELECT-only access to `auth_account` and `auth_system_admin`. Account/grant changes
   belong to `app.auth.manage`; operator cleanup uses `app.auth.maintenance`.
 - No runtime DELETE grants are currently required. Operator retention deletes only
-  explicitly authorized auth data. Preserve append-only `record_mark_event` and
+  explicitly authorized auth data. Preserve append-only `finding_event`, `record_mark_event` and
   `notification_delivery_item` records, mark versions and immutable sent history.
 - NEVER rewrite a migration already shipped. Add a revision, preserve existing data,
   and describe any unavoidable loss. Revisions use frozen definitions, not imports

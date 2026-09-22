@@ -21,6 +21,7 @@ import {
   entityPageSchema,
   entitySearchResponseSchema,
   entityDetailSchema,
+  timelinePageSchema,
   entityStatisticsResponseSchema,
   eventContentStatisticsSchema,
   graphResponseSchema,
@@ -227,6 +228,12 @@ export function createAdminApi(
       request(`/api/v1/${section}/${encodeURIComponent(id)}`, entityDetailSchema, {
         related_page: relatedPage,
       }),
+    timeline: (entityType: string, id: string, cursor?: string) =>
+      request(
+        `/api/v1/entities/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}/timeline`,
+        timelinePageSchema,
+        { cursor, page_size: 25 },
+      ),
     eventContent: (query: EventContentQuery) =>
       request('/api/v1/statistics/events/content', eventContentStatisticsSchema, query),
     statistics: (query: Record<string, string | number | undefined>) =>

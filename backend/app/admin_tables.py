@@ -69,6 +69,48 @@ finding = sa.Table(
 )
 sa.Index("finding_status_rule_idx", finding.c.status, finding.c.rule)
 
+finding_event = sa.Table(
+    "finding_event",
+    metadata,
+    sa.Column("id", UUID, primary_key=True),
+    sa.Column(
+        "finding_id",
+        sa.Text,
+        sa.ForeignKey("admin.finding.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    sa.Column("entity_type", sa.Text, nullable=False),
+    sa.Column("entity_key", sa.Text, nullable=False),
+    sa.Column("kind", sa.Text, nullable=False),
+    sa.Column("occurred_at", sa.DateTime(timezone=True), nullable=False),
+    sa.Column("actor", sa.Text),
+    sa.Column("status", sa.Text, nullable=False),
+    sa.Column("rule", sa.Text, nullable=False),
+    sa.Column("severity", sa.Text, nullable=False),
+    sa.Column("field", sa.Text, nullable=False),
+    sa.Column("message", sa.Text, nullable=False),
+    sa.Column("comment", sa.Text),
+    sa.Column("assigned_to", UUID),
+    sa.Column("snoozed_until", sa.DateTime(timezone=True)),
+    sa.Column("exception_reason", sa.Text),
+    sa.CheckConstraint(
+        "kind IN ('detected','reviewed','reopened','resolved')", name="finding_event_kind"
+    ),
+    sa.CheckConstraint(
+        "status IN ('open','in_progress','snoozed','exception','reviewed','ignored','resolved')",
+        name="finding_event_status",
+    ),
+    sa.CheckConstraint("severity IN ('error','warning','info')", name="finding_event_severity"),
+)
+sa.Index(
+    "finding_event_entity_timeline_idx",
+    finding_event.c.entity_type,
+    finding_event.c.entity_key,
+    finding_event.c.occurred_at.desc(),
+    finding_event.c.id.desc(),
+)
+sa.Index("finding_event_finding_idx", finding_event.c.finding_id, finding_event.c.occurred_at)
+
 record_mark = sa.Table(
     "record_mark",
     metadata,
@@ -233,6 +275,7 @@ notification = sa.Table(
     ),
 )
 sa.Index("notification_org_status_idx", notification.c.organization_id, notification.c.status)
+sa.Index("notification_entity_idx", notification.c.entity_type, notification.c.entity_key)
 sa.Index(
     "notification_type_detected_idx",
     notification.c.notification_type,

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { findingPageSchema, summarySchema } from '../../shared/contracts'
+import { findingPageSchema, summarySchema, timelinePageSchema } from '../../shared/contracts'
 import { summary, findings } from '../fixtures/api'
 import { recordRows } from '../../app/utils/activity'
 import { dateTime, metric } from '../../app/utils/presentation'
 import { parseFilters, filterQuery } from '../../app/utils/filters'
+import { timelineFixture } from '../fixtures/entities'
 
 describe('actual response contract', () => {
   it('maps a real-shaped response and retains unknown history', () => {
@@ -83,5 +84,22 @@ it('round-trips active-only booleans without interpreting false as truthy', () =
   }
   for (const active_only of ['yes', '', 'anything', ['true', 'false'], 1]) {
     expect(parseFilters({ active_only })).toBeNull()
+  }
+})
+
+it('validates timeline unions, timestamps and bounded internal drill-downs', () => {
+  const page = timelineFixture('venue')
+  expect(timelinePageSchema.parse(page)).toEqual(page)
+  const item = page.items[0]!
+  for (const change of [
+    { href: 'https://evil.invalid/findings' },
+    { href: '/findings?mode=persisted&entity_type=venue&entity_key=x&rule=x&token=secret' },
+    { href: '/notifications/deliveries/not-a-uuid' },
+    { kind: 'secret_rotated' },
+    { occurred_at: null },
+  ]) {
+    expect(timelinePageSchema.safeParse({ ...page, items: [{ ...item, ...change }] }).success).toBe(
+      false,
+    )
   }
 })

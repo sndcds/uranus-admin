@@ -144,6 +144,23 @@ async def test_migrations_only_manage_admin(database, monkeypatch, bootstrap):
         await asyncio.to_thread(command.upgrade, config, "0004")
         await asyncio.to_thread(command.upgrade, config, "head")
         assert await conn.fetchval("SELECT to_regclass('admin.url_check')") is not None
+        assert await conn.fetchval("SELECT to_regclass('admin.finding_event')") is not None
+        assert (
+            await conn.fetchval(
+                "SELECT count(*) FROM admin.finding_event WHERE finding_id='legacy'"
+            )
+            == 1
+        )
+        assert (
+            await conn.fetchval("SELECT kind FROM admin.finding_event WHERE finding_id='legacy'")
+            == "detected"
+        )
+        await asyncio.to_thread(command.downgrade, config, "0011")
+        assert await conn.fetchval("SELECT to_regclass('admin.finding_event')") is None
+        assert await conn.fetchval("SELECT message FROM admin.finding WHERE id='legacy'") == (
+            "Preserve me"
+        )
+        await asyncio.to_thread(command.upgrade, config, "head")
         await asyncio.to_thread(command.downgrade, config, "0006")
         assert await conn.fetchval("SELECT to_regclass('admin.url_check')") is None
         await asyncio.to_thread(command.upgrade, config, "head")

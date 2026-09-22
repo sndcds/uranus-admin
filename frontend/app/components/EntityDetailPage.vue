@@ -71,6 +71,10 @@ onBeforeUnmount(() => {
           })),
         ]"
       />
+      <EntityTimeline
+        :entity-type="entitySections[section].type"
+        :entity-key="data.item.entity_key"
+      />
       <SectionHeader title="Verknüpfte Datensätze" />
       <p v-if="section === 'users' || section === 'organizations'" class="text-xs text-slate-500">
         Einladungen verwenden invited_at; der Mitgliedsstatus folgt has_joined. Ein

@@ -121,6 +121,12 @@ Chronologie. Prüfläufe zeigen tatsächlichen Start und Abschluss. Markierungen
 Erstellung/Erledigung sowie die unveränderten Zeitpunkte ihrer Historie. Einladungen verwenden
 `invited_at` für ihr Alter; Benutzeraktivierung und Partneranfragen `created_at`.
 
+Entity-Details verwenden `EntityTimeline` für die vom Backend zusammengeführte Chronologie.
+Sie sortiert oder kombiniert keine separaten Client-APIs. „Mehr laden“ folgt dem opaken Cursor;
+bereits geladene IDs werden defensiv nicht dupliziert. Titel, Summary und Actor werden als Text
+gerendert, und nur Zod-validierte interne Finding-, Mark-, Notification-, Geocoding- und
+Queue-Ziele werden verlinkt.
+
 ### Logo quality
 
 `/quality` uses `QualityOverview` for a “Logos & Bilder” group with “Orte ohne Logo”,

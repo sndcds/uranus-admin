@@ -67,6 +67,7 @@ Der Bearer-Token ist kein Uranus-Benutzer. Development-Override ist in Productio
 | GET `/api/v1/check-runs` | Persistierte Prüfläufe mit Regelabdeckung |
 | POST `/api/v1/check-runs` | Vollständigen Scan ausführen und Befunde persistieren |
 | PATCH `/api/v1/finding-reviews` | Menschlichen Reviewstatus und Metadaten ändern; kein manuelles resolved |
+| GET `/api/v1/entities/{entity_type}/{entity_key}/timeline` | Belegte Source-/Workflow-Ereignisse, stabile Cursor-Pagination |
 
 Alle `/api/v1`-Routen verwenden dieselbe Admin-Auth. Standardmäßig 401 ohne Credential;
 503 bei unkonfigurierter globaler Auth. OpenAPI nur explizit in development/test einschalten:
@@ -90,7 +91,8 @@ Alembic legt ein fehlendes `admin`-Schema vor der Versionstabelle an. Dafür ben
 der Migrator beim ersten Lauf `CREATE` auf der Zieldatenbank; anschließend kann dieses
 Recht entzogen werden. Bestehende Schemas bleiben unverändert. Rollen und explizite
 Runtime-/Operator-Grants werden weiterhin separat provisioniert.
-Migrationen 0001–0003 erzeugen Check Runs, Findings, Record Marks und deren append-only-Historie.
+Migration 0012 ergänzt die append-only Finding-Historie für Entity-Timelines; bestehende
+Findings werden nur an tatsächlich gespeicherten Zeitpunkten zurückgefüllt.
 
 Keine automatische Migration und kein DDL-Fallback auf `DATABASE_URL`. Die Runtime ist nie
 Migrator/Owner. Gespeicherte Standardlisten benötigen die Admin-Ablage; ohne sie bleiben nur
@@ -133,6 +135,7 @@ in dieser Testdatenbank administrative Rechte. CI führt den vollständigen DB-L
 - [Quality Rules v2](docs/quality-rules.md): DDL-Audit, interne Regeln,
   bewusst zurückgestellte Kandidaten und versionierter Source Contract.
 - [Architektur](docs/architecture.md), [Entwicklung und Rollen](docs/development.md).
+- [Entity Timeline](docs/entity-timeline.md): Quellen, Zeitsemantik, Pagination und Deployment.
 - [Ursprüngliche Analyse](docs/uranus-analysis.md), [offene Uranus-Verbesserungen](docs/future-uranus-improvements.md).
 - [Nuxt-Frontend](../frontend/README.md).
 

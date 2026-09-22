@@ -262,7 +262,7 @@ für einen späteren Lauf. Grundlage des Anwendungsstands:
 | Ubuntu 24.04.4, systemd 255.4, Nginx 1.24                                             | Preflight verlangt Ubuntu 24.04/systemd 255; vollständiges `nginx -t`; keine Paket-/OS-Upgrades.                                                                                                                                                                |
 | PostgreSQL 16.15, PostGIS 3.4.2; Client 17.0                                          | Bestehender lokaler Socket, Datenbank `oklab`; keine Extension-Änderung. Tests zusätzlich mit PostgreSQL 17.                                                                                                                                                    |
 | `uranus` gehört `oklab`, `admin` gehört `admin_migrator`                              | Live-Quelle bleibt unverändert. Ownership/effektive Rechte werden geprüft. Linux-User `oklab` ist nicht die DB-Verbindungsrolle.                                                                                                                                |
-| `admin.alembic_version = 0011`, 16 Admin-Tabellen                                     | Head/Grant-Matrix stammen aus dem ausgewählten Release. Abweichung stoppt, ohne automatische Migration.                                                                                                                                                         |
+| `admin.alembic_version = 0012`, 17 Admin-Tabellen                                     | Head/Grant-Matrix stammen aus dem ausgewählten Release. Abweichung stoppt, ohne automatische Migration.                                                                                                                                                         |
 | Reader besitzt SELECT auf 72 Quellobjekten, keine Sequenzrechte                       | Mindestens die 19 benötigten Quellobjekte werden geprüft. Bestehende weitere Leserechte bleiben erhalten; kein pauschales SELECT auf Sequenzen.                                                                                                                 |
 | Vier getrennte App-Rollen, keine Memberships, keine privilegierten Attribute          | Attribute, Memberships in beide Richtungen, Ownership, Tabellen-/Spaltenrechte und indirekte Schreibmöglichkeiten werden erneut geprüft.                                                                                                                        |
 | App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | PUBLIC TEMP wird ausschließlich nach Prüfung des versionierten Vertrags der Erhaltungsrollen atomar auf explizite TEMP-Grants umgestellt; unbekannte Verbraucher blockieren.                                                                                    |
@@ -314,7 +314,7 @@ Aktuelle Runtime-Matrix, autoritativ aus
 | Tabellen in `admin`                                                                                                                                             | Rechte für `admin_user` |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | `alembic_version`, `auth_account`, `auth_system_admin`                                                                                                          | SELECT                  |
-| `record_mark_event`, `notification_delivery_item`, `geocode_candidate`                                                                                          | SELECT, INSERT          |
+| `finding_event`, `record_mark_event`, `notification_delivery_item`, `geocode_candidate`                                                                         | SELECT, INSERT          |
 | `check_run`, `finding`, `record_mark`, `auth_session`, `auth_login_bucket`, `url_check`, `notification`, `notification_delivery`, `geo_area`, `geocode_request` | SELECT, INSERT, UPDATE  |
 
 Der SQL-Prüfer berücksichtigt auch PUBLIC-Rechte, Spaltengrants, SECURITY-DEFINER-
@@ -611,6 +611,7 @@ Details und Phase-3-Kriterien: [Console-Infrastruktur](../backend/docs/sql-conso
 | 0009     | Retry-Verknüpfung, FK innerhalb `admin`, Index auf `notification_delivery`                    |
 | 0010     | `geo_area`, PostGIS-Geometrie und Indizes                                                     |
 | 0011     | `geocode_request`, `geocode_candidate`                                                        |
+| 0012     | `finding_event`, Backfill belegbarer Finding-Zeitpunkte, Notification-Entity-Index            |
 
 [`migrations/env.py`](../backend/migrations/env.py) setzt Metadatenfilter und
 Versionstabelle auf `admin`, verlangt `ADMIN_MIGRATION_DATABASE_URL` und besitzt

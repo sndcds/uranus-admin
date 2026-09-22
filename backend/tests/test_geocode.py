@@ -538,8 +538,14 @@ async def test_migration_upgrade_downgrade_preserves_existing(database, monkeypa
 
         before = await snapshots()
         await asyncio.to_thread(command.upgrade, cfg, "head")
-        assert await conn.fetchval("SELECT version_num FROM admin.alembic_version") == "0011"
+        assert await conn.fetchval("SELECT version_num FROM admin.alembic_version") == "0012"
         assert await conn.fetchval("SELECT to_regclass('admin.geocode_candidate') IS NOT NULL")
+        assert (
+            await conn.fetchval(
+                "SELECT count(*) FROM admin.finding_event WHERE finding_id='migration-fixture'"
+            )
+            == 1
+        )
         await asyncio.to_thread(command.check, cfg)
         assert await snapshots() == before
         await asyncio.to_thread(command.downgrade, cfg, "0010")

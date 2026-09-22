@@ -30,6 +30,7 @@ from app.api import (
     sql_diagnostics,
     sql_provenance,
     statistics,
+    timeline,
 )
 from app.auth.body_limit import AuthBodyLimitMiddleware
 from app.auth.dependencies import get_current_admin
@@ -133,6 +134,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         graph.router,
         geo.router,
         statistics.router,
+        timeline.router,
         queues.router,
         checks.router,
         marks.router,

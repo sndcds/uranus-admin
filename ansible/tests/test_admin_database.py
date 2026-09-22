@@ -99,7 +99,7 @@ class AdminBootstrapContractTests(unittest.TestCase):
     def diagnostic_manifest(self):
         return {
             "commit": "a" * 40,
-            "head": "0011",
+            "head": "0012",
             "runtime_grants": {"alembic_version": ["SELECT"]},
             "operator_grants": admin_db.OPERATOR_GRANTS,
             "admin_indexes": [],

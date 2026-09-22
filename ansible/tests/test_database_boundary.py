@@ -80,7 +80,7 @@ class DatabaseBoundaryTests(unittest.TestCase):
                         sql.SQL(",".join(privileges)), sql.Identifier(name)
                     )
                 )
-            cur.execute("INSERT INTO admin.alembic_version VALUES ('0011')")
+            cur.execute("INSERT INTO admin.alembic_version VALUES ('0012')")
             cur.execute("GRANT SELECT ON admin.alembic_version TO admin_auth_operator")
             cur.execute("GRANT SELECT,INSERT,UPDATE ON admin.auth_account TO admin_auth_operator")
             cur.execute(
@@ -100,7 +100,7 @@ class DatabaseBoundaryTests(unittest.TestCase):
         with self.conn.cursor() as cur:
             if changes:
                 cur.execute(changes)
-            cur.execute(QUERY, {"head": "0011", "grants": json.dumps(GRANTS)})
+            cur.execute(QUERY, {"head": "0012", "grants": json.dumps(GRANTS)})
             return cur.fetchone()[0]
 
     def test_valid_boundary_in_read_only_transaction(self):

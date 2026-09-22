@@ -8,7 +8,7 @@ from sqlalchemy import case, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from app.admin_tables import check_run, finding
+from app.admin_tables import check_run, finding, finding_event
 from app.config import Settings
 from app.errors import APIError
 from app.repositories.query import ReadQuery
@@ -32,6 +32,29 @@ QUEUE_LOCK_KEY = 723114906
 
 # Explicit labels keep result mappings independent of physical legacy column names.
 FINDING_COLUMNS = tuple(column.label(column.key) for column in finding.c)
+
+
+def finding_event_values(
+    row: dict[str, Any], kind: str, occurred_at: datetime, actor: str | None = None
+) -> dict[str, Any]:
+    return {
+        "id": uuid4(),
+        "finding_id": row["id"],
+        "entity_type": row["entity_type"],
+        "entity_key": row["entity_key"] if "entity_key" in row else row["entity_id"],
+        "kind": kind,
+        "occurred_at": occurred_at,
+        "actor": actor,
+        "status": row["status"],
+        "rule": row["rule"],
+        "severity": row["severity"],
+        "field": row["field"],
+        "message": row["message"],
+        "comment": row.get("comment"),
+        "assigned_to": row.get("assigned_to"),
+        "snoozed_until": row.get("snoozed_until"),
+        "exception_reason": row.get("exception_reason"),
+    }
 
 
 async def lock(connection: AsyncConnection) -> None:
@@ -91,7 +114,15 @@ async def persist_results(
             expired = bool(
                 old and status == "snoozed" and old["snoozed_until"] and old["snoozed_until"] <= now
             )
-            if status == "resolved" or expired or (changed and status in {"exception", "ignored"}):
+            reopened = bool(
+                old
+                and (
+                    status == "resolved"
+                    or expired
+                    or (changed and status in {"exception", "ignored"})
+                )
+            )
+            if reopened:
                 status = "open"
             values = {
                 "id": item.id,
@@ -123,6 +154,15 @@ async def persist_results(
                     },
                 )
             )
+            if old is None or reopened:
+                event_row = {**values, "status": status}
+                await connection.execute(
+                    insert(finding_event).values(
+                        **finding_event_values(
+                            event_row, "detected" if old is None else "reopened", now
+                        )
+                    )
+                )
         if complete:
             for old in existing.values():
                 if (
@@ -134,6 +174,11 @@ async def persist_results(
                         update(finding)
                         .where(finding.c.id == old["id"])
                         .values(status="resolved", resolved_at=now)
+                    )
+                    await connection.execute(
+                        insert(finding_event).values(
+                            **finding_event_values({**old, "status": "resolved"}, "resolved", now)
+                        )
                     )
 
 
@@ -583,6 +628,11 @@ async def review(
                 )
                 .mappings()
                 .one()
+            )
+            await admin.execute(
+                insert(finding_event).values(
+                    **finding_event_values(dict(row), "reviewed", now, subject)
+                )
             )
             return stored_finding(dict(row))
     finally:

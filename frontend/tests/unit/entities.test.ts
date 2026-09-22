@@ -6,6 +6,7 @@ import { reactive, ref, nextTick } from 'vue'
 import EntitySearch from '../../app/components/EntitySearch.vue'
 import EntityListPage from '../../app/components/EntityListPage.vue'
 import EntityDetailPage from '../../app/components/EntityDetailPage.vue'
+import EntityTimeline from '../../app/components/EntityTimeline.vue'
 import FilterBar from '../../app/components/FilterBar.vue'
 import PaginationBar from '../../app/components/PaginationBar.vue'
 import ResultSummary from '../../app/components/ResultSummary.vue'
@@ -13,10 +14,12 @@ import PageHeader from '../../app/components/PageHeader.vue'
 import DetailFacts from '../../app/components/DetailFacts.vue'
 import { entitySectionSchema, entityPageSchema } from '../../shared/contracts'
 import { geoArea } from '../fixtures/geo'
-import { entityFixture, detailFixture } from '../fixtures/entities'
+import { entityFixture, detailFixture, timelineFixture } from '../fixtures/entities'
+import { entitySections } from '../../app/utils/entities'
 const api = {
     entities: vi.fn(),
     entity: vi.fn(),
+    timeline: vi.fn(),
     entitySearch: vi.fn().mockResolvedValue({ items: [] }),
   },
   push = vi.fn(),
@@ -27,7 +30,14 @@ const route = reactive({
   fullPath: '/events',
 })
 const global = {
-  components: { EntitySearch, FilterBar, PaginationBar, ResultSummary, PageHeader },
+  components: {
+    EntitySearch,
+    EntityTimeline,
+    FilterBar,
+    PaginationBar,
+    ResultSummary,
+    PageHeader,
+  },
   stubs: {
     NuxtLink: { props: ['to'], template: '<a :data-to="JSON.stringify(to)"><slot /></a>' },
     DataListShell: { template: '<ul><slot /></ul>' },
@@ -37,6 +47,9 @@ const global = {
       template: '<div>{{loading ? "loading" : error ? "error" : ""}}</div>',
     },
     EmptyState: { props: ['message'], template: '<p>{{message}}</p>' },
+    SectionHeader: { props: ['title'], template: '<h3>{{title}}</h3>' },
+    AppIcon: true,
+    SeverityBadge: { props: ['severity'], template: '<span>{{severity}}</span>' },
   },
 }
 beforeEach(() => {
@@ -64,6 +77,7 @@ it.each(entitySectionSchema.options)(
       )
       .mockResolvedValue(fixture)
     api.entity.mockResolvedValue(detailFixture(section))
+    api.timeline.mockResolvedValue(timelineFixture(entitySections[section].type))
     const list = mount(EntityListPage, { props: { section }, global })
     await nextTick()
     expect(list.text()).toContain('loading')
@@ -114,6 +128,7 @@ it.each(entitySectionSchema.options)(
     expect(detail.findAllComponents(PageHeader)).toHaveLength(1)
     expect(detail.findAllComponents(DetailFacts)).toHaveLength(1)
     expect(detail.findAll('dl')).toHaveLength(1)
+    expect(detail.text()).toContain('Beschreibung fehlt.')
     const header = detail.getComponent(PageHeader)
     expect(header.get('a').text()).toBe('Zur Liste')
     expect(header.get('a').attributes('data-to')).toBe(JSON.stringify(`/${section}`))
@@ -130,6 +145,42 @@ it.each(entitySectionSchema.options)(
     detail.unmount()
   },
 )
+
+it('loads additional timeline pages without duplicating items', async () => {
+  const first = timelineFixture('venue')
+  const second = {
+    ...first,
+    items: [
+      first.items[0]!,
+      {
+        ...first.items[0]!,
+        id: 'source-created:venue:10000000-0000-4000-8000-000000000020',
+        kind: 'source_created' as const,
+        title: 'Quelldatensatz angelegt',
+        summary: 'In der Uranus-Quelle angelegt',
+        href: null,
+      },
+    ],
+    cursor_pagination: { page_size: 25, next_cursor: null, has_more: false },
+  }
+  api.timeline
+    .mockResolvedValueOnce({
+      ...first,
+      cursor_pagination: { page_size: 25, next_cursor: 'next', has_more: true },
+    })
+    .mockResolvedValueOnce(second)
+  const wrapper = mount(EntityTimeline, {
+    props: { entityType: 'venue', entityKey: first.entity_key },
+    global,
+  })
+  await flushPromises()
+  expect(wrapper.text()).toContain('Beschreibung fehlt.')
+  await wrapper.get('button').trigger('click')
+  await flushPromises()
+  expect(api.timeline).toHaveBeenLastCalledWith('venue', first.entity_key, 'next')
+  expect(wrapper.text().match(/Beschreibung fehlt\./g)).toHaveLength(1)
+  expect(wrapper.text()).toContain('In der Uranus-Quelle angelegt')
+})
 
 it('navigates to the selected result using its validated action href', async () => {
   const fixture = entityFixture('users')

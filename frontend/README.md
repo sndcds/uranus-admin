@@ -64,6 +64,7 @@ Die frühere manuelle Token-Eingabe wird nicht mehr global eingebunden.
 | `/queues/user_activation`                 | GET work-queues/user_activation                                                  |
 | `/checks`                                 | GET/POST check-runs                                                              |
 | Finding-Detail bei persistiertem Erstfund | PATCH finding-reviews                                                            |
+| Entity-Details                            | GET entities/{type}/{key}/timeline                                                |
 
 Die fachlichen Backend-Pfade haben Prefix `/api/v1`; Anmeldung verwendet `/auth`. Browserzugriff ausschließlich über gleiche Origin:
 `/api/admin/api/v1/findings` → `${NUXT_ADMIN_API_BASE}/api/v1/findings`.
@@ -81,6 +82,10 @@ Bekannte Fehlercodes werden ausschließlich aus streng validiertem JSON mit pass
 erhalten. Fehlermeldungen werden lokal erzeugt; Tracebacks und beliebige Upstream-Daten bleiben
 sanitisiert. [OpenAPI-Snapshot](docs/openapi.json) und `shared/contracts.ts` beschreiben den Vertrag;
 Responses werden zur Laufzeit validiert. Keine Demo-Daten außerhalb der Tests.
+
+`EntityTimeline` lädt auf allen sechs Entity-Detailseiten eine serverseitig aggregierte,
+stabil sortierte Seite und weitere Seiten nur über den opaken Cursor. Deep Links werden gegen
+eine geschlossene interne Allowlist validiert; fehlende Zeitpunkte erscheinen nicht erfunden.
 
 Die Activity-Seite verwendet kompakte Zeilen, deutsche Typ-Badges und Berliner Tagesgruppen.
 Typzahlen zählen ausschließlich die sichtbare Seite; undatierte Einträge bleiben ohne Chronologie.

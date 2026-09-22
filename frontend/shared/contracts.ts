@@ -690,6 +690,88 @@ export const entityDetailSchema = z.object({
 export type EntityPage = z.infer<typeof entityPageSchema>
 export type EntityDetail = z.infer<typeof entityDetailSchema>
 
+export const timelineEntityTypeSchema = z.enum([
+  'event',
+  'organization',
+  'venue',
+  'space',
+  'user',
+  'image',
+])
+export const timelineKindSchema = z.enum([
+  'source_created',
+  'source_updated',
+  'finding_detected',
+  'finding_reviewed',
+  'finding_reopened',
+  'finding_resolved',
+  'mark_created',
+  'mark_updated',
+  'mark_completed',
+  'mark_reopened',
+  'notification_delivery',
+  'url_check',
+  'geocode_request',
+  'geocode_result',
+  'team_invitation',
+  'partner_request',
+])
+const timelineHrefSchema = z
+  .string()
+  .max(4096)
+  .refine((value) => {
+    try {
+      const url = new URL(value, 'https://admin.invalid')
+      if (`${url.pathname}${url.search}` !== value || url.origin !== 'https://admin.invalid')
+        return false
+      const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+      const detail = new RegExp(`^/(?:marks|geocoding)/${uuid}$`, 'i').test(url.pathname)
+      const delivery = new RegExp(`^/notifications/deliveries/${uuid}$`, 'i').test(url.pathname)
+      if (detail || delivery) return !url.search
+      const keys = [...url.searchParams.keys()].sort()
+      if (url.pathname === '/findings')
+        return (
+          JSON.stringify(keys) ===
+            JSON.stringify(['entity_key', 'entity_type', 'mode', 'rule'].sort()) &&
+          url.searchParams.get('mode') === 'persisted'
+        )
+      if (['/queues/team_invitations', '/queues/partner_requests'].includes(url.pathname))
+        return JSON.stringify(keys) === JSON.stringify(['entity_key'])
+      return false
+    } catch {
+      return false
+    }
+  }, 'Invalid timeline target')
+export const timelineItemSchema = z.object({
+  id: z.string().min(1).max(4096),
+  kind: timelineKindSchema,
+  occurred_at: timestamp,
+  title: z.string().min(1).max(200),
+  summary: z.string().max(5000).nullable(),
+  actor: z.string().max(256).nullable(),
+  href: timelineHrefSchema.nullable(),
+  metadata: z.object({
+    status: z.string().max(64).nullable(),
+    severity: severitySchema.nullable(),
+    rule: z.string().max(100).nullable(),
+    field: z.string().max(200).nullable(),
+    resource_id: z.string().max(8192).nullable(),
+    generation: z.number().int().positive().nullable(),
+    score: z.number().min(0).max(1).nullable(),
+    http_status: z.number().int().min(100).max(599).nullable(),
+  }),
+})
+export const timelinePageSchema = z.object({
+  entity_type: timelineEntityTypeSchema,
+  entity_key: z.uuid(),
+  items: z.array(timelineItemSchema).max(50),
+  cursor_pagination: cursorPaginationSchema,
+  observed_at: timestamp,
+})
+export type TimelineEntityType = z.infer<typeof timelineEntityTypeSchema>
+export type TimelineItem = z.infer<typeof timelineItemSchema>
+export type TimelinePage = z.infer<typeof timelinePageSchema>
+
 export const entitySearchTypeSchema = z.enum([
   'user',
   'organization',
