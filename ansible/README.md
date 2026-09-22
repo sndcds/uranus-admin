@@ -198,8 +198,10 @@ nur unmittelbare Meldungen zu noch fehlenden Bootstrap-Rollen werden bis zur
 anschließenden vollständigen Prüfung zurückgestellt.
 
 Nach erfolgreichem Preflight wird das authentifizierte Release gebaut. Der Launcher
-verwendet ausschließlich `{{ ua_release_dir }}/backend/.venv/bin/python`,
-`backend/alembic.ini` und den Migrationsbaum dieses Releases. SHA/Completion-Marker,
+verwendet ausschließlich den zuvor vollständig geprüften, gepinnten `ua_uv`-Pfad mit
+`uv run --no-cache --no-sync --offline --no-python-downloads --no-env-file`,
+`backend/alembic.ini` und den Migrationsbaum dieses Releases. Ein Binary aus der von
+uv intern verwalteten Umgebung wird niemals direkt ausgeführt. SHA/Completion-Marker,
 Manifest, Alembic-Head sowie Runtime-/Operator-Grant-Registries müssen übereinstimmen.
 Neu gepackte Artefakte enthalten dafür zusätzlich `operator_grants` und ohne
 Codeausführung abgeleitete `admin_indexes`-/`admin_columns`-Inventuren; ältere Archive müssen mit dem
@@ -967,6 +969,9 @@ ein vollständig venv-freier Python-Betrieb ist damit nicht gemeint. Anschließe
 das Release wie bisher root-eigen und für die Dienste schreibgeschützt.
 Backend, Check-Worker und die read-only Runtime-Verifikation verwenden dieselbe
 vorbereitete Umgebung über `uv run --no-cache --no-sync --offline --no-python-downloads --no-env-file`.
+Direkte Aufrufe von `.venv/bin/python` oder anderen `.venv/bin/*`-Programmen sind auch
+für Migrationen, Auth-Betreiberbefehle und Diagnose verboten. Sie umgehen den gepinnten
+Launcher und können bei Ausführung als root Bytecode in die unveränderliche Toolchain schreiben.
 Beim Start erfolgen weder Dependency-Sync noch Downloads oder zusätzliches Laden einer
 `.env` durch uv. Fehlende Abhängigkeiten müssen beim Release-Bau behoben werden,
 nicht durch einen Fallback beim Service-Start.
