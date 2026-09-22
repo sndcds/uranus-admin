@@ -26,6 +26,76 @@ PASSWORD = "synthetic-admin-bootstrap-credential-only"
 
 
 class AdminBootstrapContractTests(unittest.TestCase):
+    def test_console_steps_run_after_bootstrap_changes_absent_to_ready(self):
+        release = yaml.safe_load((ROLE / "tasks/release.yml").read_text())
+        gate = next(t for t in release if t["name"].startswith("Bootstrap only the explicitly"))
+        bootstrap = yaml.safe_load((ROLE / "tasks/admin_database_bootstrap.yml").read_text())
+        transition = next(
+            i for i, task in enumerate(bootstrap) if task["name"].startswith("Use READY")
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            # Run the real gate, state transition and console imports. External/database
+            # work is represented only by in-memory markers in this control-flow fixture.
+            (root / "admin_database_bootstrap.yml").write_text(
+                yaml.safe_dump(bootstrap[transition:])
+            )
+            for step in ("plan", "provision", "verify"):
+                (root / f"sql_console_{step}.yml").write_text(
+                    yaml.safe_dump([{"ansible.builtin.set_fact": {f"console_{step}_ran": True}}])
+                )
+            plays = []
+            for state in ("ABSENT", "READY", "DRIFTED"):
+                plays.append(
+                    {
+                        "name": state,
+                        "hosts": "localhost",
+                        "connection": "local",
+                        "gather_facts": False,
+                        "vars": {
+                            "ua_admin_database_verified": {"admin_database": {"state": "READY"}},
+                            "ua_sql_console_required": True,
+                        },
+                        "tasks": [
+                            {
+                                "ansible.builtin.set_fact": {
+                                    "ua_admin_database_plan": {"admin_database": {"state": state}},
+                                    "console_plan_ran": False,
+                                    "console_provision_ran": False,
+                                    "console_verify_ran": False,
+                                }
+                            },
+                            gate,
+                            {
+                                "ansible.builtin.assert": {
+                                    "that": [
+                                        f"console_{step}_ran == {state == 'ABSENT'}"
+                                        for step in ("plan", "provision", "verify")
+                                    ]
+                                    + [
+                                        "ua_admin_database_plan.admin_database.state == "
+                                        + repr("READY" if state == "ABSENT" else state)
+                                    ]
+                                }
+                            },
+                        ],
+                    }
+                )
+            playbook = root / "play.yml"
+            playbook.write_text(yaml.safe_dump(plays))
+            result = subprocess.run(
+                [sys.executable, "-m", "ansible.cli.playbook", "-i", "localhost,", str(playbook)],
+                env={
+                    **os.environ,
+                    "ANSIBLE_CONFIG": str(ROOT / "ansible/ansible.cfg"),
+                    "ANSIBLE_LOCAL_TEMP": str(root / "tmp"),
+                },
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def diagnostic_manifest(self):
         return {
             "commit": "a" * 40,

@@ -221,6 +221,14 @@ lesend den verbleibenden Zustand. Runtime-/Operator-Grants aus den Release-Regis
 zusammen mit der vollständigen Boundary-Verifikation in einer Transaktion angewendet.
 Ein Session-Lock verhindert parallele Bootstrap-Läufe dieser Rolle.
 
+Nach dem Übergang von `ABSENT` zu `READY` laufen Console-Planung, separat
+freigegebene Provisionierung und vollständige Verifikation im selben Durchlauf
+weiter. Die Bootstrap-Bedingung wird nur beim Einstieg ausgewertet. Wurde ein
+älterer Lauf nach erfolgreichem Admin-Bootstrap wegen fehlender Console-Rollen
+abgebrochen, den vollständigen Review-/Deployment-Ablauf erneut starten: Bei
+`READY` läuft die Console-Provisionierung vor der Release-Prüfung. Keine Rollen
+manuell ergänzen und keine Aufgaben mit `--start-at-task` überspringen.
+
 Schlägt die Migration innerhalb ihrer Transaktion fehl, wird ihre DDL zurückgerollt.
 Schlägt die nachgelagerte Grant-Verifikation fehl, werden sämtliche Grants dieser
 Transaktion zurückgerollt. Bereits committedes Admin-Schema und sichere vorbereitete
