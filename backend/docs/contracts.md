@@ -269,9 +269,19 @@ betroffenen Entity-Timeline.
 Geocoding-Ergebnisse und fehlgeschlagene Notification-Deliveries in festen SQL-Projektionen. Ein
 aktives Assignment unterdrückt den separaten Eintrag derselben logischen Aufgabe. Filter für
 `scope`, `attention`, `kind`, `entity_type` und Pagination sind gebunden; Sortierung priorisiert
-überfällige und kritische Aufgaben mit stabiler ID. `due_today` verwendet den lokalen
+kritische, überfällige und heute fällige Aufgaben mit stabiler ID. `due_today` verwendet den lokalen
 Kalendertag aus `ADMIN_TIMEZONE`, auch an DST-Wechseltagen. Empfänger, Snapshots, Providerfehler,
-Passwort-Hashes und Sitzungstoken gehören nicht zum Response. Details und Deployment:
+Passwort-Hashes und Sitzungstoken gehören nicht zum Response.
+
+Assignment-PATCH akzeptiert Teiländerungen einschließlich aware `snoozed_until` (zukünftig,
+maximal 365 Tage) oder null zum Aufheben. Offene Status bleiben unverändert; geschlossene
+Assignments können nicht gesnoozed werden. Jedes Update wird versioniert und append-only mit
+diesem Zeitstempel gespeichert. Finding-Snooze bleibt eigenständiger Review-Zustand: entweder
+aktiver Snooze unterdrückt den deduplizierten Task, Ablauf wird ohne Mutation/Worker ausgewertet.
+`attention=snoozed` zeigt diese Tasks nach effektivem Ablauf (späterer aktiver Zeitpunkt) und ID;
+die übrigen Filter schließen sie aus. `counts.snoozed` zählt alle Wiedervorlagen, die bisherigen
+Counts nur aktive Tasks, jeweils global und unabhängig von der Seite. `/admins` und `/inbox`
+liefern `admin_timezone` für die gemeinsamen Kalender-Presets. Details und Deployment:
 [Assignments und Inbox](assignments-inbox.md).
 
 ## Auth / Authorization Boundary

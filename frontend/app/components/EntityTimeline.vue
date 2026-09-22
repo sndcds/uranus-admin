@@ -25,6 +25,8 @@ const iconByKind = {
   mark_completed: 'history',
   mark_reopened: 'history',
   assignment_created: 'users',
+  assignment_snoozed: 'clock',
+  assignment_unsnoozed: 'refresh',
   assignment_updated: 'users',
   assignment_completed: 'quality',
   assignment_reopened: 'history',

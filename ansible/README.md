@@ -654,6 +654,7 @@ Details und Phase-3-Kriterien: [Console-Infrastruktur](../backend/docs/sql-conso
 | 0011     | `geocode_request`, `geocode_candidate`                                                        |
 | 0012     | `finding_event`, Backfill belegbarer Finding-Zeitpunkte, Notification-Entity-Index            |
 | 0013     | `assignment`, append-only `assignment_event`, aktive Eindeutigkeits- und Due-Indizes           |
+| 0014     | Nullable `snoozed_until` auf `assignment` und `assignment_event`; unveränderte Grants |
 
 [`migrations/env.py`](../backend/migrations/env.py) setzt Metadatenfilter und
 Versionstabelle auf `admin`, verlangt `ADMIN_MIGRATION_DATABASE_URL` und besitzt
@@ -1442,3 +1443,13 @@ spätes Setzen von `current`. Rescue-Includes werden rekursiv auf den erlaubten 
 Es gibt weiterhin keinen vollständigen Apply-/Idempotenzlauf auf einem systemd-Abbild des
 Produktionshosts. Der freizugebende Dry Run und die tatsächlichen Ziel-Prerequisites
 bleiben deshalb notwendige Schritte; lokale Tests ersetzen sie nicht.
+
+### Spaltenweises Upgrade 0013 → 0014
+
+Der Release-Vertrag prüft nun auch den exakten Ursprung `0013` für Assignment-Wiedervorlagen.
+Beide Tabellen erhalten nur nullable `snoozed_until`-Spalten. Tabellen- und Grant-Mengen sind
+identisch; der Upgrade-Prüfer erlaubt deshalb gleiche Tabellenmengen, verlangt aber weiterhin
+den eingefrorenen Ursprung-Fingerprint und alle bestehenden Rollen-/ACL-Prüfungen. Der Packager
+leitet Zielspalten und Head aus dem ausgewählten Release ab. Kein automatischer Apply und keine
+neue Console-Freigabe: `admin.*` bleibt für die SQL-Konsole gesperrt. Downgrade verliert diese
+Zeitstempel, nicht die Event-Zeilen. Der historische Ausgangsbefund oben bleibt als Audit erhalten.

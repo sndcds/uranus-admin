@@ -213,6 +213,7 @@ assignment = sa.Table(
     sa.Column("assigned_by_subject", sa.Text, nullable=False),
     sa.Column("status", sa.Text, nullable=False),
     sa.Column("due_at", sa.DateTime(timezone=True)),
+    sa.Column("snoozed_until", sa.DateTime(timezone=True)),
     sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     sa.Column("completed_at", sa.DateTime(timezone=True)),
@@ -270,6 +271,7 @@ assignment_event = sa.Table(
     sa.Column("assigned_to_admin_id", UUID, nullable=False),
     sa.Column("status", sa.Text, nullable=False),
     sa.Column("due_at", sa.DateTime(timezone=True)),
+    sa.Column("snoozed_until", sa.DateTime(timezone=True)),
     sa.UniqueConstraint("assignment_id", "version", name="assignment_event_version"),
     sa.CheckConstraint(
         "kind IN ('created','updated','completed','reopened','cancelled')",

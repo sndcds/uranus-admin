@@ -200,7 +200,7 @@ export const adminOptionSchema = z
   .object({ id: z.uuid(), login: z.string().min(1).max(320) })
   .strict()
 export const adminOptionPageSchema = z
-  .object({ items: z.array(adminOptionSchema).max(200) })
+  .object({ items: z.array(adminOptionSchema).max(200), admin_timezone: z.string().min(1) })
   .strict()
 export const assignmentStatusSchema = z.enum(['open', 'in_progress', 'done', 'cancelled'])
 export const assignmentWorkflowTypeSchema = z.enum(['geocode_request', 'notification_delivery'])
@@ -216,6 +216,7 @@ export const assignmentSchema = z
     assigned_by_subject: z.string().min(1).max(256),
     status: assignmentStatusSchema,
     due_at: timestamp.nullable(),
+    snoozed_until: timestamp.nullable(),
     created_at: timestamp,
     updated_at: timestamp,
     completed_at: timestamp.nullable(),
@@ -257,11 +258,13 @@ export const assignmentCreateSchema = z
 export const assignmentUpdateSchema = z
   .object({
     version: count.min(1),
-    assigned_to_admin_id: z.uuid(),
-    status: assignmentStatusSchema,
-    due_at: timestamp.nullable(),
+    assigned_to_admin_id: z.uuid().optional(),
+    status: assignmentStatusSchema.optional(),
+    due_at: timestamp.nullable().optional(),
+    snoozed_until: timestamp.nullable().optional(),
   })
   .strict()
+  .refine((value) => Object.keys(value).some((key) => key !== 'version'))
 export type AdminOption = z.infer<typeof adminOptionSchema>
 export type Assignment = z.infer<typeof assignmentSchema>
 export type AssignmentStatus = z.infer<typeof assignmentStatusSchema>
@@ -276,7 +279,7 @@ export const inboxKindSchema = z.enum([
   'notification_delivery',
 ])
 export const inboxScopeSchema = z.enum(['all', 'mine', 'unassigned'])
-export const inboxAttentionSchema = z.enum(['all', 'critical', 'due_today', 'overdue'])
+export const inboxAttentionSchema = z.enum(['all', 'critical', 'due_today', 'overdue', 'snoozed'])
 export const inboxFiltersSchema = z
   .object({
     scope: inboxScopeSchema.default('all'),
@@ -324,6 +327,8 @@ export const inboxItemSchema = z
     candidate_count: count.nullable(),
     occurred_at: timestamp,
     due_at: timestamp.nullable(),
+    snoozed_until: timestamp.nullable(),
+    finding_snoozed_until: timestamp.nullable(),
     is_overdue: z.boolean(),
     due_today: z.boolean(),
     assignment: assignmentSchema.nullable(),
@@ -333,8 +338,16 @@ export const inboxItemSchema = z
 export const inboxPageSchema = z
   .object({
     items: z.array(inboxItemSchema).max(100),
+    admin_timezone: z.string().min(1),
     counts: z
-      .object({ critical: count, mine: count, unassigned: count, due_today: count, overdue: count })
+      .object({
+        critical: count,
+        mine: count,
+        unassigned: count,
+        due_today: count,
+        overdue: count,
+        snoozed: count,
+      })
       .strict(),
     pagination: findingPageSchema.shape.pagination,
     observed_at: timestamp,
@@ -864,6 +877,8 @@ export const timelineKindSchema = z.enum([
   'mark_reopened',
   'assignment_created',
   'assignment_updated',
+  'assignment_snoozed',
+  'assignment_unsnoozed',
   'assignment_completed',
   'assignment_reopened',
   'assignment_cancelled',

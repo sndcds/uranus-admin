@@ -175,7 +175,6 @@ def package(revision, output):
             or origin == manifest["head"]
             or not isinstance(contract["schema_fingerprint"], str)
             or len(contract["schema_fingerprint"]) != 64
-            or not excluded
             or not excluded < set(manifest["runtime_grants"])
         ):
             raise ValueError("Invalid admin upgrade contract")

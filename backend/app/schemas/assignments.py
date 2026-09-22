@@ -18,6 +18,7 @@ class AdminOption(BaseModel):
 
 class AdminOptionPage(BaseModel):
     items: list[AdminOption]
+    admin_timezone: str
 
 
 class AssignmentCreate(BaseModel):
@@ -52,9 +53,19 @@ class AssignmentCreate(BaseModel):
 class AssignmentUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     version: int = Field(ge=1)
-    assigned_to_admin_id: UUID
-    status: AssignmentStatus
+    assigned_to_admin_id: UUID | None = None
+    status: AssignmentStatus | None = None
     due_at: AwareDatetime | None = None
+    snoozed_until: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def patch_fields(self) -> "AssignmentUpdate":
+        if not self.model_fields_set - {"version"}:
+            raise ValueError("Provide at least one changed field")
+        for field in ("assigned_to_admin_id", "status"):
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be null")
+        return self
 
 
 class AssignmentLookup(BaseModel):
@@ -85,6 +96,7 @@ class Assignment(BaseModel):
     assigned_by_subject: str
     status: AssignmentStatus
     due_at: datetime | None
+    snoozed_until: datetime | None
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None
@@ -93,7 +105,7 @@ class Assignment(BaseModel):
 
 InboxKind = Literal["assignment", "finding", "geocode_request", "notification_delivery"]
 InboxScope = Literal["all", "mine", "unassigned"]
-InboxAttention = Literal["all", "critical", "due_today", "overdue"]
+InboxAttention = Literal["all", "critical", "due_today", "overdue", "snoozed"]
 
 
 class InboxFilters(BaseModel):
@@ -122,6 +134,8 @@ class InboxItem(BaseModel):
     candidate_count: int | None = Field(default=None, ge=0)
     occurred_at: datetime
     due_at: datetime | None
+    snoozed_until: datetime | None
+    finding_snoozed_until: datetime | None
     is_overdue: bool
     due_today: bool
     assignment: Assignment | None
@@ -134,6 +148,7 @@ class InboxCounts(BaseModel):
     unassigned: int = Field(ge=0)
     due_today: int = Field(ge=0)
     overdue: int = Field(ge=0)
+    snoozed: int = Field(ge=0)
 
 
 class InboxPage(BaseModel):
@@ -141,3 +156,4 @@ class InboxPage(BaseModel):
     counts: InboxCounts
     pagination: Pagination
     observed_at: datetime
+    admin_timezone: str

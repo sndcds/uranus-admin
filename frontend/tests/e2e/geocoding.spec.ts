@@ -83,7 +83,8 @@ test('detail compares candidates and presents each workflow state without mobile
   const item = structuredClone(geocodeDetail)
   await page.route('**/api/admin/api/v1/**', (route) => {
     const url = new URL(route.request().url())
-    if (url.pathname.endsWith('/admins')) return route.fulfill({ json: { items: [] } })
+    if (url.pathname.endsWith('/admins'))
+      return route.fulfill({ json: { items: [], admin_timezone: 'Europe/Berlin' } })
     if (url.pathname.endsWith('/assignments')) return route.fulfill({ json: null })
     if (url.pathname.includes('/geocode/requests/')) return route.fulfill({ json: item })
     return route.continue()

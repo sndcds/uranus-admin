@@ -54,10 +54,24 @@ FROM admin.record_mark_event me
 JOIN admin.record_mark m ON m.id=me.mark_id
 WHERE m.entity_type=:entity_type AND m.entity_key=:entity_key
 UNION ALL
-SELECT 'assignment:' || ae.id::text, 'assignment_' || ae.kind, ae.occurred_at,
+SELECT 'assignment:' || ae.id::text,
+       CASE WHEN ae.kind='updated' AND ae.snoozed_until IS DISTINCT FROM ae.previous_snooze
+            THEN CASE WHEN ae.snoozed_until IS NULL THEN 'assignment_unsnoozed'
+                      ELSE 'assignment_snoozed' END
+            ELSE 'assignment_' || ae.kind END, ae.occurred_at,
        left(ae.actor,256), ae.status, ae.assignment_id::text, NULL, NULL, NULL,
-       'Zuständig: ' || aa.login, NULL, NULL, NULL
-FROM admin.assignment_event ae
+       'Zuständig: ' || aa.login || ' · ' ||
+       CASE WHEN ae.snoozed_until IS NULL THEN 'Keine organisatorische Wiedervorlage'
+            ELSE 'Wiedervorlage: ' ||
+                 to_char(ae.snoozed_until AT TIME ZONE :admin_tz,'DD.MM.YYYY, HH24:MI') ||
+                 ' (' || :admin_tz || ')' END, NULL, NULL, NULL
+FROM (
+ SELECT ae.*, lag(ae.snoozed_until) OVER (PARTITION BY ae.assignment_id ORDER BY ae.version)
+     AS previous_snooze
+ FROM admin.assignment_event ae
+ JOIN admin.assignment context ON context.id=ae.assignment_id
+ WHERE context.entity_type=:entity_type AND context.entity_key=:entity_key
+) ae
 JOIN admin.assignment a ON a.id=ae.assignment_id
 JOIN admin.auth_account aa ON aa.id=ae.assigned_to_admin_id
 WHERE a.entity_type=:entity_type AND a.entity_key=:entity_key
@@ -183,7 +197,9 @@ def title(kind: str, status: str | None) -> str:
         "mark_completed": "Markierung erledigt",
         "mark_reopened": "Markierung wieder geöffnet",
         "assignment_created": "Aufgabe zugewiesen",
-        "assignment_updated": "Zuständigkeit geändert",
+        "assignment_updated": "Zuweisung aktualisiert",
+        "assignment_snoozed": "Wiedervorlage gesetzt",
+        "assignment_unsnoozed": "Wiedervorlage aufgehoben",
         "assignment_completed": "Aufgabe erledigt",
         "assignment_reopened": "Aufgabe wieder geöffnet",
         "assignment_cancelled": "Zuweisung aufgehoben",
@@ -280,6 +296,7 @@ async def timeline_page(
         "entity_key": entity_key_text,
         "entity_uuid": entity_key,
         "tz": require_timezone(settings),
+        "admin_tz": settings.admin_timezone,
         "limit": filters.page_size + 1,
     }
     if cursor:

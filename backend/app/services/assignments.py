@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -150,6 +150,7 @@ async def append_event(
             assigned_to_admin_id=state["assigned_to_admin_id"],
             status=state["status"],
             due_at=state["due_at"],
+            snoozed_until=state["snoozed_until"],
         )
     )
 
@@ -225,6 +226,7 @@ async def create_assignment(
             "assigned_by_subject": actor,
             "status": body.status,
             "due_at": body.due_at,
+            "snoozed_until": None,
             "created_at": now,
             "updated_at": now,
             "completed_at": None,
@@ -239,7 +241,6 @@ async def update_assignment(
     admin: AsyncConnection, assignment_id: UUID, body: AssignmentUpdate, actor: str
 ) -> Assignment:
     async with admin.begin():
-        await require_admin(admin, body.assigned_to_admin_id)
         current = (
             (
                 await admin.execute(
@@ -253,29 +254,48 @@ async def update_assignment(
             raise APIError(404, "assignment_not_found", "Assignment does not exist.")
         if current["version"] != body.version:
             raise APIError(409, "assignment_conflict", "Assignment changed; reload before saving.")
+        patch = body.model_dump(exclude_unset=True, exclude={"version"})
+        state = {**dict(current), **patch}
+        await require_admin(admin, state["assigned_to_admin_id"])
         if current["status"] in {"done", "cancelled"} and body.status == "cancelled":
             raise APIError(
                 422, "assignment_task_closed", "Closed assignment cannot be cancelled again."
             )
-        unchanged = (
-            current["assigned_to_admin_id"] == body.assigned_to_admin_id
-            and current["status"] == body.status
-            and current["due_at"] == body.due_at
-        )
-        if unchanged:
+        now = datetime.now(UTC)
+        if "snoozed_until" in patch and body.snoozed_until is not None:
+            if current["status"] not in ACTIVE or state["status"] not in ACTIVE:
+                raise APIError(422, "assignment_task_closed", "Closed assignments cannot snooze.")
+            if not now < body.snoozed_until <= now + timedelta(days=365):
+                raise APIError(422, "invalid_input", "Snooze must be within the next 365 days.")
+            identity = {
+                "finding_id": current["finding_id"],
+                "assigned_to_admin_id": state["assigned_to_admin_id"],
+            }
+            if current["finding_id"] is None:
+                identity.update(
+                    {
+                        key: current[key]
+                        for key in ("workflow_type", "workflow_key", "entity_type", "entity_key")
+                    }
+                )
+            await task_identity(admin, AssignmentCreate.model_validate(identity))
+        # Completion clears organizational snooze in the same audited snapshot.
+        if state["status"] not in ACTIVE:
+            patch["snoozed_until"] = None
+        if all(current[key] == value for key, value in patch.items()):
             return await assignment_detail(admin, assignment_id)
-        now = max(datetime.now(UTC), current["updated_at"])
+        now = max(now, current["updated_at"])
         kind = "updated"
-        completed_at = None
-        if body.status in {"done", "cancelled"}:
-            kind = "completed" if body.status == "done" else "cancelled"
-            completed_at = now
-        elif current["status"] in {"done", "cancelled"}:
-            kind = "reopened"
+        completed_at = current["completed_at"]
+        if state["status"] != current["status"]:
+            if state["status"] in {"done", "cancelled"}:
+                kind = "completed" if state["status"] == "done" else "cancelled"
+                completed_at = now
+            elif current["status"] in {"done", "cancelled"}:
+                kind = "reopened"
+                completed_at = None
         values = {
-            "assigned_to_admin_id": body.assigned_to_admin_id,
-            "status": body.status,
-            "due_at": body.due_at,
+            **patch,
             "completed_at": completed_at,
             "updated_at": now,
             "version": current["version"] + 1,

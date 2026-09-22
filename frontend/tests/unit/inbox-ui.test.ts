@@ -163,3 +163,17 @@ describe('Inbox shared list page', () => {
     expect(view.findAllComponents(DataListShell)).toHaveLength(0)
   })
 })
+
+it('restores the reminder filter and shows authoritative reminder counts and time', async () => {
+  route.query = { attention: 'snoozed' }
+  const fixture = structuredClone(inboxFixture)
+  fixture.counts.snoozed = 12
+  fixture.items[0]!.snoozed_until = '2027-01-25T08:00:00Z'
+  inbox.mockResolvedValue(fixture)
+  const view = page()
+  await flushPromises()
+  expect(inbox).toHaveBeenCalledWith(expect.objectContaining({ attention: 'snoozed' }))
+  expect(view.findComponent(ResultSummary).text()).toContain('12 Wiedervorlagen')
+  expect(view.get('.data-row').text()).toContain('25.01.2027, 09:00')
+  expect(view.get('time').attributes('datetime')).toBe('2027-01-25T08:00:00Z')
+})

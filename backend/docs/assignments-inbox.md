@@ -23,7 +23,7 @@ derselben Transaktion eine Version in `assignment_event` ein. Diese Historie ist
 `GET /api/v1/inbox` aggregiert mit einer festen Anzahl Admin-DB-Abfragen:
 
 - aktive Assignments, bei Finding-Aufgaben zusammen mit Finding-Schweregrad und Nachricht;
-- offene/in Bearbeitung befindliche Findings ohne aktives Assignment;
+- offene/in Bearbeitung befindliche sowie zurückgestellte Findings ohne aktives Assignment;
 - Geocoding-Requests in `candidate`, `ambiguous`, `not_found` oder `failed`;
 - Notification-Deliveries in `failed` oder `permanent_failure`.
 
@@ -59,6 +59,69 @@ REVOKE UPDATE, DELETE, TRUNCATE, TRIGGER ON admin.assignment_event FROM admin_us
 
 Die Runtime besitzt kein Schema-CREATE, kein DDL, kein DELETE und keine Owner-Mitgliedschaft.
 Das Deployment prüft Migration-Head, Tabellenumfang und effektive Privilegien vor Aktivierung.
-Ein fehlender Grant wird nicht zur Laufzeit repariert. Downgrade entfernt beide Tabellen und
+Ein fehlender Grant wird nicht zur Laufzeit repariert. Ein Downgrade von `0013` auf `0012` entfernt beide Tabellen und
 damit ihre Admin-Workflow-Historie; er ist nur nach ausdrücklicher Sicherungs-/Downtime-Planung
 für eine geeignete Test- oder Wiederherstellungssituation vorgesehen.
+
+## Wiedervorlage (Phase 4.3)
+
+Audit-Ausgangspunkt: `main` bei `fb96af4f9295893bcefc45489d2fd0c1dc6109dd`.
+Finding-Reviews setzen bereits `status=snoozed` und ein zukünftiges aware `snoozed_until`.
+Sie schreiben ein `finding_event(kind=reviewed)` mit Review-Snapshot. Finding-Filter beziehen
+sich weiterhin auf den gespeicherten Status; `active_only` bedeutet nicht behoben und schließt
+Snoozes ein. Bisher öffnete erst ein erfolgreicher Recheck einen abgelaufenen Snooze erneut
+(`finding_event(kind=reopened)`); die Inbox schloss unzugewiesene Snoozes pauschal aus und
+berücksichtigte sie bei zugewiesenen Findings nicht. Diese Inbox-Lücke ist nun geschlossen.
+Review-API, Finding-Filter und Recheck-Historie bleiben unverändert.
+
+**Zwei unabhängige Ebenen:** Finding-Snooze ist fachlicher Review-Zustand. Assignment-Snooze
+ist organisatorisches Admin-Metadatum und verändert weder Finding-Status noch Review-Actor.
+`assignment.status` bleibt `open`/`in_progress`. Weder Ebene bedeutet resolved, done,
+cancelled oder reviewed. Die Inbox unterdrückt den deduplizierten Task, solange entweder
+`finding.status=snoozed AND finding.snoozed_until>observed_at` oder der Assignment-Zeitpunkt
+in der Zukunft liegt. Bei zwei aktiven Snoozes ist der spätere Zeitpunkt maßgeblich.
+Bei Gleichheit oder Ablauf erscheint die Aufgabe wieder in der aktiven Inbox. GET verändert
+keine Zeile, erzeugt keine Ereignisse und benötigt keinen Hintergrundjob. Ein abgelaufener
+Finding-Snooze kann daher in der Finding-Liste noch den gespeicherten Status `snoozed` tragen.
+
+`PATCH /api/v1/assignments/{id}` unterstützt Teiländerungen, beispielsweise
+`{"version":3,"snoozed_until":"2026-09-25T07:00:00Z"}`; `null` hebt die organisatorische
+Wiedervorlage auf. Nicht gesendete Felder bleiben erhalten. Mindestens eine Änderungsspalte
+ist erforderlich; `status` und `assigned_to_admin_id` dürfen nicht null sein. Der Server prüft
+Version (409), weiterhin gültigen Admin/Task, offene Assignment-Status sowie einen aware
+Zeitpunkt `now < snoozed_until <= now + 365 Tage` (422). Geschlossene Assignments können auch
+nicht gleichzeitig wieder geöffnet und gesnoozed werden. Abschließen/Abbrechen leert die
+organisatorische Wiedervorlage im selben Snapshot. Ein identischer PATCH erzeugt keine Version.
+
+`assignment_event.kind=updated` bleibt das bestehende Audit-Modell. Jede tatsächliche Änderung
+erhöht die Version und schreibt den kompletten Snapshot einschließlich `snoozed_until`, Actor,
+Status, Assignee und Fälligkeit atomar append-only. Die Timeline vergleicht aufeinanderfolgende
+Snapshots vor der Pagination und präsentiert `assignment_snoozed` bzw. `assignment_unsnoozed`.
+Es gibt kein erfundenes Ablauf-Ereignis.
+
+`attention=snoozed` zeigt ausschließlich aktive Wiedervorlagen, sortiert nach dem effektiven
+`snoozed_until ASC`, dann stabiler Task-ID. Alle anderen Attention-Filter schließen diese Tasks
+aus. Aktive Reihenfolge: kritisch, überfällig, heute fällig, Schweregrad, Fälligkeit,
+Aktualisierung, stabile ID. Die globalen Counts `critical`, `mine`, `unassigned`, `due_today`,
+`overdue` zählen nur die aktive Population; `snoozed` zählt die gesamte deduplizierte
+Wiedervorlagen-Population, unabhängig von Filtern/Seite. Ein gemeinsamer Beobachtungszeitpunkt
+und ein REPEATABLE READ-Snapshot gelten für Seite und Counts. `InboxItem.snoozed_until` ist
+nur der aktive effektive Zeitpunkt, `finding_snoozed_until` bezeichnet den fachlichen
+Review-Zeitpunkt und `assignment.snoozed_until` den unveränderten organisatorischen Zeitstempel.
+
+`/admins` und `/inbox` liefern `admin_timezone` aus `ADMIN_TIMEZONE` (Standard Europe/Berlin).
+Die gemeinsame Oberfläche berechnet Morgen/+3/+7 als lokalen Kalendertag um 09:00 Uhr,
+auch über Monats-/Jahres- und DST-Grenzen. Benutzerdefinierte Zeiten gehören zur angezeigten
+Admin-Zeitzone, nicht zur Browser-Zeitzone. Nicht existierende lokale Minuten werden abgewiesen;
+bei einer doppelten Herbst-Minute gilt das frühere Vorkommen. Gesendet/gespeichert wird ein
+UTC-Zeitpunkt. Die bestehende End-of-day-Fälligkeit bleibt davon unabhängig.
+
+Revision `0014` folgt `0013` und ergänzt ausschließlich nullable `timestamptz`-Spalten auf
+`assignment` und `assignment_event`. Bestehende Zeilen/Events erhalten NULL, keine Datenkorrektur.
+Runtime-Grants und Tabellenumfang bleiben gleich; kein DELETE, neues Schema oder Uranus-DDL.
+Vor Aktivierung von Backend/Frontend muss als Migrator auf den aktuellen Head migriert werden.
+Der Deployment-Upgrade-Vertrag enthält das im isolierten PostgreSQL reproduzierte Inventar von
+`0013`; auch die früher geprüften Ursprünge bleiben unterstützt. Die SQL-Konsole liest nur
+`uranus.*` und benötigt keine geänderte Freigabe. Downgrade `0014 → 0013` entfernt die beiden
+Snooze-Spalten und verliert deren Metadaten, erhält aber sämtliche Event-Zeilen und Versionen.
+Vor einem solchen Rollback Snooze-Daten sichern und den passenden Anwendungscode aktivieren.
