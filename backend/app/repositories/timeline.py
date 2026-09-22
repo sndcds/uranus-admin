@@ -29,6 +29,15 @@ SOURCE_TABLES: dict[TimelineEntityType, tuple[str, str]] = {
     "image": ("uranus.pluto_image", "i"),
 }
 
+ENTITY_TYPE_LABELS: dict[TimelineEntityType, str] = {
+    "event": "event",
+    "organization": "organization",
+    "venue": "venue",
+    "space": "space",
+    "user": "user",
+    "image": "image",
+}
+
 ADMIN_EVENTS = """
 SELECT 'finding:' || fe.id::text id, 'finding_' || fe.kind kind, fe.occurred_at,
        left(fe.actor,256) actor, fe.status, fe.finding_id resource_id, fe.rule, fe.severity,
@@ -96,15 +105,16 @@ WHERE gr.entity_type=:entity_type AND gr.entity_key=:entity_uuid
 
 def source_events_sql(entity_type: TimelineEntityType, cursor: TimelineCursor | None) -> str:
     table, alias = SOURCE_TABLES[entity_type]
+    entity_label = ENTITY_TYPE_LABELS[entity_type]
     branches = [
-        f"""SELECT 'source-created:{entity_type}:' || {alias}.uuid::text id,
+        f"""SELECT 'source-created:{entity_label}:' || {alias}.uuid::text id,
         'source_created'::text kind, {alias}.created_at AT TIME ZONE :tz occurred_at,
         NULL::text actor, NULL::text status, {alias}.uuid::text resource_id,
         NULL::text rule, NULL::text severity, NULL::text field,
         'In der Uranus-Quelle angelegt'::text summary,
         NULL::integer generation, NULL::double precision score, NULL::integer http_status
         FROM {table} {alias} WHERE {alias}.uuid=:entity_uuid AND {alias}.created_at IS NOT NULL""",
-        f"""SELECT 'source-updated:{entity_type}:' || {alias}.uuid::text,
+        f"""SELECT 'source-updated:{entity_label}:' || {alias}.uuid::text,
         'source_updated', {alias}.modified_at AT TIME ZONE :tz,
         NULL, NULL, {alias}.uuid::text, NULL, NULL, NULL,
         'Die Quelle weist einen Änderungszeitpunkt aus; geänderte Felder sind nicht belegt.',
