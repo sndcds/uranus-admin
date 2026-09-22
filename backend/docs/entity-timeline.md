@@ -41,7 +41,7 @@ Revision `0012` folgt Head `0011`, erstellt `admin.finding_event` und ergänzt f
 Notification-Zuordnung den Index `(entity_type, entity_key)`. Die Tabelle
 gehört `admin_migrator`; `admin_user` benötigt `SELECT, INSERT`, aber kein `UPDATE`, `DELETE`,
 `TRUNCATE` oder `TRIGGER`. Sie ist Teil der Runtime-Boundary-Prüfung. Vor Deployment zuerst als
-Migrator auf `0012` migrieren, danach die aus `RUNTIME_GRANTS` erzeugten expliziten Grants
+Migrator auf den aktuellen Head migrieren, danach die aus `RUNTIME_GRANTS` erzeugten expliziten Grants
 anwenden und die Runtime-Grenze prüfen. Ein Downgrade auf `0011` löscht nur diese abgeleitete
 Historientabelle; die aktuellen Findings bleiben erhalten.
 

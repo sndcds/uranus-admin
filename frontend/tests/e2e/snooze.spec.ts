@@ -142,11 +142,12 @@ test('a version conflict asks for a reload and never overwrites silently', async
 test('a finding review snooze has one task and directs changes to the finding', async ({
   page,
 }) => {
+  const until = new Date(Date.now() + 3 * 86400000).toISOString()
   const item = {
     ...unassignedFindingInboxFixture.items[0]!,
     status: 'snoozed',
-    snoozed_until: '2027-01-25T08:00:00Z',
-    finding_snoozed_until: '2027-01-25T08:00:00Z',
+    snoozed_until: until,
+    finding_snoozed_until: until,
   }
   await page.route('**/api/admin/api/v1/inbox?*', (route) => {
     const visible = new URL(route.request().url()).searchParams.get('attention') === 'snoozed'
