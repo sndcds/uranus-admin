@@ -652,6 +652,7 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
                                 "credentials": "{{ adopted_credentials }}",
                                 "release": str(self.release),
                                 "archive_hash": self.archive_hash,
+                                "uv": self.uv,
                             },
                             "register": "outcome",
                             "no_log": True,
