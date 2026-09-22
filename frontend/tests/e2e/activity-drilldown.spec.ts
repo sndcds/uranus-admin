@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/authenticated'
+import { test, expect, expectLogoutAvailable } from '../fixtures/authenticated'
 import { summary, findings } from '../fixtures/api'
 import { activityFixture } from '../fixtures/activity'
 import { activityTypes } from '../../app/utils/activity'
@@ -46,7 +46,7 @@ test('all nine metric links preserve periods and support keyboard drill-down', a
     }),
   )
   await page.goto('/')
-  await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
+  await expectLogoutAvailable(page)
   await expect(page.getByText('Test-Hafenbühne')).toBeVisible()
   for (const period of ['24h', 'today', '7d']) {
     await page.getByLabel('Zeitraum', { exact: true }).selectOption(period)

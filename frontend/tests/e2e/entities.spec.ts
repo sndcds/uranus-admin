@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/authenticated'
+import { test, expect, expectCreateUnavailable } from '../fixtures/authenticated'
 import { entityFixture, detailFixture, timelineFixture } from '../fixtures/entities'
 import { entitySections } from '../../app/utils/entities'
 import { entitySectionSchema } from '../../shared/contracts'
@@ -15,7 +15,7 @@ for (const section of entitySectionSchema.options) {
     })
     await page.goto(`/${section}`)
     await expect(page.getByText(`Fixture ${section}`, { exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: /\+ Datensatz/ })).toBeDisabled()
+    await expectCreateUnavailable(page)
     await page
       .getByRole('link', { name: `Im Admin ansehen: Fixture ${section}`, exact: true })
       .click()

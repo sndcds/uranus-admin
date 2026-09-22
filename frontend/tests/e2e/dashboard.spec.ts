@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/authenticated'
+import { test, expect, expectLogoutAvailable } from '../fixtures/authenticated'
 import { summary, findings } from '../fixtures/api'
 
 test('dashboard, responsive navigation, filtering, pagination and detail', async ({
@@ -73,7 +73,7 @@ test('unavailable backend has an honest error without logging out', async ({ pag
       .first(),
   ).toBeVisible()
   await expect(page.getByText('private-details')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
+  await expectLogoutAvailable(page)
 })
 
 test('real Nitro proxy denies absent auth, unknown routes and write methods', async ({

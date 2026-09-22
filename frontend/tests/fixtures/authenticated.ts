@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test'
+import { test as base, expect, type Page } from '@playwright/test'
 
 // Real HttpOnly test sessions also reach SSR. Browser-only route mocks cannot
 // authorize server rendering. The independent request fixture stays anonymous.
@@ -12,4 +12,52 @@ export const test = base.extend({
     await use(page)
   },
 })
+
+async function openAccountDrawer(page: Page) {
+  const drawer = page.getByRole('dialog', { name: 'Mobile Navigation' })
+  if (await drawer.isVisible()) return false
+  if ((page.viewportSize()?.width ?? 1024) >= 1024) return false
+  const menu = page.getByRole('button', { name: 'Navigation öffnen' })
+  await expect(menu).toBeVisible()
+  await expect(menu).toBeEnabled()
+  await menu.focus()
+  await menu.press('Enter')
+  await expect(drawer).toBeVisible()
+  return true
+}
+
+async function closeAccountDrawer(page: Page, opened: boolean) {
+  if (!opened) return
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'Navigation öffnen' })).toBeFocused()
+}
+
+export async function expectLogoutAvailable(page: Page) {
+  const visibleLogout = page
+    .getByRole('button', { name: 'Abmelden', exact: true })
+    .filter({ visible: true })
+  if (await visibleLogout.isVisible()) {
+    await expect(visibleLogout).toBeEnabled()
+    return
+  }
+  const opened = await openAccountDrawer(page)
+  await expect(visibleLogout).toBeVisible()
+  await closeAccountDrawer(page, opened)
+}
+
+export async function expectCreateUnavailable(page: Page) {
+  const opened = await openAccountDrawer(page)
+  await expect(
+    page.getByRole('button', { name: /\+ Datensatz/ }).filter({ visible: true }),
+  ).toBeDisabled()
+  await closeAccountDrawer(page, opened)
+}
+
+export async function logout(page: Page) {
+  const visibleLogout = page
+    .getByRole('button', { name: 'Abmelden', exact: true })
+    .filter({ visible: true })
+  if (!(await visibleLogout.isVisible())) await openAccountDrawer(page)
+  await visibleLogout.click()
+}
 export { expect }

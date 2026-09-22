@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/authenticated'
+import { test, expect, expectLogoutAvailable } from '../fixtures/authenticated'
 import { graphFixture, graphPath } from '../fixtures/graph'
 
 test.beforeEach(async ({ page }) => {
@@ -19,7 +19,7 @@ test('search, explore, select, filter and navigate back', async ({ page }, info)
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('/graph')
-  await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
+  await expectLogoutAvailable(page)
   await expect(page.getByRole('heading', { name: 'Zusammenhänge entdecken' })).toBeVisible()
   await page.getByLabel('Nach Name oder UUID suchen', { exact: true }).fill('Rendsburg')
   await page
@@ -52,7 +52,7 @@ test('user search accepts canonical detail links and opens the graph', async ({ 
     route.fulfill({ json: { items: [user] } }),
   )
   await page.goto('/graph')
-  await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
+  await expectLogoutAvailable(page)
   await page.getByLabel('Nach Name oder UUID suchen', { exact: true }).fill('Max')
   await page.getByRole('button', { name: 'Max Mustermann Benutzer', exact: true }).click()
   await expect(page).toHaveURL(/root_type=user/)

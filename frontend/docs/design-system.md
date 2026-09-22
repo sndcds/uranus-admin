@@ -7,11 +7,19 @@ Baseline reviewed: `7428b455f68316c2b116798ac1138d70eeeb3d2c`.
 ## Shell and navigation
 
 One shell for every route: fixed `w-64` desktop sidebar, `lg:pl-64` content offset,
-sticky white/translucent header with `min-h-16`, and centered `max-w-7xl` main content
-with `p-5 sm:p-8`. No Statistics-specific width, logo, header or login variant.
+sticky white/translucent header, and centered `max-w-7xl` main content. Mobile uses
+`p-4` and `space-y-4`; `sm` and larger retain `p-8` and `space-y-5`. No
+Statistics-specific width, logo, header or login variant.
 The Dashboard period selector belongs to its PageHeader and still uses the dashboard
 store. There is no second period state. Native graph fullscreen remains independent
 of this shell and uses the existing single workspace/SVG/simulation.
+
+Below `lg`, the sticky header has two stable rows: a 56px navigation/title row and one
+compact Geo Scope row. It does not show the timestamp, administrator role, logout or
+the unavailable create explanation. Role, the disabled create state and logout live in
+the account/action section at the bottom of the mobile drawer. The desktop header keeps
+its timestamp and account actions. Do not duplicate mobile account actions between the
+header and drawer. Long area names truncate inside the available width.
 
 The same navigation is used inside the mobile dialog. Keep native dialog focus
 handling, Escape, explicit close and focus return to the menu button. Active section
@@ -26,10 +34,13 @@ section link. Navigation order remains unchanged.
   for genuinely independent sections. Minor row titles: `text-sm font-semibold`.
 - Regular controls and body text: text-sm; labels, metadata and badges: text-xs.
   Only SVG axes/donut captions may use 10px for chart geometry.
-- Page root: `space-y-5`; sections: `space-y-3`; grids: gap-3/4/5 as appropriate.
+- Page root: `space-y-4 sm:space-y-5`; sections: `space-y-3`; grids: gap-3/4/5 as appropriate.
 - `.panel`: rounded-2xl, slate-200 border, white, min-w-0. `.card` adds shadow-soft.
   Controls: rounded-xl; badges: rounded-md/full. Icon tiles can use smaller radii.
 - `.data-row`: px-4 sm:px-5, py-3, subtle slate hover. Use divide-y for row lists.
+- Interactive mobile controls should provide an approximately 44px touch target. Do not
+  make every action full-width: related primary controls may share a row, while labels
+  stay unbroken and secondary actions remain visually subordinate.
 
 ## Shared inventory
 
@@ -54,6 +65,13 @@ GraphFilters keeps its search dropdown and models but uses the same panel, contr
 spacing and Tailwind breakpoints. Statistics presets use normal buttons with
 aria-pressed; selected presets use button-primary. Their compare switch is a labeled
 native checkbox with role=switch. No separate button/select CSS system remains.
+
+On phones, `PageHeader` is intentionally ordered as title/description, primary page
+actions, then SQL/data provenance. Its action region uses the available width and wraps
+as a group instead of competing with the title. Dashboard keeps period and refresh in
+one primary row (the select grows; refresh may use its icon-only accessible label at the
+narrowest width), with provenance on a quieter row below. From `sm` upward, the existing
+side-by-side heading/actions layout remains.
 
 ## Page patterns
 
@@ -116,6 +134,12 @@ Wide real tables scroll inside their container, never the whole page. Charts kee
 ResizeObserver and accessible keyboard/text alternatives. Global focus-visible also
 covers textareas. Decorative icons remain hidden from assistive technology; controls
 retain labels, pressed/expanded state and native keyboard behavior.
+
+Card/list grids fall back to one column before `sm` unless their content is demonstrably
+short enough for two columns. Dashboard “Neu eingegangen” rows use a compact 64–80px
+icon/label/value/arrow pattern, become two columns at `sm` and three at `md`, and never
+split German labels inside words. Page-level horizontal scrolling is not allowed;
+genuinely wide tables keep their local overflow containers.
 
 ## Page audit and remaining deliberate special cases
 

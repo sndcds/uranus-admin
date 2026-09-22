@@ -40,13 +40,19 @@ const labels: Record<string, string> = {
   users: 'Benutzer & Teams',
   images: 'Bilder',
 }
+const mobileScreenshotNames: Record<string, string> = {
+  '/': 'dashboard-mobile.png',
+  '/activity': 'activity-mobile.png',
+  '/inbox': 'inbox-mobile.png',
+  [`/geocoding/${geocodeDetail.id}`]: 'geocoding-detail-mobile.png',
+}
 for (const viewport of [
   { width: 1440, height: 1000 },
   { width: 1024, height: 768 },
   { width: 390, height: 844 },
 ]) {
   test(`shared shell and page review at ${viewport.width}px`, async ({ page }, info) => {
-    test.setTimeout(120000) // Twenty-one pages in one viewport audit, not a longer interaction timeout.
+    test.setTimeout(180000) // Twenty-one pages plus screenshots in one viewport audit.
     await page.setViewportSize(viewport)
     await page.route('**/api/admin/auth/session', (route) =>
       route.fulfill({ json: { subject: 'admin:layout-fixture', system_admin: true } }),
@@ -82,7 +88,6 @@ for (const viewport of [
     let shell: { x: number; width: number; height: number } | undefined
     for (const [index, path] of routes.entries()) {
       await page.goto(path)
-      await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
       await expect(page.locator('main h2').last()).toBeVisible()
       await expect(
         page.locator('main').getByText('Daten werden geladen …', { exact: true }),
@@ -104,8 +109,40 @@ for (const viewport of [
         true,
       )
       const label = labels[path === '/' ? '/' : path.split('/')[1]!.split('?')[0]!]
-      if (viewport.width < 1024)
+      if (viewport.width < 1024) {
+        expect(dimensions.height).toBeLessThanOrEqual(120)
+        const mobileHeader = page.locator('[data-mobile-app-header]')
+        await expect(mobileHeader).toBeVisible()
+        await expect(mobileHeader.getByText('Systemadministrator')).toHaveCount(0)
+        await expect(
+          mobileHeader.getByRole('button', { name: 'Abmelden', exact: true }),
+        ).toHaveCount(0)
+        await expect(mobileHeader.getByRole('button', { name: /\+ Datensatz/ })).toHaveCount(0)
+        const geoScope = mobileHeader.getByRole('button', { name: /Gebiet: Alle/ })
+        await expect(geoScope).toBeVisible()
+        expect(
+          await geoScope.evaluate(
+            (element) =>
+              element.getBoundingClientRect().right <= document.documentElement.clientWidth,
+          ),
+        ).toBe(true)
+        if (index === 0) {
+          await expect(geoScope).toBeEnabled()
+          await geoScope.click()
+          await expect(page.getByRole('dialog', { name: 'Gebiet auswählen' })).toBeVisible()
+          await page.keyboard.press('Escape')
+        }
         await page.getByRole('button', { name: 'Navigation öffnen' }).click()
+      } else {
+        const desktopHeader = page.locator('[data-desktop-app-header]')
+        await expect(desktopHeader).toBeVisible()
+        await expect(desktopHeader.getByText('Systemadministrator')).toBeVisible()
+        await expect(
+          desktopHeader.getByRole('button', { name: 'Abmelden', exact: true }),
+        ).toBeVisible()
+        await expect(desktopHeader.getByRole('button', { name: /\+ Datensatz/ })).toBeDisabled()
+        await expect(desktopHeader.getByText(/Berlin/)).toBeVisible()
+      }
       const nav = page
         .getByRole('navigation', { name: 'Hauptnavigation' })
         .filter({ visible: true })
@@ -122,14 +159,62 @@ for (const viewport of [
             .evaluate((el) => el.getBoundingClientRect().width),
         ).toBe(256)
       else {
-        if (index === 0)
-          await page.screenshot({ path: info.outputPath(`navigation-${viewport.width}.png`) })
-        await page.getByRole('button', { name: 'Navigation schließen' }).click()
+        const drawer = page.getByRole('dialog', { name: 'Mobile Navigation' })
+        await expect(drawer.getByText('Systemadministrator', { exact: true })).toBeVisible()
+        await expect(drawer.getByRole('button', { name: /\+ Datensatz/ })).toBeDisabled()
+        await expect(drawer.getByRole('button', { name: 'Abmelden', exact: true })).toBeVisible()
+        if (index === 0) {
+          await page.screenshot({ path: info.outputPath('navigation-drawer-mobile.png') })
+          await page.keyboard.press('Escape')
+        } else await page.getByRole('button', { name: 'Navigation schließen' }).click()
         await expect(page.getByRole('button', { name: 'Navigation öffnen' })).toBeFocused()
       }
+      const pageHeaderActions = page.locator('[data-page-header-actions]').first()
+      if (await pageHeaderActions.isVisible())
+        expect(
+          await pageHeaderActions.evaluate(
+            (element) =>
+              element.scrollWidth <= element.clientWidth &&
+              element.getBoundingClientRect().right <= innerWidth,
+          ),
+        ).toBe(true)
+      if (path === '/' && viewport.width < 1024) {
+        const period = page.getByRole('combobox', { name: 'Zeitraum', exact: true })
+        const refresh = page.getByRole('button', { name: 'Zahlen aktualisieren' })
+        const [periodBox, refreshBox] = await Promise.all([
+          period.boundingBox(),
+          refresh.boundingBox(),
+        ])
+        expect(periodBox).not.toBeNull()
+        expect(refreshBox).not.toBeNull()
+        expect(Math.abs(periodBox!.y - refreshBox!.y)).toBeLessThan(3)
+        const cardHeights = await page
+          .locator('#new-records li a')
+          .evaluateAll((links) => links.map((link) => link.getBoundingClientRect().height))
+        expect(cardHeights.every((height) => height >= 64 && height <= 80)).toBe(true)
+        expect(
+          await page.locator('[data-dashboard-new-record-label]').evaluateAll((elements) =>
+            elements.every((element) => {
+              const range = document.createRange()
+              range.selectNodeContents(element)
+              return range.getClientRects().length === 1
+            }),
+          ),
+        ).toBe(true)
+        expect(
+          await page
+            .locator('#new-records li a')
+            .evaluateAll(
+              (links) =>
+                links.filter((link) => link.getBoundingClientRect().top < innerHeight).length,
+            ),
+        ).toBeGreaterThan(2)
+      }
+      const screenshotName = viewport.width === 390 ? mobileScreenshotNames[path] : undefined
       await page.screenshot({
         path: info.outputPath(
-          `${index}-${path.split('?')[0]!.replaceAll('/', '_') || 'dashboard'}-${viewport.width}.png`,
+          screenshotName ??
+            `${index}-${path.split('?')[0]!.replaceAll('/', '_') || 'dashboard'}-${viewport.width}.png`,
         ),
         fullPage: true,
       })

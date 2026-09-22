@@ -7,6 +7,7 @@ import { geoAreaLabel, supportsGeoScope, geoPagination, isSpatialType } from '~/
 import { useFilterPreferencesStore } from '~/stores/filter-preferences'
 
 const preferences = useFilterPreferencesStore()
+const props = withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
@@ -128,21 +129,28 @@ function keydown(event: KeyboardEvent) {
 onBeforeUnmount(cancel)
 </script>
 <template>
-  <div class="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+  <div
+    class="flex min-w-0 max-w-full items-center gap-2"
+    :class="props.compact ? 'w-full flex-nowrap' : 'flex-wrap'"
+  >
     <button
       type="button"
       class="button max-w-full min-w-0"
+      :class="props.compact ? 'min-h-11 flex-1 justify-between px-3' : ''"
       :disabled="!interactive"
       :title="selected ? geoAreaLabel(selected) : 'Gebiet auswählen'"
       @click="modal?.open()"
     >
-      <span class="max-w-60 truncate">Gebiet: {{ selected?.name ?? 'Alle' }}</span>
+      <span :class="props.compact ? 'max-w-full truncate' : 'max-w-60 truncate'"
+        >Gebiet: {{ selected?.name ?? 'Alle' }}</span
+      >
       <span class="sr-only"> – Gebiet auswählen</span>
     </button>
     <button
       v-if="selected"
       type="button"
       class="button"
+      :class="props.compact ? 'min-h-11 w-11 shrink-0 px-0' : ''"
       aria-label="Gebiet zurücksetzen"
       :disabled="!interactive"
       @click="clear"

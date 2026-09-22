@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/authenticated'
+import { test, expect, expectLogoutAvailable, logout } from '../fixtures/authenticated'
 import type { Page } from '@playwright/test'
 import { geoArea } from '../fixtures/geo'
 import { entityFixture } from '../fixtures/entities'
@@ -7,7 +7,7 @@ import { statisticsFixture } from '../fixtures/statistics'
 import { eventContentFixture } from '../fixtures/event-content'
 
 async function navigate(page: Page, label: string, path: string) {
-  await expect(page.getByRole('button', { name: 'Abmelden', exact: true })).toBeEnabled()
+  await expectLogoutAvailable(page)
   const menu = page.getByRole('button', { name: 'Navigation öffnen' })
   const mobile = await menu.isVisible()
   if (mobile) await menu.click()
@@ -98,7 +98,7 @@ test('global selection, scoped search, local reset, period, navigation, reload a
 test('logout resets scope, direct URL login restores only the explicit URL', async ({ page }) => {
   await page.goto(`/events?geo_scope_id=${geoArea.id}`)
   await expect(page.getByRole('button', { name: /Gebiet: Flensburg/ })).toBeVisible()
-  await page.getByRole('button', { name: 'Abmelden', exact: true }).click()
+  await logout(page)
   await expect(page).toHaveURL(/\/login/)
   await page.getByLabel('Benutzername', { exact: true }).fill('operator')
   await page.getByLabel('Passwort', { exact: true }).fill('test-only-password')
@@ -106,7 +106,7 @@ test('logout resets scope, direct URL login restores only the explicit URL', asy
   await navigate(page, 'Veranstaltungen', '/events')
   await expect(page.getByRole('button', { name: /Gebiet: Alle/ })).toBeVisible()
   await expect(page).not.toHaveURL(/geo_scope_id/)
-  await page.getByRole('button', { name: 'Abmelden', exact: true }).click()
+  await logout(page)
   await page.goto(`/events?geo_scope_id=${geoArea.id}`)
   await expect(page.getByRole('heading', { name: 'Veranstaltungen', exact: true })).toHaveCount(0)
   await page.getByLabel('Benutzername', { exact: true }).fill('operator')
