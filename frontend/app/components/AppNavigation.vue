@@ -7,6 +7,7 @@ const dashboard = useDashboardStore()
 const preferences = useFilterPreferencesStore()
 const links = [
   { label: 'Übersicht', icon: 'home', to: '/' },
+  { label: 'Inbox', icon: 'list', to: '/inbox' },
   { label: 'Partneranfragen', icon: 'organization', to: '/queues/partner_requests' },
   { label: 'Einladungen', icon: 'users', to: '/queues/team_invitations' },
   { label: 'Aktivierungen', icon: 'users', to: '/queues/user_activation' },

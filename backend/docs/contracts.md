@@ -250,6 +250,30 @@ wenn sie vorhanden sind. Es wird kein Zeitpunkt und keine geänderte Spalte abge
 vollständige Quellen-, Sicherheits- und Migrationssemantik steht unter
 [Entity Timeline](entity-timeline.md).
 
+## Assignments und Admin Inbox
+
+`admin.assignment` modelliert die Zuständigkeit eines unabhängigen Admin-Kontos für genau ein
+persistiertes Finding oder eine typisierte Workflow-Identität. `assigned_to_admin_id` verweist
+auf `admin.auth_account`; die API akzeptiert nur aktive Konten mit aktueller globaler Vergabe.
+Eine Uranus-User-ID wird weder abgeleitet noch verknüpft. Pro logischer Aufgabe kann durch
+partielle Unique-Indizes nur ein Assignment mit `open` oder `in_progress` aktiv sein.
+
+`POST /api/v1/assignments` legt eine aktive Zuweisung an. `PATCH
+/api/v1/assignments/{id}` verlangt den aktuellen `version`-Wert und liefert bei einer parallelen
+Änderung `409 assignment_conflict`. `done` und `cancelled` setzen den serverseitigen
+Abschlusszeitpunkt; Wiederöffnung löscht nur den aktuellen Abschluss. Jede tatsächliche Änderung
+schreibt atomar eine unveränderliche Version nach `admin.assignment_event` und erscheint auf der
+betroffenen Entity-Timeline.
+
+`GET /api/v1/inbox` vereinigt aktive Assignments, unzugewiesene offene Findings, zu prüfende
+Geocoding-Ergebnisse und fehlgeschlagene Notification-Deliveries in festen SQL-Projektionen. Ein
+aktives Assignment unterdrückt den separaten Eintrag derselben logischen Aufgabe. Filter für
+`scope`, `attention`, `kind`, `entity_type` und Pagination sind gebunden; Sortierung priorisiert
+überfällige und kritische Aufgaben mit stabiler ID. `due_today` verwendet den lokalen
+Kalendertag aus `ADMIN_TIMEZONE`, auch an DST-Wechseltagen. Empfänger, Snapshots, Providerfehler,
+Passwort-Hashes und Sitzungstoken gehören nicht zum Response. Details und Deployment:
+[Assignments und Inbox](assignments-inbox.md).
+
 ## Auth / Authorization Boundary
 
 Alle Verwaltungsrouten verwenden dieselbe zentrale Admin-Dependency. Die eigenständige

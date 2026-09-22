@@ -54,6 +54,14 @@ FROM admin.record_mark_event me
 JOIN admin.record_mark m ON m.id=me.mark_id
 WHERE m.entity_type=:entity_type AND m.entity_key=:entity_key
 UNION ALL
+SELECT 'assignment:' || ae.id::text, 'assignment_' || ae.kind, ae.occurred_at,
+       left(ae.actor,256), ae.status, ae.assignment_id::text, NULL, NULL, NULL,
+       'Zuständig: ' || aa.login, NULL, NULL, NULL
+FROM admin.assignment_event ae
+JOIN admin.assignment a ON a.id=ae.assignment_id
+JOIN admin.auth_account aa ON aa.id=ae.assigned_to_admin_id
+WHERE a.entity_type=:entity_type AND a.entity_key=:entity_key
+UNION ALL
 SELECT 'delivery:' || d.id::text, 'notification_delivery',
        COALESCE(d.sent_at,d.sending_at,d.queued_at,d.created_at),
        NULL, d.status, d.id::text, NULL, NULL, NULL,
@@ -174,6 +182,11 @@ def title(kind: str, status: str | None) -> str:
         "mark_updated": "Markierung geändert",
         "mark_completed": "Markierung erledigt",
         "mark_reopened": "Markierung wieder geöffnet",
+        "assignment_created": "Aufgabe zugewiesen",
+        "assignment_updated": "Zuständigkeit geändert",
+        "assignment_completed": "Aufgabe erledigt",
+        "assignment_reopened": "Aufgabe wieder geöffnet",
+        "assignment_cancelled": "Zuweisung aufgehoben",
         "notification_delivery": "Benachrichtigung",
         "url_check": "URL-Prüfung",
         "geocode_request": "Standortprüfung",

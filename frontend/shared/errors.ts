@@ -26,6 +26,10 @@ export function failure(status: number, code = 'request_failed'): ApiFailure {
     notification_retry_obsolete:
       'Empfänger oder Hinweis sind nicht mehr aktiv konfiguriert, oder die Quelldaten sind nicht verfügbar. Kein neuer Versand wurde erstellt.',
     notification_retry_already_queued: 'Für diesen Versand läuft bereits ein erneuter Versuch.',
+    assignment_conflict:
+      'Die Zuständigkeit wurde zwischenzeitlich geändert. Bitte neu laden und erneut versuchen.',
+    assignment_assignee_invalid: 'Der gewählte Administrator ist nicht mehr verfügbar.',
+    assignment_task_closed: 'Diese Aufgabe kann in ihrem aktuellen Zustand nicht zugewiesen werden.',
   }
   const messages: Record<number, string> = {
     401: 'Anmeldung erforderlich. Für diesen Zugriff fehlen gültige Zugangsdaten.',

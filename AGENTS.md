@@ -6,8 +6,9 @@
 for Kulturbytes/Uranus. It reads Uranus domain data and owns separate admin workflow
 and authentication state. Admin authentication does not confer Uranus write access.
 
-Implemented features include persisted quality findings/reviews, record marks and
-notes, activity, entity lists/details, operational queues, statistics, a bounded D3
+Implemented features include persisted quality findings/reviews, independent administrator
+assignments and a deduplicated admin inbox, record marks and notes, activity, entity
+lists/details, operational queues, statistics, a bounded D3
 relationship graph, asynchronous URL checks, and organization email notifications
 with delivery history and manual retries. Domain creation/editing is unavailable.
 Global administrative Geo Scope uses cached boundaries and authoritative Uranus points.
@@ -100,8 +101,9 @@ The authoritative table definitions are in `backend/app/admin_tables.py`.
 - Runtime has SELECT-only access to `auth_account` and `auth_system_admin`. Account/grant changes
   belong to `app.auth.manage`; operator cleanup uses `app.auth.maintenance`.
 - No runtime DELETE grants are currently required. Operator retention deletes only
-  explicitly authorized auth data. Preserve append-only `finding_event`, `record_mark_event` and
-  `notification_delivery_item` records, mark versions and immutable sent history.
+  explicitly authorized auth data. Preserve append-only `finding_event`, `assignment_event`,
+  `record_mark_event` and `notification_delivery_item` records, mark/assignment versions and
+  immutable sent history.
 - NEVER rewrite a migration already shipped. Add a revision, preserve existing data,
   and describe any unavoidable loss. Revisions use frozen definitions, not imports
   of mutable application table metadata.

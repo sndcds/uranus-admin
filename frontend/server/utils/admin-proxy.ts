@@ -14,11 +14,17 @@ import {
   reviewUpdateSchema,
   markCreateSchema,
   markUpdateSchema,
+  assignmentCreateSchema,
+  assignmentLookupSchema,
+  assignmentUpdateSchema,
 } from '#shared/contracts'
 import { isIP } from 'node:net'
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
+  '/api/v1/admins': [],
+  '/api/v1/assignments': ['finding_id', 'workflow_type', 'workflow_key'],
+  '/api/v1/inbox': ['scope', 'attention', 'kind', 'entity_type', 'page', 'page_size'],
   '/api/v1/geocode/requests': ['entity_type', 'status', 'page', 'page_size'],
   '/api/v1/geo/areas/search': ['q', 'limit'],
   '/api/v1/geo/areas': [],
@@ -187,6 +193,10 @@ export async function forwardAdminRequest(
     /^\/api\/v1\/record-marks\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
     )
+  const assignmentDetail =
+    /^\/api\/v1\/assignments\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      input.path,
+    )
   const checkDetail =
     /^\/api\/v1\/check-runs\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
@@ -238,7 +248,7 @@ export async function forwardAdminRequest(
               ]
             : entityDetail
               ? ['related_page']
-              : markDetail || checkDetail
+              : markDetail || assignmentDetail || checkDetail
                 ? []
                 : Object.hasOwn(routes, input.path)
                   ? routes[input.path]
@@ -260,6 +270,8 @@ export async function forwardAdminRequest(
     (input.method === 'POST' && (notificationRetry || geocodeRetry)) ||
     (input.method === 'POST' && input.path === '/api/v1/record-marks') ||
     (input.method === 'PATCH' && markDetail) ||
+    (input.method === 'POST' && input.path === '/api/v1/assignments') ||
+    (input.method === 'PATCH' && assignmentDetail) ||
     (input.method === 'POST' && input.path === '/api/v1/check-runs') ||
     (input.method === 'PATCH' && input.path === '/api/v1/finding-reviews')
   if (
@@ -315,6 +327,13 @@ export async function forwardAdminRequest(
     if (!parsed.success) return rejected(422, 'invalid_input')
     requestBody = JSON.stringify(parsed.data)
   }
+  if (write && (assignmentDetail || input.path === '/api/v1/assignments')) {
+    const parsed = (assignmentDetail ? assignmentUpdateSchema : assignmentCreateSchema).safeParse(
+      input.body,
+    )
+    if (!parsed.success) return rejected(422, 'invalid_input')
+    requestBody = JSON.stringify(parsed.data)
+  }
   if (write && input.path === '/api/v1/finding-reviews') {
     const parsed = reviewUpdateSchema.safeParse(input.body)
     if (!parsed.success) return rejected(422, 'invalid_input')
@@ -344,6 +363,12 @@ export async function forwardAdminRequest(
   if (
     input.path === '/api/v1/findings/sql-diagnostic' &&
     !diagnosticRequestSchema.safeParse(Object.fromEntries(input.query)).success
+  )
+    return rejected(422, 'invalid_query')
+  if (
+    input.path === '/api/v1/assignments' &&
+    input.method === 'GET' &&
+    !assignmentLookupSchema.safeParse(Object.fromEntries(input.query)).success
   )
     return rejected(422, 'invalid_query')
   if (

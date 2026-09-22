@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException
 from app.admin_database import create_admin_engine
 from app.api import (
     activity,
+    assignments,
     checks,
     dashboard,
     entities,
@@ -22,6 +23,7 @@ from app.api import (
     geocode,
     graph,
     health,
+    inbox,
     marks,
     notifications,
     quality,
@@ -125,6 +127,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     for router in (
         dashboard.router,
+        inbox.router,
+        assignments.router,
         findings.router,
         sql_diagnostics.router,
         sql_provenance.router,

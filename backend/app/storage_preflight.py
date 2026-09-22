@@ -77,6 +77,8 @@ RUNTIME_GRANTS = {
     "check_run": ("SELECT", "INSERT", "UPDATE"),
     "finding": ("SELECT", "INSERT", "UPDATE"),
     "finding_event": ("SELECT", "INSERT"),
+    "assignment": ("SELECT", "INSERT", "UPDATE"),
+    "assignment_event": ("SELECT", "INSERT"),
     "record_mark": ("SELECT", "INSERT", "UPDATE"),
     "record_mark_event": ("SELECT", "INSERT"),
     "auth_account": ("SELECT",),

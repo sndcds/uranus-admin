@@ -68,6 +68,10 @@ Der Bearer-Token ist kein Uranus-Benutzer. Development-Override ist in Productio
 | POST `/api/v1/check-runs` | Vollständigen Scan ausführen und Befunde persistieren |
 | PATCH `/api/v1/finding-reviews` | Menschlichen Reviewstatus und Metadaten ändern; kein manuelles resolved |
 | GET `/api/v1/entities/{entity_type}/{entity_key}/timeline` | Belegte Source-/Workflow-Ereignisse, stabile Cursor-Pagination |
+| GET `/api/v1/inbox` | Deduplizierte Findings, Zuweisungen und operative Workflow-Fälle |
+| GET/POST `/api/v1/assignments` | Aktive Finding-Zuweisung lesen bzw. anlegen |
+| GET/PATCH `/api/v1/assignments/{id}` | Versionierte Admin-Zuweisung lesen bzw. ändern |
+| GET `/api/v1/admins` | Aktive, global berechtigte Admin-Konten als Zuweisungsziele |
 
 Alle `/api/v1`-Routen verwenden dieselbe Admin-Auth. Standardmäßig 401 ohne Credential;
 503 bei unkonfigurierter globaler Auth. OpenAPI nur explizit in development/test einschalten:
@@ -93,6 +97,8 @@ Recht entzogen werden. Bestehende Schemas bleiben unverändert. Rollen und expli
 Runtime-/Operator-Grants werden weiterhin separat provisioniert.
 Migration 0012 ergänzt die append-only Finding-Historie für Entity-Timelines; bestehende
 Findings werden nur an tatsächlich gespeicherten Zeitpunkten zurückgefüllt.
+Migration 0013 ergänzt unabhängige Admin-Zuweisungen und deren append-only Verlauf. Die Runtime
+erhält DML nur auf `assignment` und ausschließlich SELECT/INSERT auf `assignment_event`.
 
 Keine automatische Migration und kein DDL-Fallback auf `DATABASE_URL`. Die Runtime ist nie
 Migrator/Owner. Gespeicherte Standardlisten benötigen die Admin-Ablage; ohne sie bleiben nur
@@ -103,7 +109,9 @@ oder **zu mächtige** Runtime-Rechte bedeuten; die Response-Message unterscheide
 Scanfehler schließen niemals Findings. Nur erfolgreich abgedeckte Objekte können resolved werden;
 wiederholte Scans bewahren ID und Erstfund. Review: open/in_progress/snoozed/exception.
 Authentifizierter Development-Principal wird als `reviewed_subject=development-only` gespeichert,
-nicht als erfundener User. Zuweisungen referenzieren nur existierende Uranus-User.
+nicht als erfundener User. Das ältere Review-Feld `assigned_to` bezeichnet ausschließlich eine
+Uranus-Identität. Phase-4-Zuständigkeiten verwenden getrennt `admin.assignment` und referenzieren
+nur aktive Konten mit globaler Admin-Vergabe; zwischen beiden Identitäten gibt es kein Mapping.
 
 ## Tests
 
@@ -136,6 +144,7 @@ in dieser Testdatenbank administrative Rechte. CI führt den vollständigen DB-L
   bewusst zurückgestellte Kandidaten und versionierter Source Contract.
 - [Architektur](docs/architecture.md), [Entwicklung und Rollen](docs/development.md).
 - [Entity Timeline](docs/entity-timeline.md): Quellen, Zeitsemantik, Pagination und Deployment.
+- [Assignments und Inbox](docs/assignments-inbox.md): Identität, Concurrency, Aggregation und Grants.
 - [Ursprüngliche Analyse](docs/uranus-analysis.md), [offene Uranus-Verbesserungen](docs/future-uranus-improvements.md).
 - [Nuxt-Frontend](../frontend/README.md).
 

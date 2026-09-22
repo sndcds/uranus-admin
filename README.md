@@ -44,6 +44,9 @@ stehen in der [Frontend-Anleitung](frontend/README.md).
 
 Activity für neun Quelltypen, zentrale Qualitätsregeln einschließlich bestehender Venue-Prüfung,
 operative Arbeitslisten sowie optionale persistierte Prüfläufe und Reviews sind angebunden.
+Die zentrale Inbox fasst offene Findings, Admin-Zuweisungen, Geocoding-Fälle und fehlgeschlagene
+Benachrichtigungen ohne doppelte Aufgaben zusammen. Zuständigkeiten verweisen ausschließlich
+auf eigenständige Admin-Konten und niemals auf Uranus-User.
 Die neue Admin-Schreibverbindung verwaltet ausschließlich eigene Metadaten; Uranus bleibt read-only.
 Globale Admin-Autorisierung wird ausdrücklich in der separaten Admin-Berechtigungstabelle vergeben.
 
@@ -115,5 +118,8 @@ inspect `/notifications` and previews before enabling SMTP. See the
 [notification architecture, source verification and deployment guide](backend/docs/notifications.md).
 
 [Entity timeline contract, sources and deployment](backend/docs/entity-timeline.md).
+
+[Assignments and admin inbox](backend/docs/assignments-inbox.md) documents task identity,
+optimistic locking, due dates, aggregation and the migration/grant sequence.
 
 [SQL / Datenherkunft – registrierte Queries, Sicherheitsmodell und Coverage](backend/docs/sql-provenance.md).

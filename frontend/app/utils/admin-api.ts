@@ -39,6 +39,10 @@ import {
   activityPageSchema,
   markPageSchema,
   markDetailSchema,
+  adminOptionPageSchema,
+  assignmentSchema,
+  optionalAssignmentSchema,
+  inboxPageSchema,
 } from '#shared/contracts'
 import type { z } from '#shared/zod'
 import type {
@@ -51,6 +55,10 @@ import type {
   ReviewUpdate,
   MarkCreate,
   MarkUpdate,
+  AssignmentCreate,
+  AssignmentUpdate,
+  AssignmentWorkflowType,
+  InboxFilters,
 } from '#shared/contracts'
 import { AdminApiError, failure } from '#shared/errors'
 
@@ -284,6 +292,21 @@ export function createAdminApi(
     runCheck: () => request('/api/v1/check-runs', checkRunSchema, {}, 'POST', {}),
     review: (body: ReviewUpdate) =>
       request('/api/v1/finding-reviews', findingSchema, {}, 'PATCH', body),
+    admins: () => request('/api/v1/admins', adminOptionPageSchema),
+    assignmentForFinding: (findingId: string) =>
+      request('/api/v1/assignments', optionalAssignmentSchema, { finding_id: findingId }),
+    assignmentForWorkflow: (workflowType: AssignmentWorkflowType, workflowKey: string) =>
+      request('/api/v1/assignments', optionalAssignmentSchema, {
+        workflow_type: workflowType,
+        workflow_key: workflowKey,
+      }),
+    assignment: (id: string) =>
+      request(`/api/v1/assignments/${encodeURIComponent(id)}`, assignmentSchema),
+    createAssignment: (body: AssignmentCreate) =>
+      request('/api/v1/assignments', assignmentSchema, {}, 'POST', body),
+    updateAssignment: (id: string, body: AssignmentUpdate) =>
+      request(`/api/v1/assignments/${encodeURIComponent(id)}`, assignmentSchema, {}, 'PATCH', body),
+    inbox: (filters: InboxFilters) => request('/api/v1/inbox', inboxPageSchema, filters),
     health: () => request('/health', healthSchema),
     marks: (query: Record<string, string | number | undefined>) =>
       request('/api/v1/record-marks', markPageSchema, query),

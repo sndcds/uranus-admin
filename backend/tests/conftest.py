@@ -241,14 +241,16 @@ async def admin_store(database, settings):
             text(
                 "GRANT SELECT, INSERT, UPDATE ON admin.check_run, admin.finding, "
                 "admin.record_mark, admin.url_check, admin.notification, "
-                "admin.notification_delivery, admin.geo_area, admin.geocode_request "
+                "admin.notification_delivery, admin.geo_area, admin.geocode_request, "
+                "admin.assignment "
                 "TO admin_history_test"
             )
         )
         await connection.execute(
             text(
                 "GRANT SELECT, INSERT ON admin.finding_event, admin.record_mark_event, "
-                "admin.notification_delivery_item, admin.geocode_candidate TO admin_history_test"
+                "admin.assignment_event, admin.notification_delivery_item, "
+                "admin.geocode_candidate TO admin_history_test"
             )
         )
         await connection.execute(

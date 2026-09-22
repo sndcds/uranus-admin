@@ -112,6 +112,12 @@ onBeforeUnmount(() => {
           Erneut versuchen
         </button>
       </DataListShell>
+      <AssignmentEditor
+        workflow-type="notification_delivery"
+        :workflow-key="data.id"
+        entity-type="organization"
+        :entity-key="data.organization_id"
+      />
       <h2 class="text-lg font-semibold">Enthaltene Hinweise</h2>
       <DataListShell as="ul"
         ><li v-for="item in data.notifications" :key="item.id" class="data-row">
