@@ -207,7 +207,8 @@
   changed_when: false
 
 - name: Bootstrap only the explicitly approved clean non-production admin database
-  ansible.builtin.import_tasks: admin_database_bootstrap.yml
+  # Evaluate ABSENT once: the bootstrap publishes READY before its console steps.
+  ansible.builtin.include_tasks: admin_database_bootstrap.yml
   when: ua_admin_database_plan.admin_database.state | default('READY') == 'ABSENT'
 
 - name: Validate production settings and the actual runtime DSNs before stopping services
