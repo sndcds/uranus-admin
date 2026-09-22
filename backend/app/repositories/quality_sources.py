@@ -7,6 +7,8 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.repositories.user_presentation import USER_DISPLAY_LABEL_SQL
+
 POINT_MISSING_SQL = "(point IS NULL OR ST_IsEmpty(point))"
 
 SOURCE_QUERIES = {
@@ -31,9 +33,10 @@ SOURCE_QUERIES = {
     "genre_type": "SELECT DISTINCT genre_id FROM uranus.genre_type",
     "language": "SELECT DISTINCT code_iso_639_1 FROM uranus.language",
     "link_type": "SELECT key FROM uranus.link_type",
-    "team_membership": "SELECT org_uuid, user_uuid, has_joined, "
-    "(accept_token IS NOT NULL AND btrim(accept_token) <> '') AS accept_token_present "
-    "FROM uranus.organization_member_link",
+    "team_membership": "SELECT m.org_uuid, m.user_uuid, m.has_joined, "
+    f"COALESCE({USER_DISPLAY_LABEL_SQL},m.user_uuid::text) AS name, "
+    "(m.accept_token IS NOT NULL AND btrim(m.accept_token) <> '') AS accept_token_present "
+    'FROM uranus.organization_member_link m LEFT JOIN uranus."user" u ON u.uuid=m.user_uuid',
     "license": "SELECT key, url FROM uranus.license",
     "image": "SELECT uuid, created_at, mime_type FROM uranus.pluto_image",
     "image_link": "SELECT context, context_uuid, identifier, pluto_image_uuid "

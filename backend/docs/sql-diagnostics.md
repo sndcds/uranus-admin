@@ -175,7 +175,10 @@ SELECT from_org_uuid, from_name AS from_org_name, to_org_uuid, to_name AS to_org
 user_id, user_exists, status, created_at, grant_exists
 FROM (
 SELECT p.from_org_uuid, p.to_org_uuid, p.from_user_uuid AS user_id, p.status, p.created_at,
- f.name AS from_name, t.name AS to_name, COALESCE(u.display_name,u.username) AS user_name,
+ f.name AS from_name, t.name AS to_name,
+ COALESCE(COALESCE(NULLIF(u.display_name,''),NULLIF(u.username,''),NULLIF(u.email,''),
+                   u.uuid::text),p.from_user_uuid::text) AS user_name,
+ COALESCE(u.display_name,u.username) AS review_user_name,
  u.uuid IS NOT NULL AS user_exists,
  EXISTS(SELECT 1 FROM uranus.organization_access_grants g
         WHERE g.src_org_uuid=p.to_org_uuid AND g.dst_org_uuid=p.from_org_uuid) AS grant_exists

@@ -153,6 +153,9 @@ async def queue_findings(
         rows = await queue_rows(connection, kind)  # type: ignore[arg-type]
         for row in rows:
             item = map_queue(kind, row, settings, now)  # type: ignore[arg-type]
+            # Keep historical evidence stable when only display projection changes.
+            evidence = {key: value for key, value in row.items() if key != "review_user_name"}
+            evidence["user_name"] = row["review_user_name"]
             for rule in rules:
                 results[rule].covered.add((entity_type, item.entity_key))
             for rule in item.checks:
@@ -183,7 +186,7 @@ async def queue_findings(
                         "age_days": item.age_days,
                         "age_basis": item.age_basis,
                         "source_fingerprint": hashlib.sha256(
-                            json.dumps(row, sort_keys=True, default=str).encode()
+                            json.dumps(evidence, sort_keys=True, default=str).encode()
                         ).hexdigest(),
                     },
                 )

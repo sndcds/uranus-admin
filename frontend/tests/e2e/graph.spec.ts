@@ -100,3 +100,39 @@ test('truncation, failure and empty results are explicit', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('Abruf fehlgeschlagen')
   await expect(page.locator('.graph-node')).toHaveCount(0)
 })
+
+test('email-only user labels survive root, neighbor, search and technical details', async ({
+  page,
+}) => {
+  // Backend contract fixture: display_name/username absent, email is the canonical label.
+  const user = { ...graphFixture.nodes[1]!, label: 'no-name@example.org' }
+  await page.route('**/api/admin/api/v1/graph**', (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/search')) return route.fulfill({ json: { items: [user] } })
+    return route.fulfill({
+      json: {
+        ...graphFixture,
+        root: { type: url.searchParams.get('root_type'), key: url.searchParams.get('root_key') },
+        nodes: graphFixture.nodes.map((node) => (node.id === user.id ? user : node)),
+      },
+    })
+  })
+  await page.goto(`/graph?root_type=user&root_key=${user.key}&depth=2`)
+  const node = page.locator('.graph-node').filter({ hasText: user.label })
+  const panel = page.getByRole('complementary', { name: 'Knotendetails' })
+  await expect(node).toBeVisible()
+  await expect(node.locator('text')).toHaveText(user.label)
+  await expect(panel.getByRole('heading', { name: user.label, exact: true })).toBeVisible()
+  await expect(panel.getByText(user.key, { exact: true })).toBeVisible()
+  await expect(panel.getByRole('button', { name: 'UUID kopieren' })).toBeVisible()
+  await expect(page.locator('.graph-node').filter({ hasText: user.key })).toHaveCount(0)
+
+  await page.goto(graphPath)
+  await expect(node).toBeVisible()
+  await node.click()
+  await expect(panel.getByRole('heading', { name: user.label, exact: true })).toBeVisible()
+  await page.getByLabel('Nach Name oder UUID suchen', { exact: true }).fill(user.label)
+  await page.getByRole('button', { name: `${user.label} Benutzer`, exact: true }).click()
+  await expect(page).toHaveURL(/root_type=user/)
+  await expect(panel.getByRole('heading', { name: user.label, exact: true })).toBeVisible()
+})

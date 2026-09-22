@@ -5,12 +5,19 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.repositories.query import ReadQuery
+from app.repositories.user_presentation import USER_DISPLAY_LABEL_SQL
 from app.schemas.queues import QueueFilters, QueueKind
 
+# Frozen input to historical finding fingerprints, never a display label. Changing
+# this along with presentation would reopen existing review exceptions without new evidence.
+LEGACY_REVIEW_USER_NAME_SQL = "COALESCE(u.display_name,u.username)"
+
 QUEUE_SQL = {
-    "partner_requests": """
+    "partner_requests": f"""
 SELECT p.from_org_uuid, p.to_org_uuid, p.from_user_uuid AS user_id, p.status, p.created_at,
- f.name AS from_name, t.name AS to_name, COALESCE(u.display_name,u.username) AS user_name,
+ f.name AS from_name, t.name AS to_name,
+ COALESCE({USER_DISPLAY_LABEL_SQL},p.from_user_uuid::text) AS user_name,
+ {LEGACY_REVIEW_USER_NAME_SQL} AS review_user_name,
  u.uuid IS NOT NULL AS user_exists,
  EXISTS(SELECT 1 FROM uranus.organization_access_grants g
         WHERE g.src_org_uuid=p.to_org_uuid AND g.dst_org_uuid=p.from_org_uuid) AS grant_exists
@@ -19,16 +26,19 @@ LEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid
 LEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid
 LEFT JOIN uranus."user" u ON u.uuid=p.from_user_uuid
 """,
-    "team_invitations": """
+    "team_invitations": f"""
 SELECT m.org_uuid, o.name AS organization_name, m.user_uuid AS user_id,
- COALESCE(u.display_name,u.username) AS user_name, m.created_at, m.invited_at, m.has_joined
+ COALESCE({USER_DISPLAY_LABEL_SQL},m.user_uuid::text) AS user_name,
+ {LEGACY_REVIEW_USER_NAME_SQL} AS review_user_name,
+ m.created_at, m.invited_at, m.has_joined
 FROM uranus.organization_member_link m
 LEFT JOIN uranus.organization o ON o.uuid=m.org_uuid
 LEFT JOIN uranus."user" u ON u.uuid=m.user_uuid
 
 """,
-    "user_activation": """
-SELECT u.uuid AS user_id, COALESCE(u.display_name,u.username) AS user_name,
+    "user_activation": f"""
+SELECT u.uuid AS user_id, {USER_DISPLAY_LABEL_SQL} AS user_name,
+ {LEGACY_REVIEW_USER_NAME_SQL} AS review_user_name,
  u.created_at, u.is_active,
  COALESCE(m.organizations, ARRAY[]::uuid[]) AS organizations
 FROM uranus."user" u

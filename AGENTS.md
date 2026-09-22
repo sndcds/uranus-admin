@@ -71,6 +71,10 @@ MUST NOT be enabled by a browser capability flag.
 
 ## Source-data rules
 
+- Canonical Uranus user display label is: display_name → username → email → UUID.
+  Blank strings count as missing. Use the shared backend SQL projection; labels
+  containing email remain restricted to authenticated admin responses.
+
 - Use explicit source columns, bound values and fixed application-owned identifiers.
   Do not add `SELECT *` domain projections or ORM reflection of Uranus tables.
 - Verify schema, joins, ownership and timestamp meaning before extending a query.

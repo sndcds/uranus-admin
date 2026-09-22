@@ -248,8 +248,8 @@ async def test_status_filters_on_search_and_list(search_client, headers):
 @pytest.mark.integration
 async def test_user_and_image_label_fallbacks(search_client, db_connection, headers):
     for assignments, label, subtitle in (
-        ("display_name=''", "max", "@max · max@example.org"),
-        ("username=NULL", "max@example.org", "max@example.org"),
+        ("display_name=''", "max", "max@example.org"),
+        ("username=NULL", "max@example.org", None),
         ("email=''", str(uid(1)), None),
     ):
         await db_connection.execute(

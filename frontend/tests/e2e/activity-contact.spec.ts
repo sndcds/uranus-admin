@@ -107,3 +107,22 @@ test('user contacts and avatars, organization logo spacing and map coordinates',
   expect(await venueImage.evaluate((el) => parseFloat(getComputedStyle(el).paddingLeft))).toBe(12)
   await expect(page.getByRole('link', { name: /Markierungen & Notizen/ })).toBeVisible()
 })
+
+for (const entityType of ['user', 'team_membership'] as const) {
+  test(`email-only ${entityType} uses backend title in Activity`, async ({ page }) => {
+    const source = activityFixture.items.find((item) => item.entity_type === entityType)!
+    const email = 'no-name@example.org'
+    await page.route('**/api/admin/api/v1/dashboard/activity**', (route) =>
+      route.fulfill({
+        json: {
+          ...activityFixture,
+          items: [{ ...source, entity_name: email }],
+          pagination: { page: 1, page_size: 50, total: 1, pages: 1 },
+        },
+      }),
+    )
+    await page.goto(`/activity?entity_type=${entityType}&period=7d`)
+    await expect(page.getByRole('heading', { level: 4, name: email, exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: source.entity_key, exact: true })).toHaveCount(0)
+  })
+}

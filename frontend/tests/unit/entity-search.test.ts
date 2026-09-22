@@ -283,3 +283,21 @@ it('sends period, restarts on changes and rejects stale period responses', async
   expect(api.entitySearch).toHaveBeenLastCalledWith(expect.objectContaining({ period: undefined }))
   wrapper.unmount()
 })
+
+it('renders an email label without duplicating it or substituting a UUID', async () => {
+  api.entitySearch.mockResolvedValue({
+    items: [{ ...item, label: 'no-name@example.org', subtitle: null }],
+  })
+  const wrapper = setup()
+  await wrapper.get('input').trigger('focus')
+  await wrapper.get('input').setValue('no-name')
+  await vi.advanceTimersByTimeAsync(275)
+  expect(wrapper.get('[role="option"] .font-medium').text()).toBe('no-name@example.org')
+  expect(
+    wrapper
+      .get('[role="option"]')
+      .text()
+      .match(/no-name@example.org/g),
+  ).toHaveLength(1)
+  expect(wrapper.get('[role="option"]').text()).not.toContain(item.entity_key)
+})

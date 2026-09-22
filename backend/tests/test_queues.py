@@ -189,3 +189,35 @@ async def test_sql_queue_pagination_matches_domain_mapping(db_connection, settin
                 result = await get_queue(db_connection, settings, kind, filters, now)
                 assert result.pagination.total == len(expected)
                 assert result.items == expected[(page - 1) * 3 : page * 3]
+
+
+async def test_email_label_preserves_existing_review_fingerprint(db_connection, settings, now):
+    """A presentation-only deployment must not invalidate old queue exceptions."""
+    import hashlib
+    import json
+
+    old = (now - timedelta(days=60)).replace(tzinfo=None)
+    for name in (None, ""):
+        await db_connection.execute(
+            text(
+                'UPDATE uranus."user" SET display_name=:name,username=NULL,'
+                "email='no-name@example.org',created_at=:old WHERE uuid=:id"
+            ),
+            {"name": name, "old": old, "id": uid(1)},
+        )
+        # Exact pre-change queue evidence shape (including its NULL/blank name).
+        historical_row = {
+            "user_id": uid(1),
+            "user_name": name,
+            "created_at": old,
+            "is_active": False,
+            "organizations": [uid(10)],
+        }
+        expected = hashlib.sha256(
+            json.dumps(historical_row, sort_keys=True, default=str).encode()
+        ).hexdigest()
+        results = {r.rule: r for r in await queue_findings(db_connection, settings, now)}
+        finding = results["user_activation_old"].findings[0]
+        assert finding.entity_name == "no-name@example.org"
+        assert finding.metadata["source_fingerprint"] == expected
+        assert "review_user_name" not in finding.model_dump_json()

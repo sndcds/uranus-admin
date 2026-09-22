@@ -143,3 +143,52 @@ for (const section of entitySectionSchema.options) {
     ).toBe(true)
   })
 }
+
+test('email-only user titles in list, autocomplete, detail and memberships', async ({ page }) => {
+  const email = 'no-name@example.org'
+  const fixture = entityFixture('users')
+  const item = { ...fixture.items[0]!, entity_name: email, email }
+  item.facts = { ...item.facts, username: null }
+  const detail = detailFixture('users')
+  await page.route('**/api/admin/api/v1/**', (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/timeline')) return route.fulfill({ json: timelineFixture('user') })
+    if (path.endsWith('/entity-search'))
+      return route.fulfill({
+        json: {
+          items: [
+            {
+              entity_type: 'user',
+              entity_key: item.entity_key,
+              label: email,
+              subtitle: null,
+              status: item.status,
+              action: item.action,
+            },
+          ],
+        },
+      })
+    if (path.includes('/users/'))
+      return route.fulfill({
+        json: {
+          ...detail,
+          item,
+          related: {
+            ...detail.related,
+            items: detail.related.items.map((related) => ({ ...related, entity_name: email })),
+          },
+        },
+      })
+    return route.fulfill({ json: { ...fixture, items: [item] } })
+  })
+  await page.goto('/users')
+  await expect(page.getByRole('heading', { level: 3, name: email, exact: true })).toBeVisible()
+  await page.getByRole('combobox', { name: 'Suche', exact: true }).fill(email)
+  const option = page.getByRole('option', { name: `${email} Benutzer`, exact: true })
+  await expect(option.locator('.font-medium')).toHaveText(email)
+  await option.click()
+  await expect(page.getByRole('heading', { level: 2, name: email, exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 3, name: email, exact: true })).toHaveCount(2)
+  await expect(page.getByText(item.entity_key, { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: item.entity_key, exact: true })).toHaveCount(0)
+})

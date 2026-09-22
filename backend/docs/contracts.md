@@ -347,12 +347,27 @@ sehr große Vollscans und produktive Lastmessungen sind Folgearbeit. Dieser PR f
 Worker noch neue Uranus-Indizes ein. PostgreSQL kann für COUNT/Sortierung weiterhin viele
 Zeilen lesen; begrenzte API-Seitengröße ist keine konstante Datenbanklaufzeit.
 
+## Canonical Uranus user presentation
+
+`repositories/user_presentation.py` defines the fixed `u`-alias SQL expression:
+`COALESCE(NULLIF(u.display_name,''),NULLIF(u.username,''),NULLIF(u.email,''),u.uuid::text)`.
+Activity, graph, entity lists/details/relations, search, queues, membership quality findings
+and Inbox context share it. Missing related users retain the referenced user UUID.
+Search subtitles omit identity values already used as the label. Only authenticated admin
+responses may contain email labels; public URLs, logs, external mail eligibility and
+independent admin actor identities are unchanged. Existing stored finding/audit snapshots
+are not rewritten; subsequent scans use the new projection and Inbox loads current context.
+Queue fingerprints retain their frozen historical name input (`review_user_name`) solely
+for evidence compatibility, never for display or API output, so this presentation change
+cannot invalidate existing review exceptions.
+
 ## Activity previews and public links
 
 Activity items optionally add `image_url`, `public_url`, `subtitle`, `notice`, and `address` (nullable
 strings). `email` is an additional nullable string, deliberately exposed **only for user
 items in this system-admin-protected response**, as requested for account administration.
-Other entity types do not expose user email, including membership rows. No full user objects,
+The separate `email` field stays null for other entity types, including membership rows.
+User and membership display labels use the canonical fallback above. No full user objects,
 password hashes, activation tokens, file paths or credentials are embedded.
 `location` is an optional nullable `{latitude, longitude}` object for organizations, read
 from their WGS84 `point` (`ST_Y` = latitude, `ST_X` = longitude). Missing, empty, non-finite
@@ -370,7 +385,7 @@ empty page). UUID joins retain the source UUID indexes; next-date lookup uses th
 | space | Parent venue name; no invented image relation or standalone public route |
 | event | Subtitle, next upcoming date regardless of release status, `main` image; public link only when the selected date and parent event meet the public-link conditions |
 | event_date | Actual event date/time (unknown time stays unknown), effective venue/space, parent event image |
-| user | Display name/username, activation status, email and a public avatar candidate URL; no Pluto image relationship is assumed |
+| user | Canonical user label, activation status, email and a public avatar candidate URL; no Pluto image relationship is assumed |
 | partner_request | Existing directed from/to names and status |
 | team_membership | Existing user/organization, invited/joined status; optional explicitly labelled `invited_at`, never a fabricated joined timestamp |
 | image | Image itself; linked name only if exactly one distinct context/target exists |
@@ -497,7 +512,9 @@ count/page queries. No production data or schema was changed.
 Both use existing system-admin authorization, read-only transactions and statement timeouts.
 Graph responses contain `root`, typed `nodes`, typed `edges`, `truncated`, `max_nodes=100`,
 `max_edges=200`; search returns `items`. Identity is `type:uuid`. A missing root returns 404.
-No email, credentials or full entity records are exposed.
+User labels use display_name → username → email → UUID, skipping empty strings.
+Email is therefore possible in protected node/search labels; credentials and full entity
+records remain excluded. User public URLs remain null.
 
 See the [relationship contract and source table](../../frontend/docs/entity-relationship-graph.md)
 for all six node types, twelve relations, bounded traversal, public-link rules, and UI behavior.

@@ -290,6 +290,7 @@ async def test_secret_projection_and_scoped_snapshot(
         "user_uuid",
         "has_joined",
         "accept_token_present",
+        "name",
     }
     output = "".join(
         f.model_dump_json()
