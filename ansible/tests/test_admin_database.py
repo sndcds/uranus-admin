@@ -574,9 +574,7 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
             patch.object(admin_db, "OWNER_UID", os.getuid()),
         ):
             with self.assertRaisesRegex(ValueError, "incomplete_release"):
-                admin_db.release_migration(
-                    str(self.release), self.manifest, "0" * 64, self.uv
-                )
+                admin_db.release_migration(str(self.release), self.manifest, "0" * 64, self.uv)
 
     def test_actual_alembic_failure_rolls_back_ddl_and_revokes_create(self):
         # Inject a failure after real migration DDL but before its transaction commits.
