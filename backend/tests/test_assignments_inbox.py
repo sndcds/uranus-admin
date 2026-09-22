@@ -208,12 +208,12 @@ async def test_workflow_assignment_derives_and_verifies_durable_entity_identity(
     assert created.entity_key == str(uid(20))
     assert created.workflow_key == str(uid(850))
 
-    mismatched = body.model_copy(update={"workflow_key": str(uid(851)), "entity_key": str(uid(21))})
+    mismatched = body.model_copy(update={"workflow_key": str(uid(851))})
     await admin_store.execute(
         geocode_request.insert().values(
             id=uid(851),
             entity_type="venue",
-            entity_key=uid(20),
+            entity_key=uid(21),
             source_fingerprint="c" * 64,
             query_fingerprint="d" * 64,
             status="failed",
