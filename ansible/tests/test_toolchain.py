@@ -313,6 +313,13 @@ class ToolchainTests(unittest.TestCase):
             "ExecStart={{ ua_node }}", (ROLE / "templates/frontend.service.j2").read_text()
         )
 
+    def test_role_never_executes_internal_python_environment_binaries(self):
+        for directory in ("library", "tasks", "templates"):
+            for path in (ROLE / directory).iterdir():
+                if path.is_file():
+                    with self.subTest(path=path):
+                        self.assertNotIn(".venv/bin/", path.read_text())
+
     def test_task_order_isolation_and_no_database_or_recovery_access(self):
         preflight = yaml.safe_load((ROLE / "tasks/preflight.yml").read_text())
         tc = next(

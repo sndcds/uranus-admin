@@ -17,7 +17,8 @@ uv run python -m app
 Kein Netzwerkzugriff auf Uranus beim Import; DB-Pool entsteht im Lifespan und wird beim Shutdown
 aufgeräumt. SIGTERM beendet Uvicorn geordnet. Für systemd ein dediziertes Benutzerkonto,
 `WorkingDirectory=/pfad/zum/projekt/backend` und eine geschützte EnvironmentFile verwenden;
-ExecStart kann auf `/pfad/zum/projekt/backend/.venv/bin/python -m app` zeigen.
+ExecStart soll `uv run python -m app` verwenden; Programme unter `.venv/bin/` werden
+nicht direkt gestartet.
 Kein produktives Deployment erfolgt hier.
 
 ## Datenbank und Rollen

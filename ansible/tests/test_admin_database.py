@@ -172,6 +172,43 @@ class AdminBootstrapContractTests(unittest.TestCase):
                     if stage != "postgres_connect":
                         conn.close.assert_called_once()
 
+    def test_release_migration_uses_only_uv_as_the_python_launcher(self):
+        manifest = {"commit": "a" * 40}
+        archive_hash = "b" * 64
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release = root / manifest["commit"]
+            (release / "deployment").mkdir(parents=True)
+            (release / ".complete").write_text(archive_hash + "\n")
+            (release / "release.json").write_text(json.dumps(manifest))
+            completed = subprocess.CompletedProcess([], 0)
+            with (
+                patch.object(admin_db, "RELEASE_ROOT", root),
+                patch.object(admin_db, "OWNER_UID", os.getuid()),
+                patch.object(admin_db.subprocess, "run", return_value=completed) as run,
+            ):
+                admin_db.release_migration(
+                    str(release), manifest, archive_hash, "/managed/toolchain/uv"
+                )("secret-dsn")
+        argv = run.call_args.args[0]
+        self.assertEqual(
+            argv[:9],
+            [
+                "/managed/toolchain/uv",
+                "run",
+                "--no-cache",
+                "--no-sync",
+                "--offline",
+                "--no-python-downloads",
+                "--no-env-file",
+                "python",
+                "-B",
+            ],
+        )
+        self.assertNotIn(".venv/bin", " ".join(argv))
+        self.assertEqual(run.call_args.kwargs["env"]["PYTHONDONTWRITEBYTECODE"], "1")
+        self.assertEqual(run.call_args.kwargs["env"]["UV_PYTHON_DOWNLOADS"], "never")
+
     def test_fixture_cleans_created_database_when_connect_fails(self):
         case = AdminBootstrapDatabaseTests("test_absent_plan_read_only_and_no_approval")
         case.parent = MagicMock()
@@ -251,6 +288,7 @@ class AdminBootstrapContractTests(unittest.TestCase):
         self.assertEqual(guarded["always"][0]["uranus_admin_database"]["state"], "revoke_create")
         self.assertTrue(module["no_log"])
         self.assertFalse(module["diff"])
+        self.assertEqual(module["uranus_admin_database"]["uv"], "{{ ua_uv }}")
         self.assertNotIn("credentials", module.get("register", ""))
         for task in yaml.safe_load((ROLE / "tasks/activate.yml").read_text()):
             self.assertNotIn("ADMIN_MIGRATION_DATABASE_URL", str(task))
@@ -289,7 +327,8 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
         (cls.release / "backend/.venv").symlink_to(ROOT / "backend/.venv")
         (cls.release / "deployment").mkdir()
         shutil.copy(ROLE / "files/admin_database_migrate.py", cls.release / "deployment")
-        if not (cls.release / "backend/.venv/bin/python").exists():
+        cls.uv = shutil.which("uv")
+        if cls.uv is None or not (cls.release / "backend/.venv").exists():
             raise RuntimeError("Install locked backend dependencies before migration tests")
 
     @classmethod
@@ -348,7 +387,9 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
             patch.object(admin_db, "RELEASE_ROOT", self.root),
             patch.object(admin_db, "OWNER_UID", os.getuid()),
         ):
-            admin_db.release_migration(str(self.release), self.manifest, self.archive_hash)(dsn)
+            admin_db.release_migration(
+                str(self.release), self.manifest, self.archive_hash, self.uv
+            )(dsn)
 
     def bootstrap(self, environment="test", approved=True, migrate=None):
         return self.boundary.bootstrap(environment, approved, self.values, migrate or self.migrate)
@@ -533,7 +574,9 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
             patch.object(admin_db, "OWNER_UID", os.getuid()),
         ):
             with self.assertRaisesRegex(ValueError, "incomplete_release"):
-                admin_db.release_migration(str(self.release), self.manifest, "0" * 64)
+                admin_db.release_migration(
+                    str(self.release), self.manifest, "0" * 64, self.uv
+                )
 
     def test_actual_alembic_failure_rolls_back_ddl_and_revokes_create(self):
         # Inject a failure after real migration DDL but before its transaction commits.

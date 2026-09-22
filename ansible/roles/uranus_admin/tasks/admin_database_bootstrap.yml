@@ -29,6 +29,7 @@
             credentials: "{{ (ua_existing_operator.content | default('') | b64decode | ua_parse_env) | combine(ua_privileged) | combine(ua_runtime) }}"
             release: "{{ ua_release_dir }}"
             archive_hash: "{{ ua_artifact_sha256 }}"
+            uv: "{{ ua_uv }}"
           become_user: postgres
           no_log: true
           diff: false

@@ -515,10 +515,13 @@ class AdminDatabase:
         return True
 
 
-def release_migration(release, manifest, archive_hash):
+def release_migration(release, manifest, archive_hash, uv):
     path = Path(release)
+    require(isinstance(uv, str) and bool(uv), "invalid_uv_path")
+    uv_path = Path(uv)
     require(path == RELEASE_ROOT / manifest["commit"], "invalid_release_path")
     require(not path.is_symlink() and path.stat().st_uid == OWNER_UID, "untrusted_release")
+    require(uv_path.is_absolute(), "invalid_uv_path")
     require((path / ".complete").read_text().strip() == archive_hash, "incomplete_release")
     require(
         json.loads((path / "release.json").read_text()) == manifest,
@@ -529,12 +532,24 @@ def release_migration(release, manifest, archive_hash):
         # Passwords are never argv or subprocess output. No inherited application env.
         completed = subprocess.run(
             [
-                str(path / "backend/.venv/bin/python"),
+                str(uv_path),
+                "run",
+                "--no-cache",
+                "--no-sync",
+                "--offline",
+                "--no-python-downloads",
+                "--no-env-file",
+                "python",
                 "-B",
                 str(path / "deployment/admin_database_migrate.py"),
             ],
             cwd=path / "backend",
-            env={"PATH": "/usr/bin:/bin", "ADMIN_MIGRATION_DATABASE_URL": dsn},
+            env={
+                "PATH": "/usr/bin:/bin",
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "UV_PYTHON_DOWNLOADS": "never",
+                "ADMIN_MIGRATION_DATABASE_URL": dsn,
+            },
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             timeout=300,
@@ -564,6 +579,7 @@ def main():
             "credentials": {"type": "dict", "default": {}, "no_log": True},
             "release": {"type": "path"},
             "archive_hash": {"type": "str"},
+            "uv": {"type": "path"},
         },
         supports_check_mode=True,
     )
@@ -606,7 +622,7 @@ def main():
                 p["environment"],
                 p["approved"],
                 p["credentials"],
-                release_migration(p["release"], p["manifest"], p["archive_hash"]),
+                release_migration(p["release"], p["manifest"], p["archive_hash"], p["uv"]),
             )
         stage = "inspect"
         report = boundary.inspect(p["environment"], p["approved"])
