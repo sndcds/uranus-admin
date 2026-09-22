@@ -68,6 +68,19 @@ reuse ActivityRow's already-safe preview, canonical links, public links, thumbna
 marks and graph links. A second nearly identical row component would add duplication;
 no universal row with a growing prop list is introduced.
 
+Workflow details may place `AssignmentEditor` after the immutable facts and review form. The
+editor keeps assignee, status and Berlin due date together, reports stale-version conflicts in
+place and uses the normal button/input styles. Loading failure and an empty admin roster are
+distinct single-alert states. Inbox rows use existing badges and list shells; they do not
+introduce a second card/list system.
+
+The geocoding detail follows the same detail hierarchy: PageHeader, entity/source panel,
+DetailFacts, candidate comparison, AssignmentEditor and retry workflow. Its candidate map is a
+tile-free coordinate view built from the already validated candidate coordinates. It fits all
+points, synchronizes keyboard-accessible markers with `.data-row` candidates and keeps the list
+as the complete textual alternative. It performs no tile request, adds no CSP origin and offers
+no coordinate mutation.
+
 **Analytics:** PageHeader → period/interval controls → RequestState → chart surface →
 metric controls → supporting recent records/distribution → accessible data table.
 Tables have captions and a local overflow container. Recent records remain a table:
@@ -135,7 +148,7 @@ There is no new PageContainer width override, UI dependency or backend contract.
 
 ## Verification / screenshots
 
-`tests/e2e/layout-consistency.spec.ts` visits all nineteen main/list/detail views at
+`tests/e2e/layout-consistency.spec.ts` visits all twenty-one main/list/detail views at
 1440×1000, 1024×768 and 390×844, checks shell dimensions, active section and overflow,
 and writes full-page screenshots plus mobile navigation screenshots to Playwright
 output. Existing suites cover filtering, pagination, auth loss, charts, graph

@@ -4,15 +4,19 @@ import { activityFixture } from '../fixtures/activity'
 import { statisticsFixture } from '../fixtures/statistics'
 import { graphFixture, graphPath } from '../fixtures/graph'
 import { entityFixture, detailFixture } from '../fixtures/entities'
+import { inboxFixture } from '../fixtures/inbox'
+import { geocodeDetail } from '../fixtures/geocoding'
 import { entitySectionSchema } from '../../shared/contracts'
 
 const sections = entitySectionSchema.options
 const routes = [
   '/',
   '/activity',
+  '/inbox',
   '/findings',
   '/checks',
   '/quality',
+  `/geocoding/${geocodeDetail.id}`,
   graphPath,
   '/statistics',
   ...sections.flatMap((section) => [
@@ -23,6 +27,7 @@ const routes = [
 const labels: Record<string, string> = {
   '/': 'Übersicht',
   activity: 'Aktivität',
+  inbox: 'Inbox',
   findings: 'Arbeitsliste',
   checks: 'Prüfläufe',
   quality: 'Datenqualität',
@@ -41,7 +46,7 @@ for (const viewport of [
   { width: 390, height: 844 },
 ]) {
   test(`shared shell and page review at ${viewport.width}px`, async ({ page }, info) => {
-    test.setTimeout(120000) // Nineteen pages in one viewport audit, not a longer interaction timeout.
+    test.setTimeout(120000) // Twenty-one pages in one viewport audit, not a longer interaction timeout.
     await page.setViewportSize(viewport)
     await page.route('**/api/admin/auth/session', (route) =>
       route.fulfill({ json: { subject: 'admin:layout-fixture', system_admin: true } }),
@@ -63,6 +68,10 @@ for (const viewport of [
       if (url.pathname.includes('/statistics/'))
         return route.fulfill({ json: statisticsFixture(url.searchParams) })
       if (url.pathname.endsWith('/activity')) return route.fulfill({ json: activityFixture })
+      if (url.pathname.endsWith('/inbox')) return route.fulfill({ json: inboxFixture })
+      if (url.pathname.includes('/geocode/requests/')) return route.fulfill({ json: geocodeDetail })
+      if (url.pathname.endsWith('/admins')) return route.fulfill({ json: { items: [] } })
+      if (url.pathname.endsWith('/assignments')) return route.fulfill({ json: null })
       if (url.pathname.endsWith('/graph')) return route.fulfill({ json: graphFixture })
       if (url.pathname.endsWith('/check-runs'))
         return route.fulfill({
@@ -78,6 +87,12 @@ for (const viewport of [
       await expect(
         page.locator('main').getByText('Daten werden geladen …', { exact: true }),
       ).toHaveCount(0)
+      if (path.startsWith('/geocoding/'))
+        await expect(page.getByRole('heading', { name: geocodeDetail.entity_name })).toBeVisible()
+      if (path === '/inbox')
+        await expect(
+          page.getByRole('heading', { name: inboxFixture.items[0]!.entity_name! }),
+        ).toBeVisible()
       const dimensions = await page.evaluate(() => {
         const main = document.querySelector('main')!.getBoundingClientRect()
         const header = document.querySelector('div.min-h-screen > header')!.getBoundingClientRect()
@@ -88,16 +103,17 @@ for (const viewport of [
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       )
-      const label = labels[path === '/' ? '/' : path.split('/')[1]!.split('?')[0]!]!
+      const label = labels[path === '/' ? '/' : path.split('/')[1]!.split('?')[0]!]
       if (viewport.width < 1024)
         await page.getByRole('button', { name: 'Navigation öffnen' }).click()
       const nav = page
         .getByRole('navigation', { name: 'Hauptnavigation' })
         .filter({ visible: true })
-      await expect(nav.getByRole('link', { name: label, exact: true })).toHaveAttribute(
-        'aria-current',
-        'page',
-      )
+      if (label)
+        await expect(nav.getByRole('link', { name: label, exact: true })).toHaveAttribute(
+          'aria-current',
+          'page',
+        )
       if (viewport.width >= 1024)
         expect(
           await page

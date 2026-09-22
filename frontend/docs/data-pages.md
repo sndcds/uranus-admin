@@ -16,13 +16,13 @@ Authentifizierung, serverseitige Sortierung und API-Verträge bleiben erhalten.
 
 ### Bedeutung der Kennzahlen
 
-| Kennzahl | Fachliche Basis | Zeitbezug / Ziel |
-| --- | --- | --- |
-| Neu eingegangen | `period_window` und tatsächliches `created_at` der neun Quelltabellen | `[from_at,to_at)`; Activity mit gewähltem `period` und `entity_type` |
-| Dringend | Nicht behobene persistierte Findings mit Priorität ≤ 2 oder `published_soon` | Bestand; gesamte Arbeitsliste, **kein exakt reproduzierbarer Dringlichkeitsfilter** |
-| Datenqualität | `persisted_counts`: alle Status außer `resolved`, inklusive Snooze/Ausnahmen | Bestand; echte Gesamtzahlen für Fehler, Warnungen und Hinweise |
-| Offene Vorgänge | Eigene paginierte Queues | Bestand; Summary liefert keine Gesamtzahl, daher „Nicht verfügbar“ und Links zu den Queues |
-| Prüfstatus | Eigene Prüflaufhistorie | Summary liefert keinen aktuellen Status; Link zu den gespeicherten Prüfläufen |
+| Kennzahl        | Fachliche Basis                                                              | Zeitbezug / Ziel                                                                           |
+| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Neu eingegangen | `period_window` und tatsächliches `created_at` der neun Quelltabellen        | `[from_at,to_at)`; Activity mit gewähltem `period` und `entity_type`                       |
+| Dringend        | Nicht behobene persistierte Findings mit Priorität ≤ 2 oder `published_soon` | Bestand; gesamte Arbeitsliste, **kein exakt reproduzierbarer Dringlichkeitsfilter**        |
+| Datenqualität   | `persisted_counts`: alle Status außer `resolved`, inklusive Snooze/Ausnahmen | Bestand; echte Gesamtzahlen für Fehler, Warnungen und Hinweise                             |
+| Offene Vorgänge | Eigene paginierte Queues                                                     | Bestand; Summary liefert keine Gesamtzahl, daher „Nicht verfügbar“ und Links zu den Queues |
+| Prüfstatus      | Eigene Prüflaufhistorie                                                      | Summary liefert keinen aktuellen Status; Link zu den gespeicherten Prüfläufen              |
 
 Quelle: `backend/app/services/dashboard.py`, `repositories/dashboard.py` und
 `services/checks.py::persisted_counts`. Der Standard ist persistiert; eine explizite
@@ -81,15 +81,15 @@ und fuchsia-Akzente. Filter und Aktionen umbrechen mobil. Fokusmarkierungen, Ski
 
 ## Seiten-Audit
 
-| Seite | Umsetzung / fachliche Besonderheit |
-| --- | --- |
-| `/` | Kompakter Zeitraum-Primärbereich vor Bestands-KPIs; serverseitig priorisierte Vorschau, begrenzte Regelvorschau, Vorgangszeilen und flache Schnellfilter |
-| `/activity` | Referenzstil auf gemeinsame Header/Filter/Summary/Pagination/EmptyState umgestellt; Tagesgruppen, unknown timestamps, Bilder/Modal und Actions unverändert |
-| `/findings` | Kompakte Filter ohne zusätzliche Filterüberschrift; Gesamtzahl/Seitencounts; kompakte Rows mit Severity-, Entity- und Status-Badges, Details, Action und Markierungen; alle Filter und page_size bleiben |
-| `/quality` | Header, echte aggregierte ResultSummary mit Severity-Chips, vollständige Regelzeilen in DataListShell; keine Filter oder Pagination ohne API-Unterstützung |
-| `/checks` | Kompakte Historie mit Start/Ende, Regeln, Befunden und deutschen Status-Badges; gemeinsame Pagination |
-| `/marks` | Gemeinsame Filter, Summary, Badges, Rows und Pagination; Filter-Reset behält einen gezielt gewählten Datensatz bei |
-| `/marks/:id` | Gemeinsamer Header und Badges; Bearbeitungsformular und chronologischer Audit-Verlauf bleiben absichtlich Detailansichten |
+| Seite           | Umsetzung / fachliche Besonderheit                                                                                                                                                                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`             | Kompakter Zeitraum-Primärbereich vor Bestands-KPIs; serverseitig priorisierte Vorschau, begrenzte Regelvorschau, Vorgangszeilen und flache Schnellfilter                                                                                                  |
+| `/activity`     | Referenzstil auf gemeinsame Header/Filter/Summary/Pagination/EmptyState umgestellt; Tagesgruppen, unknown timestamps, Bilder/Modal und Actions unverändert                                                                                                |
+| `/findings`     | Kompakte Filter ohne zusätzliche Filterüberschrift; Gesamtzahl/Seitencounts; kompakte Rows mit Severity-, Entity- und Status-Badges, Details, Action und Markierungen; alle Filter und page_size bleiben                                                  |
+| `/quality`      | Header, echte aggregierte ResultSummary mit Severity-Chips, vollständige Regelzeilen in DataListShell; keine Filter oder Pagination ohne API-Unterstützung                                                                                                |
+| `/checks`       | Kompakte Historie mit Start/Ende, Regeln, Befunden und deutschen Status-Badges; gemeinsame Pagination                                                                                                                                                     |
+| `/marks`        | Gemeinsame Filter, Summary, Badges, Rows und Pagination; Filter-Reset behält einen gezielt gewählten Datensatz bei                                                                                                                                        |
+| `/marks/:id`    | Gemeinsamer Header und Badges; Bearbeitungsformular und chronologischer Audit-Verlauf bleiben absichtlich Detailansichten                                                                                                                                 |
 | `/queues/:kind` | Gemeinsame Shell mit echten fachlichen Unterschieden: gerichtete Partneranfragen, Einladungsalter aus `invited_at`, Aktivierungsalter aus `created_at`; keine letzte Aktivität abgeleitet. URL-Filter werden bei Navigation ins Formular zurückgespiegelt |
 
 Alle existierenden Seiten sind berücksichtigt. Größere bewusst eigenständige Bereiche sind
@@ -127,6 +127,26 @@ bereits geladene IDs werden defensiv nicht dupliziert. Titel, Summary und Actor 
 gerendert, und nur Zod-validierte interne Finding-, Mark-, Notification-, Geocoding- und
 Queue-Ziele werden verlinkt.
 
+## Admin Inbox und Zuständigkeiten
+
+`/inbox` folgt demselben PageHeader/FilterBar/RequestState/ResultSummary/DataListShell/
+PaginationBar-Aufbau wie andere wachsende Datenlisten. `scope`, `attention`, `kind`,
+`entity_type`, `page` und `page_size` kommen ausschließlich aus der validierten URL. Browser-
+History und explizite Deep Links bleiben damit maßgeblich; ungültige oder mehrfach gelieferte
+Werte werden nicht stillschweigend übernommen.
+
+Die Kennzahlen sind serverseitige Gesamtzahlen über die deduplizierte aktive Inbox. Ein Finding
+mit aktivem Assignment erscheint nur als Assignment-Zeile. „Meine“ verwendet die unabhängige
+Admin-Konto-ID; der Development-Principal besitzt keine persönliche Inbox. Fälligkeit wird in
+Europe/Berlin angezeigt, und die Datumsauswahl wird DST-sicher auf das Ende des Berliner
+Kalendertags abgebildet.
+
+`AssignmentEditor` wird im Finding-Detail geladen und ruft Admin-Auswahl und aktuelle
+Zuständigkeit gemeinsam ab. Create/Patch senden ausschließlich den Zod-validierten Taskzustand;
+Actor, Zeitstempel, Versionserhöhung und Verlauf kommen vom Server. Ein 409-Konflikt fordert zum
+Neuladen auf und überschreibt keine zwischenzeitliche Änderung. Das ältere Finding-Review-Feld
+für eine Uranus-User-ID ist keine Admin-Zuständigkeit und wird vom Editor nicht verwendet.
+
 ### Logo quality
 
 `/quality` uses `QualityOverview` for a “Logos & Bilder” group with “Orte ohne Logo”,
@@ -140,9 +160,9 @@ identity and scan coverage are documented in [contracts](../../backend/docs/cont
 
 ### Adressqualität
 
-| rule | entity | severity | Bedeutung |
-| --- | --- | --- | --- |
-| postal_code_whitespace | organization/venue | warning | Führende oder abschließende Whitespaces in postal_code |
+| rule                   | entity             | severity | Bedeutung                                              |
+| ---------------------- | ------------------ | -------- | ------------------------------------------------------ |
+| postal_code_whitespace | organization/venue | warning  | Führende oder abschließende Whitespaces in postal_code |
 
 `/quality` zeigt unter „Adressqualität“ den Eintrag „Postleitzahlen mit Leerzeichen“,
 den Badge „Warnung“ und „Schlechte Datenqualität“. Die zentrale Präsentation in
@@ -247,16 +267,16 @@ URL-basiert; sie teilen weder Event-Termine noch Neuanlagen-Zeiträume.
 `useFilterPreferencesStore` (`app/stores/filter-preferences.ts`) hält ausschließlich
 Präferenzen im anwendungs-/SSR-request-lokalen Pinia-Speicher:
 
-| Bereich | Gemerkte Werte |
-| --- | --- |
-| `sharedPeriod` | `today`, `24h`, `7d`, `30d`, `90d` |
-| `entities.events` | `q`, Event-`status`, `temporal`, `period` |
-| `entities.users` | `q`, User-`status`, `period` |
-| `entities.organizations/venues/spaces` | `q`, `temporal`, `period` |
-| `entities.images` | `q`, `period` |
-| `activity` | Objektart und zuletzt explizit gewähltes normales Preset |
-| `statistics` | normales Preset, Intervall, Vergleich, ausgewählte Serien |
-| `graph` | Entitätstyp, Beziehungstyp, Suchorganisation, Tiefe |
+| Bereich                                | Gemerkte Werte                                            |
+| -------------------------------------- | --------------------------------------------------------- |
+| `sharedPeriod`                         | `today`, `24h`, `7d`, `30d`, `90d`                        |
+| `entities.events`                      | `q`, Event-`status`, `temporal`, `period`                 |
+| `entities.users`                       | `q`, User-`status`, `period`                              |
+| `entities.organizations/venues/spaces` | `q`, `temporal`, `period`                                 |
+| `entities.images`                      | `q`, `period`                                             |
+| `activity`                             | Objektart und zuletzt explizit gewähltes normales Preset  |
+| `statistics`                           | normales Preset, Intervall, Vergleich, ausgewählte Serien |
+| `graph`                                | Entitätstyp, Beziehungstyp, Suchorganisation, Tiefe       |
 
 `app/utils/periods.ts` zentralisiert Schema, Labels und Unterstützung. Dashboard und
 Activity unterstützen Heute/24 Stunden/7 Tage; Statistics 24 Stunden/7/30/90 Tage.
@@ -305,7 +325,6 @@ Suchbegriffe können personenbezogene Daten enthalten und bleiben ausschließlic
 Session-Arbeitsspeicher. Der bestehende Auth-Reset löscht mit `resetAll()` alle
 Präferenzen bei Logout (auch bei Serverfehler), Session-Verlust und erneutem Login.
 Backend, Auth-Grenzen und Source-Read-only-Vertrag bleiben unverändert.
-
 
 ## Erstellt und Terminlage
 
@@ -438,7 +457,6 @@ Unlocated records (NULL/EMPTY authoritative points) are excluded from scoped lis
 See [backend Geo Scope](../../backend/docs/geo-scope.md) for the API matrix, exact event
 and temporal semantics, provider limits/coverage, deployment and concrete follow-up PRs.
 
-
 ## Global Geo Scope: Phase 2
 
 The shared session scope now also applies to `/activity`, `/findings`, `/`,
@@ -472,15 +490,25 @@ retaining the session scope for supported pages. Stored filters/counts reflect t
 worker observation; changed source rows are displayed stale on revalidation.
 
 Missing-location findings receive a batch-enriched request UUID and link to the detail
-page. There is no geocode request per finding row. `LocationSuggestion` renders up to five
-escaped candidates with coordinates, address match percentage, fixed localized reasons,
-and constructed OpenStreetMap links plus shared attribution. Low-score single candidates
-may also be ambiguous. Importance is not confidence. No map iframe or CSP exception.
+page. There is no geocode request per finding row. The detail page presents the current source
+entity first, using the verified `source_address` as one value rather than parsing address parts
+in the browser. Technical request states have German workflow labels.
+
+`LocationSuggestion` renders up to five escaped candidates as `.data-row` entries with rank,
+coordinates, **Adressübereinstimmung**, fixed localized reasons and constructed OpenStreetMap
+links. The best stored candidate is labelled “Bester automatischer Treffer”, never as correct or
+safe. A tile-free coordinate map fits all returned positions and synchronizes its keyboard-
+accessible markers with the list. The list remains the complete textual alternative. OpenStreetMap
+attribution stays visible; no tile host, map iframe, new dependency or CSP exception is required.
+Low-score single candidates may also be ambiguous. Provider importance is not confidence.
 
 “Standort erneut prüfen” sends an authenticated, bodyless CSRF-protected POST and shows
 pending state. Double submissions and stale responses are guarded; the worker performs
 network work later. No client address, provider or coordinate override exists. No acceptance
 button exists: even a perfect match is a suggestion, never the authoritative Uranus point.
+Assignment loading failure and an empty assignable-admin roster appear as distinct concise
+alerts. Retry confirmation uses the shared success alert; pending/checking requests offer only
+“Prüfstand aktualisieren”.
 
 ### Quality Rules v2
 

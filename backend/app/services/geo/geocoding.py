@@ -1,4 +1,4 @@
-"""Deterministic address strategy v1. Importance never participates in matching."""
+"""Deterministic address strategy. Importance never participates in matching."""
 
 import hashlib
 import json
@@ -26,7 +26,8 @@ ADDRESS_KEYS = (
     "country",
     "country_code",
 )
-QUERY_VERSION = SCORING_VERSION = 1
+QUERY_VERSION = 1
+SCORING_VERSION = 2
 # ISO 3166-1 alpha-2/alpha-3 correspondence. Names limited to verified upstream DE/DA/EN
 # country_codes_en_de_da.csv entries for Germany and Denmark; unknown names score zero.
 ISO_PAIRS = (
@@ -68,6 +69,12 @@ COUNTRIES.update(
 
 def canonical(value: object) -> str:
     return " ".join(unicodedata.normalize("NFC", str(value)).split()) if value is not None else ""
+
+
+def street_key(value: object) -> str:
+    """Normalize only verified German street suffix spellings for exact comparison."""
+    key = canonical(value).casefold()
+    return re.sub(r"(?<=\w)(?:strasse|str\.?)$", "strasse", key)
 
 
 def fingerprint(value: object) -> str:
@@ -148,6 +155,9 @@ def score(row: dict[str, Any], address: dict[str, str]) -> tuple[float, list[str
     for key, targets, weight in comparisons:
         source = canonical(row.get(key)).casefold()
         normalized = [canonical(target).casefold() for target in targets if target]
+        if key == "street":
+            source = street_key(row.get(key))
+            normalized = [street_key(target) for target in targets if target]
         if key == "house_number":
             source = source.replace(" ", "")
             normalized = [v.replace(" ", "") for v in normalized]

@@ -58,20 +58,22 @@ Die frühere manuelle Token-Eingabe wird nicht mehr global eingebunden.
 | ----------------------------------------- | -------------------------------------------------------------------------------- |
 | `/` und `/quality`                        | GET dashboard/summary und findings                                               |
 | `/findings`                               | GET findings; Standard persisted, explizite Live-Diagnose, Filter/Pagination     |
+| `/inbox`                                  | GET inbox; GET admins; POST/PATCH assignments                                    |
 | `/activity`                               | GET dashboard/activity; Typ/Organisation/Zeitraum oder separate undatierte Liste |
 | `/queues/partner_requests`                | GET work-queues/partner_requests                                                 |
 | `/queues/team_invitations`                | GET work-queues/team_invitations                                                 |
 | `/queues/user_activation`                 | GET work-queues/user_activation                                                  |
 | `/checks`                                 | GET/POST check-runs                                                              |
 | Finding-Detail bei persistiertem Erstfund | PATCH finding-reviews                                                            |
-| Entity-Details                            | GET entities/{type}/{key}/timeline                                                |
+| Entity-Details                            | GET entities/{type}/{key}/timeline                                               |
 
 Die fachlichen Backend-Pfade haben Prefix `/api/v1`; Anmeldung verwendet `/auth`. Browserzugriff ausschließlich über gleiche Origin:
 `/api/admin/api/v1/findings` → `${NUXT_ADMIN_API_BASE}/api/v1/findings`.
 Health/ready und der bestehende spezielle Venue-Endpunkt bleiben für Diagnose verfügbar.
 
-Proxy-Allowlist: exakte bekannte Routen, GET sowie POST für Login/Logout, check-runs und
-record-marks; PATCH ausschließlich für finding-reviews und streng validierte Markierungs-UUIDs. Keine Domain-Updates. Begrenzte Querynamen, keine doppelten Parameter,
+Proxy-Allowlist: exakte bekannte Routen, GET sowie POST für Login/Logout, check-runs,
+record-marks und assignments; PATCH ausschließlich für finding-reviews sowie streng validierte
+Markierungs-/Assignment-UUIDs. Keine Domain-Updates. Begrenzte Querynamen, keine doppelten Parameter,
 feste konfigurierte Origin ohne Pfade/Credentials, keine Redirects. Nur explizites Authorization, das vorgesehene Sitzungscookie und Origin/CSRF werden
 weitergeleitet; keine fremden Cookies/Headers. Antworten `private, no-store`.
 Reviews verwenden einen strikt Zod-validierten Body. Alle Aufrufe haben 10 Sekunden Upstream-Timeout. Prüfläufe werden mit HTTP 202 eingereiht;
@@ -86,6 +88,18 @@ Responses werden zur Laufzeit validiert. Keine Demo-Daten außerhalb der Tests.
 `EntityTimeline` lädt auf allen sechs Entity-Detailseiten eine serverseitig aggregierte,
 stabil sortierte Seite und weitere Seiten nur über den opaken Cursor. Deep Links werden gegen
 eine geschlossene interne Allowlist validiert; fehlende Zeitpunkte erscheinen nicht erfunden.
+
+`/inbox` besitzt URL-basierte Filter für alle/eigene/nicht zugewiesene, kritische, heute fällige
+und überfällige Aufgaben. Das Backend ersetzt ein zugewiesenes Finding durch genau einen
+Assignment-Eintrag. `AssignmentEditor` lädt die begrenzte Admin-Auswahlliste erst im
+Finding-Detail; Versionen verhindern verlorene parallele Änderungen. Fälligkeitstage werden als
+Europe/Berlin-Kalendertage einschließlich DST in einen belegten `due_at`-Zeitpunkt umgerechnet.
+
+`/geocoding/:id` zeigt die betroffene Entität und unverändert gelieferte Quelladresse vor dem
+Kandidatenvergleich. Eine kachelfreie Koordinatenkarte stellt alle validierten Kandidaten relativ
+dar, koppelt Marker und Tastaturauswahl an die kompakte Kandidatenliste und benötigt weder externe
+Tile-Requests noch eine CSP-Erweiterung. Status, Matchgründe und Retry-Zustände sind deutsch; es
+existiert weiterhin keine Übernahme- oder Uranus-Schreibaktion.
 
 Die Activity-Seite verwendet kompakte Zeilen, deutsche Typ-Badges und Berliner Tagesgruppen.
 Typzahlen zählen ausschließlich die sichtbare Seite; undatierte Einträge bleiben ohne Chronologie.
@@ -118,8 +132,10 @@ keine Aussage über Login/Inaktivität. Partneranfragen liefern keine rekonstrui
 
 Ein Prüflauf benötigt die optionale Admin-Ablage im Backend. Nur vollständig erfolgreiche
 Prüfungen schließen abgedeckte Findings. Die persistierte Liste bietet open/in_progress/snoozed/
-exception; Snooze braucht Ablauf, Ausnahme einen Grund. Zuweisung verlangt eine existierende
-User-UUID. Es gibt keinen manuellen resolved-Schalter. Reviews ändern keine Domain-Daten.
+exception; Snooze braucht Ablauf, Ausnahme einen Grund. Das bestehende optionale Review-Feld für
+eine Uranus-User-UUID ist keine Admin-Zuständigkeit. Die neue Zuweisung verwendet ausschließlich
+aktive unabhängige Admin-Konten. Es gibt keinen manuellen resolved-Schalter. Reviews und
+Assignments ändern keine Domain-Daten.
 
 Die Dashboard-Vorschau lädt `active_only=true`: alle gespeicherten Status außer
 `resolved`, einschließlich Zurückstellungen und Ausnahmen. Gesamtzahl und Links zur
