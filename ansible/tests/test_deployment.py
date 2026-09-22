@@ -340,6 +340,12 @@ class ArtifactTests(unittest.TestCase):
             self.assertEqual(manifest["head"], "0014")
             self.assertEqual(len(manifest["runtime_grants"]), 19)
             self.assertEqual(set(manifest["admin_upgrade_contracts"]), {"0011", "0012", "0013"})
+            self.assertEqual(
+                manifest["admin_upgrade_contracts"]["0013"]["runtime_grants"],
+                manifest["runtime_grants"],
+            )
+            for table in ("assignment", "assignment_event"):
+                self.assertIn("snoozed_until", manifest["admin_columns"][table])
             self.assertNotIn("DELETE", json.dumps(manifest["runtime_grants"]))
             with self.assertRaises(AnsibleFilterError):
                 filters.artifact_manifest(paths[0], "0" * 64, commit)
