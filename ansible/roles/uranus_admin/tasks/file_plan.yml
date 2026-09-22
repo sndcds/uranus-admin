@@ -108,7 +108,7 @@
 - name: Stop every managed application service for an admin schema upgrade
   ansible.builtin.set_fact:
     ua_restart_services: "{{ (ua_restart_services + ua_services) | unique | list }}"
-  when: ua_admin_database_plan.admin_database.state == 'UPGRADEABLE'
+  when: ua_admin_database_plan.admin_database.state | default('READY') == 'UPGRADEABLE'
 
 - name: Report only safe file names and service decisions
   ansible.builtin.debug:

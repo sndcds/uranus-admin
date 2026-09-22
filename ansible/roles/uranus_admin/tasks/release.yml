@@ -226,7 +226,7 @@
         -B,
         "{{ ua_release_dir }}/deployment/verify_runtime.py",
         "{{ ua_public_origin }}",
-        "{{ 'pre-upgrade' if ua_admin_database_plan.admin_database.state == 'UPGRADEABLE' else 'ready' }}",
+        "{{ 'pre-upgrade' if ua_admin_database_plan.admin_database.state | default('READY') == 'UPGRADEABLE' else 'ready' }}",
       ]
     chdir: "{{ ua_release_dir }}/backend"
   become_user: oklab
