@@ -12,6 +12,7 @@ jobs:
     name: safety (${{ matrix.stack }})
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         include:
           - stack: pg16-postgis342-production
