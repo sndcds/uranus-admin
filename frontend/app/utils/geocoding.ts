@@ -1,23 +1,23 @@
 import type { GeocodeStatus } from '#shared/contracts'
 
 export const geocodeStatuses: Record<GeocodeStatus, string> = {
-  pending: 'Ausstehend',
-  checking: 'Wird geprüft',
-  candidate: 'Vorschlag gefunden',
-  ambiguous: 'Mehrdeutig',
-  not_found: 'Nicht gefunden',
-  insufficient_input: 'Adressdaten fehlen',
-  failed: 'Fehlgeschlagen',
-  stale: 'Veraltet',
+  pending: 'Prüfung vorgemerkt',
+  checking: 'Prüfung läuft',
+  candidate: 'Standortvorschlag vorhanden',
+  ambiguous: 'Mehrere mögliche Standorte',
+  not_found: 'Kein passender Standort gefunden',
+  insufficient_input: 'Zu wenig Adressdaten',
+  failed: 'Standortprüfung fehlgeschlagen',
+  stale: 'Vorschlag veraltet',
 }
 export const geocodeMessages: Record<GeocodeStatus, string> = {
-  pending: 'Standort wird geprüft.',
-  checking: 'Standort wird gerade geprüft.',
-  candidate: 'Wir haben anhand der Adresse einen möglichen Standort gefunden.',
-  ambiguous: 'Die Suche ist nicht eindeutig. Bitte die möglichen Standorte vergleichen.',
-  not_found: 'Für diese Adresse wurde kein eindeutiger Standort gefunden.',
-  insufficient_input: 'Für eine automatische Suche fehlen ausreichende Adressdaten.',
-  failed: 'Die Standortsuche konnte zuletzt nicht durchgeführt werden.',
+  pending: 'Prüfung vorgemerkt.',
+  checking: 'Prüfung läuft.',
+  candidate: 'Standortvorschlag vorhanden.',
+  ambiguous: 'Mehrere mögliche Standorte wurden gefunden.',
+  not_found: 'Für diese Adresse wurde kein passender Standort gefunden.',
+  insufficient_input: 'Für eine zuverlässige Standortsuche fehlen ausreichende Adressdaten.',
+  failed: 'Standortprüfung fehlgeschlagen.',
   stale:
     'Dieser Vorschlag ist nicht mehr aktuell. Die Adresse oder Position hat sich geändert oder der Datensatz wurde entfernt.',
 }

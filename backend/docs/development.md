@@ -98,7 +98,8 @@ uv run alembic downgrade base
 
 Ohne explizite Migrations-DSN wird abgebrochen; DATABASE_URL ist niemals ein DDL-Fallback.
 `admin.alembic_version`, `admin.check_run`, `admin.finding`, `admin.record_mark` und
-`admin.record_mark_event` bilden die Workflow-Ablage. Migration `0004` ergänzt ausschließlich
+`admin.record_mark_event`, `admin.assignment` und `admin.assignment_event` bilden die
+Workflow-Ablage. Migration `0004` ergänzt ausschließlich
 `admin.auth_account`, `admin.auth_system_admin`, `admin.auth_session` und `admin.auth_login_bucket`.
 Kein Create/Drop von uranus, keine automatischen Migrationen beim Start. Generierte Migrationen
 immer prüfen; Schemafilter plus eingeschränkte DB-Rolle verhindern Domain-Änderungen.
@@ -342,6 +343,8 @@ ergänzen die Anforderungen ab Migration 0004:
 | `admin.check_run` | ja | ja | ja | nein | nein | nein |
 | `admin.finding` | ja | ja | ja | nein | nein | nein |
 | `admin.finding_event` | ja | ja | nein | nein | nein | nein |
+| `admin.assignment` | ja | ja | ja | nein | nein | nein |
+| `admin.assignment_event` | ja | ja | nein | nein | nein | nein |
 | `admin.record_mark` | ja | ja | ja | nein | nein | nein |
 | `admin.record_mark_event` | ja | ja | nein | nein | nein | nein |
 | `admin.auth_account` (0004) | ja | nein | nein | nein | nein | nein |
@@ -475,8 +478,8 @@ REVOKE admin_migrator FROM admin_user;
 
 -- Optional: reproduces the verified read-only diagnostic access.
 GRANT SELECT ON admin.alembic_version TO admin_user;
-GRANT SELECT, INSERT, UPDATE ON admin.check_run, admin.finding, admin.record_mark, admin.url_check TO admin_user;
-GRANT SELECT, INSERT ON admin.finding_event, admin.record_mark_event TO admin_user;
+GRANT SELECT, INSERT, UPDATE ON admin.check_run, admin.finding, admin.record_mark, admin.url_check, admin.assignment TO admin_user;
+GRANT SELECT, INSERT ON admin.finding_event, admin.record_mark_event, admin.assignment_event TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.notification, admin.notification_delivery TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.geo_area TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.geocode_request TO admin_user;
@@ -485,7 +488,7 @@ GRANT SELECT, INSERT ON admin.notification_delivery_item TO admin_user;
 -- Migration 0004: runtime cannot create accounts or grant itself global access.
 GRANT SELECT ON admin.auth_account, admin.auth_system_admin TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.auth_session, admin.auth_login_bucket TO admin_user;
-REVOKE UPDATE, DELETE, TRUNCATE, TRIGGER ON admin.finding_event, admin.record_mark_event FROM admin_user;
+REVOKE UPDATE, DELETE, TRUNCATE, TRIGGER ON admin.finding_event, admin.record_mark_event, admin.assignment_event FROM admin_user;
 COMMIT;
 ```
 
@@ -594,7 +597,8 @@ PY
 
 Erwartet: `unsafe = false`. Der Check prüft Superuser/CREATEROLE, Schema-CREATE,
 Uranus-Schreibrechte einschließlich Spaltengrants sowie schädliche Rechte/Owner-Vererbung für
-`finding_event`, `record_mark_event`, `auth_account` und `auth_system_admin`. Die Runtime darf insbesondere
+`finding_event`, `assignment_event`, `record_mark_event`, `auth_account` und
+`auth_system_admin`. Die Runtime darf insbesondere
 keine Identitäten ändern oder globale Rechte vergeben. Er ist **keine vollständige Installationsprüfung**: Er prüft nicht, ob
 alle erforderlichen positiven Grants oder Tabellen existieren, und testet CREATEDB/LOGIN nicht
 separat. Deshalb Rollenattribute, Owner und Rechte-Matrix zusätzlich prüfen. `/ready` prüft zusätzlich diese Admin-Grenze, den aktuellen Migrationstand und alle

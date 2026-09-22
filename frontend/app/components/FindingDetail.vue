@@ -8,7 +8,6 @@ const { $adminApi } = useNuxtApp()
 const reviewStatus = ref<ReviewUpdate['status']>('in_progress')
 const comment = ref('')
 const reason = ref('')
-const assignee = ref('')
 const snooze = ref('')
 const saving = ref(false)
 const feedback = ref('')
@@ -24,7 +23,6 @@ async function saveReview() {
       status: reviewStatus.value,
       comment: comment.value || null,
       exception_reason: reason.value || null,
-      assigned_to: assignee.value || null,
       snoozed_until: snooze.value ? new Date(snooze.value).toISOString() : null,
     })
     if (revision === detailRevision) {
@@ -55,7 +53,6 @@ function open(value: Finding) {
       : 'in_progress'
   comment.value = value.comment ?? ''
   reason.value = value.exception_reason ?? ''
-  assignee.value = value.assigned_to ?? ''
   snooze.value = ''
   feedback.value = ''
   saving.value = false
@@ -165,9 +162,6 @@ defineExpose({ open })
           </select></label
         >
         <label
-          ><span class="label">Zuständig (User-UUID)</span><input v-model="assignee" class="input"
-        /></label>
-        <label
           ><span class="label">Kommentar</span
           ><textarea v-model="comment" class="input" maxlength="4000" />
         </label>
@@ -182,6 +176,11 @@ defineExpose({ open })
         <button class="button-primary" :disabled="saving">Review speichern</button>
         <p role="status">{{ feedback }}</p>
       </form>
+      <AssignmentEditor
+        v-if="finding.first_seen_at && finding.status !== 'resolved'"
+        :key="finding.id"
+        :finding-id="finding.id"
+      />
       <p v-else-if="!finding.first_seen_at" class="mt-5 text-sm text-slate-500">
         Für Reviews zuerst einen Prüflauf speichern.
       </p>

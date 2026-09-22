@@ -129,6 +129,37 @@ def test_name_only_country_postal_and_house_normalization():
     assert score(row, target)[0] == 0.6
 
 
+@pytest.mark.parametrize(
+    ("source_street", "provider_street"),
+    [
+        ("Holzstr", "Holzstraße"),
+        ("Holzstr.", "Holzstrasse"),
+        ("Norderstraße", "Norderstr"),
+    ],
+)
+def test_german_street_suffix_abbreviations_match_exactly(source_street, provider_street):
+    row = source()
+    row["street"] = source_street
+    address = {**provider_row()["address"], "road": provider_street}
+
+    match_score, reasons = score(row, address)
+
+    assert match_score == 1
+    assert "street_exact" in reasons
+    assert "street_mismatch" not in reasons
+
+
+def test_street_suffix_normalization_does_not_make_other_streets_equal():
+    row = source()
+    row["street"] = "Holzweg"
+    address = {**provider_row()["address"], "road": "Holzstraße"}
+
+    match_score, reasons = score(row, address)
+
+    assert match_score == 0.8
+    assert "street_mismatch" in reasons
+
+
 def test_fingerprints_query_and_generations():
     row = source()
     assert query_fingerprint(row, 1) != query_fingerprint(row, 5)
@@ -538,7 +569,7 @@ async def test_migration_upgrade_downgrade_preserves_existing(database, monkeypa
 
         before = await snapshots()
         await asyncio.to_thread(command.upgrade, cfg, "head")
-        assert await conn.fetchval("SELECT version_num FROM admin.alembic_version") == "0012"
+        assert await conn.fetchval("SELECT version_num FROM admin.alembic_version") == "0013"
         assert await conn.fetchval("SELECT to_regclass('admin.geocode_candidate') IS NOT NULL")
         assert (
             await conn.fetchval(

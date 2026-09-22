@@ -33,6 +33,8 @@ pytestmark = pytest.mark.integration
         "GRANT TRIGGER ON admin.record_mark_event TO admin_history_test",
         "GRANT UPDATE ON admin.finding_event TO admin_history_test",
         "GRANT DELETE ON admin.finding_event TO admin_history_test",
+        "GRANT UPDATE ON admin.assignment_event TO admin_history_test",
+        "GRANT DELETE ON admin.assignment_event TO admin_history_test",
     ],
     ids=[
         "candidate-update",
@@ -47,6 +49,8 @@ pytestmark = pytest.mark.integration
         "trigger",
         "finding-history-update",
         "finding-history-delete",
+        "assignment-history-update",
+        "assignment-history-delete",
     ],
 )
 async def test_boundary_rejects_excessive_runtime_grant(admin_store, db_connection, grant):
@@ -174,6 +178,8 @@ SELECT has_schema_privilege(current_user,'admin','USAGE'),
                 "check_run": (True, True, True, False, False, False),
                 "finding": (True, True, True, False, False, False),
                 "finding_event": (True, True, False, False, False, False),
+                "assignment": (True, True, True, False, False, False),
+                "assignment_event": (True, True, False, False, False, False),
                 "record_mark": (True, True, True, False, False, False),
                 "record_mark_event": (True, True, False, False, False, False),
             }

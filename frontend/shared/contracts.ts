@@ -196,6 +196,153 @@ export const filtersSchema = z.object({
 })
 export type FindingFilters = z.infer<typeof filtersSchema>
 
+export const adminOptionSchema = z
+  .object({ id: z.uuid(), login: z.string().min(1).max(320) })
+  .strict()
+export const adminOptionPageSchema = z
+  .object({ items: z.array(adminOptionSchema).max(200) })
+  .strict()
+export const assignmentStatusSchema = z.enum(['open', 'in_progress', 'done', 'cancelled'])
+export const assignmentWorkflowTypeSchema = z.enum(['geocode_request', 'notification_delivery'])
+export const assignmentSchema = z
+  .object({
+    id: z.uuid(),
+    finding_id: z.string().min(1).max(8192).nullable(),
+    workflow_type: assignmentWorkflowTypeSchema.nullable(),
+    workflow_key: z.string().min(1).max(1024).nullable(),
+    entity_type: z.string().min(1).max(64),
+    entity_key: z.string().min(1).max(1024),
+    assigned_to: adminOptionSchema,
+    assigned_by_subject: z.string().min(1).max(256),
+    status: assignmentStatusSchema,
+    due_at: timestamp.nullable(),
+    created_at: timestamp,
+    updated_at: timestamp,
+    completed_at: timestamp.nullable(),
+    version: count.min(1),
+  })
+  .strict()
+export const optionalAssignmentSchema = assignmentSchema.nullable()
+export const assignmentLookupSchema = z
+  .object({
+    finding_id: z.string().min(1).max(8192).optional(),
+    workflow_type: assignmentWorkflowTypeSchema.optional(),
+    workflow_key: z.string().min(1).max(1024).optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      (!!value.finding_id && !value.workflow_type && !value.workflow_key) ||
+      (!value.finding_id && !!value.workflow_type && !!value.workflow_key),
+  )
+export const assignmentCreateSchema = z
+  .object({
+    finding_id: z.string().min(1).max(8192).optional(),
+    workflow_type: assignmentWorkflowTypeSchema.optional(),
+    workflow_key: z.string().min(1).max(1024).optional(),
+    entity_type: z.string().min(1).max(64).optional(),
+    entity_key: z.string().min(1).max(1024).optional(),
+    assigned_to_admin_id: z.uuid(),
+    status: z.enum(['open', 'in_progress']).default('open'),
+    due_at: timestamp.nullable().optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      !!value.finding_id !== !!value.workflow_type &&
+      (!value.workflow_type ||
+        (!!value.workflow_key && !!value.entity_type && !!value.entity_key)) &&
+      (!value.finding_id || (!value.entity_type && !value.entity_key && !value.workflow_key)),
+  )
+export const assignmentUpdateSchema = z
+  .object({
+    version: count.min(1),
+    assigned_to_admin_id: z.uuid(),
+    status: assignmentStatusSchema,
+    due_at: timestamp.nullable(),
+  })
+  .strict()
+export type AdminOption = z.infer<typeof adminOptionSchema>
+export type Assignment = z.infer<typeof assignmentSchema>
+export type AssignmentStatus = z.infer<typeof assignmentStatusSchema>
+export type AssignmentWorkflowType = z.infer<typeof assignmentWorkflowTypeSchema>
+export type AssignmentCreate = z.infer<typeof assignmentCreateSchema>
+export type AssignmentUpdate = z.infer<typeof assignmentUpdateSchema>
+
+export const inboxKindSchema = z.enum([
+  'assignment',
+  'finding',
+  'geocode_request',
+  'notification_delivery',
+])
+export const inboxScopeSchema = z.enum(['all', 'mine', 'unassigned'])
+export const inboxAttentionSchema = z.enum(['all', 'critical', 'due_today', 'overdue'])
+export const inboxFiltersSchema = z
+  .object({
+    scope: inboxScopeSchema.default('all'),
+    attention: inboxAttentionSchema.default('all'),
+    kind: inboxKindSchema.optional(),
+    entity_type: z.string().min(1).max(64).optional(),
+    page: z.coerce.number().int().min(1).max(100000).default(1),
+    page_size: z.coerce.number().int().min(1).max(100).default(25),
+  })
+  .strict()
+export const inboxHrefSchema = z
+  .string()
+  .max(4096)
+  .refine((value) => {
+    try {
+      const url = new URL(value, 'https://admin.invalid')
+      if (url.origin !== 'https://admin.invalid' || `${url.pathname}${url.search}` !== value)
+        return false
+      const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+      if (new RegExp(`^/(?:geocoding|notifications/deliveries)/${uuid}$`, 'i').test(url.pathname))
+        return !url.search
+      if (url.pathname !== '/findings') return false
+      return (
+        [...url.searchParams.keys()].sort().join(',') === 'entity_key,rule' &&
+        !!url.searchParams.get('entity_key')
+      )
+    } catch {
+      return false
+    }
+  })
+export const inboxItemSchema = z
+  .object({
+    id: z.string().min(1).max(8192),
+    kind: inboxKindSchema,
+    title: z.string().min(1).max(500),
+    summary: z.string().min(1).max(5000),
+    entity_type: z.string().min(1).max(64),
+    entity_key: z.string().min(1).max(1024),
+    entity_name: z.string().min(1).max(500),
+    organization_name: z.string().max(500).nullable(),
+    entity_action: actionSchema.nullable(),
+    severity: severitySchema.nullable(),
+    status: z.string().min(1).max(64),
+    workflow_status: z.string().max(64).nullable(),
+    candidate_count: count.nullable(),
+    occurred_at: timestamp,
+    due_at: timestamp.nullable(),
+    is_overdue: z.boolean(),
+    due_today: z.boolean(),
+    assignment: assignmentSchema.nullable(),
+    href: inboxHrefSchema,
+  })
+  .strict()
+export const inboxPageSchema = z
+  .object({
+    items: z.array(inboxItemSchema).max(100),
+    counts: z
+      .object({ critical: count, mine: count, unassigned: count, due_today: count, overdue: count })
+      .strict(),
+    pagination: findingPageSchema.shape.pagination,
+    observed_at: timestamp,
+  })
+  .strict()
+export type InboxFilters = z.infer<typeof inboxFiltersSchema>
+export type InboxPage = z.infer<typeof inboxPageSchema>
+
 // Own API codes only. Messages are validated but replaced with local safe text.
 export const adminErrorStatuses = {
   geocode_request_not_found: 404,
@@ -229,6 +376,12 @@ export const adminErrorStatuses = {
   mark_not_found: 404,
   record_not_found: 404,
   mark_conflict: 409,
+  assignment_not_found: 404,
+  assignment_task_not_found: 404,
+  assignment_assignee_invalid: 422,
+  assignment_task_invalid: 422,
+  assignment_task_closed: 422,
+  assignment_conflict: 409,
 } as const
 export const adminErrorSchema = z
   .object({
@@ -709,6 +862,11 @@ export const timelineKindSchema = z.enum([
   'mark_updated',
   'mark_completed',
   'mark_reopened',
+  'assignment_created',
+  'assignment_updated',
+  'assignment_completed',
+  'assignment_reopened',
+  'assignment_cancelled',
   'notification_delivery',
   'url_check',
   'geocode_request',

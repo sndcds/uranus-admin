@@ -44,16 +44,15 @@ test('missing-location workflow, retry, global queue and session reset', async (
   await page.getByRole('button', { name: 'Anwenden', exact: true }).click()
   await expect(page).toHaveURL(/rule=venue_missing_location/)
   await page.getByRole('link', { name: 'Standortvorschlag prüfen' }).click()
-  await expect(page.getByText('Übereinstimmung: 100 %')).toBeVisible()
+  await expect(page.getByText('100 % Adressübereinstimmung')).toBeVisible()
   await expect(page.getByText('Hausnummer stimmt überein')).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Auf OpenStreetMap ansehen' })).toHaveAttribute(
-    'href',
-    'https://www.openstreetmap.org/way/123',
-  )
+  await expect(
+    page.getByRole('link', { name: /Kandidat 1 auf OpenStreetMap öffnen/ }),
+  ).toHaveAttribute('href', 'https://www.openstreetmap.org/way/123')
   await expect(page.getByRole('button', { name: /übernehmen/i })).toHaveCount(0)
   await page.getByRole('button', { name: 'Standort erneut prüfen' }).click()
   await expect(page.getByText('Neue Prüfung wurde eingeplant.')).toBeVisible()
-  await expect(page.getByText('Standort wird geprüft.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Prüfung vorgemerkt.', { exact: false })).toBeVisible()
   await page.getByRole('link', { name: 'Alle Standortvorschläge' }).click()
   await page.getByRole('combobox', { name: 'Status', exact: true }).selectOption('ambiguous')
   await page.getByRole('combobox', { name: 'Entität', exact: true }).selectOption('venue')
@@ -76,6 +75,68 @@ test('missing-location workflow, retry, global queue and session reset', async (
   await page.getByLabel('Passwort', { exact: true }).fill('test-only-password')
   await page.getByRole('button', { name: 'Anmelden', exact: true }).click()
   await expect(page.getByRole('button', { name: /Gebiet: Alle/ })).toBeVisible()
+})
+
+test('detail compares candidates and presents each workflow state without mobile overflow', async ({
+  page,
+}) => {
+  const item = structuredClone(geocodeDetail)
+  await page.route('**/api/admin/api/v1/**', (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/admins')) return route.fulfill({ json: { items: [] } })
+    if (url.pathname.endsWith('/assignments')) return route.fulfill({ json: null })
+    if (url.pathname.includes('/geocode/requests/')) return route.fulfill({ json: item })
+    return route.continue()
+  })
+  item.status = 'ambiguous'
+  item.candidates.push({
+    ...item.candidates[0]!,
+    id: '00000000-0000-4000-8000-000000000903',
+    rank: 2,
+    latitude: 54.674079,
+    longitude: 9.790914,
+    display_name: 'Holzstraße 14, Wagersrott',
+  })
+  item.candidate_count = 2
+  await page.goto(`/geocoding/${item.id}`)
+  await expect(page.getByRole('heading', { name: item.entity_name })).toBeVisible()
+  await expect(
+    page.getByText('Mehrere mögliche Standorte wurden gefunden.', { exact: false }),
+  ).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Karte der Standortkandidaten' })).toBeVisible()
+  const secondMarker = page.getByRole('button', { name: /Kandidat 2 auf der Karte:/ })
+  await secondMarker.click()
+  await expect(secondMarker).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('listitem').filter({ hasText: 'Holzstraße 14' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  )
+  await expect(page.getByRole('link', { name: 'Ort öffnen' })).toHaveAttribute(
+    'href',
+    `/venues/${item.entity_key}`,
+  )
+  await expect(
+    page.getByText('Derzeit ist kein aktiver Systemadministrator', { exact: false }),
+  ).toBeVisible()
+
+  for (const [status, message] of [
+    ['not_found', 'Für diese Adresse wurde kein passender Standort gefunden.'],
+    ['insufficient_input', 'Für eine zuverlässige Standortsuche fehlen ausreichende Adressdaten.'],
+    ['failed', 'Standortprüfung fehlgeschlagen.'],
+    ['pending', 'Prüfung vorgemerkt.'],
+    ['checking', 'Prüfung läuft.'],
+  ] as const) {
+    item.status = status
+    item.candidates = []
+    item.best_candidate = null
+    item.candidate_count = 0
+    await page.reload()
+    await expect(page.getByText(message, { exact: false }).first()).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Karte der Standortkandidaten' })).toHaveCount(0)
+  }
+  await expect(page.getByRole('button', { name: 'Prüfstand aktualisieren' })).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
 test('real proxy enforces bodyless retry and forwards Origin/CSRF to protected backend', async ({
