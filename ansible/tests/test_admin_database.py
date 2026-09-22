@@ -665,6 +665,7 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
                     '00000000-0000-4000-8000-000000000800','open')""")
         self.conn.commit()
         history_before = self.execute("SELECT to_jsonb(e) FROM admin.assignment_event e")
+        self.conn.commit()  # Release the test reader before ALTER TABLE acquires its DDL lock.
         plan = self.boundary.inspect("production", upgrade_approved=True)
         self.assertEqual(plan["state"], "UPGRADEABLE")
         self.assertEqual(plan["current_head"], "0013")

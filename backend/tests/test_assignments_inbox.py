@@ -48,14 +48,16 @@ async def provision_admin(database, identifier, login="operator", *, active=True
     await engine.dispose()
 
 
-async def add_finding(admin_store, identity="finding:one", severity="error", field="description"):
+async def add_finding(
+    admin_store, identity="finding:one", severity="error", field="description", entity_key=None
+):
     await admin_store.execute(
         finding.insert().values(
             id=identity,
             rule="missing_description",
             severity=severity,
             entity_type="event",
-            entity_key=str(uid(30)),
+            entity_key=entity_key or str(uid(30)),
             field=field,
             message="Beschreibung fehlt",
             first_seen_at=NOW - timedelta(days=2),
@@ -667,7 +669,7 @@ async def test_reminder_sort_pagination_counts_and_batched_queries(
     assignments = []
     for number, days in enumerate([3, 1, 1]):
         identity = f"finding:{number}"
-        await add_finding(admin_store, identity, field=f"field-{number}")
+        await add_finding(admin_store, identity, entity_key=str(uid(30 + number)))
         created = await create_assignment(
             admin_store,
             AssignmentCreate(
@@ -685,15 +687,24 @@ async def test_reminder_sort_pagination_counts_and_batched_queries(
     counted_admin, counted_source = CountedConnection(admin_store), CountedConnection(db_connection)
     # Preserve the real transaction manager while counting SQL calls.
     counted_admin.begin = admin_store.begin
-    first = await inbox_page(
+    batch = await inbox_page(
         counted_admin,
         counted_source,
+        InboxFilters(attention="snoozed", page_size=100),
+        now,
+        "Europe/Berlin",
+        f"admin:{uid(800)}",
+    )
+    assert len(batch.items) == 3
+    assert counted_admin.calls == 4 and counted_source.calls == 1
+    first = await inbox_page(
+        admin_store,
+        db_connection,
         InboxFilters(attention="snoozed", page_size=1),
         now,
         "Europe/Berlin",
         f"admin:{uid(800)}",
     )
-    assert counted_admin.calls == 4 and counted_source.calls == 1
     assert first.counts.snoozed == 3 and first.counts.overdue == first.counts.critical == 0
     assert first.pagination.total == first.pagination.pages == 3
     ids = [first.items[0].id]
