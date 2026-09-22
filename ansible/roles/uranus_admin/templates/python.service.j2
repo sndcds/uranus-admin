@@ -4,7 +4,7 @@ After=network-online.target postgresql.service
 Wants=network-online.target
 
 [Service]
-Type=simple
+Type={{ 'oneshot' if ua_component == 'notification-worker' else 'simple' }}
 User=oklab
 Group=oklab
 WorkingDirectory={{ ua_release_dir }}/backend
@@ -12,10 +12,12 @@ EnvironmentFile={{ ua_config_dir }}/runtime.env
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=FORWARDED_ALLOW_IPS=127.0.0.1
 UnsetEnvironment=ADMIN_MIGRATION_DATABASE_URL ADMIN_AUTH_MANAGEMENT_DATABASE_URL DEV_ADMIN_TOKEN PYTHONPATH PYTHONHOME
-ExecStart={{ ua_uv }} run --no-cache --no-sync --offline --no-python-downloads --no-env-file python -m {{ ua_module }}
+ExecStart={{ ua_uv }} run --no-cache --no-sync --offline --no-python-downloads --no-env-file python -m {{ ua_module }}{{ ' --once' if ua_component == 'notification-worker' else '' }}
+{% if ua_component != 'notification-worker' %}
 Restart=on-failure
 RestartSec=5s
-TimeoutStartSec=30s
+{% endif %}
+TimeoutStartSec={{ '15min' if ua_component == 'notification-worker' else '30s' }}
 TimeoutStopSec=60s
 KillSignal={{ 'SIGINT' if ua_component == 'check-worker' else 'SIGTERM' }}
 NoNewPrivileges=true
@@ -32,5 +34,7 @@ UMask=0027
 StandardOutput=journal
 StandardError=journal
 
+{% if ua_component != 'notification-worker' %}
 [Install]
 WantedBy=multi-user.target
+{% endif %}

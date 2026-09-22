@@ -47,6 +47,9 @@ class TargetContractTests(unittest.TestCase):
                     "head": "0011",
                     "runtime_grants": {"finding": ["SELECT"]},
                     "environment_keys": [],
+                    "operator_grants": {"alembic_version": ["SELECT"]},
+                    "admin_indexes": ["finding_pkey"],
+                    "admin_columns": {"finding": ["uuid"]},
                 }
             ).encode()
             with tarfile.open(artifact, "w:gz") as archive:

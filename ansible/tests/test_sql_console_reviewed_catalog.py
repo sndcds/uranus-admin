@@ -193,6 +193,8 @@ class ReviewedCatalogDatabaseTests(unittest.TestCase):
     def test_profile_drift_and_unreviewed_dependencies_block_without_mutation(self):
         if not self.profile():
             return
+        self.boundary.execute("ALTER ROLE oklab NOCREATEDB")
+        self.assertEqual(self.boundary.inspect()["blockers"], [])
         cases = [
             ("ALTER FUNCTION public.normalize_german(text) COST 99", "unreviewed_custom_function:"),
             (
@@ -216,8 +218,23 @@ class ReviewedCatalogDatabaseTests(unittest.TestCase):
                 "unreviewed_function_owner_or_language:",
             ),
             ("ALTER ROLE oklab CREATEROLE", "unreviewed_extension_schema_or_owner:pgcrypto"),
+            ("ALTER ROLE oklab SUPERUSER", "unreviewed_custom_function:"),
+            ("ALTER ROLE oklab REPLICATION", "unreviewed_custom_function:"),
+            ("ALTER ROLE oklab BYPASSRLS", "unreviewed_custom_function:"),
+            ("ALTER ROLE oklab NOLOGIN", "unreviewed_custom_function:"),
+            ("ALTER ROLE oklab NOINHERIT", "unreviewed_custom_function:"),
+            (
+                sql.SQL("ALTER DATABASE {} OWNER TO postgres").format(
+                    sql.Identifier(self.database)
+                ),
+                "unreviewed_custom_function:",
+            ),
             (
                 "CREATE ROLE fixture_member; GRANT oklab TO fixture_member",
+                "unreviewed_custom_function:",
+            ),
+            (
+                "CREATE ROLE fixture_parent; GRANT fixture_parent TO oklab",
                 "unreviewed_custom_function:",
             ),
             ("CREATE ROLE fixture_unknown LOGIN", "unexpected_public_temp_consumer:"),
@@ -246,6 +263,28 @@ class ReviewedCatalogDatabaseTests(unittest.TestCase):
                     [],
                 )
                 self.boundary.execute("ROLLBACK TO SAVEPOINT drift")
+
+    def test_nocreatedb_source_owner_provisions_without_role_elevation(self):
+        if not self.profile():
+            return
+        self.boundary.execute("ALTER ROLE oklab NOCREATEDB")
+        self.assertEqual(self.boundary.inspect()["blockers"], [])
+        self.assertTrue(self.boundary.provision(base.PASSWORD))
+        self.assertEqual(self.boundary.inspect()["blockers"], [])
+        self.assertFalse(self.boundary.provision(base.PASSWORD))
+        self.assertEqual(
+            self.boundary.rows("SELECT rolcreatedb FROM pg_roles WHERE rolname='oklab'"),
+            [(False,)],
+        )
+        for role in (console.OWNER, console.READER):
+            self.assertEqual(
+                self.boundary.rows(
+                    "SELECT has_function_privilege(%s,'public.normalize_german(text)','EXECUTE'),"
+                    "has_function_privilege(%s,'uranus.update_modified_at()','EXECUTE')",
+                    (role, role),
+                ),
+                [(False, False)],
+            )
 
     def test_no_regrant_after_manual_hardening_and_lists_are_independent(self):
         contract = self.profile()

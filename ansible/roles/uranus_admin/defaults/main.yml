@@ -9,14 +9,18 @@ ua_tls_certificate_key: "/etc/letsencrypt/live/{{ ua_nginx_server_name }}/privke
 ua_release_sha: ""
 ua_artifact: ""
 ua_artifact_sha256: ""
-# Every real deployment needs explicit approval after a reviewed dry run.
+# Production uses manual approval; the test/staging controller can record a successful dry run.
 ua_apply_confirmation: ""
 ua_reviewed_dry_run: ""
 ua_maintenance_window: ""
 ua_backup_reference: ""
 ua_manage_notification_timer: false
 ua_disable_notification_timer_approved: false
+ua_notification_units:
+  - uranus-admin-notification-worker.service
+  - uranus-admin-notification-worker.timer
 ua_secret_adoption_approved: false
+ua_admin_database_bootstrap_approved: false
 ua_sql_console_provision_approved: false
 ua_debug: false
 ua_runtime_overrides: {}

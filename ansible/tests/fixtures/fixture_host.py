@@ -37,6 +37,8 @@ class ActionModule(ActionBase):
                 result.update(
                     rc=4, stdout="LoadState=not-found\nActiveState=inactive\nUnitFileState="
                 )
+                if "--value" in args["argv"]:
+                    result["stdout"] = "not-found"
                 state["events"].append(event)
                 path.write_text(json.dumps(state))
                 return result
@@ -46,6 +48,8 @@ class ActionModule(ActionBase):
                 + "\nUnitFileState="
                 + previous["unit_file_state"]
             )
+            if "--value" in args["argv"]:
+                result["stdout"] = "loaded"
             result["rc"] = 0
             event["unit"] = unit
         elif kind == "command" and args.get("argv", [""])[0] == "/usr/bin/pgrep":
@@ -71,7 +75,13 @@ class ActionModule(ActionBase):
                 for unit in state.get("app_units", []):
                     if (Path(state["unit_dir"]) / unit).is_file():
                         state["services"].setdefault(
-                            unit, {"active": False, "unit_file_state": "disabled"}
+                            unit,
+                            {
+                                "active": False,
+                                "unit_file_state": "static"
+                                if unit == "uranus-admin-notification-worker.service"
+                                else "disabled",
+                            },
                         )
                     elif unit in state["services"] and not state["services"][unit]["active"]:
                         state["services"].pop(unit)

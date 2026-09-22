@@ -53,6 +53,7 @@
       when:
         - ua_manage_notification_timer | bool
         - ua_disable_notification_timer_approved | bool
+        - ua_previous_services['uranus-admin-notification-worker.timer'].exists
 
     - name: Stop the notification invocation only under both explicit flags
       ansible.builtin.systemd_service:
@@ -61,6 +62,7 @@
       when:
         - ua_manage_notification_timer | bool
         - ua_disable_notification_timer_approved | bool
+        - ua_previous_services['uranus-admin-notification-worker.service'].exists
 
     - name: Stop only affected application services
       ansible.builtin.systemd_service:
@@ -90,12 +92,7 @@
 
     - name: Verify installed bootstrap units before loading or starting them
       ansible.builtin.command:
-        argv:
-          - systemd-analyze
-          - verify
-          - /etc/systemd/system/uranus-admin-backend.service
-          - /etc/systemd/system/uranus-admin-check-worker.service
-          - /etc/systemd/system/uranus-admin-frontend.service
+        argv: "{{ ['systemd-analyze', 'verify'] + ((ua_services + (ua_notification_units if ua_manage_notification_timer | bool else [])) | map('regex_replace', '^', '/etc/systemd/system/') | list) }}"
       changed_when: false
       when: ua_target_environment in ['staging', 'test']
 
@@ -165,6 +162,16 @@
         follow: false
         owner: root
         group: root
+
+    - name: Enable managed test and staging notifications after successful healthchecks
+      ansible.builtin.systemd_service:
+        name: uranus-admin-notification-worker.timer
+        state: started
+        enabled: true
+      when:
+        - ua_target_environment in ['staging', 'test']
+        - ua_manage_notification_timer | bool
+        - ua_disable_notification_timer_approved | bool
 
     - name: Mark activation successful
       ansible.builtin.set_fact:

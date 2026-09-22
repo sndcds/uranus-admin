@@ -36,7 +36,7 @@ async def main():
         or settings.notifications_delivery_enabled
         or settings.admin_auth_management_database_url is not None
         or settings.dev_admin_token is not None
-        or settings.auth_public_origin != "https://admin.kulturbytes.de"
+        or settings.auth_public_origin != sys.argv[1]
     ):
         raise ValueError("Unsafe settings")
     console = None

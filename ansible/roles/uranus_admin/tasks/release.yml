@@ -206,6 +206,10 @@
   become_user: oklab
   changed_when: false
 
+- name: Bootstrap only the explicitly approved clean non-production admin database
+  ansible.builtin.import_tasks: admin_database_bootstrap.yml
+  when: ua_admin_database_plan.admin_database.state | default('READY') == 'ABSENT'
+
 - name: Validate production settings and the actual runtime DSNs before stopping services
   ansible.builtin.command:
     argv:
@@ -220,6 +224,7 @@
         python,
         -B,
         "{{ ua_release_dir }}/deployment/verify_runtime.py",
+        "{{ ua_public_origin }}",
       ]
     chdir: "{{ ua_release_dir }}/backend"
   become_user: oklab
@@ -234,19 +239,14 @@
     owner: root
     group: root
     mode: "0644"
-  loop: "{{ ua_files[:5] + (ua_files | selectattr('path', 'equalto', '/etc/nginx/conf.d/uranus-admin-ratelimit.conf') | list) }}"
+  loop: "{{ ua_files | selectattr('path', 'match', '^/etc/(systemd/system/|nginx/)') | list }}"
   loop_control:
     label: "{{ item.path }}"
   diff: false
 
 - name: Validate prepared units against installed release executables
   ansible.builtin.command:
-    argv:
-      - systemd-analyze
-      - verify
-      - "{{ ua_release_dir }}/deployment/uranus-admin-backend.service"
-      - "{{ ua_release_dir }}/deployment/uranus-admin-check-worker.service"
-      - "{{ ua_release_dir }}/deployment/uranus-admin-frontend.service"
+    argv: "{{ ['systemd-analyze', 'verify'] + ((ua_services + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else [])) | map('regex_replace', '^', ua_release_dir + '/deployment/') | list) }}"
   changed_when: false
 
 - name: Validate the candidate Nginx vhost before installation

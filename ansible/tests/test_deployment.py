@@ -290,6 +290,30 @@ class ArtifactTests(unittest.TestCase):
                         path, hashlib.sha256(path.read_bytes()).hexdigest(), "a" * 40
                     )
 
+    def test_old_admin_manifest_is_rejected_before_target_access(self):
+        complete = {
+            "commit": "a" * 40,
+            "head": "0011",
+            "runtime_grants": {"finding": ["SELECT"]},
+            "environment_keys": ["DATABASE_URL"],
+            "operator_grants": {"alembic_version": ["SELECT"]},
+            "admin_indexes": ["alembic_version_pkc"],
+            "admin_columns": {"alembic_version": ["version_num"]},
+        }
+        for key in ("operator_grants", "admin_indexes", "admin_columns"):
+            with self.subTest(key=key), tempfile.TemporaryDirectory() as directory:
+                manifest = {k: v for k, v in complete.items() if k != key}
+                path = Path(directory) / "old-manifest.tar.gz"
+                content = json.dumps(manifest).encode()
+                with tarfile.open(path, "w:gz") as archive:
+                    entry = tarfile.TarInfo("release.json")
+                    entry.mode, entry.size = 0o644, len(content)
+                    archive.addfile(entry, io.BytesIO(content))
+                with self.assertRaisesRegex(AnsibleFilterError, "Repackage the selected release"):
+                    filters.artifact_manifest(
+                        path, hashlib.sha256(path.read_bytes()).hexdigest(), "a" * 40
+                    )
+
     def test_reproducible_committed_sources_and_current_metadata(self):
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
@@ -569,7 +593,7 @@ class DeploymentBoundaryTests(unittest.TestCase):
             "ua_node": "/usr/bin/node",
             "ua_uv": "/usr/local/bin/uv",
         }
-        for name in ("backend", "check-worker", "frontend"):
+        for name in ("backend", "check-worker", "frontend", "notification-worker"):
             unit = env.get_template(name + ".service.j2").render(values)
             self.assertIn("User=oklab", unit)
             if name != "frontend":
@@ -584,6 +608,12 @@ class DeploymentBoundaryTests(unittest.TestCase):
             for setting in ("ProtectSystem=strict", "ProtectHome=read-only", "PrivateTmp=true"):
                 self.assertIn(setting, unit)
             self.assertNotIn("ReadWritePaths=", unit)
+        notification = env.get_template("notification-worker.service.j2").render(values)
+        self.assertIn("Type=oneshot", notification)
+        self.assertIn("python -m app.notification_worker --once", notification)
+        self.assertIn("EnvironmentFile=/etc/uranus-admin/runtime.env", notification)
+        self.assertNotIn("[Install]", notification)
+        self.assertNotIn("Restart=", notification)
         frontend = env.get_template("frontend.service.j2").render(values)
         self.assertNotIn("EnvironmentFile=", frontend)
         self.assertIn("NUXT_TRUSTED_INGRESS_IPS=127.0.0.1", frontend)
@@ -628,10 +658,13 @@ class DeploymentBoundaryTests(unittest.TestCase):
                 "ua_uv": "/usr/bin/true",
             }
             paths = []
-            for name in ("backend", "check-worker", "frontend"):
+            for name in ("backend", "check-worker", "frontend", "notification-worker"):
                 path = root / ("uranus-admin-" + name + ".service")
                 path.write_text(env.get_template(name + ".service.j2").render(values))
                 paths.append(str(path))
+            timer = root / "uranus-admin-notification-worker.timer"
+            timer.write_text(env.get_template("notification-worker.timer.j2").render(values))
+            paths.append(str(timer))
             result = subprocess.run(
                 ["systemd-analyze", "verify", "--man=no", *paths],
                 capture_output=True,

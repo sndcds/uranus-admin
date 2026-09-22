@@ -1,5 +1,7 @@
 inventory.local.yml
 approvals.local.yml
+approvals.local.yml.lock
+deploy-runs.local/
 .venv/
 __pycache__/
 *.tar.gz

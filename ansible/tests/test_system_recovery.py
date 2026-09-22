@@ -81,6 +81,11 @@ class StaticRecoveryBoundaries(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode == 0, allowed, result.stdout + result.stderr)
 
+    def test_rendered_file_lists_never_expose_runtime_contents(self):
+        for task in yaml.safe_load((ROLE / "tasks/file_plan.yml").read_text()):
+            if "ua_files" in task.get("ansible.builtin.set_fact", {}):
+                self.assertTrue(task.get("no_log"), task["name"])
+
     def test_rescue_closure_is_system_only(self):
         allowed = {
             "ansible.builtin.copy",
@@ -107,7 +112,7 @@ class StaticRecoveryBoundaries(unittest.TestCase):
             "failed_when",
         }
 
-        def audit(tasks, in_rescue=False):
+        def audit(tasks, in_rescue=False, admin_bootstrap=False):
             for task in tasks:
                 if in_rescue:
                     serialized = json.dumps(task)
@@ -117,18 +122,48 @@ class StaticRecoveryBoundaries(unittest.TestCase):
                     )
                     for key, args in task.items():
                         # Reject aliases/action/local_action as well as unknown FQCNs.
-                        self.assertIn(key, allowed | keywords)
+                        extra = (
+                            {"uranus_admin_database", "ansible.builtin.debug", "become_user"}
+                            if admin_bootstrap
+                            else set()
+                        )
+                        self.assertIn(key, allowed | keywords | extra)
+                        if key == "uranus_admin_database":
+                            self.assertEqual(args["state"], "plan")
+                            self.assertNotIn("credentials", args)
                         if key == "ansible.builtin.command":
-                            self.assertEqual(args, "/usr/sbin/nginx -t")
+                            self.assertIn(
+                                args,
+                                (
+                                    "/usr/sbin/nginx -t",
+                                    {
+                                        "argv": [
+                                            "systemctl",
+                                            "show",
+                                            "{{ item }}",
+                                            "--property=LoadState",
+                                            "--value",
+                                        ]
+                                    },
+                                ),
+                            )
+                            if isinstance(args, dict):
+                                self.assertEqual(
+                                    task["loop"], "{{ ua_notification_units | reverse | list }}"
+                                )
+                                self.assertFalse(task["changed_when"])
                         if key == "ansible.builtin.import_tasks":
                             self.assertEqual(args, "system_recovery.yml")
                             audit(yaml.safe_load((ROLE / "tasks" / args).read_text()), True)
                 for block in ("block", "rescue", "always"):
                     if block in task:
-                        audit(task[block], in_rescue or block == "rescue")
+                        audit(task[block], in_rescue or block == "rescue", admin_bootstrap)
 
         for path in (ROLE / "tasks").glob("*.yml"):
-            audit(yaml.safe_load(path.read_text()))
+            audit(
+                yaml.safe_load(path.read_text()),
+                admin_bootstrap=path.name == "admin_database_bootstrap.yml",
+            )
 
     def test_postgresql_modules_stay_in_read_only_preflight(self):
         def walk(tasks, path):
@@ -178,6 +213,7 @@ class ActivationIntegrationTests(unittest.TestCase):
         operator_changed=False,
         bootstrap=False,
         bootstrap_environment="test",
+        missing_legacy=False,
     ):
         first_adoption = first_adoption or bootstrap
         with tempfile.TemporaryDirectory() as directory:
@@ -280,6 +316,11 @@ class ActivationIntegrationTests(unittest.TestCase):
                 default_site.parent.mkdir(parents=True, exist_ok=True)
                 default_site.write_text("unrelated default site\n")
 
+            if missing_legacy:
+                (legacy / "backend/.env").unlink()
+                (legacy / "backend").rmdir()
+                originals[str(legacy / "backend/.env")] = None
+
             operator_values = {"ADMIN_MIGRATION_DATABASE_URL": "existing-operator-fixture"}
             console_values = {**operator_values, "SQL_CONSOLE_DATABASE_URL": "console-fixture"}
             operator_path = config / "operator.env"
@@ -311,7 +352,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                     services[name]["active"] = False
                 services[NOTIFICATION[1]]["unit_file_state"] = "disabled"
             if bootstrap:
-                for name in APP_SERVICES:
+                for name in APP_SERVICES + (NOTIFICATION if manage else []):
                     services.pop(name)
             state = {
                 "services": services,
@@ -326,7 +367,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "config_dir": str(config),
                 "current": str(release_root / "current"),
                 "unit_dir": str(root / "etc/systemd/system"),
-                "app_units": APP_SERVICES,
+                "app_units": APP_SERVICES + (NOTIFICATION if bootstrap and manage else []),
             }
             initial_services = copy.deepcopy(services)
             state_path = root / "state.json"
@@ -416,6 +457,8 @@ class ActivationIntegrationTests(unittest.TestCase):
             observed = json.loads(state_path.read_text())
             output = result.stdout + result.stderr
             if bootstrap:
+                if missing_legacy:
+                    self.assertFalse((legacy / "backend/.env").exists(), output)
                 self.assertEqual(default_site.read_text(), "unrelated default site\n")
                 if check:
                     self.assertFalse(config.exists(), output)
@@ -423,6 +466,10 @@ class ActivationIntegrationTests(unittest.TestCase):
                     self.assertEqual(config.stat().st_mode & 0o777, 0o700, output)
                 managed = [
                     *files[:5],
+                    *(
+                        root / "etc/systemd/system" / unit
+                        for unit in (NOTIFICATION if manage else [])
+                    ),
                     root / "etc/nginx/conf.d/uranus-admin-ratelimit.conf",
                     config / "managed-infrastructure.json",
                 ]
@@ -446,6 +493,31 @@ class ActivationIntegrationTests(unittest.TestCase):
                         all(observed["services"][name]["active"] for name in APP_SERVICES)
                     )
                     self.assertEqual((release_root / "current").resolve(), release)
+                    if manage:
+                        self.assertTrue(observed["services"][NOTIFICATION[1]]["active"])
+                        self.assertEqual(
+                            observed["services"][NOTIFICATION[1]]["unit_file_state"], "enabled"
+                        )
+                        self.assertEqual(
+                            observed["services"][NOTIFICATION[0]],
+                            {"active": False, "unit_file_state": "static"},
+                        )
+                        start = next(
+                            i
+                            for i, e in enumerate(observed["events"])
+                            if e["task"]
+                            == (
+                                "Enable managed test and staging notifications "
+                                "after successful healthchecks"
+                            )
+                        )
+                        self.assertTrue(
+                            all(
+                                i < start
+                                for i, e in enumerate(observed["events"])
+                                if e["kind"] == "uri"
+                            )
+                        )
                     repeated = subprocess.run(
                         result.args,
                         env={
@@ -626,12 +698,15 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "Publish the successfully checked release pointer",
                 "Install reviewed configuration",
                 "Stop only affected application services",
+                "Enable managed test and staging notifications after successful healthchecks",
             ):
                 tasks.insert(
                     index + 1,
                     {
                         "name": (
-                            "After pointer publication"
+                            "After notification timer activation"
+                            if task["name"].startswith("Enable managed test")
+                            else "After pointer publication"
                             if task["name"].startswith("Publish")
                             else (
                                 "After service stop"
@@ -815,6 +890,46 @@ class ActivationIntegrationTests(unittest.TestCase):
 
     def test_bootstrap_failure_before_daemon_reload_removes_new_units(self):
         self.run_activation("After configuration installation", bootstrap=True)
+
+    def test_notification_bootstrap_needs_no_legacy_environment(self):
+        self.run_activation(bootstrap=True, manage=True, approved=True, missing_legacy=True)
+
+    def test_notification_bootstrap_dry_run_creates_nothing(self):
+        self.run_activation(bootstrap=True, manage=True, approved=True, check=True)
+
+    def test_notification_bootstrap_starts_timer_and_repeats_without_changes(self):
+        self.run_activation(bootstrap=True, manage=True, approved=True)
+
+    def test_notification_staging_bootstrap_starts_timer_and_repeats_without_changes(self):
+        self.run_activation(
+            bootstrap=True, bootstrap_environment="staging", manage=True, approved=True
+        )
+
+    def test_notification_bootstrap_recovers_after_health_failure(self):
+        self.run_activation(
+            "Check backend liveness and database readiness",
+            bootstrap=True,
+            manage=True,
+            approved=True,
+        )
+
+    def test_notification_bootstrap_recovers_after_timer_enable_failure(self):
+        self.run_activation(
+            "Enable managed test and staging notifications after successful healthchecks",
+            bootstrap=True,
+            manage=True,
+            approved=True,
+        )
+
+    def test_notification_bootstrap_removes_enabled_timer_on_failure(self):
+        self.run_activation(
+            "After notification timer activation", bootstrap=True, manage=True, approved=True
+        )
+
+    def test_notification_bootstrap_recovers_before_daemon_reload(self):
+        self.run_activation(
+            "After configuration installation", bootstrap=True, manage=True, approved=True
+        )
 
 
 if __name__ == "__main__":

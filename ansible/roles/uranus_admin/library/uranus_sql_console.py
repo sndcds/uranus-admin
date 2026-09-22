@@ -959,13 +959,15 @@ class Boundary:
 
         oklab already controls the source data. Accept its ownership only at
         explicitly fingerprinted objects, with the audited attributes and no
-        role membership in either direction. This never transfers ownership.
+        role membership in either direction. NOCREATEDB is also accepted: removing
+        that capability must not require granting it back. This never changes roles
+        or transfers ownership.
         """
         return bool(
             self.rows(
                 """SELECT 1 FROM pg_roles r JOIN pg_database d ON d.datdba=r.oid
             WHERE r.oid=%s AND r.rolname='oklab' AND d.datname=current_database()
-              AND r.rolcanlogin AND r.rolcreatedb AND r.rolinherit
+              AND r.rolcanlogin AND r.rolinherit
               AND NOT (r.rolsuper OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m
                               WHERE m.member=r.oid OR m.roleid=r.oid)""",

@@ -68,6 +68,26 @@ def valid_target_origin(origin, environment):
     return (origin == "https://admin.kulturbytes.de") == (environment == "production")
 
 
+def console_bootstrap_blockers(blockers, admin_plan):
+    """Defer only absent-role dependencies; all catalog/security drift still blocks."""
+    if not admin_plan.get("bootstrap_allowed") or admin_plan.get("state") != "ABSENT":
+        return blockers
+    missing = set(admin_plan["missing_roles"])
+    if not missing or not missing <= {
+        "uranus_reader",
+        "admin_user",
+        "admin_migrator",
+        "admin_auth_operator",
+    }:
+        return blockers
+    return [
+        b
+        for b in blockers
+        if b not in {"missing_temp_contract_login_role:" + name for name in missing}
+        and not b.startswith("missing_execute_contract_login_role:")
+    ]
+
+
 def runtime_environment(
     values, allowed, overrides=None, debug=False, public_origin="https://admin.kulturbytes.de"
 ):
@@ -189,6 +209,17 @@ def artifact_manifest(path, expected_hash, expected_sha):
             for k, v in manifest["runtime_grants"].items()
         ):
             raise AnsibleFilterError("Invalid runtime grants manifest")
+        for key, expected_type in (
+            ("operator_grants", dict),
+            ("admin_indexes", list),
+            ("admin_columns", dict),
+        ):
+            if not isinstance(manifest.get(key), expected_type) or not manifest[key]:
+                raise AnsibleFilterError(
+                    "Release manifest lacks the admin database contract (" + key + "). "
+                    "Repackage the selected release with the current package_release.py; "
+                    "review its new archive SHA256. No database repair is needed for this error."
+                )
         return manifest
     except (OSError, ValueError, KeyError, TypeError, AttributeError, tarfile.TarError):
         raise AnsibleFilterError("Release archive or manifest unavailable/invalid") from None
@@ -227,6 +258,7 @@ class FilterModule:
             "ua_render_env": render_environment,
             "ua_runtime_env": runtime_environment,
             "ua_valid_target_origin": valid_target_origin,
+            "ua_console_bootstrap_blockers": console_bootstrap_blockers,
             "ua_privileged_env": privileged_environment,
             "ua_manifest": artifact_manifest,
             "ua_activation_plan": activation_plan,
@@ -248,6 +280,8 @@ def service_snapshot(results, environment="production"):
                 "uranus-admin-backend.service",
                 "uranus-admin-check-worker.service",
                 "uranus-admin-frontend.service",
+                "uranus-admin-notification-worker.service",
+                "uranus-admin-notification-worker.timer",
             }
             and fields.get("LoadState") == "not-found"
             and fields.get("ActiveState") == "inactive"
@@ -262,11 +296,14 @@ def service_snapshot(results, environment="production"):
             }
             continue
         allowed = {"enabled", "disabled"}
+        active_states = {"active"}
         if name == "uranus-admin-notification-worker.service":
             allowed.add("static")
+            # A running Type=oneshot remains activating until its bounded command exits.
+            active_states.add("activating")
         if (
             fields.get("LoadState") != "loaded"
-            or fields.get("ActiveState") not in {"active", "inactive", "failed"}
+            or fields.get("ActiveState") not in active_states | {"inactive", "failed"}
             or fields.get("UnitFileState") not in allowed
         ):
             raise AnsibleFilterError(
@@ -274,8 +311,8 @@ def service_snapshot(results, environment="production"):
             )
         snapshot[name] = {
             "exists": True,
-            "state": "running" if fields["ActiveState"] == "active" else "stopped",
-            "active": fields["ActiveState"] == "active",
+            "state": "running" if fields["ActiveState"] in active_states else "stopped",
+            "active": fields["ActiveState"] in active_states,
             "enabled": fields["UnitFileState"] == "enabled",
             "unit_file_state": fields["UnitFileState"],
         }

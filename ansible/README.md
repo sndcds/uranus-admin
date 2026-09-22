@@ -2,10 +2,12 @@
 
 Diese Rolle unterstützt **Production-Adoption** und **Staging-/Test-Bootstrap** auf
 Zielsystemen, die den technischen Deployment-Vertrag erfüllen.
-Sie ist kein Datenbank-Bootstrap und kein allgemeines Server-Provisioning.
-Der bestehende Source/Admin-Preflight bleibt **READ ONLY**; es gibt keine
-Admin-Migration und keinen Datenbank-Restore. Ein eigener, zusätzlich freigegebener
-Schritt verwaltet ausschließlich die isolierte SQL-Console-Infrastruktur.
+Sie ist kein allgemeines Server- oder Source-Datenbank-Provisioning.
+Der Source/Admin-Preflight bleibt **READ ONLY**. Nur für einen sauberen Erstaufbau
+auf Test/Staging kann ein separat freigegebener Schritt die Admin-Infrastruktur
+mit Alembic aus dem ausgewählten Release anlegen. Production migriert niemals.
+Es gibt keinen Datenbank-Restore. Ein eigener, zusätzlich freigegebener
+Schritt verwaltet die isolierte SQL-Console-Infrastruktur.
 Er verändert keine Uranus-Domain-Daten, Uranus-Tabellendefinitionen oder bestehenden
 App-Rollenattribute. Der versionierte TEMP-Vertrag erhält die TEMP-Rechte der vier
 App-Rollen und der explizit geprüften weiteren Verbraucher durch gezielte Grants.
@@ -30,13 +32,17 @@ LXD-, Staging- und Testziele mit beliebigen Hostnamen können damit geprüft wer
 Auch sie müssen Ubuntu 24.04, systemd 255, den geprüften PostgreSQL-/PostGIS-Stand,
 lokale Pfade, Socket/Port und die Datenbank-/Rollenverträge erfüllen. Nginx muss
 installiert, gültig konfiguriert und gestartet sein. Betriebssystempakete,
-PostgreSQL-Cluster, Uranus-Schemas/-Daten und Admin-Migrationen werden nicht angelegt
-oder ausgeführt. Der Service-/Build-User `oklab` muss bereits existieren.
+PostgreSQL-Cluster und Uranus-Schemas/-Daten werden nicht angelegt. Admin-Migrationen
+sind ausschließlich im unten beschriebenen sauberen Test-/Staging-Erstaufbau erlaubt.
+Der Service-/Build-User `oklab` muss bereits existieren.
 
-Alle drei Umgebungen verwenden dieselben Preflight- und Apply-Gates. Ein Echtlauf
+Alle drei Umgebungen verwenden dieselben technischen Preflight- und Apply-Gates. Ein Echtlauf
 benötigt weiterhin die exakte Apply-Bestätigung, geprüften Dry Run, Wartungsfenster,
 Backup-Referenz und Secret-Adoption-Freigabe sowie gegebenenfalls separate Console-
-und Notification-Freigaben. `test` und `staging` überspringen keine Sicherheitsprüfung;
+und Notification-Freigaben. Für Test/Staging kann der unten beschriebene explizite
+Controller-Aufruf die Freigaben nach erfolgreichem Dry Run automatisch dokumentieren
+und direkt anwenden. Production bleibt beim manuellen Review-/Apply-Ablauf.
+`test` und `staging` überspringen keine Sicherheitsprüfung;
 Tags, Skip-Tags und `--start-at-task` bleiben verboten. Der Controller-Callback in
 `ansible.cfg` verweigert selektive Ausführung vor der ersten Aufgabe, damit auch
 der Input-Guard nicht übersprungen werden kann. Ein Target-Marker ist nicht nötig.
@@ -117,6 +123,108 @@ Konfigurationsdateien und den neu angelegten Site-Link, lädt Systemd neu und st
 vorhandene Dateien inklusive Owner/Mode sowie vorherige Service-Zustände wieder her.
 Release-/Build-Verzeichnisse und geschützte Recovery-Belege bleiben zur Diagnose
 erhalten; fremde Inhalte werden nicht rekursiv gelöscht. Es gibt keinen DB-Rollback.
+
+## Sauberer Admin-Datenbank-Erstaufbau auf Test/Staging
+
+Production bleibt **Adoption-only**: Das vollständige Admin-Schema einschließlich
+exaktem Release-Head und Rollen-/Grant-Vertrag muss existieren. Auch
+`ua_admin_database_bootstrap_approved: true` erlaubt dort weder Bootstrap noch
+Migrationen oder Grant-Reparaturen.
+
+Der read-only Preflight unterscheidet deterministisch:
+
+| Zustand   | Bedeutung                                                                                                                     | Verhalten                                                                        |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `ABSENT`  | Kein `admin`-Schema; Source-Basis und vorhandene Rollen entsprechen dem Vertrag.                                              | Nur Test/Staging dürfen einen ausdrücklich freigegebenen Erstaufbau durchführen. |
+| `READY`   | Tabellen, Indizes, Owner, Rollen, Memberships, Head und Grants passen zum Release.                                            | Normaler Deployment-Pfad; kein Bootstrap und keine Migration.                    |
+| `DRIFTED` | Teilweise vorhandenes Schema, fehlende Versionstabelle, falscher Head/Owner, unbekannte Objekte oder unsichere Rechte/Rollen. | Abbruch in jeder Umgebung; keine automatische Reparatur.                         |
+
+Unverhandelbar bleiben die lokale Datenbank `oklab`, das Schema `uranus`, die
+Kerntabellen und sämtliche Tabellen des bestehenden Source-Reader-Vertrags sowie
+PostGIS. Source-Owner müssen zum bestehenden Datenbank-Owner-Vertrag passen;
+RLS, indirekte Relationsquellen und unzulässige Rechte blockieren. Die Rolle erzeugt
+keine Datenbank, Source-Tabelle oder Extension und importiert keine Uranus-Daten.
+
+`ua_admin_database_bootstrap_approved` ist standardmäßig `false`. Ein Echtlauf
+benötigt zusätzlich sämtliche bisherigen Apply-Freigaben. Im nicht geheimen
+Inventory steht beispielsweise:
+
+```yaml
+ua_target_environment: test
+ua_public_origin: https://admin.kulturbytes.test
+```
+
+Die zusätzliche Freigabe gehört ausschließlich in die lokale, gitignorierte
+`ansible/approvals.local.yml` mit Dateimodus `0600`:
+
+```yaml
+ua_admin_database_bootstrap_approved: true
+```
+
+Keine Passwörter oder DSNs in Inventory, Approval-Datei oder CLI aufnehmen. Der
+Bootstrap übernimmt die bereits geschützten Environment-Quellen: Source-/Runtime-
+DSNs aus `runtime.env` beziehungsweise der geprüften Legacy-Quelle, Migrator- und
+Operator-DSNs aus dem rootgeschützten `operator.env` beziehungsweise der ausdrücklich
+adoptierten Quelle. Alle vier Rollen benötigen ihre eigenen lokalen Zugangsdaten.
+Passwörter werden nicht rotiert oder von einer anderen Identität abgeleitet.
+Fehlende Rollen werden mit diesen Credentials und minimalen Attributen angelegt;
+vorhandene Rollen müssen sowohl den Attribut-/Rechtevertrag als auch den Login-Test
+bestehen. Es gibt kein `DROP ROLE`, keine Membership-Vergabe und keine Lockerung
+vorhandener Rollenattribute. Ein neuer `uranus_reader` erhält ausschließlich USAGE
+und den festen SELECT-Vertrag aus `boundary.sql`; vorhandene Source-Grants werden
+nicht repariert.
+
+Der Plan unter `admin_database` zeigt Zustand, aktuellen/erwarteten Head, fehlende
+Rollen, Blocker, Freigabe und geplante Schritte. `--check --diff` führt weder
+Rollenanlage, Grants noch Alembic aus. Der SQL-Console-Katalogaudit bleibt aktiv;
+nur unmittelbare Meldungen zu noch fehlenden Bootstrap-Rollen werden bis zur
+anschließenden vollständigen Prüfung zurückgestellt.
+
+Nach erfolgreichem Preflight wird das authentifizierte Release gebaut. Der Launcher
+verwendet ausschließlich `{{ ua_release_dir }}/backend/.venv/bin/python`,
+`backend/alembic.ini` und den Migrationsbaum dieses Releases. SHA/Completion-Marker,
+Manifest, Alembic-Head sowie Runtime-/Operator-Grant-Registries müssen übereinstimmen.
+Neu gepackte Artefakte enthalten dafür zusätzlich `operator_grants` und ohne
+Codeausführung abgeleitete `admin_indexes`-/`admin_columns`-Inventuren; ältere Archive müssen mit dem
+aktuellen Packager neu erzeugt werden. Fehlende Vertragsfelder werden bereits auf dem
+Controller vor Target-/DB-Zugriff abgelehnt. Die neue Archiv-SHA256 verlangt einen
+neuen Dry Run; ein vorhandener Completion-Marker für eine andere Archiv-Prüfsumme
+wird niemals überschrieben. Kein Controller-Checkout und kein `current`-
+Symlink liefern Migrationscode. Es sind keine manuellen Alembic-Aufrufe erforderlich.
+
+Die Rollen-Vorbereitung wird als eigene Transaktion abgeschlossen. Danach erhält
+`admin_migrator` vorübergehend DB-CREATE. Alembic meldet sich mit der dedizierten
+Migrator-DSN an und prüft `current_user`, `session_user` und die Rollenattribute;
+es migriert niemals als PostgreSQL-Superuser. `upgrade head`, `current`, `check` und
+die tatsächliche Versionstabelle müssen zum Manifest passen. Ein `finally`-Pfad
+entzieht temporäres CREATE auch bei Migrationfehlern oder Ablauf der begrenzten
+Launcher-Laufzeit. Zusätzlich führt Ansible in `always` einen unabhängigen,
+idempotenten CREATE-Entzug aus. Der Fehlerreport inspiziert danach ausschließlich
+lesend den verbleibenden Zustand. Runtime-/Operator-Grants aus den Release-Registries werden danach
+zusammen mit der vollständigen Boundary-Verifikation in einer Transaktion angewendet.
+Ein Session-Lock verhindert parallele Bootstrap-Läufe dieser Rolle.
+
+Schlägt die Migration innerhalb ihrer Transaktion fehl, wird ihre DDL zurückgerollt.
+Schlägt die nachgelagerte Grant-Verifikation fehl, werden sämtliche Grants dieser
+Transaktion zurückgerollt. Bereits committedes Admin-Schema und sichere vorbereitete
+Rollen werden nicht automatisch gelöscht. Ein solcher unvollständiger Zustand wird
+als `DRIFTED` gesperrt. Das ist kein Daten-Restore und kein automatischer Reparaturpfad.
+Runtime-Services erhalten niemals Migration-Credentials. Secret-Schritte haben
+`no_log`, keine Diffs und keine Ausgabe von Subprozess-/Treiberfehlern; neue
+Passwortverifier werden unter unterdrücktem Statement-/Parameter-Logging gesetzt.
+
+Bei internen Modulfehlern enthält die Meldung ausschließlich feste Diagnosemarker
+`stage`, `check` und den Exception-Typ, niemals den Exception-Text, SQL, DSNs oder
+Verbindungsdaten. Beispielsweise unterscheiden `construct_boundary/source_contract`
+und `inspect/role_source_privileges` einen ungültigen statischen Vertrag von einer
+fehlgeschlagenen Katalogprüfung. Ein interner Fehler ist kein Nachweis für Drift;
+er blockiert die Aktivierung und rechtfertigt keine Grant-/Owner-Reparatur. Ein
+erneuter `preflight.yml --check --diff` kann die Marker lesend ermitteln.
+
+Nach erfolgreichem Bootstrap ist der Zustand `READY`; weitere Applies führen keine
+Migration, Rollenänderung oder Grant-Änderung aus (`changed=0` für diesen Schritt).
+Erst danach folgen vollständige Console-/Runtime-Verifikation, Aktivierung und
+Healthchecks; der `current`-Pointer wird weiterhin zuletzt veröffentlicht.
 
 ## Berücksichtigter Befund
 
@@ -699,8 +807,30 @@ ua_disable_notification_timer_approved: true
 wird der Timer gestoppt/deaktiviert, ein laufender Notification-Oneshot gestoppt und
 seine Legacy-Environment-Datei bereinigt. `manage=true` ohne die zweite Zustimmung
 verweigert den Echtlauf vor jedem Host-Eingriff. Die übrigen Apply-Gates gelten unverändert.
-Bei erfolgreicher Aktivierung bleiben verwaltete Notifications deaktiviert; bei
-fehlgeschlagener Aktivierung werden die ursprünglichen Zustände wiederhergestellt.
+Auf **Production** bleiben verwaltete Notifications nach erfolgreicher Aktivierung
+weiterhin deaktiviert; Service und Timer müssen dort bereits vorhanden sein.
+
+Auf **Test/Staging** stellt dieselbe explizite Freigabe zusätzlich den
+`uranus-admin-notification-worker.service` und den zugehörigen `.timer` bereit.
+Der Service führt `app.notification_worker --once` als `oklab` aus und verwendet
+nur `/etc/uranus-admin/runtime.env`, ohne Migrator-/Operator-Credentials. Der Timer
+läuft stündlich (`OnCalendar=hourly`, `Persistent=true`) und wird erst nach
+bestandenen Healthchecks und Veröffentlichung des Release-Pointers aktiviert und
+enabled. Nachgeholte Timer-Ausführungen sind möglich. Der Service selbst bleibt
+statisch und wird ausschließlich vom Timer gestartet. Ein unveränderter zweiter
+Deploy startet den Timer nicht erneut.
+
+Die Versandfreigabe bleibt eine Runtime-Einstellung: Die derzeitige
+Deployment-Konfiguration setzt `NOTIFICATIONS_DELIVERY_ENABLED=false`. Das Aktivieren
+des Timers aktiviert keinen Mailversand. Vorhandene fremde Units, Drop-ins und
+abweichende Dateiinhalte werden weiterhin abgelehnt; bereits verwaltete Units werden
+über den geschützten Infrastruktur-Nachweis aktualisiert. Eine fehlende Legacy-`.env`
+wird auf Test/Staging nicht neu angelegt.
+
+Bei fehlgeschlagener Aktivierung werden ursprüngliche Unit-Dateien und Zustände
+wiederhergestellt. Neu angelegte Notification-Units werden gestoppt und entfernt,
+der neu aktivierte Timer vorher deaktiviert. Ohne Notification-Management bleiben
+Service und Timer unverändert.
 
 ## Aktivierungsreihenfolge
 
@@ -868,6 +998,82 @@ Unterverzeichnisse. Dadurch benötigt `become_user: postgres` kein schreibbares
 DB-Fehler und darf nicht durch pauschales Ändern von PostgreSQL-Verzeichnisrechten
 „repariert“ werden. `ANSIBLE_CONFIG` wie unten setzen.
 
+### Automatischer Dry Run und Apply für Test/Staging
+
+Der explizite Deploy-Aufruf führt den vollständigen Deployment-Dry-Run mit
+`--check --diff` aus, aktualisiert bei Erfolg `ansible/approvals.local.yml` und
+startet unmittelbar danach den echten Apply. Er ist ausschließlich für einen
+konkret benannten Host mit `ua_target_environment: test` oder `staging` verfügbar.
+Production wird vor dem ersten Playbook-Aufruf abgewiesen.
+
+Beim ersten Aufruf die tatsächlichen Angaben zu Wartungsfenster und geprüftem
+Backup-/Recovery-Nachweis übergeben:
+
+```sh
+uv run --no-project --python 3.13 \
+  --with-requirements ansible/requirements-controller.txt \
+  python ansible/scripts/deploy.py \
+  -i ansible/inventory.lxd.yml --host uranus-admin-test \
+  --maintenance-window "<bestätigtes Zeitfenster>" \
+  --backup-reference "<geprüfter Backup-/Recovery-Nachweis>"
+```
+
+Die Platzhalter durch echte Angaben ersetzen. Sind beide Angaben bereits in der
+Approval-Datei hinterlegt und weiterhin gültig, reicht:
+
+```sh
+uv run --no-project --python 3.13 \
+  --with-requirements ansible/requirements-controller.txt \
+  python ansible/scripts/deploy.py \
+  -i ansible/inventory.lxd.yml --host uranus-admin-test
+```
+
+`--approvals` wählt optional eine andere lokale Approval-Datei. Eine vorhandene
+Datei muss dem ausführenden Benutzer gehören und Modus `0600` haben; neue Dateien
+werden atomar mit diesem Modus angelegt. Das Script erhält vorhandene Backup- und
+Wartungsangaben oder ersetzt sie durch explizite CLI-Angaben. Es erfindet keine
+Referenzen und prüft nicht selbst die Qualität eines Backups. Keine Credentials
+in diese Angaben oder ins Inventory aufnehmen. Bei Bedarf `--ask-become-pass`
+ergänzen; Ansible kann für beide Phasen separat nach dem sudo-Passwort fragen.
+
+Vorhandene Release-Angaben in der Approval-Datei bleiben ebenfalls erhalten:
+`ua_release_sha`, `ua_artifact` und `ua_artifact_sha256` dürfen gemeinsam angegeben
+werden und haben wie beim bisherigen `-e @ansible/approvals.local.yml` Vorrang vor
+den Inventory-Werten. Ohne Release-Angaben gelten die Inventory-Werte;
+unvollständige Release-Angaben werden abgelehnt. Das tatsächlich gewählte Archiv
+muss einen absoluten Pfad und die passende SHA256 haben. Beide Phasen verwenden
+dieselbe Auswahl; ihre Hashes werden im Laufnachweis festgehalten. Zielumgebung,
+Verbindungsparameter und beliebige andere Extra-Vars gehören nicht in diese Datei.
+
+Der Aufruf erteilt für das gewählte Test-/Staging-Ziel die normalen Deployment-
+Freigaben: Secret-Adoption, sauberen Admin-Erstaufbau und Console-Provisionierung.
+Nach erfolgreichem Dry Run setzt das Script `ua_apply_confirmation`, die drei
+zugehörigen Approval-Booleans und `ua_reviewed_dry_run` automatisch. Letzteres
+bezeichnet ausdrücklich eine **automatische Prüfung**, keinen menschlichen Review.
+Notification-Management bleibt standardmäßig aus; eine vorhandene Aktivierung
+benötigt weiterhin die bereits separat erteilte Notification-Freigabe. Mit beiden
+Flags auf `true` wird der verwaltete Test-/Staging-Timer nach erfolgreichem Deploy
+aktiviert; die Production-Semantik bleibt unverändert.
+
+Beide Phasen verwenden private Kopien derselben aufgelösten Hostvariablen und
+dieselben Release-/Archiv-Hashes. Statische Inventory-Datei, aufgelöste Variablen,
+Archiv, Controller-Code und bestehende Approval-Datei werden vor dem Apply erneut
+auf Änderungen geprüft. Abweichungen oder ein fehlgeschlagener Dry Run verhindern
+den Apply und lassen die Approval-Datei unverändert. Eine Dateisperre verhindert
+parallele Aufrufe mit derselben Approval-Datei. Connection-Einstellungen müssen
+literal sein; referenzierte Pfade müssen ohne `inventory_dir`/`inventory_file`
+auskommen. Es gibt keine Weitergabe beliebiger Extra-Vars, Tags oder Start-Tasks.
+
+Private Eingabekopien und `result.json` liegen unter
+`ansible/deploy-runs.local/run-*/` (Verzeichnisse `0700`, Dateien `0600`, gitignored).
+Der Nachweis enthält Ziel, Release-/Eingabe-Hashes, UTC-Zeitpunkt und Exitcodes;
+er enthält keine Funktionsdefinitionen oder Environment-Secrets. Ein gescheiterter
+Apply wird als Fehler zurückgegeben und nicht automatisch wiederholt. Jeder neue
+Script-Aufruf führt einen neuen Dry Run aus. Normale `ansible-playbook --check`-
+Aufrufe bleiben lesende Prüfungen ohne anschließenden Apply.
+
+### Manueller Review und Apply, insbesondere Production
+
 **READ ONLY — erst nach Freigabe der Prüfverbindung:**
 
 ```sh
@@ -902,6 +1108,8 @@ ua_manage_notification_timer: false
 ua_secret_adoption_approved: true
 # Zusätzlich bei einem Release mit SQL_CONSOLE_DATABASE_URL:
 ua_sql_console_provision_approved: true
+# Nur für einen freigegebenen sauberen Admin-Erstaufbau auf Test/Staging:
+# ua_admin_database_bootstrap_approved: true
 # Nur bei ausdrücklichem Notification-Management zusätzlich:
 # ua_manage_notification_timer: true
 # ua_disable_notification_timer_approved: true
@@ -1090,7 +1298,8 @@ Dafür bleiben Snapshot und Manifest verfügbar. Kein `force_handlers`, keine pa
 Deployments oder manuellen Konfigurationsänderungen während der Aktivierung.
 
 Nach erfolgreichem Deployment zusätzlich read-only prüfen: drei erwartete Units aktiv,
-Notification-Zustand unverändert (oder bei explizitem Management Timer inaktiv/disabled),
+Notification-Zustand unverändert; bei explizitem Management ist der Timer auf
+Test/Staging aktiv/enabled und auf Production inaktiv/disabled. Außerdem prüfen:
 Ports ausschließlich loopback, `/health` und `/ready` erfolgreich, HTTPS-/Cookie-/Header-
 Verhalten. `/ready` beweist keine Worker-Liveness; bestehenden Queue-/Lease-Fortschritt
 getrennt beobachten. Keine SMTP-Zustellung, neuen Jobs oder Auth-Retention als Smoke-Test.

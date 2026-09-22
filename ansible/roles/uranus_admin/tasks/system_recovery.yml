@@ -29,6 +29,34 @@
   loop: "{{ ua_restart_services }}"
   when: not ua_previous_services[item].exists and item in ua_recovery_service_facts.ansible_facts.services
 
+- name: Inspect loaded notification units before bootstrap recovery
+  ansible.builtin.command:
+    argv: [systemctl, show, "{{ item }}", --property=LoadState, --value]
+  loop: "{{ ua_notification_units | reverse | list }}"
+  register: ua_recovery_notification_units
+  changed_when: false
+  failed_when: >-
+    not ((ua_recovery_notification_units.rc == 0 and ua_recovery_notification_units.stdout | trim == 'loaded') or
+         (ua_recovery_notification_units.rc in [0, 4] and ua_recovery_notification_units.stdout | trim == 'not-found'))
+  when:
+    - ua_target_environment in ['staging', 'test']
+    - ua_manage_notification_timer | bool
+    - ua_install_attempted | bool
+
+- name: Stop managed bootstrap notifications before restoring their unit files
+  ansible.builtin.systemd_service:
+    name: "{{ item.item }}"
+    state: stopped
+    enabled: "{{ false if item.item.endswith('.timer') else omit }}"
+  loop: "{{ ua_recovery_notification_units.results | default([]) }}"
+  when:
+    - ua_target_environment in ['staging', 'test']
+    - ua_manage_notification_timer | bool
+    - ua_disable_notification_timer_approved | bool
+    - ua_services_stop_attempted | bool
+    - ua_install_attempted | bool
+    - item.stdout | default('') | trim == 'loaded'
+
 - name: Remove only the site link absent before bootstrap
   ansible.builtin.file:
     path: /etc/nginx/sites-enabled/uranus-admin
@@ -113,6 +141,7 @@
     - ua_services_stop_attempted | bool
     - ua_manage_notification_timer | bool
     - ua_disable_notification_timer_approved | bool
+    - ua_previous_services[item].exists
 
 # Keep the loaded maintenance-capable proxy while old services are restored.
 # First adoption may restore a legacy vhost without marker support.

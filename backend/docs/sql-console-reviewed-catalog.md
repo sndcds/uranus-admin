@@ -101,11 +101,14 @@ Die bisherige Superuser-/Extension-Eigentümerregel bleibt der Normalfall. Nur i
   oder von `oklab` besessenen Ersatzfunktionen.
 
 Auch die zwölf eigenen Funktionen müssen `oklab` gehören. Für diese konkreten
-Objekte bedeutet `oklab`: Eigentümer der aktuellen Datenbank, LOGIN, CREATEDB,
+Objekte bedeutet `oklab`: Eigentümer der aktuellen Datenbank, LOGIN,
 INHERIT; kein SUPERUSER, CREATEROLE, REPLICATION oder BYPASSRLS und keinerlei
 Rollenmitgliedschaft in irgendeiner Richtung. Der Quellen-Eigentümer ist bereits
 Teil der Vertrauensgrenze der gelesenen Uranus-Daten. Das ist keine pauschale
-Ausnahme für beliebige Datenbankeigentümer. Eigentümer und Rollenattribute werden
+Ausnahme für beliebige Datenbankeigentümer. Der ursprüngliche Audit erfasste
+CREATEDB; auch NOCREATEDB wird akzeptiert, da das Entfernen dieser Fähigkeit
+keine zusätzlichen Rechte erfordern darf. Die Funktions-Hashes und alle übrigen
+Eigentümerprüfungen gelten unverändert. Eigentümer und Rollenattribute werden
 niemals automatisch verändert. Die Prüfung bindet den aktuellen Zustand; ein
 späterer Eigentümer-/Definitionswechsel benötigt erneut Preflight und Review.
 

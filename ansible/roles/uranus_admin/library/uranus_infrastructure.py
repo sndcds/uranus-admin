@@ -12,6 +12,10 @@ from ansible.module_utils.basic import AnsibleModule
 UNITS = tuple(
     f"uranus-admin-{component}.service" for component in ("backend", "check-worker", "frontend")
 )
+NOTIFICATION_UNITS = (
+    "uranus-admin-notification-worker.service",
+    "uranus-admin-notification-worker.timer",
+)
 SITE = "/etc/nginx/sites-available/uranus-admin"
 LINK = "/etc/nginx/sites-enabled/uranus-admin"
 RATE = "/etc/nginx/conf.d/uranus-admin-ratelimit.conf"
@@ -57,13 +61,18 @@ def regular(path, mode=None):
     return value
 
 
-def inventory(environment, candidates, services):
+def inventory(environment, candidates, services, manage_notifications=False):
     if environment not in {"production", "staging", "test"}:
         raise ValueError("Invalid target environment")
-    if {item["path"] for item in candidates} != set(PATHS) or len(candidates) != len(PATHS):
+    if manage_notifications and environment == "production":
+        raise ValueError("Notification unit provisioning requires test or staging")
+    optional_paths = tuple(f"{UNIT_ROOT}/{unit}" for unit in NOTIFICATION_UNITS)
+    paths = (*PATHS, *(optional_paths if manage_notifications else ()))
+    units = (*UNITS, *(NOTIFICATION_UNITS if manage_notifications else ()))
+    if {item["path"] for item in candidates} != set(paths) or len(candidates) != len(paths):
         raise ValueError("Invalid managed infrastructure file set")
     bootstrap = environment != "production"
-    parents = sorted({str(Path(path).parent) for path in (*PATHS, LINK, RECEIPT)} | {LOG_DIRECTORY})
+    parents = sorted({str(Path(path).parent) for path in (*paths, LINK, RECEIPT)} | {LOG_DIRECTORY})
     missing_parents = []
     for parent in parents:
         for ancestor in (Path(parent), *Path(parent).parents):
@@ -90,7 +99,23 @@ def inventory(environment, candidates, services):
     if bootstrap:
         # A missing unit can still acquire global/prefix drop-ins when first installed.
         for base in SYSTEMD_ROOTS:
-            for name in ("service", "uranus-.service", "uranus-admin-.service", *UNITS):
+            for name in (
+                "service",
+                "uranus-.service",
+                "uranus-admin-.service",
+                *units,
+                *(
+                    (
+                        "timer",
+                        "uranus-.timer",
+                        "uranus-admin-.timer",
+                        "uranus-admin-notification-.service",
+                        "uranus-admin-notification-.timer",
+                    )
+                    if manage_notifications
+                    else ()
+                ),
+            ):
                 directory = Path(base) / (name + ".d")
                 value = metadata(directory)
                 if value is not None and (
@@ -101,10 +126,14 @@ def inventory(environment, candidates, services):
         if Path(RECEIPT).stat().st_size > 16384:
             raise ValueError("Invalid managed infrastructure receipt")
         previous = json.loads(Path(RECEIPT).read_text())
-        if not isinstance(previous, dict) or set(previous) != set(PATHS):
+        if not isinstance(previous, dict) or set(previous) not in (
+            set(PATHS),
+            set(PATHS) | set(optional_paths),
+        ):
             raise ValueError("Invalid managed infrastructure receipt")
 
-    desired = {}
+    # Preserve reviewed optional hashes while notification management is turned off.
+    desired = {path: previous[path] for path in optional_paths if path in previous}
     missing = []
     for item in candidates:
         path = item["path"]
@@ -149,6 +178,7 @@ def main():
             },
             "candidates": {"type": "list", "elements": "dict", "required": True},
             "services": {"type": "list", "elements": "str", "required": True},
+            "manage_notifications": {"type": "bool", "default": False},
         },
         supports_check_mode=True,
     )
