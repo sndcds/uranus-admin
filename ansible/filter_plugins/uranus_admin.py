@@ -213,6 +213,7 @@ def artifact_manifest(path, expected_hash, expected_sha):
             ("operator_grants", dict),
             ("admin_indexes", list),
             ("admin_columns", dict),
+            ("admin_upgrade_contracts", dict),
         ):
             if not isinstance(manifest.get(key), expected_type) or not manifest[key]:
                 raise AnsibleFilterError(
@@ -220,6 +221,24 @@ def artifact_manifest(path, expected_hash, expected_sha):
                     "Repackage the selected release with the current package_release.py; "
                     "review its new archive SHA256. No database repair is needed for this error."
                 )
+        for origin, contract in manifest["admin_upgrade_contracts"].items():
+            if (
+                not re.fullmatch(r"[0-9]{4}", origin)
+                or origin == manifest["head"]
+                or not isinstance(contract, dict)
+                or not re.fullmatch(r"[0-9a-f]{64}", contract.get("schema_fingerprint", ""))
+                or not isinstance(contract.get("runtime_grants"), dict)
+                or not contract["runtime_grants"]
+                or any(
+                    not re.fullmatch(r"[a-z_]+", name)
+                    or not isinstance(grants, list)
+                    or not grants
+                    or not set(grants) <= {"SELECT", "INSERT", "UPDATE"}
+                    for name, grants in contract["runtime_grants"].items()
+                )
+                or not set(contract["runtime_grants"]) < set(manifest["runtime_grants"])
+            ):
+                raise AnsibleFilterError("Invalid admin upgrade contract")
         return manifest
     except (OSError, ValueError, KeyError, TypeError, AttributeError, tarfile.TarError):
         raise AnsibleFilterError("Release archive or manifest unavailable/invalid") from None

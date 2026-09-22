@@ -1,6 +1,7 @@
 #!/usr/bin/python
-"""Admin first installation only. No source DDL/DML, drift repair or secret output."""
+"""Exact Admin bootstrap/upgrade only. No source DDL/DML, drift repair or secret output."""
 
+import hashlib
 import json
 import re
 import subprocess
@@ -72,6 +73,21 @@ class AdminDatabase:
             isinstance(manifest.get("admin_columns"), dict),
             "missing_admin_column_contract",
         )
+        self.mark("admin_upgrade_contract")
+        require(
+            isinstance(manifest.get("admin_upgrade_contracts"), dict)
+            and all(
+                re.fullmatch(r"[0-9]{4}", origin)
+                and origin != manifest["head"]
+                and isinstance(contract, dict)
+                and re.fullmatch(r"[0-9a-f]{64}", contract.get("schema_fingerprint", ""))
+                and isinstance(contract.get("runtime_grants"), dict)
+                and contract["runtime_grants"]
+                and set(contract["runtime_grants"]) < set(manifest["runtime_grants"])
+                for origin, contract in manifest["admin_upgrade_contracts"].items()
+            ),
+            "invalid_admin_upgrade_contract",
+        )
 
     def mark(self, check):
         # Callers supply only fixed code-owned labels, never SQL or database values.
@@ -82,7 +98,20 @@ class AdminDatabase:
             cur.execute(query, params)
             return cur.fetchall() if cur.description else []
 
-    def inspect(self, environment, approved=False):
+    @staticmethod
+    def schema_fingerprint(tables, indexes, columns):
+        payload = json.dumps(
+            {
+                "tables": sorted(tables),
+                "indexes": sorted(indexes),
+                "columns": columns,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+        return hashlib.sha256(payload).hexdigest()
+
+    def inspect(self, environment, approved=False, upgrade_approved=False):
         self.mark("environment")
         require(environment in {"production", "staging", "test"}, "invalid_environment")
         self.mark("inspection_session")
@@ -239,6 +268,9 @@ class AdminDatabase:
         current = None
         admin_objects = [r for r in relations if r[1] == "admin"]
         tables = [r[2] for r in admin_objects if r[3] in "rpvmf"]
+        indexes = sorted(r[2] for r in admin_objects if r[3] == "i")
+        columns = {}
+        upgradeable = False
         self.mark("admin_relations")
         if schema:
             if missing:
@@ -247,7 +279,7 @@ class AdminDatabase:
                 problems.append("admin_schema_owner")
             if set(tables) != set(self.manifest["runtime_grants"]):
                 problems.append("admin_tables_missing_or_unknown")
-            if {r[2] for r in admin_objects if r[3] == "i"} != set(self.manifest["admin_indexes"]):
+            if set(indexes) != set(self.manifest["admin_indexes"]):
                 problems.append("admin_indexes_missing_or_unknown")
             self.mark("admin_columns")
             columns = dict(
@@ -300,10 +332,11 @@ class AdminDatabase:
                 and version[4] == ids.get("admin_migrator")
                 and not any(version[5:])
             ):
-                columns = self.rows("""SELECT attname,atttypid::regtype::text FROM pg_attribute
+                version_columns = self.rows("""SELECT attname,atttypid::regtype::text
+                    FROM pg_attribute
                     WHERE attrelid='admin.alembic_version'::regclass
                     AND attnum>0 AND NOT attisdropped""")
-                if columns == [("version_num", "character varying")]:
+                if version_columns == [("version_num", "character varying")]:
                     self.mark("migration_head")
                     heads = self.rows(
                         "SELECT left(version_num,65) FROM admin.alembic_version LIMIT 2"
@@ -314,16 +347,37 @@ class AdminDatabase:
                     problems.append("migration_head_mismatch")
             else:
                 problems.append("version_table_missing")
-            if not problems:
+            target_problem_codes = {
+                "admin_tables_missing_or_unknown",
+                "admin_indexes_missing_or_unknown",
+                "admin_columns_missing_or_unknown",
+                "migration_head_mismatch",
+            }
+            upgrade_contract = self.manifest["admin_upgrade_contracts"].get(current)
+            upgradeable = bool(
+                upgrade_contract
+                and set(problems) <= target_problem_codes
+                and self.schema_fingerprint(tables, indexes, columns)
+                == upgrade_contract["schema_fingerprint"]
+            )
+            if not problems or upgradeable:
                 self.mark("boundary_contract")
                 violations = self.rows(
                     self.boundary,
                     {
-                        "head": self.manifest["head"],
-                        "grants": json.dumps(self.manifest["runtime_grants"]),
+                        "head": current if upgradeable else self.manifest["head"],
+                        "grants": json.dumps(
+                            upgrade_contract["runtime_grants"]
+                            if upgradeable
+                            else self.manifest["runtime_grants"]
+                        ),
                     },
                 )[0][0]
-                problems.extend(violations)
+                if upgradeable:
+                    upgradeable = not violations
+                    problems.extend(violations)
+                else:
+                    problems.extend(violations)
                 self.mark("operator_privileges")
                 for name, grants in OPERATOR_GRANTS.items():
                     for privilege in grants:
@@ -331,7 +385,11 @@ class AdminDatabase:
                             "SELECT has_table_privilege('admin_auth_operator',%s,%s)",
                             ("admin." + name, privilege),
                         )[0][0]:
-                            problems.append("operator_missing_grant:" + name + ":" + privilege)
+                            violation = "operator_missing_grant:" + name + ":" + privilege
+                            if upgradeable:
+                                upgradeable = False
+                            else:
+                                problems.append(violation)
             # PUBLIC and foreign roles must never receive admin data grants.
             self.mark("admin_acl")
             if self.rows(
@@ -352,27 +410,42 @@ class AdminDatabase:
                 (schema[0][0], list(ROLES)[1:]),
             ):
                 problems.append("unexpected_admin_column_acl")
+            if upgradeable and not set(problems) <= target_problem_codes:
+                upgradeable = False
         self.mark("classification")
-        state = "DRIFTED" if problems else "READY" if schema else "ABSENT"
+        if schema and current in self.manifest["admin_upgrade_contracts"] and not upgradeable:
+            problems.append("upgrade_source_contract_mismatch")
+        state = (
+            "UPGRADEABLE"
+            if schema and upgradeable
+            else "DRIFTED"
+            if problems
+            else "READY"
+            if schema
+            else "ABSENT"
+        )
         allowed = environment in {"staging", "test"} and state == "ABSENT"
+        upgrade_allowed = state == "UPGRADEABLE"
         return {
             "state": state,
             "current_head": current,
             "expected_head": self.manifest["head"],
             "bootstrap_allowed": allowed,
             "bootstrap_approved": approved,
-            "changes_planned": allowed,
-            "blockers": sorted(set(problems)),
+            "upgrade_allowed": upgrade_allowed,
+            "upgrade_approved": upgrade_approved,
+            "changes_planned": allowed or upgrade_allowed,
+            "blockers": [] if upgrade_allowed else sorted(set(problems)),
             "table_count": len(tables),
             "tables": tables,
             "missing_roles": missing,
             "would_create_or_prepare_roles": sorted(ROLES) if allowed else [],
             "would_grant_temporary_database_create": allowed,
-            "would_run_alembic": allowed,
+            "would_run_alembic": allowed or upgrade_allowed,
             "target_head": self.manifest["head"],
-            "would_apply_runtime_grants": allowed,
+            "would_apply_runtime_grants": allowed or upgrade_allowed,
             "would_revoke_temporary_database_create": allowed,
-            "would_verify_boundary": allowed,
+            "would_verify_boundary": allowed or upgrade_allowed,
         }
 
     def credentials(self, values):
@@ -489,29 +562,27 @@ class AdminDatabase:
             migrate(values["ADMIN_MIGRATION_DATABASE_URL"])
         finally:
             self.revoke_create()
-        # All runtime/operator grants and full validation are one transaction.
-        try:
-            self.rows("GRANT USAGE ON SCHEMA admin TO admin_user,admin_auth_operator")
-            for role, matrix in (
-                ("admin_user", self.manifest["runtime_grants"]),
-                ("admin_auth_operator", OPERATOR_GRANTS),
-            ):
-                for name, privileges in matrix.items():
-                    self.rows(
-                        sql.SQL("GRANT {} ON admin.{} TO {}").format(
-                            sql.SQL(",".join(privileges)),
-                            sql.Identifier(name),
-                            sql.Identifier(role),
-                        )
-                    )
-            require(
-                self.inspect(environment)["state"] == "READY",
-                "post_bootstrap_boundary_failed",
-            )
-            self.conn.commit()
-        except Exception:
-            self.conn.rollback()
-            raise
+        require(
+            self.inspect(environment)["state"] == "READY",
+            "post_bootstrap_boundary_failed",
+        )
+        return True
+
+    def upgrade(self, environment, approved, values, migrate):
+        """Upgrade only an exact reviewed older contract; never repair generic drift."""
+        report = self.inspect(environment, upgrade_approved=approved)
+        if report["state"] == "READY":
+            return False
+        require(
+            report["state"] == "UPGRADEABLE" and approved is True,
+            "admin_upgrade_not_authorized",
+        )
+        self.credentials(values)
+        migrate(values["ADMIN_MIGRATION_DATABASE_URL"])
+        require(
+            self.inspect(environment, upgrade_approved=approved)["state"] == "READY",
+            "post_upgrade_boundary_failed",
+        )
         return True
 
 
@@ -566,7 +637,7 @@ def main():
     module = AnsibleModule(
         argument_spec={
             "state": {
-                "choices": ["plan", "bootstrap", "revoke_create"],
+                "choices": ["plan", "bootstrap", "upgrade", "revoke_create"],
                 "required": True,
             },
             "environment": {
@@ -574,6 +645,7 @@ def main():
                 "required": True,
             },
             "approved": {"type": "bool", "default": False},
+            "upgrade_approved": {"type": "bool", "default": False},
             "manifest": {"type": "dict", "required": True},
             "boundary": {"type": "str", "required": True},
             "credentials": {"type": "dict", "default": {}, "no_log": True},
@@ -591,10 +663,13 @@ def main():
         stage = "authorization"
         writing = p["state"] != "plan" and not module.check_mode
         if writing:
-            require(
-                p["environment"] in {"staging", "test"} and p["approved"] is True,
-                "admin_mutation_not_authorized",
-            )
+            if p["state"] in {"bootstrap", "revoke_create"}:
+                require(
+                    p["environment"] in {"staging", "test"} and p["approved"] is True,
+                    "admin_mutation_not_authorized",
+                )
+            else:
+                require(p["upgrade_approved"] is True, "admin_upgrade_not_authorized")
         stage = "postgres_connect"
         conn = psycopg2.connect(
             dbname="oklab",
@@ -617,15 +692,25 @@ def main():
             stage = "advisory_lock"
             diagnostic.clear()
             boundary.rows("SELECT pg_advisory_lock(762083)")
-            stage = "bootstrap"
-            changed = boundary.bootstrap(
-                p["environment"],
-                p["approved"],
-                p["credentials"],
-                release_migration(p["release"], p["manifest"], p["archive_hash"], p["uv"]),
-            )
+            operation = release_migration(p["release"], p["manifest"], p["archive_hash"], p["uv"])
+            if p["state"] == "upgrade":
+                stage = "upgrade"
+                changed = boundary.upgrade(
+                    p["environment"],
+                    p["upgrade_approved"],
+                    p["credentials"],
+                    operation,
+                )
+            else:
+                stage = "bootstrap"
+                changed = boundary.bootstrap(
+                    p["environment"],
+                    p["approved"],
+                    p["credentials"],
+                    operation,
+                )
         stage = "inspect"
-        report = boundary.inspect(p["environment"], p["approved"])
+        report = boundary.inspect(p["environment"], p["approved"], p["upgrade_approved"])
         stage = "rollback"
         diagnostic.clear()
         conn.rollback()

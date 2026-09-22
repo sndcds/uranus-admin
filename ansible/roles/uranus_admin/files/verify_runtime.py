@@ -19,6 +19,7 @@ from sqlalchemy.pool import NullPool  # noqa: E402
 
 
 async def main():
+    pre_upgrade = len(sys.argv) == 3 and sys.argv[2] == "pre-upgrade"
     if any(
         key in os.environ
         for key in (
@@ -97,8 +98,9 @@ async def main():
                     raise ValueError("Wrong identity")
                 if role == "admin_user":
                     await assert_admin_boundary(conn)
-                    await check_schema(conn)
-                    await check_grants(conn, RUNTIME_GRANTS)
+                    if not pre_upgrade:
+                        await check_schema(conn)
+                        await check_grants(conn, RUNTIME_GRANTS)
                 else:
                     report = await verify(conn, settings)
                     if not report["source_contract"]["compatible"]:

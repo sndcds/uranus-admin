@@ -112,7 +112,7 @@ class StaticRecoveryBoundaries(unittest.TestCase):
             "failed_when",
         }
 
-        def audit(tasks, in_rescue=False, admin_bootstrap=False):
+        def audit(tasks, in_rescue=False, admin_database_mutation=False):
             for task in tasks:
                 if in_rescue:
                     serialized = json.dumps(task)
@@ -124,7 +124,7 @@ class StaticRecoveryBoundaries(unittest.TestCase):
                         # Reject aliases/action/local_action as well as unknown FQCNs.
                         extra = (
                             {"uranus_admin_database", "ansible.builtin.debug", "become_user"}
-                            if admin_bootstrap
+                            if admin_database_mutation
                             else set()
                         )
                         self.assertIn(key, allowed | keywords | extra)
@@ -157,12 +157,17 @@ class StaticRecoveryBoundaries(unittest.TestCase):
                             audit(yaml.safe_load((ROLE / "tasks" / args).read_text()), True)
                 for block in ("block", "rescue", "always"):
                     if block in task:
-                        audit(task[block], in_rescue or block == "rescue", admin_bootstrap)
+                        audit(
+                            task[block],
+                            in_rescue or block == "rescue",
+                            admin_database_mutation,
+                        )
 
         for path in (ROLE / "tasks").glob("*.yml"):
             audit(
                 yaml.safe_load(path.read_text()),
-                admin_bootstrap=path.name == "admin_database_bootstrap.yml",
+                admin_database_mutation=path.name
+                in {"admin_database_bootstrap.yml", "admin_database_upgrade.yml"},
             )
 
     def test_postgresql_modules_stay_in_read_only_preflight(self):

@@ -62,12 +62,16 @@ async def online(url: str) -> None:
         await engine.dispose()
 
 
-url = os.environ.get("ADMIN_MIGRATION_DATABASE_URL")
-if not url or not url.startswith("postgresql+asyncpg://"):
-    raise RuntimeError(
-        "Set ADMIN_MIGRATION_DATABASE_URL explicitly; DATABASE_URL is never used for DDL"
-    )
-if context.is_offline_mode():
-    configure(url=url)
+connection = context.config.attributes.get("connection")
+if connection is not None:
+    configure(connection=connection)
 else:
-    asyncio.run(online(url))
+    url = os.environ.get("ADMIN_MIGRATION_DATABASE_URL")
+    if not url or not url.startswith("postgresql+asyncpg://"):
+        raise RuntimeError(
+            "Set ADMIN_MIGRATION_DATABASE_URL explicitly; DATABASE_URL is never used for DDL"
+        )
+    if context.is_offline_mode():
+        configure(url=url)
+    else:
+        asyncio.run(online(url))

@@ -258,6 +258,7 @@
     state: plan
     environment: "{{ ua_target_environment }}"
     approved: "{{ ua_admin_database_bootstrap_approved }}"
+    upgrade_approved: "{{ ua_admin_database_upgrade_approved }}"
     manifest: "{{ ua_manifest }}"
     boundary: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
   become_user: postgres
@@ -268,11 +269,11 @@
     msg:
       admin_database: "{{ ua_admin_database_plan.admin_database }}"
 
-- name: Require READY or a clean non-production ABSENT database
+- name: Require READY, a reviewed upgrade source, or a clean non-production ABSENT database
   ansible.builtin.assert:
     that:
-      - ua_admin_database_plan.admin_database.state == 'READY' or ua_admin_database_plan.admin_database.bootstrap_allowed
-    fail_msg: "Admin database is absent in production or DRIFTED. No automatic repair or migration is permitted. Review admin_database.blockers."
+      - ua_admin_database_plan.admin_database.state in ['READY', 'UPGRADEABLE'] or ua_admin_database_plan.admin_database.bootstrap_allowed
+    fail_msg: "Admin database is absent in production or has unreviewed DRIFT. Only an exact release-declared upgrade source is migratable. Review admin_database.blockers."
 
 - name: Require separate admin bootstrap approval before any real preparation
   ansible.builtin.assert:
@@ -280,6 +281,15 @@
     fail_msg: "Clean admin bootstrap requires ua_admin_database_bootstrap_approved=true in the protected local approval file."
   when:
     - ua_admin_database_plan.admin_database.state == 'ABSENT'
+    - ua_action == 'deploy'
+    - not ansible_check_mode
+
+- name: Require separate approval for a reviewed admin database upgrade
+  ansible.builtin.assert:
+    that: ua_admin_database_upgrade_approved is sameas true
+    fail_msg: "The exact older admin contract is upgradeable, but the deployment requires ua_admin_database_upgrade_approved=true in the protected local approval file."
+  when:
+    - ua_admin_database_plan.admin_database.state == 'UPGRADEABLE'
     - ua_action == 'deploy'
     - not ansible_check_mode
 

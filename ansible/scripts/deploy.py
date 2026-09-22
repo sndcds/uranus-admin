@@ -2,7 +2,8 @@
 """Deploy one test/staging host: dry run, record approvals, then apply.
 
 Invoking this command authorizes secret adoption, clean Admin bootstrap and SQL
-console provisioning on the selected test/staging host. Production stays manual.
+console provisioning, and exact reviewed Admin upgrades on the selected test/staging
+host. Production stays manual.
 """
 
 import argparse
@@ -31,6 +32,7 @@ APPROVAL_KEYS = {
     "ua_backup_reference",
     "ua_secret_adoption_approved",
     "ua_admin_database_bootstrap_approved",
+    "ua_admin_database_upgrade_approved",
     "ua_sql_console_provision_approved",
     "ua_manage_notification_timer",
     "ua_disable_notification_timer_approved",
@@ -133,6 +135,7 @@ def decisions(original, maintenance_window, backup_reference):
         ua_reviewed_dry_run="",
         ua_secret_adoption_approved=True,
         ua_admin_database_bootstrap_approved=True,
+        ua_admin_database_upgrade_approved=True,
         ua_sql_console_provision_approved=True,
     )
     values.setdefault("ua_manage_notification_timer", False)

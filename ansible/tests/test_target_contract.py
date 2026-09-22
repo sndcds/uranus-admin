@@ -45,11 +45,20 @@ class TargetContractTests(unittest.TestCase):
                 {
                     "commit": "a" * 40,
                     "head": "0012",
-                    "runtime_grants": {"finding": ["SELECT"]},
+                    "runtime_grants": {
+                        "finding": ["SELECT"],
+                        "finding_event": ["SELECT", "INSERT"],
+                    },
                     "environment_keys": [],
                     "operator_grants": {"alembic_version": ["SELECT"]},
                     "admin_indexes": ["finding_pkey"],
                     "admin_columns": {"finding": ["uuid"]},
+                    "admin_upgrade_contracts": {
+                        "0011": {
+                            "schema_fingerprint": "b" * 64,
+                            "runtime_grants": {"finding": ["SELECT"]},
+                        }
+                    },
                 }
             ).encode()
             with tarfile.open(artifact, "w:gz") as archive:

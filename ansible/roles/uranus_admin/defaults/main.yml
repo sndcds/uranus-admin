@@ -21,6 +21,7 @@ ua_notification_units:
   - uranus-admin-notification-worker.timer
 ua_secret_adoption_approved: false
 ua_admin_database_bootstrap_approved: false
+ua_admin_database_upgrade_approved: false
 ua_sql_console_provision_approved: false
 ua_debug: false
 ua_runtime_overrides: {}

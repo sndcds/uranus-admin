@@ -104,6 +104,7 @@ class AdminBootstrapContractTests(unittest.TestCase):
             "operator_grants": admin_db.OPERATOR_GRANTS,
             "admin_indexes": [],
             "admin_columns": {},
+            "admin_upgrade_contracts": {},
         }
 
     def test_malformed_boundary_fails_with_explicit_safe_stage(self):
@@ -128,6 +129,7 @@ class AdminBootstrapContractTests(unittest.TestCase):
                         "state": "plan",
                         "environment": "production",
                         "approved": False,
+                        "upgrade_approved": False,
                         "manifest": self.diagnostic_manifest(),
                         "boundary": BOUNDARY,
                     }
@@ -391,6 +393,31 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
                 str(self.release), self.manifest, self.archive_hash, self.uv
             )(dsn)
 
+    def alembic(self, *args):
+        result = subprocess.run(
+            [
+                self.uv,
+                "run",
+                "--no-cache",
+                "--no-sync",
+                "--offline",
+                "--no-python-downloads",
+                "--no-env-file",
+                "alembic",
+                *args,
+            ],
+            cwd=self.release / "backend",
+            env={
+                "PATH": "/usr/bin:/bin",
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "UV_PYTHON_DOWNLOADS": "never",
+                "ADMIN_MIGRATION_DATABASE_URL": self.values["ADMIN_MIGRATION_DATABASE_URL"],
+            },
+            capture_output=True,
+            timeout=90,
+        )
+        self.assertEqual(result.returncode, 0)
+
     def bootstrap(self, environment="test", approved=True, migrate=None):
         return self.boundary.bootstrap(environment, approved, self.values, migrate or self.migrate)
 
@@ -465,6 +492,55 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
         self.assertTrue(self.bootstrap(environment="staging"))
         self.assertEqual(self.boundary.inspect("staging")["state"], "READY")
 
+    def test_exact_0011_contract_upgrades_in_production_and_preserves_data(self):
+        self.bootstrap()
+        self.execute(
+            "INSERT INTO admin.auth_login_bucket(key,attempts,window_end) "
+            "VALUES ('preserved',3,now())"
+        )
+        self.conn.commit()
+        self.alembic("downgrade", "0011")
+        plan = self.boundary.inspect("production", upgrade_approved=True)
+        self.assertEqual(plan["state"], "UPGRADEABLE")
+        self.assertEqual(plan["current_head"], "0011")
+        self.assertTrue(plan["would_run_alembic"])
+        self.assertEqual(plan["blockers"], [])
+        with self.assertRaisesRegex(ValueError, "admin_upgrade_not_authorized"):
+            self.boundary.upgrade("production", False, self.values, self.migrate)
+        self.assertTrue(self.boundary.upgrade("production", True, self.values, self.migrate))
+        self.assertEqual(self.boundary.inspect("production")["state"], "READY")
+        self.assertEqual(
+            self.execute("SELECT attempts FROM admin.auth_login_bucket WHERE key='preserved'"),
+            [(3,)],
+        )
+
+    def test_exact_0012_contract_upgrades_in_production(self):
+        self.bootstrap()
+        self.alembic("downgrade", "0012")
+        plan = self.boundary.inspect("production", upgrade_approved=True)
+        self.assertEqual(plan["state"], "UPGRADEABLE")
+        self.assertEqual(plan["current_head"], "0012")
+        self.assertTrue(self.boundary.upgrade("production", True, self.values, self.migrate))
+        self.assertEqual(self.boundary.inspect("production")["state"], "READY")
+
+    def test_0011_with_additional_drift_is_never_upgraded(self):
+        self.bootstrap()
+        self.alembic("downgrade", "0011")
+        for mutation in (
+            "ALTER TABLE admin.finding ADD COLUMN unexpected text",
+            "CREATE INDEX unknown_admin_index ON admin.finding(rule)",
+            "GRANT DELETE ON admin.finding TO admin_user",
+            "GRANT SELECT ON admin.finding TO PUBLIC",
+        ):
+            with self.subTest(mutation=mutation):
+                self.execute(mutation)
+                plan = self.boundary.inspect("production", upgrade_approved=True)
+                self.assertEqual(plan["state"], "DRIFTED")
+                self.assertIn("upgrade_source_contract_mismatch", plan["blockers"])
+                with self.assertRaisesRegex(ValueError, "admin_upgrade_not_authorized"):
+                    self.boundary.upgrade("production", True, self.values, self.migrate)
+                self.conn.rollback()
+
     def test_partial_schema_is_drifted_not_repaired(self):
         self.execute("CREATE SCHEMA admin")
         self.conn.commit()
@@ -535,38 +611,29 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
         )
         self.assertEqual(self.execute("SELECT to_regnamespace('admin')"), [(None,)])
 
-    def test_committed_migration_grant_failure_rolls_back_grants_not_schema(self):
-        original = self.boundary.rows
-
-        def fail(query, params=()):
-            if "GRANT" in str(query) and "auth_account" in str(query):
-                raise ValueError("injected_grant_failure")
-            return original(query, params)
-
-        with patch.object(self.boundary, "rows", side_effect=fail):
-            with self.assertRaisesRegex(ValueError, "injected_grant_failure"):
+    def test_grant_failure_rolls_back_migration_and_grants_atomically(self):
+        launcher = self.release / "deployment/admin_database_migrate.py"
+        original = launcher.read_text()
+        launcher.write_text(
+            original.replace(
+                'await apply_grants(conn, manifest["runtime_grants"])',
+                'await apply_grants(conn, manifest["runtime_grants"]); '
+                "raise RuntimeError('injected')",
+            )
+        )
+        try:
+            with self.assertRaisesRegex(ValueError, "release_migration_failed"):
                 self.bootstrap()
-        self.assertEqual(
-            self.execute("SELECT has_schema_privilege('admin_user','admin','USAGE')"),
-            [(False,)],
-        )
-        self.assertEqual(
-            self.execute(
-                "SELECT has_table_privilege('admin_user','admin.alembic_version','SELECT')"
-            ),
-            [(False,)],
-        )
+        finally:
+            launcher.write_text(original)
+        self.assertEqual(self.execute("SELECT to_regnamespace('admin')"), [(None,)])
         self.assertEqual(
             self.execute(
                 "SELECT has_database_privilege('admin_migrator',current_database(),'CREATE')"
             ),
             [(False,)],
         )
-        self.assertEqual(
-            self.execute("SELECT version_num FROM admin.alembic_version"),
-            [(self.manifest["head"],)],
-        )
-        self.assertEqual(self.boundary.inspect("test")["state"], "DRIFTED")
+        self.assertEqual(self.boundary.inspect("test")["state"], "ABSENT")
 
     def test_release_manifest_and_archive_mismatch_fail_before_execution(self):
         with (
