@@ -1,9 +1,29 @@
-# Kulturbytes Admin API
+# Kulturbytes Admin API — FastAPI, PostgreSQL/PostGIS & Data Quality Backend
 
-FastAPI / Python 3.13 / SQLAlchemy async / PostgreSQL/PostGIS. Das Backend liest Uranus-
-Domänendaten und liefert Dashboard, Activity, Qualitätsbefunde und Arbeitslisten. Optional
-speichert es Prüfläufe und Reviews ausschließlich im eigenen `admin`-Schema.
-Fachliche Uranus-Schreiblogik wird nicht dupliziert.
+Die **Kulturbytes Admin API** ist das Python-/FastAPI-Backend für Administration,
+Datenqualität und Operations rund um Kulturbytes/Uranus. Sie nutzt **Python 3.13**,
+**FastAPI**, asynchrones **SQLAlchemy**, **PostgreSQL/PostGIS** und getrennte Source-/Admin-
+Datenbankverbindungen.
+
+Das Backend liest Uranus-Domänendaten ausschließlich über einen eingeschränkten Reader und
+liefert Dashboard, Activity, globale Suche, Qualitätsbefunde, Entity-Timelines, Inbox,
+Zuständigkeiten, Geocoding, Benachrichtigungen, Statistiken und sichere Diagnosefunktionen.
+Persistente Admin-Workflows werden ausschließlich im eigenen `admin`-Schema gespeichert;
+fachliche Uranus-Schreiblogik wird nicht dupliziert.
+
+## Kernfunktionen
+
+- **Data quality:** deterministische Regeln, persistierte Findings, Reviews und Prüflaufhistorie.
+- **Operations:** Inbox, Assignments, Markierungen, URL-Prüfung und langlebige Worker.
+- **Geospatial:** PostGIS, Geo Scope, Nominatim-Geocoding und Standortvorschläge.
+- **Domain inspection:** Events, Venues, Spaces, Organisations, Users/Teams und Images.
+- **Security:** eigene Admin-Authentifizierung, HttpOnly-Sessions, CSRF/Origin-Prüfung,
+  Least-Privilege-Rollen und read-only Source-Zugriff.
+- **Diagnostics:** Source-Schema-Verifikation, registrierte SQL-Diagnostik und isolierte
+  read-only SQL Console.
+
+Zur Gesamtübersicht siehe [Repository-README](../README.md), für die Oberfläche
+[Frontend-README](../frontend/README.md) und für den Betrieb [Ansible-Deployment](../ansible/README.md).
 
 ## Start
 

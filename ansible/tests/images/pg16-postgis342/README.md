@@ -1,4 +1,17 @@
-# Audited PostgreSQL 16.15 / PostGIS 3.4.2 fixture
+# PostgreSQL 16.15 + PostGIS 3.4.2 CI Fixture for Kulturbytes Admin
+
+This directory provides an **audited, reproducible PostgreSQL/PostGIS test image** for
+Kulturbytes Admin's Ansible and SQL Console security tests. It reproduces the reviewed
+**PostgreSQL 16.15 / PostGIS 3.4.2** stack without connecting to production data and is
+intended only for disposable local/CI verification.
+
+It is useful for contributors working on PostgreSQL privilege boundaries, PostGIS function
+policies, SQL Console hardening, reproducible deployment checks and compatibility audits.
+
+Related documentation:
+[Kulturbytes Admin deployment](../../../README.md).
+
+## Scope and safety
 
 This disposable CI image reproduces the versions documented in `ansible/README.md`.
 No production connection or production catalog was used. It contains normal Ubuntu
