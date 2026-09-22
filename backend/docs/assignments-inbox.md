@@ -40,6 +40,9 @@ und überfällige Aufgaben verwenden `ADMIN_TIMEZONE` und echte Zeitzonen-Grenze
 Notification-Empfänger, Snapshot-Inhalte, Providerfehler, Geocoding-Rohfehler, Passworthashes,
 Sessions und andere Secrets werden weder ausgewählt noch zurückgegeben. `href` stammt aus einer
 geschlossenen Menge interner Ziele und wird im Frontend nochmals mit Zod validiert.
+Finding-Aufgaben verlinken unabhängig von einer Zuweisung auf
+`/findings?entity_key=…&rule=…`. Das gilt auch für Termine und andere Entitäten ohne
+eigene Detailseite oder aktuelle Source-Präsentation; `entity_action` darf dabei `null` sein.
 
 ## Migration und Grants
 

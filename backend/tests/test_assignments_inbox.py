@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from pydantic import ValidationError
@@ -23,7 +24,7 @@ from app.schemas.assignments import (
     InboxFilters,
 )
 from app.services.assignments import create_assignment, update_assignment
-from app.services.inbox import inbox_page
+from app.services.inbox import inbox_page, map_item
 from tests.conftest import uid
 
 NOW = datetime(2026, 10, 25, 10, tzinfo=UTC)  # Europe/Berlin DST transition day.
@@ -99,6 +100,45 @@ def test_assignment_contract_rejects_ambiguous_and_forged_state():
     assert AssignmentLookup(finding_id="finding:one").finding_id == "finding:one"
     with pytest.raises(ValidationError):
         AssignmentLookup(workflow_type="geocode_request")
+
+
+@pytest.mark.parametrize(
+    "entity_type,entity_key", [("event_date", str(uid(40))), ("membership", "a/b:c&d")]
+)
+def test_unassigned_finding_links_to_its_rule_and_entity_without_source_presentation(
+    entity_type, entity_key
+):
+    # Unassigned rows have no assignment finding_id in the inbox UNION projection.
+    item = map_item(
+        {
+            "id": f"finding:date_rule:{entity_type}:{entity_key}:end_date",
+            "kind": "finding",
+            "title": "Qualitätsprüfung",
+            "summary": "Das Enddatum liegt vor dem Startdatum.",
+            "entity_type": entity_type,
+            "entity_key": entity_key,
+            "fallback_entity_name": "Testtermin",
+            "severity": "error",
+            "status": "open",
+            "occurred_at": NOW,
+            "due_at": None,
+            "assignment_id": None,
+            "finding_id": None,
+            "rule": "event_date_end_before_start",
+        },
+        None,
+        NOW,
+        NOW.replace(hour=0),
+        NOW.replace(hour=0) + timedelta(days=1),
+    )
+    assert item.assignment is None and item.entity_action is None
+    assert item.entity_name == "Testtermin"
+    url = urlsplit(item.href)
+    assert url.path == "/findings"
+    assert parse_qs(url.query) == {
+        "entity_key": [entity_key],
+        "rule": ["event_date_end_before_start"],
+    }
 
 
 async def test_assignment_lifecycle_conflict_and_append_only_history(database, admin_store):
@@ -234,6 +274,11 @@ async def test_workflow_assignment_derives_and_verifies_durable_entity_identity(
 async def test_inbox_deduplicates_assignment_and_filters_mine(database, admin_store, db_connection):
     await provision_admin(database, uid(800))
     await add_finding(admin_store)
+    before_assignment = await inbox_page(
+        admin_store, db_connection, InboxFilters(), NOW, "Europe/Berlin", f"admin:{uid(800)}"
+    )
+    unassigned_finding = next(item for item in before_assignment.items if item.kind == "finding")
+    assert unassigned_finding.href == (f"/findings?entity_key={uid(30)}&rule=missing_description")
     assigned = await create_assignment(
         admin_store,
         creation(uid(800), due_at=NOW - timedelta(minutes=1)),
@@ -245,6 +290,7 @@ async def test_inbox_deduplicates_assignment_and_filters_mine(database, admin_st
     matching = [item for item in page.items if item.entity_key == str(uid(30))]
     assert len(matching) == 1
     assert matching[0].kind == "assignment" and matching[0].assignment.id == assigned.id
+    assert matching[0].href == unassigned_finding.href
     assert page.counts.mine == 1 and page.counts.overdue == 1
     mine = await inbox_page(
         admin_store,

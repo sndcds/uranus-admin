@@ -154,7 +154,7 @@ def params(filters: InboxFilters, now: datetime, timezone: str, subject: str) ->
 
 
 def item_href(row: dict[str, Any]) -> str:
-    if row["kind"] in {"assignment", "finding"} and row.get("finding_id"):
+    if row["kind"] == "finding" or (row["kind"] == "assignment" and row.get("finding_id")):
         return "/findings?" + urlencode(
             {"entity_key": row["entity_key"], "rule": row.get("rule") or ""}
         )
