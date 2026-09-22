@@ -1,5 +1,11 @@
 import { activityFixture } from './activity'
-import type { EntitySection, EntityPage, EntityDetail } from '../../shared/contracts'
+import type {
+  EntitySection,
+  EntityPage,
+  EntityDetail,
+  TimelineEntityType,
+  TimelinePage,
+} from '../../shared/contracts'
 import { entitySections } from '../../app/utils/entities'
 export function entityFixture(section: EntitySection): EntityPage {
   const type = entitySections[section].type
@@ -65,5 +71,35 @@ export function detailFixture(section: EntitySection): EntityDetail {
       pagination: { page: 1, page_size: 25, total: related.length, pages: related.length ? 1 : 0 },
     },
     observed_at: page.observed_at,
+  }
+}
+
+export function timelineFixture(entityType: TimelineEntityType): TimelinePage {
+  return {
+    entity_type: entityType,
+    entity_key: activityFixture.items[0]!.entity_key,
+    items: [
+      {
+        id: 'finding:10000000-0000-4000-8000-000000000070',
+        kind: 'finding_detected',
+        occurred_at: '2026-02-03T10:15:00Z',
+        title: 'Qualitätsproblem erkannt',
+        summary: 'Beschreibung fehlt.',
+        actor: null,
+        href: `/findings?mode=persisted&entity_type=${entityType}&entity_key=${activityFixture.items[0]!.entity_key}&rule=missing_description`,
+        metadata: {
+          status: 'open',
+          severity: 'warning',
+          rule: 'missing_description',
+          field: 'description',
+          resource_id: 'missing-description',
+          generation: null,
+          score: null,
+          http_status: null,
+        },
+      },
+    ],
+    cursor_pagination: { page_size: 25, next_cursor: null, has_more: false },
+    observed_at: '2026-02-03T10:16:00Z',
   }
 }

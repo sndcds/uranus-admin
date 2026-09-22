@@ -62,7 +62,7 @@ EmptyState → PaginationBar. Findings, Activity, entity lists, Marks and Queues
 URL-based filtering, server pagination and their own row semantics.
 
 **Detail:** PageHeader with list/findings actions → RequestState → entity summary
-with record actions → DetailFacts → SectionHeader/ResultSummary → related records
+with record actions → DetailFacts → EntityTimeline → SectionHeader/ResultSummary → related records
 → pagination. Entity details
 reuse ActivityRow's already-safe preview, canonical links, public links, thumbnails,
 marks and graph links. A second nearly identical row component would add duplication;

@@ -2,11 +2,11 @@ from datetime import timedelta
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from app.admin_database import assert_admin_boundary
-from app.admin_tables import finding
+from app.admin_tables import finding, finding_event
 from app.errors import APIError
 from app.schemas.checks import ReviewUpdate
 from app.schemas.finding import FindingFilters
@@ -107,6 +107,15 @@ async def test_persistence_lifecycle_for_source_keys(
     )
     assert resolved.status == "resolved" and resolved.resolved_at
     assert resolved.first_seen_at == item.first_seen_at
+    history = (
+        await admin_store.execute(
+            select(finding_event.c.kind, finding_event.c.actor)
+            .where(finding_event.c.finding_id == item.id)
+            .order_by(finding_event.c.occurred_at, finding_event.c.id)
+        )
+    ).all()
+    assert {row.kind for row in history} == {"detected", "reviewed", "resolved"}
+    assert next(row.actor for row in history if row.kind == "reviewed") == "reviewer"
 
 
 @pytest.mark.parametrize("key", [str(uid(20)), f"membership:{uid(10)}:{uid(1)}"])

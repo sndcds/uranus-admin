@@ -237,6 +237,19 @@ Die Ablage benötigt Migration `0003` und die zusätzlichen Runtime-Grants aus
 `admin_storage_unconfigured`. Nuxt erlaubt ausschließlich die dokumentierten Methoden,
 Filter und UUID-Pfade; Schreibdaten werden vor dem Weiterleiten validiert.
 
+## Entity Timeline
+
+`GET /api/v1/entities/{entity_type}/{entity_key}/timeline` aggregiert für Event,
+Organisation, Venue, Space, User und Image die belegten Source- und Admin-Ereignisse. Die API
+liefert eine geschlossene `kind`-Union, `occurred_at`, Titel, optionale Summary/Actor/Deep-Link
+und typisierte Metadaten. Sie sortiert `occurred_at DESC` mit stabiler Event-ID als Tie-Breaker
+und paginiert über einen an Entity und `page_size` gebundenen Cursor.
+
+Source-`created_at`/`modified_at`, `invited_at` und Workflow-Zeitpunkte werden nur aufgenommen,
+wenn sie vorhanden sind. Es wird kein Zeitpunkt und keine geänderte Spalte abgeleitet. Die
+vollständige Quellen-, Sicherheits- und Migrationssemantik steht unter
+[Entity Timeline](entity-timeline.md).
+
 ## Auth / Authorization Boundary
 
 Alle Verwaltungsrouten verwenden dieselbe zentrale Admin-Dependency. Die eigenständige

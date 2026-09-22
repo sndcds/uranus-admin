@@ -10,6 +10,45 @@ const input = {
 }
 
 describe('bounded admin proxy', () => {
+  it('allows only the exact entity timeline route and bounded query keys', async () => {
+    const id = '10000000-0000-4000-8000-000000000020'
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ items: [] }))
+    const path = `/api/v1/entities/venue/${id}/timeline`
+    expect(
+      (
+        await forwardAdminRequest(
+          { ...input, path, query: new URLSearchParams({ cursor: 'opaque', page_size: '25' }) },
+          base,
+          fetcher,
+        )
+      ).status,
+    ).toBe(200)
+    expect(String(fetcher.mock.calls[0]?.[0])).toBe(`${base}${path}?cursor=opaque&page_size=25`)
+    for (const rejectedPath of [
+      `/api/v1/entities/password/${id}/timeline`,
+      `/api/v1/entities/venue/not-a-uuid/timeline`,
+      `${path}/extra`,
+    ]) {
+      expect(
+        (
+          await forwardAdminRequest(
+            { ...input, path: rejectedPath, query: new URLSearchParams() },
+            base,
+            fetcher,
+          )
+        ).status,
+      ).toBe(404)
+    }
+    expect(
+      (
+        await forwardAdminRequest(
+          { ...input, path, query: new URLSearchParams({ url: 'https://evil.invalid' }) },
+          base,
+          fetcher,
+        )
+      ).status,
+    ).toBe(422)
+  })
   it.each([
     '/unknown',
     '//evil.invalid',

@@ -47,6 +47,15 @@ class FindingCursor(BaseModel):
     id: str = Field(min_length=1, max_length=8192)
 
 
+class TimelineCursor(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    version: Literal[1] = 1
+    endpoint: Literal["timeline"] = "timeline"
+    scope: str = Field(pattern=r"^[a-f0-9]{64}$")
+    occurred_at: AwareDatetime
+    id: str = Field(min_length=1, max_length=4096)
+
+
 def scope(filters: BaseModel, **extra: Any) -> str:
     values = filters.model_dump(mode="json", exclude={"page", "page_size", "cursor"})
     values.update(extra)
@@ -57,7 +66,9 @@ def encode(value: BaseModel) -> str:
     return base64.urlsafe_b64encode(value.model_dump_json().encode()).decode().rstrip("=")
 
 
-def decode[T: (ActivityCursor, FindingCursor)](raw: str, model: type[T], expected_scope: str) -> T:
+def decode[T: (ActivityCursor, FindingCursor, TimelineCursor)](
+    raw: str, model: type[T], expected_scope: str
+) -> T:
     try:
         if not raw or len(raw) > 16384:
             raise ValueError()

@@ -247,7 +247,7 @@ async def admin_store(database, settings):
         )
         await connection.execute(
             text(
-                "GRANT SELECT, INSERT ON admin.record_mark_event, "
+                "GRANT SELECT, INSERT ON admin.finding_event, admin.record_mark_event, "
                 "admin.notification_delivery_item, admin.geocode_candidate TO admin_history_test"
             )
         )

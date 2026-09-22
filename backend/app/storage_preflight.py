@@ -76,6 +76,7 @@ RUNTIME_GRANTS = {
     "alembic_version": ("SELECT",),
     "check_run": ("SELECT", "INSERT", "UPDATE"),
     "finding": ("SELECT", "INSERT", "UPDATE"),
+    "finding_event": ("SELECT", "INSERT"),
     "record_mark": ("SELECT", "INSERT", "UPDATE"),
     "record_mark_event": ("SELECT", "INSERT"),
     "auth_account": ("SELECT",),

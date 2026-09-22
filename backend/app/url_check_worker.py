@@ -13,10 +13,10 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from app.admin_database import assert_admin_boundary, create_admin_engine
-from app.admin_tables import finding, url_check
+from app.admin_tables import finding, finding_event, url_check
 from app.config import Settings
 from app.database import create_engine
-from app.services.checks import LOCK_KEY, persist_results
+from app.services.checks import LOCK_KEY, finding_event_values, persist_results
 from app.services.quality.core import URL_FIELDS, RuleResult, make_finding
 from app.services.url_reachability import InvalidTarget, Observation, check_url, normalized_url
 from app.storage_preflight import RUNTIME_GRANTS, check_grants, check_schema
@@ -173,11 +173,19 @@ async def finish(
             await persist_results(admin, [RuleResult(RULE, [item], set())], now)
         elif result.status == "reachable":
             # Positive evidence only, scoped to this exact rule/entity/field identity.
-            await admin.execute(
+            update_result = await admin.execute(
                 update(finding)
                 .where(finding.c.id == item.id, finding.c.status != "resolved")
                 .values(status="resolved", resolved_at=now, last_seen_at=now)
+                .returning(*finding.c)
             )
+            resolved = update_result.mappings().first()
+            if resolved is not None:
+                await admin.execute(
+                    insert(finding_event).values(
+                        **finding_event_values(dict(resolved), "resolved", now)
+                    )
+                )
         return True
 
 

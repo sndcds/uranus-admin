@@ -98,6 +98,8 @@ Domain inspection now includes events, venues/spaces, organizations, users/teams
 and images with searchable lists, paginated relations, graph links and workflow
 links. Creation remains unavailable until authorized Uranus API delegation exists.
 The dashboard distinguishes the latest check run from the latest successful run.
+All six entity detail pages show one server-aggregated, cursor-paginated timeline of
+evidenced source and admin workflow events; missing timestamps are never synthesized.
 Operators can audit source metadata with `python -m app.source_schema_verify --json`;
 see [source verification](backend/docs/source-verification.md).
 
@@ -111,5 +113,7 @@ Organization email notifications (DE/DA/EN) use a separate durable worker:
 Migration 0008 and explicit notification runtime grants are required. Delivery defaults off;
 inspect `/notifications` and previews before enabling SMTP. See the
 [notification architecture, source verification and deployment guide](backend/docs/notifications.md).
+
+[Entity timeline contract, sources and deployment](backend/docs/entity-timeline.md).
 
 [SQL / Datenherkunft – registrierte Queries, Sicherheitsmodell und Coverage](backend/docs/sql-provenance.md).

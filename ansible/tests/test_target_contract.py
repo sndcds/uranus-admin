@@ -44,7 +44,7 @@ class TargetContractTests(unittest.TestCase):
             manifest = json.dumps(
                 {
                     "commit": "a" * 40,
-                    "head": "0011",
+                    "head": "0012",
                     "runtime_grants": {"finding": ["SELECT"]},
                     "environment_keys": [],
                     "operator_grants": {"alembic_version": ["SELECT"]},
