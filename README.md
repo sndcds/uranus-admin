@@ -1,11 +1,37 @@
-# Kulturbytes Admin
+# Kulturbytes Admin — Open Source Administration, Data Quality & Operations for Uranus
 
-Administrationsdashboard für Uranus mit einem FastAPI-Backend und einem Nuxt-Frontend.
+**Kulturbytes Admin** ist das Open-Source-Administrations-, Datenqualitäts- und Operations-Dashboard
+für [Kulturbytes](https://kulturbytes.de/) und das Uranus-Backend. Die Anwendung kombiniert
+**FastAPI**, **Nuxt 4**, **Vue 3**, **PostgreSQL/PostGIS**, **OpenStreetMap/Nominatim**, D3,
+persistierte Qualitätsprüfungen, Admin-Workflows, Geocoding, Benachrichtigungen, Statistiken,
+Entity-Timelines und eine abgesicherte SQL-Konsole.
+
+Das Projekt richtet sich an Betreiber und Entwickler von Kultur- und Veranstaltungsplattformen,
+die Datenqualität, Moderation, Geodaten, Beziehungen und Betriebsabläufe in einer eigenständigen,
+auditierbaren Admin-Oberfläche verwalten möchten.
+
+## Was bietet Kulturbytes Admin?
+
+- **Datenqualität & Review:** Findings, Prüfläufe, Reviews, Markierungen und priorisierte Arbeitslisten.
+- **Admin-Workflows:** Inbox, Zuständigkeiten, Wiedervorlagen und Entity-Timelines.
+- **Kultur- und Eventdaten:** Veranstaltungen, Orte, Räume, Organisationen, Benutzer/Teams und Bilder.
+- **Geodaten:** Geo Scope, fehlende Positionen, Nominatim-Standortvorschläge und OpenStreetMap-Bezug.
+- **Analyse:** Aktivität, Statistiken und ein interaktiver Entity-Relationship-Graph.
+- **Betrieb & Sicherheit:** getrennte Admin-Authentifizierung, read-only Uranus-Zugriff,
+  langlebige Worker, SQL-Herkunft/Diagnostik und Ansible-Deployment.
+
+### Technologie
+
+`FastAPI` · `Python 3.13` · `SQLAlchemy` · `PostgreSQL` · `PostGIS` · `Nuxt 4` · `Vue 3` ·
+`TypeScript` · `Pinia` · `Zod` · `D3` · `OpenStreetMap` · `Nominatim` · `Ansible` · `systemd` · `Nginx`
+
+## Repository-Struktur
 
 | Ordner                          | Inhalt                                                   |
 | ------------------------------- | -------------------------------------------------------- |
 | [backend/](backend/README.md)   | Python-API, Migrationen, Tests und Backend-Dokumentation |
 | [frontend/](frontend/README.md) | Nuxt-Dashboard, Tests und HTML-Mockup                    |
+| [ansible/](ansible/README.md)   | Sicheres Deployment, Preflight, systemd, Nginx und DB-Grenzen |
 
 Beide Anwendungen besitzen eigene Abhängigkeiten und `.env`-Dateien.
 Die gemeinsame GitHub-Actions-Konfiguration liegt unter `.github/workflows/`.

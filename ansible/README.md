@@ -1,4 +1,18 @@
-# Vorsichtiges Deployment für admin.kulturbytes.de
+# Kulturbytes Admin Deployment — Ansible, systemd, Nginx & PostgreSQL
+
+Diese Ansible-Rolle deployt **Kulturbytes Admin** kontrolliert auf Production-, Staging- und
+Test-Systeme. Sie verwaltet Release-Artefakte, **systemd**-Services, **Nginx**, Admin-
+Datenbankmigrationen, Runtime-/Operator-Grenzen, Maintenance Mode, Healthchecks und die
+isolierte SQL-Console-Infrastruktur.
+
+Der Schwerpunkt liegt auf **fail-closed Deployment**, reproduzierbaren Artefakten,
+Least-Privilege-PostgreSQL-Rollen, read-only Uranus-Zugriff, expliziten Freigaben und
+prüfbaren Recovery-Schritten. Die Rolle ist bewusst kein allgemeines Server-Provisioning.
+
+Projektübersicht: [Kulturbytes Admin](../README.md) ·
+[Backend](../backend/README.md) · [Frontend](../frontend/README.md)
+
+## Deployment-Modell
 
 Diese Rolle unterstützt **Production-Adoption** und **Staging-/Test-Bootstrap** auf
 Zielsystemen, die den technischen Deployment-Vertrag erfüllen.

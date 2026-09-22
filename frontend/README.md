@@ -1,8 +1,24 @@
-# Kulturbytes Admin Dashboard
+# Kulturbytes Admin Dashboard — Nuxt 4 Administration UI
 
-Nuxt 4 / Vue 3 / Pinia / TypeScript / Zod. Dashboard, filterbare Findings, Activity für neun
-Objektarten, Partner-/Einladungs-/Aktivierungslisten, Prüfläufe und menschliche Reviews.
-Das ursprüngliche HTML-Mockup bleibt unverändert.
+Das **Kulturbytes Admin Dashboard** ist die responsive Administrationsoberfläche für
+Kulturbytes/Uranus. Das Frontend basiert auf **Nuxt 4**, **Vue 3**, **TypeScript**, **Pinia**
+und **Zod** und verbindet Datenqualität, Moderation, Geodaten, Event-Administration,
+Beziehungsanalyse und Betriebsworkflows in einer geschützten Weboberfläche.
+
+## Funktionen der Admin-Oberfläche
+
+- Dashboard, Inbox und priorisierte Arbeitslisten.
+- Veranstaltungen, Orte, Räume, Organisationen, Benutzer/Teams und Bilder.
+- Activity, filterbare Findings, Reviews, Markierungen und Prüfläufe.
+- Globale Entity-Suche und direkte Navigation zwischen verknüpften Datensätzen.
+- Geo Scope, Nominatim-Standortvorschläge und Geocoding-Review.
+- D3-Statistiken und Entity-Relationship-Graph.
+- Benachrichtigungen, SQL-Datenherkunft, SQL-Diagnostik und abgesicherte SQL Console.
+- SSR, responsive/mobile UI, Runtime-Contracts mit Zod und Production-CSP-Tests.
+
+Backend und Sicherheitsmodell: [Kulturbytes Admin API](../backend/README.md).
+Deployment und Betrieb: [Ansible-README](../ansible/README.md).
+Projektübersicht: [Repository-README](../README.md).
 
 ## Start und Versionen
 

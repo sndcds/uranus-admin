@@ -1,4 +1,13 @@
-# Local maintenance animation
+# Kulturbytes Admin Maintenance Animation — Self-hosted Lottie
+
+This directory contains the **self-hosted maintenance-mode animation** used by the
+Kulturbytes Admin Ansible deployment. It is intentionally dependency-light, CSP-friendly,
+works without third-party network requests and supports `prefers-reduced-motion`.
+
+Related deployment documentation:
+[Kulturbytes Admin Ansible](../../../README.md).
+
+## Assets and licensing
 
 `maintenance.json` is an original shape-only Lottie animation created for this
 repository: a stationary server with three slowly orbiting update packets (6 seconds,
