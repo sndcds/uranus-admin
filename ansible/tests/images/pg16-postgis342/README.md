@@ -32,6 +32,9 @@ Its local image ID is not a portable registry manifest digest. The immutable inp
   suites `noble`, `noble-updates`, `noble-security`, components `main`, `universe`.
   All dependency resolution uses this fixed snapshot. APT verifies the Ubuntu archive
   signatures/package checksums; TLS verification stays enabled.
+  Index and package downloads retry transient failures up to five times. Any failed
+  index download stops the build before package installation. A persistent snapshot
+  outage fails this matrix job; the other pinned stacks continue independently.
 - `postgresql-16` and `postgresql-client-16`: **16.15-0ubuntu0.24.04.1**.
 - `postgresql-16-postgis-3` and `postgresql-16-postgis-3-scripts`:
   **3.4.2+dfsg-1ubuntu3**.

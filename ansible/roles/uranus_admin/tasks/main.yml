@@ -7,6 +7,18 @@
 - name: Inspect and prepare secret separation in memory
   ansible.builtin.import_tasks: environment_plan.yml
 
+- name: Verify adopted migrator login before build or maintenance including check mode
+  uranus_admin_database:
+    state: verify_upgrade_credentials
+    environment: "{{ ua_target_environment }}"
+    manifest: "{{ ua_manifest }}"
+    boundary: "{{ lookup('file', role_path + '/files/boundary.sql') }}"
+    credentials: "{{ (ua_existing_operator.content | default('') | b64decode | ua_parse_env) | combine(ua_privileged) | combine(ua_runtime) }}"
+  become_user: postgres
+  no_log: true
+  diff: false
+  when: ua_admin_database_plan.admin_database.state == 'UPGRADEABLE'
+
 - name: Plan isolated console infrastructure using read-only catalog inspection
   ansible.builtin.import_tasks: sql_console_plan.yml
 
