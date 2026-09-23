@@ -1,11 +1,10 @@
 import { test, expect } from '../fixtures/authenticated'
-import { summary, findings } from '../fixtures/api'
-import { activityFixture } from '../fixtures/activity'
-import { statisticsFixture } from '../fixtures/statistics'
-import { graphFixture, graphPath } from '../fixtures/graph'
-import { entityFixture, detailFixture } from '../fixtures/entities'
+import { graphPath } from '../fixtures/graph'
+import { entityFixture } from '../fixtures/entities'
 import { inboxFixture } from '../fixtures/inbox'
 import { geocodeDetail } from '../fixtures/geocoding'
+import { notificationDetail, notificationDeliveryDetail } from '../fixtures/notifications'
+import { mockLayoutApi, layoutMark } from '../fixtures/layout'
 import { entitySectionSchema } from '../../shared/contracts'
 
 const sections = entitySectionSchema.options
@@ -16,6 +15,18 @@ const routes = [
   '/findings',
   '/checks',
   '/quality',
+  '/geocoding',
+  '/queues/partner_requests',
+  '/queues/team_invitations',
+  '/queues/user_activation',
+  '/notifications',
+  `/notifications/${notificationDetail.id}`,
+  '/notifications/deliveries',
+  `/notifications/deliveries/${notificationDeliveryDetail.id}`,
+  '/marks',
+  `/marks/${layoutMark.id}`,
+  '/sql',
+  '/statistics?view=event-content',
   `/geocoding/${geocodeDetail.id}`,
   graphPath,
   '/statistics',
@@ -39,6 +50,13 @@ const labels: Record<string, string> = {
   organizations: 'Organisationen',
   users: 'Benutzer & Teams',
   images: 'Bilder',
+  notifications: 'Benachrichtigungen',
+  marks: 'Markierungen',
+  sql: 'SQL Console',
+  geocoding: 'Standortvorschläge',
+  partner_requests: 'Partneranfragen',
+  team_invitations: 'Einladungen',
+  user_activation: 'Aktivierungen',
 }
 const mobileScreenshotNames: Record<string, string> = {
   '/': 'dashboard-mobile.png',
@@ -52,40 +70,12 @@ for (const viewport of [
   { width: 390, height: 844 },
 ]) {
   test(`shared shell and page review at ${viewport.width}px`, async ({ page }, info) => {
-    test.setTimeout(180000) // Twenty-one pages plus screenshots in one viewport audit.
+    test.setTimeout(300000) // Complete route matrix with review screenshots.
     await page.setViewportSize(viewport)
     await page.route('**/api/admin/auth/session', (route) =>
       route.fulfill({ json: { subject: 'admin:layout-fixture', system_admin: true } }),
     )
-    await page.route('https://api.kulturbytes.de/**', (route) =>
-      route.fulfill({
-        contentType: 'image/svg+xml',
-        body: '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80" fill="#e2e8f0"/></svg>',
-      }),
-    )
-    await page.route('**/api/admin/api/v1/**', (route) => {
-      const url = new URL(route.request().url())
-      const section = sections.find((section) => url.pathname.includes(`/api/v1/${section}`))
-      if (section)
-        return route.fulfill({
-          json: url.pathname.endsWith(section) ? entityFixture(section) : detailFixture(section),
-        })
-      if (url.pathname.endsWith('/summary')) return route.fulfill({ json: summary })
-      if (url.pathname.includes('/statistics/'))
-        return route.fulfill({ json: statisticsFixture(url.searchParams) })
-      if (url.pathname.endsWith('/activity')) return route.fulfill({ json: activityFixture })
-      if (url.pathname.endsWith('/inbox')) return route.fulfill({ json: inboxFixture })
-      if (url.pathname.includes('/geocode/requests/')) return route.fulfill({ json: geocodeDetail })
-      if (url.pathname.endsWith('/admins'))
-        return route.fulfill({ json: { items: [], admin_timezone: 'Europe/Berlin' } })
-      if (url.pathname.endsWith('/assignments')) return route.fulfill({ json: null })
-      if (url.pathname.endsWith('/graph')) return route.fulfill({ json: graphFixture })
-      if (url.pathname.endsWith('/check-runs'))
-        return route.fulfill({
-          json: { items: [], pagination: { page: 1, page_size: 50, total: 0, pages: 0 } },
-        })
-      return route.fulfill({ json: findings })
-    })
+    await mockLayoutApi(page)
     let shell: { x: number; width: number; height: number } | undefined
     for (const [index, path] of routes.entries()) {
       await page.goto(path)
@@ -99,6 +89,12 @@ for (const viewport of [
         await expect(
           page.getByRole('heading', { name: inboxFixture.items[0]!.entity_name! }),
         ).toBeVisible()
+      await expect(
+        page.locator('main').getByText('Abruf fehlgeschlagen', { exact: true }),
+      ).toHaveCount(0)
+      await expect(
+        page.getByRole('status').filter({ hasText: 'Daten werden geladen' }),
+      ).toHaveCount(0)
       const dimensions = await page.evaluate(() => {
         const main = document.querySelector('main')!.getBoundingClientRect()
         const header = document.querySelector('div.min-h-screen > header')!.getBoundingClientRect()
@@ -109,7 +105,14 @@ for (const viewport of [
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       )
-      const label = labels[path === '/' ? '/' : path.split('/')[1]!.split('?')[0]!]
+      const label =
+        labels[
+          path === '/'
+            ? '/'
+            : path.startsWith('/queues/')
+              ? path.split('/')[2]!
+              : path.split('/')[1]!.split('?')[0]!
+        ]
       if (viewport.width < 1024) {
         expect(dimensions.height).toBeLessThanOrEqual(120)
         const mobileHeader = page.locator('[data-mobile-app-header]')
@@ -220,5 +223,12 @@ for (const viewport of [
         fullPage: true,
       })
     }
+    await page.context().clearCookies()
+    await page.unroute('**/api/admin/auth/session')
+    await page.goto('/login')
+    await expect(page.getByRole('heading', { name: 'Anmeldung', exact: true })).toBeVisible()
+    await expect(page.getByLabel('Benutzername', { exact: true })).toBeEnabled()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: info.outputPath(`login-${viewport.width}.png`), fullPage: true })
   })
 }

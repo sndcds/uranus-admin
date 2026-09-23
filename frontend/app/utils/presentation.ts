@@ -88,3 +88,9 @@ export const checkStatusLabels = {
   success: 'Erfolgreich',
   failed: 'Fehlgeschlagen',
 }
+
+/** Record Detail v2; preserve the existing admin timezone convention. */
+export function recordDateTime(value: string, timezone = adminTimeZone): string {
+  const date = new Date(value)
+  return `${new Intl.DateTimeFormat('de-DE', { timeZone: timezone, dateStyle: 'medium' }).format(date)} · ${new Intl.DateTimeFormat('de-DE', { timeZone: timezone, timeStyle: 'short' }).format(date)}`
+}

@@ -164,7 +164,7 @@ it('shows public previews, secured external links and image failure fallback', a
   const wrapper = row(item)
   expect(wrapper.text()).toContain(item.subtitle)
   expect(wrapper.text()).toContain(item.address)
-  expect(wrapper.text()).toContain('Im Admin ansehen')
+  expect(wrapper.text()).toContain('Öffnen')
   const external = wrapper.get('a[target="_blank"]')
   expect(external.attributes('href')).toBe(item.public_url)
   expect(external.attributes('rel')).toBe('noopener noreferrer')
@@ -206,7 +206,7 @@ it('keeps image metadata and actions without a preview or public page', () => {
   expect(wrapper.find('img').exists()).toBe(false)
   expect(wrapper.find('a[target="_blank"]').exists()).toBe(false)
   expect(wrapper.text()).toContain(item.entity_name)
-  expect(wrapper.text()).toContain('Im Admin ansehen')
+  expect(wrapper.text()).toContain('Öffnen')
   expect(wrapper.text()).toContain('Markierungen')
 })
 

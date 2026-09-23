@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import SqlProvenanceButton from './sql/SqlProvenanceButton.vue'
-defineProps<{ title: string; description?: string; titleId?: string }>()
+defineProps<{ title: string; description?: string; titleId?: string; record?: boolean }>()
 </script>
 <template>
   <header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-    <div class="min-w-0">
-      <div class="flex flex-wrap items-center gap-3">
-        <h2 :id="titleId" class="text-2xl font-bold tracking-tight">{{ title }}</h2>
-        <slot name="badge" />
+    <div class="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row">
+      <slot name="leading" />
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-3">
+          <h2 :id="titleId" :class="record ? 'type-record-title' : 'type-page-title'">
+            {{ title }}
+          </h2>
+          <slot name="badge" />
+        </div>
+        <p v-if="description" class="mt-1 text-sm text-slate-500">{{ description }}</p>
+        <slot name="context" />
       </div>
-      <p v-if="description" class="mt-1 text-sm text-slate-500">{{ description }}</p>
     </div>
     <div
       data-page-header-actions

@@ -69,9 +69,9 @@ const status = computed(() => activityStatus(props.item.status))
         <NuxtLink
           v-if="item.action"
           :to="item.action.href"
-          :aria-label="`Im Admin ansehen: ${name}`"
+          :aria-label="`Öffnen: ${name}`"
           class="rounded text-fuchsia-700 underline-offset-4 hover:underline"
-          >Im Admin ansehen</NuxtLink
+          >Öffnen</NuxtLink
         >
         <a
           v-if="item.public_url"

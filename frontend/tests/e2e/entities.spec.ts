@@ -16,17 +16,16 @@ for (const section of entitySectionSchema.options) {
     await page.goto(`/${section}`)
     await expect(page.getByText(`Fixture ${section}`, { exact: true })).toBeVisible()
     await expectCreateUnavailable(page)
-    await page
-      .getByRole('link', { name: `Im Admin ansehen: Fixture ${section}`, exact: true })
-      .click()
+    await page.getByRole('link', { name: `Öffnen: Fixture ${section}`, exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/${section}/${fixture.items[0]!.entity_key}`))
     await expect(
       page.getByRole('heading', { level: 2, name: `Fixture ${section}`, exact: true }),
     ).toHaveText(`Fixture ${section}`)
-    await expect(page.getByRole('link', { name: 'Befunde zu diesem Datensatz' })).toHaveAttribute(
-      'href',
-      /entity_key=/,
-    )
+    await expect(
+      page.getByRole('link', {
+        name: section === 'events' ? 'Befunde anzeigen' : 'Befunde zu diesem Datensatz',
+      }),
+    ).toHaveAttribute('href', /entity_key=/)
     await expect(
       page.getByRole('link', { name: `Markierungen & Notizen zu Fixture ${section}` }),
     ).toBeVisible()
@@ -47,10 +46,11 @@ for (const section of entitySectionSchema.options) {
       await expect(page.getByText('Eingeladen', { exact: true })).toBeVisible()
     }
     if (section !== 'images')
-      await expect(page.getByRole('link', { name: 'Beziehungen anzeigen' })).toHaveAttribute(
-        'href',
-        /root_key=/,
-      )
+      await expect(
+        page.getByRole('link', {
+          name: section === 'events' ? 'Beziehungen' : 'Beziehungen anzeigen',
+        }),
+      ).toHaveAttribute('href', /root_key=/)
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true)

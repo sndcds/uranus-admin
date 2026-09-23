@@ -1,251 +1,388 @@
-# Admin UI patterns
+# Kulturbytes Admin Design System v2
 
-Activity is the reference: the same function uses the same visual language. Charts,
-relationship graphs and workflow editors retain their domain-specific interactions.
-Baseline reviewed: `7428b455f68316c2b116798ac1138d70eeeb3d2c`.
+Kanonischer UI-Vertrag für neue und migrierte Oberflächen. Grundlage ist der
+[vollständige Frontend-Audit](ui-ux-audit.md) gegen `main` bei `4560304` (initialer Audit: `e615df3`).
+V2 wird schrittweise eingeführt: `/events/:id` ist der erste Record-Detail-Pilot.
+Bestehende Seiten sind nicht allein durch diese Dokumentation bereits migriert.
+Fachliche Datenverträge: [Datenansichten](data-pages.md), [Aktivität](activity-stream.md),
+[Statistiken](statistics.md), [Graph](entity-relationship-graph.md), [SQL](sql-editor.md).
 
-## Shell and navigation
+## 1. Prinzipien
 
-One shell for every route: fixed `w-64` desktop sidebar, `lg:pl-64` content offset,
-sticky white/translucent header, and centered `max-w-7xl` main content. Mobile uses
-`p-4` and `space-y-4`; `sm` and larger retain `p-8` and `space-y-5`. No
-Statistics-specific width, logo, header or login variant.
-The Dashboard period selector belongs to its PageHeader and still uses the dashboard
-store. There is no second period state. Native graph fullscreen remains independent
-of this shell and uses the existing single workspace/SVG/simulation.
+Aufgabe vor Dekoration. Erkennen → Einordnen → Handeln → Belege prüfen.
+Eine lesende Datensatzansicht ist kein Bearbeitungsformular. Admin-Workflowänderungen
+sind keine Uranus-Schreibrechte. Fehlende Daten bleiben unbekannt.
 
-Below `lg`, the sticky header has two stable rows: a 56px navigation/title row and one
-compact Geo Scope row. It does not show the timestamp, administrator role, logout or
-the unavailable create explanation. Role, the disabled create state and logout live in
-the account/action section at the bottom of the mobile drawer. The desktop header keeps
-its timestamp and account actions. Do not duplicate mobile account actions between the
-header and drawer. Long area names truncate inside the available width.
+Fünf Muster sind gleichberechtigt: Overview, Collection, Record Detail, Workflow,
+Workspace. **Activity ist die Referenz für kompakte Listenzeilen, nicht für Record
+Details.** Domain-Inhalt bestimmt die Gliederung; gemeinsame Primitive bestimmen
+Abstände, Typografie, Fokus, Fehler und Aktionen. Bestehende Shell bleibt bestehen.
 
-The same navigation is used inside the mobile dialog. Keep native dialog focus
-handling, Escape, explicit close and focus return to the menu button. Active section
-matching includes descendants, excludes prefix collisions, special-cases `/`, and
-includes `/spaces/**` under Orte & Räume. Set `aria-current="page"` on the active
-section link. Navigation labels and targets come from `adminNavigationItems` in `utils/navigation.ts`.
+## 2. Sprache und Terminologie
 
-## Typography, spacing and surfaces
+Die normale Oberfläche ist Deutsch, sachlich, kurz und handlungsorientiert. Technische
+Eigennamen bleiben SQL, API, UUID, HTTP, JSON, PostgreSQL, PostGIS, OpenStreetMap.
+Quellinhalt, SQL-Bezeichner, URLs und API-Keys werden niemals zur Übersetzung verändert.
 
-- Global application title: h1. PageHeader: h2, `text-2xl font-bold tracking-tight`.
-- Major section: SectionHeader, h3 by default, `text-lg font-semibold`; optional h2
-  for genuinely independent sections. Minor row titles: `text-sm font-semibold`.
-- Regular controls and body text: text-sm; labels, metadata and badges: text-xs.
-  Only SVG axes/donut captions may use 10px for chart geometry.
-- Page root: `space-y-4 sm:space-y-5`; sections: `space-y-3`; grids: gap-3/4/5 as appropriate.
-- `.panel`: rounded-2xl, slate-200 border, white, min-w-0. `.card` adds shadow-soft.
-  Controls: rounded-xl; badges: rounded-md/full. Icon tiles can use smaller radii.
-- `.data-row`: px-4 sm:px-5, py-3, subtle slate hover. Use divide-y for row lists.
-- Interactive mobile controls should provide an approximately 44px touch target. Do not
-  make every action full-width: related primary controls may share a row, while labels
-  stay unbroken and secondary actions remain visually subordinate.
+| Ausgangsbegriff           | Verbindlicher UI-Begriff                                     |
+| ------------------------- | ------------------------------------------------------------ |
+| Dashboard / Overview      | Übersicht                                                    |
+| Activity                  | Aktivität                                                    |
+| Event / Events            | Veranstaltung / Veranstaltungen                              |
+| Event date                | Termin                                                       |
+| Entity                    | Datensatz; bei Typauswahl Objektart                          |
+| Finding                   | Befund                                                       |
+| Review                    | Bewertung; fachlich genauer Befundbewertung                  |
+| Inbox                     | Aufgabenübersicht                                            |
+| Assignment                | Zuständigkeit / zugewiesene Aufgabe                          |
+| Snooze                    | Wiedervorlage (Assignment); Zurückstellung (Befundbewertung) |
+| SQL Console / SQL Editor  | SQL-Konsole / SQL-Editor                                     |
+| Datasource / Query Source | Datenquelle / Abfragequelle                                  |
+| Mode / Scope / Connection | Modus / Bereich / Verbindung                                 |
+| READ ONLY                 | Nur Lesen                                                    |
+| Event-Inhalte             | Veranstaltungsinhalte                                        |
+| Source schema / Dry Run   | Quellschema / Testbetrieb ohne Versand                       |
+| Apply / Reset             | Anwenden / Filter zurücksetzen                               |
+| Page size                 | Einträge pro Seite                                           |
 
-## Shared inventory
+Zentrale Typ-/Statuslabels bleiben in `utils/entityPresentation.ts`, `entities.ts`,
+`presentation.ts`, `marks.ts`, `notifications.ts`, `geocoding.ts`. Keine zweite
+Statusmap pro Route. Bekannte Werte übersetzen; unbekannte als unbekannt kennzeichnen
+und Originalcode bei Bedarf technisch zugänglich halten. Backend-Timeline-Titel und
+serverseitige Subtitles sind Evidenztexte, keine frei umzuschreibenden UI-Labels.
+Die verbleibenden Sprachabweichungen sind im Audit mit Fundstellen geplant.
 
-| Component / primitive         | Responsibility                                                                 |
-| ----------------------------- | ------------------------------------------------------------------------------ |
-| PageHeader                    | Page heading, description, optional badge slot and actions                     |
-| SectionHeader                 | Section heading, description, optional metadata and actions                    |
-| FilterBar / FilterForm        | Form surface/grid and domain-specific validated filters                        |
-| RequestState                  | Shared loading, error, stale data and retry behavior                           |
-| InlineAlert                   | Info/success status or warning/error alert; explicit role override when needed |
-| ResultSummary                 | Real totals, visible-page counts, observation time; never extrapolate a page   |
-| DataListShell                 | Single bordered surface, optionally semantic ul/section                        |
-| PaginationBar                 | Server-page information, URL links or events, unavailable directions disabled  |
-| EmptyState                    | Compact explanatory dashed-border empty result                                 |
-| StatusBadge / EntityTypeBadge | Text plus tone, never color-only meaning                                       |
-| DetailFacts                   | Definition grid; null omitted, zero/false retained, source text escaped        |
-| `.button` / `.button-primary` | Shared control geometry, states and focus                                      |
-| `.input` / `.label`           | Shared search/date/text/select/textarea presentation                           |
-| `.admin-table`                | Readable table header/cells/row hover and canonical links                      |
+## 3. Informationsarchitektur
 
-GraphFilters keeps its search dropdown and models but uses the same panel, controls,
-spacing and Tailwind breakpoints. Statistics presets use normal buttons with
-aria-pressed; selected presets use button-primary. Their compare switch is a labeled
-native checkbox with role=switch. No separate button/select CSS system remains.
+Die Shell bietet Navigation, globale Suche, Gebiet, Sitzung und deaktiviertes Anlegen.
+Eine Seitenaktion gehört in den Seitenkontext, nicht in die globale Shell. Zur Liste
+führt zur fachlichen Collection. Root-Suche im Graph ist kein globaler Gebietsfilter.
 
-On phones, `PageHeader` is intentionally ordered as title/description, primary page
-actions, then SQL/data provenance. Its action region uses the available width and wraps
-as a group instead of competing with the title. Dashboard keeps period and refresh in
-one primary row (the select grows; refresh may use its icon-only accessible label at the
-narrowest width), with provenance on a quieter row below. From `sm` upward, the existing
-side-by-side heading/actions layout remains.
+Geschütztes Layout: Skiplink → App-Navigation → Shell-Header (h1) → `main` →
+PageHeader (h2) → Abschnitte (h3) → Datensatzzeilen (h4 in Abschnittslisten).
+Login besitzt ein eigenes h1. Dialoge haben eigene benannte Überschriften.
+Kein zweites `main` im Workspace. Keine Überschrift nur wegen ihrer Schriftgröße wählen.
 
-## Page patterns
+## 4. Seitenmuster
 
-**List:** PageHeader → FilterBar → RequestState → ResultSummary → DataListShell /
-EmptyState → PaginationBar. Findings, Activity, entity lists, Marks and Queues retain
-URL-based filtering, server pagination and their own row semantics.
+| Muster        | Hauptaufgabe              | Reihenfolge                                                             | Referenz / Ziel                      |
+| ------------- | ------------------------- | ----------------------------------------------------------------------- | ------------------------------------ |
+| Overview      | Prioritäten erkennen      | Kontext → wichtigste Kennzahlen → Arbeit → Vertiefung                   | Übersicht / Datenqualität            |
+| Collection    | Finden und vergleichen    | Header → Filter → Summary → Liste → Pagination                          | Activity-Zeilen, EntityListPage      |
+| Record Detail | Einen Datensatz verstehen | Identität → Fachinhalt → Beziehungen → Arbeitsstand → Verlauf → Technik | Veranstaltungsdetail v2              |
+| Workflow      | Einen Fall bearbeiten     | Kontext → Evidenz → Entscheidung/Zuständigkeit → Historie               | Befunde, Standortprüfung, Versand    |
+| Workspace     | Interaktiv analysieren    | Kontext/Controls → Arbeitsfläche → Inspektion/Ergebnis                  | Graph, SQL, Statistiken, Suchpalette |
 
-**Detail:** PageHeader with list/findings actions → RequestState → entity summary
-with record actions → DetailFacts → EntityTimeline → SectionHeader/ResultSummary → related records
-→ pagination. Entity details
-reuse ActivityRow's already-safe preview, canonical links, public links, thumbnails,
-marks and graph links. A second nearly identical row component would add duplication;
-no universal row with a growing prop list is introduced.
+Ein Muster ist keine starre Vorlage für alle Domänen. Workflows dürfen eine Collection
+enthalten; eine Statistik bleibt ein Workspace mit Tabellenalternative.
 
-Workflow details may place `AssignmentEditor` after the immutable facts and review form. The
-editor keeps assignee, status and Berlin due date together, reports stale-version conflicts in
-place and uses the normal button/input styles. Loading failure and an empty admin roster are
-distinct single-alert states. Inbox rows use existing badges and list shells; they do not
-introduce a second card/list system.
+## 5. Typografie
 
-The geocoding detail follows the same detail hierarchy: PageHeader, entity/source panel,
-DetailFacts, candidate comparison, AssignmentEditor and retry workflow. Its candidate map is a
-client-only Leaflet raster map built from the already validated candidate coordinates. All points
-fit with 48px padding and a maximum initial zoom of 16; “Alle Kandidaten zeigen” restores the
-comparison after panning or selection. Numbered native 44px buttons synchronize with `.data-row`
-selection, aria-pressed/current and row focus. The selected marker has a contrasting ring and
-higher stacking order. List “Auf Karte zeigen” recenters even an already-selected candidate.
+Tailwind bleibt die einzige CSS-Basis. Benannte V2-Rollen liegen in `assets/css/main.css`;
+keine zweite Typografiebibliothek. Neue Presenter verwenden diese Rollen statt eigener Skalen.
 
-The map has a real 320px height on phones and 420px from `sm`; ResizeObserver invalidates its
-size. Pan, pinch, keyboard arrows/+/- and 44px zoom controls are available; scroll-wheel zoom
-is off to preserve page scrolling. The complete candidate list always follows the map. On tile,
-initialization or timeout failure an InlineAlert replaces the map surface, with no automatic retry.
-OSM and configured provider attribution remain visible outside the clipped map canvas. Provider
-text is escaped, never HTML. No coordinate mutation or client geocoding exists. Tile configuration,
-privacy and exact `img-src` allowance are documented in the [README](../README.md#geocoding-karte-konfigurieren).
+| Rolle         | Token                | Größe / Gewicht / Verwendung                                         |
+| ------------- | -------------------- | -------------------------------------------------------------------- |
+| Page title    | `type-page-title`    | 24px, bold, tight; genau ein primärer Titel                          |
+| Record title  | `type-record-title`  | 24px mobil / 30px ab sm, bold, tight; ersetzt den Page-Titel im Hero |
+| Section title | `type-section-title` | 18px, semibold; h3                                                   |
+| Row title     | `type-row-title`     | 14px, semibold; h3 oder h4 nach Kontext                              |
+| Body          | `type-body`          | 14px, 1.5; slate-700                                                 |
+| Metadata      | `type-metadata`      | 12px, 1.5; slate-600, nicht für Hauptinhalt                          |
+| Badge         | `type-badge`         | 12px, medium; State/Typ/Schwere                                      |
+| Long-form     | `prose-admin`        | 16px, 1.75; maximal 72ch                                             |
 
-**Analytics:** PageHeader → period/interval controls → RequestState → chart surface →
-metric controls → supporting recent records/distribution → accessible data table.
-Tables have captions and a local overflow container. Recent records remain a table:
-it compares four concise columns and uses the same global table style as the chart's
-text alternative. Invitation semantics do not fit an unmodified ActivityRow.
+Lange Namen umbrechen. Keine Ellipse als einzige Textquelle. Zahlen bei Vergleichen
+`tabular-nums`; UUID/SQL dürfen monospace sein. Bereits existierende Komponenten werden
+nur bei ihrer gezielten Migration auf Tokens umgestellt, nicht durch einen globalen Reset.
 
-**Graph:** PageHeader → GraphFilters → optional settings/InlineAlert → GraphWorkspace.
-The graph's initial exploratory illustration, viewport sizing, node positions,
-fullscreen toolbar, pan/zoom/fit, collapsible details and legend remain specialized.
+## 6. Inhaltsbreiten
 
-## Entity presentation and routing
+Shell/Workspace: `max-w-7xl`; bestehende Shell-Innenabstände behalten.
+Record Detail: `record-detail` mit `max-w-6xl`, innerhalb der Shell links ausgerichtet.
+Fließtext: `prose-admin`, 72ch. Kein erzwungener zweispaltiger Text.
+Karten/Diagramme/SQL besitzen eigene lokale Scroll-/Zoomflächen, keinen Seitenoverflow.
 
-`utils/entityPresentation.ts` owns shared singular/plural labels, icons, badge tones
-and chart colors. Activity re-exports its existing API; Statistics derives its series
-presentation; Graph retains contrast-appropriate fill/border variants. Invitations
-are explicitly distinct from memberships. User-section title “Benutzer & Teams” is
-navigation context, not a second entity name. Existing status helpers keep workflow
-and source statuses separate.
+## 7. Abstände
 
-Backend Action.href remains authoritative. Statistics only adds creation_basis to
-an actual `/activity` path using URL parsing. Canonical detail and queue hrefs remain
-unchanged; never append `&...` to a bare detail path.
+Mobile: Shell `p-4`, Hauptabschnitte `space-y-4`; Desktop Shell `p-8`, Record-Abschnitte
+`space-y-8`. Innerhalb eines Abschnitts 12–16px, Label → Eingabe 6px, zusammengehörige
+Metadaten 4–8px. 24–32px trennen unterschiedliche Aufgaben. Keine zusätzlichen
+verschachtelten Außen-Paddings, die auf 360px die Lesebreite aufbrauchen.
 
-## Loading, errors, responsiveness and accessibility
+## 8. Farben und semantische Töne
 
-Use RequestState once for a request failure; do not repeat a second generic error.
-Chart skeletons use slate-100/rounded-2xl and are aria-hidden. Use EmptyState for
-zero/empty results; absence of data must not be displayed as invented zero counts.
-Keep domain warnings and stale-period notices explicit.
+Slate-50 Seitenfläche, Weiß begrenzte Arbeitsflächen, Slate-900 Haupttext, Slate-600
+Metadaten. Fuchsia-700 primäre Aktion und Links, Fuchsia-800 Hover; Fokus Fuchsia-700.
+Rose = Fehler/kritisch, Amber = Warnung, Emerald = Erfolg, Slate = neutral.
+Objektfarben stammen aus `entityPresentation`, Graph übernimmt deren Identität.
+Farbe nie allein: Label, Symbol oder Text ergänzt Bedeutung. Kein Status aus Farbe ableiten.
+Kontrast für kleine Texte mindestens 4,5:1, große Texte/Controls mindestens 3:1 prüfen.
 
-Use Tailwind sm/md/lg/xl layouts, min-w-0, wrapped actions and readable titles.
-Wide real tables scroll inside their container, never the whole page. Charts keep
-ResizeObserver and accessible keyboard/text alternatives. Global focus-visible also
-covers textareas. Decorative icons remain hidden from assistive technology; controls
-retain labels, pressed/expanded state and native keyboard behavior.
+## 9. Surfaces
 
-Card/list grids fall back to one column before `sm` unless their content is demonstrably
-short enough for two columns. Dashboard “Neu eingegangen” rows use a compact 64–80px
-icon/label/value/arrow pattern, become two columns at `sm` and three at `md`, and never
-split German labels inside words. Page-level horizontal scrolling is not allowed;
-genuinely wide tables keep their local overflow containers.
+| Surface       | Bedeutung                                              | Primitive                   |
+| ------------- | ------------------------------------------------------ | --------------------------- |
+| Plain section | Inhalt mit Überschrift, keine eigene Interaktionsebene | `RecordSection` / section   |
+| Panel         | Zusammengehörige Controls oder abgegrenzte Daten       | `.panel`                    |
+| Card          | Eigenständig verständlicher Einstieg/Überblick         | `.card`, KpiCard            |
+| Data list     | Wiederholte gleichartige Zeilen                        | DataListShell + `.data-row` |
+| Inline alert  | Handlungsrelevanter Zustand/Fehler                     | InlineAlert                 |
 
-## Page audit and remaining deliberate special cases
+Beschreibung, einfache Fakten und technische Schlusssektion brauchen keine weiße Card.
+Keine Card in Card in Card. Ein Alert ist keine dekorative Zusammenfassung.
 
-The pre-change audit examined the shell, width/padding/gaps, heading hierarchy,
-surfaces, controls, filters, summaries, pagination, request/empty states and responsive
-CSS. Entity route wrappers share the audited EntityListPage/EntityDetailPage.
+## 10. Aktionen
 
-| Pages                     | Initial drift                                                       | Result                                                                                                        |
-| ------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Dashboard                 | Inconsistent section headings, small tile radii, custom stale alert | SectionHeader, standard tiles/alert, period control in page header; period vs inventory semantics retained    |
-| Activity                  | Reference; page gap differed from Dashboard                         | Common page gap; grouping, images, public links, unknown timestamps retained                                  |
-| Findings                  | Custom invalid-query alert                                          | InlineAlert; existing FilterForm, summary, rows and pagination retained                                       |
-| Checks                    | Already shared list structure                                       | Common page spacing; polling, status and pagination retained                                                  |
-| Quality                   | Bespoke geolocation card/header                                     | Standard panel and SectionHeader; real aggregate counts retained                                              |
-| Graph                     | Manual page header, custom small filters and details                | PageHeader badge, global controls/panels/readable metadata; graph/fullscreen stays specialized                |
-| Statistics                | Separate shell and 573-line parallel CSS design system              | Shared shell, surfaces, buttons/inputs, tables, empty/error states; CSS limited to plot geometry and tooltips |
-| Events list/detail        | Shared list, ad-hoc definition grid                                 | Standard spacing, shared DetailFacts and semantic preview list                                                |
-| Venues list/detail        | Same shared list/detail drift                                       | Same shared pattern; canonical actions retained                                                               |
-| Spaces list/detail        | Missing active parent navigation                                    | Orte & Räume active; same shared patterns                                                                     |
-| Organizations list/detail | Same shared list/detail drift                                       | Same shared patterns; related-record semantics unchanged                                                      |
-| Users list/detail         | Same shared list/detail drift                                       | Same shared patterns; no changed identity/invitation semantics                                                |
-| Images list/detail        | Same shared list/detail drift                                       | Same shared patterns; natural-ratio preview/modal unchanged                                                   |
-| Marks list/detail         | Existing editor/history-specific layout                             | Common page spacing; editor and append-only history interaction retained                                      |
-| Queue kinds               | Already shared shell with domain-specific state                     | Common spacing; business differences retained                                                                 |
+| Gewicht   | Darstellung                       | Einsatz                              |
+| --------- | --------------------------------- | ------------------------------------ |
+| Primary   | `.button-primary`, filled Fuchsia | Eine priorisierte Aufgabe je Kontext |
+| Secondary | `.button`, bordered               | Alternative Entscheidung/Inspektion  |
+| Tertiary  | `.action-link`, Textlink          | Navigation und ergänzende Details    |
 
-Deliberate special cases: graph SVG labels/forces and fullscreen geometry; chart
-axes, crosshair/tooltip, sparkline and donut geometry; mark/review editors and image
-modal. These are interaction surfaces, not route-specific global design systems.
-There is no new PageContainer width override, UI dependency or backend contract.
+| Bedeutung  | Verben                                                                     |
+| ---------- | -------------------------------------------------------------------------- |
+| Navigation | Öffnen, Zur Liste                                                          |
+| Extern     | Auf kulturbytes.de öffnen, Auf OpenStreetMap öffnen                        |
+| Inspektion | Befunde anzeigen, Beziehungen, Markierungen & Notizen, SQL / Datenherkunft |
+| Workflow   | Prüfen, Bearbeiten, Zuweisen, Wiedervorlegen, Erledigen, Erneut prüfen     |
 
-## Verification / screenshots
+Nicht „Im Admin ansehen“, wenn der Benutzer bereits im Admin ist. Accessible name
+enthält bei wiederholten Aktionen das Ziel, z. B. „Öffnen: Hafenbühne“.
+Beim Event-Pilot ist der gelieferte öffentliche Link primär; fehlt er, wird kein
+Ersatz-Write-Button erfunden. Beziehungen sekundär, Markierungen/Zur Liste tertiär.
+Externe Links kennzeichnen neuen Tab und verwenden `noopener noreferrer` und
+`referrerpolicy="no-referrer"`. Nur validierte canonical URLs benutzen.
 
-`tests/e2e/layout-consistency.spec.ts` visits all twenty-one main/list/detail views at
-1440×1000, 1024×768 and 390×844, checks shell dimensions, active section and overflow,
-and writes full-page screenshots plus mobile navigation screenshots to Playwright
-output. Existing suites cover filtering, pagination, auth loss, charts, graph
-fullscreen and workflow actions. The screenshots are review artifacts, not brittle
-pixel snapshots. Unit tests cover the new primitives, navigation boundaries, shared
-presentation and Statistics canonical-link handling.
+## 11. Formulare
 
-### Reviewed examples
+Sichtbare Labels über Inputs, keine Placeholder als Labelersatz. `.label`, `.input`,
+FilterBar und vorhandene Field-Komponenten nutzen. Controls/Touchlinks mobil mindestens
+44px; Checkboxen in ausreichend großen Labels. Validierung nahe am Control mit
+`aria-invalid`/`aria-describedby`; Gesamtfehler zusätzlich sichtbar.
 
-These screenshots use deterministic test fixtures and the production build, with no
-live user or production data. Desktop examples use 1440×1000; responsive examples
-use 1024×768 and 390×844. Full-page captures may be taller than the viewport.
+Anwenden und Filter zurücksetzen konsistent. Filterzustand URL > Session-Store > Default;
+keine neuen Persistenzsysteme. Bei Konflikt aktuelle Version explizit laden, keine stille
+Überschreibung. Busy deaktiviert nur betroffene Aktionen. Keine zusätzlichen Pill-Systeme.
 
-- [Dashboard](screenshots/ui-consistency/dashboard.png)
-- [Activity reference](screenshots/ui-consistency/activity.png)
-- [Statistics](screenshots/ui-consistency/statistics.png)
-- [Graph](screenshots/ui-consistency/graph.png)
-- [Entity list](screenshots/ui-consistency/event-list.png)
-- [Entity detail](screenshots/ui-consistency/event-detail.png)
-- [Tablet Statistics](screenshots/ui-consistency/statistics-tablet.png)
-- [Mobile Statistics](screenshots/ui-consistency/statistics-mobile.png)
-- [Mobile navigation](screenshots/ui-consistency/mobile-navigation.png)
+## 12. Suche
 
-### Geocoding map review
+Globale Suche: synchroner Input/Navigation, debounced Remote-Query, resultQuery und letzte
+Ergebnisse getrennt. Bestehende Ergebnisse während Revalidation, feste responsive Höhe,
+Loading im Input, Status ohne Layout-Shift. Arrow-Navigation scrollt, Tippen nicht.
+Combobox/Listbox/Option, gültiger aktiver Descendant, Escape, Enter und Fokus-Rückgabe.
+Auth-/Route-/Close-Cleanup bleiben zwingend. Keine Suchbegriffe in Logs/Persistenz.
+EntitySearch und GeoScope-Suche sind eigene fachliche Controls, keine zweite globale Suche.
 
-[Desktop](screenshots/geocoding-map-desktop.png) and [mobile](screenshots/geocoding-map-mobile.png)
-show the production build with synthetic local tiles and candidates. The geocoding Playwright
-suite writes fresh full-page captures and checks marker/list synchronization, responsive bounds,
-visible tiles and the failure alternative. These images verify layout, not geographic correctness.
+## 13. Listen
 
-## Command Palette
+ActivityRow ist die kompakte Referenz für Identität, Kontext, belegte Zeit und kleine
+Aktionen. DataListShell liefert Grenzen/Divider. Findings und Inbox behalten ihre
+fachlichen Zeilen. ResultSummary unterscheidet Gesamtergebnis und sichtbare Seite.
+Keine Seitensumme als Gesamtzahl. Pagination erhält angewendete URL-Filter.
+Activity ist Neuanlage, keine erfundene Änderungshistorie. Kein Detail-Hero aus ActivityRow.
 
-`GlobalSearchPalette` uses the existing native `AppModal` workspace dialog. Desktop
-adds one compact search trigger with Ctrl/⌘ K; mobile adds a 44px search icon beside
-the app title, preserving the two-row mobile shell. No extra header row or UI library.
-The palette keeps a fixed responsive workspace height: `min(38rem, 100dvh - 2rem)`
-on desktop, `100dvh - 1rem` below 640px. Its nonshrinking header and flexing, internally
-scrolling results keep the dialog's size and position stable across navigation, debounce,
-loading, result counts and errors. Mobile includes safe-area padding, no horizontal
-overflow and 44px minimum result targets. These styles belong only to the search palette;
-other `AppModal` consumers keep their existing layout.
+## 14. Record Details
 
-The labelled search input is a combobox controlling one listbox with labelled groups;
-active options use aria-selected, aria-activedescendant and a visible ring. Arrows move
-selection, Enter follows the selected canonical Action.href, Escape closes. Native
-dialog semantics provide aria-modal, Tab focus containment and return to the previous
-focus target. Opening focuses search, even when Ctrl+K / Cmd+K began in an input.
+`EntityDetailPage` besitzt Abruf, Fehler/Loading, Standard-Header, Canonical-Findings-Link,
+Timeline und Default-Presenter. Typisierte Slots erlauben Domain-Header, Inhalt und
+Schlussmetadaten. Keine wachsende Serie von `v-if="section === …"` für Fachabschnitte.
 
-Local navigation appears first from the shared sidebar definition. Entity labels,
-plural group labels and icons reuse `entityPresentation.ts`. Long labels truncate and
-subtitles/emails wrap. Loading uses an absolute input spinner with reduced-motion support
-and a polite live status in reserved header space; errors use that same space. The header
-also identifies the query of the retained successful results. Neither loading nor errors
-add result rows or replace the previous results. Typing preserves selection by identity
-and never scrolls to an option; only arrow keys do. Input focus survives result replacement.
-The palette is systemwide and says so next to the search input. See
-[data-page search semantics](data-pages.md#globale-suche-und-kontextbezogene-suche)
-for fields/ranking, limits and memory-only privacy behavior.
+Event-Pilot: EntityHero verwendet PageHeader für genau einen Record-Titel, dazu Thumbnail,
+Typ/Status, Organisation, serverseitigen Subtitle und Kontext. Danach:
 
-Palette review captures (synthetic fixtures):
-[desktop initial](screenshots/search-palette-desktop-initial.png),
-[desktop revalidation](screenshots/search-palette-desktop-loading.png),
-[desktop results](screenshots/search-palette-desktop-results.png),
-[mobile initial](screenshots/search-palette-mobile-initial.png),
-[mobile results](screenshots/search-palette-mobile-results.png).
-The global-search Playwright suite measures dialog height/top and header position across
-these states, checks internal scrolling, and runs the same workflow under production CSP.
+1. Primäre Fakten (belegte Terminzahl, Standardort/-raum).
+2. Beschreibung, nur wenn nicht leer.
+3. Verknüpfte Datensätze mit gemeinsamer Pagination.
+4. Qualitäts-/Markierungsbestand, wenn verfügbar; keine erfundene Assignment-Zusammenfassung.
+5. EntityTimeline, unveränderte Evidenz und Aktionen.
+6. Technische Informationen: UUID, belegtes created_at, beobachteter Abrufzeitpunkt.
+
+Die API liefert eine gemeinsame Relationsliste mit 25 Einträgen pro Seite, sortiert
+nach Typ, Name und Schlüssel. Der Pilot zeigt deshalb bewusst **keine semantischen
+Relationsgruppen**, sondern „Verknüpfte Datensätze“ mit Seitenumfang, Gesamtzahl und
+Pagination. Das ist keine chronologische Terminliste. Bei 30 Terminen können Medien
+und weitere Objekte erst auf Seite 2 erscheinen; ihr Fehlen auf Seite 1 bedeutet nicht,
+dass es sie nicht gibt. Keine vollständige Hydration im Browser.
+
+Veranstalter im Hero sowie Termin-Gesamtzahl und Standardort/-raum in den primären Fakten
+kommen unabhängig von dieser Liste aus der Event-Projektion. Standardwerte sind nicht
+der effektive Ort aller Termine: Termin-Overrides bleiben möglich. Subtitle mit
+serverseitigem nächsten Termin unverändert verwenden, nicht parsen. UUID ist technischer
+Inhalt, kein Hero-Fakt. Ein Folge-PR benötigt für semantische Bereiche einen typisierten,
+begrenzten Vertrag: eigene chronologische Terminpagination, unabhängiger Veranstalter,
+Standardreferenzen und begrenzte Medien mit Gesamtzahl und Zugang zu weiteren Seiten.
+
+Künftige Presenter: Organisation → Veranstaltungen, Orte/Räume, Team, Partner, Medien;
+Benutzer → Mitgliedschaften, Einladungen, Organisationen; Ort → Räume, Veranstaltungen,
+Organisation, Medien. Nur vorhandene Relationen verwenden; Rollenlücken dokumentieren.
+Solche Bereiche benötigen unabhängige, explizite Vollständigkeits-/Paginationsverträge;
+eine gemeinsame Relationsseite reicht dafür nicht aus.
+
+## 15. Workflow-Seiten
+
+Kontext, Evidenz, bearbeitbarer Admin-Zustand, nächste Aktion und Historie getrennt.
+Befund-Zurückstellung gehört zur fachlichen Bewertung; Assignment-Wiedervorlage zur
+Organisation der Aufgabe. Beide sind keine Lösung/Erledigung. Zuweisung, Fälligkeit,
+Status und Wiedervorlage im gemeinsamen AssignmentEditor.
+Geocoding bleibt Inspection-only. Retry reiht einen neuen Versuch ein; kein sofortiger
+Erfolg, kein Quellschreiben. Notification-Historie bleibt unveränderlich.
+
+## 16. Workspaces
+
+Graph: eigene Canvas-Höhe, Fit/Zoom, zugängliche Knoten/Sidebar, begrenzte Expansion,
+Fullscreen innerhalb Browser-API; Daten nicht aus Bildpositionen ableiten.
+SQL: SqlWorkspace und gemeinsames Theme; Editor und Resultat scrollen lokal. Readonly und
+editierbare Konsole bleiben fachlich getrennt. Originalquery/-parameter nicht umformatieren.
+Statistik: Serienlegende, Textwerte/Datentabelle, klare Periodenbasis, Gebiets-/Systemgrenzen.
+Karte: Leaflet clientseitig, konfigurierte Tiles, Attribution, Fehleroverlay, vollständige Liste.
+Details stehen in den verlinkten Spezialdokumenten; V2 ersetzt keine Sicherheitsgrenze.
+
+## 17. Rich Text / Markdown
+
+Nur explizit nachgewiesene Felder: zunächst `event.description`; Nachweis im
+[Audit](ui-ux-audit.md#verifizierter-event-vertrag-und-markdown). Keine Inhaltserkennung
+an Sternchen/HTML-Zeichen. Andere Felder bleiben interpolierter Text.
+
+MarkdownContent nutzt markdown-it ausschließlich als Tokenparser. Ein geschlossener
+Vue-Renderer erstellt Absätze, strong/em, Listen, nachgeordnete Überschriften,
+Blockzitate, Inline-/Block-Code, Links und Umbrüche. **Kein `v-html`, innerHTML oder
+HTML-Renderer**, Raw-HTML deaktiviert, Bilder deaktiviert, keine Plugins/Autolinkifizierung.
+Code wird escaped und lokal gescrollt. Quellüberschriften werden unter die Abschnittsebene
+(h4–h6) eingeordnet. `.prose-admin` ist eine kleine eigene Typografieschicht.
+
+CommonMark-Umbrüche: Softbreak wird zu einem Leerzeichen im Fließtext, nur Hardbreak
+zu `<br>`. Eine Leerzeile trennt Absätze (`<p>`).
+
+Links: nur absolute, validierte http/https/mailto ohne Credentials/Steuerzeichen.
+Source-Markdown darf keine relativen Admin-Links erzeugen, auch nicht zu Record-Details,
+Querys oder Fragmenten. Keine protocol-relative, JavaScript-, data- oder
+verschleierten Protokolle. Abgewiesene Links als Text erhalten. Externe Links öffnen
+mit no-referrer/noopener/noreferrer und zugänglichem Hinweis. Keine Netzwerkrequests
+für Markdown-Bilder, Embeds oder Preview-URLs. Parserfehler/übergroße Texte bleiben
+vollständig als sicherer Plaintext lesbar. Tests mit bösartigen Protokollen/HTML sind Pflicht.
+
+## 18. Datum, Zahlen und Kennungen
+
+Normale neue Detaildarstellung: `DD.MM.YYYY · HH:mm`, kompakt `DD.MM. · HH:mm`.
+Vorhandene zentrale Formatter verwenden; keine Locale-Logik je Komponente.
+`ADMIN_TIMEZONE` aus Antwort verwenden, wo vorhanden; bestehende Activity-/Timeline-
+Fallback-Konvention Europe/Berlin bleibt, bis der Vertrag explizit erweitert wird.
+Serverseitig in EVENT_TIMEZONE formatierte Termin-Subtitles nicht neu interpretieren.
+
+`<time datetime>` für belegte Instants, Zeitzone in title/aria bzw. sichtbar wenn relevant.
+Kein Mitternacht-Ersatz für unbekannte Uhrzeit, kein invitation→joined, kein now→created.
+Zahlen de-DE; null „Nicht verfügbar“, echte 0 „0“. UUID umbrechen und optional kopieren;
+Kopierfehler zugänglich anzeigen, Original immer lesbar halten. Benutzerlabel serverseitig:
+display_name → username → email → UUID; leere Strings fehlen. Admin-Actors sind getrennt.
+
+## 19. Status und Badges
+
+Nur Typ, Zustand oder Schwere. Keine dekorativen Badges für beliebige Zahlen/Links.
+EntityTypeBadge, StatusBadge, SeverityBadge weiterverwenden. Labels aus Maps; kein
+„reviewed“ aus einem Snooze, kein Erfolg aus laufender Prüfung. Unknown/null explizit.
+Workflowstatus, Quellveröffentlichung und Qualitätsstatus nicht auf einen Badge reduzieren.
+
+## 20. Loading
+
+Erstladen: klare Ladeanzeige im erwarteten Inhaltsbereich. Refresh derselben Identität:
+letzte erfolgreiche Daten behalten, `aria-busy`, dezentes „Daten werden aktualisiert …“.
+Bei Fehler bleibt der alte Stand ausdrücklich als alt gekennzeichnet.
+Identitäts-/Authwechsel sowie 401/403/404: vorherige Detaildaten sofort verwerfen. Generation-/Abort-Guards
+gegen verspätete Antworten. Nicht alle `data=null`-Stellen blind entfernen. SQL-Ausführung
+und andere sicherheits-/parametergebundene Ergebnisse benötigen eigene Semantik.
+
+## 21. Fehler
+
+Kurzer Titel, sichere Erklärung, konkrete Wiederherstellung. APIError/RequestState statt
+Treiber-/Providertext. 401 Sessionverlust löscht lokale Daten, 403 untersagt Zugriff ohne
+Logoutbehauptung. 404 Detail nicht als „keine Ergebnisse“ kaschieren. Versionskonflikte
+benennen und Neuladen anbieten, ungespeicherte Änderungen nicht still überschreiben.
+
+## 22. Leere Zustände
+
+Titel + kurze Erklärung + optionale Aktion. Beispiel Collection: „Keine passenden
+Veranstaltungen“ / „Ändere die Filter, um weitere Datensätze zu sehen.“ / „Filter zurücksetzen“.
+Ungefilterter Bestand: keine Ergebnisse erfinden, keine Recovery anbieten, die nichts tut.
+Leere Event-Beschreibung erzeugt keinen Kasten. Paginierte Beziehungsseite ist keine
+Aussage über das Fehlen anderer Gruppen. API-Fehler ist kein Empty State.
+
+## 23. Accessibility
+
+Überschriften nicht duplizieren; Regionen per Überschrift benennen. Focus-visible nicht
+entfernen. Native Dialoge mit Escape, Fokusfalle, Rückgabe; keine neue Modal-Implementierung.
+Keyboard-Parität für Auswahl/Zoom/Charts, `aria-current` bei Navigation, `aria-pressed` bei
+Toggles, `aria-selected` für echte Auswahlrollen. Statusmeldungen höflich, Fehler gezielt.
+Keine Live-Ansage jedes Tastendrucks. Bilder mit Textalternative, dekorative Icons versteckt.
+Tabellen mit caption/th/scope, externe Ziele erkennbar. Kontrast nicht aus Tailwind-Namen
+allein ableiten; kleine farbige Texte in der Abschlussprüfung messen.
+
+## 24. Responsive / Mobile
+
+Shell unverändert: Sidebar ab lg, darunter Native-Navigation, kompakter Header und Gebiet.
+Record-Inhalt einspaltig mobil, Fakten ab sm in zwei/drei Spalten. Reihenfolge im DOM bleibt
+Lesereihenfolge. Mindestens 44px Touchflächen, keine schwebende Leiste vor Text.
+Lange URLs/Namen/UUID umbrechen; Code/Table lokal scrollen. Keine horizontalen Seitenleisten.
+Viewports: 1440×1000, 1024×768, 390×844; Event zusätzlich 360×800. 200%-Zoom und
+Screenreader-Prüfung gehören zum finalen manuellen Audit, nicht zur Screenshotbehauptung.
+
+## 25. Komponenten-Inventar
+
+| Familie     | Bestehende / neue Verantwortung                                                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shell       | layouts/default, auth, AppNavigation, GeoScopeSelector, GlobalSearchPalette                                                                    |
+| Struktur    | PageHeader, SectionHeader, DataListShell, FilterBar, ResultSummary, PaginationBar                                                              |
+| Zustände    | RequestState, InlineAlert, EmptyState, StatusBadge, SeverityBadge, EntityTypeBadge                                                             |
+| Record v2   | EntityDetailPage (Shell/Slots), EntityHero (PageHeader/Identität), RecordSection (plain), EventDetailContent (Domäne), EntityTechnicalMetadata |
+| Inhalt      | DetailFacts (kurze Werte), MarkdownContent (verifiziertes Rich Text), ActivityThumbnail                                                        |
+| Listen      | ActivityRow, EntityListPage, FindingsList, InboxRow                                                                                            |
+| Workflow    | FindingDetail, AssignmentEditor/Snooze, MarkFields, LocationSuggestion, NotificationPreview                                                    |
+| Workspaces  | GraphWorkspace/EntityGraph/GraphNodeDetails, SqlWorkspace/QueryPanel, Statistik-Charts, CandidateMap                                           |
+| Interaktion | AppModal, EntitySearch, AppIcon                                                                                                                |
+
+Kein OrganizationDetailContent-Platzhalter ohne fachliche Migration. Slot-Vertrag statt
+riesigem Switch. Neue Primitive gezielt testen, nicht bloß Implementierungsdetails spiegeln.
+
+## 26. Anti-Patterns
+
+- ActivityRow als universeller Detailheader.
+- Doppelter Seiten-/Datensatztitel.
+- Lange Prosa in DetailFacts.
+- UUID als Hauptinhalt trotz lesbarer Identität.
+- Sechs gleich gewichtete Aktionen.
+- Rohe bekannte Statuswerte.
+- Unbegründeter Wechsel zwischen Deutsch/Englisch.
+- Routenspezifische Designsysteme oder zweite CSS-Library.
+- Unsicheres `v-html` / HTML-Injektion für Quelltext.
+- Erfundene Zeitpunkte/Beziehungen/Counts.
+- Unnötiges Leeren stabiler Inhalte beim Refresh.
+- Undifferenzierte Beziehungslisten trotz vollständig typisiertem Vertrag.
+- Scheinbar vollständige Fachgruppen aus einer global paginierten Relationsseite.
+- Card soup, unbegrenzte Textbreite, horizontaler Seitenoverflow.
+- Alte Ergebnisse ohne Hinweis als neue Parameterantwort darstellen.
+
+## 27. Screenshot-Regressionsmatrix
+
+Review-Artefakte, keine Vollseiten-Pixelgoldens. `layout-consistency.spec.ts` erfasst
+jede Haupt-Route mit kontrollierten Fixtures, lokal gemockten Bildern/Tiles und ohne
+Produktionsdaten. Jede Aufnahme nach geladenem Inhalt, nicht nur nach sichtbarem Header.
+
+| Bereich                                                   | Desktop 1440×1000 | Tablet 1024×768 | Mobile 390×844 | Zusatz                                   |
+| --------------------------------------------------------- | ----------------- | --------------- | -------------- | ---------------------------------------- |
+| Übersicht, Aktivität, Aufgaben, Befunde, Checks, Qualität | ja                | ja              | ja             | leer/Fehler in Fachtests                 |
+| Alle drei Queues                                          | ja                | ja              | ja             | Alter unbekannt separat                  |
+| Notifications + Versände, jeweils Liste/Detail            | ja                | ja              | ja             | Retry/Preview Fachtests                  |
+| Marks Liste/Detail                                        | ja                | ja              | ja             | Konflikt Fachtests                       |
+| Sechs Entity-Collections + Details                        | ja                | ja              | ja             | Event 360×800                            |
+| Geocoding Liste/Detail                                    | ja                | ja              | ja             | Tiles lokal, Fehlerfall                  |
+| Graph                                                     | ja                | ja              | ja             | Fullscreen Fachtests                     |
+| Statistik + Veranstaltungsinhalte                         | ja                | ja              | ja             | Tabelle/Serien Fachtests                 |
+| SQL                                                       | ja                | ja              | ja             | bestehende Editor-Token-Goldens behalten |
+| Login                                                     | ja                | ja              | ja             | eigener Auth-Kontext                     |
+
+Event v2: genau ein Haupttitel, Beschreibung eigener Abschnitt, allgemeine Relationspagination auch mit über 25 Einträgen,
+Veranstalter und Standardort/-raum unabhängig von der Relationsseite,
+Canonical-Aktionen, Timeline vor technischen Daten, UUID nur dort, keine überbreite Seite.
+Die Tests legen PNGs unter Playwrights Testausgaben ab; ausgewählte Event-Desktop-/Mobile-
+Bilder werden unter `docs/screenshots/record-detail-v2/` dauerhaft reviewbar abgelegt.
+Sämtliche Review-Aufnahmen sind über das Testartefakt verfügbar, keine goldene Pixelpflicht.
