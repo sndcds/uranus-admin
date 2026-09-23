@@ -54,7 +54,7 @@ for (const viewport of viewports) {
     for (const control of await page.locator('button, a').filter({ visible: true }).all()) {
       expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44)
     }
-    const open = page.getByRole('button', { name: 'Details: Hafenbühne' })
+    const open = table.getByRole('button', { name: 'Details: Hafenbühne', exact: true })
     await open.focus()
     await page.keyboard.press('Enter')
     await expect(page.getByRole('status').filter({ hasText: 'Ausgewählt' })).toHaveText(
