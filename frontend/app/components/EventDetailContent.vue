@@ -2,8 +2,6 @@
 import { computed } from 'vue'
 import type { EntityDetail } from '#shared/contracts'
 const props = defineProps<{ data: EntityDetail; loading: boolean }>()
-const route = useRoute()
-// Keep the server's single bounded page and order. It is not a complete domain section.
 const facts = computed(() =>
   [
     { label: 'Termine insgesamt', value: props.data.item.facts.event_dates },
@@ -11,14 +9,6 @@ const facts = computed(() =>
     { label: 'Standardraum', value: props.data.item.facts.space_name },
   ].filter((fact) => fact.value !== null && fact.value !== ''),
 )
-const findingsHref = computed(() => ({
-  path: '/findings',
-  query: {
-    mode: 'persisted',
-    entity_type: props.data.item.entity_type,
-    entity_key: props.data.item.entity_key,
-  },
-}))
 </script>
 
 <template>
@@ -33,50 +23,10 @@ const findingsHref = computed(() => ({
   <RecordSection v-if="data.item.facts.description?.trim()" title="Beschreibung">
     <MarkdownContent :source="data.item.facts.description" />
   </RecordSection>
-  <RecordSection title="Verknüpfte Datensätze" :aria-busy="loading" data-event-relations>
-    <p class="type-metadata">
-      {{ data.related.items.length }} auf dieser Seite von
-      {{ data.related.pagination.total }} insgesamt. Gemeinsame Liste nach Objektart und Name, keine
-      chronologische Terminliste.
-      <span v-if="data.related.pagination.pages > 1">
-        Weitere Termine, Orte oder Medien können auf anderen Seiten stehen.
-      </span>
-    </p>
-    <DataListShell v-if="data.related.items.length" as="ul" aria-label="Verknüpfte Datensätze">
-      <ActivityRow
-        v-for="item in data.related.items"
-        :key="`${item.entity_type}:${item.entity_key}`"
-        :item="item"
-        :observed-at="data.observed_at"
-        grouped
-      />
-    </DataListShell>
-    <EmptyState
-      v-if="!data.related.items.length"
-      message="Keine belegten Verknüpfungen auf dieser Seite vorhanden."
-    />
-    <PaginationBar
-      v-if="data.related.pagination.pages > 1"
-      :pagination="data.related.pagination"
-      :loading="loading"
-      label="Verknüpfte Datensätze – Seitennavigation"
-      :to="(page) => ({ query: { ...route.query, related_page: String(page) } })"
-    />
-  </RecordSection>
-  <RecordSection title="Qualität & Arbeitsstand">
-    <dl class="flex flex-wrap gap-x-10 gap-y-3">
-      <div v-if="data.item.finding_count !== null">
-        <dt class="type-metadata">Gespeicherte Befunde ohne behobene</dt>
-        <dd class="type-body mt-1 font-semibold">{{ data.item.finding_count }}</dd>
-      </div>
-      <div v-if="data.item.mark_count !== null">
-        <dt class="type-metadata">Markierungen einschließlich erledigter</dt>
-        <dd class="type-body mt-1 font-semibold">{{ data.item.mark_count }}</dd>
-      </div>
-    </dl>
-    <p v-if="data.item.finding_count === null && data.item.mark_count === null" class="type-body">
-      Der Arbeitsstand ist nicht verfügbar.
-    </p>
-    <NuxtLink :to="findingsHref" class="action-link">Befunde anzeigen</NuxtLink>
-  </RecordSection>
+  <RecordRelations :data="data" :loading="loading" data-event-relations>
+    <template #description>
+      Gemeinsame Liste nach Objektart und Name, keine chronologische Terminliste.
+    </template>
+  </RecordRelations>
+  <RecordWorkflowSummary :item="data.item" />
 </template>

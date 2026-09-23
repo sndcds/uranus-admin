@@ -21,10 +21,12 @@ const relationships = computed(() => graphHref(props.item.entity_type, props.ite
         <StatusBadge v-if="status" :label="status" />
       </template>
       <template #context>
-        <p v-if="item.organization_name" class="type-body mt-2 break-words">
-          {{ organizationLabel }}: {{ item.organization_name }}
-        </p>
-        <p v-if="item.subtitle" class="type-body mt-1 break-words">{{ item.subtitle }}</p>
+        <slot name="context">
+          <p v-if="item.organization_name" class="type-body mt-2 break-words">
+            {{ organizationLabel }}: {{ item.organization_name }}
+          </p>
+          <p v-if="item.subtitle" class="type-body mt-1 break-words">{{ item.subtitle }}</p>
+        </slot>
       </template>
       <NuxtLink :to="`/${section}`" class="action-link">Zur Liste</NuxtLink>
     </PageHeader>

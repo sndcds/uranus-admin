@@ -2,23 +2,7 @@ import { test, expect } from '../fixtures/authenticated'
 import { mockLayoutApi } from '../fixtures/layout'
 import { eventDetailFixture, paginatedEventDetailFixture } from '../fixtures/event-detail'
 
-// Match the existing production test policy, plus the already approved public image origin.
-// No application/deployment CSP is changed by this response-only test hook.
-async function enforceProductionCsp(page: import('@playwright/test').Page) {
-  if (process.env.TEST_PRODUCTION !== '1') return
-  await page.route('**/*', async (route) => {
-    if (route.request().resourceType() !== 'document') return route.continue()
-    const response = await route.fetch()
-    await route.fulfill({
-      response,
-      headers: {
-        ...response.headers(),
-        'content-security-policy':
-          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://api.kulturbytes.de; connect-src 'self'; object-src 'none'; base-uri 'self'",
-      },
-    })
-  })
-}
+import { enforceProductionCsp } from '../fixtures/record-csp'
 
 for (const viewport of [
   { width: 1440, height: 1000 },
