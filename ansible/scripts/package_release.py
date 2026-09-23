@@ -3,13 +3,216 @@
 
 import argparse
 import ast
+import fcntl
 import gzip
 import hashlib
 import io
 import json
+import os
+import stat
 import subprocess
+import sys
 import tarfile
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
+
+ANSIBLE = Path(__file__).resolve().parents[1]
+# Inventory host names are operator-defined; only direct hosts in this group apply.
+LOCAL_ARTIFACT_PATHS = {
+    "inventory.lxd.yml": ("all", "children", "uranus_admin", "hosts"),
+    "approvals.local.yml": (),
+    "inventory.local.yml": ("all", "children", "uranus_admin", "hosts"),
+}
+
+
+class ConfigurationError(Exception):
+    """A diagnostic that never includes unrelated local configuration values."""
+
+
+def yaml_parser():
+    try:
+        import yaml
+    except ImportError:
+        raise ConfigurationError(
+            "Local updates require PyYAML from the existing controller requirements. "
+            "Add --with-requirements ansible/requirements-controller.txt to uv run."
+        ) from None
+    return yaml
+
+
+def artifact_changes(path, prefix, output, yaml):
+    """Use YAML scalar source marks to preserve every unrelated byte, including comments."""
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+        raise ConfigurationError(f"{path.name}: expected an owned regular file, not a symlink")
+    original = path.read_bytes()
+    try:
+        source = original.decode("utf-8")
+        # Shared nodes could also change non-release values. Require explicit local values.
+        if any(isinstance(t, (yaml.AliasToken, yaml.AnchorToken)) for t in yaml.scan(source)):
+            raise ConfigurationError(f"{path.name}: YAML anchors/aliases are not supported")
+        root = yaml.compose(source, Loader=yaml.SafeLoader)
+    except (UnicodeError, yaml.YAMLError):
+        raise ConfigurationError(f"{path.name}: invalid UTF-8 YAML") from None
+
+    def mapping(node, key_path):
+        label = ".".join(key_path) or "<root>"
+        if not isinstance(node, yaml.MappingNode):
+            raise ConfigurationError(f"{path.name}: expected mapping at {label}")
+        result = {}
+        for key, value in node.value:
+            if key.tag != "tag:yaml.org,2002:str" or key.value in result:
+                raise ConfigurationError(f"{path.name}: ambiguous YAML keys at {label}")
+            result[key.value] = value
+        return result
+
+    def required(node, key_path, key):
+        values = mapping(node, key_path)
+        if key not in values:
+            raise ConfigurationError(
+                f"{path.name}: missing expected key {'.'.join((*key_path, key))}"
+            )
+        return values[key]
+
+    node = root
+    for index, key in enumerate(prefix):
+        node = required(node, prefix[:index], key)
+    hosts = mapping(node, prefix) if prefix else {None: node}
+    if not hosts:
+        raise ConfigurationError(f"{path.name}: expected at least one uranus_admin host")
+    changes, replacements = [], []
+    for host, host_node in hosts.items():
+        key_path = (*prefix, host) if prefix else ()
+        value = required(host_node, key_path, "ua_artifact")
+        label = ".".join((*key_path, "ua_artifact"))
+        if (
+            not isinstance(value, yaml.ScalarNode)
+            or value.tag != "tag:yaml.org,2002:str"
+            or value.style not in (None, "'", '"')
+        ):
+            raise ConfigurationError(f"{path.name}: {label} must be an inline string")
+        changes.append((label, value.value))
+        if value.value == output:
+            continue
+        # A single quoted scalar is escaped according to YAML, not shell syntax.
+        replacement = (
+            "'" + output.replace("'", "''") + "'"
+            if value.style == "'" and output.isprintable()
+            else yaml.safe_dump(
+                output, default_style='"', allow_unicode=False, width=float("inf")
+            ).rstrip("\n")
+        )
+        replacements.append((value.start_mark.index, value.end_mark.index, replacement))
+    for start, end, replacement in sorted(replacements, reverse=True):
+        source = source[:start] + replacement + source[end:]
+    return path, original, source.encode("utf-8"), stat.S_IMODE(info.st_mode), changes
+
+
+@contextmanager
+def local_configuration_lock():
+    # Share the deployment workflow's lock so approval changes cannot race an apply.
+    path = ANSIBLE / "approvals.local.yml.lock"
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or stat.S_IMODE(info.st_mode) != 0o600
+            or info.st_uid != os.getuid()
+        ):
+            raise ConfigurationError("Unsafe local approval lock file")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise ConfigurationError(
+                "Local approval configuration is in use; retry later"
+            ) from None
+        yield
+    finally:
+        os.close(fd)
+
+
+def stage_configuration(path, content, mode):
+    fd, name = tempfile.mkstemp(prefix=".package-release-", dir=path.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(fd, "wb") as target:
+            target.write(content)
+            target.flush()
+            os.fchmod(target.fileno(), mode)
+            os.fsync(target.fileno())
+        return temporary
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def replace_configurations(plans):
+    """Stage every write and rollback copy before replacing the first destination."""
+    staged, replaced, keep = [], [], set()
+    try:
+        for path, original, updated, mode, _ in plans:
+            if original == updated:
+                continue
+            if not mode & 0o222 or not os.access(path, os.W_OK):
+                raise ConfigurationError(f"{path.name}: file is not writable")
+            backup = stage_configuration(path, original, mode)
+            staged.append([path, backup, None])
+            staged[-1][2] = stage_configuration(path, updated, mode)
+        # Detect edits made while planning/staging, including non-cooperating editors.
+        for path, original, _, mode, _ in plans:
+            info = path.lstat()
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or stat.S_IMODE(info.st_mode) != mode
+                or path.read_bytes() != original
+            ):
+                raise ConfigurationError(f"{path.name}: changed during preparation; retry")
+        for path, backup, temporary in staged:
+            os.replace(temporary, path)
+            replaced.append((path, backup))
+    except BaseException:
+        for path, backup in reversed(replaced):
+            try:
+                os.replace(backup, path)
+            except OSError:
+                keep.add(backup)
+                print(f"Rollback failed for {path}; original retained at {backup}", file=sys.stderr)
+        raise
+    finally:
+        for _, backup, temporary in staged:
+            for path in (backup, temporary):
+                if path is not None and path not in keep:
+                    path.unlink(missing_ok=True)
+
+
+def update_local_inventories(output, dry_run=False):
+    yaml = yaml_parser()
+    try:
+        with local_configuration_lock():
+            plans = [
+                artifact_changes(ANSIBLE / filename, prefix, str(output), yaml)
+                for filename, prefix in LOCAL_ARTIFACT_PATHS.items()
+            ]
+            if not dry_run:
+                replace_configurations(plans)
+    except OSError as error:
+        name = Path(error.filename).name if error.filename else "local configuration"
+        raise ConfigurationError(
+            f"{name}: cannot read, stage or replace local configuration"
+        ) from None
+    title = (
+        "Planned local Ansible configuration changes"
+        if dry_run
+        else "Updated local Ansible configuration"
+    )
+    print(f"\n{title}:", file=sys.stderr)
+    for path, _, _, _, changes in plans:
+        for key, old in changes:
+            status = "already up to date" if old == str(output) else f"{old!r} -> {str(output)!r}"
+            print(f"  ansible/{path.name}: {key}: {status}", file=sys.stderr)
+    print(f"\nRelease package:\n  {output}", file=sys.stderr)
 
 
 def literal_assignment(source, name):
@@ -211,12 +414,46 @@ def package(revision, output):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", required=True)
+    parser.add_argument(
+        "--output", required=True, help="New archive path (~ and relative paths supported)"
+    )
+    parser.add_argument(
+        "--update-local-inventories",
+        action="store_true",
+        help="Update ua_artifact in the local Ansible inventories and approval file; "
+        "requires the controller requirements. Commit, checksum and approvals stay unchanged.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show local configuration changes without writing them (requires "
+        "--update-local-inventories). The release archive is still created.",
+    )
     args = parser.parse_args(argv)
-    if Path(args.output).exists():
+    if args.dry_run and not args.update_local_inventories:
+        parser.error("--dry-run requires --update-local-inventories")
+    output = Path(args.output).expanduser().resolve()
+    if output.exists():
         parser.error("Output already exists; choose a new artifact path")
+    if args.update_local_inventories:
+        try:
+            yaml_parser()
+        except ConfigurationError as error:
+            parser.error(str(error))
     commit = latest_main()
-    package(commit, args.output)
+    package(commit, str(output))
+    print(f"Release package created:\n  {output}", file=sys.stderr)
+    if args.update_local_inventories:
+        if not output.is_file() or output.stat().st_size == 0:
+            parser.error(
+                "Release archive was not successfully created; local configuration unchanged"
+            )
+        try:
+            update_local_inventories(output, args.dry_run)
+        except ConfigurationError as error:
+            parser.error(str(error))
+    else:
+        print("\nLocal Ansible configuration was not modified.", file=sys.stderr)
 
 
 if __name__ == "__main__":

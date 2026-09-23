@@ -1047,6 +1047,58 @@ ab; es gibt keinen Fallback auf einen alten Stand. Der Checkout wird nicht gewec
 Eine bereits vorhandene Ausgabedatei wird weiterhin nicht überschrieben; beim nächsten
 Release einen neuen Archivpfad wählen.
 
+Mit `--update-local-inventories` kann der aufgelöste absolute `--output`-Pfad nach
+erfolgreicher Archiverstellung direkt in die drei lokalen YAML-Dateien übernommen
+werden. `~` wird expandiert, relative Output-Pfade beziehen sich auf das aktuelle
+Arbeitsverzeichnis. Die Konfigurationsdateien werden relativ zum Script gefunden.
+Die optionale YAML-Bearbeitung nutzt das bereits durch die Controller-Requirements
+bereitgestellte PyYAML; der bisherige Packager-Aufruf ohne diese Option benötigt
+weiterhin nur die Python-Standardbibliothek.
+
+```sh
+uv run \
+  --no-project \
+  --python 3.13 \
+  --with-requirements ansible/requirements-controller.txt \
+  python ansible/scripts/package_release.py \
+  --output "/tmp/uranus-release-$(date +%Y%m%d-%H%M%S).tar.gz" \
+  --update-local-inventories
+```
+
+Die Zuordnung ist auf folgende vorhandene Keys begrenzt:
+
+| Datei                         | YAML-Key                                             |
+| ----------------------------- | ---------------------------------------------------- |
+| `ansible/inventory.lxd.yml`   | `all.children.uranus_admin.hosts.<Host>.ua_artifact` |
+| `ansible/approvals.local.yml` | `ua_artifact`                                        |
+| `ansible/inventory.local.yml` | `all.children.uranus_admin.hosts.<Host>.ua_artifact` |
+
+In den Inventories werden alle direkt unter `uranus_admin.hosts` eingetragenen Hosts
+berücksichtigt. Jeder muss einen expliziten `ua_artifact`-String besitzen. Fehlende
+Dateien/Keys, mehrdeutige Keys, YAML-Anker/Aliase, Blockskalare und Symlinks werden
+abgewiesen; es werden keine Keys angelegt oder geerbte Werte geändert. Kommentare,
+sonstige Inhalte und Dateimodi bleiben erhalten; identische Werte werden nicht neu
+geschrieben. Der Packager validiert alle Dateien und erstellt temporäre neue Dateien
+sowie Rücksicherungskopien vor dem ersten atomaren Ersetzen. Bei einem Schreibfehler
+setzt er bereits ersetzte Dateien zurück. Scheitert auch die Rücksicherung, meldet er
+die erhaltenen Sicherungspfade. Dies ist keine dateiübergreifende Transaktion bei
+Stromausfall oder hartem Prozessabbruch. Die Approval-Sperre wird mit `deploy.py`
+geteilt.
+
+Mit zusätzlichem `--dry-run` wird das Archiv **weiterhin erstellt**, aber nur angezeigt,
+welche YAML-Werte geändert würden. Diese Option erfordert `--update-local-inventories`.
+Die Übersicht nennt Datei, vollständigen Key sowie alten und neuen Pfad oder
+`already up to date`. Sie erscheint auf stderr; stdout bleibt das bisherige JSON
+mit Commit, Archivpfad und SHA256. Ohne Update-Option werden die YAML-Dateien nicht
+gelesen oder verändert. Bei fehlgeschlagener Konfigurationsaktualisierung bleibt das
+erfolgreich erzeugte Archiv verfügbar; der Befehl endet mit Fehlerstatus.
+
+**Die Option aktualisiert ausschließlich `ua_artifact`.** `ua_release_sha`,
+`ua_artifact_sha256` und Freigaben bleiben unverändert. Commit und Prüfsumme müssen
+vor einem Deployment weiterhin anhand der ausgegebenen Release-Metadaten abgeglichen
+und übernommen werden; vorhandene Freigaben gelten nicht automatisch für das neue
+Archiv. Die Approval-Datei kann die Release-Pins des Inventories überschreiben.
+
 „Latest main“ gilt zum Zeitpunkt der Paketierung. Danach bleiben Commit und Archiv für
 Dry Run und ausdrückliche Apply-Freigabe unveränderlich. Neue Commits auf `main` erfordern
 ein neues Archiv und eine neue Prüfung/Freigabe; der Echtlauf lädt keinen anderen Stand
