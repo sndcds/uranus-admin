@@ -24,7 +24,7 @@ WITH geocode_counts AS (
  FROM admin.geocode_candidate c
  JOIN admin.geocode_request r ON r.id=c.request_id AND r.generation=c.generation
  GROUP BY c.request_id
-), tasks AS (
+), task_sources AS (
  SELECT 'assignment:' || a.id::text AS id, 'assignment' AS kind,
         CASE WHEN a.finding_id IS NOT NULL THEN 'Qualitätsprüfung'
         WHEN a.workflow_type='geocode_request' THEN 'Standortvorschlag'
@@ -50,7 +50,9 @@ WITH geocode_counts AS (
         CASE WHEN a.workflow_type='geocode_request' THEN g.status
              WHEN a.workflow_type='notification_delivery' THEN d.status END AS workflow_status,
         CASE WHEN a.workflow_type='geocode_request' THEN COALESCE(gc.candidate_count,0) END
-          AS candidate_count
+          AS candidate_count,
+        a.snoozed_until AS assignment_snoozed_until,
+        CASE WHEN f.status='snoozed' THEN f.snoozed_until END AS finding_snoozed_until
  FROM admin.assignment a
  JOIN admin.auth_account aa ON aa.id=a.assigned_to_admin_id
  LEFT JOIN admin.finding f ON f.id=a.finding_id
@@ -66,9 +68,10 @@ WITH geocode_counts AS (
  SELECT 'finding:' || f.id,'finding','Qualitätsprüfung',left(f.message,5000),
         left(COALESCE(f.metadata->'finding'->>'entity_name',f.entity_id),500),
         f.entity_type,f.entity_id,f.severity,f.status,f.last_seen_at,NULL,
-        NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,f.rule,NULL,NULL
+        NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,f.rule,NULL,NULL,
+        NULL::timestamptz,CASE WHEN f.status='snoozed' THEN f.snoozed_until END
  FROM admin.finding f
- WHERE f.status IN ('open','in_progress')
+ WHERE f.status IN ('open','in_progress','snoozed')
    AND NOT EXISTS (SELECT 1 FROM admin.assignment a
                    WHERE a.finding_id=f.id AND a.status IN ('open','in_progress'))
 
@@ -84,7 +87,7 @@ WITH geocode_counts AS (
         g.entity_type,g.entity_key::text,
         CASE WHEN g.status='failed' THEN 'error' ELSE 'warning' END,g.status,g.updated_at,NULL,
         NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,g.status,
-        COALESCE(gc.candidate_count,0)
+        COALESCE(gc.candidate_count,0),NULL,NULL
  FROM admin.geocode_request g
  LEFT JOIN geocode_counts gc ON gc.request_id=g.id
  WHERE g.status IN ('candidate','ambiguous','not_found','failed')
@@ -99,12 +102,17 @@ WITH geocode_counts AS (
         'organization',d.organization_id::text,
         CASE WHEN d.status='permanent_failure' THEN 'error' ELSE 'warning' END,
         d.status,d.updated_at,NULL,
-        NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,d.status,NULL
+        NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,d.status,NULL,NULL,NULL
  FROM admin.notification_delivery d
  WHERE d.status IN ('failed','permanent_failure')
    AND NOT EXISTS (SELECT 1 FROM admin.assignment a
                    WHERE a.workflow_type='notification_delivery' AND a.workflow_key=d.id::text
                      AND a.status IN ('open','in_progress'))
+), tasks AS (
+ SELECT task_sources.*,
+        CASE WHEN GREATEST(assignment_snoozed_until,finding_snoozed_until)>:now
+             THEN GREATEST(assignment_snoozed_until,finding_snoozed_until) END AS snoozed_until
+ FROM task_sources
 )
 """
 
@@ -121,7 +129,9 @@ def account_id(subject: str) -> UUID | None:
 
 
 def conditions(filters: InboxFilters) -> str:
-    parts = ["TRUE"]
+    parts = [
+        "snoozed_until IS NOT NULL" if filters.attention == "snoozed" else "snoozed_until IS NULL"
+    ]
     if filters.scope == "mine":
         parts.append("assigned_to_admin_id=:current_admin_id")
     elif filters.scope == "unassigned":
@@ -222,6 +232,7 @@ def map_item(
                 "assigned_by_subject": row["assigned_by_subject"],
                 "status": row["status"],
                 "due_at": row["due_at"],
+                "snoozed_until": row["assignment_snoozed_until"],
                 "created_at": row["assignment_created_at"],
                 "updated_at": row["assignment_updated_at"],
                 "completed_at": row["completed_at"],
@@ -243,6 +254,8 @@ def map_item(
     return InboxItem.model_validate(
         {
             **row,
+            "snoozed_until": row.get("snoozed_until"),
+            "finding_snoozed_until": row.get("finding_snoozed_until"),
             "entity_name": entity_name,
             "organization_name": (presentation or {}).get("organization_name"),
             "entity_action": entity_action,
@@ -264,23 +277,32 @@ async def inbox_page(
 ) -> InboxPage:
     values = params(filters, now, timezone, subject)
     where = conditions(filters)
+    order = (
+        'snoozed_until ASC, id COLLATE "C"'
+        if filters.attention == "snoozed"
+        else """(severity='error') DESC NULLS LAST,
+                (due_at < :now) DESC NULLS LAST,
+                (due_at>=:day_start AND due_at<:day_end) DESC NULLS LAST,
+                CASE severity WHEN 'error' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
+                due_at ASC NULLS LAST, occurred_at DESC, id COLLATE "C"
+        """
+    )
     records_sql = text(
-        BASE_SQL
-        + f"""SELECT * FROM tasks WHERE {where}
-        ORDER BY (due_at < :now) DESC NULLS LAST,
-                 CASE severity WHEN 'error' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
-                 due_at ASC NULLS LAST, occurred_at DESC, id COLLATE "C"
-        LIMIT :limit OFFSET :offset"""
+        BASE_SQL + f"SELECT * FROM tasks WHERE {where} ORDER BY {order} LIMIT :limit OFFSET :offset"
     )
     count_sql = text(BASE_SQL + f"SELECT count(*) FROM tasks WHERE {where}")
+    # Global counters use the same deduplicated population and clock as the filtered page.
     summary_sql = text(
         BASE_SQL
         + """SELECT
-        count(*) FILTER (WHERE severity='error') AS critical,
-        count(*) FILTER (WHERE assigned_to_admin_id=:current_admin_id) AS mine,
-        count(*) FILTER (WHERE assignment_id IS NULL) AS unassigned,
-        count(*) FILTER (WHERE due_at>=:day_start AND due_at<:day_end) AS due_today,
-        count(*) FILTER (WHERE due_at<:now) AS overdue FROM tasks"""
+        count(*) FILTER (WHERE snoozed_until IS NULL AND severity='error') AS critical,
+        count(*) FILTER (WHERE snoozed_until IS NULL
+                         AND assigned_to_admin_id=:current_admin_id) AS mine,
+        count(*) FILTER (WHERE snoozed_until IS NULL AND assignment_id IS NULL) AS unassigned,
+        count(*) FILTER (WHERE snoozed_until IS NULL
+                         AND due_at>=:day_start AND due_at<:day_end) AS due_today,
+        count(*) FILTER (WHERE snoozed_until IS NULL AND due_at<:now) AS overdue,
+        count(*) FILTER (WHERE snoozed_until IS NOT NULL) AS snoozed FROM tasks"""
     )
     day_start, day_end = local_day(now, timezone)
     async with admin.begin():
@@ -308,4 +330,5 @@ async def inbox_page(
             pages=(total + filters.page_size - 1) // filters.page_size,
         ),
         observed_at=now,
+        admin_timezone=timezone,
     )

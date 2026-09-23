@@ -116,6 +116,7 @@ onBeforeUnmount(() => revision++)
           <option value="critical">Kritisch</option>
           <option value="due_today">Heute fällig</option>
           <option value="overdue">Überfällig</option>
+          <option value="snoozed">Wiedervorlagen</option>
         </select>
       </label>
       <label>
@@ -173,6 +174,7 @@ onBeforeUnmount(() => revision++)
         <StatusBadge :label="`${data.counts.unassigned} nicht zugewiesen`" />
         <StatusBadge :label="`${data.counts.due_today} heute fällig`" tone="warning" />
         <StatusBadge :label="`${data.counts.overdue} überfällig`" tone="error" />
+        <StatusBadge :label="`${data.counts.snoozed} Wiedervorlagen`" />
       </ResultSummary>
       <DataListShell
         v-if="data.items.length"
@@ -181,9 +183,22 @@ onBeforeUnmount(() => revision++)
         aria-label="Inbox-Aufgaben"
         :aria-busy="loading"
       >
-        <InboxRow v-for="item in data.items" :key="item.id" :item="item" />
+        <InboxRow
+          v-for="item in data.items"
+          :key="item.id"
+          :item="item"
+          :timezone="data.admin_timezone"
+          @updated="load"
+        />
       </DataListShell>
-      <EmptyState v-else message="Für diese Filter gibt es keine aktiven Aufgaben." />
+      <EmptyState
+        v-else
+        :message="
+          attention === 'snoozed'
+            ? 'Für diese Filter gibt es keine aktiven Wiedervorlagen.'
+            : 'Für diese Filter gibt es keine aktiven Aufgaben.'
+        "
+      />
       <PaginationBar
         :pagination="data.pagination"
         :loading="loading"

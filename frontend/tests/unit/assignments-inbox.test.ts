@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import AssignmentEditor from '../../app/components/AssignmentEditor.vue'
 import { berlinDate, berlinDueAt } from '../../app/utils/admin-time'
 import {
@@ -25,6 +26,7 @@ const assignment = {
   assigned_to: { id: adminId, login: 'operator' },
   assigned_by_subject: `admin:${adminId}`,
   status: 'open',
+  snoozed_until: null,
   due_at: '2026-10-25T22:59:59Z',
   created_at: '2026-09-22T10:00:00Z',
   updated_at: '2026-09-22T10:00:00Z',
@@ -42,7 +44,8 @@ const api = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.admins.mockResolvedValue({ items: [assignment.assigned_to] })
+  setActivePinia(createPinia())
+  api.admins.mockResolvedValue({ items: [assignment.assigned_to], admin_timezone: 'Europe/Berlin' })
   api.assignmentForFinding.mockResolvedValue(null)
   api.assignmentForWorkflow.mockResolvedValue(null)
   api.createAssignment.mockResolvedValue(assignment)
@@ -164,15 +167,18 @@ describe('assignment and inbox contracts', () => {
           workflow_status: null,
           candidate_count: null,
           occurred_at: assignment.updated_at,
+          snoozed_until: null,
           due_at: assignment.due_at,
+          finding_snoozed_until: null,
           is_overdue: false,
           due_today: true,
           assignment,
           href: `/findings?entity_key=${assignment.entity_key}&rule=missing_description`,
         },
       ],
-      counts: { critical: 1, mine: 1, unassigned: 0, due_today: 1, overdue: 0 },
+      counts: { critical: 1, mine: 1, unassigned: 0, due_today: 1, overdue: 0, snoozed: 0 },
       pagination: { page: 1, page_size: 25, total: 1, pages: 1 },
+      admin_timezone: 'Europe/Berlin',
       observed_at: '2026-10-25T10:00:00Z',
     }
     expect(inboxPageSchema.safeParse(page).success).toBe(true)

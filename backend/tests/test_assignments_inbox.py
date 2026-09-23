@@ -48,15 +48,17 @@ async def provision_admin(database, identifier, login="operator", *, active=True
     await engine.dispose()
 
 
-async def add_finding(admin_store, identity="finding:one", severity="error"):
+async def add_finding(
+    admin_store, identity="finding:one", severity="error", field="description", entity_key=None
+):
     await admin_store.execute(
         finding.insert().values(
             id=identity,
             rule="missing_description",
             severity=severity,
             entity_type="event",
-            entity_key=str(uid(30)),
-            field="description",
+            entity_key=entity_key or str(uid(30)),
+            field=field,
             message="Beschreibung fehlt",
             first_seen_at=NOW - timedelta(days=2),
             last_seen_at=NOW - timedelta(hours=1),
@@ -391,7 +393,10 @@ async def test_assignment_routes_auth_roster_and_safe_errors(
     assert (await db_client.get("/api/v1/admins")).status_code == 401
     roster = await db_client.get("/api/v1/admins", headers=headers)
     assert roster.status_code == 200
-    assert roster.json() == {"items": [{"id": str(uid(800)), "login": "operator"}]}
+    assert roster.json() == {
+        "items": [{"id": str(uid(800)), "login": "operator"}],
+        "admin_timezone": "Europe/Berlin",
+    }
     assert "password" not in roster.text
     response = await db_client.post(
         "/api/v1/assignments",
@@ -418,3 +423,352 @@ async def test_assignment_routes_auth_roster_and_safe_errors(
     inbox = await db_client.get("/api/v1/inbox", headers=headers)
     assert inbox.status_code == 200, inbox.text
     assert inbox.json()["pagination"]["total"] == 1
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"version": 1},
+        {"version": 1, "status": None},
+        {"version": 1, "assigned_to_admin_id": None},
+        {"version": 1, "snoozed_until": "2026-09-25T09:00:00"},
+        {"version": 1, "snoozed_until": "not-a-date"},
+    ],
+)
+def test_snooze_patch_rejects_invalid_contract(body):
+    with pytest.raises(ValidationError):
+        AssignmentUpdate.model_validate(body)
+
+
+async def test_snooze_api_versions_snapshots_timeline_and_unsnooze(
+    database, admin_store, db_client, headers
+):
+    await provision_admin(database, uid(800))
+    await add_finding(admin_store)
+    created = await create_assignment(admin_store, creation(uid(800), due_at=NOW), "admin:test")
+    url = f"/api/v1/assignments/{created.id}"
+    until = datetime.now(UTC) + timedelta(days=3)
+    payload = {"version": 1, "snoozed_until": until.isoformat()}
+    assert (await db_client.patch(url, json=payload)).status_code == 401
+    response = await db_client.patch(url, json=payload, headers=headers)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["version"] == 2 and body["status"] == "open"
+    assert datetime.fromisoformat(body["snoozed_until"]) == until
+    assert datetime.fromisoformat(body["due_at"]) == NOW
+    assert (await db_client.patch(url, json=payload, headers=headers)).status_code == 409
+    removed = await db_client.patch(
+        url, json={"version": 2, "snoozed_until": None}, headers=headers
+    )
+    assert removed.status_code == 200 and removed.json()["version"] == 3
+    assert removed.json()["snoozed_until"] is None
+    unchanged = await db_client.patch(
+        url, json={"version": 3, "snoozed_until": None}, headers=headers
+    )
+    assert unchanged.json()["version"] == 3
+    events = (
+        (
+            await admin_store.execute(
+                select(assignment_event)
+                .where(assignment_event.c.assignment_id == created.id)
+                .order_by(assignment_event.c.version)
+            )
+        )
+        .mappings()
+        .all()
+    )
+    assert [r["snoozed_until"] for r in events] == [None, until, None]
+    assert [r["kind"] for r in events] == ["created", "updated", "updated"]
+    assert [r["version"] for r in events] == [1, 2, 3]
+    assert all(r["actor"] and r["due_at"] == NOW and r["status"] == "open" for r in events)
+    await admin_store.rollback()
+    # Page-size one exercises window comparisons before cursor/limit filtering.
+    timeline_url = f"/api/v1/entities/event/{uid(30)}/timeline"
+    timeline = (await db_client.get(timeline_url, params={"page_size": 1}, headers=headers)).json()
+    assert timeline["items"][0]["kind"] == "assignment_unsnoozed"
+    assert timeline["items"][0]["title"] == "Wiedervorlage aufgehoben"
+    timeline = (
+        await db_client.get(
+            timeline_url,
+            params={"page_size": 1, "cursor": timeline["cursor_pagination"]["next_cursor"]},
+            headers=headers,
+        )
+    ).json()
+    assert timeline["items"][0]["kind"] == "assignment_snoozed"
+    assert "Europe/Berlin" in timeline["items"][0]["summary"]
+    assert timeline["items"][0]["actor"]
+    with pytest.raises(DBAPIError):
+        await admin_store.execute(text("UPDATE admin.assignment_event SET snoozed_until=NULL"))
+    await admin_store.rollback()
+    with pytest.raises(DBAPIError):
+        await admin_store.execute(text("DELETE FROM admin.assignment_event"))
+    await admin_store.rollback()
+
+
+@pytest.mark.parametrize("status", ["done", "cancelled"])
+async def test_closed_assignment_cannot_snooze(database, admin_store, status):
+    await provision_admin(database, uid(800))
+    await add_finding(admin_store)
+    created = await create_assignment(admin_store, creation(uid(800)), "admin:test")
+    snoozed = await update_assignment(
+        admin_store,
+        created.id,
+        AssignmentUpdate(version=1, snoozed_until=datetime.now(UTC) + timedelta(days=1)),
+        "admin:test",
+    )
+    closed = await update_assignment(
+        admin_store,
+        created.id,
+        AssignmentUpdate(version=snoozed.version, status=status),
+        "admin:test",
+    )
+    assert closed.snoozed_until is None
+    for extra in ({}, {"status": "open"}):
+        with pytest.raises(APIError) as error:
+            await update_assignment(
+                admin_store,
+                created.id,
+                AssignmentUpdate(
+                    version=closed.version,
+                    snoozed_until=datetime.now(UTC) + timedelta(days=1),
+                    **extra,
+                ),
+                "admin:test",
+            )
+        assert error.value.code == "assignment_task_closed"
+
+
+@pytest.mark.parametrize("delta", [timedelta(seconds=-1), timedelta(days=366)])
+async def test_snooze_requires_bounded_future(database, admin_store, delta):
+    await provision_admin(database, uid(800))
+    await add_finding(admin_store)
+    created = await create_assignment(admin_store, creation(uid(800)), "admin:test")
+    with pytest.raises(APIError) as error:
+        await update_assignment(
+            admin_store,
+            created.id,
+            AssignmentUpdate(version=1, snoozed_until=datetime.now(UTC) + delta),
+            "admin:test",
+        )
+    assert error.value.code == "invalid_input"
+
+
+async def test_snooze_revalidates_finding_task(database, admin_store):
+    await provision_admin(database, uid(800))
+    await add_finding(admin_store)
+    created = await create_assignment(admin_store, creation(uid(800)), "admin:test")
+    await admin_store.execute(finding.update().values(status="resolved"))
+    await admin_store.commit()
+    with pytest.raises(APIError) as error:
+        await update_assignment(
+            admin_store,
+            created.id,
+            AssignmentUpdate(version=1, snoozed_until=datetime.now(UTC) + timedelta(days=1)),
+            "admin:test",
+        )
+    assert error.value.code == "assignment_task_closed"
+
+
+@pytest.mark.parametrize("finding_days,assignment_days", [(3, 1), (1, 3)])
+async def test_combined_snoozes_expire_without_mutation_and_remain_deduplicated(
+    database, admin_store, db_connection, finding_days, assignment_days
+):
+    from app.admin_tables import assignment
+    from app.schemas.checks import ReviewUpdate
+    from app.services.checks import review
+
+    await provision_admin(database, uid(800))
+    await add_finding(admin_store)
+    now = datetime.now(UTC)
+    finding_until = now + timedelta(days=finding_days)
+    assignment_until = now + timedelta(days=assignment_days)
+    # Exercise the existing review service, including its unchanged reviewed event.
+    reviewed = await review(
+        admin_store,
+        db_connection,
+        ReviewUpdate(finding_id="finding:one", status="snoozed", snoozed_until=finding_until),
+        "admin:reviewer",
+        now,
+    )
+    assert reviewed.status == "snoozed"
+    before = await inbox_page(
+        admin_store, db_connection, InboxFilters(), now, "Europe/Berlin", f"admin:{uid(800)}"
+    )
+    assert not before.items and before.counts.snoozed == 1
+    created = await create_assignment(admin_store, creation(uid(800)), "admin:test")
+    await update_assignment(
+        admin_store,
+        created.id,
+        AssignmentUpdate(version=1, snoozed_until=assignment_until),
+        "admin:test",
+    )
+    for at in (now, now + timedelta(days=2)):
+        active = await inbox_page(
+            admin_store, db_connection, InboxFilters(), at, "Europe/Berlin", f"admin:{uid(800)}"
+        )
+        reminders = await inbox_page(
+            admin_store,
+            db_connection,
+            InboxFilters(attention="snoozed"),
+            at,
+            "Europe/Berlin",
+            f"admin:{uid(800)}",
+        )
+        assert not active.items and active.counts.snoozed == 1
+        assert active.counts.critical == active.counts.mine == active.counts.unassigned == 0
+        assert len(reminders.items) == reminders.pagination.total == 1
+        assert reminders.items[0].snoozed_until == max(finding_until, assignment_until)
+        assert reminders.items[0].assignment.id == created.id
+    # At equality, both cease suppressing the task. Stored finding review state stays untouched.
+    expired = await inbox_page(
+        admin_store,
+        db_connection,
+        InboxFilters(),
+        max(finding_until, assignment_until),
+        "Europe/Berlin",
+        f"admin:{uid(800)}",
+    )
+    assert len(expired.items) == 1 and expired.counts.snoozed == 0 and expired.counts.mine == 1
+    assert expired.items[0].snoozed_until is None
+    stored_finding = (await admin_store.execute(select(finding))).mappings().one()
+    assert (
+        stored_finding["status"] == "snoozed" and stored_finding["snoozed_until"] == finding_until
+    )
+    assert (
+        await admin_store.execute(select(assignment.c.snoozed_until))
+    ).scalar_one() == assignment_until
+    await admin_store.rollback()
+    # Removing organizational snooze never resets the finding's independent review.
+    await update_assignment(
+        admin_store, created.id, AssignmentUpdate(version=2, snoozed_until=None), "admin:test"
+    )
+    hidden = await inbox_page(
+        admin_store, db_connection, InboxFilters(), now, "Europe/Berlin", f"admin:{uid(800)}"
+    )
+    assert not hidden.items and hidden.counts.snoozed == 1
+
+
+async def test_expired_unassigned_finding_returns_without_recheck(admin_store, db_connection):
+    await add_finding(admin_store)
+    await admin_store.execute(finding.update().values(status="snoozed", snoozed_until=NOW))
+    await admin_store.commit()
+    page = await inbox_page(
+        admin_store, db_connection, InboxFilters(), NOW, "Europe/Berlin", "admin:test"
+    )
+    assert len(page.items) == 1 and page.items[0].kind == "finding"
+    assert page.counts.unassigned == 1 and page.counts.snoozed == 0
+
+
+async def test_reminder_sort_pagination_counts_and_batched_queries(
+    database, admin_store, db_connection
+):
+    from tests.test_timeline import CountedConnection
+
+    await provision_admin(database, uid(800))
+    now = datetime.now(UTC)
+    assignments = []
+    for number, days in enumerate([3, 1, 1]):
+        identity = f"finding:{number}"
+        await add_finding(admin_store, identity, entity_key=str(uid(30 + number)))
+        created = await create_assignment(
+            admin_store,
+            AssignmentCreate(
+                finding_id=identity, assigned_to_admin_id=uid(800), due_at=now - timedelta(hours=1)
+            ),
+            "admin:test",
+        )
+        value = await update_assignment(
+            admin_store,
+            created.id,
+            AssignmentUpdate(version=1, snoozed_until=now + timedelta(days=days)),
+            "admin:test",
+        )
+        assignments.append(value)
+    counted_admin, counted_source = CountedConnection(admin_store), CountedConnection(db_connection)
+    # Preserve the real transaction manager while counting SQL calls.
+    counted_admin.begin = admin_store.begin
+    batch = await inbox_page(
+        counted_admin,
+        counted_source,
+        InboxFilters(attention="snoozed", page_size=100),
+        now,
+        "Europe/Berlin",
+        f"admin:{uid(800)}",
+    )
+    assert len(batch.items) == 3
+    assert counted_admin.calls == 4 and counted_source.calls == 1
+    first = await inbox_page(
+        admin_store,
+        db_connection,
+        InboxFilters(attention="snoozed", page_size=1),
+        now,
+        "Europe/Berlin",
+        f"admin:{uid(800)}",
+    )
+    assert first.counts.snoozed == 3 and first.counts.overdue == first.counts.critical == 0
+    assert first.pagination.total == first.pagination.pages == 3
+    ids = [first.items[0].id]
+    for page in (2, 3):
+        result = await inbox_page(
+            admin_store,
+            db_connection,
+            InboxFilters(attention="snoozed", page_size=1, page=page),
+            now,
+            "Europe/Berlin",
+            f"admin:{uid(800)}",
+        )
+        ids.append(result.items[0].id)
+    assert ids == [
+        f"assignment:{a.id}"
+        for a in sorted(assignments, key=lambda a: (a.snoozed_until, str(a.id)))
+    ]
+
+
+@pytest.mark.parametrize(
+    "now,expected_start,expected_end",
+    [
+        (
+            datetime(2026, 3, 29, 12, tzinfo=UTC),
+            "2026-03-28T23:00:00+00:00",
+            "2026-03-29T22:00:00+00:00",
+        ),
+        (
+            datetime(2026, 10, 25, 12, tzinfo=UTC),
+            "2026-10-24T22:00:00+00:00",
+            "2026-10-25T23:00:00+00:00",
+        ),
+    ],
+)
+def test_inbox_calendar_bounds_on_dst_days(now, expected_start, expected_end):
+    from app.services.inbox import params
+
+    values = params(InboxFilters(), now, "Europe/Berlin", "admin:test")
+    assert values["day_start"] == datetime.fromisoformat(expected_start)
+    assert values["day_end"] == datetime.fromisoformat(expected_end)
+
+
+async def test_active_inbox_priority_critical_overdue_today_then_other(
+    database, admin_store, db_connection
+):
+    await provision_admin(database, uid(800))
+    now = datetime.now(UTC).replace(hour=10)
+    rows = [
+        ("warning", None),
+        ("warning", now + timedelta(hours=1)),
+        ("warning", now - timedelta(hours=1)),
+        ("error", None),
+    ]
+    identifiers = []
+    for number, (severity, due_at) in enumerate(rows):
+        identity = f"priority:{number}"
+        await add_finding(admin_store, identity, severity, field=f"field-{number}")
+        value = await create_assignment(
+            admin_store,
+            AssignmentCreate(finding_id=identity, assigned_to_admin_id=uid(800), due_at=due_at),
+            "admin:test",
+        )
+        identifiers.append(f"assignment:{value.id}")
+    page = await inbox_page(
+        admin_store, db_connection, InboxFilters(), now, "Europe/Berlin", f"admin:{uid(800)}"
+    )
+    assert [item.id for item in page.items] == list(reversed(identifiers))

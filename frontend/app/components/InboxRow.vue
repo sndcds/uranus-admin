@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { InboxPage } from '#shared/contracts'
+import AssignmentSnooze from './AssignmentSnooze.vue'
+import { adminDateTime } from '~/utils/admin-time'
 import { dateTime } from '~/utils/presentation'
 
 type InboxItem = InboxPage['items'][number]
 
-const props = defineProps<{ item: InboxItem }>()
+const props = defineProps<{ item: InboxItem; timezone: string }>()
+const emit = defineEmits<{ updated: [] }>()
 
 const workflowLabels: Record<string, string> = {
   candidate: 'Standortvorschlag vorhanden',
@@ -33,9 +36,11 @@ const actionLabels: Record<string, string> = {
 const workflowStatus = computed(() =>
   props.item.workflow_status ? workflowLabels[props.item.workflow_status] : null,
 )
-const taskStatus = computed(
-  () => taskStatusLabels[props.item.assignment?.status ?? props.item.status] ?? props.item.status,
-)
+const taskStatus = computed(() => {
+  if (!props.item.assignment && props.item.status === 'snoozed')
+    return props.item.snoozed_until ? 'Wiedervorlage' : 'Wiedervorlage abgelaufen'
+  return taskStatusLabels[props.item.assignment?.status ?? props.item.status] ?? props.item.status
+})
 const workflowAction = computed(() => {
   const workflowType = props.item.assignment?.workflow_type
   if (props.item.kind === 'geocode_request' || workflowType === 'geocode_request')
@@ -93,6 +98,33 @@ const icon = computed<'pin' | 'mail' | 'quality' | 'list'>(() => {
         <template v-if="item.due_at"> · fällig {{ dateTime(item.due_at) }}</template>
         <template v-else> · aktualisiert {{ dateTime(item.occurred_at) }}</template>
       </p>
+      <p v-if="item.snoozed_until" class="mt-2 break-words text-sm text-slate-700">
+        Wiedervorlage:
+        <time :datetime="item.snoozed_until">{{
+          adminDateTime(item.snoozed_until, timezone)
+        }}</time>
+        ({{ timezone }})
+      </p>
+      <p
+        v-if="
+          item.finding_snoozed_until &&
+          item.snoozed_until &&
+          Date.parse(item.finding_snoozed_until) > Date.now()
+        "
+        class="mt-1 text-xs text-slate-500"
+      >
+        Fachlicher Finding-Snooze bis {{ adminDateTime(item.finding_snoozed_until, timezone) }}.
+        Dieser wird im Finding-Review verwaltet.
+      </p>
+      <AssignmentSnooze
+        v-if="item.assignment"
+        class="mt-2"
+        :assignment="item.assignment"
+        :show-timestamp="false"
+        :timezone="timezone"
+        @updated="emit('updated')"
+        @reload="emit('updated')"
+      />
       <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         <NuxtLink
           :to="item.href"

@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { AdminOption, Assignment, AssignmentStatus } from '#shared/contracts'
+import { useAuthStore } from '~/stores/auth'
+import AssignmentSnooze from './AssignmentSnooze.vue'
 import { berlinDate, berlinDueAt } from '~/utils/admin-time'
 
 const props = defineProps<
@@ -20,6 +22,13 @@ const props = defineProps<
     }
 >()
 const { $adminApi } = useNuxtApp()
+const auth = useAuthStore()
+const selfId = computed(() => {
+  const subject = auth.session?.subject ?? ''
+  const id = subject.startsWith('admin:') ? subject.slice(6) : ''
+  return admins.value.some((admin) => admin.id === id) ? id : ''
+})
+const timezone = ref('Europe/Berlin')
 const admins = ref<AdminOption[]>([])
 const assignment = ref<Assignment | null>(null)
 const assignee = ref('')
@@ -41,6 +50,7 @@ function sync(value: Assignment | null) {
 async function load() {
   const current = ++revision
   loading.value = true
+  saving.value = false
   loadError.value = false
   feedback.value = null
   const assignmentRequest = props.findingId
@@ -56,18 +66,25 @@ async function load() {
     loadError.value = true
   } else {
     admins.value = options.value.items
+    timezone.value = options.value.admin_timezone
     sync(value.value)
   }
   loading.value = false
 }
 
+function assignToMe() {
+  assignee.value = selfId.value
+  void save()
+}
+
 async function save() {
-  if (!assignee.value) return
+  if (!assignee.value || saving.value || loading.value) return
   const dueAt = due.value ? berlinDueAt(due.value) : null
   if (due.value && !dueAt) {
     feedback.value = { message: 'Das Fälligkeitsdatum ist ungültig.', tone: 'warning' }
     return
   }
+  const current = revision
   saving.value = true
   feedback.value = null
   try {
@@ -91,16 +108,18 @@ async function save() {
           status: status.value === 'in_progress' ? 'in_progress' : 'open',
           due_at: dueAt,
         })
+    if (current !== revision) return
     sync(value)
     feedback.value = { message: 'Zuständigkeit gespeichert.', tone: 'success' }
   } catch {
+    if (current !== revision) return
     feedback.value = {
       message:
         'Zuständigkeit wurde zwischenzeitlich geändert oder konnte nicht gespeichert werden.',
       tone: 'warning',
     }
   } finally {
-    saving.value = false
+    if (current === revision) saving.value = false
   }
 }
 
@@ -146,15 +165,32 @@ onBeforeUnmount(() => revision++)
         <span class="label">Fällig (Europe/Berlin)</span>
         <input v-model="due" type="date" class="input" />
       </label>
-      <div class="sm:col-span-3">
+      <div class="flex flex-wrap gap-2 sm:col-span-3">
         <button class="button-primary" :disabled="saving || !assignee">
           {{ assignment ? 'Zuständigkeit aktualisieren' : 'Aufgabe zuweisen' }}
+        </button>
+        <button
+          v-if="(selfId && assignee !== selfId) || (selfId && !assignment)"
+          class="button"
+          type="button"
+          :disabled="saving"
+          @click="assignToMe"
+        >
+          Mir zuweisen
         </button>
       </div>
     </form>
     <InlineAlert v-else tone="info">
       Derzeit ist kein aktiver Systemadministrator für eine Zuweisung verfügbar.
     </InlineAlert>
+    <AssignmentSnooze
+      v-if="assignment && !loading && !loadError"
+      :assignment="assignment"
+      :timezone="timezone"
+      :disabled="saving"
+      @updated="sync"
+      @reload="load"
+    />
     <InlineAlert v-if="feedback" :tone="feedback.tone">{{ feedback.message }}</InlineAlert>
   </section>
 </template>

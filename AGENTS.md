@@ -83,6 +83,9 @@ MUST NOT be enabled by a browser capability flag.
   authorized reader when live verification is needed. Fixtures are not live evidence.
 - Use `entity_key` (including composite keys); `entity_id` is a legacy nullable UUID
   alias. Admin actor subjects (`admin:<UUID>`) are not Uranus user IDs.
+- Finding snooze is review state; assignment snooze is independent admin metadata.
+  Inbox visibility derives from active persisted timestamps, never a required expiry worker.
+  Neither snooze resolves, completes or reviews the task.
 - Missing timestamps stay unknown. Invitation time is not membership join time;
   activation status is not login history. Do not guess public links or relationships.
 - Preserve effective venue/space inheritance in `backend/app/repositories/location.py`

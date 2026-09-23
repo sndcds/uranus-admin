@@ -334,7 +334,8 @@
                 "all",
                 "critical",
                 "due_today",
-                "overdue"
+                "overdue",
+                "snoozed"
               ],
               "type": "string",
               "default": "all",
@@ -20591,11 +20592,16 @@
             },
             "type": "array",
             "title": "Items"
+          },
+          "admin_timezone": {
+            "type": "string",
+            "title": "Admin Timezone"
           }
         },
         "type": "object",
         "required": [
-          "items"
+          "items",
+          "admin_timezone"
         ],
         "title": "AdminOptionPage"
       },
@@ -20698,6 +20704,18 @@
             ],
             "title": "Due At"
           },
+          "snoozed_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed Until"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -20737,6 +20755,7 @@
           "assigned_by_subject",
           "status",
           "due_at",
+          "snoozed_until",
           "created_at",
           "updated_at",
           "completed_at",
@@ -20882,17 +20901,31 @@
             "title": "Version"
           },
           "assigned_to_admin_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Assigned To Admin Id"
           },
           "status": {
-            "type": "string",
-            "enum": [
-              "open",
-              "in_progress",
-              "done",
-              "cancelled"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "in_progress",
+                  "done",
+                  "cancelled"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Status"
           },
@@ -20907,14 +20940,24 @@
               }
             ],
             "title": "Due At"
+          },
+          "snoozed_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed Until"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "version",
-          "assigned_to_admin_id",
-          "status"
+          "version"
         ],
         "title": "AssignmentUpdate"
       },
@@ -25143,6 +25186,11 @@
             "type": "integer",
             "minimum": 0.0,
             "title": "Overdue"
+          },
+          "snoozed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Snoozed"
           }
         },
         "type": "object",
@@ -25151,7 +25199,8 @@
           "mine",
           "unassigned",
           "due_today",
-          "overdue"
+          "overdue",
+          "snoozed"
         ],
         "title": "InboxCounts"
       },
@@ -25282,6 +25331,30 @@
             ],
             "title": "Due At"
           },
+          "snoozed_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed Until"
+          },
+          "finding_snoozed_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finding Snoozed Until"
+          },
           "is_overdue": {
             "type": "boolean",
             "title": "Is Overdue"
@@ -25318,6 +25391,8 @@
           "status",
           "occurred_at",
           "due_at",
+          "snoozed_until",
+          "finding_snoozed_until",
           "is_overdue",
           "due_today",
           "assignment",
@@ -25344,6 +25419,10 @@
             "type": "string",
             "format": "date-time",
             "title": "Observed At"
+          },
+          "admin_timezone": {
+            "type": "string",
+            "title": "Admin Timezone"
           }
         },
         "type": "object",
@@ -25351,7 +25430,8 @@
           "items",
           "counts",
           "pagination",
-          "observed_at"
+          "observed_at",
+          "admin_timezone"
         ],
         "title": "InboxPage"
       },
@@ -28113,6 +28193,8 @@
               "mark_reopened",
               "assignment_created",
               "assignment_updated",
+              "assignment_snoozed",
+              "assignment_unsnoozed",
               "assignment_completed",
               "assignment_reopened",
               "assignment_cancelled",

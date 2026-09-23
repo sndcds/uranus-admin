@@ -42,6 +42,16 @@ Der bereitgestellte Live-Backup wurde zusätzlich in einem lokalen Schema `uranu
 Alle fünf Endpunkte funktionierten dort mit SELECT-Account; Ergebnisse und Schemaabweichungen
 stehen in [uranus-analysis.md](uranus-analysis.md). UTC-Speicherung ist vom Betreiber bestätigt.
 
+### Assignment-Wiedervorlagen: Migration 0014
+
+Vor dem passenden Backend/Frontend-Release als `admin_migrator` auf den aktuellen Head
+migrieren (`uv run alembic heads`, `upgrade head`, `current`, `check`). `0014` ergänzt
+`snoozed_until timestamptz NULL` in `assignment` und `assignment_event`; Runtime-Grants
+bleiben unverändert. Die Deployment-Inventare und geprüften Upgrade-Ursprünge berücksichtigen
+auch den spaltenweisen Übergang von `0013`. Keine Uranus-Migration oder notwendiger Snooze-Worker.
+Ein Downgrade verliert Snooze-Metadaten, erhält aber Event-Zeilen/Versionen.
+Siehe [Wiedervorlage-Vertrag](assignments-inbox.md#wiedervorlage-phase-43).
+
 ## Environment
 
 | Variable | Default / Zweck |

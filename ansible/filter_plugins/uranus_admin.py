@@ -236,7 +236,7 @@ def artifact_manifest(path, expected_hash, expected_sha):
                     or not set(grants) <= {"SELECT", "INSERT", "UPDATE"}
                     for name, grants in contract["runtime_grants"].items()
                 )
-                or not set(contract["runtime_grants"]) < set(manifest["runtime_grants"])
+                or not set(contract["runtime_grants"]) <= set(manifest["runtime_grants"])
             ):
                 raise AnsibleFilterError("Invalid admin upgrade contract")
         return manifest

@@ -214,6 +214,19 @@ class AdminBootstrapContractTests(unittest.TestCase):
             "admin_upgrade_contracts": {},
         }
 
+    def test_column_only_upgrade_keeps_the_same_table_grants(self):
+        manifest = self.diagnostic_manifest()
+        manifest["head"] = "0014"
+        manifest["admin_upgrade_contracts"] = {
+            "0013": {"schema_fingerprint": "b" * 64, "runtime_grants": manifest["runtime_grants"]}
+        }
+        admin_db.AdminDatabase(None, manifest, BOUNDARY, {})
+        manifest["admin_upgrade_contracts"]["0013"]["runtime_grants"] = {
+            "unexpected_table": ["SELECT"]
+        }
+        with self.assertRaisesRegex(ValueError, "invalid_admin_upgrade_contract"):
+            admin_db.AdminDatabase(None, manifest, BOUNDARY, {})
+
     def test_malformed_boundary_fails_with_explicit_safe_stage(self):
         for boundary in ("", "source_tables(name) AS (('event'))"):
             diagnostic = {}
@@ -629,6 +642,59 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
         self.assertEqual(plan["current_head"], "0012")
         self.assertTrue(self.boundary.upgrade("production", True, self.values, self.migrate))
         self.assertEqual(self.boundary.inspect("production")["state"], "READY")
+
+    def test_exact_0013_column_upgrade_preserves_history_and_grants(self):
+        self.bootstrap()
+        self.alembic("downgrade", "0013")
+        source_before = self.snapshot_source()
+        self.execute("""INSERT INTO admin.auth_account(id,login,password_hash,is_active)
+            VALUES ('00000000-0000-4000-8000-000000000800','snooze-migration','fixture',true)""")
+        self.execute("""INSERT INTO admin.finding
+            (id,rule,severity,entity_type,entity_id,message,first_seen_at,last_seen_at)
+            VALUES ('snooze-migration','fixture','warning','event','fixture',
+                    'Preserve',now(),now())""")
+        self.execute("""INSERT INTO admin.assignment
+            (id,finding_id,entity_type,entity_key,assigned_to_admin_id,assigned_by_subject,
+             status,created_at,updated_at,version)
+            VALUES ('00000000-0000-4000-8000-000000000810','snooze-migration','event','fixture',
+                    '00000000-0000-4000-8000-000000000800','admin:fixture','open',now(),now(),1)""")
+        self.execute("""INSERT INTO admin.assignment_event
+            (id,assignment_id,version,kind,occurred_at,actor,assigned_to_admin_id,status)
+            VALUES ('00000000-0000-4000-8000-000000000820',
+                    '00000000-0000-4000-8000-000000000810',1,'created',now(),'admin:fixture',
+                    '00000000-0000-4000-8000-000000000800','open')""")
+        self.conn.commit()
+        history_before = self.execute("SELECT to_jsonb(e) FROM admin.assignment_event e")
+        self.conn.commit()  # Release the test reader before ALTER TABLE acquires its DDL lock.
+        plan = self.boundary.inspect("production", upgrade_approved=True)
+        self.assertEqual(plan["state"], "UPGRADEABLE")
+        self.assertEqual(plan["current_head"], "0013")
+        self.assertEqual(plan["blockers"], [])
+        self.assertTrue(self.boundary.upgrade("production", True, self.values, self.migrate))
+        self.assertEqual(self.boundary.inspect("production")["state"], "READY")
+        self.assertEqual(self.snapshot_source(), source_before)
+        self.assertEqual(
+            self.execute("SELECT to_jsonb(e) - 'snoozed_until' FROM admin.assignment_event e"),
+            history_before,
+        )
+        self.assertEqual(self.execute("SELECT snoozed_until FROM admin.assignment"), [(None,)])
+        self.assertEqual(
+            self.execute(
+                "SELECT table_name FROM information_schema.columns WHERE table_schema='admin' "
+                "AND table_name IN ('assignment','assignment_event') "
+                "AND column_name='snoozed_until' "
+                "ORDER BY table_name"
+            ),
+            [("assignment",), ("assignment_event",)],
+        )
+        self.assertEqual(
+            self.execute(
+                "SELECT has_table_privilege('admin_user','admin.assignment','UPDATE'), "
+                "has_table_privilege('admin_user','admin.assignment_event','UPDATE'), "
+                "has_table_privilege('admin_user','admin.assignment_event','DELETE')"
+            ),
+            [(True, False, False)],
+        )
 
     def test_existing_upgrade_login_is_checked_without_changing_schema(self):
         self.bootstrap()

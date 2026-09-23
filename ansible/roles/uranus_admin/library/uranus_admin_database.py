@@ -83,7 +83,7 @@ class AdminDatabase:
                 and re.fullmatch(r"[0-9a-f]{64}", contract.get("schema_fingerprint", ""))
                 and isinstance(contract.get("runtime_grants"), dict)
                 and contract["runtime_grants"]
-                and set(contract["runtime_grants"]) < set(manifest["runtime_grants"])
+                and set(contract["runtime_grants"]) <= set(manifest["runtime_grants"])
                 for origin, contract in manifest["admin_upgrade_contracts"].items()
             ),
             "invalid_admin_upgrade_contract",

@@ -3,6 +3,7 @@ import { defineComponent, h, reactive } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import Suggestion from '../../app/components/LocationSuggestion.vue'
 import CandidateMap from '../../app/components/CandidateMap.vue'
+import { createPinia, setActivePinia } from 'pinia'
 import AssignmentEditor from '../../app/components/AssignmentEditor.vue'
 import Detail from '../../app/pages/geocoding/[id].vue'
 import List from '../../app/pages/geocoding/index.vue'
@@ -75,6 +76,7 @@ const global = {
   },
 }
 beforeEach(() => {
+  setActivePinia(createPinia())
   vi.clearAllMocks()
   route.query = {}
   route.params.id = geocodeDetail.id

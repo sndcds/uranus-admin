@@ -5,7 +5,7 @@ older Alembic head.  Adding a new target migration does not implicitly authorize
 upgrade: the target and every supported origin must be reviewed and updated here.
 """
 
-ADMIN_UPGRADE_TARGET = "0013"
+ADMIN_UPGRADE_TARGET = "0014"
 
 ADMIN_UPGRADE_CONTRACTS = {
     "0011": {
@@ -15,5 +15,9 @@ ADMIN_UPGRADE_CONTRACTS = {
     "0012": {
         "schema_fingerprint": "26fd27303ba8b3c59b56ee8152303f7cfac59a733b926cebcb2856377f65d117",
         "target_only_tables": ["assignment", "assignment_event"],
+    },
+    "0013": {
+        "schema_fingerprint": "313c96c1dc176d098999921bd4e0c53943b86b0498c4f2f83d7542cf67003f04",
+        "target_only_tables": [],
     },
 }

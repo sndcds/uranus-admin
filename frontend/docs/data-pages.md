@@ -147,6 +147,27 @@ Actor, Zeitstempel, Versionserhöhung und Verlauf kommen vom Server. Ein 409-Kon
 Neuladen auf und überschreibt keine zwischenzeitliche Änderung. Das ältere Finding-Review-Feld
 für eine Uranus-User-ID ist keine Admin-Zuständigkeit und wird vom Editor nicht verwendet.
 
+### Wiedervorlagen
+
+Der Attention-Filter und ResultSummary ergänzen „Wiedervorlagen“. Die bisherigen Counts
+beziehen sich auf aktive Aufgaben; der neue Count auf alle aktiv zurückgestellten Tasks,
+serverseitig dedupliziert und unabhängig von der Seite. Die Wiedervorlagen-Ansicht zeigt den
+effektiven absoluten Zeitpunkt samt Admin-Zeitzone, nächster Zeitpunkt zuerst.
+
+`AssignmentSnooze` ergänzt den gemeinsamen `AssignmentEditor` und zugewiesene Inbox-Zeilen.
+Es verwendet `AppModal`, große Preset-Touchflächen und ein natives Datum-/Zeitfeld.
+„Morgen“, „In 3 Tagen“, „Nächste Woche“ bedeuten +1/+3/+7 lokale Kalendertage um 09:00 Uhr
+in der serverseitig gelieferten `admin_timezone`; eigene Zeiten verwenden dieselbe Zone.
+DST-Lücken werden abgewiesen, doppelte Herbst-Minuten verwenden das erste Vorkommen.
+PATCH sendet nur Version und UTC-Zeitpunkt bzw. null. Konflikte erfordern Neuladen und eine
+neue Entscheidung; keine automatische Wiederholung mit einer neueren Version.
+
+Finding-Snooze gehört weiterhin zum fachlichen Review. Assignment-Snooze ist organisatorisch
+und verändert ihn nicht. Beide können denselben Task ausblenden; der spätere aktive Zeitpunkt
+bestimmt dessen Rückkehr. Die Inbox kennzeichnet einen fachlichen Finding-Snooze gesondert
+und verlinkt zu dessen Review. Aufheben der organisatorischen Wiedervorlage lässt ihn bestehen.
+Ablauf wird bei der nächsten Inbox-Abfrage berücksichtigt, ohne automatische Statusmutation.
+
 ### Logo quality
 
 `/quality` uses `QualityOverview` for a “Logos & Bilder” group with “Orte ohne Logo”,

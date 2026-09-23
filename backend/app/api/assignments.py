@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from app.admin_database import AdminConnectionDep
 from app.auth.dependencies import AdminPrincipal, get_current_admin
+from app.database import SettingsDep
 from app.schemas.assignments import (
     AdminOptionPage,
     Assignment,
@@ -26,8 +27,8 @@ PrincipalDep = Annotated[AdminPrincipal, Depends(get_current_admin)]
 
 
 @router.get("/admins", response_model=AdminOptionPage)
-async def admins(admin: AdminConnectionDep) -> AdminOptionPage:
-    return AdminOptionPage(items=await admin_options(admin))
+async def admins(admin: AdminConnectionDep, settings: SettingsDep) -> AdminOptionPage:
+    return AdminOptionPage(items=await admin_options(admin), admin_timezone=settings.admin_timezone)
 
 
 @router.get("/assignments", response_model=Assignment | None)

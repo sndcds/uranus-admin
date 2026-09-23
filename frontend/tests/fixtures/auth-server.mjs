@@ -47,7 +47,10 @@ const server = http
           return deny(401, 'invalid_credentials')
         const next = randomBytes(32).toString('base64url')
         const principal = {
-          subject: `admin:${randomBytes(16).toString('hex')}`,
+          subject:
+            credentials.login === 'operator'
+              ? 'admin:00000000-0000-4000-8000-000000000800'
+              : 'admin:00000000-0000-4000-8000-000000000801',
           system_admin: credentials.login === 'operator',
         }
         sessions.delete(token)

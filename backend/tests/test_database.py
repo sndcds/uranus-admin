@@ -143,6 +143,17 @@ async def test_migrations_only_manage_admin(database, monkeypatch, bootstrap):
         )
         await asyncio.to_thread(command.upgrade, config, "0004")
         await asyncio.to_thread(command.upgrade, config, "head")
+        snooze_columns = """SELECT table_name FROM information_schema.columns
+            WHERE table_schema='admin' AND column_name='snoozed_until'
+            AND table_name IN ('assignment','assignment_event') ORDER BY table_name"""
+        assert [r["table_name"] for r in await conn.fetch(snooze_columns)] == [
+            "assignment",
+            "assignment_event",
+        ]
+        await asyncio.to_thread(command.downgrade, config, "0013")
+        assert not await conn.fetch(snooze_columns)
+        await asyncio.to_thread(command.upgrade, config, "0014")
+        assert len(await conn.fetch(snooze_columns)) == 2
         assert await conn.fetchval("SELECT to_regclass('admin.url_check')") is not None
         assert await conn.fetchval("SELECT to_regclass('admin.finding_event')") is not None
         assert (

@@ -21,6 +21,8 @@ TimelineKind = Literal[
     "mark_reopened",
     "assignment_created",
     "assignment_updated",
+    "assignment_snoozed",
+    "assignment_unsnoozed",
     "assignment_completed",
     "assignment_reopened",
     "assignment_cancelled",
