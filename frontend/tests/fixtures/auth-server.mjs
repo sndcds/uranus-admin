@@ -88,6 +88,12 @@ const server = http
       return send(200, geoArea)
     }
     if (path === '/auth/session') return send(200, principal)
+    if (path === '/api/v1/admins')
+      return send(200, {
+        items: [{ id: '00000000-0000-4000-8000-000000000800', login: 'operator' }],
+        admin_timezone: 'Europe/Berlin',
+      })
+    if (path === '/api/v1/assignments' && request.method === 'GET') return send(200, null)
     if (path === '/api/v1/dashboard/summary') return send(200, summary)
     if (path === '/api/v1/findings') return send(200, findings)
     return deny(404, 'route_not_allowed')

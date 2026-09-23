@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import AssignmentEditor from '../../app/components/AssignmentEditor.vue'
+import InlineAlert from '../../app/components/InlineAlert.vue'
 import { berlinDate, berlinDueAt } from '../../app/utils/admin-time'
 import {
   assignmentCreateSchema,
@@ -141,6 +142,36 @@ describe('assignment and inbox contracts', () => {
       status: 'open',
       due_at: null,
     })
+  })
+
+  it('shows the unassigned workflow form using nullable API responses and admin options', async () => {
+    const fetcher = vi
+      .fn()
+      .mockImplementation(async (path: string) =>
+        Response.json(
+          path.endsWith('/admins')
+            ? { items: [assignment.assigned_to], admin_timezone: 'Europe/Berlin' }
+            : null,
+        ),
+      )
+    vi.stubGlobal('useNuxtApp', () => ({ $adminApi: createAdminApi(fetcher) }))
+    const view = mount(AssignmentEditor, {
+      props: {
+        workflowType: 'geocode_request',
+        workflowKey: '00000000-0000-4000-8000-000000000850',
+        entityType: 'venue',
+        entityKey: assignment.entity_key,
+      },
+      global: { components: { InlineAlert }, stubs: { SectionHeader: true } },
+    })
+    await flushPromises()
+    expect(view.find('[role="alert"]').exists()).toBe(false)
+    expect(view.text()).not.toContain('Zuständigkeit konnte nicht geladen werden.')
+    expect(view.get('form').isVisible()).toBe(true)
+    expect(view.get('select option').text()).toBe('operator')
+    expect(view.get('select').element.value).toBe(adminId)
+    expect(view.get('form button').text()).toBe('Aufgabe zuweisen')
+    view.unmount()
   })
 
   it('validates safe inbox links and excludes unexpected fields', () => {

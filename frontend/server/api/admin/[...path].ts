@@ -40,5 +40,7 @@ export default defineEventHandler(async (event) => {
   if (result.status === 401) setHeader(event, 'WWW-Authenticate', 'Bearer')
   if (result.status === 405) setHeader(event, 'Allow', 'GET')
   for (const cookie of result.setCookies ?? []) appendResponseHeader(event, 'Set-Cookie', cookie)
+  // Returning null makes H3 send 204; preserve the upstream JSON value and status.
+  if (result.body === null) return send(event, 'null', 'application/json; charset=utf-8')
   return result.body
 })
