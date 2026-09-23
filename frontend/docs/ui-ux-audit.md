@@ -32,15 +32,15 @@ Tech-Bar-Adoption ist keine vollständige Fachseitenmigration auf v2.1.
 Basis: `b2a93f08bfeb5681782e9f2cca36ae30b0e39b0f`, main nach PR #111.
 **Migriert:** `/inbox`, `/findings`, `/marks`, `/marks/:id`.
 
-| Route        | Ausgangszustand                                                  | Aktueller Zustand                                                                                                                                                                            |
-| ------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/inbox`     | Große Filterfläche, Counts als lose Badges, hohe Zeilen          | Scanbarer Count-Strip mit URL-Shortcuts, kompakte Filter, dichte Aufgaben mit Zuständigkeit/Fälligkeit, Technik am Ende                                                                      |
-| `/findings`  | Listenzeilen und langes schmales Detailmodal                     | Dichte Tabelle mit Priorität, ausdrücklich seitenlokaler Severity-Verteilung, „Im Admin ansehen“ und verfügbare SQL-Diagnose als Zeilenaktionen; Befund-Detailkomponente auf Wunsch entfernt |
-| `/marks`     | Hohe Rows, großer Kontextblock, Inhaltsverlust bei jedem Abruf   | Kompakte manuelle Arbeitsliste, Context-Panel mit Create-Disclosure, Refresh-Erhalt nur bei gleicher Query, technische Pagination                                                            |
-| `/marks/:id` | Freie Identitäts-/Technikangaben, großes Formular, hoher Verlauf | Record-Header, Status/Gründe, Operations-Editor, dichter Mark-Verlauf, technische Schlusssektion                                                                                             |
+| Route        | Ausgangszustand                                                  | Aktueller Zustand                                                                                                                                                                                                         |
+| ------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/inbox`     | Große Filterfläche, Counts als lose Badges, hohe Zeilen          | Scanbarer Count-Strip mit URL-Shortcuts, kompakte Filter, dichte Aufgaben mit Zuständigkeit/Fälligkeit, Technik am Ende                                                                                                   |
+| `/findings`  | Listenzeilen und langes schmales Detailmodal                     | Operations Workspace v2.1: Priorität zuerst, klar getrennte Datensatz-/Befundzellen, lokaler Sticky-Kopf, seitenlokale Counts; breites Finding Detail als Workflow v2.1 mit Evidenz, Review, Zuständigkeit und Werkzeugen |
+| `/marks`     | Hohe Rows, großer Kontextblock, Inhaltsverlust bei jedem Abruf   | Kompakte manuelle Arbeitsliste, Context-Panel mit Create-Disclosure, Refresh-Erhalt nur bei gleicher Query, technische Pagination                                                                                         |
+| `/marks/:id` | Freie Identitäts-/Technikangaben, großes Formular, hoher Verlauf | Record-Header, Status/Gründe, Operations-Editor, dichter Mark-Verlauf, technische Schlusssektion                                                                                                                          |
 
 Verträge und Grenzen: Inbox bleibt deduplizierte Aufmerksamkeit, Review bleibt fachliche
-Befundentscheidung im Domainvertrag (keine Reviewoberfläche in der Befundliste), Assignment
+Befundentscheidung im strukturierten Detail gespeicherter Befunde, Assignment
 operative Zuständigkeit, Mark manuelles Anliegen. Fachliche
 Zurückstellung ist keine operative Wiedervorlage. Freigegebene Backend-/API-Erweiterungen: optionale aktuelle Bild-URL je Befund,
 über die bestehende seitenweise Bildzuordnung. Keine Proxy-/Auth-/CSP-/DB-Änderung.
@@ -48,13 +48,13 @@ Marks liefert weder `observed_at` noch zuständigen Bearbeiter; vorhandene Admin
 werden als Ersteller/Abschlussautor bezeichnet. Findings liefert keinen globalen Severity-Split
 für die aktuelle Auswahl und keinen vollständigen Review-Verlauf. Diese Daten werden nicht erfunden.
 
-Die historischen Profile und ursprünglichen Auditbefunde unten bleiben erhalten. Der aktuelle
+Die historischen Profile und ursprünglichen Auditbefunde unten bleiben erhalten.
 Zusätzlich unterstützt die bestehende SQL-Diagnose explizit `mode=live` mit kanonischen
 Finding-Identitäten, festen Recipes und typisierten Schlüsseln. Die Standardsemantik
 bleibt `persisted`; Authentifizierung und Lese-/Ressourcengrenzen bleiben erhalten.
 Gemeinsame Kopieraktionen und SQL-Zeilennummern wurden ebenfalls vereinheitlicht/korrigiert.
 
-Validierungsstand: vollständige Gates und aktuelle Review-Aufnahmen sind offen.
+Validierungsstand des Findings-Follow-ups: vollständige GitHub-CI und aktuelle synthetische Review-Aufnahmen werden vor Ready-for-Review geprüft.
 Lokale Tests wurden auf ausdrücklichen Wunsch wegen Rechnerauslastung gestoppt;
 vorherige Ergebnisse und Screenshots belegen nur einen Zwischenstand.
 

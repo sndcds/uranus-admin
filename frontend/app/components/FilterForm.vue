@@ -116,12 +116,12 @@ function apply() {
         </option>
       </select></label
     >
-    <div class="flex flex-wrap gap-2">
+    <div :class="['flex flex-wrap gap-2', compact ? 'xl:col-span-2' : undefined]">
       <button type="submit" class="button-primary">Anwenden</button
       ><button type="button" class="button" @click="$emit('reset')">Filter zurücksetzen</button>
     </div>
     <template #help>
-      <p id="organization-help" class="mt-3 text-xs text-slate-500">
+      <p id="organization-help" :class="['text-xs text-slate-500', compact ? 'mt-2' : 'mt-3']">
         Reviews beziehen sich auf gespeicherte Befunde. Aktuelle Prüfungen zeigen den jetzigen
         Datenzustand.
       </p>

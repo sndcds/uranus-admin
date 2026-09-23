@@ -74,19 +74,6 @@ function page(value: number) {
         <AppIcon name="refresh" :size="16" /> Aktualisieren
       </button>
     </PageHeader>
-    <ResultSummary
-      v-if="store.data"
-      :total="store.data.pagination.total"
-      :visible="store.data.items.length"
-      noun="Befunde"
-      :description="`${(store.data.mode ?? store.filters.mode) === 'persisted' ? 'Gespeicherte Befunde' : 'Live-Auswertung'} · serverseitig priorisiert`"
-      ><StatusBadge
-        v-for="entry in severityCounts"
-        :key="entry.label"
-        :label="`${entry.count} ${entry.label}`"
-        :tone="entry.tone"
-      /><span>· auf dieser Seite</span></ResultSummary
-    >
     <FilterForm
       compact
       :filters="store.filters"
@@ -104,13 +91,27 @@ function page(value: number) {
       :last-success="store.lastSuccess"
       @retry="store.load($adminApi)"
     />
-    <template v-if="store.data">
+    <div v-if="store.data" class="space-y-0">
+      <ResultSummary
+        class="border-b border-slate-200 px-3 py-3"
+        :total="store.data.pagination.total"
+        :visible="store.data.items.length"
+        noun="Befunde"
+        :description="`${(store.data.mode ?? store.filters.mode) === 'persisted' ? 'Gespeicherte Befunde' : 'Live-Auswertung'} · serverseitig priorisiert`"
+        ><StatusBadge
+          v-for="entry in severityCounts"
+          :key="entry.label"
+          :label="`${entry.count} ${entry.label}`"
+          :tone="entry.tone"
+        /><span>· auf dieser Seite</span></ResultSummary
+      >
       <DataListShell v-if="store.data.items.length" :aria-busy="store.loading">
         <FindingsList
           :items="store.data.items"
           :mode="store.data.mode ?? store.filters.mode"
           compact
           workspace
+          @refresh="store.load($adminApi)"
         />
       </DataListShell>
       <EmptyState
@@ -124,7 +125,12 @@ function page(value: number) {
           >Filter zurücksetzen</NuxtLink
         ></EmptyState
       >
-      <PaginationBar :pagination="store.data.pagination" :loading="store.loading" @change="page">
+      <PaginationBar
+        class="mt-4"
+        :pagination="store.data.pagination"
+        :loading="store.loading"
+        @change="page"
+      >
         <label class="inline-flex items-center gap-2"
           ><span class="sr-only">Einträge pro Seite</span>
           <select
@@ -147,9 +153,10 @@ function page(value: number) {
           </select>
         </label>
       </PaginationBar>
-    </template>
+    </div>
     <TechnicalInfoBar
       v-if="store.data"
+      :show-title="false"
       :items="[
         {
           label: 'Datenstand',

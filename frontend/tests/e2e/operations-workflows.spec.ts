@@ -67,7 +67,7 @@ for (const [name, width, height] of [
     const table = page.getByRole('table', { name: 'Priorisierte Befunde' })
     await expect(table.locator('tbody tr')).toHaveCount(4)
     await expect(table.getByLabel('Priorität 1', { exact: true })).toBeVisible()
-    await expect(table.getByRole('button')).toHaveCount(1)
+    await expect(table.getByRole('button')).toHaveCount(5)
     await expect(table.getByRole('button', { name: 'SQL Editor für Hafenbühne' })).toBeVisible()
     await expect(table.locator('summary')).toHaveCount(0)
     const actions = table.locator('tbody tr').nth(2).locator('td').last()
@@ -79,10 +79,8 @@ for (const [name, width, height] of [
     )
     expect(positions[1]!.top).toBeGreaterThanOrEqual(positions[0]!.bottom)
     expect(positions[1]!.left).toBe(positions[0]!.left)
-    expect(positions[0]!.height).toBe(width >= 640 ? 24 : 44)
-    await expect(table.getByRole('link')).toHaveCount(2)
-    for (const link of await table.getByRole('link').all())
-      await expect(link).toHaveText('Im Admin ansehen')
+    expect(positions[0]!.height).toBeGreaterThanOrEqual(44)
+    await expect(table.getByRole('link')).toHaveCount(0)
     await expect(page.getByRole('dialog')).toHaveCount(0)
     const summary = page.getByRole('region', { name: 'Ergebnisübersicht' })
     await expect(summary).toContainText('929 Befunde insgesamt')
@@ -115,29 +113,30 @@ for (const [name, width, height] of [
   })
 }
 
-test('finding rows expose record links and SQL, without a review modal', async ({ page }) => {
+test('finding rows prioritize editing and keep supported tools in the workflow', async ({
+  page,
+}) => {
   await fixtures(page)
-  const requests: string[] = []
-  page.on('request', (request) => {
-    if (request.method() !== 'GET') requests.push(request.url())
-  })
+  await page.route('**/api/admin/api/v1/assignments?*', (route) => route.fulfill({ json: null }))
   await page.goto('/findings')
   const table = page.getByRole('table', { name: 'Priorisierte Befunde' })
   await expect(table.locator('tbody tr')).toHaveCount(4)
-  await expect(table.getByRole('button')).toHaveCount(1)
+  await expect(table.getByRole('button', { name: /^Befund bearbeiten:/ })).toHaveCount(4)
   await expect(table.getByRole('button', { name: 'SQL Editor für Hafenbühne' })).toBeVisible()
-  await expect(table.getByRole('link', { name: 'Markierungen & Notizen' })).toHaveCount(0)
   await expect(table.getByText('In Bearbeitung', { exact: true })).toBeVisible()
   await expect(table.getByText('Ausnahme', { exact: true })).toBeVisible()
-  // Missing action contracts must not produce guessed record links.
-  await expect(table.locator('tbody tr').first().getByRole('link')).toHaveCount(0)
-  const record = table.locator('tbody tr').nth(2).getByRole('link', { name: 'Im Admin ansehen' })
+  await table.getByRole('button', { name: 'Befund bearbeiten: Küstenkonzert' }).click()
+  const first = page.getByRole('dialog', { name: 'Küstenkonzert' })
+  await expect(first.getByRole('link', { name: 'Im Admin ansehen' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await table.getByRole('button', { name: 'Befund bearbeiten: Hafenbühne' }).click()
+  const detail = page.getByRole('dialog', { name: 'Hafenbühne' })
+  const record = detail.getByRole('link', { name: 'Im Admin ansehen' })
   await expect(record).toHaveAttribute('href', workflowFindings.items[2]!.action!.href)
   await record.focus()
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(new RegExp(workflowFindings.items[2]!.action!.href + '$'))
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  expect(requests).toEqual([])
 })
 
 test('mark conflict keeps note and history, explicit reload discards the draft', async ({

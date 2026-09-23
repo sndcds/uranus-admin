@@ -20,9 +20,9 @@ und [synthetische Review-Matrix](screenshots/operations-workflows/README.md).
 - Inbox: Header → globale Counts/URL-Shortcuts → kompakte Filter → Aufgaben → Pagination → Technik.
   Shortcuts kombinieren sich mit den anderen Filtern; Counts bleiben global. Fachliche
   Zurückstellung wird separat von der operativen Assignment-Wiedervorlage bezeichnet.
-- Findings: Header → Gesamtzahl und **seitenlokale** Severity-Zahlen → alle bisherigen Filter
+- Findings: Header → kompakte Filter → Gesamtzahl und **seitenlokale** Severity-Zahlen
   → gruppierte dichte Tabelle → Pagination → Technik. „Im Admin ansehen“ und die verfügbare SQL-Diagnose
-  als Zeilenaktionen; die Befund-Detailkomponente ist entfernt. Explizite SQL-Hashlinks bleiben erhalten.
+  als Werkzeuge; „Befund bearbeiten“ öffnet den strukturierten Workflow, SQL bleibt direkt in der Zeile. Explizite SQL-Hashlinks bleiben erhalten.
   Kompakte Vorschaubilder stammen aus dem optionalen `image_url` der Findings-Antwort,
   mit derselben Bildzuordnung wie Activity und ohne eigene Detailabfragen pro Zeile.
 - Marks: Datensatzkontext und Create-Disclosure nur bei Scope; Reset erhält ihn. Dichte
@@ -215,8 +215,9 @@ Die bestehenden Playwright-Ausgaben enthalten Screenshots für Dashboard, Activi
 Quality, Checks, Marks und Queues auf Desktop und Mobile (synthetische Testdaten).
 Bestehende E2E-Tests decken alle neun Activity-Drill-downs, Unknown-Zeitpunkte,
 Thumbnails/Modal, Auth-Verlust, Markierungshistorie und Queue-Altersbasis weiterhin ab.
-Die entfernte Befund-Reviewoberfläche wird durch Regressionen für Zeilen ohne Befund-Reviewmodal
-ersetzt; die Review-API und deren Authentifizierungs-/Contract-Tests bleiben erhalten.
+Finding Detail verwendet die vorhandene Review-API für gespeicherte, nicht behobene Befunde.
+Tests trennen Live-Evidenz von Review/Assignment, prüfen bedingte Felder, Fokus-Rückgabe und
+SQL-Modus. Die API und deren Authentifizierungs-/Contract-Tests bleiben erhalten.
 
 ### Zeitstempel in den Listen
 
@@ -273,7 +274,7 @@ Finding-Snooze gehört weiterhin zum fachlichen Review. Assignment-Snooze ist or
 und verändert ihn nicht. Beide können denselben Task ausblenden; der spätere aktive Zeitpunkt
 bestimmt dessen Rückkehr. Die Inbox kennzeichnet einen fachlichen Finding-Snooze gesondert
 und verlinkt zum Befund in der Arbeitsliste. Aufheben der organisatorischen Wiedervorlage
-lässt die fachliche Zurückstellung bestehen; die Arbeitsliste bietet keine Reviewbearbeitung.
+lässt die fachliche Zurückstellung bestehen; das Finding Detail trennt Review und Zuständigkeit.
 Ablauf wird bei der nächsten Inbox-Abfrage berücksichtigt, ohne automatische Statusmutation.
 
 ### Logo quality

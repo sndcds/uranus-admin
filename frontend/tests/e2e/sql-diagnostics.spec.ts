@@ -390,6 +390,8 @@ test('readonly SQL keeps line numbers aligned through wrapped lines beyond line 
   await code.evaluate((element) => {
     element.scrollTop = element.scrollHeight
   })
+  // The mobile workspace has an outer dialog scrollport as well as the SQL scrollport.
+  await code.locator('.sql-line').last().scrollIntoViewIfNeeded()
   await expect(code.locator('.sql-gutter > div').last()).toBeInViewport()
   await expect(code.locator('.sql-line').last()).toBeInViewport()
 })

@@ -26,3 +26,15 @@ export function findingAdditionalMessage(finding: Finding): string | null {
     ? null
     : finding.message
 }
+
+const priorityReasonLabels: Record<string, string> = {
+  severity_error: 'Schweregrad: Fehler',
+  severity_warning: 'Schweregrad: Warnung',
+  severity_info: 'Schweregrad: Hinweis',
+  published: 'Veröffentlicht',
+  published_soon: 'Veröffentlichter Termin steht bald bevor',
+  upcoming_dates: 'Kommende Termine vorhanden',
+}
+export function findingPriorityReason(reason: string): string {
+  return priorityReasonLabels[reason] ?? reason
+}

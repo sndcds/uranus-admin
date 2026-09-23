@@ -134,19 +134,18 @@ Operations-Surfaces. Die Bereiche behalten unterschiedliche Aufgaben:
   setzen die Seite zurück. Erneutes Betätigen hebt diese Auswahl auf. Auswahlzustand
   kommt ausschließlich aus der URL (`aria-pressed`); die globalen Zahlen sind keine
   Vorschau der Schnittmenge mit anderen Filtern.
-- **Arbeitsliste:** Datenqualitätsbefunde fachlich bewerten. `FindingsList compact workspace`
-  zeigt vier gruppierte Spalten: Datensatz (Bild, Name, Objektart, Organisation),
-  Befund (deutsche Regel, zusätzliche Meldung, nachrangig Feld/Beobachtung), Priorität/Status
-  und Aktionen. Wiederholter Meldungstext entfällt nur bei gleichem Wortlaut ohne Artikel.
-  Technische Namen erhalten bei fehlendem Anzeigenamen eine Objektart-Bezeichnung und
-  einen gekürzten Schlüssel. Bis 1100px werden die Zeilen zweispaltig, unter 640px einspaltig. Severity-Zahlen sind ausdrücklich
-  **auf dieser Seite**, die Gesamtzahl kommt unabhängig aus der Pagination. P1–P6
-  übernehmen die bestehende Priorität ohne neue Bewertung. Zeilenaktionen sind „Im Admin ansehen“,
-  sofern `finding.action` vorhanden ist, und „SQL Editor“, sofern die registrierte Diagnose
-  verfügbar ist — sowohl für Live- als auch gespeicherte Befunde. Live-Diagnosen und
-  SQL-Hashlinks behalten den Modus; keine automatischen Abfragen beim Öffnen.
-  Kein Ersatzlink bei fehlender Aktion, keine Befund- oder Markierungsaktionen in der Liste.
-  Beide Aktionen stehen untereinander: ab 640px 24px Mindesthöhe, darunter 44px Touchfläche. Das gilt auch für die Dashboard-Vorschau.
+- **Arbeitsliste — Operations Workspace v2.1:** `FindingsList compact workspace`
+  zeigt **Prio → Datensatz → Befund → Status → Aktionen**. P1–P6 stehen links in dunklen
+  Badges, ohne neue Bewertungslogik. Datensatzname/Bild/Organisation und deutsche Regel/
+  zusätzliche Evidenz sind getrennt. Stärkere Divider, Hover und Focus-within führen durch
+  weiße Zeilen. Oberhalb von 1100px hält ein lokaler vertikaler Scrollbereich (max. 68dvh)
+  den Tabellenkopf bei `top: 0`; er konkurriert nicht mit dem umbrechenden App-Header.
+  Bis 1100px folgt eine Grid-Zeile, unter 640px eine gestapelte Darstellung ohne horizontales
+  Scrollen. Primäraktion ist „Befund bearbeiten“, SQL bleibt bei vorhandener Capability
+  direkt erreichbar. Controls sind mindestens 44px hoch. Weitere Werkzeuge stehen im Detail.
+  Die kompakte Filterfläche erhält alle Queryparameter; die Ergebnisübersicht steht direkt
+  an der Tabelle und benennt Severity-Zahlen ausdrücklich **auf dieser Seite**.
+  Die Dashboard-Variante bleibt unabhängig von diesem Workspace-Aufbau.
 - **Markierungen:** manuelle Anliegen, Gründe und Notizen. Dichte, responsive Listenzeilen
   zeigen Ersteller und vorhandenen Abschluss; diese Angaben sind keine Zuständigkeit.
   Der Datensatzkontext ist ein Operations-Panel, Anlegen standardmäßig geschlossen.
@@ -159,11 +158,22 @@ bündelt Anwenden/Reset. `FilterForm compact` erhält alle Filter einschließlic
 Reviewstatus, Organisations-UUID und der vorhandenen Entity-/Geo-Queryparameter.
 Kein neuer Filterstore, keine Browserpersistenz. Standardvarianten bleiben kompatibel.
 
-Die Befund-Detailkomponente wurde auf ausdrücklichen Wunsch entfernt. Die Liste zeigt weiterhin
-Reviewstatus und Priorität, bietet aber keine fachliche Bewertung oder eingebettete Zuweisung
-mehr an. Review-/Assignment-API und Zustandsmodelle bleiben unverändert; es wird keine neue
-Bewertungsoberfläche eingeführt. Explizite `#sql-editor=…`-Links öffnen weiterhin die
-vorhandene SQL-Diagnose, ebenso der SQL-Auslöser in den Befundzeilen.
+**Finding Detail — Workflow v2.1:** Ein breiter nativer `AppModal wide workspace` ordnet
+Identität → Evidenz → Priorisierung → fachliche Bewertung → Zuständigkeit → Werkzeuge →
+Technik. Evidenz und Priorisierung stehen auf Desktop nebeneinander. Review und operative
+Zuständigkeit bleiben getrennte Panels; `AssignmentEditor embedded` verwendet seinen
+bestehenden Vertrag einschließlich eigenständiger Wiedervorlage. Reviewstatus, Kommentar,
+Ausnahmegrund und fachliche Zurückstellung verwenden die vorhandene Review-API. Der
+Datumsinput nennt Europe/Berlin, verwirft ungültige lokale Zeiten und erhält vorhandene
+Snooze-Instants ohne erneute Interpretation. Späte Speicherantworten nach Schließen werden
+verworfen; nach erfolgreichem Review lädt die Liste beim Schließen neu.
+
+Der gelieferte **Modus** bestimmt die Bearbeitbarkeit, nicht `first_seen_at`: fehlender
+Erstfund bleibt unbekannt. Live zeigt Evidenz/Tools, aber keine Review- oder Assignment-Aktion.
+Behobene gespeicherte Befunde erhalten keine manuelle Wiedereröffnung. SQL (live/persisted),
+kanonischer Admin-Link, vorhandener Standortvorschlag, Graph und Markierungen bleiben in
+Werkzeuge erreichbar. SQL-Hashlinks erhalten ihren Modus. Die Seiten-Technikleiste verwendet
+`showTitle=false`, das Detail einen benannten technischen Abschnitt mit echten IDs/Zeitwerten.
 `AssignmentSnooze compact` verdichtet nur die Auslöser; Presets, Zeitzone, Konfliktbehandlung
 und das bestehende Modal bleiben erhalten. `RecordMarkLink variant="action"` bietet einen
 44px-Aktionslink; Default bleibt `button` samt bisherigem Außenabstand.
