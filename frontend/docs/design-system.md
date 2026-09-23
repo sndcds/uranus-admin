@@ -4,9 +4,9 @@ Kanonischer UI-Vertrag für neue und migrierte Oberflächen. Version 2.1 folgt d
 Operations-Center-Mockup: dunkles Navy, Fuchsia-Akzente, kompakte Überschriften,
 klare Panelgrenzen und horizontale technische Metadaten.
 
-**Stand dieser Phase:** gemeinsame Foundations und Shell; keine komplette Route
-auf v2.1 migriert. Dashboard, Record-Details und Workflows behalten ihre fachliche
-Gliederung. [Review-Aufnahmen und offene Anpassungen](screenshots/operations-foundations/README.md).
+**Stand dieser Phase:** gemeinsame Foundations und Shell sowie Dashboard `/` als
+Referenz für **Overview v2.1 / Operations Center**. Die fachlichen Datenverträge
+bleiben erhalten; weitere Routen benötigen separate Migrationen. [Review-Aufnahmen und offene Anpassungen](screenshots/operations-foundations/README.md).
 Die bisherigen v2-Verträge unten gelten weiter, sofern die neuen Dichte-/Surface-Regeln
 sie nicht ausdrücklich ersetzen. Beispiele sind keine neuen API-Felder. Grundlage ist der
 [vollständige Frontend-Audit](ui-ux-audit.md) gegen `main` bei `4560304` (initialer Audit: `e615df3`).
@@ -83,6 +83,37 @@ Kein zweites `main` im Workspace. Keine Überschrift nur wegen ihrer Schriftgrö
 
 Ein Muster ist keine starre Vorlage für alle Domänen. Workflows dürfen eine Collection
 enthalten; eine Statistik bleibt ein Workspace mit Tabellenalternative.
+
+### Overview v2.1 — Dashboard als Referenz
+
+Die Dashboard-Migration basiert auf `main` bei `76016593bfde39d5aada821f2e0afd9f14eba63a`
+(nach PR #109). Visuelle Referenz ist der Dashboard-Entwurf „Operations Center“:
+
+- Kompakter PageHeader mit Zeitraum und einer primären Aktualisierungsaktion.
+- Neun kleine Neuanlagen-Tiles, bis zu fünf Spalten am Desktop, drei am Tablet,
+  zwei mobil (ohne dekorative Icons auf den kleinsten Viewports). Zeitraum und Gebietsbezug stehen als Metadaten am Abschnitt.
+- Vier gleichwertige Aufmerksamkeit-KPIs verwenden `KpiCard compact`, einschließlich
+  Prüfstatus. „3 Arbeitslisten“ bezeichnet Navigation, keine Summe offener Vorgänge.
+- Hauptbereich ab `xl` im Verhältnis 1.7:0.8: priorisierte Arbeitsliste links,
+  Datenqualität und offene Vorgänge rechts. Darunter einspaltiger Lesefluss.
+- `FindingsList compact` verwendet eine semantische Tabelle mit vier Befunden,
+  Priorität, Titel/Evidenz, Typ/Status, Quelle/Feld/Beobachtungszeit und Aktionen.
+  Unter 640px werden beschriftete Zellen gestapelt. Details bleiben direkt erreichbar;
+  SQL und Markierungen liegen in einem nativen, per Tastatur erreichbaren Aktionsmenü.
+- `QualityOverview compact` zeigt fünf Regeln nach vorhandener Anzahl absteigend;
+  bei Gleichstand bleibt die bestehende Reihenfolge erhalten. Fehlende Counts bleiben
+  unbekannt und folgen vorhandenen Zahlen. Die normale Qualitätsseite bleibt unverändert.
+- Drei kompakte Queue-Links ohne erfundene Counts; native `details` für standardmäßig
+  geschlossene erweiterte Filter. Filter navigieren weiterhin mit `active_only` zur Arbeitsliste.
+- `TechnicalInfoBar` nennt den **letzten erfolgreichen Abruf** ausdrücklich als
+  Client-Abrufzeit. Zeitraum, Admin-Zeitzone, Qualitätsmodus, belegte Prüfläufe und
+  vorhandener Geo Scope werden aus bestehenden Daten abgeleitet. Keine API-Version,
+  Datenbankverbindung oder Systemgesundheit ohne entsprechenden Vertrag.
+
+Die kompakte Darstellung lädt keine zusätzlichen Befunde und verändert weder Stores
+noch API-, Auth- oder Domain-Semantik. Leere Ergebnisse verwenden `EmptyState compact`;
+vorhandene Stale-/Fehlerzustände bleiben sichtbar. Alle echten Controls behalten 44px
+Mindesthöhe. [Synthetische Review-Screenshots](screenshots/operations-dashboard/README.md).
 
 ## 5. Typografie
 

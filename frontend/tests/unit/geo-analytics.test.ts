@@ -11,6 +11,7 @@ import EventContent from '../../app/components/statistics/EventContentStatistics
 import MetricCard from '../../app/components/statistics/EntityMetricCard.vue'
 import GraphFilters from '../../app/components/GraphFilters.vue'
 import FilterForm from '../../app/components/FilterForm.vue'
+import RecordSection from '../../app/components/RecordSection.vue'
 import FilterBar from '../../app/components/FilterBar.vue'
 import { useFilterPreferencesStore } from '../../app/stores/filter-preferences'
 import { useFindingsStore } from '../../app/stores/findings'
@@ -86,8 +87,8 @@ function page(
 ) {
   const wrapper = shallowMount(component, {
     global: {
-      components: { FilterBar, FilterForm, GraphFilters },
-      stubs: { FilterBar: false, NuxtLink: { template: '<a><slot /></a>' } },
+      components: { FilterBar, FilterForm, GraphFilters, RecordSection },
+      stubs: { RecordSection: false, FilterBar: false, NuxtLink: { template: '<a><slot /></a>' } },
       mocks: { dateTime: String, metric: String },
     },
   })

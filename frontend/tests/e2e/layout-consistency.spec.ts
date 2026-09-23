@@ -195,7 +195,7 @@ for (const viewport of [
         const cardHeights = await page
           .locator('#new-records li a')
           .evaluateAll((links) => links.map((link) => link.getBoundingClientRect().height))
-        expect(cardHeights.every((height) => height >= 64 && height <= 80)).toBe(true)
+        expect(cardHeights.every((height) => height >= 56 && height <= 80)).toBe(true)
         expect(
           await page.locator('[data-dashboard-new-record-label]').evaluateAll((elements) =>
             elements.every((element) => {

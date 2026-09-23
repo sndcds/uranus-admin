@@ -1,15 +1,16 @@
 # Frontend UI/UX-Audit — Design System v2
 
-## v2.1 Foundations — Visual consolidation / density migration pending
+## v2.1 — Visual consolidation: in progress
 
 Ausgangspunkt: frisch geholtes `main` bei `10f41ca78cad640317fbd06be70ce2f766845b82`.
 Der erste Operations-Center-Schritt umfasst kompaktere gemeinsame CSS-Rollen,
 dunkle Sidebar/Drawer, kompakteren PageHeader/Topbar, explizite Panel-Surfaces,
 CompactFacts, TechnicalInfoBar, DenseTable und optionale kompakte EmptyState-/Timeline-Varianten.
 Die Navigationsreihenfolge, fachlichen Daten, Abrufe und Backend-Verträge bleiben erhalten.
-Keine komplette Route ist damit bereits als v2.1 migriert.
+Das Dashboard `/` ist im folgenden Schritt als Operations Overview v2.1 migriert
+(Basis: `76016593bfde39d5aada821f2e0afd9f14eba63a`, nach PR #109).
 
-**Visual consolidation / density migration pending:** Dashboard → sechs Record-Details →
+**Visual consolidation / density migration pending:** sechs Record-Details →
 Geocoding/Workflow → Inbox/Findings/Marks → Queues/Notifications/Checks →
 Graph/SQL/Statistics/Quality → abschließender Responsive-/Accessibility-Audit.
 Diese Folgephasen benötigen jeweils einen eigenen Review; sie gehören nicht zu diesem PR.
@@ -154,14 +155,16 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 
 ## Routenprofile: historische Ausgangsbefunde und markierte Migrationen
 
-### `/` — OVERVIEW
+### `/` — Operations Overview v2.1
 
-- **Aufgabe / Hierarchie:** Bestand und dringende Arbeit erkennen. Dashboard → Neuanlagen → Aufmerksamkeit → Arbeitsliste → Vorgänge.
-- **Header / Actions / Filter:** Zeitraum, Aktualisieren, Schnellfilter. Gemeinsamer Header; keine Source-Schreibaktion.
-- **Surfaces / Typografie / Status:** KPI-Cards, Listen, viele konkurrierende Einstiege. Gemeinsames Prüfraster gilt; Dashboard/Übersicht; Gesamtbestand und Zeitraum gut getrennt.
-- **Loading / Error / Empty:** Letzte Daten bleiben während gültiger Aktualisierung sichtbar. Sichere Fehler/Retry erhalten; leere Ergebnisse erklären und bei Filtern Reset anbieten. Ein Detail-404 ist kein leerer Bestand.
-- **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
-- **Terminologie / Änderung:** Prioritäten und Einstiege verdichten; Schnellfilter nachrangig. Priorität P2.
+- **Current state:** Operations Overview v2.1. **Status:** migrated.
+- **Hierarchie:** PageHeader → neun kompakte Neuanlagen-Tiles → vier Aufmerksamkeit-KPIs → Arbeitsliste mit Qualität/Queues rechts → erweiterte Filter → Technik.
+- **Visuelle Referenz:** Dashboard-Panel des Operations-Center-Entwurfs. Dichte Tabelle, dezente Panelgrenzen, Fuchsia für Aktionen; Datenqualität und Vorgänge bilden eine schmale rechte Spalte.
+- **Semantik:** weiterhin vier priorisierte Befunde, aktive Filter, neun Typen, echte Nullen, Zeitraum/Gebiet gegenüber systemweitem Bestand getrennt. „3 Arbeitslisten“ ist keine fachliche Gesamtzahl.
+- **Technik:** Client-Abrufzeit präzise benannt; Zeitraum/Zeitzone, vorhandener Modus, letzte Prüfläufe und belegter Geo Scope. Keine künstlichen System- oder API-Angaben.
+- **Responsive / Accessibility:** Tablet ein Hauptbereich mit 2×2 KPIs; mobile beschriftete Tabellenzellen, Tastatur-Disclosure für Zeilenaktionen und Filter, 44px Controls, kompakte Empty States.
+- **Grenzen:** Store-/Refresh-/Stale-/Auth-Verhalten unverändert. Keine weiteren Routen oder Backend-Verträge migriert. Shared Compact-Varianten sind opt-in.
+- **Review:** [Desktop, Tablet, Mobile, Small Mobile](screenshots/operations-dashboard/README.md), ausschließlich synthetische Fixtures.
 
 ### `/activity` — COLLECTION
 
@@ -570,42 +573,42 @@ Ausgangszustand bezeichnet den ursprünglichen Auditstand, aktueller Zustand den
 nach den hier dokumentierten Migrationen. „Migriert“ ist keine Deployment-Aussage.
 Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung der v2-UI.
 
-| Route                            | Ausgangszustand       | Aktueller Zustand | Zielzustand                                              | Status     |
-| -------------------------------- | --------------------- | ----------------- | -------------------------------------------------------- | ---------- |
-| `/`                              | OVERVIEW              | OVERVIEW          | OVERVIEW                                                 | offen (P2) |
-| `/activity`                      | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
-| `/inbox`                         | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P1) |
-| `/findings`                      | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P1) |
-| `/checks`                        | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
-| `/quality`                       | OVERVIEW              | OVERVIEW          | OVERVIEW                                                 | offen (P2) |
-| `/queues/partner_requests`       | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
-| `/queues/team_invitations`       | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
-| `/queues/user_activation`        | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
-| `/notifications`                 | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P1) |
-| `/notifications/:id`             | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
-| `/notifications/deliveries`      | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
-| `/notifications/deliveries/:id`  | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P1) |
-| `/marks`                         | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
-| `/marks/:id`                     | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P1) |
-| `/geocoding`                     | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
-| `/geocoding/:id`                 | WORKFLOW (generisch)  | WORKFLOW v2       | WORKFLOW v2                                              | migriert   |
-| `/graph`                         | WORKSPACE             | WORKSPACE         | WORKSPACE                                                | offen (P2) |
-| `/statistics`                    | WORKSPACE             | WORKSPACE         | WORKSPACE                                                | offen (P2) |
-| `/statistics?view=event-content` | WORKSPACE             | WORKSPACE         | WORKSPACE                                                | offen (P2) |
-| `/sql`                           | WORKSPACE             | WORKSPACE         | WORKSPACE                                                | offen (P2) |
-| `/login`                         | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
-| `/events`                        | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
-| `/events/:id`                    | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
-| `/organizations`                 | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
-| `/organizations/:id`             | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
-| `/venues`                        | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
-| `/venues/:id`                    | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
-| `/spaces`                        | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
-| `/spaces/:id`                    | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
-| `/users`                         | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
-| `/users/:id`                     | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
-| `/images`                        | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
-| `/images/:id`                    | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| Route                            | Ausgangszustand       | Aktueller Zustand        | Zielzustand                                              | Status     |
+| -------------------------------- | --------------------- | ------------------------ | -------------------------------------------------------- | ---------- |
+| `/`                              | OVERVIEW              | Operations Overview v2.1 | Operations Overview v2.1                                 | migrated   |
+| `/activity`                      | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/inbox`                         | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P1) |
+| `/findings`                      | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P1) |
+| `/checks`                        | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
+| `/quality`                       | OVERVIEW              | OVERVIEW                 | OVERVIEW                                                 | offen (P2) |
+| `/queues/partner_requests`       | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
+| `/queues/team_invitations`       | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
+| `/queues/user_activation`        | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
+| `/notifications`                 | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P1) |
+| `/notifications/:id`             | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
+| `/notifications/deliveries`      | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/notifications/deliveries/:id`  | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P1) |
+| `/marks`                         | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/marks/:id`                     | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P1) |
+| `/geocoding`                     | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/geocoding/:id`                 | WORKFLOW (generisch)  | WORKFLOW v2              | WORKFLOW v2                                              | migriert   |
+| `/graph`                         | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
+| `/statistics`                    | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
+| `/statistics?view=event-content` | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
+| `/sql`                           | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
+| `/login`                         | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
+| `/events`                        | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/events/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/organizations`                 | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/organizations/:id`             | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/venues`                        | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/venues/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/spaces`                        | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/spaces/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/users`                         | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/users/:id`                     | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/images`                        | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/images/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
 
 ## Ursprüngliche Lieferfolge mit aktuellem Abschlussstand
 

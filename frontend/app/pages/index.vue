@@ -6,7 +6,8 @@ import InlineAlert from '~/components/InlineAlert.vue'
 import SectionHeader from '~/components/SectionHeader.vue'
 import { filtersSchema, periodSchema } from '#shared/contracts'
 import type { Severity, FindingFilters } from '#shared/contracts'
-import { periodLabels } from '~/utils/presentation'
+import { periodLabels, metric, recordDateTime, checkStatusLabels } from '~/utils/presentation'
+import type { TechnicalFact } from '~/utils/operations'
 import { isSpatialType } from '~/utils/geo'
 import { recordRows } from '~/utils/activity'
 import { filterQuery } from '~/utils/filters'
@@ -68,37 +69,81 @@ function openFilters(filters: FindingFilters) {
     query: { ...filterQuery({ ...filters, active_only: true }), geo_scope_id: geoScopeId.value },
   })
 }
+const technicalItems = computed<TechnicalFact[]>(() => {
+  const data = dashboard.data
+  if (!data) return []
+  const latest = data.check_status?.latest_run
+  const successful = data.check_status?.last_successful_run
+  const formatTime = (value: string) => recordDateTime(value, data.admin_timezone)
+  return [
+    {
+      label: 'Letzter erfolgreicher Abruf',
+      value: dashboard.lastSuccess ? formatTime(dashboard.lastSuccess) : null,
+      metadata: 'Client-Abrufzeit',
+    },
+    { label: 'Zeitraum', value: `${formatTime(data.from_at)} – ${formatTime(data.to_at)}` },
+    { label: 'Admin-Zeitzone', value: data.admin_timezone },
+    {
+      label: 'Qualitätsmodus',
+      value:
+        data.quality.mode === 'live'
+          ? 'Live-Diagnose'
+          : data.quality.mode === 'persisted'
+            ? 'Gespeicherte Befunde'
+            : null,
+    },
+    {
+      label: 'Letzter Prüflauf',
+      value: latest
+        ? `${checkStatusLabels[latest.status]} · ${formatTime(latest.started_at)}`
+        : null,
+      metadata: latest ? 'Startzeit · Systemweit' : undefined,
+    },
+    {
+      label: 'Letzter erfolgreicher Prüflauf',
+      value: successful?.finished_at ? formatTime(successful.finished_at) : null,
+      metadata: successful?.finished_at ? 'Abschluss · Systemweit' : undefined,
+    },
+    {
+      label: 'Geo Scope',
+      value: data.geo_scope_id
+        ? preferences.sharedGeoScope?.id === data.geo_scope_id
+          ? preferences.sharedGeoScope.name
+          : data.geo_scope_id
+        : null,
+    },
+  ]
+})
 </script>
 
 <template>
-  <div class="space-y-5">
+  <div class="operations-page">
     <PageHeader
       title="Dashboard"
       description="Neue Datensätze im Zeitraum und aktueller Arbeitsbestand."
     >
       <label class="min-w-0 flex-1 text-sm sm:flex-initial"
-        ><span class="sr-only">Zeitraum</span
-        ><select
+        ><span class="sr-only">Zeitraum</span>
+        <select
           :value="period"
-          class="input min-h-11"
+          class="input"
           aria-label="Zeitraum"
           @change="setPeriod(($event.target as HTMLSelectElement).value)"
         >
           <option v-for="(label, value) in dashboardPeriods" :key="value" :value="value">
             {{ label }}
           </option>
-        </select></label
-      >
-
+        </select>
+      </label>
       <button
-        class="button min-h-11 shrink-0"
+        class="button-primary shrink-0"
         aria-label="Zahlen aktualisieren"
         :disabled="dashboard.loading"
         @click="dashboard.load($adminApi, period, geoScopeId)"
       >
-        <AppIcon name="refresh" :size="16" />
-        <span class="hidden min-[375px]:inline sm:hidden">Aktualisieren</span>
-        <span class="hidden sm:inline">Zahlen aktualisieren</span>
+        <AppIcon name="refresh" :size="16" /><span class="hidden min-[375px]:inline"
+          >Aktualisieren</span
+        >
       </button>
     </PageHeader>
     <RequestState
@@ -118,13 +163,17 @@ function openFilters(filters: FindingFilters) {
     </InlineAlert>
     <section
       id="new-records"
-      class="scroll-mt-32 space-y-3 lg:scroll-mt-20"
-      :aria-busy="dashboard.loading"
+      class="space-y-2 scroll-mt-32 lg:scroll-mt-20"
       aria-labelledby="new-records-title"
+      :aria-busy="dashboard.loading"
     >
-      <div class="space-y-1">
-        <SectionHeader title-id="new-records-title" title="Neu eingegangen" />
-        <p class="text-sm text-slate-600">
+      <SectionHeader title-id="new-records-title" title="Neu eingegangen">
+        <NuxtLink :to="{ path: '/activity', query: { period: period } }" class="action-link text-xs"
+          >Einzelne Neuanlagen anzeigen →</NuxtLink
+        >
+      </SectionHeader>
+      <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p class="text-xs text-slate-600">
           <strong class="font-semibold tabular-nums text-slate-900">{{
             metric(
               geoScopeId
@@ -134,65 +183,65 @@ function openFilters(filters: FindingFilters) {
           }}</strong>
           neue Datensätze <template v-if="geoScopeId">im Gebiet</template> ·
           {{ periodLabels[displayedPeriod] }}
-          <span v-if="geoScopeId" class="block text-sm"
+          <span v-if="geoScopeId" class="block"
             >Systemweit zusätzlich: {{ metric(dashboard.data?.global_new_records_total) }} nicht
             räumlich zuordenbare Neuanlagen.</span
           >
         </p>
-        <p v-if="dashboard.data" class="mt-1 text-xs text-slate-500">
-          {{ dateTime(dashboard.data.from_at) }} – {{ dateTime(dashboard.data.to_at) }} ·
+        <p v-if="dashboard.data" class="operations-meta">
+          {{ recordDateTime(dashboard.data.from_at, dashboard.data.admin_timezone) }} –
+          {{ recordDateTime(dashboard.data.to_at, dashboard.data.admin_timezone) }} ·
           {{ dashboard.data.admin_timezone }}
         </p>
       </div>
-      <ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+      <ul class="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
         <li v-for="row in recordRows(dashboard.data)" :key="row.key" class="min-w-0">
           <NuxtLink
             :to="recordLink(row.type)"
             :aria-label="`${row.plural}: ${row.value} · ${periodLabels[displayedPeriod]} · Neue Datensätze ansehen`"
-            class="group grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 transition-colors hover:border-fuchsia-200 hover:bg-fuchsia-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-600"
+            class="operations-panel group grid min-h-14 grid-cols-[minmax(0,1fr)] min-[460px]:grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-1.5 hover:border-fuchsia-300 hover:bg-fuchsia-50"
           >
             <span
-              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+              class="hidden min-[460px]:flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
               :class="row.tone"
-              ><AppIcon :name="row.icon" :size="18"
+              ><AppIcon :name="row.icon" :size="16"
             /></span>
             <div class="min-w-0">
               <span
                 data-dashboard-new-record-label
-                class="block break-normal text-sm text-slate-600 group-hover:text-fuchsia-800"
+                class="block break-words text-xs text-slate-600 group-hover:text-fuchsia-800"
                 >{{ row.plural }}</span
-              ><span v-if="geoScopeId" class="block text-xs font-medium">{{
-                dashboard.data?.new_record_scopes?.[row.key] === 'geo' ? 'Gebiet' : 'Systemweit'
-              }}</span
-              ><span class="block text-lg font-semibold tabular-nums">{{ row.value }}</span>
+              >
+              <div class="flex flex-wrap items-baseline gap-x-2">
+                <span class="text-xl font-semibold tabular-nums">{{ row.value }}</span
+                ><span v-if="geoScopeId" class="text-xs text-slate-600">{{
+                  dashboard.data?.new_record_scopes?.[row.key] === 'geo' ? 'Gebiet' : 'Systemweit'
+                }}</span>
+              </div>
             </div>
             <AppIcon
               name="arrow"
               :size="14"
-              class="self-center text-slate-400 group-hover:text-fuchsia-700"
+              class="hidden min-[460px]:block text-slate-400 group-hover:text-fuchsia-700"
             />
           </NuxtLink>
         </li>
       </ul>
-      <p class="text-xs text-slate-500">
-        <NuxtLink
-          :to="{ path: '/activity', query: { period: period } }"
-          class="font-semibold text-fuchsia-700"
-          >Einzelne Neuanlagen anzeigen →</NuxtLink
-        >
-      </p>
     </section>
     <section id="attention" class="space-y-3" aria-labelledby="attention-title">
-      <div>
-        <SectionHeader title-id="attention-title" title="Was braucht Aufmerksamkeit?" />
-        <p class="mt-1 muted">
-          <template v-if="geoScopeId">Qualitätskennzahlen im ausgewählten Gebiet. </template>
-          Aktuelle offene Vorgänge und Datenprobleme · unabhängig vom gewählten Zeitraum.
-          <template v-if="geoScopeId">Prüfstatus und offene Vorgänge: Systemweit.</template>
-        </p>
-      </div>
+      <SectionHeader title-id="attention-title" title="Was braucht Aufmerksamkeit?">
+        <template #meta
+          ><p class="operations-meta mt-1">
+            <template v-if="geoScopeId">Qualitätskennzahlen im ausgewählten Gebiet. </template
+            >Aktueller Bestand · unabhängig vom gewählten Zeitraum.<template v-if="geoScopeId">
+              Prüfstatus und offene Vorgänge: Systemweit.</template
+            >
+          </p></template
+        >
+      </SectionHeader>
       <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" :aria-busy="dashboard.loading">
         <KpiCard
+          compact
           label="Dringend"
           :value="dashboard.data?.urgent_findings"
           description="Aktuell dringende Befunde · gesamte Arbeitsliste öffnen"
@@ -200,6 +249,7 @@ function openFilters(filters: FindingFilters) {
           :to="`/findings?mode=${dashboard.data?.quality.mode ?? 'persisted'}&active_only=true${geoScopeId ? '&geo_scope_id=' + encodeURIComponent(geoScopeId) : ''}`"
         />
         <KpiCard
+          compact
           label="Datenqualität"
           :value="dashboard.data?.quality.total"
           :description="
@@ -207,20 +257,18 @@ function openFilters(filters: FindingFilters) {
               ? `${metric(dashboard.data.quality.errors)} Fehler · ${metric(dashboard.data.quality.warnings)} Warnungen · ${metric(dashboard.data.quality.info)} Hinweise`
               : 'Aktuell nicht erledigte Befunde'
           "
-          tone="fuchsia"
           to="/quality"
         />
         <KpiCard
+          compact
           label="Offene Vorgänge"
-          description="Aktueller Vorgangsbestand · keine Gesamtzahl verfügbar"
+          value-label="3 Arbeitslisten"
+          description="Systemweit · keine Gesamtzahl verfügbar"
           to="/#open-queues"
         />
-        <div>
-          <span v-if="geoScopeId" class="text-xs">Systemweit</span>
-          <DashboardCheckStatus :status="dashboard.data?.check_status" />
-        </div>
+        <DashboardCheckStatus compact :status="dashboard.data?.check_status" />
       </div>
-      <p class="text-xs text-slate-500">
+      <p class="operations-meta">
         {{
           dashboard.data?.quality.mode === 'live'
             ? 'Live-Diagnose'
@@ -228,17 +276,18 @@ function openFilters(filters: FindingFilters) {
         }}. Dringend: Priorität 1/2 oder Bezug zu bald stattfindenden veröffentlichten Terminen.
       </p>
     </section>
-
-    <section class="grid gap-4 xl:grid-cols-[1.55fr_.75fr]">
-      <div class="min-w-0 space-y-3">
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <SectionHeader title="Priorisierte Arbeitsliste" />
-            <p class="mt-1 muted">
-              Zuerst Probleme an veröffentlichten oder bald stattfindenden Inhalten.
-            </p>
-          </div>
-          <div class="flex gap-1" aria-label="Arbeitsliste nach Schweregrad">
+    <div class="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,.8fr)]">
+      <RecordSection
+        title="Priorisierte Arbeitsliste"
+        surface="table"
+        description="Zuerst Probleme an veröffentlichten oder bald stattfindenden Inhalten."
+      >
+        <template #actions>
+          <div
+            class="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-0.5"
+            role="group"
+            aria-label="Arbeitsliste nach Schweregrad"
+          >
             <button
               v-for="option in [
                 { value: undefined, label: 'Alle' },
@@ -246,10 +295,10 @@ function openFilters(filters: FindingFilters) {
                 { value: 'warning' as const, label: 'Warnungen' },
               ]"
               :key="option.label"
-              class="rounded-lg px-3 py-2 text-xs font-semibold"
+              class="min-h-11 rounded-lg px-3 py-2 text-xs font-semibold"
               :class="
                 findings.filters.severity === option.value
-                  ? 'bg-slate-100 text-slate-800'
+                  ? 'bg-fuchsia-50 text-fuchsia-800'
                   : 'text-slate-600 hover:bg-slate-50'
               "
               :aria-pressed="findings.filters.severity === option.value"
@@ -258,8 +307,8 @@ function openFilters(filters: FindingFilters) {
               {{ option.label }}
             </button>
           </div>
-        </div>
-        <div v-if="findings.error || findings.loading" class="p-5">
+        </template>
+        <div v-if="findings.error || findings.loading" class="p-3">
           <RequestState
             :loading="findings.loading"
             :error="findings.error"
@@ -268,14 +317,14 @@ function openFilters(filters: FindingFilters) {
             @retry="findings.load($adminApi)"
           />
         </div>
-        <DataListShell v-if="findings.data?.items.length"
-          ><FindingsList :items="findings.data.items"
-        /></DataListShell>
+        <FindingsList v-if="findings.data?.items.length" compact :items="findings.data.items" />
         <EmptyState
           v-else-if="findings.data && !findings.loading"
+          compact
+          class="m-3"
           message="Keine Befunde für diese Auswahl."
         />
-        <div class="text-sm">
+        <div class="border-t border-slate-200 px-3">
           <NuxtLink
             :to="{
               path: '/findings',
@@ -285,7 +334,7 @@ function openFilters(filters: FindingFilters) {
                 geo_scope_id: geoScopeId,
               },
             }"
-            class="text-sm font-semibold text-fuchsia-700"
+            class="action-link text-xs"
             >{{
               findings.data
                 ? `Alle ${metric(findings.data.pagination.total)} Befunde anzeigen`
@@ -294,50 +343,47 @@ function openFilters(filters: FindingFilters) {
             →</NuxtLink
           >
         </div>
-      </div>
-      <div class="min-w-0 space-y-4">
-        <QualityOverview :data="dashboard.data" :limit="5" />
-      </div>
-    </section>
-
-    <section
-      id="open-queues"
-      class="scroll-mt-32 space-y-3 lg:scroll-mt-20"
-      aria-labelledby="queues-title"
-    >
-      <div>
-        <SectionHeader title-id="queues-title" title="Offene Vorgänge" />
-        <p class="mt-1 muted">
-          Arbeitslisten mit tatsächlichem Zustand und belegtem Alter.<span v-if="geoScopeId">
-            Systemweit.</span
-          >
-        </p>
-      </div>
-      <DataListShell as="ul" class="divide-y divide-slate-100">
-        <li
-          v-for="queue in [
-            { path: 'partner_requests', label: 'Partneranfragen' },
-            { path: 'team_invitations', label: 'Teameinladungen' },
-            { path: 'user_activation', label: 'Aktivierungen' },
-          ]"
-          :key="queue.path"
+      </RecordSection>
+      <div class="min-w-0 space-y-3">
+        <QualityOverview compact :data="dashboard.data" :limit="5" />
+        <RecordSection
+          id="open-queues"
+          title="Offene Vorgänge"
+          surface="table"
+          class="scroll-mt-32 lg:scroll-mt-20"
+          description="Systemweit · ohne aggregierte Gesamtzahl"
         >
-          <NuxtLink
-            :to="`/queues/${queue.path}`"
-            class="data-row flex items-center justify-between gap-3 text-sm font-semibold text-slate-700 hover:text-fuchsia-700"
-          >
-            {{ queue.label }}<AppIcon name="arrow" :size="16" class="text-fuchsia-700" />
-          </NuxtLink>
-        </li>
-      </DataListShell>
-    </section>
-    <section class="space-y-3" aria-labelledby="quick-filters-title">
-      <SectionHeader title-id="quick-filters-title" title="Schnellfilter" />
-      <FilterForm
-        :filters="filtersSchema.parse({})"
-        @apply="openFilters"
-        @reset="openFilters(filtersSchema.parse({}))"
-      />
-    </section>
+          <ul class="divide-y divide-slate-200">
+            <li
+              v-for="queue in [
+                { path: 'partner_requests', label: 'Partneranfragen' },
+                { path: 'team_invitations', label: 'Teameinladungen' },
+                { path: 'user_activation', label: 'Aktivierungen' },
+              ]"
+              :key="queue.path"
+            >
+              <NuxtLink
+                :to="`/queues/${queue.path}`"
+                class="flex min-h-11 items-center justify-between gap-3 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-fuchsia-700"
+                >{{ queue.label }}<AppIcon name="arrow" :size="16"
+              /></NuxtLink>
+            </li>
+          </ul>
+        </RecordSection>
+      </div>
+    </div>
+    <details class="operations-panel">
+      <summary class="min-h-11 cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold">
+        Erweiterte Filter
+      </summary>
+      <div class="border-t border-slate-200">
+        <FilterForm
+          :filters="filtersSchema.parse({})"
+          @apply="openFilters"
+          @reset="openFilters(filtersSchema.parse({}))"
+        />
+      </div>
+    </details>
+    <TechnicalInfoBar :items="technicalItems" />
   </div>
 </template>
