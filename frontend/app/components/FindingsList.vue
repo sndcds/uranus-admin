@@ -2,13 +2,123 @@
 import { dateTime, findingStatusLabels } from '~/utils/presentation'
 import type { Finding } from '#shared/contracts'
 import SqlEditorModal from './sql/SqlEditorModal.vue'
-defineProps<{ items: Finding[] }>()
+defineProps<{ items: Finding[]; compact?: boolean }>()
 const detail = useTemplateRef('detail')
 const sqlEditor = useTemplateRef('sqlEditor')
 </script>
 
 <template>
-  <ul class="divide-y divide-slate-100" aria-label="Befunde">
+  <table v-if="compact" class="operations-table operations-table-stack" role="table">
+    <caption class="sr-only">
+      Priorisierte Befunde
+    </caption>
+    <colgroup>
+      <col class="w-[36%]" />
+      <col class="w-[18%]" />
+      <col class="w-[30%]" />
+      <col class="w-[16%]" />
+    </colgroup>
+    <thead role="rowgroup">
+      <tr role="row">
+        <th scope="col" role="columnheader">Titel / Priorität</th>
+        <th scope="col" role="columnheader">Typ / Status</th>
+        <th scope="col" role="columnheader">Quelle / Beobachtet</th>
+        <th scope="col" role="columnheader">Aktionen</th>
+      </tr>
+    </thead>
+    <tbody role="rowgroup">
+      <tr v-for="finding in items" :key="finding.id" role="row">
+        <th scope="row" role="rowheader" class="max-sm:block">
+          <span class="operations-cell-label max-sm:hidden" aria-hidden="true"
+            >Titel / Priorität</span
+          >
+          <div class="min-w-0 py-1">
+            <div class="flex flex-wrap items-baseline gap-x-2">
+              <span
+                class="text-xs font-semibold text-slate-600"
+                :aria-label="`Priorität ${finding.priority}`"
+                >P{{ finding.priority }}</span
+              >
+              <h4 class="text-sm font-semibold">{{ finding.entity_name }}</h4>
+            </div>
+            <p class="mt-1 text-xs font-normal leading-4 text-slate-600">{{ finding.message }}</p>
+          </div>
+        </th>
+        <td role="cell">
+          <span class="operations-cell-label" aria-hidden="true">Typ / Status</span>
+          <div class="flex flex-wrap gap-1 py-1">
+            <SeverityBadge :severity="finding.severity" />
+            <EntityTypeBadge :type="finding.entity_type" />
+            <StatusBadge
+              v-if="finding.status"
+              :label="findingStatusLabels[finding.status] ?? finding.status"
+            />
+          </div>
+        </td>
+        <td role="cell">
+          <span class="operations-cell-label" aria-hidden="true">Quelle / Beobachtet</span>
+          <div class="space-y-1 py-1 text-xs text-slate-600">
+            <p>{{ finding.organization_name || 'Keine eindeutige Organisation' }}</p>
+            <p>Feld: {{ finding.field }}</p>
+            <time :datetime="finding.last_seen_at" title="Europe/Berlin">{{
+              dateTime(finding.last_seen_at)
+            }}</time>
+          </div>
+        </td>
+        <td role="cell">
+          <span class="operations-cell-label" aria-hidden="true">Aktionen</span>
+          <div class="flex flex-wrap items-center">
+            <button
+              class="action-link min-w-11 justify-center"
+              :aria-label="`Befund zu ${finding.entity_name} ansehen`"
+              @click="detail?.open(finding)"
+            >
+              <AppIcon name="arrow" :size="16" />
+            </button>
+            <details class="relative">
+              <summary
+                class="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded text-slate-600 hover:bg-slate-100"
+                :aria-label="`Weitere Aktionen für ${finding.entity_name}`"
+              >
+                <AppIcon name="menu" :size="16" />
+              </summary>
+              <div class="operations-panel absolute right-0 z-10 w-56 p-2 shadow-lg">
+                <button
+                  v-if="finding.sql_diagnostic_available"
+                  class="action-link w-full text-xs"
+                  :aria-label="`SQL Editor für ${finding.entity_name}`"
+                  @click="sqlEditor?.open(finding)"
+                >
+                  SQL Editor <AppIcon name="arrow" :size="14" />
+                </button>
+                <NuxtLink
+                  v-if="finding.action"
+                  :to="finding.action.href"
+                  class="action-link w-full text-xs"
+                  >Im Admin ansehen</NuxtLink
+                >
+                <NuxtLink
+                  v-if="finding.location_suggestion_request_id"
+                  :to="`/geocoding/${finding.location_suggestion_request_id}`"
+                  class="action-link w-full text-xs"
+                  >Standortvorschlag prüfen</NuxtLink
+                >
+                <div
+                  class="[&_a]:m-0 [&_a]:w-full [&_a]:justify-start [&_a]:border-0 [&_a]:px-0 [&_a]:text-xs"
+                >
+                  <RecordMarkLink
+                    :entity-type="finding.entity_type"
+                    :entity-key="finding.entity_key"
+                  />
+                </div>
+              </div>
+            </details>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <ul v-else class="divide-y divide-slate-100" aria-label="Befunde">
     <li
       v-for="finding in items"
       :key="finding.id"

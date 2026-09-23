@@ -95,6 +95,8 @@ for (const path of ['/', '/findings']) {
       })
     })
     await page.goto(path)
+    if (path === '/')
+      await page.locator('summary[aria-label="Weitere Aktionen für Test-Hafenbühne"]').click()
     const trigger = page.getByRole('button', { name: 'SQL Editor für Test-Hafenbühne' })
     await expect(trigger).toBeVisible()
     expect(definitions).toBe(0)
