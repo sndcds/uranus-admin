@@ -13,6 +13,9 @@ const modal = ref<InstanceType<typeof AppModal> | null>(null)
 const input = ref<HTMLInputElement | null>(null)
 const open = ref(false)
 const query = ref('')
+const debouncedQuery = ref('')
+const resultQuery = ref('')
+const results = ref<HTMLElement | null>(null)
 const groups = ref<GlobalSearchResponse['groups']>([])
 const loading = ref(false)
 const error = ref(false)
@@ -30,64 +33,96 @@ type PaletteItem = {
   icon: InstanceType<typeof AppIcon>['$props']['name']
   index: number
 }
-const sections = computed<{ key: string; label: string; items: PaletteItem[] }[]>(() => {
+// Navigation follows the input immediately; remote sections retain their last response.
+const navigationResults = computed(() => {
   const term = query.value.trim().toLocaleLowerCase('de')
-  const navigation = adminNavigationItems.filter((item) =>
-    `${item.label} ${'keywords' in item ? item.keywords : ''}`
-      .toLocaleLowerCase('de')
-      .includes(term),
-  )
+  return adminNavigationItems
+    .filter((item) =>
+      `${item.label} ${'keywords' in item ? item.keywords : ''}`
+        .toLocaleLowerCase('de')
+        .includes(term),
+    )
+    .map((item) => ({
+      key: `navigation:${item.to}`,
+      label: item.label,
+      subtitle: null,
+      href: item.to,
+      icon: item.icon,
+    }))
+})
+const remoteSections = computed(() =>
+  groups.value.map((group) => ({
+    key: group.entity_type,
+    label: entityTypes[group.entity_type].plural,
+    items: group.items.map((item) => ({
+      key: `${item.entity_type}:${item.entity_key}`,
+      label: item.label,
+      subtitle: item.subtitle || entityTypes[item.entity_type].label,
+      href: item.action.href,
+      icon: entityTypes[item.entity_type].icon,
+    })),
+  })),
+)
+const sections = computed<{ key: string; label: string; items: PaletteItem[] }[]>(() => {
   let index = 0
   return [
-    {
-      key: 'navigation',
-      label: 'Navigation',
-      items: navigation.map((item) => ({
-        key: item.to,
-        label: item.label,
-        subtitle: null,
-        href: item.to,
-        icon: item.icon,
-        index: index++,
-      })),
-    },
-    ...groups.value.map((group) => ({
-      key: group.entity_type,
-      label: entityTypes[group.entity_type].plural,
-      items: group.items.map((item) => ({
-        key: item.entity_key,
-        label: item.label,
-        subtitle: item.subtitle || entityTypes[item.entity_type].label,
-        href: item.action.href,
-        icon: entityTypes[item.entity_type].icon,
-        index: index++,
-      })),
-    })),
-  ].filter((section) => section.items.length)
+    { key: 'navigation', label: 'Navigation', items: navigationResults.value },
+    ...remoteSections.value,
+  ]
+    .filter((section) => section.items.length)
+    .map((section) => ({
+      ...section,
+      items: section.items.map((item) => ({ ...item, index: index++ })),
+    }))
 })
 const items = computed(() => sections.value.flatMap((section) => section.items))
 const activeId = computed(() =>
   items.value[active.value] ? `${id}-option-${active.value}` : undefined,
 )
 
-function cancel() {
+const resultsAreStale = computed(
+  () => loading.value && !!resultQuery.value && resultQuery.value !== debouncedQuery.value,
+)
+const requestStatus = computed(() => {
+  if (error.value) return 'Neue Suche konnte nicht geladen werden.'
+  if (resultsAreStale.value) return 'Ergebnisse werden aktualisiert …'
+  return loading.value ? 'Suche läuft …' : ''
+})
+
+// Preserve the selected identity when only local navigation changes its indices.
+watch(
+  items,
+  (current, previous) => {
+    const key = previous[active.value]?.key
+    const index = current.findIndex((item) => item.key === key)
+    active.value = index >= 0 ? index : 0
+  },
+  { flush: 'sync' },
+)
+function cancelPending() {
   generation++
   clearTimeout(timer)
+  timer = undefined
   controller?.abort()
   controller = undefined
   loading.value = false
 }
-function reset() {
-  cancel()
+function clearResults() {
+  groups.value = []
+  resultQuery.value = ''
+  debouncedQuery.value = ''
+  error.value = false
+}
+function resetPalette() {
+  cancelPending()
   open.value = false
   query.value = ''
-  groups.value = []
-  error.value = false
+  clearResults()
   active.value = 0
 }
 function close() {
   modal.value?.close()
-  reset()
+  resetPalette()
 }
 async function show() {
   if (open.value || !auth.isAdmin || auth.loggingOut) return
@@ -95,29 +130,43 @@ async function show() {
   await modal.value?.open()
   input.value?.focus()
 }
-function schedule() {
-  cancel()
-  groups.value = []
-  error.value = false
-  active.value = 0
-  const q = query.value.trim()
-  if (!open.value || q.length < 2 || q.length > 120) return
+async function performSearch(q: string, request: number) {
+  if (request !== generation || !open.value || query.value.trim() !== q) return
+  timer = undefined
+  debouncedQuery.value = q
   loading.value = true
-  const request = generation
+  error.value = false
   controller = new AbortController()
-  const signal = controller.signal
-  timer = setTimeout(async () => {
-    try {
-      const data = await $adminApi.globalSearch({ q }, signal)
-      if (request === generation && data.query === q) groups.value = data.groups
-    } catch {
-      if (request === generation) error.value = true
-    } finally {
-      if (request === generation) loading.value = false
+  try {
+    const data = await $adminApi.globalSearch({ q }, controller.signal)
+    if (request !== generation || query.value.trim() !== q || data.query !== q) return
+    // Vue batches this successful snapshot into one render; cancellation never clears it.
+    groups.value = data.groups
+    resultQuery.value = data.query
+    active.value = 0
+    await nextTick()
+    if (request === generation && results.value) results.value.scrollTop = 0
+  } catch {
+    if (request === generation) error.value = true
+  } finally {
+    if (request === generation) {
+      loading.value = false
+      controller = undefined
     }
-  }, 250)
+  }
 }
-watch(query, schedule, { flush: 'sync' })
+function scheduleSearch() {
+  cancelPending()
+  const q = query.value.trim()
+  if (!open.value || q.length < 2) {
+    clearResults()
+    return
+  }
+  if (q.length > 120) return
+  const request = generation
+  timer = setTimeout(() => void performSearch(q, request), 250)
+}
+watch(query, scheduleSearch, { flush: 'sync' })
 watch(() => [auth.isAdmin, auth.revision, auth.loggingOut], close, { flush: 'sync' })
 watch(() => route.path, close)
 async function select(href: string) {
@@ -161,7 +210,7 @@ function shortcut(event: KeyboardEvent) {
 }
 onMounted(() => document.addEventListener('keydown', shortcut, true))
 onBeforeUnmount(() => {
-  cancel()
+  cancelPending()
   document.removeEventListener('keydown', shortcut, true)
 })
 defineExpose({ show })
@@ -173,37 +222,54 @@ defineExpose({ show })
     title="Kulturbytes durchsuchen"
     workspace
     class="search-palette"
-    @close="reset"
+    @close="resetPalette"
   >
-    <div class="flex min-h-0 flex-col">
-      <div class="sticky top-0 z-10 border-b border-slate-100 bg-white px-4 pb-4 pt-3">
+    <div class="flex min-h-0 flex-1 flex-col">
+      <div class="search-header shrink-0 border-b border-slate-100 bg-white px-4 pb-3 pt-3">
         <label :for="`${id}-input`" class="sr-only">Kulturbytes durchsuchen</label>
-        <input
-          :id="`${id}-input`"
-          ref="input"
-          v-model="query"
-          type="search"
-          class="input min-h-11 w-full"
-          placeholder="Name, E-Mail oder UUID …"
-          maxlength="120"
-          autocomplete="off"
-          autocapitalize="off"
-          :spellcheck="false"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded="true"
-          :aria-controls="`${id}-results`"
-          :aria-activedescendant="activeId"
-          @keydown="keydown"
-        />
+        <div class="relative">
+          <input
+            :id="`${id}-input`"
+            ref="input"
+            v-model="query"
+            type="search"
+            class="input min-h-11 w-full pr-10"
+            placeholder="Name, E-Mail oder UUID …"
+            maxlength="120"
+            autocomplete="off"
+            autocapitalize="off"
+            :spellcheck="false"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded="true"
+            :aria-controls="`${id}-results`"
+            :aria-activedescendant="activeId"
+            :aria-describedby="`${id}-result-query`"
+            @keydown="keydown"
+          />
+          <span
+            v-if="loading"
+            aria-hidden="true"
+            class="pointer-events-none absolute right-3 top-1/2 -mt-2 h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-fuchsia-700 motion-reduce:animate-none"
+          />
+        </div>
         <p class="mt-2 text-xs text-slate-500">Systemweit · unabhängig vom gewählten Gebiet</p>
+        <div class="mt-1 h-10 text-xs leading-5 text-slate-500">
+          <p class="h-5 truncate" role="status" aria-live="polite">{{ requestStatus }}</p>
+          <p :id="`${id}-result-query`" class="h-5 truncate" :title="resultQuery">
+            <template v-if="resultQuery">Datensätze für „{{ resultQuery }}“</template>
+          </p>
+        </div>
       </div>
-      <div class="search-results min-h-0 overflow-y-auto overflow-x-hidden px-2 pb-4">
-        <p v-if="loading" role="status" class="p-3 text-sm text-slate-500">Suche läuft …</p>
-        <p v-else-if="error" role="status" class="p-3 text-sm text-slate-500">
-          Suche konnte nicht geladen werden.
-        </p>
-        <p v-else-if="!items.length" role="status" class="p-3 text-sm text-slate-500">
+      <div
+        ref="results"
+        class="search-results min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-4"
+      >
+        <p
+          v-if="!items.length && !loading && !error"
+          role="status"
+          class="p-3 text-sm text-slate-500"
+        >
           Keine passenden Ergebnisse gefunden.
         </p>
         <div :id="`${id}-results`" role="listbox" aria-label="Suchergebnisse" :aria-busy="loading">
@@ -249,24 +315,31 @@ defineExpose({ show })
 
 <style scoped>
 .search-palette {
+  height: min(38rem, calc(100dvh - 2rem));
   overflow: hidden;
+}
+/* Closed native dialogs must retain display:none. Other AppModal layouts are unchanged. */
+.search-palette[open] {
+  display: flex;
+  flex-direction: column;
+}
+.search-palette :deep(> div:first-child) {
+  flex-shrink: 0;
 }
 .search-palette :deep(button) {
   min-height: 44px;
   min-width: 44px;
 }
 .search-results {
-  max-height: 55dvh;
+  scrollbar-gutter: stable;
 }
 @media (max-width: 639px) {
   .search-palette {
     width: calc(100vw - 1rem);
+    height: calc(100dvh - 1rem);
     max-height: calc(100dvh - 1rem);
+    padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
-  }
-  .search-results {
-    height: 65dvh;
-    max-height: calc(100dvh - 14rem - env(safe-area-inset-bottom));
   }
 }
 </style>
