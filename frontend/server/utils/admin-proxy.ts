@@ -54,6 +54,7 @@ const routes: Record<string, readonly string[]> = {
     'to_at',
   ],
   '/api/v1/graph': ['root_type', 'root_key', 'depth', 'relation_type'],
+  '/api/v1/search': ['q', 'limit_per_type', 'types'],
   '/api/v1/entity-search': [
     'q',
     'geo_scope_id',

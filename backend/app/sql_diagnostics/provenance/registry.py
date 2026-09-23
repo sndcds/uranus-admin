@@ -103,6 +103,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "graph": m.GraphParameters,
     "graph.search": m.GraphSearchParameters,
     "entity-search": m.EntitySearchParameters,
+    "search": m.GlobalSearchParameters,
     "statistics": m.StatisticsParameters,
     "statistics.content": m.ContentParameters,
     "notifications": m.NotificationParameters,
@@ -475,6 +476,13 @@ def build(view: str, params: Any, settings: Settings, now: datetime) -> list[Sou
                 "previous_with_assignment",
             ),
             geo_dependencies,
+        )
+    elif view == "search":
+        add(
+            "records",
+            entity_search.global_search_query(params),
+            "uranus",
+            "app.repositories.entity_search.global_search_query",
         )
     elif view == "entity-search":
         add(

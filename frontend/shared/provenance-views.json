@@ -60,6 +60,7 @@
     "status",
     "limit"
   ],
+  "search": ["as_of", "q", "limit_per_type", "types"],
   "statistics": ["as_of", "geo_scope_id", "period", "interval", "compare", "from_at", "to_at"],
   "statistics.content": ["as_of", "geo_scope_id", "period", "status", "compare"],
   "notifications": [

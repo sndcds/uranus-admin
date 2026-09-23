@@ -2,6 +2,7 @@ import { test, expect } from '../fixtures/authenticated'
 import { summary, findings } from '../fixtures/api'
 import { statisticsFixture } from '../fixtures/statistics'
 import { graphFixture, graphPath } from '../fixtures/graph'
+import { globalSearchFixture } from '../fixtures/search'
 
 test('production schemas work under an enforced CSP without unsafe-eval', async ({ page }) => {
   test.skip(process.env.TEST_PRODUCTION !== '1', 'Requires the production client build')
@@ -58,6 +59,15 @@ test('production schemas work under an enforced CSP without unsafe-eval', async 
   await expect(page.locator('.statistics-series')).toHaveCount(7)
   await page.locator('.statistics-legend button').first().click()
   await expect(page.locator('.statistics-series')).toHaveCount(6)
+  await page.route('**/api/admin/api/v1/search?**', (route) => {
+    const query = new URL(route.request().url()).searchParams.get('q') || ''
+    return route.fulfill({ json: globalSearchFixture(query) })
+  })
+  await page.getByRole('button', { name: 'Globale Suche öffnen' }).filter({ visible: true }).click()
+  const palette = page.getByRole('dialog', { name: 'Kulturbytes durchsuchen' })
+  await palette.getByRole('combobox').fill('person@example.org')
+  await expect(palette.getByRole('option', { name: /person@example.org/ })).toBeVisible()
+  await page.keyboard.press('Escape')
   expect(errors).toEqual([])
   expect(
     await page.evaluate(

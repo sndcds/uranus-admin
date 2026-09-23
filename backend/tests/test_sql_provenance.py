@@ -35,7 +35,9 @@ def parameters(view, **extra):
         values["id"] = uid(20)
     if view == "graph":
         values.update(root_type="venue", root_key=uid(20))
-    if view.endswith("search"):
+    if view == "search":
+        values.update(q="synthetic")
+    elif view.endswith("search"):
         values.update(q="synthetic", entity_type="venue")
     return MODELS[view].model_validate(values | extra)
 

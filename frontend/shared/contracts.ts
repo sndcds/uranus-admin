@@ -975,6 +975,73 @@ export const entitySearchResponseSchema = z.object({
   items: z.array(entitySearchItemSchema).max(20),
 })
 
+export const searchFieldSchema = z.enum([
+  'uuid',
+  'username',
+  'display_name',
+  'email',
+  'first_name',
+  'last_name',
+  'name',
+  'contact_email',
+  'city',
+  'postal_code',
+  'street',
+  'house_number',
+  'venue_name',
+  'space_type',
+  'title',
+  'subtitle',
+  'external_id',
+  'file_name',
+  'alt_text',
+  'creator_name',
+  'mime_type',
+])
+export const globalSearchItemSchema = z
+  .object({
+    entity_type: entitySearchTypeSchema,
+    entity_key: z.uuid(),
+    label: z.string(),
+    subtitle: z.string().nullable(),
+    action: actionSchema,
+    matched_fields: z.array(searchFieldSchema).max(7),
+  })
+  .refine(
+    (item) =>
+      item.action.route === 'activity' &&
+      item.action.entity_type === item.entity_type &&
+      item.action.entity_key === item.entity_key,
+  )
+export const globalSearchResponseSchema = z
+  .object({
+    query: z.string().min(2).max(120),
+    groups: z
+      .array(
+        z
+          .object({
+            entity_type: entitySearchTypeSchema,
+            items: z.array(globalSearchItemSchema).min(1).max(10),
+          })
+          .refine((group) => group.items.every((item) => item.entity_type === group.entity_type)),
+      )
+      .max(6),
+  })
+  .refine((response) => {
+    const types = response.groups.map((group) => group.entity_type)
+    return (
+      new Set(types).size === types.length &&
+      types.every(
+        (type, index) =>
+          index === 0 ||
+          entitySearchTypeSchema.options.indexOf(types[index - 1]!) <
+            entitySearchTypeSchema.options.indexOf(type),
+      )
+    )
+  })
+export type GlobalSearchResponse = z.infer<typeof globalSearchResponseSchema>
+export type GlobalSearchQuery = { q: string; limit_per_type?: number; types?: string }
+
 export const temporalFilterSchema = z.enum(['upcoming', 'past'])
 export type TemporalFilter = z.infer<typeof temporalFilterSchema>
 export type EntitySearchQuery = {

@@ -207,7 +207,7 @@ und den gemeinsamen Rule-Drilldown in Live- und Persisted-Modus auf Desktop und 
 
 `EntitySearch.vue` ersetzt das einfache Suchfeld auf users, organizations, venues,
 spaces, events und images. Das Layout verwendet dieselben Design-Tokens wie GraphFilters
-sowie AppIcon und die vorhandenen `entityTypes`; Graph-Verhalten bleibt unverändert.
+sowie AppIcon und die vorhandenen `entityTypes`; Graph behält seinen eigenen Root-Contract.
 Der zentrale `$adminApi.entitySearch` verwendet den authentifizierten Proxy und prüft
 Antworten samt Action-Links über den gemeinsamen Runtime-Contract.
 
@@ -555,3 +555,33 @@ and Inbox context. Search subtitles omit identity values already used as the lab
 UUIDs remain available as technical details and copy targets. Email labels stay
 inside authenticated admin views, never public links or metadata. Independent
 admin accounts and timeline actor subjects retain their own identity semantics.
+
+
+## Globale Suche und kontextbezogene Suche
+
+`GlobalSearchPalette` ergänzt jede geschützte Seite mit Ctrl+K / Cmd+K und einem sichtbaren
+Suchtrigger im Header. `adminNavigationItems` in `utils/navigation.ts` ist die gemeinsame
+Quelle für Sidebar und lokale Palette-Ziele, einschließlich Datenqualität und
+Standortvorschlägen. „Dashboard“ ist auch als Suchbegriff für „Übersicht“ verfügbar.
+Leere Suche zeigt ausschließlich Navigation; passende lokale Ziele stehen vor den
+Entity-Gruppen. Ab zwei Zeichen folgt `/api/v1/search` nach 250ms Debounce, maximal
+fünf Ergebnisse je Typ standardmäßig (API maximal zehn, 60 insgesamt).
+
+Die Suche ist ausdrücklich systemweit und ignoriert Gebiet/Zeitraum. `EntitySearch`
+bleibt die kontextbezogene Suchoberfläche mit ihren Listenfiltern und Enter zum Anwenden.
+Beide sowie Graph-Root-Suche teilen Backend-Felder, Literal-ILIKE, Presentation und
+Ranking: exakte UUID → exaktes Feld → Präfix → Teilstring → Label → Schlüssel.
+Die paginierte Liste behält ihre alphabetische Ordnung. Graph behält Organisations-/
+Geo-Filter, seine eigenen Knoten und die zusätzliche graph-only Terminsuche.
+
+[Canonical Search Fields und API-Contract](../../backend/docs/contracts.md#contextual-entity-search)
+listen alle User-/Organisations-/Adress-/Raum-/Event-/Bildfelder. User sind über volle
+oder partielle E-Mail auffindbar. Labels folgen display_name → username → email → UUID.
+Action.href kommt vom Backend; Zod prüft Typ, Identität, Gruppenlimits und Linkziel.
+Es gibt weder öffentliche Suche noch zusätzliche Secret-/Auth-/Workflow-Suchfelder.
+
+Suchtext, Treffer und Auswahl leben nur in der Komponente. Neue Eingaben brechen
+Requests ab; Generationsprüfungen verhindern auch verspätete erfolgreiche/fehlgeschlagene
+Antworten. Schließen, Navigation, Logout und Session-Verlust leeren die Palette.
+Keine Speicherung in Pinia-Präferenzen, localStorage, sessionStorage, IndexedDB oder
+Cookies; kein Verlauf, keine Analytics und keine Logs von Suchtext oder Trefferwerten.

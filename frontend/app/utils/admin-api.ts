@@ -20,6 +20,7 @@ import {
   notificationPreviewSchema,
   entityPageSchema,
   entitySearchResponseSchema,
+  globalSearchResponseSchema,
   entityDetailSchema,
   timelinePageSchema,
   entityStatisticsResponseSchema,
@@ -51,6 +52,7 @@ import type {
   FindingFilters,
   EventContentQuery,
   EntitySearchQuery,
+  GlobalSearchQuery,
   Period,
   ReviewUpdate,
   MarkCreate,
@@ -93,7 +95,11 @@ export function createAdminApi(
     signal?: AbortSignal,
   ) {
     const generation = accessGeneration
-    const inspectable = method === 'GET' && path.startsWith('/api/v1/') && !path.includes('sql-')
+    const inspectable =
+      method === 'GET' &&
+      path.startsWith('/api/v1/') &&
+      !path.includes('sql-') &&
+      path !== '/api/v1/search'
     const readId = ++readRevision
     if (inspectable) publishRead(path, { query: { ...query }, pending: true, revision: readId })
     const params = new URLSearchParams()
@@ -228,6 +234,8 @@ export function createAdminApi(
         notificationPreviewSchema,
         { locale },
       ),
+    globalSearch: (query: GlobalSearchQuery, signal?: AbortSignal) =>
+      request('/api/v1/search', globalSearchResponseSchema, query, 'GET', undefined, signal),
     entitySearch: (query: EntitySearchQuery) =>
       request('/api/v1/entity-search', entitySearchResponseSchema, query),
     entities: (section: string, query: Record<string, string | number | undefined>) =>

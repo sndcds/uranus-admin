@@ -193,3 +193,22 @@ inspect `/notifications` and previews before enabling SMTP. See the
 optimistic locking, due dates, aggregation and the migration/grant sequence.
 
 [SQL / Datenherkunft – registrierte Queries, Sicherheitsmodell und Coverage](backend/docs/sql-provenance.md).
+
+
+## Globale Suche und Command Palette
+
+**Ctrl+K / Cmd+K** oder der Suchtrigger im Desktop-/Mobile-Header öffnet die globale
+Palette auf geschützten Seiten. Sie durchsucht lokale Admin-Navigation sowie Benutzer,
+Organisationen, Orte, Räume, Veranstaltungen und Bilder. Benutzer sind auch über E-Mail
+auffindbar; fehlende Anzeigenamen fallen auf Username, E-Mail und zuletzt UUID zurück.
+Entity-Autocomplete, globale Suche und Graph-Root-Suche teilen kanonische Suchfelder,
+Labels und Ranking (exakte UUID, exaktes Feld, Präfix, Teilstring, Label, Schlüssel).
+
+`GET /api/v1/search`: q 2–120 Zeichen, standardmäßig fünf und maximal zehn Treffer pro
+Typ, insgesamt maximal 60; optional `types=user,venue`. Die Palette sucht systemweit,
+unabhängig von Zeitraum/Gebiet, und öffnet serverseitig erzeugte Detail-Actions.
+Keine Suchhistorie, Browser-Persistenz, Analytics oder Query-Logs. Source bleibt read-only;
+keine Migrationen/Grants/Worker-Änderungen. Backend und Frontend gemeinsam ausrollen.
+
+Kanonische Felder, Privacy, Queryplan und spätere Uranus-eigene pg_trgm-Indizes:
+[Suchvertrag](backend/docs/contracts.md#global-search-and-command-palette).

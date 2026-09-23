@@ -25,7 +25,7 @@ The same navigation is used inside the mobile dialog. Keep native dialog focus
 handling, Escape, explicit close and focus return to the menu button. Active section
 matching includes descendants, excludes prefix collisions, special-cases `/`, and
 includes `/spaces/**` under Orte & Räume. Set `aria-current="page"` on the active
-section link. Navigation order remains unchanged.
+section link. Navigation labels and targets come from `adminNavigationItems` in `utils/navigation.ts`.
 
 ## Typography, spacing and surfaces
 
@@ -195,3 +195,25 @@ use 1024×768 and 390×844. Full-page captures may be taller than the viewport.
 - [Tablet Statistics](screenshots/ui-consistency/statistics-tablet.png)
 - [Mobile Statistics](screenshots/ui-consistency/statistics-mobile.png)
 - [Mobile navigation](screenshots/ui-consistency/mobile-navigation.png)
+
+
+## Command Palette
+
+`GlobalSearchPalette` uses the existing native `AppModal` workspace dialog. Desktop
+adds one compact search trigger with Ctrl/⌘ K; mobile adds a 44px search icon beside
+the app title, preserving the two-row mobile shell. No extra header row or UI library.
+The mobile palette is a large sheet with a sticky search region, scrolling results,
+safe-area padding, no horizontal overflow and 44px minimum result targets.
+
+The labelled search input is a combobox controlling one listbox with labelled groups;
+active options use aria-selected, aria-activedescendant and a visible ring. Arrows move
+selection, Enter follows the selected canonical Action.href, Escape closes. Native
+dialog semantics provide aria-modal, Tab focus containment and return to the previous
+focus target. Opening focuses search, even when Ctrl+K / Cmd+K began in an input.
+
+Local navigation appears first from the shared sidebar definition. Entity labels,
+plural group labels and icons reuse `entityPresentation.ts`. Long labels truncate and
+subtitles/emails wrap. Loading, failure and empty results have concise status text.
+The palette is systemwide and says so next to the search input. See
+[data-page search semantics](data-pages.md#globale-suche-und-kontextbezogene-suche)
+for fields/ranking, limits and memory-only privacy behavior.
