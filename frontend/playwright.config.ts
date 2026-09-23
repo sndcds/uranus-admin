@@ -25,8 +25,9 @@ export default defineConfig({
   ],
   webServer: [
     {
-      // Isolated component fixture; never registered as an application route.
-      command: 'pnpm exec vite --config tests/fixtures/operations/vite.config.ts',
+      // Isolated component fixture; CI's browser container has Node but no pnpm.
+      command:
+        'node node_modules/vite/bin/vite.js --config tests/fixtures/operations/vite.config.ts',
       url: 'http://127.0.0.1:3101',
       reuseExistingServer: false,
     },
