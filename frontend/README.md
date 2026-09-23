@@ -272,6 +272,14 @@ Responses. Für Login/Logout verwendet Playwright einen kontrollierten lokalen T
 auf Port 31902; dieser wird nie in die Anwendung eingebunden. Backend/PostGIS-Integration wird
 separat im Backend geprüft.
 
+Visuelle SQL-Baselines müssen mit dem gepinnten Playwright-Container aus
+[`ci.yml`](../.github/workflows/ci.yml) geprüft und aktualisiert werden. Lokale Linux-Fonts
+können trotz gleichem Snapshot-Dateinamen abweichen. Nach `pnpm build` den Docker-Befehl
+des Workflows verwenden; für ein gezieltes Update
+`tests/e2e/sql-console.spec.ts --project=desktop --update-snapshots` an den Testaufruf
+anhängen und anschließend ohne `--update-snapshots` prüfen. Die Testserver im
+Produktionslauf starten direkt mit Node; pnpm ist im Browser-Container nicht erforderlich.
+
 Ergebnisse und Grenzen: [Verifikation](docs/verification.md).
 Verbindliche Fach-/Sicherheitsverträge: [Backend-Verträge](../backend/docs/contracts.md).
 
