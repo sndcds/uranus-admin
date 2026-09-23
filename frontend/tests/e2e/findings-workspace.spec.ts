@@ -71,6 +71,13 @@ for (const [name, width, height] of [
         .first()
         .evaluate((e) => getComputedStyle(e).display),
     ).toBe(width > 1100 ? 'table-row' : 'grid')
+    if (width <= 1100) {
+      const columns = await table
+        .locator('tbody tr')
+        .first()
+        .evaluate((e) => getComputedStyle(e).gridTemplateColumns.split(' ').length)
+      expect(columns).toBe(width < 640 ? 1 : 3)
+    }
     const summary = page.getByRole('region', { name: 'Ergebnisübersicht' })
     await expect(summary).toContainText('929 Befunde insgesamt')
     await expect(summary).toContainText('2 Fehler')
@@ -95,7 +102,7 @@ for (const [name, width, height] of [
       'Technische Informationen',
     ])
       await expect(dialog.getByRole('heading', { name: heading, exact: true })).toBeVisible()
-    await expect(dialog.getByLabel('Zuständig', { exact: true })).toHaveValue(
+    await expect(dialog.getByRole('combobox', { name: 'Zuständig', exact: true })).toHaveValue(
       workflowInbox.items[1]!.assignment!.assigned_to.id,
     )
     for (const label of [
@@ -156,7 +163,7 @@ test('persisted review saves conditional fields, refreshes status and separates 
     exception_reason: null,
   })
   await dialog.getByRole('button', { name: 'Wiedervorlegen', exact: true }).click()
-  const snooze = page.getByRole('dialog', { name: 'Aufgabe wiedervorlegen' })
+  const snooze = page.getByRole('dialog', { name: 'Wiedervorlegen', exact: true })
   await expect(snooze).toContainText('ändert keine fachliche Befundbewertung')
   await page.keyboard.press('Escape')
   await expect(dialog).toBeVisible()
@@ -202,7 +209,7 @@ test('resolved persisted finding retains evidence and tools without manual reope
   const dialog = page.getByRole('dialog', { name: 'Hafenbühne' })
   await expect(dialog).toContainText('Nur ein erneuter Prüflauf')
   await expect(dialog.getByRole('button', { name: 'Review speichern' })).toHaveCount(0)
-  await expect(dialog.getByLabel('Zuständig', { exact: true })).toHaveCount(0)
+  await expect(dialog.getByRole('combobox', { name: 'Zuständig', exact: true })).toHaveCount(0)
   await expect(dialog.getByRole('button', { name: 'SQL Editor', exact: true })).toBeVisible()
 })
 
@@ -234,4 +241,23 @@ test('desktop header remains inside the table scrollport for long pages', async 
     head = await header.boundingBox()
   expect(Math.abs(head!.y - viewport!.y)).toBeLessThan(2)
   expect(await scroll.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true)
+})
+
+test('long record names and evidence wrap at 360px, including inside the workflow', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 800 })
+  const name = 'SehrLangerVeranstaltungsname'.repeat(8)
+  await setup(page, 'persisted', {
+    ...workflowFindings.items[2]!,
+    entity_name: name,
+    message: 'LangeEvidenz'.repeat(80),
+  })
+  await page.goto('/findings')
+  await expect(page.getByRole('table')).toContainText(name)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.getByRole('button', { name: /^Befund bearbeiten:/ }).click()
+  const dialog = page.getByRole('dialog', { name })
+  await expect(dialog.getByRole('heading', { name, exact: true })).toBeVisible()
+  expect(await dialog.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true)
 })

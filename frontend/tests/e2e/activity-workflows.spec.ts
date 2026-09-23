@@ -97,9 +97,7 @@ test('queue shows actual invitation age and preserves unknown values', async ({ 
   await expect(page.getByLabel('Mindestalter (Tage)')).toHaveValue('')
 })
 
-test('persisted findings display review status without exposing review controls', async ({
-  page,
-}) => {
+test('persisted findings display review status and open the review workflow', async ({ page }) => {
   await page.route('**/api/admin/api/v1/findings**', (route) =>
     route.fulfill({
       json: {
@@ -113,10 +111,15 @@ test('persisted findings display review status without exposing review controls'
   await page.goto('/findings?mode=persisted')
   const table = page.getByRole('table', { name: 'Priorisierte Befunde' })
   await expect(table).toContainText('Ausnahme')
-  await expect(table.getByRole('button')).toHaveCount(0)
+  await expect(table.getByRole('button', { name: /^Befund bearbeiten:/ })).toHaveCount(1)
   await expect(table.getByRole('link')).toHaveCount(0)
-  await expect(page.getByLabel('Reviewstatus')).toHaveCount(0)
   await expect(page.getByRole('dialog')).toHaveCount(0)
+  await table.getByRole('button', { name: /^Befund bearbeiten:/ }).click()
+  const detail = page.getByRole('dialog', { name: 'Test-Hafenbühne' })
+  await expect(detail.getByRole('combobox', { name: 'Reviewstatus' })).toHaveValue('exception')
+  await expect(detail.getByLabel('Ausnahmegrund')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(table.getByRole('button', { name: /^Befund bearbeiten:/ })).toBeFocused()
 })
 
 test('real proxy keeps new admin writes authenticated', async ({ request }) => {

@@ -113,6 +113,14 @@ describe('Finding workflow boundaries', () => {
     await view.get('[aria-label="Befund schließen"]').trigger('click')
     expect(view.emitted('refresh')).toHaveLength(1)
   })
+  it('does not reload protected data while the workflow is being unmounted', async () => {
+    const view = setup()
+    await open(view)
+    await view.get('form').trigger('submit')
+    await flushPromises()
+    view.unmount()
+    expect(view.emitted('refresh')).toBeUndefined()
+  })
   it('shows safe failure feedback and ignores a save completed after closing', async () => {
     const view = setup()
     api.review.mockRejectedValueOnce(new AdminApiError(failure(403, 'permission_denied')))

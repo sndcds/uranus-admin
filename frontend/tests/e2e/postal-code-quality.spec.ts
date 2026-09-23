@@ -83,13 +83,17 @@ for (const mode of ['live', 'persisted'] as const) {
       await expect(row.getByText('Warnung', { exact: true })).toBeVisible()
       await expect(row).toContainText('Feld: postal_code')
       await expect(row).toContainText(message)
-      await expect(row.getByRole('link', { name: 'Im Admin ansehen' })).toHaveAttribute(
+      await row.getByRole('button', { name: /^Befund bearbeiten:/ }).click()
+      const detail = page.getByRole('dialog', { name: `PLZ-Test ${owner.label}` })
+      await expect(detail.getByRole('link', { name: 'Im Admin ansehen' })).toHaveAttribute(
         'href',
         `/${owner.section}/${key}`,
       )
+      await page.keyboard.press('Escape')
+      await expect(row.getByRole('button', { name: /^Befund bearbeiten:/ })).toBeFocused()
     }
     await expect(rows.first()).toContainText('Postleitzahlen mit Leerzeichen')
-    await expect(rows.getByRole('button')).toHaveCount(0)
+    await expect(rows.getByRole('button', { name: /^Befund bearbeiten:/ })).toHaveCount(2)
     await expect(page.getByRole('dialog')).toHaveCount(0)
     expect(receivedFilters?.get('rule')).toBe(rule)
     expect(receivedFilters?.get('entity_type')).toBeNull()

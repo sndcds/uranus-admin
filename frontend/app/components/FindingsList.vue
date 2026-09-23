@@ -106,7 +106,7 @@ const detail = useTemplateRef('detail')
           <td role="cell" class="findings-status">
             <div class="space-y-2 py-2">
               <StatusBadge
-                v-if="finding.status && (!workspace || mode === 'persisted')"
+                v-if="workspace && mode === 'persisted' && finding.status"
                 :label="findingStatusLabels[finding.status] ?? finding.status"
               />
               <StatusBadge v-if="workspace && mode === 'live'" label="Live-Diagnose" />
@@ -119,6 +119,10 @@ const detail = useTemplateRef('detail')
                 >
                 <SeverityBadge :severity="finding.severity" />
               </div>
+              <StatusBadge
+                v-if="!workspace && finding.status"
+                :label="findingStatusLabels[finding.status] ?? finding.status"
+              />
             </div>
           </td>
           <td role="cell" class="findings-actions">
@@ -340,7 +344,7 @@ const detail = useTemplateRef('detail')
   .findings-workspace tbody tr {
     grid-template-columns: minmax(0, 1fr);
   }
-  .findings-workspace tbody :is(th, td) {
+  .findings-workspace.findings-table tbody :is(th, td) {
     grid-column: 1;
     grid-row: auto;
   }

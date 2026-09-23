@@ -22,6 +22,7 @@ const saving = ref(false),
   error = ref('')
 let revision = 0
 let changed = false
+let active = true
 const editable = computed(() => mode.value === 'persisted' && finding.value?.status !== 'resolved')
 const address = computed(() =>
   finding.value ? Object.values(finding.value.address).filter(Boolean).join(' ') : '',
@@ -47,10 +48,11 @@ function reset() {
   revision++
   finding.value = null
   saving.value = false
-  if (changed) emit('refresh')
+  if (changed && active) emit('refresh')
   changed = false
 }
 onBeforeUnmount(() => {
+  active = false
   revision++
 })
 async function saveReview() {
@@ -129,7 +131,7 @@ defineExpose({ open })
           v-if="mode === 'persisted' && finding.status"
           :label="findingStatusLabels[finding.status] ?? finding.status"
         />
-        <StatusBadge v-else label="Live-Diagnose" />
+        <StatusBadge v-else-if="mode === 'live'" label="Live-Diagnose" />
         <span
           class="rounded bg-slate-900 px-2 py-1 text-xs font-semibold text-white"
           :aria-label="`Priorität ${finding.priority}`"

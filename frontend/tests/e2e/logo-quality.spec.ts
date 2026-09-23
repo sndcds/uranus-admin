@@ -110,13 +110,16 @@ for (const entry of cases) {
     await expect(
       row.getByText(entry.severity === 'info' ? 'Hinweis' : 'Warnung', { exact: true }),
     ).toBeVisible()
-    await expect(row.getByRole('link', { name: 'Im Admin ansehen' })).toHaveAttribute(
+    await row.getByRole('button', { name: /^Befund bearbeiten:/ }).click()
+    const detail = page.getByRole('dialog', { name: 'Logo-Testdatensatz' })
+    await expect(detail.getByRole('link', { name: 'Im Admin ansehen' })).toHaveAttribute(
       'href',
       `/${entry.section}/${entityKey}`,
     )
     await expect(row).toContainText(entry.label)
     await expect(row).toContainText(`Feld: ${field}`)
-    await expect(row.getByRole('button')).toHaveCount(0)
+    await expect(row.getByRole('button', { name: /^Befund bearbeiten:/ })).toHaveCount(1)
+    await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toHaveCount(0)
     expect(receivedFilters?.get('rule')).toBe(entry.rule)
     expect(receivedFilters?.get('entity_type')).toBe(

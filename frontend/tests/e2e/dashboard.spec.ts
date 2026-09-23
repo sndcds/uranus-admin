@@ -50,7 +50,9 @@ test('dashboard, responsive navigation, filtering, pagination and record actions
   await page.getByRole('button', { name: 'Anwenden', exact: true }).click()
   await expect(page).toHaveURL(/page=1/)
   await expect(page.getByRole('heading', { name: 'Test-Hafenbühne' })).toBeVisible()
-  await expect(page.getByRole('table').getByRole('button')).toHaveCount(0)
+  await expect(
+    page.getByRole('table').getByRole('button', { name: /^Befund bearbeiten:/ }),
+  ).toHaveCount(1)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.screenshot({ path: testInfo.outputPath('findings.png'), fullPage: true })
   expect(errors).toEqual([])

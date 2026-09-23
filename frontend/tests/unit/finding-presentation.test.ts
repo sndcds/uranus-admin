@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
   findingAdditionalMessage,
+  findingPriorityReason,
   findingRecordKey,
   findingRecordName,
 } from '../../app/utils/finding-presentation'
 import { findings } from '../fixtures/api'
 
 describe('finding row presentation', () => {
+  it('labels existing priority reasons without recalculating priority', () => {
+    expect(findingPriorityReason('published_soon')).toBe('Veröffentlichter Termin steht bald bevor')
+    expect(findingPriorityReason('severity_error')).toBe('Schweregrad: Fehler')
+    expect(findingPriorityReason('future_reason')).toBe('future_reason')
+  })
   it('keeps real names and gives technical keys a readable record identity', () => {
     const finding = findings.items[0]!
     expect(findingRecordName(finding)).toBe(finding.entity_name)

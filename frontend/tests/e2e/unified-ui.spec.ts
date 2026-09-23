@@ -127,7 +127,7 @@ test('findings keep URL filters, page totals, badges, page size and empty/error 
   await expect(row.getByText('Warnung', { exact: true })).toBeVisible()
   await expect(row.getByText('Ort', { exact: true })).toBeVisible()
   await expect(row.getByRole('link', { name: 'Markierungen & Notizen' })).toHaveCount(0)
-  await expect(row.getByRole('button')).toHaveCount(0)
+  await expect(row.getByRole('button', { name: /^Befund bearbeiten:/ })).toHaveCount(1)
   await expect(page.getByText('Seite 1 von 12')).toBeVisible()
   await page.getByRole('button', { name: 'Weiter', exact: true }).click()
   await expect(page).toHaveURL(/page=2/)
