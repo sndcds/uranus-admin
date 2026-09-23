@@ -4,6 +4,11 @@ Synthetischer Event-Pilot, keine Produktionsdaten. Aufnahmen aus dem
 Produktionsbuild mit kontrollierten API-/Bild-Fixtures und erzwungener Test-CSP.
 Sie dienen dem Review, nicht als pixelgenaue Vollseiten-Goldens.
 
+Review-Stand PR #103: allgemeine Liste „Verknüpfte Datensätze“ statt Fachgruppen
+aus einer globalen Relationsseite. Veranstalter sowie Standardort/-raum stehen
+unabhängig davon im Hero beziehungsweise in den primären Fakten. Der separate
+30-Termine-Test prüft die Pagination mit zwei Seiten.
+
 - [Desktop, 1440 × 1000](desktop.png)
 - [Mobile, 390 × 844](mobile.png)
 

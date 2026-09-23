@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/authenticated'
 import { mockLayoutApi } from '../fixtures/layout'
-import { eventDetailFixture } from '../fixtures/event-detail'
+import { eventDetailFixture, paginatedEventDetailFixture } from '../fixtures/event-detail'
 
 // Match the existing production test policy, plus the already approved public image origin.
 // No application/deployment CSP is changed by this response-only test hook.
@@ -63,22 +63,20 @@ for (const viewport of [
     await expect(main.getByRole('region', { name: 'Auf einen Blick' })).not.toContainText(
       data.item.entity_key,
     )
-    for (const [group, name] of [
-      ['Termine', 'Kulturnacht – Abendprogramm'],
-      ['Veranstalter', 'Kulturverein Nord'],
-      ['Orte & Räume', 'Hafenbühne'],
-      ['Orte & Räume', 'Werkstattraum'],
-      ['Medien', 'Plakat zur Kulturnacht'],
-    ]) {
+    const relations = main.getByRole('region', { name: 'Verknüpfte Datensätze', exact: true })
+    for (const item of data.related.items)
       await expect(
-        main
-          .getByRole('region', { name: group, exact: true })
-          .getByRole('heading', { name, exact: true }),
+        relations.getByRole('heading', { name: item.entity_name, exact: true }),
       ).toBeVisible()
-    }
+    await expect(relations).toContainText('keine chronologische Terminliste')
+    for (const name of ['Termine', 'Veranstalter', 'Orte & Räume', 'Medien', 'Weitere Beziehungen'])
+      await expect(main.getByRole('region', { name, exact: true })).toHaveCount(0)
+    await expect(main.locator('[data-entity-hero]')).toContainText(
+      `Veranstalter: ${data.item.organization_name}`,
+    )
     await expect(main.getByRole('heading', { name: 'Verlauf', exact: true })).toBeVisible()
     const headings = await main.locator('h3').allTextContents()
-    expect(headings.indexOf('Verlauf')).toBeGreaterThan(headings.indexOf('Medien'))
+    expect(headings.indexOf('Verlauf')).toBeGreaterThan(headings.indexOf('Verknüpfte Datensätze'))
     expect(headings.indexOf('Technische Informationen')).toBeGreaterThan(
       headings.indexOf('Verlauf'),
     )
@@ -130,6 +128,19 @@ test('event Markdown stays inert under production CSP and leaves source text rea
   await page.route(`**/api/admin/api/v1/events/${data.item.entity_key}**`, (route) =>
     route.fulfill({ json: data }),
   )
+  data.item.facts.description +=
+    '\n\nZeile eins\nZeile zwei\n\nHarte Zeile  \nNeue Zeile\n\n' +
+    [
+      '/sql',
+      '/findings',
+      '/queues/team_invitations',
+      '/notifications',
+      '/marks',
+      '/checks',
+      '/inbox',
+    ]
+      .map((path) => `[Adminziel](${path})`)
+      .join(' ')
   const requests: string[] = []
   page.on('request', (request) => {
     if (request.url().includes('evil.example')) requests.push(request.url())
@@ -139,7 +150,52 @@ test('event Markdown stays inert under production CSP and leaves source text rea
   await expect(content).toContainText('<script>alert(1)</script>')
   await expect(content.locator('script, img, iframe, [onerror]')).toHaveCount(0)
   await expect(content.locator('a')).toHaveCount(0)
+  await expect(content.locator('p').filter({ hasText: 'Zeile eins' })).toHaveText(
+    'Zeile eins Zeile zwei',
+  )
+  await expect(content.locator('br')).toHaveCount(1)
   await content.getByRole('region', { name: 'Codeblock' }).focus()
   await expect(content.getByRole('region', { name: 'Codeblock' })).toBeFocused()
   expect(requests).toEqual([])
+})
+
+test('30 dates use general pagination without hiding the organizer or standard location context', async ({
+  page,
+}) => {
+  await mockLayoutApi(page)
+  const first = paginatedEventDetailFixture(1)
+  await page.route(`**/api/admin/api/v1/events/${first.item.entity_key}**`, (route) => {
+    const query = new URL(route.request().url()).searchParams
+    return route.fulfill({
+      json: paginatedEventDetailFixture(Number(query.get('related_page') ?? 1)),
+    })
+  })
+  await page.goto(`/events/${first.item.entity_key}?context=retained`)
+  const main = page.locator('#main-content')
+  const relations = main.getByRole('region', { name: 'Verknüpfte Datensätze', exact: true })
+  await expect(relations.getByRole('heading', { level: 4 })).toHaveCount(25)
+  await expect(relations).toContainText('25 auf dieser Seite von 34 insgesamt')
+  await expect(relations).toContainText('keine chronologische Terminliste')
+  await expect(main.locator('[data-entity-hero]')).toContainText(
+    `Veranstalter: ${first.item.organization_name}`,
+  )
+  const facts = main.getByRole('region', { name: 'Auf einen Blick' })
+  await expect(facts).toContainText('Standardort')
+  await expect(facts).toContainText(first.item.facts.venue_name!)
+  await expect(facts).toContainText('Standardraum')
+  await expect(facts).toContainText(first.item.facts.space_name!)
+  for (const name of ['Termine', 'Veranstalter', 'Orte & Räume', 'Medien', 'Weitere Beziehungen'])
+    await expect(main.getByRole('region', { name, exact: true })).toHaveCount(0)
+  await expect(relations.getByRole('heading', { name: 'Plakat zur Kulturnacht' })).toHaveCount(0)
+  await relations.getByRole('link', { name: 'Weiter', exact: true }).click()
+  await expect(page).toHaveURL(/context=retained&related_page=2/)
+  await expect(relations.getByRole('heading', { level: 4 })).toHaveCount(9)
+  await expect(relations).toContainText('9 auf dieser Seite von 34 insgesamt')
+  for (const item of paginatedEventDetailFixture(2).related.items)
+    await expect(
+      relations.getByRole('heading', { name: item.entity_name, exact: true }),
+    ).toBeVisible()
+  await relations.getByRole('link', { name: 'Zurück', exact: true }).click()
+  await expect(relations.getByRole('heading', { level: 4 })).toHaveCount(25)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })

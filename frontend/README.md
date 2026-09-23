@@ -291,7 +291,19 @@ Record-Detail-Pilot; andere Detailtypen folgen in eigenen PRs.
 Markdown wird zunächst ausschließlich für die verifizierte Veranstaltungsbeschreibung
 verwendet. markdown-it wurde wegen seines konfigurierbaren Tokenparsers gewählt; Vue
 rendert nur freigegebene Elemente, niemals HTML-Strings. Keine Raw-HTML-/Bildunterstützung,
-keine zusätzliche CSS-Library, keine CSP-Ausnahme. Details und Feldnachweis im Audit.
+keine zusätzliche CSS-Library, keine CSP-Ausnahme. Softbreaks werden zu Leerzeichen,
+Hardbreaks zu `<br>`; Leerzeilen trennen Absätze. Source-Markdown erlaubt nur validierte
+absolute http/https/mailto-Links; sämtliche relativen Admin-Links bleiben Text. Externe
+Links behalten neuen Tab, noopener/noreferrer, no-referrer und einen zugänglichen Hinweis.
+Details und Feldnachweis im Audit.
+
+Der Pilot zeigt Beziehungen bewusst als allgemeine Liste „Verknüpfte Datensätze“ mit
+25 Einträgen pro Seite, Gesamtzahl und Pagination, sortiert nach Typ/Name/Schlüssel.
+Das sind keine vollständigen semantischen Gruppen und keine chronologische Terminliste.
+Veranstalter, Standardort/-raum und Termin-Gesamtzahl kommen unabhängig davon aus der
+Event-Projektion; Standardwerte gelten nicht zwingend für jeden Termin. Medien sind über
+die gemeinsame Pagination erreichbar. Getrennte Fachbereiche folgen erst mit einem eigenen
+begrenzten Backend-Vertrag; dieser PR ändert keine Backend- oder Source-Semantik.
 `event-detail-v2.spec.ts` prüft 1440/1024/390/360px und sichere Inhalte auch im Production-Build;
 `layout-consistency.spec.ts` erzeugt Review-Aufnahmen aller Hauptrouten auf drei Größen.
 

@@ -11,7 +11,7 @@ import RecordSection from '../../app/components/RecordSection.vue'
 import MarkdownContent from '../../app/components/MarkdownContent.vue'
 import RequestState from '../../app/components/RequestState.vue'
 import PaginationBar from '../../app/components/PaginationBar.vue'
-import { eventDetailFixture } from '../fixtures/event-detail'
+import { eventDetailFixture, paginatedEventDetailFixture } from '../fixtures/event-detail'
 import { recordDateTime } from '../../app/utils/presentation'
 import { AdminApiError, failure } from '../../shared/errors'
 import type { EntityDetail } from '../../shared/contracts'
@@ -53,7 +53,7 @@ beforeEach(() => {
   vi.stubGlobal('useNuxtApp', () => ({ $adminApi: api }))
 })
 afterEach(() => vi.unstubAllGlobals())
-it('renders one record title, readable Markdown, semantic groups, then timeline and technical facts', async () => {
+it('renders one record title, readable Markdown, a generic relation page, then timeline and technical facts', async () => {
   const wrapper = mount(EventPage, { global })
   await flushPromises()
   const data = eventDetailFixture()
@@ -62,10 +62,7 @@ it('renders one record title, readable Markdown, semantic groups, then timeline 
   expect(wrapper.findAll('h3').map((h) => h.text())).toEqual([
     'Auf einen Blick',
     'Beschreibung',
-    'Termine',
-    'Veranstalter',
-    'Orte & Räume',
-    'Medien',
+    'Verknüpfte Datensätze',
     'Qualität & Arbeitsstand',
     'Verlauf',
     'Technische Informationen',
@@ -107,7 +104,11 @@ it('labels a partial relation page and preserves query parameters for pagination
   const wrapper = mount(EventPage, { global })
   await flushPromises()
   expect(wrapper.text()).toContain('1 auf dieser Seite von 52 insgesamt')
-  expect(wrapper.text()).toContain('Die Gruppen zeigen nur die aktuelle Seite.')
+  expect(wrapper.text()).toContain(
+    'Weitere Termine, Orte oder Medien können auf anderen Seiten stehen.',
+  )
+  expect(wrapper.text()).toContain('keine chronologische Terminliste')
+  expect(wrapper.findAll('h3').map((heading) => heading.text())).not.toContain('Medien')
   expect(wrapper.text()).not.toContain('Keine Termine')
   expect(
     wrapper
@@ -115,6 +116,49 @@ it('labels a partial relation page and preserves query parameters for pagination
       .find((a) => a.text() === 'Weiter')!
       .attributes('data-to'),
   ).toContain('"context":"retained"')
+  wrapper.unmount()
+})
+
+it('keeps organizer and standard location independent of a global page containing only 25 of 30 dates', async () => {
+  const first = paginatedEventDetailFixture(1)
+  api.entity.mockResolvedValueOnce(first)
+  const wrapper = mount(EventPage, { global })
+  await flushPromises()
+  const relations = () => wrapper.get('[data-event-relations]')
+  expect(
+    relations()
+      .findAll('h4')
+      .map((heading) => heading.text()),
+  ).toEqual(first.related.items.map((item) => item.entity_name))
+  expect(relations().text()).toContain('25 auf dieser Seite von 34 insgesamt')
+  expect(wrapper.get('[data-entity-hero]').text()).toContain(
+    `Veranstalter: ${first.item.organization_name}`,
+  )
+  const facts = wrapper
+    .findAllComponents(RecordSection)
+    .find((section) => section.props('title') === 'Auf einen Blick')!
+  expect(facts.text()).toContain('Termine insgesamt30')
+  expect(facts.text()).toContain(`Standardort${first.item.facts.venue_name}`)
+  expect(facts.text()).toContain(`Standardraum${first.item.facts.space_name}`)
+  expect(relations().text()).not.toContain('Plakat zur Kulturnacht')
+  for (const title of ['Termine', 'Veranstalter', 'Orte & Räume', 'Medien', 'Weitere Beziehungen'])
+    expect(wrapper.findAll('h3').map((heading) => heading.text())).not.toContain(title)
+  const second = paginatedEventDetailFixture(2)
+  api.entity.mockResolvedValueOnce(second)
+  route.query = { related_page: '2' }
+  route.fullPath += '?related_page=2'
+  await flushPromises()
+  expect(api.entity).toHaveBeenLastCalledWith('events', first.item.entity_key, 2)
+  expect(
+    relations()
+      .findAll('h4')
+      .map((heading) => heading.text()),
+  ).toEqual(second.related.items.map((item) => item.entity_name))
+  expect(relations().text()).toContain('9 auf dieser Seite von 34 insgesamt')
+  expect(relations().text()).toContain('Plakat zur Kulturnacht')
+  expect(wrapper.get('[data-entity-hero]').text()).toContain(
+    `Veranstalter: ${first.item.organization_name}`,
+  )
   wrapper.unmount()
 })
 it('retains the same record on refresh and failure, clears on identity change, ignores late responses', async () => {

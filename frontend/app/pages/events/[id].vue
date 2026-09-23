@@ -1,7 +1,12 @@
 <template>
   <EntityDetailPage section="events" record>
     <template #header="{ data }">
-      <EntityHero v-if="data" :item="data.item" section="events" />
+      <EntityHero
+        v-if="data"
+        :item="data.item"
+        section="events"
+        organization-label="Veranstalter"
+      />
       <PageHeader v-else title="Veranstaltung">
         <NuxtLink to="/events" class="action-link">Zur Liste</NuxtLink>
       </PageHeader>

@@ -3,24 +3,7 @@ import { computed } from 'vue'
 import type { EntityDetail } from '#shared/contracts'
 const props = defineProps<{ data: EntityDetail; loading: boolean }>()
 const route = useRoute()
-// The page is a bounded snapshot. Group by the supplied type; never infer edge roles or dates.
-const relationGroups = computed(() =>
-  [
-    { title: 'Termine', types: ['event_date'] },
-    { title: 'Veranstalter', types: ['organization'] },
-    { title: 'Orte & Räume', types: ['venue', 'space'] },
-    { title: 'Medien', types: ['image'] },
-    {
-      title: 'Weitere Beziehungen',
-      types: ['user', 'team_membership', 'partner_request', 'event'],
-    },
-  ]
-    .map((group) => ({
-      ...group,
-      items: props.data.related.items.filter((item) => group.types.includes(item.entity_type)),
-    }))
-    .filter((group) => group.items.length),
-)
+// Keep the server's single bounded page and order. It is not a complete domain section.
 const facts = computed(() =>
   [
     { label: 'Termine insgesamt', value: props.data.item.facts.event_dates },
@@ -50,25 +33,24 @@ const findingsHref = computed(() => ({
   <RecordSection v-if="data.item.facts.description?.trim()" title="Beschreibung">
     <MarkdownContent :source="data.item.facts.description" />
   </RecordSection>
-  <div class="space-y-4 sm:space-y-6" :aria-busy="loading" data-event-relations>
+  <RecordSection title="Verknüpfte Datensätze" :aria-busy="loading" data-event-relations>
     <p class="type-metadata">
-      Verknüpfte Datensätze: {{ data.related.items.length }} auf dieser Seite von
-      {{ data.related.pagination.total }} insgesamt.
-      <span v-if="data.related.pagination.pages > 1"
-        >Die Gruppen zeigen nur die aktuelle Seite.</span
-      >
+      {{ data.related.items.length }} auf dieser Seite von
+      {{ data.related.pagination.total }} insgesamt. Gemeinsame Liste nach Objektart und Name, keine
+      chronologische Terminliste.
+      <span v-if="data.related.pagination.pages > 1">
+        Weitere Termine, Orte oder Medien können auf anderen Seiten stehen.
+      </span>
     </p>
-    <RecordSection v-for="group in relationGroups" :key="group.title" :title="group.title">
-      <DataListShell as="ul" :aria-label="group.title">
-        <ActivityRow
-          v-for="item in group.items"
-          :key="`${item.entity_type}:${item.entity_key}`"
-          :item="item"
-          :observed-at="data.observed_at"
-          grouped
-        />
-      </DataListShell>
-    </RecordSection>
+    <DataListShell v-if="data.related.items.length" as="ul" aria-label="Verknüpfte Datensätze">
+      <ActivityRow
+        v-for="item in data.related.items"
+        :key="`${item.entity_type}:${item.entity_key}`"
+        :item="item"
+        :observed-at="data.observed_at"
+        grouped
+      />
+    </DataListShell>
     <EmptyState
       v-if="!data.related.items.length"
       message="Keine belegten Verknüpfungen auf dieser Seite vorhanden."
@@ -80,7 +62,7 @@ const findingsHref = computed(() => ({
       label="Verknüpfte Datensätze – Seitennavigation"
       :to="(page) => ({ query: { ...route.query, related_page: String(page) } })"
     />
-  </div>
+  </RecordSection>
   <RecordSection title="Qualität & Arbeitsstand">
     <dl class="flex flex-wrap gap-x-10 gap-y-3">
       <div v-if="data.item.finding_count !== null">

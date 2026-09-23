@@ -3,7 +3,10 @@ import { computed } from 'vue'
 import type { EntityDetail, EntitySection } from '#shared/contracts'
 import { activityName, activityStatus } from '~/utils/activity'
 import { graphHref } from '~/utils/graph'
-const props = defineProps<{ item: EntityDetail['item']; section: EntitySection }>()
+const props = withDefaults(
+  defineProps<{ item: EntityDetail['item']; section: EntitySection; organizationLabel?: string }>(),
+  { organizationLabel: 'Organisation' },
+)
 const name = computed(() => activityName(props.item))
 const status = computed(() => activityStatus(props.item.status))
 const relationships = computed(() => graphHref(props.item.entity_type, props.item.entity_key))
@@ -19,7 +22,7 @@ const relationships = computed(() => graphHref(props.item.entity_type, props.ite
       </template>
       <template #context>
         <p v-if="item.organization_name" class="type-body mt-2 break-words">
-          {{ item.organization_name }}
+          {{ organizationLabel }}: {{ item.organization_name }}
         </p>
         <p v-if="item.subtitle" class="type-body mt-1 break-words">{{ item.subtitle }}</p>
       </template>

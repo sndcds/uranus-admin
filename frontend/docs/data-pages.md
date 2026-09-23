@@ -103,7 +103,7 @@ geschützte Seiten zeigen keine zusätzliche Login-Leiste.
 `/events/:id` verwendet `EntityDetailPage` als Abruf-/Fehler-/Timeline-Shell mit den Slots
 `header`, `content` und `after-timeline`. `EntityHero` integriert den gemeinsamen PageHeader
 und zeigt den Record-Titel genau einmal. `EventDetailContent` ordnet primäre Fakten,
-Beschreibung, Termine, Veranstalter, Orte & Räume, Medien und Arbeitsstand.
+Beschreibung, verknüpfte Datensätze und Arbeitsstand.
 `EntityTechnicalMetadata` folgt nach der unveränderten Timeline. Die übrigen fünf
 Detailtypen behalten vorerst den Default-Presenter; ihre Migration steht im Audit.
 
@@ -111,15 +111,26 @@ Detailtypen behalten vorerst den Default-Presenter; ihre Migration steht im Audi
 im Quell-Editor nachgewiesen (Commit/Dateien im Audit), nicht aus dem Text erraten.
 `MarkdownContent` verwendet markdown-it als Tokenparser und einen geschlossenen Vue-Renderer:
 kein v-html, kein Raw-HTML, keine Bilder/Plugins. Links erlauben nur validiertes http/https,
-einfache mailto-Adressen und freigegebene interne Routen. Sonstige Links bleiben Text;
+einfache mailto-Adressen. Alle relativen Admin-Links (auch Record-, Query- und Fragmentlinks)
+bleiben Text; Source-Inhalte bestimmen keine interne Workflow-Navigation. Sonstige unsichere
+Links bleiben ebenfalls Text;
 externe Links haben neuen Tab, noopener/noreferrer und no-referrer. Große Texte über
 100.000 Zeichen bleiben vollständig als Plaintext erhalten. `.prose-admin` begrenzt auf 72ch.
+Softbreak wird als Leerzeichen gerendert, Hardbreak als `<br>`; Leerzeilen trennen Absätze.
 
 Der serverseitige Subtitle einschließlich eines ggf. nächsten Termins bleibt unverändert.
 Kein Datum wird aus einer paginierten Relation abgeleitet. Standardort/-raum bleiben
-Standardwerte, nicht Behauptungen über jeden Termin. Typgruppen enthalten nur die aktuelle
-Relationsseite; eine gemeinsame Pagination erhält weitere Query-Parameter. Nicht sichtbare
-Gruppen sind nicht nachweislich leer. Qualitätszähler schließen behobene Befunde aus,
+Standardwerte, nicht Behauptungen über jeden Termin. Veranstalter im Hero, diese Standardwerte
+und die Termin-Gesamtzahl sind unabhängig von der Relationspagination verfügbar.
+
+„Verknüpfte Datensätze“ bleibt bewusst eine allgemeine Liste: maximal 25 Einträge pro Seite,
+Sortierung nach Typ/Name/Schlüssel, keine chronologische Terminliste. Seitenumfang und
+Gesamtzahl sind sichtbar; gemeinsame Pagination erhält weitere Query-Parameter. Bei 30
+Terminen liegen Medien und weitere Beziehungen gegebenenfalls erst auf Seite 2. Die sichtbare
+Seite ist kein vollständiger fachlicher Abschnitt; fehlende Elemente sind nicht nachweislich
+abwesend. Typisierte Termin-/Veranstalter-/Orts-/Medienbereiche benötigen einen Folge-PR mit
+unabhängigen begrenzten Abfragen, Counts und eigener Termin-/Medienpagination. Der Pilot
+ändert den Backend-Vertrag nicht. Qualitätszähler schließen behobene Befunde aus,
 Markierungszahlen schließen erledigte Markierungen ein; null ist nicht verfügbar.
 
 Bei Refresh derselben Identität bleibt der letzte erfolgreiche Detailstand mit Lade-/Fehlerhinweis

@@ -17,9 +17,26 @@ it('renders the supported Markdown subset as semantic Vue nodes below the sectio
   expect(wrapper.findAll('ul li')).toHaveLength(2)
   expect(wrapper.get('ol').attributes('start')).toBe('3')
   expect(wrapper.get('blockquote').text()).toContain('quote')
-  expect(wrapper.findAll('br')).toHaveLength(2)
+  expect(wrapper.findAll('br')).toHaveLength(1)
   expect(wrapper.get('pre code').text()).toContain('<script>alert(1)</script>')
   expect(wrapper.find('script').exists()).toBe(false)
+})
+it('renders a CommonMark softbreak as normal flowing whitespace', () => {
+  const wrapper = mount(MarkdownContent, { props: { source: 'Zeile eins\nZeile zwei' } })
+  expect(wrapper.find('br').exists()).toBe(false)
+  expect(wrapper.get('p').text()).toBe('Zeile eins Zeile zwei')
+})
+it('renders a CommonMark hardbreak as one visible line break', () => {
+  const wrapper = mount(MarkdownContent, { props: { source: 'Zeile eins  \nZeile zwei' } })
+  expect(wrapper.findAll('br')).toHaveLength(1)
+})
+it('keeps paragraph breaks as separate paragraphs', () => {
+  const wrapper = mount(MarkdownContent, { props: { source: 'Absatz eins\n\nAbsatz zwei' } })
+  expect(wrapper.findAll('p').map((paragraph) => paragraph.text())).toEqual([
+    'Absatz eins',
+    'Absatz zwei',
+  ])
+  expect(wrapper.find('br').exists()).toBe(false)
 })
 it('does not create source HTML, images, handlers or dangerous links', () => {
   const source =
@@ -46,27 +63,51 @@ it.each([
   'mailto:a@example.org?body=secret',
   'mailto:a@example.org#fragment',
 ])('rejects unsafe or unapproved link %s', (value) => expect(markdownLink(value)).toBeNull())
+it.each(['https://example.org/a', 'http://example.org', 'mailto:a@example.org'])(
+  'accepts explicitly allowed link %s',
+  (value) => expect(markdownLink(value)).not.toBeNull(),
+)
 it.each([
-  'https://example.org/a',
-  'http://example.org',
-  'mailto:a@example.org',
+  '/sql',
+  '/findings',
+  '/queues/team_invitations',
+  '/notifications',
+  '/marks',
+  '/checks',
+  '/inbox',
   '/events',
   '/events/20000000-0000-4000-8000-000000000001',
+  '/organizations/20000000-0000-4000-8000-000000000001',
+  '/venues/20000000-0000-4000-8000-000000000001',
+  '/spaces/20000000-0000-4000-8000-000000000001',
+  '/users/20000000-0000-4000-8000-000000000001',
+  '/images/20000000-0000-4000-8000-000000000001',
   '/findings?mode=persisted',
-])('accepts explicitly allowed link %s', (value) => expect(markdownLink(value)).not.toBeNull())
-it('marks external links and preserves approved internal paths without opening new tabs', () => {
-  const wrapper = mount(MarkdownContent, {
-    props: { source: '[Program](https://example.org) [Events](/events)' },
-  })
-  const links = wrapper.findAll('a')
-  expect(links[0]!.attributes()).toMatchObject({
-    target: '_blank',
-    rel: 'noopener noreferrer',
-    referrerpolicy: 'no-referrer',
-  })
-  expect(links[0]!.text()).toContain('neuer Tab')
-  expect(links[1]!.attributes('target')).toBeUndefined()
+  'relative-path',
+  '../sql',
+  '?mode=persisted',
+  '#details',
+])('keeps source-authored relative link %s as text, never admin navigation', (href) => {
+  expect(markdownLink(href)).toBeNull()
+  const wrapper = mount(MarkdownContent, { props: { source: `[Source label](${href})` } })
+  expect(wrapper.find('a').exists()).toBe(false)
+  expect(wrapper.text()).toBe('Source label')
 })
+it.each(['https://example.org', 'http://example.org', 'mailto:a@example.org'])(
+  'retains external link protections and the accessible new-tab hint for %s',
+  (href) => {
+    const wrapper = mount(MarkdownContent, {
+      props: { source: `[Program](${href})` },
+    })
+    const links = wrapper.findAll('a')
+    expect(links[0]!.attributes()).toMatchObject({
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      referrerpolicy: 'no-referrer',
+    })
+    expect(links[0]!.text()).toContain('neuer Tab')
+  },
+)
 it('keeps oversized content fully readable as plain text and reacts to replacement', async () => {
   const source = '**x**'.repeat(21_000)
   const wrapper = mount(MarkdownContent, { props: { source } })

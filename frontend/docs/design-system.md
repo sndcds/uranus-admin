@@ -193,20 +193,31 @@ Typ/Status, Organisation, serverseitigen Subtitle und Kontext. Danach:
 
 1. Primäre Fakten (belegte Terminzahl, Standardort/-raum).
 2. Beschreibung, nur wenn nicht leer.
-3. Termine; Veranstalter; Orte & Räume; Medien.
+3. Verknüpfte Datensätze mit gemeinsamer Pagination.
 4. Qualitäts-/Markierungsbestand, wenn verfügbar; keine erfundene Assignment-Zusammenfassung.
 5. EntityTimeline, unveränderte Evidenz und Aktionen.
 6. Technische Informationen: UUID, belegtes created_at, beobachteter Abrufzeitpunkt.
 
-Die API liefert Beziehungen seitenweise, nicht gruppenweise. Nur gelieferte Elemente
-nach Typ gruppieren, Seitenumfang nennen und gemeinsame Pagination erhalten. Kein
-„keine Termine“ aus einer Seite ohne Termine folgern. Standardort/-raum nicht als
-effektiven Ort aller Termine ausgeben. Subtitle mit serverseitigem nächsten Termin
-unverändert verwenden, nicht parsen. UUID ist technischer Inhalt, kein Hero-Fakt.
+Die API liefert eine gemeinsame Relationsliste mit 25 Einträgen pro Seite, sortiert
+nach Typ, Name und Schlüssel. Der Pilot zeigt deshalb bewusst **keine semantischen
+Relationsgruppen**, sondern „Verknüpfte Datensätze“ mit Seitenumfang, Gesamtzahl und
+Pagination. Das ist keine chronologische Terminliste. Bei 30 Terminen können Medien
+und weitere Objekte erst auf Seite 2 erscheinen; ihr Fehlen auf Seite 1 bedeutet nicht,
+dass es sie nicht gibt. Keine vollständige Hydration im Browser.
+
+Veranstalter im Hero sowie Termin-Gesamtzahl und Standardort/-raum in den primären Fakten
+kommen unabhängig von dieser Liste aus der Event-Projektion. Standardwerte sind nicht
+der effektive Ort aller Termine: Termin-Overrides bleiben möglich. Subtitle mit
+serverseitigem nächsten Termin unverändert verwenden, nicht parsen. UUID ist technischer
+Inhalt, kein Hero-Fakt. Ein Folge-PR benötigt für semantische Bereiche einen typisierten,
+begrenzten Vertrag: eigene chronologische Terminpagination, unabhängiger Veranstalter,
+Standardreferenzen und begrenzte Medien mit Gesamtzahl und Zugang zu weiteren Seiten.
 
 Künftige Presenter: Organisation → Veranstaltungen, Orte/Räume, Team, Partner, Medien;
 Benutzer → Mitgliedschaften, Einladungen, Organisationen; Ort → Räume, Veranstaltungen,
 Organisation, Medien. Nur vorhandene Relationen verwenden; Rollenlücken dokumentieren.
+Solche Bereiche benötigen unabhängige, explizite Vollständigkeits-/Paginationsverträge;
+eine gemeinsame Relationsseite reicht dafür nicht aus.
 
 ## 15. Workflow-Seiten
 
@@ -240,8 +251,12 @@ HTML-Renderer**, Raw-HTML deaktiviert, Bilder deaktiviert, keine Plugins/Autolin
 Code wird escaped und lokal gescrollt. Quellüberschriften werden unter die Abschnittsebene
 (h4–h6) eingeordnet. `.prose-admin` ist eine kleine eigene Typografieschicht.
 
-Links: validierte http/https/mailto ohne Credentials/Steuerzeichen; relative Links nur
-auf freigegebene lokale Routen. Keine protocol-relative, JavaScript-, data- oder
+CommonMark-Umbrüche: Softbreak wird zu einem Leerzeichen im Fließtext, nur Hardbreak
+zu `<br>`. Eine Leerzeile trennt Absätze (`<p>`).
+
+Links: nur absolute, validierte http/https/mailto ohne Credentials/Steuerzeichen.
+Source-Markdown darf keine relativen Admin-Links erzeugen, auch nicht zu Record-Details,
+Querys oder Fragmenten. Keine protocol-relative, JavaScript-, data- oder
 verschleierten Protokolle. Abgewiesene Links als Text erhalten. Externe Links öffnen
 mit no-referrer/noopener/noreferrer und zugänglichem Hinweis. Keine Netzwerkrequests
 für Markdown-Bilder, Embeds oder Preview-URLs. Parserfehler/übergroße Texte bleiben
@@ -341,7 +356,8 @@ riesigem Switch. Neue Primitive gezielt testen, nicht bloß Implementierungsdeta
 - Unsicheres `v-html` / HTML-Injektion für Quelltext.
 - Erfundene Zeitpunkte/Beziehungen/Counts.
 - Unnötiges Leeren stabiler Inhalte beim Refresh.
-- Undifferenzierte Beziehungslisten trotz bekannter Typen.
+- Undifferenzierte Beziehungslisten trotz vollständig typisiertem Vertrag.
+- Scheinbar vollständige Fachgruppen aus einer global paginierten Relationsseite.
 - Card soup, unbegrenzte Textbreite, horizontaler Seitenoverflow.
 - Alte Ergebnisse ohne Hinweis als neue Parameterantwort darstellen.
 
@@ -364,7 +380,8 @@ Produktionsdaten. Jede Aufnahme nach geladenem Inhalt, nicht nur nach sichtbarem
 | SQL                                                       | ja                | ja              | ja             | bestehende Editor-Token-Goldens behalten |
 | Login                                                     | ja                | ja              | ja             | eigener Auth-Kontext                     |
 
-Event v2: genau ein Haupttitel, Beschreibung eigener Abschnitt, alle Typgruppen,
+Event v2: genau ein Haupttitel, Beschreibung eigener Abschnitt, allgemeine Relationspagination auch mit über 25 Einträgen,
+Veranstalter und Standardort/-raum unabhängig von der Relationsseite,
 Canonical-Aktionen, Timeline vor technischen Daten, UUID nur dort, keine überbreite Seite.
 Die Tests legen PNGs unter Playwrights Testausgaben ab; ausgewählte Event-Desktop-/Mobile-
 Bilder werden unter `docs/screenshots/record-detail-v2/` dauerhaft reviewbar abgelegt.

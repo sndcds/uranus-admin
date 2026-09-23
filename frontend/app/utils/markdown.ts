@@ -4,7 +4,7 @@ import { h, type VNodeChild } from 'vue'
 const parser = new MarkdownIt('commonmark', { html: false, linkify: false, maxNesting: 20 })
 parser.disable(['image'])
 
-/** Only deliberate navigation; never resolve source-relative URLs against the current record. */
+/** Source content cannot choose relative admin navigation; accept explicit external protocols only. */
 export function markdownLink(value: string): { href: string; external: boolean } | null {
   if (
     /[\s\\]/u.test(value) ||
@@ -13,16 +13,7 @@ export function markdownLink(value: string): { href: string; external: boolean }
   )
     return null
   try {
-    if (value.startsWith('/') && !value.startsWith('//')) {
-      const url = new URL(value, 'https://admin.invalid')
-      const uuid = '[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}'
-      const paths = new RegExp(
-        `^/(?:$|(?:events|organizations|venues|spaces|users|images|geocoding|marks)(?:/${uuid})?/?$|(?:activity|inbox|findings|checks|quality|graph|statistics|sql)/?$|queues/(?:partner_requests|team_invitations|user_activation)/?$|notifications(?:/deliveries)?(?:/${uuid})?/?$)`,
-      )
-      return url.origin === 'https://admin.invalid' && paths.test(url.pathname)
-        ? { href: `${url.pathname}${url.search}${url.hash}`, external: false }
-        : null
-    }
+    // No base URL: root-, path-, query- and fragment-relative links are all rejected.
     const url = new URL(value)
     if (url.username || url.password) return null
     if (['http:', 'https:'].includes(url.protocol) && url.hostname)
@@ -91,7 +82,8 @@ function renderTokens(tokens: Token[], headingOffset = 3): VNodeChild[] {
       }
       stack.push({ tag, props, children: [] })
     } else if (token.type === 'inline') frame.children.push(...renderTokens(token.children ?? []))
-    else if (['softbreak', 'hardbreak'].includes(token.type)) frame.children.push(h('br'))
+    else if (token.type === 'softbreak') frame.children.push(' ')
+    else if (token.type === 'hardbreak') frame.children.push(h('br'))
     else if (token.type === 'code_inline') frame.children.push(h('code', token.content))
     else if (['fence', 'code_block'].includes(token.type))
       frame.children.push(
