@@ -6,20 +6,22 @@ import AssignmentSnooze from './AssignmentSnooze.vue'
 import { berlinDate, berlinDueAt } from '~/utils/admin-time'
 
 const props = defineProps<
-  | {
-      findingId: string
-      workflowType?: never
-      workflowKey?: never
-      entityType?: never
-      entityKey?: never
-    }
-  | {
-      findingId?: never
-      workflowType: 'geocode_request' | 'notification_delivery'
-      workflowKey: string
-      entityType: string
-      entityKey: string
-    }
+  { embedded?: boolean } & (
+    | {
+        findingId: string
+        workflowType?: never
+        workflowKey?: never
+        entityType?: never
+        entityKey?: never
+      }
+    | {
+        findingId?: never
+        workflowType: 'geocode_request' | 'notification_delivery'
+        workflowKey: string
+        entityType: string
+        entityKey: string
+      }
+  )
 >()
 const { $adminApi } = useNuxtApp()
 const auth = useAuthStore()
@@ -128,20 +130,29 @@ onBeforeUnmount(() => revision++)
 </script>
 
 <template>
-  <section class="space-y-3" aria-labelledby="assignment-heading">
+  <section
+    class="space-y-3"
+    :aria-labelledby="embedded ? undefined : 'assignment-heading'"
+    :aria-label="embedded ? 'Zuständigkeit' : undefined"
+  >
     <SectionHeader
+      v-if="!embedded"
       title="Zuständigkeit"
       title-id="assignment-heading"
       description="Admin-Zuweisung, Bearbeitungsstatus und Fälligkeit."
       as="h2"
     />
     <p v-if="loading" class="text-sm text-slate-500" role="status">Wird geladen …</p>
-    <InlineAlert v-else-if="loadError" tone="warning">
-      Zuständigkeit konnte nicht geladen werden.
+    <InlineAlert v-else-if="loadError" tone="warning" :compact="embedded">
+      <div class="flex flex-wrap items-center gap-x-3">
+        <span>Zuständigkeit konnte nicht geladen werden.</span>
+        <button v-if="embedded" class="action-link" @click="load">Erneut versuchen</button>
+      </div>
     </InlineAlert>
     <form
       v-else-if="admins.length"
-      class="panel grid gap-3 p-4 sm:grid-cols-3 sm:p-5"
+      class="grid gap-3 sm:grid-cols-3"
+      :class="embedded ? '' : 'panel p-4 sm:p-5'"
       @submit.prevent="save"
     >
       <label>
@@ -180,7 +191,7 @@ onBeforeUnmount(() => revision++)
         </button>
       </div>
     </form>
-    <InlineAlert v-else tone="info">
+    <InlineAlert v-else tone="info" :compact="embedded">
       Derzeit ist kein aktiver Systemadministrator für eine Zuweisung verfügbar.
     </InlineAlert>
     <AssignmentSnooze

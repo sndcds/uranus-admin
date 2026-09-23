@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, reactive } from 'vue'
-import { mount, flushPromises } from '@vue/test-utils'
+import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils'
+import RecordSection from '../../app/components/RecordSection.vue'
+import GeocodeSourceSummary from '../../app/components/GeocodeSourceSummary.vue'
+import GeocodeTechnicalMetadata from '../../app/components/GeocodeTechnicalMetadata.vue'
+import RequestState from '../../app/components/RequestState.vue'
+import { AdminApiError, failure } from '../../shared/errors'
 import Suggestion from '../../app/components/LocationSuggestion.vue'
 import CandidateMap from '../../app/components/CandidateMap.vue'
 import { createPinia, setActivePinia } from 'pinia'
@@ -51,6 +56,10 @@ const NuxtLink = defineComponent({
 })
 const global = {
   components: {
+    RecordSection,
+    GeocodeSourceSummary,
+    GeocodeTechnicalMetadata,
+    RequestState,
     AssignmentEditor,
     CandidateMap,
     DetailFacts,
@@ -69,7 +78,6 @@ const global = {
   },
   stubs: {
     NuxtLink,
-    RequestState: true,
     CandidateMap: {
       props: ['candidates', 'selectedId'],
       emits: ['select'],
@@ -83,7 +91,7 @@ const global = {
 }
 beforeEach(() => {
   setActivePinia(createPinia())
-  vi.clearAllMocks()
+  vi.resetAllMocks()
   route.query = {}
   route.params.id = geocodeDetail.id
   vi.stubGlobal('useNuxtApp', () => ({ $adminApi: api }))
@@ -95,9 +103,10 @@ beforeEach(() => {
   }))
   api.geocodeRequests.mockResolvedValue(structuredClone(geocodePage))
   api.geocodeRequest.mockResolvedValue(structuredClone(geocodeDetail))
-  api.admins.mockResolvedValue({ items: [] })
+  api.admins.mockResolvedValue({ items: [], admin_timezone: 'Europe/Berlin' })
   api.assignmentForWorkflow.mockResolvedValue(null)
 })
+enableAutoUnmount(afterEach)
 afterEach(() => vi.unstubAllGlobals())
 describe('location suggestions', () => {
   it.each(geocodeStatusSchema.options)('renders safe status %s', (status) => {
@@ -139,23 +148,34 @@ describe('location suggestions', () => {
     expect(map.props('candidates')).toHaveLength(2)
     map.vm.$emit('select', suggestion.candidates[1]!.id)
     await flushPromises()
-    expect(view.get('li[aria-current="true"] h3').text()).toBe('Zweiter Standort')
+    expect(view.get('li[aria-current="true"] h4').text()).toBe('Zweiter Standort')
     expect(map.props('selectedId')).toBe(suggestion.candidates[1]!.id)
     await view.get('button[aria-label="Kandidat 1 auf der Karte zeigen"]').trigger('click')
     expect(map.props('selectedId')).toBe(suggestion.candidates[0]!.id)
   })
-  it.each([
-    ['ambiguous', 'Mehrere mögliche Standorte wurden gefunden. Bitte die Kandidaten vergleichen.'],
-    ['not_found', 'Für diese Adresse wurde kein passender Standort gefunden.'],
-    ['insufficient_input', 'Für eine zuverlässige Standortsuche fehlen ausreichende Adressdaten.'],
-    ['failed', 'Standortprüfung fehlgeschlagen.'],
-    ['pending', 'Prüfung vorgemerkt.'],
-    ['checking', 'Prüfung läuft.'],
-  ] as const)('renders an intentional %s state', (status, message) => {
-    const suggestion = { ...structuredClone(geocodeDetail), status, candidates: [] }
-    const view = mount(Suggestion, { props: { suggestion }, global })
-    expect(view.text()).toContain(message)
+  it.each(geocodeStatusSchema.options)('renders %s without invented candidates', (status) => {
+    const view = mount(Suggestion, {
+      props: { suggestion: { ...geocodeDetail, status, candidates: [] } },
+      global,
+    })
+    expect(view.text()).toContain(geocodeMessages[status])
     expect(view.findAll('[aria-label="Standortkandidaten"]')).toHaveLength(0)
+  })
+  it('selects the stored best candidate even when it is not first and repairs removed selection', async () => {
+    const suggestion = structuredClone(geocodeDetail)
+    suggestion.candidates.push({
+      ...suggestion.candidates[0]!,
+      id: '00000000-0000-4000-8000-000000000903',
+      rank: 2,
+    })
+    suggestion.best_candidate = suggestion.candidates[1]!
+    const view = mount(Suggestion, { props: { suggestion }, global })
+    expect(view.getComponent(CandidateMap).props('selectedId')).toBe(suggestion.candidates[1]!.id)
+    await view.setProps({
+      suggestion: { ...suggestion, best_candidate: null, candidates: [suggestion.candidates[0]!] },
+    })
+    expect(view.getComponent(CandidateMap).props('selectedId')).toBe(suggestion.candidates[0]!.id)
+    expect(view.get('li[aria-current="true"]').text()).toContain('Ausgewählt')
   })
   it('queues retry once, removes old candidates and shows confirmation', async () => {
     let resolve: () => void = () => {}
@@ -174,7 +194,7 @@ describe('location suggestions', () => {
     resolve()
     await flushPromises()
     expect(view.text()).toContain('Neue Prüfung wurde eingeplant.')
-    expect(view.text()).toContain('Prüfung vorgemerkt.')
+    expect(view.text()).toContain('Prüfung vorgemerkt')
     expect(view.text()).not.toContain('Adressübereinstimmung')
     view.unmount()
   })
@@ -192,6 +212,173 @@ describe('location suggestions', () => {
     expect(failed.text()).toContain('Zuständigkeit konnte nicht geladen werden')
     expect(failed.text()).not.toContain('Derzeit ist kein aktiver Systemadministrator')
     failed.unmount()
+  })
+  it('has one page title, a compact source, a single comparison and technical metadata last', async () => {
+    const view = mount(Detail, { global })
+    await flushPromises()
+    expect(view.findAll('h2')).toHaveLength(1)
+    const source = view.get('[data-geocode-source]')
+    expect(source.text()).toContain(geocodeDetail.entity_name)
+    expect(source.text()).toContain(geocodeDetail.source_address)
+    expect(source.text()).not.toMatch(/Generation|Prüfversuche/)
+    expect(view.text().match(/Standortvorschlag vorhanden/g)).toHaveLength(1)
+    expect(view.get('[data-candidate-comparison]').findAll('h4')).toHaveLength(1)
+    expect(view.find('button[aria-label="Kandidat 1 auf der Karte zeigen"]').exists()).toBe(false)
+    expect(view.get('li[aria-current="true"]').text()).toContain('Ausgewählt')
+    const retry = view
+      .findAll('button')
+      .find((button) => button.text() === 'Standort erneut prüfen')!
+    expect(retry.classes()).not.toContain('button-primary')
+    const headings = view.findAll('h3').map((heading) => heading.text())
+    expect(headings).toEqual([
+      geocodeDetail.entity_name,
+      'Standortprüfung',
+      'Bearbeitung',
+      'Weitere Aktionen',
+      'Technische Informationen',
+    ])
+    const technical = view.findAllComponents(RecordSection).at(-1)!
+    expect(technical.text()).toContain('Generation1')
+    expect(technical.text()).toContain('Prüfversuche1')
+    expect(technical.text()).toContain(geocodeDetail.id)
+  })
+  it('renders missing source address and unknown check time without inventing values', () => {
+    const suggestion = { ...geocodeDetail, source_address: '', checked_at: null }
+    const source = mount(GeocodeSourceSummary, { props: { suggestion }, global })
+    expect(source.text()).toContain('Keine Adresse vorhanden')
+    const technical = mount(GeocodeTechnicalMetadata, { props: { suggestion }, global })
+    expect(technical.text()).toContain('Noch nicht geprüft')
+    expect(technical.find('time').exists()).toBe(false)
+  })
+  it('keeps assignment failure compact inside Bearbeitung and retries without disturbing candidates', async () => {
+    api.assignmentForWorkflow.mockRejectedValueOnce(new Error('unavailable'))
+    const view = mount(Detail, { global })
+    await flushPromises()
+    const editor = view.getComponent(AssignmentEditor)
+    expect(editor.props('embedded')).toBe(true)
+    expect(editor.find('h2').exists()).toBe(false)
+    expect(editor.getComponent(InlineAlert).props('compact')).toBe(true)
+    expect(view.get('[data-candidate-comparison]').exists()).toBe(true)
+    await editor.get('button').trigger('click')
+    await flushPromises()
+    expect(editor.text()).not.toContain('konnte nicht geladen')
+    expect(view.get('[data-candidate-comparison]').exists()).toBe(true)
+  })
+  it('preserves the standalone assignment error without adding a competing workflow retry', async () => {
+    api.assignmentForWorkflow.mockRejectedValueOnce(new Error('unavailable'))
+    const view = mount(AssignmentEditor, {
+      props: {
+        workflowType: 'geocode_request',
+        workflowKey: geocodeDetail.id,
+        entityType: 'venue',
+        entityKey: geocodeDetail.entity_key,
+      },
+      global,
+    })
+    await flushPromises()
+    expect(view.get('h2').text()).toBe('Zuständigkeit')
+    expect(view.getComponent(InlineAlert).props('compact')).toBe(false)
+    expect(view.find('button').exists()).toBe(false)
+  })
+  it('preserves the last successful request on refresh and announces stale failures', async () => {
+    const view = mount(Detail, { global })
+    await flushPromises()
+    let reject!: (reason: unknown) => void
+    api.geocodeRequest.mockReturnValueOnce(
+      new Promise((_resolve, r) => {
+        reject = r
+      }),
+    )
+    await view
+      .findAll('button')
+      .find((button) => button.text().includes('Prüfstand aktualisieren'))!
+      .trigger('click')
+    expect(view.get('[data-geocode-source]').text()).toContain(geocodeDetail.entity_name)
+    expect(view.text()).toContain('Daten werden aktualisiert')
+    reject(new Error('network'))
+    await flushPromises()
+    expect(view.text()).toContain('Die angezeigten Daten sind veraltet.')
+    expect(view.get('[data-candidate-comparison]').exists()).toBe(true)
+    expect(view.text()).not.toContain('Letzter erfolgreicher Abruf:')
+  })
+  it.each([401, 403, 404])('clears protected data after refresh status %s', async (status) => {
+    const view = mount(Detail, { global })
+    await flushPromises()
+    api.geocodeRequest.mockRejectedValueOnce(new AdminApiError(failure(status)))
+    await view
+      .findAll('button')
+      .find((button) => button.text().includes('Prüfstand aktualisieren'))!
+      .trigger('click')
+    await flushPromises()
+    expect(view.find('[data-geocode-source]').exists()).toBe(false)
+    expect(view.find('[data-candidate-comparison]').exists()).toBe(false)
+  })
+  it('clears immediately on identity change and ignores an older response', async () => {
+    const view = mount(Detail, { global })
+    await flushPromises()
+    let resolve!: (value: typeof geocodeDetail) => void
+    api.geocodeRequest.mockReturnValueOnce(
+      new Promise((r) => {
+        resolve = r
+      }),
+    )
+    await view
+      .findAll('button')
+      .find((button) => button.text().includes('Prüfstand aktualisieren'))!
+      .trigger('click')
+    let next!: (value: typeof geocodeDetail) => void
+    api.geocodeRequest.mockReturnValueOnce(
+      new Promise((r) => {
+        next = r
+      }),
+    )
+    route.params.id = '00000000-0000-4000-8000-000000000999'
+    await flushPromises()
+    expect(view.find('[data-geocode-source]').exists()).toBe(false)
+    next({ ...geocodeDetail, id: route.params.id, entity_name: 'Neuer Datensatz' })
+    await flushPromises()
+    resolve(geocodeDetail)
+    await flushPromises()
+    expect(view.get('[data-geocode-source]').text()).toContain('Neuer Datensatz')
+    expect(view.text()).not.toContain(geocodeDetail.entity_name)
+  })
+  it.each([401, 403, 404])('also clears protected data after enqueue status %s', async (status) => {
+    const view = mount(Detail, { global })
+    await flushPromises()
+    api.retryGeocodeRequest.mockRejectedValueOnce(new AdminApiError(failure(status)))
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Standort erneut prüfen')!
+      .trigger('click')
+    await flushPromises()
+    expect(view.find('[data-geocode-source]').exists()).toBe(false)
+  })
+  it('ignores an enqueue response after switching identity', async () => {
+    let resolve!: () => void
+    api.retryGeocodeRequest.mockReturnValueOnce(
+      new Promise<void>((r) => {
+        resolve = r
+      }),
+    )
+    const view = mount(Detail, { global })
+    await flushPromises()
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Standort erneut prüfen')!
+      .trigger('click')
+    const nextId = '00000000-0000-4000-8000-000000000999'
+    api.geocodeRequest.mockResolvedValueOnce({
+      ...geocodeDetail,
+      id: nextId,
+      entity_name: 'Andere Prüfung',
+    })
+    route.params.id = nextId
+    await flushPromises()
+    resolve()
+    await flushPromises()
+    expect(view.text()).toContain('Andere Prüfung')
+    expect(view.text()).not.toContain('Neue Prüfung wurde eingeplant.')
+    expect(view.get('[data-candidate-comparison]').exists()).toBe(true)
   })
   it('filters and paginates globally without scope', async () => {
     const view = mount(List, { global })

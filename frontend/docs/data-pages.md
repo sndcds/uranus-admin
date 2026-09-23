@@ -570,7 +570,7 @@ page. There is no geocode request per finding row. The detail page presents the 
 entity first, using the verified `source_address` as one value rather than parsing address parts
 in the browser. Technical request states have German workflow labels.
 
-`LocationSuggestion` renders up to five escaped candidates as `.data-row` entries with rank,
+`LocationSuggestion` renders up to five escaped candidates in a shared map/comparison surface with rank,
 coordinates, **Adressübereinstimmung**, fixed localized reasons and constructed OpenStreetMap
 links. The best stored candidate is labelled “Bester automatischer Treffer”, never as correct or
 safe. A client-only Leaflet map loads the configured OSM-based XYZ raster tiles and
@@ -594,6 +594,29 @@ button exists: even a perfect match is a suggestion, never the authoritative Ura
 Assignment loading failure and an empty assignable-admin roster appear as distinct concise
 alerts. Retry confirmation uses the shared success alert; pending/checking requests offer only
 “Prüfstand aktualisieren”.
+
+### Standortprüfung: Workflow v2
+
+`/geocoding/:id` folgt Quelle → Evidenz/Vergleich → Bearbeitung → weitere Aktionen →
+technische Informationen. Die kompakte Quelle zeigt den Namen einmal, Objektart,
+Quelladresse, kurzen Prüfstatus und kanonische Aktionen. Generation und Prüfversuche
+gehören ausschließlich in die Schlusssektion, ebenso die vorhandene Request-ID.
+`checked_at` erscheint als Workflow-Meta und technisch; kein `observed_at` wird erfunden.
+
+Karte und Kandidaten bilden eine gemeinsame Fläche. Ein Treffer erhält eine kompakte
+Zusammenfassung ohne redundante Kartenaktion, mehrere ab xl eine Vergleichsspalte.
+Auf kleineren Viewports folgen Kandidaten unter der Karte. Die Auswahl nennt „Ausgewählt“;
+Marker/Listenfokus, 44px-Aktionen, OSM-Attribution und Kartenfehleralternative bleiben erhalten.
+Nur gelieferte Match-Gründe werden dargestellt. Die Quelladresse ist kein strukturiertes
+Adressobjekt; `display_name` wird niemals für einen Feldvergleich zerlegt.
+
+Bearbeitung bettet den gemeinsamen AssignmentEditor ohne konkurrierenden h2/Panel ein.
+Sein kompakter Fehler unterbricht den Vergleich nicht und bietet einen eigenen Retry.
+„Standort erneut prüfen“ bleibt eine sekundäre enqueue-only-Aktion. Erfolg entfernt alte
+Kandidaten und zeigt pending; kein automatischer Wiederholungszyklus. Beim bloßen Refresh
+bleibt dagegen derselbe erfolgreiche Stand sichtbar. Andere ID sowie 401/403/404 verwerfen
+ihn; sonstige Fehler kennzeichnen stale Daten, Generation-Guards verwerfen späte Antworten.
+API, Auth, Source-Read-only und Provider-/CSP-Konfiguration bleiben unverändert.
 
 ### Quality Rules v2
 

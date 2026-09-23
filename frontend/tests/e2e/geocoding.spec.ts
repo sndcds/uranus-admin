@@ -1,6 +1,7 @@
 import { test, expect, logout } from '../fixtures/authenticated'
 import { findings } from '../fixtures/api'
-import { geocodeDetail, geocodePage } from '../fixtures/geocoding'
+import { geocodeMessages } from '../../app/utils/geocoding'
+import { geocodeDetail, geocodePage, geocodeWorkflowDetail } from '../fixtures/geocoding'
 
 test('missing-location workflow, retry, global queue and session reset', async ({ page }) => {
   const item = structuredClone(geocodeDetail)
@@ -52,7 +53,7 @@ test('missing-location workflow, retry, global queue and session reset', async (
   await expect(page.getByRole('button', { name: /übernehmen/i })).toHaveCount(0)
   await page.getByRole('button', { name: 'Standort erneut prüfen' }).click()
   await expect(page.getByText('Neue Prüfung wurde eingeplant.')).toBeVisible()
-  await expect(page.getByText('Prüfung vorgemerkt.', { exact: false })).toBeVisible()
+  await expect(page.getByText('Prüfung vorgemerkt', { exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Alle Standortvorschläge' }).click()
   await page.getByRole('combobox', { name: 'Status', exact: true }).selectOption('ambiguous')
   await page.getByRole('combobox', { name: 'Entität', exact: true }).selectOption('venue')
@@ -101,9 +102,7 @@ test('detail compares candidates and presents each workflow state without mobile
   item.candidate_count = 2
   await page.goto(`/geocoding/${item.id}`)
   await expect(page.getByRole('heading', { name: item.entity_name })).toBeVisible()
-  await expect(
-    page.getByText('Mehrere mögliche Standorte wurden gefunden.', { exact: false }),
-  ).toBeVisible()
+  await expect(page.getByText(geocodeMessages.ambiguous, { exact: true })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Karte der Standortkandidaten' })).toBeVisible()
   await expect(page.locator('.leaflet-container')).toBeVisible()
   await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible()
@@ -136,19 +135,19 @@ test('detail compares candidates and presents each workflow state without mobile
     page.getByText('Derzeit ist kein aktiver Systemadministrator', { exact: false }),
   ).toBeVisible()
 
-  for (const [status, message] of [
-    ['not_found', 'Für diese Adresse wurde kein passender Standort gefunden.'],
-    ['insufficient_input', 'Für eine zuverlässige Standortsuche fehlen ausreichende Adressdaten.'],
-    ['failed', 'Standortprüfung fehlgeschlagen.'],
-    ['pending', 'Prüfung vorgemerkt.'],
-    ['checking', 'Prüfung läuft.'],
+  for (const status of [
+    'not_found',
+    'insufficient_input',
+    'failed',
+    'pending',
+    'checking',
   ] as const) {
     item.status = status
     item.candidates = []
     item.best_candidate = null
     item.candidate_count = 0
     await page.reload()
-    await expect(page.getByText(message, { exact: false }).first()).toBeVisible()
+    await expect(page.getByText(geocodeMessages[status], { exact: true }).first()).toBeVisible()
     await expect(page.getByRole('region', { name: 'Karte der Standortkandidaten' })).toHaveCount(0)
   }
   await expect(page.getByRole('button', { name: 'Prüfstand aktualisieren' })).toBeVisible()
@@ -204,7 +203,9 @@ test('tile failure leaves the complete candidate list usable', async ({ page }) 
   await expect(
     page.getByRole('heading', { name: geocodeDetail.candidates[0]!.display_name }),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'Kandidat 1 auf der Karte zeigen', exact: true }).click()
+  await expect(
+    page.getByRole('button', { name: 'Kandidat 1 auf der Karte zeigen', exact: true }),
+  ).toHaveCount(0)
   await expect(page.locator('li[aria-current="true"]')).toBeVisible()
   await expect(
     page.getByRole('link', { name: /Kandidat 1 auf OpenStreetMap öffnen/ }),
@@ -256,4 +257,126 @@ test('map loads in production CSP without workers, eval or extra inline policy',
   expect(
     await page.evaluate(() => (window as typeof window & { violations: string[] }).violations),
   ).toEqual([])
+})
+
+for (const viewport of [
+  { width: 1440, height: 1000, name: 'desktop' },
+  { width: 1024, height: 768, name: 'tablet' },
+  { width: 390, height: 844, name: 'mobile' },
+  { width: 360, height: 800, name: 'mobile-small' },
+]) {
+  test(`workflow v2 source, evidence and technical hierarchy at ${viewport.width}px`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize(viewport)
+    await page.route('**/api/admin/api/v1/**', (route) => {
+      const path = new URL(route.request().url()).pathname
+      if (path.endsWith('/admins'))
+        return route.fulfill({
+          json: {
+            items: [{ id: '00000000-0000-4000-8000-000000000800', login: 'Test-Administration' }],
+            admin_timezone: 'Europe/Berlin',
+          },
+        })
+      if (path.endsWith('/assignments')) return route.fulfill({ json: null })
+      if (path.includes('/geocode/requests/')) return route.fulfill({ json: geocodeWorkflowDetail })
+      return route.continue()
+    })
+    await page.goto(`/geocoding/${geocodeWorkflowDetail.id}`)
+    await expect(page.locator('main h2')).toHaveText('Standortvorschlag')
+    const source = page.locator('[data-geocode-source]')
+    await expect(
+      source.getByRole('heading', { name: geocodeWorkflowDetail.entity_name }),
+    ).toHaveCount(1)
+    await expect(
+      source.getByText(geocodeWorkflowDetail.source_address, { exact: false }),
+    ).toBeVisible()
+    await expect(source.getByText(/Generation|Prüfversuche|Request-ID/)).toHaveCount(0)
+    await expect(source.getByRole('link', { name: 'Beziehungen', exact: true })).toHaveAttribute(
+      'href',
+      `/graph?root_type=venue&root_key=${geocodeWorkflowDetail.entity_key}&depth=2`,
+    )
+    const marks = new URL(
+      (await source.getByRole('link', { name: 'Markierungen & Notizen' }).getAttribute('href'))!,
+      page.url(),
+    )
+    expect(marks.pathname).toBe('/marks')
+    expect(marks.searchParams.get('entity_type')).toBe('venue')
+    expect(marks.searchParams.get('entity_key')).toBe(geocodeWorkflowDetail.entity_key)
+
+    await expect(page.getByText('Standortvorschlag vorhanden', { exact: true })).toHaveCount(1)
+    const comparison = page.locator('[data-candidate-comparison]')
+    await expect(comparison.locator('.leaflet-tile-loaded').first()).toBeVisible()
+    await expect(comparison.locator('.leaflet-tile-loaded').first()).toHaveCSS('opacity', '1')
+    await expect(comparison.getByRole('heading', { level: 4 })).toHaveText(
+      geocodeWorkflowDetail.candidates[0]!.display_name,
+    )
+    await expect(comparison.getByText('Bester automatischer Treffer')).toBeVisible()
+    await expect(comparison.getByText('100 % Adressübereinstimmung')).toBeVisible()
+    await expect(comparison.locator('li[aria-current="true"]')).toContainText('Ausgewählt')
+    const osm = comparison.getByRole('link', { name: /Kandidat 1 auf OpenStreetMap/ })
+    await expect(osm).toHaveAttribute('href', 'https://www.openstreetmap.org/way/123')
+    await expect(osm).toHaveAttribute('rel', 'noopener noreferrer')
+    await expect(osm).toHaveAttribute('referrerpolicy', 'no-referrer')
+    await expect(page.getByRole('combobox', { name: 'Zuständig', exact: true })).toBeVisible()
+    await expect(page.getByLabel('Fällig (Europe/Berlin)')).toBeVisible()
+    const retry = page.getByRole('button', { name: 'Standort erneut prüfen' })
+    await expect(retry).not.toHaveClass(/button-primary/)
+    const technical = page.getByRole('region', { name: 'Technische Informationen' })
+    await expect(technical).toContainText('Prüfversuche')
+    await expect(technical).toContainText(geocodeWorkflowDetail.id)
+    expect(await page.locator('main h3').allTextContents()).toEqual([
+      geocodeWorkflowDetail.entity_name,
+      'Standortprüfung',
+      'Bearbeitung',
+      'Weitere Aktionen',
+      'Technische Informationen',
+    ])
+    const comparisonBox = await comparison.boundingBox()
+    const retryBox = await retry.boundingBox()
+    expect(retryBox!.y).toBeGreaterThan(comparisonBox!.y + comparisonBox!.height)
+    for (const link of await source.getByRole('link').all())
+      expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({
+      path: info.outputPath(`geocoding-workflow-v2-${viewport.name}.png`),
+      fullPage: true,
+      // The SSR shell clock is unrelated to this workflow; keep review artifacts stable.
+      style: '[data-desktop-app-header] .uppercase { visibility: hidden; }',
+    })
+  })
+}
+
+test('assignment error stays below the complete comparison and can be retried independently', async ({
+  page,
+}) => {
+  let unavailable = true
+  await page.route('**/api/admin/api/v1/**', (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/admins'))
+      return route.fulfill({ json: { items: [], admin_timezone: 'Europe/Berlin' } })
+    if (path.endsWith('/assignments'))
+      return unavailable
+        ? route.fulfill({
+            status: 503,
+            json: { error: { code: 'unavailable', message: 'Unavailable' } },
+          })
+        : route.fulfill({ json: null })
+    if (path.includes('/geocode/requests/')) return route.fulfill({ json: geocodeWorkflowDetail })
+    return route.continue()
+  })
+  await page.goto(`/geocoding/${geocodeWorkflowDetail.id}`)
+  const work = page.getByRole('region', { name: 'Bearbeitung', exact: true })
+  await expect(work.getByRole('alert')).toContainText('Zuständigkeit konnte nicht geladen werden.')
+  await expect(
+    page.locator('[data-candidate-comparison] .leaflet-tile-loaded').first(),
+  ).toBeVisible()
+  await expect(page.getByText('100 % Adressübereinstimmung')).toBeVisible()
+  expect((await work.boundingBox())!.y).toBeGreaterThan(
+    (await page.locator('[data-candidate-comparison]').boundingBox())!.y,
+  )
+  unavailable = false
+  await work.getByRole('button', { name: 'Erneut versuchen' }).click()
+  await expect(work.getByRole('alert')).toHaveCount(0)
+  await expect(page.getByText('100 % Adressübereinstimmung')).toBeVisible()
 })

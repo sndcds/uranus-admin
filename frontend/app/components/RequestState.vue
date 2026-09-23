@@ -28,7 +28,10 @@ defineEmits<{ retry: [] }>()
       Anmeldung erforderlich.
     </p>
     <p v-if="hasData" class="mt-2 font-semibold">
-      Die angezeigten Daten sind veraltet. Letzter erfolgreicher Abruf: {{ dateTime(lastSuccess) }}.
+      Die angezeigten Daten sind veraltet.
+      <template v-if="lastSuccess"
+        >Letzter erfolgreicher Abruf: {{ dateTime(lastSuccess) }}.</template
+      >
     </p>
     <button class="button mt-3" :disabled="loading" @click="$emit('retry')">
       Erneut versuchen

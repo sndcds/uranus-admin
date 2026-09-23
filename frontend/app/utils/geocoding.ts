@@ -11,13 +11,13 @@ export const geocodeStatuses: Record<GeocodeStatus, string> = {
   stale: 'Vorschlag veraltet',
 }
 export const geocodeMessages: Record<GeocodeStatus, string> = {
-  pending: 'Prüfung vorgemerkt.',
-  checking: 'Prüfung läuft.',
-  candidate: 'Standortvorschlag vorhanden.',
-  ambiguous: 'Mehrere mögliche Standorte wurden gefunden.',
-  not_found: 'Für diese Adresse wurde kein passender Standort gefunden.',
+  pending: 'Die eingeplante Prüfung ist noch nicht abgeschlossen.',
+  checking: 'Das Ergebnis steht nach Abschluss der Prüfung bereit.',
+  candidate: 'Der Vorschlag verändert die gespeicherte Geoposition nicht.',
+  ambiguous: 'Bitte die Kandidaten vergleichen. Die gespeicherte Geoposition bleibt unverändert.',
+  not_found: 'Bitte die Quelladresse prüfen, bevor eine neue Prüfung eingeplant wird.',
   insufficient_input: 'Für eine zuverlässige Standortsuche fehlen ausreichende Adressdaten.',
-  failed: 'Standortprüfung fehlgeschlagen.',
+  failed: 'Die Prüfung kann unter „Weitere Aktionen“ erneut eingeplant werden.',
   stale:
     'Dieser Vorschlag ist nicht mehr aktuell. Die Adresse oder Position hat sich geändert oder der Datensatz wurde entfernt.',
 }

@@ -1,5 +1,8 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ tone?: 'info' | 'warning' | 'error' | 'success' }>(), { tone: 'info' })
+withDefaults(
+  defineProps<{ tone?: 'info' | 'warning' | 'error' | 'success'; compact?: boolean }>(),
+  { tone: 'info' },
+)
 const tones = {
   info: 'border-slate-200 bg-slate-100 text-slate-700',
   warning: 'border-amber-200 bg-amber-50 text-amber-950',
@@ -10,8 +13,8 @@ const tones = {
 <template>
   <div
     :role="tone === 'error' || tone === 'warning' ? 'alert' : 'status'"
-    class="rounded-2xl border p-4 text-sm"
-    :class="tones[tone]"
+    class="text-sm"
+    :class="[tones[tone], compact ? 'rounded-lg border-l-2 px-3 py-1' : 'rounded-2xl border p-4']"
   >
     <slot />
   </div>

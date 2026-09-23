@@ -5,7 +5,11 @@ import type { GeocodeCandidate } from '#shared/contracts'
 import { mapAttributionUrl, mapTileUrl } from '~/utils/map-tiles'
 import 'leaflet/dist/leaflet.css'
 
-const props = defineProps<{ candidates: GeocodeCandidate[]; selectedId: string }>()
+const props = defineProps<{
+  candidates: GeocodeCandidate[]
+  selectedId: string
+  embedded?: boolean
+}>()
 const emit = defineEmits<{ select: [id: string] }>()
 const config = useRuntimeConfig().public
 const tileUrl = mapTileUrl(config.mapTileUrl)
@@ -140,14 +144,18 @@ defineExpose({ focusCandidate })
 </script>
 
 <template>
-  <section class="candidate-map panel overflow-hidden" aria-label="Karte der Standortkandidaten">
+  <section
+    class="candidate-map min-w-0 overflow-hidden"
+    :class="embedded ? '' : 'panel'"
+    aria-label="Karte der Standortkandidaten"
+  >
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3">
       <span class="text-sm text-slate-600"
         >{{ candidates.length }} {{ candidates.length === 1 ? 'Kandidat' : 'Kandidaten' }} · Norden
         oben</span
       >
       <button v-if="!unavailable && candidates.length" type="button" class="button" @click="fitAll">
-        Alle Kandidaten zeigen
+        {{ candidates.length === 1 ? 'Zentrieren' : 'Alle Kandidaten zeigen' }}
       </button>
     </div>
     <div v-if="!candidates.length" class="p-4 text-sm text-slate-600">
