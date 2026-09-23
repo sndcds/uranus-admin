@@ -112,10 +112,51 @@ Finding-Detail; Versionen verhindern verlorene parallele Änderungen. Fälligkei
 Europe/Berlin-Kalendertage einschließlich DST in einen belegten `due_at`-Zeitpunkt umgerechnet.
 
 `/geocoding/:id` zeigt die betroffene Entität und unverändert gelieferte Quelladresse vor dem
-Kandidatenvergleich. Eine kachelfreie Koordinatenkarte stellt alle validierten Kandidaten relativ
-dar, koppelt Marker und Tastaturauswahl an die kompakte Kandidatenliste und benötigt weder externe
-Tile-Requests noch eine CSP-Erweiterung. Status, Matchgründe und Retry-Zustände sind deutsch; es
-existiert weiterhin keine Übernahme- oder Uranus-Schreibaktion.
+Kandidatenvergleich. Leaflet 1.9 stellt die Kandidaten auf einer interaktiven OSM-Rasterkarte dar;
+Marker und Kandidatenliste teilen dieselbe Auswahl. Status, Matchgründe und Retry-Zustände sind
+deutsch; es existiert weiterhin keine Übernahme- oder Uranus-Schreibaktion.
+
+### Geocoding-Karte konfigurieren
+
+Leaflet wird erst in `onMounted` importiert, CSS wird lokal gebündelt. Die kleine Rasterbibliothek
+wird als separates Paket geladen (ca. 43 kB gzip im Produktionsbuild) und benötigt weder
+WebGL noch Worker oder API-Schlüssel; für maximal fünf Marker sind keine
+Vektorkartenfunktionen erforderlich. Sie unterstützt Tastatur-Pan/Zoom, Touch und eigene native
+Marker-Buttons. [Leaflet API](https://leafletjs.com/reference.html).
+
+Das Repository belegt einen eigenen Nominatim-Dienst, aber **keinen freigegebenen Tile-Server**.
+Nominatim ist kein Tile-Dienst. Deshalb bleiben diese Runtime-Werte standardmäßig leer:
+
+- `NUXT_PUBLIC_MAP_TILE_URL`: freigegebene HTTPS-XYZ-Raster-URL, z. B.
+  `https://tiles.example.test/osm/{z}/{x}/{y}.png` (nur ein Konfigurationsbeispiel).
+  Unterstützt werden feste Hosts, optionale Pfadpräfixe und `.png`, `.jpg`, `.webp`;
+  alternativ ein bereits bereitgestellter Same-Origin-Pfad. Keine Queryparameter,
+  Credentials, `{s}`-Subdomains, API-Schlüssel oder dynamischen Entity-Werte.
+- `NUXT_PUBLIC_MAP_TILE_ATTRIBUTION`: zusätzliche Provider-Attribution als Plaintext.
+- `NUXT_PUBLIC_MAP_TILE_ATTRIBUTION_URL`: optionaler HTTPS-Link zur Provider-Attribution.
+
+Der Betreiber wählt den eigenen bzw. ausdrücklich freigegebenen OSM-basierten Anbieter und
+prüft dessen Nutzungsbedingungen/Zoomabdeckung (1–19). Es gibt **keinen automatischen Fallback
+auf tile.openstreetmap.org**; dessen [Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/)
+ist bei bewusster Verwendung zusätzlich einzuhalten. Kein Prefetch, Offline-Download oder
+automatischer Retry. Browsercache bleibt dem HTTP-Cache des Providers überlassen.
+
+Externe Bilder benötigen ausschließlich die **exakte Tile-Origin in `img-src`**. `connect-src`,
+`worker-src`, `script-src` und `style-src` brauchen keine Änderung; kein `unsafe-eval` und keine
+zusätzliche Inline-Freigabe. Eine strengere Nginx-CSP lässt sich nicht durch Nuxt lockern.
+Ansible setzt Runtime-Werte und CSP gemeinsam über die [Map-Variablen](../ansible/README.md#geocoding-kartenkacheln).
+Same-Origin-Konfiguration erzeugt keinen generischen Proxy und stellt selbst keine Tiles bereit.
+
+Der Browser sendet normale numerische XYZ-Pfade, seine IP und nur die Admin-Origin als Referrer.
+Kandidatenregionen sind dadurch beim Provider erkennbar; Entity-Namen, Adressen, E-Mails,
+Admin-API-Credentials und Detail-URLs werden nicht in Tile-URLs/Headers eingebaut. Es gibt keine
+clientseitige Geocoding-Abfrage. OSM-Attribution und zusätzliche Provider-Credits bleiben sichtbar.
+Die vollständige Kandidatenliste funktioniert ohne Karte. Fehlende/ungültige Konfiguration,
+Import-/Tile-Fehler oder 12 Sekunden ohne Ladeabschluss zeigen einen Inline-Hinweis ohne Retry-Loop.
+
+Playwright interceptiert alle konfigurierten Test-Tiles mit einer lokalen synthetischen SVG-Fixture;
+auch Produktions-CSP und Screenshots benötigen kein externes Internet. Die Testkacheln sind
+keine geografische Evidenz und werden nicht mit der Anwendung ausgeliefert.
 
 Die Activity-Seite verwendet kompakte Zeilen, deutsche Typ-Badges und Berliner Tagesgruppen.
 Typzahlen zählen ausschließlich die sichtbare Seite; undatierte Einträge bleiben ohne Chronologie.

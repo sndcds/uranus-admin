@@ -70,6 +70,12 @@ const global = {
   stubs: {
     NuxtLink,
     RequestState: true,
+    CandidateMap: {
+      props: ['candidates', 'selectedId'],
+      emits: ['select'],
+      template: '<div />',
+      methods: { focusCandidate() {} },
+    },
     AppIcon: true,
     GraphLink: { template: '<a>Beziehungen anzeigen</a>' },
     RecordMarkLink: { template: '<a>Markierungen &amp; Notizen</a>' },
@@ -129,16 +135,14 @@ describe('location suggestions', () => {
       display_name: 'Zweiter Standort',
     })
     const view = mount(Suggestion, { props: { suggestion }, global })
-    const secondMarker = view.get('button[aria-label^="Kandidat 2 auf der Karte"]')
-    expect(secondMarker.attributes('aria-pressed')).toBe('false')
-    await secondMarker.trigger('click')
-    expect(secondMarker.attributes('aria-pressed')).toBe('true')
+    const map = view.findComponent(CandidateMap)
+    expect(map.props('candidates')).toHaveLength(2)
+    map.vm.$emit('select', suggestion.candidates[1]!.id)
+    await flushPromises()
     expect(view.get('li[aria-current="true"] h3').text()).toBe('Zweiter Standort')
-    const firstAction = view.get('button[aria-label="Kandidat 1 auf der Karte zeigen"]')
-    await firstAction.trigger('click')
-    expect(
-      view.get('button[aria-label^="Kandidat 1 auf der Karte:"]').attributes('aria-pressed'),
-    ).toBe('true')
+    expect(map.props('selectedId')).toBe(suggestion.candidates[1]!.id)
+    await view.get('button[aria-label="Kandidat 1 auf der Karte zeigen"]').trigger('click')
+    expect(map.props('selectedId')).toBe(suggestion.candidates[0]!.id)
   })
   it.each([
     ['ambiguous', 'Mehrere mögliche Standorte wurden gefunden. Bitte die Kandidaten vergleichen.'],

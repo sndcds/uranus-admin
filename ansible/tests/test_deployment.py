@@ -61,6 +61,43 @@ class EnvironmentTests(unittest.TestCase):
             "DEV_ADMIN_TOKEN": "dev-test-value",
         }
 
+    def test_map_tile_configuration_and_exact_csp_origin(self):
+        url = "https://tiles.example.test/osm/{z}/{x}/{y}.png"
+        self.assertTrue(
+            filters.valid_map_tiles(url, "© Test provider", "https://tiles.example.test/about")
+        )
+        self.assertTrue(filters.valid_map_tiles("/tiles/{z}/{x}/{y}.png"))
+        self.assertTrue(filters.valid_map_tiles(""))
+        for invalid in (
+            "http://tiles.test/{z}/{x}/{y}.png",
+            "https://{s}.test/{z}/{x}/{y}.png",
+            "https://u:p@tiles.test/{z}/{x}/{y}.png",
+            "//tiles.test/{z}/{x}/{y}.png",
+            url + "?email=private",
+            url + "#private",
+            url + '"; script-src *',
+        ):
+            self.assertFalse(filters.valid_map_tiles(invalid))
+        for text in ("bad\nEnvironment=EVIL", 'bad"', "bad%", "bad\\"):
+            self.assertFalse(filters.valid_map_tiles(url, text))
+        self.assertFalse(filters.valid_map_tiles(url, "Provider", "javascript:alert(1)"))
+        env = Environment(loader=FileSystemLoader(ROLE / "templates"), undefined=StrictUndefined)
+        values = {
+            **nginx_defaults(),
+            "ua_map_tile_url": url,
+            "ua_map_tile_attribution": "© Test provider",
+        }
+        baseline = env.get_template("nginx-site.conf.j2").render(nginx_defaults())
+        site = env.get_template("nginx-site.conf.j2").render(values)
+        self.assertEqual(site.replace(" https://tiles.example.test", ""), baseline)
+        self.assertNotIn("unsafe-eval", site)
+        self.assertNotIn("{z}", site)
+        unit = env.get_template("frontend.service.j2").render(
+            {**values, "ua_release_dir": "/tmp/test-release", "ua_node": "/usr/bin/node"}
+        )
+        self.assertIn('Environment="NUXT_PUBLIC_MAP_TILE_URL=' + url + '"', unit)
+        self.assertIn('Environment="NUXT_PUBLIC_MAP_TILE_ATTRIBUTION=© Test provider"', unit)
+
     def test_separation_and_debug_gates(self):
         for debug in (True, False):
             result = filters.runtime_environment(self.values, self.values, debug=debug)

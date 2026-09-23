@@ -6,6 +6,10 @@ ua_public_origin: https://admin.kulturbytes.de
 ua_nginx_server_name: "{{ ua_public_origin | urlsplit('hostname') }}"
 ua_tls_certificate: "/etc/letsencrypt/live/{{ ua_nginx_server_name }}/fullchain.pem"
 ua_tls_certificate_key: "/etc/letsencrypt/live/{{ ua_nginx_server_name }}/privkey.pem"
+# Explicit operator-approved XYZ provider. No public OSM fallback.
+ua_map_tile_url: ""
+ua_map_tile_attribution: ""
+ua_map_tile_attribution_url: ""
 ua_release_sha: ""
 ua_artifact: ""
 ua_artifact_sha256: ""

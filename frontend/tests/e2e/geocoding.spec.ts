@@ -79,7 +79,7 @@ test('missing-location workflow, retry, global queue and session reset', async (
 
 test('detail compares candidates and presents each workflow state without mobile overflow', async ({
   page,
-}) => {
+}, info) => {
   const item = structuredClone(geocodeDetail)
   await page.route('**/api/admin/api/v1/**', (route) => {
     const url = new URL(route.request().url())
@@ -105,6 +105,11 @@ test('detail compares candidates and presents each workflow state without mobile
     page.getByText('Mehrere mögliche Standorte wurden gefunden.', { exact: false }),
   ).toBeVisible()
   await expect(page.getByRole('region', { name: 'Karte der Standortkandidaten' })).toBeVisible()
+  await expect(page.locator('.leaflet-container')).toBeVisible()
+  await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible()
+  await expect(page.locator('.candidate-map-marker')).toHaveCount(2)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('geocoding-map.png'), fullPage: true })
   const secondMarker = page.getByRole('button', { name: /Kandidat 2 auf der Karte:/ })
   await secondMarker.click()
   await expect(secondMarker).toHaveAttribute('aria-pressed', 'true')
@@ -112,6 +117,17 @@ test('detail compares candidates and presents each workflow state without mobile
     'aria-current',
     'true',
   )
+  await expect(page.locator('li[aria-current="true"]')).toBeFocused()
+  await page.getByRole('button', { name: 'Kandidat 1 auf der Karte zeigen', exact: true }).click()
+  await expect(page.locator('.leaflet-container')).toBeFocused()
+  await expect(page.getByRole('button', { name: /Kandidat 1 auf der Karte:/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await page.getByRole('button', { name: 'Alle Kandidaten zeigen' }).click()
+  await expect(secondMarker).toBeVisible()
+  await page.getByRole('button', { name: 'Vergrößern', exact: true }).click()
+  await page.getByRole('button', { name: 'Verkleinern', exact: true }).click()
   await expect(page.getByRole('link', { name: 'Ort öffnen' })).toHaveAttribute(
     'href',
     `/venues/${item.entity_key}`,
@@ -176,4 +192,68 @@ test('real proxy enforces bodyless retry and forwards Origin/CSRF to protected b
   const response = await page.request.post(path, { headers: valid })
   expect(response.status()).toBe(409)
   expect((await response.json()).error.code).toBe('geocode_no_longer_needed')
+})
+
+test('tile failure leaves the complete candidate list usable', async ({ page }) => {
+  await page.route('**/__test-tiles/**', (route) => route.abort())
+  await page.route('**/api/admin/api/v1/geocode/requests/*', (route) =>
+    route.fulfill({ json: geocodeDetail }),
+  )
+  await page.goto(`/geocoding/${geocodeDetail.id}`)
+  await expect(page.getByText('Karte konnte nicht geladen werden.', { exact: false })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: geocodeDetail.candidates[0]!.display_name }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Kandidat 1 auf der Karte zeigen', exact: true }).click()
+  await expect(page.locator('li[aria-current="true"]')).toBeVisible()
+  await expect(
+    page.getByRole('link', { name: /Kandidat 1 auf OpenStreetMap öffnen/ }),
+  ).toBeVisible()
+})
+
+test('map loads in production CSP without workers, eval or extra inline policy', async ({
+  page,
+}) => {
+  test.skip(process.env.TEST_PRODUCTION !== '1', 'Requires production client build')
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.addInitScript(() => {
+    const state = window as typeof window & { violations: string[] }
+    state.violations = []
+    document.addEventListener('securitypolicyviolation', (event) =>
+      state.violations.push(event.effectiveDirective),
+    )
+  })
+  await page.route('**/*', async (route) => {
+    if (route.request().resourceType() !== 'document') return route.fallback()
+    const response = await route.fetch()
+    return route.fulfill({
+      response,
+      headers: {
+        ...response.headers(),
+        'content-security-policy':
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'",
+      },
+    })
+  })
+  await page.route('**/api/admin/api/v1/geocode/requests/*', (route) =>
+    route.fulfill({ json: geocodeDetail }),
+  )
+  await page.goto(`/geocoding/${geocodeDetail.id}`)
+  await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible()
+  await expect(page.locator('.candidate-map-marker')).toHaveCount(1)
+  await expect(page.locator('.leaflet-tile-loaded').first()).toHaveAttribute(
+    'src',
+    /\/__test-tiles\/16\/\d+\/\d+\.png$/,
+  )
+  const requests: string[] = []
+  page.on('request', (request) => {
+    if (request.url().includes('__test-tiles')) requests.push(request.url())
+  })
+  await page.getByRole('button', { name: 'Vergrößern', exact: true }).click()
+  await expect.poll(() => requests.length).toBeGreaterThan(0)
+  expect(errors).toEqual([])
+  expect(
+    await page.evaluate(() => (window as typeof window & { violations: string[] }).violations),
+  ).toEqual([])
 })

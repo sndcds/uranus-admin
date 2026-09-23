@@ -1,6 +1,7 @@
 - name: Require a valid target environment and safe paths
   ansible.builtin.assert:
     that:
+      - ua_map_tile_url | ua_valid_map_tiles(ua_map_tile_attribution, ua_map_tile_attribution_url)
       - ua_action in ['inspect', 'deploy']
       - ua_target_environment is string
       - ua_target_environment in ['production', 'staging', 'test']

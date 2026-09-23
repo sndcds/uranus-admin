@@ -15,6 +15,9 @@ Environment=NITRO_HOST=127.0.0.1
 Environment=NITRO_PORT=3011
 Environment=NUXT_ADMIN_API_BASE=http://127.0.0.1:8011
 Environment=NUXT_PUBLIC_ALLOW_DEV_TOKEN_ENTRY=false
+Environment="NUXT_PUBLIC_MAP_TILE_URL={{ ua_map_tile_url | default('') }}"
+Environment="NUXT_PUBLIC_MAP_TILE_ATTRIBUTION={{ ua_map_tile_attribution | default('') }}"
+Environment="NUXT_PUBLIC_MAP_TILE_ATTRIBUTION_URL={{ ua_map_tile_attribution_url | default('') }}"
 Environment=NUXT_TRUSTED_INGRESS_IPS=127.0.0.1
 UnsetEnvironment=SQL_CONSOLE_DATABASE_URL SQL_CONSOLE_ADMIN_DATABASE_URL DATABASE_URL ADMIN_DATABASE_URL ADMIN_MIGRATION_DATABASE_URL ADMIN_AUTH_MANAGEMENT_DATABASE_URL DEV_ADMIN_TOKEN
 ExecStart={{ ua_node }} {{ ua_release_dir }}/frontend/.output/server/index.mjs

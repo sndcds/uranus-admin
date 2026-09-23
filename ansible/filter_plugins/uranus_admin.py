@@ -60,6 +60,27 @@ def render_environment(values):
     return "\n".join(lines) + "\n"
 
 
+def valid_map_tiles(url, attribution="", attribution_url=""):
+    """Fixed XYZ images only; safe for systemd environment and an exact CSP origin."""
+    if not all(isinstance(value, str) for value in (url, attribution, attribution_url)):
+        return False
+    if len(url) > 2048 or len(attribution) > 200 or len(attribution_url) > 2048:
+        return False
+    if any(ord(c) < 32 or ord(c) == 127 or c in '"%\\' for c in attribution):
+        return False
+    if url and not re.fullmatch(
+        r"(?:https://[a-z0-9]+(?:[.-][a-z0-9]+)*(?::[0-9]{1,5})?)?"
+        r"/(?:[a-zA-Z0-9_-]+/)*\{z\}/\{x\}/\{y\}\.(?:png|jpg|webp)",
+        url,
+    ):
+        return False
+    if attribution_url and not re.fullmatch(
+        r"https://[a-z0-9]+(?:[.-][a-z0-9]+)*(?:/[a-zA-Z0-9_./-]*)?", attribution_url
+    ):
+        return False
+    return True
+
+
 def valid_target_origin(origin, environment):
     if not isinstance(origin, str) or not re.fullmatch(
         r"https://[a-z0-9]+(?:[.-][a-z0-9]+)*", origin
@@ -277,6 +298,7 @@ class FilterModule:
             "ua_render_env": render_environment,
             "ua_runtime_env": runtime_environment,
             "ua_valid_target_origin": valid_target_origin,
+            "ua_valid_map_tiles": valid_map_tiles,
             "ua_console_bootstrap_blockers": console_bootstrap_blockers,
             "ua_privileged_env": privileged_environment,
             "ua_manifest": artifact_manifest,

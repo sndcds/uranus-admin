@@ -7,7 +7,7 @@
 {% if maintenance %}
     add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none';" always;
 {% else %}
-    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.kulturbytes.de; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self'; upgrade-insecure-requests;" always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.kulturbytes.de{% if (ua_map_tile_url | default('')).startswith('https://') %} {{ ua_map_tile_url.split('/')[:3] | join('/') }}{% endif %}; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; media-src 'self'; upgrade-insecure-requests;" always;
 {% endif %}
     add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
 {% endmacro %}
