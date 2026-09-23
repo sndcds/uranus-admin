@@ -256,6 +256,22 @@ Status und Wiedervorlage im gemeinsamen AssignmentEditor.
 Geocoding bleibt Inspection-only. Retry reiht einen neuen Versuch ein; kein sofortiger
 Erfolg, kein Quellschreiben. Notification-Historie bleibt unveränderlich.
 
+`/geocoding/:id` ist die migrierte Workflow-v2-Referenz für **Quelle → Evidenz/Vergleich →
+Bearbeitung → weitere Aktionen → technische Informationen**. GeocodeSourceSummary zeigt
+Name, Typ, Quelladresse und den kurzen Prüfstatus ohne technische Faktenkarte.
+LocationSuggestion verbindet die unveränderte Leaflet-Karte mit der vollständigen
+Textalternative in einer Vergleichsfläche: ein Treffer kompakt darunter, mehrere ab xl
+neben der Karte, mobil darunter. Auswahl ist zusätzlich zur Farbe als „Ausgewählt“ markiert.
+Match-Gründe stammen aus dem Vertrag; ein hoher Score ist keine Freigabe.
+
+PageHeader bleibt das einzige h2; RecordSection verwendet h3, Kandidatentitel h4.
+AssignmentEditor bietet einen eingebetteten Modus ohne eigenen Header/Faktenrahmen;
+Ladefehler bleiben als kompakter InlineAlert mit Wiederholungsaktion im Abschnitt Bearbeitung.
+Andere Assignment-Einbettungen behalten ihr bisheriges Layout. Retry ist eine sekundäre
+Aktion und bestätigt nur das Einplanen. Generation/Versuche/Request-ID stehen zuletzt.
+Refresh behält nur Daten derselben ID, kennzeichnet Fehler als veraltet und verwirft den
+Stand bei Identitätswechsel oder 401/403/404. Keine erfundene Abruf-/Beobachtungszeit.
+
 ## 16. Workspaces
 
 Graph: eigene Canvas-Höhe, Fit/Zoom, zugängliche Knoten/Sidebar, begrenzte Expansion,
@@ -365,7 +381,7 @@ Screenreader-Prüfung gehören zum finalen manuellen Audit, nicht zur Screenshot
 | Record-Inhalt | RecordRelations (globale Seite), RecordWorkflowSummary (Counts), RecordLocation (Adresse/Link)                                                                                               |
 | Inhalt        | DetailFacts (kurze Werte), MarkdownContent (verifiziertes Rich Text), ActivityThumbnail                                                                                                      |
 | Listen        | ActivityRow, EntityListPage, FindingsList, InboxRow                                                                                                                                          |
-| Workflow      | FindingDetail, AssignmentEditor/Snooze, MarkFields, LocationSuggestion, NotificationPreview                                                                                                  |
+| Workflow      | FindingDetail, AssignmentEditor/Snooze, MarkFields, GeocodeSourceSummary, LocationSuggestion, GeocodeTechnicalMetadata, NotificationPreview                                                                                                  |
 | Workspaces    | GraphWorkspace/EntityGraph/GraphNodeDetails, SqlWorkspace/QueryPanel, Statistik-Charts, CandidateMap                                                                                         |
 | Interaktion   | AppModal, EntitySearch, AppIcon                                                                                                                                                              |
 
@@ -417,3 +433,9 @@ Bilder sowie Organisation/Ort/Raum werden unter `docs/screenshots/record-detail-
 `place-detail-v2.spec.ts` prüft alle drei neuen Typen in vier Größen, Kontext/Counts,
 kanonische Aktionen, Touch-Ziele, generische Pagination und CSP.
 Sämtliche Review-Aufnahmen sind über das Testartefakt verfügbar, keine goldene Pixelpflicht.
+
+Geocoding Workflow v2: `geocoding.spec.ts` prüft 1440×1000, 1024×768, 390×844 und
+360×800, Einzel-/Mehrfachtreffer, Marker-/Listenfokus, optionalen Assignment-Fehler,
+Tile-Ausfall und Production-CSP. Review-Artefakte unter
+`docs/screenshots/geocoding-workflow-v2/` verwenden ausschließlich synthetische Daten und
+lokal abgefangene Testkacheln; keine Produktionsdaten oder externen Tile-Requests.

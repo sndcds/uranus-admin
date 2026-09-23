@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import type { GeocodeRequestDetail } from '#shared/contracts'
 import type { ApiFailure } from '#shared/errors'
 import { asFailure } from '#shared/errors'
-import { dateTime } from '~/utils/presentation'
-import { geocodeStatuses } from '~/utils/geocoding'
 const route = useRoute()
 const { $adminApi } = useNuxtApp()
 const data = ref<GeocodeRequestDetail | null>(null)
@@ -14,46 +12,36 @@ const loading = ref(false)
 const retrying = ref(false)
 const queued = ref(false)
 let generation = 0
-const entityHref = computed(() =>
-  data.value
-    ? `/${data.value.entity_type === 'organization' ? 'organizations' : 'venues'}/${data.value.entity_key}`
-    : '/geocoding',
-)
-const facts = computed(() =>
-  data.value
-    ? [
-        {
-          label: 'Adresse in Kulturbytes',
-          value: data.value.source_address || 'Keine Adresse vorhanden',
-        },
-        {
-          label: 'Letzte Prüfung',
-          value: data.value.checked_at ? dateTime(data.value.checked_at) : 'Noch nicht geprüft',
-        },
-        { label: 'Generation', value: data.value.generation },
-        { label: 'Prüfversuche', value: data.value.attempt_count },
-      ]
-    : [],
-)
 async function load() {
+  if (retrying.value && data.value?.id === String(route.params.id)) return
   const current = ++generation
   loading.value = true
-  data.value = null
+  const id = String(route.params.id)
+  if (data.value?.id !== id) data.value = null
   error.value = null
   retryError.value = null
   queued.value = false
   retrying.value = false
   try {
-    const value = await $adminApi.geocodeRequest(String(route.params.id))
+    const value = await $adminApi.geocodeRequest(id)
     if (current === generation) data.value = value
   } catch (cause) {
-    if (current === generation) error.value = asFailure(cause)
+    if (current === generation) {
+      error.value = asFailure(cause)
+      if ([401, 403, 404].includes(error.value.status)) data.value = null
+    }
   } finally {
     if (current === generation) loading.value = false
   }
 }
 async function retry() {
-  if (retrying.value || !data.value || ['pending', 'checking'].includes(data.value.status)) return
+  if (
+    loading.value ||
+    retrying.value ||
+    !data.value ||
+    ['pending', 'checking'].includes(data.value.status)
+  )
+    return
   const current = generation
   retrying.value = true
   retryError.value = null
@@ -69,19 +57,25 @@ async function retry() {
     }
     queued.value = true
   } catch (cause) {
-    if (current === generation) retryError.value = asFailure(cause)
+    if (current === generation) {
+      retryError.value = asFailure(cause)
+      if ([401, 403, 404].includes(retryError.value.status)) {
+        error.value = retryError.value
+        data.value = null
+      }
+    }
   } finally {
     if (current === generation) retrying.value = false
   }
 }
 onMounted(load)
-watch(() => route.params.id, load)
+watch(() => route.params.id, load, { flush: 'sync' })
 onBeforeUnmount(() => {
   generation++
 })
 </script>
 <template>
-  <section class="space-y-5" aria-labelledby="geocoding-title">
+  <section class="min-w-0 space-y-4 sm:space-y-6" aria-labelledby="geocoding-title">
     <PageHeader
       title="Standortvorschlag"
       description="Adressabgleich und mögliche Standorte."
@@ -89,69 +83,45 @@ onBeforeUnmount(() => {
     >
       <NuxtLink to="/geocoding" class="button">Alle Standortvorschläge</NuxtLink>
     </PageHeader>
-    <RequestState :loading="loading" :error="error" @retry="load" />
-    <template v-if="data">
-      <section class="space-y-3" aria-labelledby="source-heading">
-        <SectionHeader
-          title="Datensatz und Quelladresse"
-          title-id="source-heading"
-          description="Der Abgleich bleibt lesend; Vorschläge verändern keine Kulturbytes-Koordinaten."
-          as="h2"
-        />
-        <div class="panel p-4 sm:p-5">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <h2 class="break-words text-xl font-semibold text-slate-900">
-                  {{ data.entity_name }}
-                </h2>
-                <EntityTypeBadge :type="data.entity_type" />
-              </div>
-            </div>
-            <StatusBadge :label="geocodeStatuses[data.status]" />
-          </div>
-          <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
-            <NuxtLink :to="entityHref" class="button">
-              {{ data.entity_type === 'organization' ? 'Organisation öffnen' : 'Ort öffnen' }}
-            </NuxtLink>
-            <GraphLink :entity-type="data.entity_type" :entity-key="data.entity_key" />
-            <RecordMarkLink :entity-type="data.entity_type" :entity-key="data.entity_key" />
-          </div>
-        </div>
-        <DetailFacts :items="facts" />
-      </section>
+    <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
+    <div v-if="data" class="min-w-0 space-y-6 sm:space-y-8" :aria-busy="loading">
+      <GeocodeSourceSummary :suggestion="data" />
       <LocationSuggestion :suggestion="data" />
-      <AssignmentEditor
-        workflow-type="geocode_request"
-        :workflow-key="data.id"
-        :entity-type="data.entity_type"
-        :entity-key="data.entity_key"
-      />
-      <section class="space-y-3" aria-labelledby="workflow-heading">
-        <SectionHeader
-          title="Prüfworkflow"
-          title-id="workflow-heading"
-          description="Neue Prüfungen verwenden erneut die aktuelle, unveränderte Quelladresse."
-          as="h2"
+      <RecordSection
+        title="Bearbeitung"
+        description="Zuständigkeit, Bearbeitungsstatus und Fälligkeit."
+      >
+        <AssignmentEditor
+          embedded
+          workflow-type="geocode_request"
+          :workflow-key="data.id"
+          :entity-type="data.entity_type"
+          :entity-key="data.entity_key"
         />
-        <div class="panel flex flex-wrap items-center gap-3 p-4 sm:p-5">
+      </RecordSection>
+      <RecordSection
+        title="Weitere Aktionen"
+        description="Eine neue Prüfung verwendet erneut die aktuelle Quelladresse."
+      >
+        <div class="flex flex-wrap items-center gap-3">
           <button
             v-if="!['pending', 'checking'].includes(data.status)"
-            class="button-primary"
-            :disabled="retrying"
+            class="button"
+            :disabled="retrying || loading"
             @click="retry"
           >
-            <AppIcon name="refresh" :size="16" />
-            {{ retrying ? 'Wird eingereiht…' : 'Standort erneut prüfen' }}
+            <AppIcon name="refresh" :size="16" />{{
+              retrying ? 'Wird eingereiht…' : 'Standort erneut prüfen'
+            }}
           </button>
-          <button v-else class="button-primary" :disabled="loading" @click="load">
-            <AppIcon name="refresh" :size="16" /> Prüfstand aktualisieren
+          <button class="action-link" :disabled="loading || retrying" @click="load">
+            <AppIcon name="refresh" :size="16" />Prüfstand aktualisieren
           </button>
-          <span class="text-xs text-slate-500">Generation {{ data.generation }}</span>
         </div>
         <InlineAlert v-if="queued" tone="success">Neue Prüfung wurde eingeplant.</InlineAlert>
         <RequestState :loading="false" :error="retryError" @retry="retry" />
-      </section>
-    </template>
+      </RecordSection>
+      <GeocodeTechnicalMetadata :suggestion="data" />
+    </div>
   </section>
 </template>

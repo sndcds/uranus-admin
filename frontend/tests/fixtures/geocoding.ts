@@ -57,3 +57,23 @@ export const geocodePage: GeocodePage = {
   pagination: { page: 1, page_size: 50, total: 1, pages: 1 },
   counts: { candidate: 1 },
 }
+
+// Synthetic review scenario, not a production request or a claim about source coordinates.
+export const geocodeWorkflowDetail: GeocodeRequestDetail = structuredClone(geocodeDetail)
+geocodeWorkflowDetail.entity_name = 'Campelle Flensburg (Testdatensatz)'
+geocodeWorkflowDetail.source_address = 'Thomas-Fincke-Straße 16, 24943 Flensburg, DEU'
+geocodeWorkflowDetail.checked_at = '2026-09-22T08:58:00Z'
+geocodeWorkflowDetail.candidates[0] = {
+  ...geocodeWorkflowDetail.candidates[0]!,
+  display_name: 'Campelle 16, Thomas-Fincke-Straße, Flensburg (Testvorschlag)',
+  latitude: 54.774,
+  longitude: 9.452,
+  address: {
+    road: 'Thomas-Fincke-Straße',
+    house_number: '16',
+    postcode: '24943',
+    city: 'Flensburg',
+    country_code: 'de',
+  },
+}
+geocodeWorkflowDetail.best_candidate = geocodeWorkflowDetail.candidates[0]!

@@ -58,6 +58,25 @@ zeigen unterschiedliche Aufgaben, die keine universelle Activity-Seite lösen ka
 Sie sind keine Beschreibung des aktuellen Deployments. Neue Review-Aufnahmen sind
 synthetisch und beweisen weder Produktionsdaten noch vollständige WCAG-Konformität.
 
+## Geocoding Workflow v2: aktueller Abgleich
+
+Ausgangspunkt ist frisch geholtes `main` bei `61833d3fc59ec66106897b2e188dc4f37725deb0`
+(gemergter Record-Detail-Ausbau). Geprüft wurden beide Geocoding-Seiten, Karten-/Kandidaten-
+Komponenten, Assignment/Snooze, gemeinsame Struktur-/Statusprimitive, CSS/Helper, Zod und
+Pydantic-Geocode-Vertrag sowie Unit-/E2E-/Layout-Fixtures.
+
+Vorher: doppelte Source-Panels, frühe Generation/Versuche, wiederholter Prüfstatus, getrennte
+Karten-/Listenrahmen, gleichrangige h2 und ein vollständiger Inhaltsverlust bei Refresh.
+Entscheidung: Quelle kompakt, Standortvergleich als Hauptfläche, Assignment danach eingebettet,
+sekundäre Retry-Aktion und technische Schlusssektion. Ein Kandidat benötigt keine zusätzliche
+„Auf Karte zeigen“-Aktion; mehrere behalten die vollständige Tastatur-/Marker-Synchronisation.
+
+Der Vertrag enthält `source_address` nur als Text, Kandidatenadressen als Struktur und
+belegte `match_reasons`. Ein feldweiser Quell-/Zielvergleich wäre ohne neue Source-Projektion
+nicht verlässlich; deshalb keine heuristische Adresszerlegung. `checked_at` ist vorhanden,
+`observed_at` nicht. Request-ID/Generation/Versuche sind echte technische Daten. Kein
+Backend-/Provider-/Koordinatenschreibvertrag wurde erweitert.
+
 ## Zusammenfassung und Prioritäten
 
 - **P0 / Pilot:** Record Detail ist heute eine Listenvorschau mit Faktenanhang.
@@ -239,14 +258,14 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Objektart, Einträge pro Seite, Reset vereinheitlichen. Priorität P2.
 
-### `/geocoding/:id` — WORKFLOW
+### `/geocoding/:id` — WORKFLOW v2
 
-- **Aufgabe / Hierarchie:** Quelladresse und Kandidaten geografisch vergleichen. Header → Datensatz/Adresse → Karte/Kandidaten → Zuweisung → Retry.
-- **Header / Actions / Filter:** Auf Karte zeigen, OpenStreetMap, erneute Prüfung. Gemeinsamer Header; keine Source-Schreibaktion.
-- **Surfaces / Typografie / Status:** Echte Leaflet-Karte; Kandidatenliste als Textalternative. Gemeinsames Prüfraster gilt; Generation/Versuche früh; mehrere gleichrangige h2.
-- **Loading / Error / Empty:** Lokaler Abruf leert überwiegend den vorherigen Datensatz; bei gleicher Identität Refresh-Erhalt prüfen. Sichere Fehler/Retry erhalten; leere Ergebnisse erklären und bei Filtern Reset anbieten. Ein Detail-404 ist kein leerer Bestand.
-- **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
-- **Terminologie / Änderung:** Technik nach hinten; Workflow-Schritte hierarchisieren; Inspection-only erhalten. Priorität P2.
+- **Aufgabe / Hierarchie:** Quelladresse geografisch prüfen. Quelle → Standortprüfung mit Karte/Kandidaten → Bearbeitung → weitere Aktionen → technische Informationen.
+- **Header / Actions / Filter:** Ein PageHeader; SQL/Datenherkunft und Collection-Link. Kompakte Record-Aktionen an der Quelle. Retry sekundär, pending/checking nur Aktualisieren. Keine Source-Write-Aktion.
+- **Surfaces / Typografie / Status:** Plain RecordSections, eine gemeinsame Vergleichsfläche, kurzer Status einmal. Erläuterungen ohne Badge-Wiederholung; Warnungen/Fehler separat. Technische Daten zuletzt.
+- **Loading / Error / Empty:** Gleiche ID hält letzte erfolgreiche Daten; Fehler als stale. Identitätswechsel und 401/403/404 leeren; Generation-Guard ignoriert späte Antworten. Fehlende Adresse/Prüfzeit bleiben ausdrücklich unbekannt. Assignment-Fehler kompakt und unabhängig wiederholbar.
+- **Mobile / Accessibility:** 1440/1024/390/360px; ab xl mehrere Kandidaten neben der Karte, sonst darunter. Ein h2, Abschnitte h3, Kandidaten h4. Auswahltext, aria-current/pressed, Marker→Listenfokus und vollständige Textalternative bei Tile-Ausfall bleiben erhalten.
+- **Terminologie / Änderung:** Workflow v2 umgesetzt. Keine Quelladressenzerlegung, keine neue Karte/Provider-Fallbacks, kein Übernehmen von Koordinaten.
 
 ### `/graph` — WORKSPACE
 
@@ -523,7 +542,7 @@ Refresh-/Auth-Semantik ohne Backend-Änderung. `finding_count` ist nicht automat
 | `/marks`                         | COLLECTION                        | COLLECTION       | P2        | MarkFields, EntityHero                                                        | Nein                                                                   |
 | `/marks/:id`                     | WORKFLOW                          | WORKFLOW         | P1        | MarkFields, Workflow-Detail                                                   | Nein                                                                   |
 | `/geocoding`                     | COLLECTION                        | COLLECTION       | P2        | FilterBar, ResultSummary                                                      | Nein                                                                   |
-| `/geocoding/:id`                 | WORKFLOW                          | WORKFLOW         | P2        | LocationSuggestion, AssignmentEditor                                          | Nein                                                                   |
+| `/geocoding/:id`                 | WORKFLOW v2                       | WORKFLOW v2      | Umgesetzt | GeocodeSourceSummary, LocationSuggestion, AssignmentEditor                                          | Nein                                                                   |
 | `/graph`                         | WORKSPACE                         | WORKSPACE        | P2        | GraphWorkspace, GraphNodeDetails                                              | Nein                                                                   |
 | `/statistics`                    | WORKSPACE                         | WORKSPACE        | P2        | Statistik-Komponenten                                                         | Nein                                                                   |
 | `/statistics?view=event-content` | WORKSPACE                         | WORKSPACE        | P2        | EventContentStatistics                                                        | Nein                                                                   |
