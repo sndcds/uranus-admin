@@ -518,15 +518,17 @@ in the browser. Technical request states have German workflow labels.
 `LocationSuggestion` renders up to five escaped candidates as `.data-row` entries with rank,
 coordinates, **Adressübereinstimmung**, fixed localized reasons and constructed OpenStreetMap
 links. The best stored candidate is labelled “Bester automatischer Treffer”, never as correct or
-safe. A client-only Leaflet map loads the explicitly configured OSM-based XYZ raster tiles and
-fits all returned positions, with a street-level zoom for a single candidate. Numbered 44px marker
+safe. A client-only Leaflet map loads the configured OSM-based XYZ raster tiles and
+fits all returned positions, with a street-level zoom for a single candidate. The default is
+OSMF’s public OpenStreetMap Standard service; no own tile server or API key is needed. Numbered 44px marker
 buttons and list actions share one selection; a marker focuses the corresponding candidate row.
 “Alle Kandidaten zeigen” restores the full comparison. The list remains the complete keyboard/
 screenreader alternative, including when configuration, CSP, network or map loading fails.
 OSM and configured provider attribution remain visible. The map never calls Nominatim, invents
 source coordinates or offers a write action. Only numeric XYZ coordinates reach the approved tile
-provider; no entity names or emails enter tile URLs. There is no default public provider or retry
-loop. Configuration, privacy and the exact CSP origin are documented in the
+provider; no entity names or emails enter tile URLs. Browser caching and an origin-only Referrer
+follow the OSM tile policy. No prefetch, offline downloads, provider failover or retry loop exists.
+An explicitly empty tile URL disables the map. Configuration, privacy and the exact CSP origin are documented in the
 [frontend README](../README.md#geocoding-karte-konfigurieren).
 Low-score single candidates may also be ambiguous. Provider importance is not confidence.
 

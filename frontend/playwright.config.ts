@@ -35,8 +35,7 @@ export default defineConfig({
         : 'pnpm exec nuxt dev --host 127.0.0.1 --port 3100',
       env: {
         NUXT_ADMIN_API_BASE: 'http://127.0.0.1:31902',
-        // Same-origin routes are intercepted with a local fixture, never external tiles.
-        NUXT_PUBLIC_MAP_TILE_URL: '/__test-tiles/{z}/{x}/{y}.png',
+        // Exercise the default provider; requests are intercepted before network access.
         NUXT_PUBLIC_MAP_TILE_ATTRIBUTION: 'Synthetische Testkacheln',
         NUXT_PUBLIC_MAP_TILE_ATTRIBUTION_URL: '',
         NITRO_HOST: '127.0.0.1',

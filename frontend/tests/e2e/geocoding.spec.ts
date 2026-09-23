@@ -195,7 +195,7 @@ test('real proxy enforces bodyless retry and forwards Origin/CSRF to protected b
 })
 
 test('tile failure leaves the complete candidate list usable', async ({ page }) => {
-  await page.route('**/__test-tiles/**', (route) => route.abort())
+  await page.route('https://tile.openstreetmap.org/**', (route) => route.abort())
   await page.route('**/api/admin/api/v1/geocode/requests/*', (route) =>
     route.fulfill({ json: geocodeDetail }),
   )
@@ -232,7 +232,7 @@ test('map loads in production CSP without workers, eval or extra inline policy',
       headers: {
         ...response.headers(),
         'content-security-policy':
-          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'",
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'",
       },
     })
   })
@@ -244,11 +244,11 @@ test('map loads in production CSP without workers, eval or extra inline policy',
   await expect(page.locator('.candidate-map-marker')).toHaveCount(1)
   await expect(page.locator('.leaflet-tile-loaded').first()).toHaveAttribute(
     'src',
-    /\/__test-tiles\/16\/\d+\/\d+\.png$/,
+    /^https:\/\/tile\.openstreetmap\.org\/16\/\d+\/\d+\.png$/,
   )
   const requests: string[] = []
   page.on('request', (request) => {
-    if (request.url().includes('__test-tiles')) requests.push(request.url())
+    if (request.url().startsWith('https://tile.openstreetmap.org/')) requests.push(request.url())
   })
   await page.getByRole('button', { name: 'Vergrößern', exact: true }).click()
   await expect.poll(() => requests.length).toBeGreaterThan(0)

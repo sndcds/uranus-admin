@@ -87,7 +87,16 @@ class EnvironmentTests(unittest.TestCase):
             "ua_map_tile_url": url,
             "ua_map_tile_attribution": "© Test provider",
         }
-        baseline = env.get_template("nginx-site.conf.j2").render(nginx_defaults())
+        defaults = nginx_defaults()
+        self.assertEqual(
+            defaults["ua_map_tile_url"], "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        )
+        self.assertTrue(filters.valid_map_tiles(defaults["ua_map_tile_url"]))
+        baseline = env.get_template("nginx-site.conf.j2").render(
+            {**defaults, "ua_map_tile_url": ""}
+        )
+        osm_site = env.get_template("nginx-site.conf.j2").render(defaults)
+        self.assertEqual(osm_site.replace(" https://tile.openstreetmap.org", ""), baseline)
         site = env.get_template("nginx-site.conf.j2").render(values)
         self.assertEqual(site.replace(" https://tiles.example.test", ""), baseline)
         self.assertNotIn("unsafe-eval", site)

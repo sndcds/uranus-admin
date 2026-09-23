@@ -10,11 +10,10 @@ export const test = base.extend({
       data: { login: 'operator', password: 'test-only-password' },
     })
     expect(response.status()).toBe(200)
-    await page.route('**/__test-tiles/**', (route) => {
-      expect(new URL(route.request().url()).pathname).toMatch(
-        /^\/__test-tiles\/\d+\/\d+\/\d+\.png$/,
-      )
+    await page.route('https://tile.openstreetmap.org/**', (route) => {
+      expect(new URL(route.request().url()).pathname).toMatch(/^\/\d+\/\d+\/\d+\.png$/)
       expect(new URL(route.request().url()).search).toBe('')
+      expect(route.request().headers().referer).toBe('http://127.0.0.1:3100/')
       return route.fulfill({
         contentType: 'image/svg+xml',
         path: fileURLToPath(new URL('./map-tile.svg', import.meta.url)),

@@ -1457,22 +1457,30 @@ Zeitstempel, nicht die Event-Zeilen. Der historische Ausgangsbefund oben bleibt 
 
 ## Geocoding-Kartenkacheln
 
-Die Geocoding-Detailkarte verwendet clientseitig Leaflet und einen ausdrücklich konfigurierten
-OSM-basierten XYZ-Rasteranbieter. Das Repository dokumentiert Nominatim, aber keine verifizierte
-eigene Tile-Infrastruktur. Es gibt keinen automatischen öffentlichen OSM-Fallback.
+Die Geocoding-Detailkarte verwendet clientseitig Leaflet. Für manuelle interne Prüfungen ist
+der öffentliche OpenStreetMap-Standarddienst der OSMF voreingestellt; ein eigener Tile-Server
+oder API-Schlüssel ist nicht erforderlich. Nominatim bleibt ein separater Geocoding-Dienst.
 
 ```yaml
-# Beispiel, kein realer Production-Provider:
-ua_map_tile_url: "https://tiles.example.test/osm/{z}/{x}/{y}.png"
-ua_map_tile_attribution: "© Beispielanbieter"
-ua_map_tile_attribution_url: "https://tiles.example.test/about"
+# Voreinstellung; kann ohne Codeänderung durch einen anderen Anbieter ersetzt werden:
+ua_map_tile_url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+# OSM-Attribution ist bereits sichtbar; hier nur zusätzliche Provider-Credits eintragen.
+ua_map_tile_attribution: ""
+ua_map_tile_attribution_url: ""
 ```
 
-Standardmäßig sind alle drei Werte leer; die Seite zeigt dann die vollständige Kandidatenliste
-und einen Kartenhinweis. Vor Aktivierung Betreiber, Nutzungsbedingungen, OSM-Attribution und
-Zoomabdeckung 1–19 prüfen. Ein bereits bereitgestellter Same-Origin-Tile-Pfad ist ebenfalls möglich;
-diese Rolle erzeugt dafür keinen Proxy. Nur feste HTTPS-Hosts/XYZ-Pfade ohne Query, Credentials,
-Wildcard oder frei interpolierte Werte sind zulässig. Attribution ist Plaintext, kein HTML.
+Ein ausdrücklich leeres `ua_map_tile_url` deaktiviert die Karte; die vollständige Kandidatenliste
+bleibt nutzbar. Die [OSMF Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/)
+verlangt sichtbare Attribution, gültigen Referrer und HTTP-konformes Caching. Die Karte sendet
+die Admin-Origin als Referrer und den normalen Browser-User-Agent; Cache-Header werden weder
+überschrieben noch umgangen. Keine Vorab-/Offline-Downloads, Kartenscans oder automatischen Retries.
+Der Dienst hat keine Verfügbarkeitsgarantie; für höheren Bedarf einen geeigneten Anbieter wählen.
+Es gibt keinen automatischen Providerwechsel bei Ausfällen.
+
+Andere Anbieter benötigen passende Attribution und Zoomabdeckung 1–19. Ein bereits
+bereitgestellter Same-Origin-Tile-Pfad ist ebenfalls möglich; diese Rolle erzeugt dafür keinen
+Proxy. Nur feste HTTPS-Hosts/XYZ-Pfade ohne Query, Credentials, Wildcard oder frei interpolierte
+Werte sind zulässig. Attribution ist Plaintext, kein HTML.
 
 Die Frontend-Unit setzt die entsprechenden `NUXT_PUBLIC_MAP_TILE_*`-Runtime-Werte. Nginx ergänzt
 nur die exakte konfigurierte HTTPS-Origin in `img-src`; alle anderen CSP-Direktiven bleiben gleich.
