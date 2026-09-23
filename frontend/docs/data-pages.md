@@ -79,7 +79,7 @@ Die Hauptseiten nutzen `space-y-4/5`, Filter `p-4`, Zeilen `px-4/5 py-3`, slate-
 und fuchsia-Akzente. Filter und Aktionen umbrechen mobil. Fokusmarkierungen, Skip-Link,
 `aria-busy`, native Formulare, semantische Listen und Modal-Tastatursteuerung bleiben erhalten.
 
-## Seiten-Audit
+## Bisherige Collection-Konventionen
 
 | Seite           | Umsetzung / fachliche Besonderheit                                                                                                                                                                                                                        |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -92,15 +92,39 @@ und fuchsia-Akzente. Filter und Aktionen umbrechen mobil. Fokusmarkierungen, Ski
 | `/marks/:id`    | Gemeinsamer Header und Badges; Bearbeitungsformular und chronologischer Audit-Verlauf bleiben absichtlich Detailansichten                                                                                                                                 |
 | `/queues/:kind` | Gemeinsame Shell mit echten fachlichen Unterschieden: gerichtete Partneranfragen, Einladungsalter aus `invited_at`, Aktivierungsalter aus `created_at`; keine letzte Aktivität abgeleitet. URL-Filter werden bei Navigation ins Formular zurückgespiegelt |
 
-Alle existierenden Seiten sind berücksichtigt. Größere bewusst eigenständige Bereiche sind
-Navigation und die Bearbeitungsformulare/Modals: sie sind keine paginierten
-Datenlisten und behalten ihre funktionsgerechte Struktur. Der Markierungsverlauf nutzt trotzdem
-die gemeinsame Listenfläche; das Editierformular bleibt eine eigene Fläche. Das Loginpanel
-zeigt nach erfolgreicher Anmeldung nur eine kompakte Status-/Abmelden-Zeile, bei fehlender
-Identität weiterhin das vollständige Formular. Der lokale Entwicklungszugang bleibt geschlossen.
-Der globale Header zeigt nur die App-Identität, Seitentitel stehen im PageHeader.
-Keine datenorientierte Route bleibt bei einer separaten Kartensprache. Keine neuen Backend-Felder,
-Migrationen oder Live-Server-Einstellungen werden benötigt.
+Diese Tabelle beschreibt die frühere Collection-Vereinheitlichung, keinen vollständigen
+aktuellen Frontend-Audit. Der vollständige [UI/UX-Audit](ui-ux-audit.md) erfasst alle Routen
+und ihren Migrationsbedarf. Der [Design Guide v2](design-system.md) ist der kanonische
+Gestaltungsvertrag mit fünf eigenständigen Seitenmustern. Login ist eine eigene Route;
+geschützte Seiten zeigen keine zusätzliche Login-Leiste.
+
+## Record Detail v2: Veranstaltungen
+
+`/events/:id` verwendet `EntityDetailPage` als Abruf-/Fehler-/Timeline-Shell mit den Slots
+`header`, `content` und `after-timeline`. `EntityHero` integriert den gemeinsamen PageHeader
+und zeigt den Record-Titel genau einmal. `EventDetailContent` ordnet primäre Fakten,
+Beschreibung, Termine, Veranstalter, Orte & Räume, Medien und Arbeitsstand.
+`EntityTechnicalMetadata` folgt nach der unveränderten Timeline. Die übrigen fünf
+Detailtypen behalten vorerst den Default-Presenter; ihre Migration steht im Audit.
+
+`facts.description` stammt unverändert aus `event.description`. Der Markdown-Vertrag ist
+im Quell-Editor nachgewiesen (Commit/Dateien im Audit), nicht aus dem Text erraten.
+`MarkdownContent` verwendet markdown-it als Tokenparser und einen geschlossenen Vue-Renderer:
+kein v-html, kein Raw-HTML, keine Bilder/Plugins. Links erlauben nur validiertes http/https,
+einfache mailto-Adressen und freigegebene interne Routen. Sonstige Links bleiben Text;
+externe Links haben neuen Tab, noopener/noreferrer und no-referrer. Große Texte über
+100.000 Zeichen bleiben vollständig als Plaintext erhalten. `.prose-admin` begrenzt auf 72ch.
+
+Der serverseitige Subtitle einschließlich eines ggf. nächsten Termins bleibt unverändert.
+Kein Datum wird aus einer paginierten Relation abgeleitet. Standardort/-raum bleiben
+Standardwerte, nicht Behauptungen über jeden Termin. Typgruppen enthalten nur die aktuelle
+Relationsseite; eine gemeinsame Pagination erhält weitere Query-Parameter. Nicht sichtbare
+Gruppen sind nicht nachweislich leer. Qualitätszähler schließen behobene Befunde aus,
+Markierungszahlen schließen erledigte Markierungen ein; null ist nicht verfügbar.
+
+Bei Refresh derselben Identität bleibt der letzte erfolgreiche Detailstand mit Lade-/Fehlerhinweis
+sichtbar. Beim Identitätswechsel sowie bei 401/403/404 wird er verworfen; Generation-Guards und Layout-Auth-Cleanup
+bleiben erhalten. Keine API-/Backend-/Quellschreibänderung, keine neuen Remote-Requests.
 
 ## Verifikation
 

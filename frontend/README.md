@@ -281,6 +281,20 @@ Uranus-SSO, MFA und Self-Service-Kontowiederherstellung, fachliches Editieren, p
 vollständiges Auditjournal, automatische Geocodierung/Merges und externe URL-/Dateiabfragen.
 Portal-Bildziele sowie Space-Feature-Zuordnungen bleiben bis zur eindeutigen Quellklärung offen.
 
+## Design System v2
+
+Der [Design Guide v2](docs/design-system.md) ist der kanonische UI-Vertrag.
+Der [vollständige Frontend-Audit](docs/ui-ux-audit.md) dokumentiert den main-Ausgangsstand,
+alle Routen, Sprachabweichungen und den Migrationsplan. `/events/:id` ist der erste
+Record-Detail-Pilot; andere Detailtypen folgen in eigenen PRs.
+
+Markdown wird zunächst ausschließlich für die verifizierte Veranstaltungsbeschreibung
+verwendet. markdown-it wurde wegen seines konfigurierbaren Tokenparsers gewählt; Vue
+rendert nur freigegebene Elemente, niemals HTML-Strings. Keine Raw-HTML-/Bildunterstützung,
+keine zusätzliche CSS-Library, keine CSP-Ausnahme. Details und Feldnachweis im Audit.
+`event-detail-v2.spec.ts` prüft 1440/1024/390/360px und sichere Inhalte auch im Production-Build;
+`layout-consistency.spec.ts` erzeugt Review-Aufnahmen aller Hauptrouten auf drei Größen.
+
 ## Gemeinsame Datenansichten
 
 [Informationsarchitektur, Kennzahlen-Semantik, UI-Bausteine und Seiten-Audit](docs/data-pages.md)
@@ -301,7 +315,8 @@ Siehe [Activity-Vertrag](../backend/docs/contracts.md#user-avatars-and-organizat
 ## Domain inspection
 
 Events, venues, spaces, organizations, users and images have paginated list and
-UUID detail pages, using the Activity visual language. Search/filter/page state is
+UUID detail pages. Activity remains the compact list-row reference; event details use
+the Record Detail v2 pattern. Search/filter/page state is
 URL-based. Detail relations are independently paginated; graph, marks and exact
 finding links remain available. Source timestamps retain their actual meaning.
 The global create action remains disabled until an authorized Uranus write adapter
@@ -344,7 +359,6 @@ Freies SQL läuft über den exakten Same-Origin-WebSocket und ausschließlich de
 Console-Reader: 5s Statement, 8s Gesamtdeadline, 50/500 Zeilen, quittierte Batches,
 echter Cancel. Keine Writes und keine serverseitige Query-History.
 [Runtime, Protokoll, Grenzen und Tests](../backend/docs/sql-console-runtime.md).
-
 
 ## Globale Suche und Command Palette
 

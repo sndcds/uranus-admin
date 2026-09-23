@@ -92,3 +92,79 @@
     @apply font-semibold text-fuchsia-700 hover:underline;
   }
 }
+
+/* Design System v2: additive roles, adopted by the Record Detail pilot. */
+@layer components {
+  .type-page-title {
+    @apply break-words text-2xl font-bold tracking-tight;
+  }
+  .type-record-title {
+    @apply break-words text-2xl font-bold tracking-tight sm:text-3xl;
+  }
+  .type-section-title {
+    @apply text-lg font-semibold text-slate-900;
+  }
+  .type-row-title {
+    @apply text-sm font-semibold text-slate-900;
+  }
+  .type-body {
+    @apply text-sm leading-6 text-slate-700;
+  }
+  .type-metadata {
+    @apply text-xs leading-5 text-slate-600;
+  }
+  .type-badge {
+    @apply text-xs font-medium;
+  }
+  .record-detail {
+    @apply min-w-0 max-w-6xl space-y-4 sm:space-y-8;
+  }
+  .action-link {
+    @apply inline-flex min-h-11 items-center gap-1 rounded text-sm font-semibold text-fuchsia-700 underline-offset-4 hover:underline;
+  }
+  .prose-admin {
+    @apply max-w-[72ch] break-words text-base leading-7 text-slate-700;
+  }
+  .prose-admin > * + * {
+    @apply mt-4;
+  }
+  .prose-admin :is(h4, h5, h6) {
+    @apply mt-6 mb-2 font-semibold text-slate-900;
+  }
+  .prose-admin h4 {
+    @apply text-lg;
+  }
+  .prose-admin :is(h5, h6) {
+    @apply text-base;
+  }
+  .prose-admin :is(ul, ol) {
+    @apply space-y-1 pl-6;
+  }
+  .prose-admin ul {
+    @apply list-disc;
+  }
+  .prose-admin ol {
+    @apply list-decimal;
+  }
+  .prose-admin li > p + p {
+    @apply mt-2;
+  }
+  .prose-admin blockquote {
+    @apply border-l-4 border-slate-300 pl-4 text-slate-600;
+  }
+  .prose-admin a {
+    @apply break-words text-fuchsia-700 underline underline-offset-4;
+  }
+  .prose-admin :not(pre) > code {
+    @apply rounded bg-slate-100 px-1 py-0.5 text-sm text-slate-900;
+  }
+  .prose-admin pre {
+    @apply max-w-full overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm leading-6 text-slate-100;
+  }
+  .prose-admin pre code {
+    @apply whitespace-pre;
+  }
+  .prose-admin-plain {
+    @apply whitespace-pre-wrap;
+  }
+}

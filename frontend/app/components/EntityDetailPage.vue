@@ -5,17 +5,20 @@ import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import type { EntitySection, EntityDetail } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
 import { entitySections, entityFactLabel } from '~/utils/entities'
-const props = defineProps<{ section: EntitySection }>()
+const props = defineProps<{ section: EntitySection; record?: boolean }>()
 const route = useRoute()
 const { $adminApi } = useNuxtApp()
 const data = ref<EntityDetail | null>(null),
   error = ref<ApiFailure | null>(null)
 const loading = ref(false)
 let generation = 0
+let identity = ''
 async function load() {
   const id = ++generation
   loading.value = true
-  data.value = null
+  const nextIdentity = `${props.section}:${String(route.params.id)}`
+  if (identity !== nextIdentity) data.value = null
+  identity = nextIdentity
   error.value = null
   try {
     const result = await $adminApi.entity(
@@ -25,7 +28,11 @@ async function load() {
     )
     if (id === generation) data.value = result
   } catch (cause) {
-    if (id === generation) error.value = asFailure(cause)
+    if (id === generation) {
+      error.value = asFailure(cause)
+      // A denied or removed record is not stale content that may remain on screen.
+      if ([401, 403, 404].includes(error.value.status)) data.value = null
+    }
   } finally {
     if (id === generation) loading.value = false
   }
@@ -37,66 +44,78 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <div class="space-y-5">
-    <PageHeader
-      :title="data?.item.entity_name ?? entitySections[section].title"
-      description="Datensatz und verknüpfte Inhalte."
-    >
-      <NuxtLink :to="`/${section}`" class="button">Zur Liste</NuxtLink>
-      <NuxtLink
-        v-if="data"
-        :to="{
-          path: '/findings',
-          query: {
-            mode: 'persisted',
-            entity_type: data.item.entity_type,
-            entity_key: data.item.entity_key,
-          },
-        }"
-        class="button"
-        >Befunde zu diesem Datensatz</NuxtLink
+  <div :class="record ? 'record-detail' : 'space-y-5'">
+    <slot name="header" :data="data">
+      <PageHeader
+        :title="data?.item.entity_name ?? entitySections[section].title"
+        description="Datensatz und verknüpfte Inhalte."
       >
-    </PageHeader>
-    <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
+        <NuxtLink :to="`/${section}`" class="button">Zur Liste</NuxtLink>
+        <NuxtLink
+          v-if="data"
+          :to="{
+            path: '/findings',
+            query: {
+              mode: 'persisted',
+              entity_type: data.item.entity_type,
+              entity_key: data.item.entity_key,
+            },
+          }"
+          class="button"
+          >Befunde zu diesem Datensatz</NuxtLink
+        >
+      </PageHeader>
+    </slot>
+    <RequestState
+      :loading="loading"
+      :error="error"
+      :has-data="!!data"
+      :last-success="data?.observed_at"
+      @retry="load"
+    />
     <template v-if="data">
-      <DataListShell as="ul"
-        ><ActivityRow :item="data.item" :observed-at="data.observed_at"
-      /></DataListShell>
-      <DetailFacts
-        :items="[
-          { label: 'UUID', value: data.item.entity_key },
-          ...Object.entries(data.item.facts).map(([field, value]) => ({
-            label: entityFactLabel(section, field as keyof EntityDetail['item']['facts']),
-            value,
-          })),
-        ]"
-      />
+      <slot name="content" :data="data" :loading="loading">
+        <DataListShell as="ul"
+          ><ActivityRow :item="data.item" :observed-at="data.observed_at"
+        /></DataListShell>
+        <DetailFacts
+          :items="[
+            { label: 'UUID', value: data.item.entity_key },
+            ...Object.entries(data.item.facts).map(([field, value]) => ({
+              label: entityFactLabel(section, field as keyof EntityDetail['item']['facts']),
+              value,
+            })),
+          ]"
+        />
+      </slot>
       <EntityTimeline
         :entity-type="entitySections[section].type"
         :entity-key="data.item.entity_key"
       />
-      <SectionHeader title="Verknüpfte Datensätze" />
-      <p v-if="section === 'users' || section === 'organizations'" class="text-xs text-slate-500">
-        Einladungen verwenden invited_at; der Mitgliedsstatus folgt has_joined. Ein
-        Beitrittszeitpunkt ist nicht belegt.
-      </p>
-      <ResultSummary
-        :total="data.related.pagination.total"
-        :visible="data.related.items.length"
-        noun="Verknüpfte Datensätze"
-      />
-      <DataListShell v-if="data.related.items.length" as="ul"
-        ><ActivityRow
-          v-for="item in data.related.items"
-          :key="`${item.entity_type}:${item.entity_key}`"
-          :item="item"
-          :observed-at="data.observed_at"
-      /></DataListShell>
-      <EmptyState v-else message="Keine belegten Verknüpfungen vorhanden." />
-      <PaginationBar
-        :pagination="data.related.pagination"
-        :to="(page) => ({ query: { related_page: String(page) } })"
-      />
+      <slot name="after-timeline" :data="data" :loading="loading">
+        <SectionHeader title="Verknüpfte Datensätze" />
+        <p v-if="section === 'users' || section === 'organizations'" class="text-xs text-slate-500">
+          Einladungen verwenden invited_at; der Mitgliedsstatus folgt has_joined. Ein
+          Beitrittszeitpunkt ist nicht belegt.
+        </p>
+        <ResultSummary
+          :total="data.related.pagination.total"
+          :visible="data.related.items.length"
+          noun="Verknüpfte Datensätze"
+        />
+        <DataListShell v-if="data.related.items.length" as="ul"
+          ><ActivityRow
+            v-for="item in data.related.items"
+            :key="`${item.entity_type}:${item.entity_key}`"
+            :item="item"
+            :observed-at="data.observed_at"
+        /></DataListShell>
+        <EmptyState v-else message="Keine belegten Verknüpfungen vorhanden." />
+        <PaginationBar
+          :pagination="data.related.pagination"
+          :to="(page) => ({ query: { related_page: String(page) } })"
+        />
+      </slot>
     </template>
   </div>
 </template>

@@ -141,7 +141,7 @@ test('image activity loads public thumbnails under a targeted CSP without metada
   await expect(image).toHaveJSProperty('naturalWidth', 320)
   await expect(image).toHaveAttribute('loading', 'lazy')
   await expect(image).toHaveAttribute('decoding', 'async')
-  await expect(row.getByRole('link', { name: /Im Admin ansehen/ })).toHaveAttribute(
+  await expect(row.getByRole('link', { name: /Öffnen/ })).toHaveAttribute(
     'href',
     item.action!.href,
   )
