@@ -109,3 +109,143 @@ test('shortcut from the SQL editor preserves its text and restores focus', async
   await expect(editor).toBeFocused()
   await expect(editor).toHaveText('SELECT 123; -- keep this text')
 })
+
+test('palette geometry, focus and internal scroll stay stable through debounce, revalidation and errors', async ({
+  page,
+}, info) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (event) => {
+      throw new Error(`CSP violation: ${event.effectiveDirective}`)
+    })
+  })
+  if (process.env.TEST_PRODUCTION === '1') {
+    await page.route('**/*', async (route) => {
+      if (route.request().resourceType() !== 'document') return route.fallback()
+      const response = await route.fetch()
+      await route.fulfill({
+        response,
+        headers: {
+          ...response.headers(),
+          'content-security-policy':
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'",
+        },
+      })
+    })
+  }
+  const pending = new Map<string, import('@playwright/test').Route>()
+  await page.route('**/api/admin/api/v1/search?**', (route) => {
+    pending.set(new URL(route.request().url()).searchParams.get('q')!, route)
+  })
+  await page.goto('/?period=24h')
+  await page.getByRole('button', { name: 'Globale Suche öffnen' }).filter({ visible: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Kulturbytes durchsuchen' })
+  const input = dialog.getByRole('combobox')
+  const results = dialog.locator('.search-results')
+  const header = dialog.locator('.search-header')
+  await expect(input).toBeFocused()
+  const initial = (await dialog.boundingBox())!
+  const initialHeader = (await header.boundingBox())!
+  const assertStable = async () => {
+    const box = (await dialog.boundingBox())!
+    expect(Math.abs(box.height - initial.height)).toBeLessThanOrEqual(3)
+    expect(Math.abs(box.y - initial.y)).toBeLessThanOrEqual(3)
+    expect(Math.abs((await header.boundingBox())!.y - initialHeader.y)).toBeLessThanOrEqual(3)
+    expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await expect(input).toBeFocused()
+  }
+  if (info.project.name === 'mobile') {
+    expect(initial.height).toBeGreaterThanOrEqual(820)
+    expect(initial.y).toBeGreaterThanOrEqual(0)
+    expect(initial.y + initial.height).toBeLessThanOrEqual(844)
+  }
+  await page.screenshot({ path: info.outputPath('palette-initial.png') })
+  // Freeze the browser clock so measurements really cover the debounce window.
+  await page.clock.install()
+  await page.clock.pauseAt(new Date(Date.now() + 1000))
+  await input.fill('Kühlhaus')
+  await page.clock.runFor(249)
+  expect(pending.size).toBe(0)
+  await assertStable()
+  await page.clock.runFor(1)
+  await expect.poll(() => pending.has('Kühlhaus')).toBe(true)
+  await expect(dialog.getByRole('listbox')).toHaveAttribute('aria-busy', 'true')
+  await assertStable()
+  await pending.get('Kühlhaus')!.fulfill({ json: globalSearchFixture('Kühlhaus') })
+  await expect(dialog.getByRole('option')).toHaveCount(2)
+  await assertStable()
+  await input.press('ArrowDown')
+  await expect(dialog.getByRole('option', { selected: true })).toContainText('Kühlhaus Flensburg')
+
+  await input.fill('Kühlhaus neu')
+  await page.clock.runFor(249)
+  await expect(dialog.getByRole('option')).toHaveCount(2)
+  await expect(dialog.getByRole('option', { selected: true })).toContainText('Kühlhaus Flensburg')
+  await assertStable()
+  await page.clock.runFor(1)
+  await expect.poll(() => pending.has('Kühlhaus neu')).toBe(true)
+  await expect(dialog.getByText('Ergebnisse werden aktualisiert …')).toBeVisible()
+  await expect(dialog.getByText('Datensätze für „Kühlhaus“')).toBeVisible()
+  await assertStable()
+  await page.screenshot({ path: info.outputPath('palette-loading.png'), animations: 'disabled' })
+  const many = globalSearchFixture('Kühlhaus neu')
+  many.groups = many.groups.map((group) => ({
+    ...group,
+    items: Array.from({ length: 5 }, (_, index) => ({
+      ...group.items[0]!,
+      entity_key: `20000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+      label: `${group.items[0]!.label} · Treffer ${index + 1}`,
+      action: {
+        ...group.items[0]!.action,
+        entity_key: `20000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+        href: `${group.items[0]!.action.href.slice(0, -36)}20000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+      },
+    })),
+  }))
+  await pending.get('Kühlhaus neu')!.fulfill({ json: many })
+  await expect(dialog.getByRole('option')).toHaveCount(10)
+  await expect(dialog.getByRole('option', { selected: true })).toContainText('Treffer 1')
+  await expect(dialog.getByText('Datensätze für „Kühlhaus neu“')).toBeVisible()
+  await assertStable()
+  await page.screenshot({ path: info.outputPath('palette-results.png') })
+  expect(await results.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+  await results.evaluate((el) => {
+    el.scrollTop = 100
+  })
+  const scrollTop = await results.evaluate((el) => el.scrollTop)
+  expect(scrollTop).toBeGreaterThan(0)
+  await assertStable()
+  await input.fill('Kühlhaus neuer')
+  expect(await results.evaluate((el) => el.scrollTop)).toBe(scrollTop)
+  await page.clock.runFor(250)
+  await expect.poll(() => pending.has('Kühlhaus neuer')).toBe(true)
+  await pending.get('Kühlhaus neuer')!.fulfill({
+    status: 503,
+    json: { error: { code: 'service_unavailable', message: 'Unavailable' } },
+  })
+  await expect(dialog.getByText('Neue Suche konnte nicht geladen werden.')).toBeVisible()
+  await expect(dialog.getByRole('option')).toHaveCount(10)
+  expect(await results.evaluate((el) => el.scrollTop)).toBe(scrollTop)
+  await assertStable()
+  await input.fill('missing')
+  await page.clock.runFor(250)
+  await expect.poll(() => pending.has('missing')).toBe(true)
+  await pending.get('missing')!.fulfill({ json: globalSearchFixture('missing') })
+  await expect(dialog.getByText('Keine passenden Ergebnisse gefunden.')).toBeVisible()
+  await expect(input).not.toHaveAttribute('aria-activedescendant')
+  await assertStable()
+  await input.fill('person@example.org')
+  await page.clock.runFor(250)
+  await expect.poll(() => pending.has('person@example.org')).toBe(true)
+  await pending
+    .get('person@example.org')!
+    .fulfill({ json: globalSearchFixture('person@example.org') })
+  await expect(dialog.getByRole('option')).toHaveCount(1)
+  await assertStable()
+  await input.fill('k')
+  await expect(dialog.getByRole('group', { name: 'Navigation', exact: true })).toBeVisible()
+  await assertStable()
+  expect(errors).toEqual([])
+})

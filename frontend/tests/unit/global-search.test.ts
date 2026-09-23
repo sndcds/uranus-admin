@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { reactive } from 'vue'
 import GlobalSearchPalette from '../../app/components/GlobalSearchPalette.vue'
-import { globalSearchResponseSchema } from '../../shared/contracts'
+import { globalSearchResponseSchema, type GlobalSearchResponse } from '../../shared/contracts'
 import { globalSearchFixture } from '../fixtures/search'
 import { adminNavigationItems } from '../../app/utils/navigation'
 import { createAdminApi } from '../../app/utils/admin-api'
@@ -82,7 +82,7 @@ it('debounces, groups results and follows server Action.href using keyboard or p
   await input.setValue('person@')
   await vi.advanceTimersByTimeAsync(200)
   await input.setValue('person@example.org')
-  expect(wrapper.text()).toContain('Suche läuft')
+  expect(wrapper.get('[role="listbox"]').attributes('aria-busy')).toBe('false')
   await vi.advanceTimersByTimeAsync(249)
   expect(api.globalSearch).not.toHaveBeenCalled()
   await vi.advanceTimersByTimeAsync(1)
@@ -131,7 +131,7 @@ it('finds local navigation, preserves Tab and reports empty/error states', async
   api.globalSearch.mockRejectedValueOnce(new Error('private source error'))
   await wrapper.get('input').setValue('error')
   await vi.advanceTimersByTimeAsync(250)
-  expect(wrapper.text()).toContain('Suche konnte nicht geladen werden')
+  expect(wrapper.text()).toContain('Neue Suche konnte nicht geladen werden')
   expect(wrapper.text()).not.toContain('private source error')
 })
 it('aborts and ignores late successes and mismatched response queries', async () => {
@@ -156,7 +156,8 @@ it('aborts and ignores late successes and mismatched response queries', async ()
   api.globalSearch.mockResolvedValueOnce(globalSearchFixture('other@example.org'))
   await wrapper.get('input').setValue('new@example.org')
   await vi.advanceTimersByTimeAsync(250)
-  expect(wrapper.find('[role="option"]').exists()).toBe(false)
+  expect(wrapper.text()).toContain('Kühlhaus Flensburg')
+  expect(wrapper.text()).not.toContain('person@example.org')
 })
 it.each(['logout', 'session', 'route', 'revision'])(
   'clears and invalidates results on %s',
@@ -286,4 +287,151 @@ it('handles the global shortcut before editor handlers without taking Shift shor
   )
   await flushPromises()
   expect(wrapper.get('dialog').element.open).toBe(false)
+})
+
+function deferredSearch() {
+  let resolve!: (data: GlobalSearchResponse) => void
+  let reject!: (reason: Error) => void
+  const promise = new Promise<GlobalSearchResponse>((ok, fail) => {
+    resolve = ok
+    reject = fail
+  })
+  return { promise, resolve, reject }
+}
+
+it('retains the successful snapshot through every keystroke, debounce and pending replacement', async () => {
+  const wrapper = setup()
+  await open()
+  const input = wrapper.get('input')
+  await input.setValue('Kühlhaus')
+  await vi.advanceTimersByTimeAsync(250)
+  const pending = deferredSearch()
+  api.globalSearch.mockReturnValueOnce(pending.promise)
+  for (const text of ['pe', 'per', 'person@']) {
+    await input.setValue(text)
+    await vi.advanceTimersByTimeAsync(100)
+    expect(wrapper.text()).toContain('Kühlhaus Flensburg')
+    expect(wrapper.text()).toContain('Datensätze für „Kühlhaus“')
+    expect(api.globalSearch).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[role="listbox"]').attributes('aria-busy')).toBe('false')
+    expect(document.activeElement).toBe(input.element)
+  }
+  await vi.advanceTimersByTimeAsync(150)
+  expect(api.globalSearch).toHaveBeenCalledTimes(2)
+  expect(wrapper.get('[role="listbox"]').attributes('aria-busy')).toBe('true')
+  expect(wrapper.text()).toContain('Ergebnisse werden aktualisiert')
+  expect(wrapper.text()).toContain('Kühlhaus Flensburg')
+  expect(document.activeElement).toBe(input.element)
+  pending.resolve(globalSearchFixture('person@'))
+  await flushPromises()
+  expect(wrapper.text()).not.toContain('Kühlhaus')
+  expect(wrapper.text()).toContain('person@example.org')
+  expect(wrapper.text()).toContain('Datensätze für „person@“')
+  expect(document.activeElement).toBe(input.element)
+  expect(input.attributes('aria-activedescendant')).toBe(
+    wrapper.get('[role="option"]').attributes('id'),
+  )
+})
+
+it.each(['', ' a '])(
+  'clears remote state below two trimmed characters (%s), ignoring late success',
+  async (text) => {
+    const wrapper = setup()
+    await open()
+    const input = wrapper.get('input')
+    await input.setValue('Kühlhaus')
+    await vi.advanceTimersByTimeAsync(250)
+    const pending = deferredSearch()
+    api.globalSearch.mockReturnValueOnce(pending.promise)
+    await input.setValue('person@')
+    await vi.advanceTimersByTimeAsync(250)
+    const signal = api.globalSearch.mock.calls[1]![1] as AbortSignal
+    await input.setValue(text)
+    expect(signal.aborted).toBe(true)
+    expect(wrapper.text()).not.toContain('Kühlhaus')
+    expect(wrapper.text()).not.toContain('Datensätze für')
+    expect(wrapper.get('[role="listbox"]').attributes('aria-busy')).toBe('false')
+    expect(wrapper.get('[role="group"]').text()).toContain('Navigation')
+    pending.resolve(globalSearchFixture('person@'))
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('person@example.org')
+    expect(document.activeElement).toBe(input.element)
+  },
+)
+
+it('preserves selected identity as navigation changes and only scrolls on arrow keys', async () => {
+  const wrapper = setup()
+  await open()
+  const input = wrapper.get('input')
+  await input.setValue('Kühlhaus')
+  await vi.advanceTimersByTimeAsync(250)
+  await input.trigger('keydown', { key: 'ArrowDown' })
+  expect(wrapper.get('[aria-selected="true"]').text()).toContain('Kühlhaus Flensburg')
+  const scroll = vi.fn()
+  for (const option of wrapper.findAll('[role="option"]')) option.element.scrollIntoView = scroll
+  for (const query of ['Or', 'Orte', 'Kühlhaus neu']) {
+    await input.setValue(query)
+    expect(wrapper.get('[aria-selected="true"]').text()).toContain('Kühlhaus Flensburg')
+    expect(input.attributes('aria-activedescendant')).toBe(
+      wrapper.get('[aria-selected="true"]').attributes('id'),
+    )
+  }
+  expect(scroll).not.toHaveBeenCalled()
+  await input.trigger('keydown', { key: 'ArrowUp' })
+  expect(scroll).toHaveBeenCalledTimes(1)
+  await vi.advanceTimersByTimeAsync(250)
+  expect(wrapper.findAll('[aria-selected="true"]')).toHaveLength(1)
+  expect(wrapper.get('[aria-selected="true"]').text()).toContain('Kühlhaus e.V.')
+  await input.setValue('no matches')
+  await vi.advanceTimersByTimeAsync(250)
+  expect(wrapper.find('[role="option"]').exists()).toBe(false)
+  expect(input.attributes('aria-activedescendant')).toBeUndefined()
+  await input.trigger('keydown', { key: 'ArrowDown' })
+  expect(input.attributes('aria-activedescendant')).toBeUndefined()
+})
+
+it('keeps successful results and their query on error, then accepts a successful empty response', async () => {
+  const wrapper = setup()
+  await open()
+  const input = wrapper.get('input')
+  await input.setValue('Kühlhaus')
+  await vi.advanceTimersByTimeAsync(250)
+  api.globalSearch.mockRejectedValueOnce(new Error('private error'))
+  await input.setValue('unavailable')
+  await vi.advanceTimersByTimeAsync(250)
+  expect(wrapper.text()).toContain('Neue Suche konnte nicht geladen werden.')
+  expect(wrapper.text()).toContain('Datensätze für „Kühlhaus“')
+  expect(wrapper.text()).toContain('Kühlhaus Flensburg')
+  expect(wrapper.text()).not.toContain('private error')
+  expect(document.activeElement).toBe(input.element)
+  await input.setValue('missing')
+  await vi.advanceTimersByTimeAsync(250)
+  expect(wrapper.text()).not.toContain('Kühlhaus')
+  expect(wrapper.text()).not.toContain('Neue Suche konnte')
+  expect(wrapper.text()).toContain('Keine passenden Ergebnisse')
+  expect(wrapper.text()).toContain('Datensätze für „missing“')
+})
+
+it('closing clears the successful snapshot and pending state, even after a late response', async () => {
+  const wrapper = setup()
+  await open()
+  await wrapper.get('input').setValue('Kühlhaus')
+  await vi.advanceTimersByTimeAsync(250)
+  const pending = deferredSearch()
+  api.globalSearch.mockReturnValueOnce(pending.promise)
+  await wrapper.get('input').setValue('person@')
+  await vi.advanceTimersByTimeAsync(250)
+  const signal = api.globalSearch.mock.calls[1]![1] as AbortSignal
+  await wrapper.get('input').trigger('keydown', { key: 'Escape' })
+  expect(signal.aborted).toBe(true)
+  await open()
+  pending.resolve(globalSearchFixture('person@'))
+  await flushPromises()
+  expect(wrapper.get('input').element.value).toBe('')
+  expect(wrapper.findAll('[role="option"]')).toHaveLength(adminNavigationItems.length)
+  expect(wrapper.text()).not.toContain('Datensätze für')
+  expect(wrapper.text()).not.toContain('Kühlhaus')
+  expect(wrapper.text()).not.toContain('person@example.org')
+  expect(wrapper.get('[role="listbox"]').attributes('aria-busy')).toBe('false')
+  expect(wrapper.get('[role="status"]').text()).toBe('')
 })

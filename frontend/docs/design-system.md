@@ -217,8 +217,12 @@ visible tiles and the failure alternative. These images verify layout, not geogr
 `GlobalSearchPalette` uses the existing native `AppModal` workspace dialog. Desktop
 adds one compact search trigger with Ctrl/⌘ K; mobile adds a 44px search icon beside
 the app title, preserving the two-row mobile shell. No extra header row or UI library.
-The mobile palette is a large sheet with a sticky search region, scrolling results,
-safe-area padding, no horizontal overflow and 44px minimum result targets.
+The palette keeps a fixed responsive workspace height: `min(38rem, 100dvh - 2rem)`
+on desktop, `100dvh - 1rem` below 640px. Its nonshrinking header and flexing, internally
+scrolling results keep the dialog's size and position stable across navigation, debounce,
+loading, result counts and errors. Mobile includes safe-area padding, no horizontal
+overflow and 44px minimum result targets. These styles belong only to the search palette;
+other `AppModal` consumers keep their existing layout.
 
 The labelled search input is a combobox controlling one listbox with labelled groups;
 active options use aria-selected, aria-activedescendant and a visible ring. Arrows move
@@ -228,7 +232,20 @@ focus target. Opening focuses search, even when Ctrl+K / Cmd+K began in an input
 
 Local navigation appears first from the shared sidebar definition. Entity labels,
 plural group labels and icons reuse `entityPresentation.ts`. Long labels truncate and
-subtitles/emails wrap. Loading, failure and empty results have concise status text.
+subtitles/emails wrap. Loading uses an absolute input spinner with reduced-motion support
+and a polite live status in reserved header space; errors use that same space. The header
+also identifies the query of the retained successful results. Neither loading nor errors
+add result rows or replace the previous results. Typing preserves selection by identity
+and never scrolls to an option; only arrow keys do. Input focus survives result replacement.
 The palette is systemwide and says so next to the search input. See
 [data-page search semantics](data-pages.md#globale-suche-und-kontextbezogene-suche)
 for fields/ranking, limits and memory-only privacy behavior.
+
+Palette review captures (synthetic fixtures):
+[desktop initial](screenshots/search-palette-desktop-initial.png),
+[desktop revalidation](screenshots/search-palette-desktop-loading.png),
+[desktop results](screenshots/search-palette-desktop-results.png),
+[mobile initial](screenshots/search-palette-mobile-initial.png),
+[mobile results](screenshots/search-palette-mobile-results.png).
+The global-search Playwright suite measures dialog height/top and header position across
+these states, checks internal scrolling, and runs the same workflow under production CSP.

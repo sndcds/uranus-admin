@@ -565,7 +565,6 @@ UUIDs remain available as technical details and copy targets. Email labels stay
 inside authenticated admin views, never public links or metadata. Independent
 admin accounts and timeline actor subjects retain their own identity semantics.
 
-
 ## Globale Suche und kontextbezogene Suche
 
 `GlobalSearchPalette` ergänzt jede geschützte Seite mit Ctrl+K / Cmd+K und einem sichtbaren
@@ -575,6 +574,16 @@ Standortvorschlägen. „Dashboard“ ist auch als Suchbegriff für „Übersich
 Leere Suche zeigt ausschließlich Navigation; passende lokale Ziele stehen vor den
 Entity-Gruppen. Ab zwei Zeichen folgt `/api/v1/search` nach 250ms Debounce, maximal
 fünf Ergebnisse je Typ standardmäßig (API maximal zehn, 60 insgesamt).
+
+Eingabe (`query`), gestartete Remote-Suche (`debouncedQuery`) und sichtbarer erfolgreicher
+Stand (`groups` mit `resultQuery`) sind getrennt. Navigation reagiert sofort auf Eingaben;
+Remote-Treffer bleiben während Debounce, laufender Anfrage und Fehlern sichtbar. Der Kopf
+benennt ihren Suchbegriff ausdrücklich. Nur eine gültige erfolgreiche Antwort ersetzt den
+Stand, auch wenn sie leer ist. Unter zwei getrimmten Zeichen wird Remote-State geleert.
+Abbruch invalidiert nur Timer/Request, nicht die letzte erfolgreiche Antwort.
+Die Auswahl folgt beim lokalen Filtern der Identität des sichtbaren Eintrags, statt bei
+jedem Zeichen zurückzuspringen; eine neue erfolgreiche Antwort wählt den ersten Eintrag.
+Nur Pfeiltasten scrollen zur Auswahl; Antwortwechsel setzen den Ergebnisbereich nach oben.
 
 Die Suche ist ausdrücklich systemweit und ignoriert Gebiet/Zeitraum. `EntitySearch`
 bleibt die kontextbezogene Suchoberfläche mit ihren Listenfiltern und Enter zum Anwenden.
