@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { queueKindSchema } from '#shared/contracts'
-import type { QueuePage } from '#shared/contracts'
+import { membershipStatusSchema, queueKindSchema } from '#shared/contracts'
+import type { MembershipStatus, QueuePage, QueueQuery } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
 import type { ApiFailure } from '#shared/errors'
 import { dateTime } from '~/utils/presentation'
@@ -14,6 +14,10 @@ const loading = ref(false)
 const organization = ref('')
 const age = ref('')
 const status = ref('')
+const membershipStatus = ref<MembershipStatus>('invited')
+const directMembership = computed(
+  () => route.params.kind === 'team_invitations' && typeof route.query.entity_key === 'string',
+)
 const titles = {
   partner_requests: 'Partneranfragen',
   team_invitations: 'Teameinladungen',
@@ -21,7 +25,8 @@ const titles = {
 }
 const descriptions = {
   partner_requests: 'Gerichtete Anfragen zwischen Organisationen; Alter seit Erstellung.',
-  team_invitations: 'Offene Teameinladungen; Alter seit dem belegten Einladungsdatum.',
+  team_invitations:
+    'Standardmäßig offene Einladungen; beigetretene Mitgliedschaften sind über den Statusfilter sichtbar.',
   user_activation:
     'Noch nicht aktivierte Benutzer; Alter seit Erstellung, keine Aussage zur letzten Aktivität.',
 }
@@ -43,7 +48,12 @@ async function load() {
       if (typeof value !== 'string') throw new Error('Invalid query')
       query[key] = value
     }
-    const result = await $adminApi.queue(kind.value.data, query)
+    const filters: QueueQuery = query
+    if (kind.value.data === 'team_invitations') {
+      membershipStatus.value = membershipStatusSchema.parse(query.membership_status ?? 'invited')
+      filters.membership_status = membershipStatus.value
+    }
+    const result = await $adminApi.queue(kind.value.data, filters)
     if (id === requestId) data.value = result
   } catch (cause) {
     if (id === requestId) error.value = asFailure(cause)
@@ -54,9 +64,14 @@ async function load() {
 function apply() {
   void router.push({
     query: {
+      entity_key: directMembership.value ? route.query.entity_key : undefined,
+      membership_status:
+        kind.value.success && kind.value.data === 'team_invitations'
+          ? membershipStatus.value
+          : undefined,
       organization_id: organization.value || undefined,
       min_age_days: age.value || undefined,
-      status: status.value || undefined,
+      status: route.params.kind === 'team_invitations' ? undefined : status.value || undefined,
       page: '1',
     },
   })
@@ -74,15 +89,36 @@ onBeforeUnmount(() => {
       :title="kind.success ? titles[kind.data] : 'Unbekannte Arbeitsliste'"
       :description="kind.success ? descriptions[kind.data] : undefined"
     />
+    <p v-if="directMembership" class="text-sm text-slate-600" role="status">
+      Direkt aufgerufene Teammitgliedschaft · Status-, Organisations- und Altersfilter werden nicht
+      angewendet. „Filter zurücksetzen“ öffnet wieder die Einladungsliste.
+    </p>
     <FilterBar @apply="apply">
       <label
-        ><span class="label">Organisation (UUID)</span><input v-model="organization" class="input"
+        ><span class="label">Organisation (UUID)</span
+        ><input v-model="organization" :disabled="directMembership" class="input"
       /></label>
       <label
         ><span class="label">Mindestalter (Tage)</span
-        ><input v-model="age" type="number" min="0" max="36500" class="input"
+        ><input
+          v-model="age"
+          :disabled="directMembership"
+          type="number"
+          min="0"
+          max="36500"
+          class="input"
       /></label>
-      <label><span class="label">Status</span><input v-model="status" class="input" /></label>
+      <label v-if="kind.success && kind.data === 'team_invitations'">
+        <span class="label">Status</span>
+        <select v-model="membershipStatus" class="input" :disabled="directMembership">
+          <option value="invited">Eingeladen</option>
+          <option value="joined">Beigetreten</option>
+          <option value="all">Alle</option>
+        </select>
+      </label>
+      <label v-else
+        ><span class="label">Status</span><input v-model="status" class="input"
+      /></label>
       <div class="flex flex-wrap gap-2">
         <button class="button-primary">Anwenden</button
         ><button type="button" class="button" @click="router.push({ query: {} })">

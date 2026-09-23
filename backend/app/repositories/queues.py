@@ -4,6 +4,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.errors import APIError
 from app.repositories.query import ReadQuery
 from app.repositories.user_presentation import USER_DISPLAY_LABEL_SQL
 from app.schemas.queues import QueueFilters, QueueKind
@@ -65,7 +66,7 @@ QUEUE_EXPRESSIONS = {
         "'membership:' || org_uuid::text || ':' || user_id::text",
         "CASE WHEN has_joined THEN 'joined' ELSE 'invited' END",
         "invited_at",
-        "NOT COALESCE(has_joined, false)",
+        "TRUE",
         "org_uuid=:organization_id",
     ),
     "user_activation": (
@@ -86,7 +87,15 @@ def queue_page_queries(
     source_timezone: str,
 ) -> dict[str, ReadQuery]:
     key, status, basis, active, organization = QUEUE_EXPRESSIONS[kind]
+    if kind == "team_invitations" and filters.status is not None:
+        raise APIError(422, "invalid_input", "Use membership_status for team memberships.")
+    direct_membership = kind == "team_invitations" and filters.entity_key is not None
     conditions = [active]
+    if kind == "team_invitations" and not direct_membership:
+        if filters.membership_status == "invited":
+            conditions.append("NOT COALESCE(has_joined, false)")
+        elif filters.membership_status == "joined":
+            conditions.append("COALESCE(has_joined, false)")
     params: dict[str, Any] = {
         "now": now,
         "timezone": source_timezone,
@@ -99,7 +108,7 @@ def queue_page_queries(
         ("status", f"({status})=:status"),
     ):
         value = getattr(filters, name)
-        if value is not None:
+        if value is not None and (not direct_membership or name == "entity_key"):
             conditions.append(expression)
             params[name] = value
     # Match Python timedelta.days, including unknown/future invitation timestamps.
@@ -108,7 +117,7 @@ def queue_page_queries(
         f"floor(extract(epoch FROM (CAST(:now AS timestamptz) - "
         f"({basis} AT TIME ZONE :timezone))) / 86400)::integer END"
     )
-    if filters.min_age_days is not None:
+    if filters.min_age_days is not None and not direct_membership:
         conditions.append(f"({age}) >= :min_age_days")
         params["min_age_days"] = filters.min_age_days
     source = f"FROM ({QUEUE_SQL[kind]}) s WHERE {' AND '.join(conditions)}"

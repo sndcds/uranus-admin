@@ -594,3 +594,18 @@ Requests ab; Generationsprüfungen verhindern auch verspätete erfolgreiche/fehl
 Antworten. Schließen, Navigation, Logout und Session-Verlust leeren die Palette.
 Keine Speicherung in Pinia-Präferenzen, localStorage, sessionStorage, IndexedDB oder
 Cookies; kein Verlauf, keine Analytics und keine Logs von Suchtext oder Trefferwerten.
+
+## Status von Teammitgliedschaften
+
+`/queues/team_invitations` zeigt standardmäßig „Eingeladen“. Der Statusselector bietet
+„Eingeladen“, „Beigetreten“ und „Alle“; Anwenden schreibt
+`membership_status=invited|joined|all` in die URL und setzt die Seite auf 1 zurück.
+Reload sowie Zurück/Vorwärts übernehmen die URL. Keine persistente Speicherung.
+
+Ein direkter `entity_key=membership:<org_uuid>:<user_uuid>` öffnet auch beigetretene
+Mitgliedschaften aus der Benutzer-Timeline. Status-, Organisations- und Altersfilter sind
+dabei deaktiviert und werden serverseitig nicht angewendet. Ein Hinweis erklärt den
+Direktaufruf; „Filter zurücksetzen“ kehrt zur offenen Einladungsliste zurück.
+StatusBadge zeigt den aktuellen Status, das Einladungsdatum bleibt die Altersbasis und
+wird niemals als Beitrittsdatum ausgegeben. Counts und Pagination kommen vom Backend.
+Eine spätere Umbenennung in „Teammitgliedschaften“ bleibt eine separate Produktentscheidung.

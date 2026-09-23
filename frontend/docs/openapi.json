@@ -12836,6 +12836,21 @@
             }
           },
           {
+            "name": "membership_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "invited",
+                "joined",
+                "all"
+              ],
+              "type": "string",
+              "default": "invited",
+              "title": "Membership Status"
+            }
+          },
+          {
             "name": "status",
             "in": "query",
             "required": false,
@@ -13184,6 +13199,21 @@
             }
           },
           {
+            "name": "membership_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "invited",
+                "joined",
+                "all"
+              ],
+              "type": "string",
+              "default": "invited",
+              "title": "Membership Status"
+            }
+          },
+          {
             "name": "status",
             "in": "query",
             "required": false,
@@ -13529,6 +13559,21 @@
                 }
               ],
               "title": "Entity Key"
+            }
+          },
+          {
+            "name": "membership_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "invited",
+                "joined",
+                "all"
+              ],
+              "type": "string",
+              "default": "invited",
+              "title": "Membership Status"
             }
           },
           {
@@ -17992,7 +18037,7 @@
           "Work queues"
         ],
         "summary": "List operational work items",
-        "description": "Partner requests, open invitations or inactive accounts. Age uses creation or actual invitation timestamp, never last login or joined time.",
+        "description": "Partner requests, team memberships (membership_status: invited by default, joined, all) or inactive accounts. Exact membership keys bypass membership status, organization and age filters. Age uses creation or actual invitation timestamp, never last login or joined time.",
         "operationId": "queue_api_v1_work_queues__kind__get",
         "security": [
           {
@@ -18047,6 +18092,21 @@
                 }
               ],
               "title": "Entity Key"
+            }
+          },
+          {
+            "name": "membership_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "invited",
+                "joined",
+                "all"
+              ],
+              "type": "string",
+              "default": "invited",
+              "title": "Membership Status"
             }
           },
           {
@@ -28378,6 +28438,16 @@
               }
             ],
             "title": "Entity Key"
+          },
+          "membership_status": {
+            "type": "string",
+            "enum": [
+              "invited",
+              "joined",
+              "all"
+            ],
+            "title": "Membership Status",
+            "default": "invited"
           },
           "status": {
             "anyOf": [

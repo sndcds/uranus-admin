@@ -476,6 +476,17 @@ export const activityPageSchema = z.object({
 export type ActivityPage = z.infer<typeof activityPageSchema>
 
 export const queueKindSchema = z.enum(['partner_requests', 'team_invitations', 'user_activation'])
+export const membershipStatusSchema = z.enum(['invited', 'joined', 'all'])
+export type MembershipStatus = z.infer<typeof membershipStatusSchema>
+export type QueueQuery = {
+  organization_id?: string
+  entity_key?: string
+  status?: string
+  membership_status?: MembershipStatus
+  min_age_days?: string | number
+  page?: string | number
+  page_size?: string | number
+}
 export const queuePageSchema = z.object({
   kind: queueKindSchema,
   items: z.array(

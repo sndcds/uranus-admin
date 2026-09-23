@@ -14,7 +14,9 @@ router = APIRouter(tags=["Work queues"])
     "/work-queues/{kind}",
     response_model=QueuePage,
     summary="List operational work items",
-    description="Partner requests, open invitations or inactive accounts. "
+    description="Partner requests, team memberships "
+    "(membership_status: invited by default, joined, all) or inactive accounts. "
+    "Exact membership keys bypass membership status, organization and age filters. "
     "Age uses creation or actual invitation timestamp, never last login or joined time.",
 )
 async def queue(

@@ -53,6 +53,7 @@ import type {
   EventContentQuery,
   EntitySearchQuery,
   GlobalSearchQuery,
+  QueueQuery,
   Period,
   ReviewUpdate,
   MarkCreate,
@@ -292,7 +293,7 @@ export function createAdminApi(
       request('/api/v1/quality/venues/missing-geolocation', findingPageSchema, { page }),
     activity: (query: Record<string, string | number | undefined>) =>
       request('/api/v1/dashboard/activity', activityPageSchema, query),
-    queue: (kind: string, query: Record<string, string | number | undefined>) =>
+    queue: (kind: string, query: QueueQuery) =>
       request(`/api/v1/work-queues/${kind}`, queuePageSchema, query),
     checkRuns: (page = 1) => request('/api/v1/check-runs', checkRunPageSchema, { page }),
     checkRun: (id: string) =>

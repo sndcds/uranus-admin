@@ -92,7 +92,7 @@ const routes: Record<string, readonly string[]> = {
   '/api/v1/work-queues/team_invitations': [
     'organization_id',
     'entity_key',
-    'status',
+    'membership_status',
     'min_age_days',
     'page',
     'page_size',
