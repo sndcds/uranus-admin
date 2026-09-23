@@ -19,11 +19,12 @@ from pathlib import Path
 
 ANSIBLE = Path(__file__).resolve().parents[1]
 # Inventory host names are operator-defined; only direct hosts in this group apply.
-LOCAL_ARTIFACT_PATHS = {
+LOCAL_RELEASE_PATHS = {
     "inventory.lxd.yml": ("all", "children", "uranus_admin", "hosts"),
     "approvals.local.yml": (),
     "inventory.local.yml": ("all", "children", "uranus_admin", "hosts"),
 }
+RELEASE_KEYS = ("ua_release_sha", "ua_artifact", "ua_artifact_sha256")
 
 
 class ConfigurationError(Exception):
@@ -41,7 +42,7 @@ def yaml_parser():
     return yaml
 
 
-def artifact_changes(path, prefix, output, yaml):
+def release_pin_changes(path, prefix, release_values, yaml):
     """Use YAML scalar source marks to preserve every unrelated byte, including comments."""
     info = path.lstat()
     if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
@@ -84,26 +85,29 @@ def artifact_changes(path, prefix, output, yaml):
     changes, replacements = [], []
     for host, host_node in hosts.items():
         key_path = (*prefix, host) if prefix else ()
-        value = required(host_node, key_path, "ua_artifact")
-        label = ".".join((*key_path, "ua_artifact"))
-        if (
-            not isinstance(value, yaml.ScalarNode)
-            or value.tag != "tag:yaml.org,2002:str"
-            or value.style not in (None, "'", '"')
-        ):
-            raise ConfigurationError(f"{path.name}: {label} must be an inline string")
-        changes.append((label, value.value))
-        if value.value == output:
-            continue
-        # A single quoted scalar is escaped according to YAML, not shell syntax.
-        replacement = (
-            "'" + output.replace("'", "''") + "'"
-            if value.style == "'" and output.isprintable()
-            else yaml.safe_dump(
-                output, default_style='"', allow_unicode=False, width=float("inf")
-            ).rstrip("\n")
-        )
-        replacements.append((value.start_mark.index, value.end_mark.index, replacement))
+        for key in RELEASE_KEYS:
+            value = required(host_node, key_path, key)
+            label = ".".join((*key_path, key))
+            if (
+                not isinstance(value, yaml.ScalarNode)
+                or value.tag != "tag:yaml.org,2002:str"
+                or value.style not in (None, "'", '"')
+                or value.start_mark.line != value.end_mark.line
+            ):
+                raise ConfigurationError(f"{path.name}: {label} must be an inline string")
+            new = release_values[key]
+            changes.append((label, value.value, new))
+            if value.value == new:
+                continue
+            # A single quoted scalar is escaped according to YAML, not shell syntax.
+            replacement = (
+                "'" + new.replace("'", "''") + "'"
+                if value.style == "'" and new.isprintable()
+                else yaml.safe_dump(
+                    new, default_style='"', allow_unicode=False, width=float("inf")
+                ).rstrip("\n")
+            )
+            replacements.append((value.start_mark.index, value.end_mark.index, replacement))
     for start, end, replacement in sorted(replacements, reverse=True):
         source = source[:start] + replacement + source[end:]
     return path, original, source.encode("utf-8"), stat.S_IMODE(info.st_mode), changes
@@ -187,13 +191,13 @@ def replace_configurations(plans):
                     path.unlink(missing_ok=True)
 
 
-def update_local_inventories(output, dry_run=False):
+def update_local_inventories(release_values, dry_run=False):
     yaml = yaml_parser()
     try:
         with local_configuration_lock():
             plans = [
-                artifact_changes(ANSIBLE / filename, prefix, str(output), yaml)
-                for filename, prefix in LOCAL_ARTIFACT_PATHS.items()
+                release_pin_changes(ANSIBLE / filename, prefix, release_values, yaml)
+                for filename, prefix in LOCAL_RELEASE_PATHS.items()
             ]
             if not dry_run:
                 replace_configurations(plans)
@@ -203,16 +207,17 @@ def update_local_inventories(output, dry_run=False):
             f"{name}: cannot read, stage or replace local configuration"
         ) from None
     title = (
-        "Planned local Ansible configuration changes"
+        "Planned local Ansible release pin changes"
         if dry_run
-        else "Updated local Ansible configuration"
+        else "Updated local Ansible release pins"
     )
     print(f"\n{title}:", file=sys.stderr)
     for path, _, _, _, changes in plans:
-        for key, old in changes:
-            status = "already up to date" if old == str(output) else f"{old!r} -> {str(output)!r}"
-            print(f"  ansible/{path.name}: {key}: {status}", file=sys.stderr)
-    print(f"\nRelease package:\n  {output}", file=sys.stderr)
+        print(f"  ansible/{path.name}:", file=sys.stderr)
+        for key, old, new in changes:
+            status = "already up to date" if old == new else f"{old!r} -> {new!r}"
+            print(f"    {key}:\n      {status}", file=sys.stderr)
+    print(f"\nRelease package:\n  {release_values['ua_artifact']}", file=sys.stderr)
 
 
 def literal_assignment(source, name):
@@ -400,16 +405,13 @@ def package(revision, output):
             info.size, info.mode, info.mtime = len(data), 0o644, 0
             archive.addfile(info, io.BytesIO(data))
     digest = hashlib.sha256(Path(output).read_bytes()).hexdigest()
-    print(
-        json.dumps(
-            {
-                "ua_release_sha": commit,
-                "ua_artifact": str(Path(output).resolve()),
-                "ua_artifact_sha256": digest,
-            },
-            indent=2,
-        )
-    )
+    release_values = {
+        "ua_release_sha": commit,
+        "ua_artifact": str(Path(output).resolve()),
+        "ua_artifact_sha256": digest,
+    }
+    print(json.dumps(release_values, indent=2))
+    return release_values
 
 
 def main(argv=None):
@@ -420,8 +422,9 @@ def main(argv=None):
     parser.add_argument(
         "--update-local-inventories",
         action="store_true",
-        help="Update ua_artifact in the local Ansible inventories and approval file; "
-        "requires the controller requirements. Commit, checksum and approvals stay unchanged.",
+        help="Update the local Ansible release pins (ua_release_sha, ua_artifact and "
+        "ua_artifact_sha256); requires the controller requirements. Commit, checksum and "
+        "artifact path are synchronized. Approval decisions remain unchanged.",
     )
     parser.add_argument(
         "--dry-run",
@@ -441,7 +444,7 @@ def main(argv=None):
         except ConfigurationError as error:
             parser.error(str(error))
     commit = latest_main()
-    package(commit, str(output))
+    release_values = package(commit, str(output))
     print(f"Release package created:\n  {output}", file=sys.stderr)
     if args.update_local_inventories:
         if not output.is_file() or output.stat().st_size == 0:
@@ -449,7 +452,7 @@ def main(argv=None):
                 "Release archive was not successfully created; local configuration unchanged"
             )
         try:
-            update_local_inventories(output, args.dry_run)
+            update_local_inventories(release_values, args.dry_run)
         except ConfigurationError as error:
             parser.error(str(error))
     else:
