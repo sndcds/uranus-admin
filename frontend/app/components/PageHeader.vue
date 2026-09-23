@@ -3,11 +3,11 @@ import SqlProvenanceButton from './sql/SqlProvenanceButton.vue'
 defineProps<{ title: string; description?: string; titleId?: string; record?: boolean }>()
 </script>
 <template>
-  <header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-    <div class="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row">
+  <header class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <div class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row">
       <slot name="leading" />
       <div class="min-w-0">
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2">
           <h2
             :id="titleId"
             class="min-w-0 max-w-full"
@@ -17,7 +17,7 @@ defineProps<{ title: string; description?: string; titleId?: string; record?: bo
           </h2>
           <slot name="badge" />
         </div>
-        <p v-if="description" class="mt-1 text-sm text-slate-500">{{ description }}</p>
+        <p v-if="description" class="mt-1 text-sm leading-5 text-slate-600">{{ description }}</p>
         <slot name="context" />
       </div>
     </div>

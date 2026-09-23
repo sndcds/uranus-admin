@@ -1,5 +1,22 @@
 # Frontend UI/UX-Audit — Design System v2
 
+## v2.1 Foundations — Visual consolidation / density migration pending
+
+Ausgangspunkt: frisch geholtes `main` bei `10f41ca78cad640317fbd06be70ce2f766845b82`.
+Der erste Operations-Center-Schritt umfasst kompaktere gemeinsame CSS-Rollen,
+dunkle Sidebar/Drawer, kompakteren PageHeader/Topbar, explizite Panel-Surfaces,
+CompactFacts, TechnicalInfoBar, DenseTable und optionale kompakte EmptyState-/Timeline-Varianten.
+Die Navigationsreihenfolge, fachlichen Daten, Abrufe und Backend-Verträge bleiben erhalten.
+Keine komplette Route ist damit bereits als v2.1 migriert.
+
+**Visual consolidation / density migration pending:** Dashboard → sechs Record-Details →
+Geocoding/Workflow → Inbox/Findings/Marks → Queues/Notifications/Checks →
+Graph/SQL/Statistics/Quality → abschließender Responsive-/Accessibility-Audit.
+Diese Folgephasen benötigen jeweils einen eigenen Review; sie gehören nicht zu diesem PR.
+
+[Komponenten-/Shell-Aufnahmen und Reproduktion](screenshots/operations-foundations/README.md).
+Historische Auditbefunde und v2-Migrationsverträge unten bleiben als Kontext erhalten.
+
 ## Prüfstand und Methode
 
 Audit vor Anwendungsänderungen, 23.09.2026. Frisch geholtes `main`:

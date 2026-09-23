@@ -63,6 +63,9 @@ test('global selection, scoped search, local reset, period, navigation, reload a
   )
   await page.getByRole('combobox', { name: 'Suche', exact: true }).fill('Konzert')
   await search
+  // Dismiss the autocomplete before using controls below its overlay. Fast
+  // production responses may render the empty-results panel before the click.
+  await page.getByRole('combobox', { name: 'Suche', exact: true }).press('Escape')
   await page.getByRole('button', { name: 'Filter zurücksetzen', exact: true }).click()
   await expect(page).toHaveURL(
     (url) => url.searchParams.get('geo_scope_id') === geoArea.id && !url.searchParams.has('q'),

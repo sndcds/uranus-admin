@@ -1,0 +1,4 @@
+@import '../../../app/assets/css/main.css';
+
+/* The standalone fixture root is outside app; scan the real component utilities too. */
+@source '../../../app';

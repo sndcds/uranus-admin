@@ -281,9 +281,13 @@ Uranus-SSO, MFA und Self-Service-Kontowiederherstellung, fachliches Editieren, p
 vollständiges Auditjournal, automatische Geocodierung/Merges und externe URL-/Dateiabfragen.
 Portal-Bildziele sowie Space-Feature-Zuordnungen bleiben bis zur eindeutigen Quellklärung offen.
 
-## Design System v2
+## Design System v2.1
 
-Der [Design Guide v2](docs/design-system.md) ist der kanonische UI-Vertrag.
+Der [Design Guide v2.1 — Admin Operations Center](docs/design-system.md) ist der kanonische UI-Vertrag.
+Die gemeinsamen Foundations bieten eine dunkle Sidebar, kompaktere Abstände und Kopfzeilen,
+explizite Panel-Surfaces, CompactFacts, TechnicalInfoBar, DenseTable sowie kompakte
+EmptyState-/Timeline-Varianten. Die vollständige Migration einzelner Seiten folgt separat.
+[Komponentenreview und Screenshots](docs/screenshots/operations-foundations/README.md).
 Der [vollständige Frontend-Audit](docs/ui-ux-audit.md) dokumentiert den main-Ausgangsstand,
 alle Routen, historische Sprachabweichungen und den aktuellen Migrationsstand.
 Alle sechs Entity-Detailtypen verwenden Record Detail v2; Geocoding verwendet Workflow v2.

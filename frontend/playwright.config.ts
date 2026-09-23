@@ -25,6 +25,12 @@ export default defineConfig({
   ],
   webServer: [
     {
+      // Isolated component fixture; never registered as an application route.
+      command: 'pnpm exec vite --config tests/fixtures/operations/vite.config.ts',
+      url: 'http://127.0.0.1:3101',
+      reuseExistingServer: false,
+    },
+    {
       command: 'node tests/fixtures/auth-server.mjs',
       url: 'http://127.0.0.1:31902/health',
       reuseExistingServer: false,

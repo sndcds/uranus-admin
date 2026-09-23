@@ -1,7 +1,10 @@
 @import 'tailwindcss';
 
 @theme {
-  --shadow-soft: 0 8px 30px rgba(15, 23, 42, 0.06);
+  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --spacing-operations-page: 1.25rem;
+  --spacing-operations-panel: 1rem;
+  --spacing-operations-grid: 0.75rem;
 }
 
 @layer base {
@@ -30,16 +33,16 @@
 
 @layer components {
   .card {
-    @apply min-w-0 rounded-2xl border border-slate-200 bg-white shadow-soft;
+    @apply min-w-0 rounded-xl border border-slate-200 bg-white shadow-soft;
   }
   .button {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50;
   }
   .button-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-transparent bg-fuchsia-700 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-800 disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-transparent bg-fuchsia-700 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-800 disabled:opacity-50;
   }
   .input {
-    @apply w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400;
+    @apply min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400;
   }
   .label {
     @apply mb-1.5 block text-xs font-semibold text-slate-600;
@@ -59,7 +62,7 @@
 
 @layer components {
   .data-list {
-    @apply overflow-hidden rounded-2xl border border-slate-200 bg-white;
+    @apply overflow-hidden rounded-xl border border-slate-200 bg-white;
   }
   .data-row {
     @apply min-w-0 break-words px-4 py-3 hover:bg-slate-50 sm:px-5;
@@ -74,7 +77,7 @@
 
 @layer components {
   .panel {
-    @apply min-w-0 rounded-2xl border border-slate-200 bg-white;
+    @apply min-w-0 rounded-xl border border-slate-200 bg-white;
   }
   .admin-table {
     @apply w-full border-collapse text-left text-sm;
@@ -93,13 +96,13 @@
   }
 }
 
-/* Design System v2: additive roles, adopted by the Record Detail pilot. */
+/* Design System v2.1: shared Operations Center foundations. */
 @layer components {
   .type-page-title {
     @apply break-words text-2xl font-bold tracking-tight;
   }
   .type-record-title {
-    @apply break-words text-2xl font-bold tracking-tight sm:text-3xl;
+    @apply break-words text-2xl font-bold tracking-tight sm:text-[28px];
   }
   .type-section-title {
     @apply text-lg font-semibold text-slate-900;
@@ -117,7 +120,7 @@
     @apply text-xs font-medium;
   }
   .record-detail {
-    @apply min-w-0 max-w-6xl space-y-4 sm:space-y-8;
+    @apply min-w-0 max-w-6xl space-y-operations-page;
   }
   .action-link {
     @apply inline-flex min-h-11 items-center gap-1 rounded text-sm font-semibold text-fuchsia-700 underline-offset-4 hover:underline;
@@ -166,5 +169,93 @@
   }
   .prose-admin-plain {
     @apply whitespace-pre-wrap;
+  }
+}
+
+/* Explicit surfaces: adopt per information group, never by route selector. */
+@layer components {
+  .operations-page {
+    @apply min-w-0 space-y-operations-page;
+  }
+  .section-plain {
+    @apply min-w-0 space-y-3;
+  }
+  .operations-panel,
+  .section-panel,
+  .section-subtle,
+  .section-table,
+  .technical-bar {
+    @apply min-w-0 rounded-xl border border-slate-200 bg-white;
+  }
+  .section-subtle,
+  .technical-bar {
+    @apply bg-slate-50;
+  }
+  .operations-panel-header {
+    @apply flex flex-wrap items-center justify-between gap-2 rounded-t-xl border-b border-slate-200 bg-slate-50 px-operations-panel py-2;
+  }
+  .operations-grid {
+    @apply grid min-w-0 gap-operations-grid sm:grid-cols-2;
+  }
+  .operations-toolbar {
+    @apply flex min-w-0 flex-wrap items-end gap-3;
+  }
+  .operations-meta {
+    @apply text-xs leading-5 text-slate-600;
+  }
+  .operations-sidebar {
+    @apply bg-slate-900 text-slate-100;
+  }
+  .operations-sidebar :focus-visible {
+    @apply outline-fuchsia-300;
+  }
+  .operations-table {
+    @apply w-full table-fixed border-collapse text-left text-sm;
+  }
+  .operations-table :is(th, td) {
+    @apply break-words border-b border-slate-100 px-3 py-2 align-middle;
+    overflow-wrap: anywhere;
+  }
+  .operations-table thead th {
+    @apply bg-slate-50 text-xs font-semibold text-slate-600;
+  }
+  .operations-table tbody :is(th, td) {
+    @apply py-1;
+  }
+  .operations-table tbody tr {
+    @apply h-12 hover:bg-slate-50;
+  }
+  .operations-table tbody tr:last-child :is(th, td) {
+    @apply border-b-0;
+  }
+  .operations-table .action-link {
+    @apply text-xs;
+  }
+  .timeline-compact .data-row {
+    @apply px-3 py-2;
+  }
+}
+
+@layer components {
+  .operations-cell-label {
+    @apply hidden;
+  }
+  @media (max-width: 639px) {
+    .operations-table-stack,
+    .operations-table-stack :is(tbody, tr) {
+      @apply block w-full;
+    }
+    .operations-table-stack thead {
+      @apply sr-only;
+    }
+    .operations-table-stack tbody tr {
+      @apply h-auto border-b border-slate-200 py-2 last:border-b-0;
+    }
+    .operations-table-stack tbody :is(th, td) {
+      @apply grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-3 border-0 py-1 text-left;
+    }
+    .operations-table-stack .operations-cell-label {
+      @apply block text-xs font-normal text-slate-600;
+    }
   }
 }
