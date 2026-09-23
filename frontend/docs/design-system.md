@@ -2,7 +2,7 @@
 
 Kanonischer UI-Vertrag für neue und migrierte Oberflächen. Grundlage ist der
 [vollständige Frontend-Audit](ui-ux-audit.md) gegen `main` bei `4560304` (initialer Audit: `e615df3`).
-V2 wird schrittweise eingeführt: `/events/:id` ist der erste Record-Detail-Pilot.
+Alle sechs Entity-Detailtypen verwenden Record Detail v2; Geocoding verwendet Workflow v2.
 Bestehende Seiten sind nicht allein durch diese Dokumentation bereits migriert.
 Fachliche Datenverträge: [Datenansichten](data-pages.md), [Aktivität](activity-stream.md),
 [Statistiken](statistics.md), [Graph](entity-relationship-graph.md), [SQL](sql-editor.md).
@@ -229,7 +229,7 @@ Ortslink verwendet ausschließlich die passende kanonische Aktion einer tatsäch
 gelieferten Ortsrelation. Liegt diese nicht auf der aktuellen Seite, bleibt der Name Text;
 Namen werden niemals zu URLs umgedeutet.
 
-`RecordRelations` zeigt für alle vier Typen dieselbe globale Seite mit Umfang, Gesamtzahl,
+`RecordRelations` zeigt für alle sechs Typen dieselbe globale Seite mit Umfang, Gesamtzahl,
 Server-Reihenfolge, `aria-busy` und Navigation über `related_page`; andere Query-Parameter
 bleiben erhalten. Keine Fachgruppen oder vollständige Teams aus dieser Seite ableiten.
 `RecordWorkflowSummary` zeigt gemeinsame Befund-/Markierungszahlen und den Link zu
@@ -243,7 +243,32 @@ Keine Adresse im Hero wiederholen. Öffentliche Kulturbytes-Links erscheinen aus
 bei vorhandenem `public_url`; ohne sinnvolle öffentliche Aktion ist kein Primary Button nötig.
 Danach folgen stets Arbeitsstand, Timeline und technische Informationen zuletzt.
 
-Benutzer und Bilder behalten vorerst ihren bisherigen Detail-Presenter. Künftige semantische
+`/users/:id` und `/images/:id` sind ebenfalls **RECORD DETAIL v2**. Die eigenen
+Presenter `UserDetailContent` und `ImageDetailContent` enthalten ihren Hero vor den
+fachlichen Abschnitten; die Shell übernimmt weiterhin RequestState und Timeline.
+Ein bewusst leerer Header-Slot darf keinen Default-Header erzeugen.
+
+Benutzer: Avatar, unveränderter kanonischer Servername, Typ und Aktiv/Nicht aktiv im Hero.
+E-Mail und Username erscheinen dort als Plaintext nur, wenn sie nicht bereits den Namen
+oder einander wiederholen. Benutzerinformationen zeigen den Kontostatus, Teamkontext
+zeigt Teammitgliedschaften **einschließlich Einladungen**. Null bleibt unbekannt.
+`has_joined` liefert Eingeladen/Beigetreten; `invited_at` liefert keinen Beitrittszeitpunkt.
+Es gibt keine scheinbar vollständigen getrennten Teamgruppen und keinen öffentlichen
+Benutzerlink. Der kanonische UUID-Fallback für Benutzer bleibt als letzte belegte
+Identität erhalten; eine zusätzliche technische UUID steht ausschließlich am Ende.
+
+Bilder: ein Hero-Titel und große Vorschau vor Bildinformationen, Beziehungen und Arbeitsstand.
+Ein UUID-Bildname wird mit dem bestehenden Helper neutral als „Bild ohne Anzeigenamen“
+angezeigt. Bildverknüpfungen zählen Links; „Ohne Verknüpfung“ zeigt Ja/Nein/Nicht verfügbar,
+keine Aussage über Nutzung. `ActivityThumbnail` bietet eine `record`-Variante mit
+reserviertem, auf 55dvh/32rem begrenztem Rahmen und unbeschnittenem Originalverhältnis.
+Sie nutzt ausschließlich `activityImagePreviewUrl` für die vorhandene öffentliche URL,
+lazy/async, anonymous CORS und no-referrer. Der vorhandene AppModal bleibt zuständig für
+Vergrößerung und Fokus-Rückgabe. Bei Bildfehlern bleibt lesbarer Text ohne Retry-Schleife;
+fehlende URL bleibt ein nicht interaktiver Fallback. Keine neue Remote-Quelle.
+Der `leading`-Slot von EntityHero ersetzt beim Bild das kleine Thumbnail durch ein Typ-Icon.
+
+Künftige semantische
 Beziehungsgruppen benötigen unabhängige, explizite Vollständigkeits-/Paginationsverträge;
 eine gemeinsame Relationsseite reicht dafür nicht aus.
 
@@ -372,18 +397,18 @@ Screenreader-Prüfung gehören zum finalen manuellen Audit, nicht zur Screenshot
 
 ## 25. Komponenten-Inventar
 
-| Familie       | Bestehende / neue Verantwortung                                                                                                                                                              |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shell         | layouts/default, auth, AppNavigation, GeoScopeSelector, GlobalSearchPalette                                                                                                                  |
-| Struktur      | PageHeader, SectionHeader, DataListShell, FilterBar, ResultSummary, PaginationBar                                                                                                            |
-| Zustände      | RequestState, InlineAlert, EmptyState, StatusBadge, SeverityBadge, EntityTypeBadge                                                                                                           |
-| Record v2     | EntityDetailPage (Shell/Slots), EntityHero (PageHeader/Identität), RecordSection (plain), Event/Organization/Venue/SpaceDetailContent (Domänen), SpaceDetailContext, EntityTechnicalMetadata |
-| Record-Inhalt | RecordRelations (globale Seite), RecordWorkflowSummary (Counts), RecordLocation (Adresse/Link)                                                                                               |
-| Inhalt        | DetailFacts (kurze Werte), MarkdownContent (verifiziertes Rich Text), ActivityThumbnail                                                                                                      |
-| Listen        | ActivityRow, EntityListPage, FindingsList, InboxRow                                                                                                                                          |
-| Workflow      | FindingDetail, AssignmentEditor/Snooze, MarkFields, GeocodeSourceSummary, LocationSuggestion, GeocodeTechnicalMetadata, NotificationPreview                                                                                                  |
-| Workspaces    | GraphWorkspace/EntityGraph/GraphNodeDetails, SqlWorkspace/QueryPanel, Statistik-Charts, CandidateMap                                                                                         |
-| Interaktion   | AppModal, EntitySearch, AppIcon                                                                                                                                                              |
+| Familie       | Bestehende / neue Verantwortung                                                                                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shell         | layouts/default, auth, AppNavigation, GeoScopeSelector, GlobalSearchPalette                                                                                                                             |
+| Struktur      | PageHeader, SectionHeader, DataListShell, FilterBar, ResultSummary, PaginationBar                                                                                                                       |
+| Zustände      | RequestState, InlineAlert, EmptyState, StatusBadge, SeverityBadge, EntityTypeBadge                                                                                                                      |
+| Record v2     | EntityDetailPage (Shell/Slots), EntityHero (PageHeader/Identität), RecordSection (plain), Event/Organization/Venue/Space/User/ImageDetailContent (Domänen), SpaceDetailContext, EntityTechnicalMetadata |
+| Record-Inhalt | RecordRelations (globale Seite), RecordWorkflowSummary (Counts), RecordLocation (Adresse/Link)                                                                                                          |
+| Inhalt        | DetailFacts (kurze Werte), MarkdownContent (verifiziertes Rich Text), ActivityThumbnail                                                                                                                 |
+| Listen        | ActivityRow, EntityListPage, FindingsList, InboxRow                                                                                                                                                     |
+| Workflow      | FindingDetail, AssignmentEditor/Snooze, MarkFields, GeocodeSourceSummary, LocationSuggestion, GeocodeTechnicalMetadata, NotificationPreview                                                             |
+| Workspaces    | GraphWorkspace/EntityGraph/GraphNodeDetails, SqlWorkspace/QueryPanel, Statistik-Charts, CandidateMap                                                                                                    |
+| Interaktion   | AppModal, EntitySearch, AppIcon                                                                                                                                                                         |
 
 Keine Domain-Platzhalter ohne fachliche Migration. Slot-Vertrag statt
 riesigem Switch. Neue Primitive gezielt testen, nicht bloß Implementierungsdetails spiegeln.
@@ -412,26 +437,30 @@ Review-Artefakte, keine Vollseiten-Pixelgoldens. `layout-consistency.spec.ts` er
 jede Haupt-Route mit kontrollierten Fixtures, lokal gemockten Bildern/Tiles und ohne
 Produktionsdaten. Jede Aufnahme nach geladenem Inhalt, nicht nur nach sichtbarem Header.
 
-| Bereich                                                   | Desktop 1440×1000 | Tablet 1024×768 | Mobile 390×844 | Zusatz                                       |
-| --------------------------------------------------------- | ----------------- | --------------- | -------------- | -------------------------------------------- |
-| Übersicht, Aktivität, Aufgaben, Befunde, Checks, Qualität | ja                | ja              | ja             | leer/Fehler in Fachtests                     |
-| Alle drei Queues                                          | ja                | ja              | ja             | Alter unbekannt separat                      |
-| Notifications + Versände, jeweils Liste/Detail            | ja                | ja              | ja             | Retry/Preview Fachtests                      |
-| Marks Liste/Detail                                        | ja                | ja              | ja             | Konflikt Fachtests                           |
-| Sechs Entity-Collections + Details                        | ja                | ja              | ja             | Alle vier Record-v2-Typen zusätzlich 360×800 |
-| Geocoding Liste/Detail                                    | ja                | ja              | ja             | Tiles lokal, Fehlerfall                      |
-| Graph                                                     | ja                | ja              | ja             | Fullscreen Fachtests                         |
-| Statistik + Veranstaltungsinhalte                         | ja                | ja              | ja             | Tabelle/Serien Fachtests                     |
-| SQL                                                       | ja                | ja              | ja             | bestehende Editor-Token-Goldens behalten     |
-| Login                                                     | ja                | ja              | ja             | eigener Auth-Kontext                         |
+| Bereich                                                   | Desktop 1440×1000 | Tablet 1024×768 | Mobile 390×844 | Zusatz                                        |
+| --------------------------------------------------------- | ----------------- | --------------- | -------------- | --------------------------------------------- |
+| Übersicht, Aktivität, Aufgaben, Befunde, Checks, Qualität | ja                | ja              | ja             | leer/Fehler in Fachtests                      |
+| Alle drei Queues                                          | ja                | ja              | ja             | Alter unbekannt separat                       |
+| Notifications + Versände, jeweils Liste/Detail            | ja                | ja              | ja             | Retry/Preview Fachtests                       |
+| Marks Liste/Detail                                        | ja                | ja              | ja             | Konflikt Fachtests                            |
+| Sechs Entity-Collections + Details                        | ja                | ja              | ja             | Alle sechs Record-v2-Typen zusätzlich 360×800 |
+| Geocoding Liste/Detail                                    | ja                | ja              | ja             | Tiles lokal, Fehlerfall                       |
+| Graph                                                     | ja                | ja              | ja             | Fullscreen Fachtests                          |
+| Statistik + Veranstaltungsinhalte                         | ja                | ja              | ja             | Tabelle/Serien Fachtests                      |
+| SQL                                                       | ja                | ja              | ja             | bestehende Editor-Token-Goldens behalten      |
+| Login                                                     | ja                | ja              | ja             | eigener Auth-Kontext                          |
 
 Event v2: genau ein Haupttitel, Beschreibung eigener Abschnitt, allgemeine Relationspagination auch mit über 25 Einträgen,
 Veranstalter und Standardort/-raum unabhängig von der Relationsseite,
 Canonical-Aktionen, Timeline vor technischen Daten, UUID nur dort, keine überbreite Seite.
 Die Tests legen PNGs unter Playwrights Testausgaben ab; ausgewählte Event-Desktop-/Mobile-
-Bilder sowie Organisation/Ort/Raum werden unter `docs/screenshots/record-detail-v2/` dauerhaft reviewbar abgelegt.
+Bilder sowie Organisation/Ort/Raum/Benutzer/Bild werden unter `docs/screenshots/record-detail-v2/` dauerhaft reviewbar abgelegt.
 `place-detail-v2.spec.ts` prüft alle drei neuen Typen in vier Größen, Kontext/Counts,
 kanonische Aktionen, Touch-Ziele, generische Pagination und CSP.
+`user-image-detail-v2.spec.ts` ergänzt alle vier Größen für Benutzer/Bilder, lange
+E-Mail/Alttexte, Hoch-/Querformat, Bildfehler, Modal-Fokus und globale Pagination.
+Kompakte synthetische Beispiele erzeugen `user-desktop.png`, `user-mobile.png`,
+`image-desktop.png` und `image-mobile.png`; größere Fixtures prüfen zusätzlich die Pagination.
 Sämtliche Review-Aufnahmen sind über das Testartefakt verfügbar, keine goldene Pixelpflicht.
 
 Geocoding Workflow v2: `geocoding.spec.ts` prüft 1440×1000, 1024×768, 390×844 und

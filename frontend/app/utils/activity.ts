@@ -13,7 +13,7 @@ const statusLabels: Record<string, string> = {
   pending: 'Ausstehend',
   accepted: 'Angenommen',
   active: 'Aktiv',
-  inactive: 'Inaktiv',
+  inactive: 'Nicht aktiv',
   joined: 'Beigetreten',
   invited: 'Eingeladen',
 }

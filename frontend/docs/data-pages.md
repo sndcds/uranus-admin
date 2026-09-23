@@ -98,15 +98,15 @@ und ihren Migrationsbedarf. Der [Design Guide v2](design-system.md) ist der kano
 Gestaltungsvertrag mit fünf eigenständigen Seitenmustern. Login ist eine eigene Route;
 geschützte Seiten zeigen keine zusätzliche Login-Leiste.
 
-## Record Detail v2: Veranstaltungen, Organisationen, Orte und Räume
+## Record Detail v2: alle sechs Entity-Detailtypen
 
 `/events/:id` verwendet `EntityDetailPage` als Abruf-/Fehler-/Timeline-Shell mit den Slots
 `header`, `content` und `after-timeline`. `EntityHero` integriert den gemeinsamen PageHeader
 und zeigt den Record-Titel genau einmal. `EventDetailContent` ordnet primäre Fakten,
 Beschreibung, verknüpfte Datensätze und Arbeitsstand.
 `EntityTechnicalMetadata` folgt nach der unveränderten Timeline. Organisationen, Orte und
-Räume verwenden dieselben Shell-Slots mit eigenen Presentern. Benutzer und Bilder behalten
-vorerst den Default-Presenter; ihre Migration steht im Audit.
+Räume, Benutzer und Bilder verwenden dieselben Shell-Slots mit eigenen Presentern.
+Alle sechs Entity-Detailtypen sind migriert.
 
 - `/organizations/:id`: Hero mit Logo und Stadt-Subtitle ohne eigenen Namen als
   Organisationskontext zu wiederholen. `facts.events`, `facts.venues`, `facts.memberships`
@@ -119,7 +119,19 @@ vorerst den Default-Presenter; ihre Migration steht im Audit.
   belegten Fakten brauchen keinen zweiten Faktenkasten. Nur eine gelieferte kanonische
   Ortsrelation erlaubt einen Link; sonst bleibt der Ortsname Text.
 
-Alle vier Presenter verwenden `RecordRelations` und `RecordWorkflowSummary`. Null-Zähler
+- `/users/:id` → **RECORD DETAIL v2**: kanonischer Servername, Avatar, Aktiv/Nicht aktiv,
+  E-Mail/Username ohne identische Wiederholung im Hero. Benutzerinformationen (Kontostatus),
+  Teamkontext mit `facts.memberships` **einschließlich Einladungen**, danach globale
+  Beziehungen, Arbeitsstand, Timeline und Technik. Mitgliedsstatus ist Eingeladen/Beigetreten;
+  Einladungszeit ist kein Join-Zeitpunkt. Kein Profil-/Auth-Vertrag wird erweitert.
+- `/images/:id` → **RECORD DETAIL v2**: Hero und große sichere Vorschau, Bildinformationen
+  mit `facts.image_links` und `facts.orphan` (Ja/Nein; null unbekannt), danach Beziehungen,
+  Arbeitsstand, Timeline und Technik. Der UUID-Fallback bekommt keinen erfundenen Bildtitel.
+  Die `record`-Variante von ActivityThumbnail teilt URL-Validierung und AppModal,
+  reserviert Vorschauhöhe und erhält das Bildverhältnis. Fehler entfernen das defekte Bild
+  und zeigen „Bildvorschau konnte nicht geladen werden.“ Keine Retry-/Provider-Schleife.
+
+Alle sechs Presenter verwenden `RecordRelations` und `RecordWorkflowSummary`. Null-Zähler
 sind unbekannt, 0 bleibt 0. Der Hero-`context`-Slot ersetzt ausschließlich Kontext;
 der Event-Default bleibt erhalten. `RecordLocation` verwendet vorhandene Adresse und
 `activityMapUrl` für eine optional gelieferte gültige Location. Der aktuelle Backend-Preview

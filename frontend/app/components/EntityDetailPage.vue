@@ -45,7 +45,8 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <div :class="record ? 'record-detail' : 'space-y-5'">
-    <slot name="header" :data="data">
+    <template v-if="$slots.header"><slot name="header" :data="data" /></template>
+    <template v-else>
       <PageHeader
         :title="data?.item.entity_name ?? entitySections[section].title"
         description="Datensatz und verknüpfte Inhalte."
@@ -65,7 +66,7 @@ onBeforeUnmount(() => {
           >Befunde zu diesem Datensatz</NuxtLink
         >
       </PageHeader>
-    </slot>
+    </template>
     <RequestState
       :loading="loading"
       :error="error"
