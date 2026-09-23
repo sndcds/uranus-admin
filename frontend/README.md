@@ -327,8 +327,17 @@ Siehe [Activity-Vertrag](../backend/docs/contracts.md#user-avatars-and-organizat
 ## Domain inspection
 
 Events, venues, spaces, organizations, users and images have paginated list and
-UUID detail pages. Activity remains the compact list-row reference; event details use
-the Record Detail v2 pattern. Search/filter/page state is
+UUID detail pages. Activity remains the compact list-row reference; event, organization,
+venue and space details use the Record Detail v2 pattern. EntityDetailPage retains retrieval,
+stale/auth/identity handling and Timeline; domain presenters override the EntityHero context.
+Organizations show event/venue/membership counts (including invitations) and address;
+venues show organization, room count, address and a public link only when supplied;
+spaces show the verified parent venue and organization once in their hero context.
+RecordRelations retains the global bounded relation page and other query parameters;
+RecordWorkflowSummary shares count semantics, and RecordLocation uses the existing OSM
+helper only for provided coordinates (currently organization previews). Null is unknown,
+not zero. Technical metadata follows Timeline. Users/images await migration. No source writes,
+API semantics, Markdown fields or external requests are added. Search/filter/page state is
 URL-based. Detail relations are independently paginated; graph, marks and exact
 finding links remain available. Source timestamps retain their actual meaning.
 The global create action remains disabled until an authorized Uranus write adapter

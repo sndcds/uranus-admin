@@ -23,7 +23,9 @@ for (const section of entitySectionSchema.options) {
     ).toHaveText(`Fixture ${section}`)
     await expect(
       page.getByRole('link', {
-        name: section === 'events' ? 'Befunde anzeigen' : 'Befunde zu diesem Datensatz',
+        name: ['events', 'organizations', 'venues', 'spaces'].includes(section)
+          ? 'Befunde anzeigen'
+          : 'Befunde zu diesem Datensatz',
       }),
     ).toHaveAttribute('href', /entity_key=/)
     await expect(
@@ -48,7 +50,9 @@ for (const section of entitySectionSchema.options) {
     if (section !== 'images')
       await expect(
         page.getByRole('link', {
-          name: section === 'events' ? 'Beziehungen' : 'Beziehungen anzeigen',
+          name: ['events', 'organizations', 'venues', 'spaces'].includes(section)
+            ? 'Beziehungen'
+            : 'Beziehungen anzeigen',
         }),
       ).toHaveAttribute('href', /root_key=/)
     expect(

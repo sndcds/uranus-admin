@@ -98,14 +98,33 @@ und ihren Migrationsbedarf. Der [Design Guide v2](design-system.md) ist der kano
 Gestaltungsvertrag mit fünf eigenständigen Seitenmustern. Login ist eine eigene Route;
 geschützte Seiten zeigen keine zusätzliche Login-Leiste.
 
-## Record Detail v2: Veranstaltungen
+## Record Detail v2: Veranstaltungen, Organisationen, Orte und Räume
 
 `/events/:id` verwendet `EntityDetailPage` als Abruf-/Fehler-/Timeline-Shell mit den Slots
 `header`, `content` und `after-timeline`. `EntityHero` integriert den gemeinsamen PageHeader
 und zeigt den Record-Titel genau einmal. `EventDetailContent` ordnet primäre Fakten,
 Beschreibung, verknüpfte Datensätze und Arbeitsstand.
-`EntityTechnicalMetadata` folgt nach der unveränderten Timeline. Die übrigen fünf
-Detailtypen behalten vorerst den Default-Presenter; ihre Migration steht im Audit.
+`EntityTechnicalMetadata` folgt nach der unveränderten Timeline. Organisationen, Orte und
+Räume verwenden dieselben Shell-Slots mit eigenen Presentern. Benutzer und Bilder behalten
+vorerst den Default-Presenter; ihre Migration steht im Audit.
+
+- `/organizations/:id`: Hero mit Logo und Stadt-Subtitle ohne eigenen Namen als
+  Organisationskontext zu wiederholen. `facts.events`, `facts.venues`, `facts.memberships`
+  werden als Veranstaltungen, Orte und Teammitgliedschaften gezeigt. Mitgliedschaften
+  schließen Einladungen ein; keine Aussage über aktive Mitglieder. Danach Adresse/Standort.
+- `/venues/:id`: Hero mit Organisation, optionaler öffentlicher Primary Action aus
+  `public_url`; Raumzahl aus `facts.spaces`, danach vorhandene Adresse.
+- `/spaces/:id`: Zugehöriger Ort aus `facts.venue_name` als Hauptkontext im Hero,
+  Organisation darunter. Der Venue-Subtitle wird nicht dupliziert. Diese einzigen
+  belegten Fakten brauchen keinen zweiten Faktenkasten. Nur eine gelieferte kanonische
+  Ortsrelation erlaubt einen Link; sonst bleibt der Ortsname Text.
+
+Alle vier Presenter verwenden `RecordRelations` und `RecordWorkflowSummary`. Null-Zähler
+sind unbekannt, 0 bleibt 0. Der Hero-`context`-Slot ersetzt ausschließlich Kontext;
+der Event-Default bleibt erhalten. `RecordLocation` verwendet vorhandene Adresse und
+`activityMapUrl` für eine optional gelieferte gültige Location. Der aktuelle Backend-Preview
+liefert Koordinaten nur für Organisationen, nicht für Orte. Keine neue Karte, Geocodierung,
+Kontaktfelder oder Markdown-Felder. Organisation/Ort/Raum bleiben Plaintext.
 
 `facts.description` stammt unverändert aus `event.description`. Der Markdown-Vertrag ist
 im Quell-Editor nachgewiesen (Commit/Dateien im Audit), nicht aus dem Text erraten.
@@ -126,7 +145,8 @@ und die Termin-Gesamtzahl sind unabhängig von der Relationspagination verfügba
 „Verknüpfte Datensätze“ bleibt bewusst eine allgemeine Liste: maximal 25 Einträge pro Seite,
 Sortierung nach Typ/Name/Schlüssel, keine chronologische Terminliste. Seitenumfang und
 Gesamtzahl sind sichtbar; gemeinsame Pagination erhält weitere Query-Parameter. Bei 30
-Terminen liegen Medien und weitere Beziehungen gegebenenfalls erst auf Seite 2. Die sichtbare
+Terminen liegen Medien und weitere Beziehungen gegebenenfalls erst auf Seite 2. Das gilt genauso für Organisationen, Orte und Räume: eine Organisation mit 26 Veranstaltungen
+kann ihre Orts-/Teamrelation erst auf Seite 2 zeigen. Die sichtbare
 Seite ist kein vollständiger fachlicher Abschnitt; fehlende Elemente sind nicht nachweislich
 abwesend. Typisierte Termin-/Veranstalter-/Orts-/Medienbereiche benötigen einen Folge-PR mit
 unabhängigen begrenzten Abfragen, Counts und eigener Termin-/Medienpagination. Der Pilot

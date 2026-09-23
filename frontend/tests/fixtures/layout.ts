@@ -4,7 +4,7 @@ import { activityFixture } from './activity'
 import { statisticsFixture } from './statistics'
 import { eventContentFixture } from './event-content'
 import { graphFixture } from './graph'
-import { entityFixture, detailFixture, timelineFixture } from './entities'
+import { entityFixture, detailFixture, timelineFixture, placeDetailFixture } from './entities'
 import { eventDetailFixture } from './event-detail'
 import { inboxFixture } from './inbox'
 import { geocodeDetail, geocodePage } from './geocoding'
@@ -121,7 +121,9 @@ export async function mockLayoutApi(page: Page) {
             ? entityFixture(section)
             : section === 'events'
               ? eventDetailFixture()
-              : detailFixture(section),
+              : section === 'organizations' || section === 'venues' || section === 'spaces'
+                ? placeDetailFixture(section, Number(url.searchParams.get('related_page') ?? 1))
+                : detailFixture(section),
       })
     const fixed: Record<string, unknown> = {
       'dashboard/summary': summary,
