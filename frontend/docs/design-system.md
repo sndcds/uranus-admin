@@ -94,10 +94,19 @@ introduce a second card/list system.
 
 The geocoding detail follows the same detail hierarchy: PageHeader, entity/source panel,
 DetailFacts, candidate comparison, AssignmentEditor and retry workflow. Its candidate map is a
-tile-free coordinate view built from the already validated candidate coordinates. It fits all
-points, synchronizes keyboard-accessible markers with `.data-row` candidates and keeps the list
-as the complete textual alternative. It performs no tile request, adds no CSP origin and offers
-no coordinate mutation.
+client-only Leaflet raster map built from the already validated candidate coordinates. All points
+fit with 48px padding and a maximum initial zoom of 16; “Alle Kandidaten zeigen” restores the
+comparison after panning or selection. Numbered native 44px buttons synchronize with `.data-row`
+selection, aria-pressed/current and row focus. The selected marker has a contrasting ring and
+higher stacking order. List “Auf Karte zeigen” recenters even an already-selected candidate.
+
+The map has a real 320px height on phones and 420px from `sm`; ResizeObserver invalidates its
+size. Pan, pinch, keyboard arrows/+/- and 44px zoom controls are available; scroll-wheel zoom
+is off to preserve page scrolling. The complete candidate list always follows the map. On tile,
+initialization or timeout failure an InlineAlert replaces the map surface, with no automatic retry.
+OSM and configured provider attribution remain visible outside the clipped map canvas. Provider
+text is escaped, never HTML. No coordinate mutation or client geocoding exists. Tile configuration,
+privacy and exact `img-src` allowance are documented in the [README](../README.md#geocoding-karte-konfigurieren).
 
 **Analytics:** PageHeader → period/interval controls → RequestState → chart surface →
 metric controls → supporting recent records/distribution → accessible data table.
@@ -196,6 +205,12 @@ use 1024×768 and 390×844. Full-page captures may be taller than the viewport.
 - [Mobile Statistics](screenshots/ui-consistency/statistics-mobile.png)
 - [Mobile navigation](screenshots/ui-consistency/mobile-navigation.png)
 
+### Geocoding map review
+
+[Desktop](screenshots/geocoding-map-desktop.png) and [mobile](screenshots/geocoding-map-mobile.png)
+show the production build with synthetic local tiles and candidates. The geocoding Playwright
+suite writes fresh full-page captures and checks marker/list synchronization, responsive bounds,
+visible tiles and the failure alternative. These images verify layout, not geographic correctness.
 
 ## Command Palette
 

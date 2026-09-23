@@ -35,6 +35,9 @@ export default defineConfig({
         : 'pnpm exec nuxt dev --host 127.0.0.1 --port 3100',
       env: {
         NUXT_ADMIN_API_BASE: 'http://127.0.0.1:31902',
+        // Exercise the default provider; requests are intercepted before network access.
+        NUXT_PUBLIC_MAP_TILE_ATTRIBUTION: 'Synthetische Testkacheln',
+        NUXT_PUBLIC_MAP_TILE_ATTRIBUTION_URL: '',
         NITRO_HOST: '127.0.0.1',
         NITRO_PORT: '3100',
         // Production must remove the manual credential UI even if this flag is set.

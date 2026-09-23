@@ -14,6 +14,7 @@ export default defineNuxtConfig({
         'prismjs/components/prism-sql',
         'prismjs/components/prism-json',
         'sql-formatter',
+        'leaflet',
       ],
     },
   },
@@ -23,7 +24,12 @@ export default defineNuxtConfig({
   runtimeConfig: {
     adminApiBase: 'http://127.0.0.1:8000',
     trustedIngressIps: '',
-    public: { allowDevTokenEntry: false },
+    public: {
+      allowDevTokenEntry: false,
+      mapTileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      mapTileAttribution: '',
+      mapTileAttributionUrl: '',
+    },
   },
   app: {
     head: {

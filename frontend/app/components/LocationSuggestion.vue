@@ -5,6 +5,7 @@ import { geocodeMessages, matchReasonLabels } from '~/utils/geocoding'
 
 const props = defineProps<{ suggestion: GeocodeRequestDetail }>()
 const selectedId = ref('')
+const candidateMap = ref<{ focusCandidate: (id: string, reveal?: boolean) => void }>()
 const candidateRows = new Map<string, HTMLElement>()
 
 const showCandidates = computed(
@@ -13,6 +14,11 @@ const showCandidates = computed(
     props.suggestion.candidates.length > 0,
 )
 const bestId = computed(() => props.suggestion.best_candidate?.id ?? '')
+
+function showOnMap(id: string) {
+  void select(id)
+  candidateMap.value?.focusCandidate(id, true)
+}
 
 function resetSelection() {
   selectedId.value = bestId.value || props.suggestion.candidates[0]?.id || ''
@@ -27,7 +33,8 @@ async function select(id: string, focus = false) {
   selectedId.value = id
   if (focus) {
     await nextTick()
-    candidateRows.get(id)?.focus()
+    candidateRows.get(id)?.focus({ preventScroll: true })
+    candidateRows.get(id)?.scrollIntoView({ block: 'nearest' })
   }
 }
 
@@ -77,6 +84,7 @@ watch(() => [props.suggestion.id, props.suggestion.generation, bestId.value], re
 
     <template v-if="showCandidates">
       <CandidateMap
+        ref="candidateMap"
         :candidates="suggestion.candidates"
         :selected-id="selectedId"
         @select="select($event, true)"
@@ -126,10 +134,10 @@ watch(() => [props.suggestion.id, props.suggestion.generation, bestId.value], re
           >
             <button
               type="button"
-              class="rounded font-semibold text-fuchsia-700 underline-offset-4 hover:underline"
+              class="min-h-11 rounded font-semibold text-fuchsia-700 underline-offset-4 hover:underline"
               :aria-pressed="candidate.id === selectedId"
               :aria-label="`Kandidat ${candidate.rank} auf der Karte zeigen`"
-              @click.stop="select(candidate.id)"
+              @click.stop="showOnMap(candidate.id)"
             >
               Auf Karte zeigen
             </button>

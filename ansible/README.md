@@ -1453,3 +1453,42 @@ den eingefrorenen Ursprung-Fingerprint und alle bestehenden Rollen-/ACL-Prüfung
 leitet Zielspalten und Head aus dem ausgewählten Release ab. Kein automatischer Apply und keine
 neue Console-Freigabe: `admin.*` bleibt für die SQL-Konsole gesperrt. Downgrade verliert diese
 Zeitstempel, nicht die Event-Zeilen. Der historische Ausgangsbefund oben bleibt als Audit erhalten.
+
+
+## Geocoding-Kartenkacheln
+
+Die Geocoding-Detailkarte verwendet clientseitig Leaflet. Für manuelle interne Prüfungen ist
+der öffentliche OpenStreetMap-Standarddienst der OSMF voreingestellt; ein eigener Tile-Server
+oder API-Schlüssel ist nicht erforderlich. Nominatim bleibt ein separater Geocoding-Dienst.
+
+```yaml
+# Voreinstellung; kann ohne Codeänderung durch einen anderen Anbieter ersetzt werden:
+ua_map_tile_url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+# OSM-Attribution ist bereits sichtbar; hier nur zusätzliche Provider-Credits eintragen.
+ua_map_tile_attribution: ""
+ua_map_tile_attribution_url: ""
+```
+
+Ein ausdrücklich leeres `ua_map_tile_url` deaktiviert die Karte; die vollständige Kandidatenliste
+bleibt nutzbar. Die [OSMF Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/)
+verlangt sichtbare Attribution, gültigen Referrer und HTTP-konformes Caching. Die Karte sendet
+die Admin-Origin als Referrer und den normalen Browser-User-Agent; Cache-Header werden weder
+überschrieben noch umgangen. Keine Vorab-/Offline-Downloads, Kartenscans oder automatischen Retries.
+Der Dienst hat keine Verfügbarkeitsgarantie; für höheren Bedarf einen geeigneten Anbieter wählen.
+Es gibt keinen automatischen Providerwechsel bei Ausfällen.
+
+Andere Anbieter benötigen passende Attribution und Zoomabdeckung 1–19. Ein bereits
+bereitgestellter Same-Origin-Tile-Pfad ist ebenfalls möglich; diese Rolle erzeugt dafür keinen
+Proxy. Nur feste HTTPS-Hosts/XYZ-Pfade ohne Query, Credentials, Wildcard oder frei interpolierte
+Werte sind zulässig. Attribution ist Plaintext, kein HTML.
+
+Die Frontend-Unit setzt die entsprechenden `NUXT_PUBLIC_MAP_TILE_*`-Runtime-Werte. Nginx ergänzt
+nur die exakte konfigurierte HTTPS-Origin in `img-src`; alle anderen CSP-Direktiven bleiben gleich.
+Keine neue Inline-Freigabe, kein eval und keine Worker. Die Wartungsseite erhält keine Tile-Origin.
+Die normale Dry-Run-/Apply-/Recovery-Prüfung umfasst diese Unit- und Nginx-Änderungen. Keine
+Backend-Konfiguration, Migration, Runtime-Grants oder Uranus-Schreibrechte werden benötigt.
+
+Der Browser lädt nur normale XYZ-Kachelkoordinaten, mit Admin-Origin als Referrer; kein Detailpfad,
+Entity-Name, E-Mail oder API-Credential wird eingebaut. IP und angefragte Region sind beim Provider
+sichtbar. OSM- und Provider-Attribution bleiben angezeigt. Ladefehler/Timeout führen zum Hinweis,
+ohne Retry-Loop. Produktions-CSP-Tests verwenden ausschließlich lokale synthetische Tile-Fixtures.

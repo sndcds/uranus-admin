@@ -112,10 +112,57 @@ Finding-Detail; Versionen verhindern verlorene parallele Änderungen. Fälligkei
 Europe/Berlin-Kalendertage einschließlich DST in einen belegten `due_at`-Zeitpunkt umgerechnet.
 
 `/geocoding/:id` zeigt die betroffene Entität und unverändert gelieferte Quelladresse vor dem
-Kandidatenvergleich. Eine kachelfreie Koordinatenkarte stellt alle validierten Kandidaten relativ
-dar, koppelt Marker und Tastaturauswahl an die kompakte Kandidatenliste und benötigt weder externe
-Tile-Requests noch eine CSP-Erweiterung. Status, Matchgründe und Retry-Zustände sind deutsch; es
-existiert weiterhin keine Übernahme- oder Uranus-Schreibaktion.
+Kandidatenvergleich. Leaflet 1.9 stellt die Kandidaten auf einer interaktiven OSM-Rasterkarte dar;
+Marker und Kandidatenliste teilen dieselbe Auswahl. Status, Matchgründe und Retry-Zustände sind
+deutsch; es existiert weiterhin keine Übernahme- oder Uranus-Schreibaktion.
+
+### Geocoding-Karte konfigurieren
+
+Leaflet wird erst in `onMounted` importiert, CSS wird lokal gebündelt. Die kleine Rasterbibliothek
+wird als separates Paket geladen (ca. 43 kB gzip im Produktionsbuild) und benötigt weder
+WebGL noch Worker oder API-Schlüssel; für maximal fünf Marker sind keine
+Vektorkartenfunktionen erforderlich. Sie unterstützt Tastatur-Pan/Zoom, Touch und eigene native
+Marker-Buttons. [Leaflet API](https://leafletjs.com/reference.html).
+
+Für die manuelle interne Prüfung ist **OpenStreetMap Standard (OSMF)** voreingestellt.
+Ein eigener Tile-Server oder API-Schlüssel ist nicht erforderlich. Der separat dokumentierte
+Nominatim-Dienst bleibt ausschließlich für Geocoding zuständig.
+
+- `NUXT_PUBLIC_MAP_TILE_URL`: Standard `https://tile.openstreetmap.org/{z}/{x}/{y}.png`.
+  Die URL kann durch einen anderen freigegebenen OSM-basierten Rasteranbieter ersetzt werden;
+  ein ausdrücklich leerer Wert deaktiviert Kartenkacheln.
+  Unterstützt werden feste Hosts, optionale Pfadpräfixe und `.png`, `.jpg`, `.webp`;
+  alternativ ein bereits bereitgestellter Same-Origin-Pfad. Keine Queryparameter,
+  Credentials, `{s}`-Subdomains, API-Schlüssel oder dynamischen Entity-Werte.
+- `NUXT_PUBLIC_MAP_TILE_ATTRIBUTION`: zusätzliche Provider-Attribution als Plaintext.
+- `NUXT_PUBLIC_MAP_TILE_ATTRIBUTION_URL`: optionaler HTTPS-Link zur Provider-Attribution.
+
+Die [OSMF Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/) erlaubt
+normales interaktives Ansehen. Die Karte lädt nur sichtbare Kacheln, zeigt OSM-Attribution und
+sendet den Browser-User-Agent sowie die Admin-Origin als Referrer. Browsercache und bedingte
+Requests folgen den HTTP-Cache-Headern des Providers; keine Cache-Buster oder No-Cache-Header.
+Kein Prefetch, Offline-Download, automatisierter Kartenscan oder Retry. Der öffentliche Dienst
+bietet keine Verfügbarkeitsgarantie; bei größerem Bedarf einen passenden Anbieter konfigurieren
+und dessen Bedingungen/Zoomabdeckung (1–19) prüfen. Bei Ausfall wird nicht automatisch zu einem
+anderen Provider gewechselt. Zusätzliche Provider-Credits bleiben beim OSM-Standard leer, da die
+OSM-Attribution bereits separat sichtbar ist.
+
+Externe Bilder benötigen ausschließlich die **exakte Tile-Origin in `img-src`**. `connect-src`,
+`worker-src`, `script-src` und `style-src` brauchen keine Änderung; kein `unsafe-eval` und keine
+zusätzliche Inline-Freigabe. Eine strengere Nginx-CSP lässt sich nicht durch Nuxt lockern.
+Ansible setzt Runtime-Werte und CSP gemeinsam über die [Map-Variablen](../ansible/README.md#geocoding-kartenkacheln).
+Same-Origin-Konfiguration erzeugt keinen generischen Proxy und stellt selbst keine Tiles bereit.
+
+Der Browser sendet normale numerische XYZ-Pfade, seine IP und nur die Admin-Origin als Referrer.
+Kandidatenregionen sind dadurch beim Provider erkennbar; Entity-Namen, Adressen, E-Mails,
+Admin-API-Credentials und Detail-URLs werden nicht in Tile-URLs/Headers eingebaut. Es gibt keine
+clientseitige Geocoding-Abfrage. OSM-Attribution und zusätzliche Provider-Credits bleiben sichtbar.
+Die vollständige Kandidatenliste funktioniert ohne Karte. Explizit leere/ungültige Konfiguration,
+Import-/Tile-Fehler oder 12 Sekunden ohne Ladeabschluss zeigen einen Inline-Hinweis ohne Retry-Loop.
+
+Playwright interceptiert alle konfigurierten Test-Tiles mit einer lokalen synthetischen SVG-Fixture;
+auch Produktions-CSP und Screenshots benötigen kein externes Internet. Die Testkacheln sind
+keine geografische Evidenz und werden nicht mit der Anwendung ausgeliefert.
 
 Die Activity-Seite verwendet kompakte Zeilen, deutsche Typ-Badges und Berliner Tagesgruppen.
 Typzahlen zählen ausschließlich die sichtbare Seite; undatierte Einträge bleiben ohne Chronologie.

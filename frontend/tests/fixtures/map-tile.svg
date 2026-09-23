@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Synthetic local XYZ tile: test rendering only, not geographic evidence. -->
+  <rect width="256" height="256" fill="#f2efe9"/>
+  <path fill="#cee4c1" d="M15 16h91v75H15zM163 169h77v74h-77z"/>
+  <g fill="#ded9d2" stroke="#c7c0b5"><path d="M143 18h35v32h-35zM192 19h41v33h-41zM143 71h32v27h-32zM192 72h41v27h-41zM18 158h35v41H18zM72 161h25v43H72zM18 218h80v24H18z"/></g>
+  <g fill="none" stroke="#ccc6bd" stroke-width="17"><path d="M0 128h256M128 0v256"/></g>
+  <g fill="none" stroke="white" stroke-width="13"><path d="M0 128h256M128 0v256"/></g>
+  <text x="16" y="122" font-family="sans-serif" font-size="9" fill="#68645d">Teststraße</text>
+  <text x="20" y="52" font-family="sans-serif" font-size="10" fill="#537847">Testpark</text>
+  <text x="149" y="234" font-family="sans-serif" font-size="8" fill="#537847">Testkachel</text>
+</svg>
