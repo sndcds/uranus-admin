@@ -17,14 +17,14 @@ test('assign, snooze until tomorrow and unsnooze through the Inbox', async ({ pa
   })
   if (process.env.TEST_PRODUCTION === '1') {
     await page.route('**/*', async (route) => {
-      if (route.request().resourceType() !== 'document') return route.continue()
+      if (route.request().resourceType() !== 'document') return route.fallback()
       const response = await route.fetch()
       await route.fulfill({
         response,
         headers: {
           ...response.headers(),
           'content-security-policy':
-            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'",
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'self'",
         },
       })
     })
@@ -88,6 +88,7 @@ test('assign, snooze until tomorrow and unsnooze through the Inbox', async ({ pa
   })
   await page.goto('/inbox')
   await page.getByRole('link', { name: 'Vorschlag prüfen' }).click()
+  await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible()
   await page.getByRole('button', { name: 'Mir zuweisen', exact: true }).click()
   await expect(page.getByText('Zuständigkeit gespeichert.')).toBeVisible()
   await page.getByRole('button', { name: 'Wiedervorlegen', exact: true }).click()
