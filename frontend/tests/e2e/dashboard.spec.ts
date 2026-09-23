@@ -1,7 +1,7 @@
 import { test, expect, expectLogoutAvailable } from '../fixtures/authenticated'
 import { summary, findings } from '../fixtures/api'
 
-test('dashboard, responsive navigation, filtering, pagination and detail', async ({
+test('dashboard, responsive navigation, filtering, pagination and record actions', async ({
   page,
 }, testInfo) => {
   const errors: string[] = []
@@ -49,12 +49,9 @@ test('dashboard, responsive navigation, filtering, pagination and detail', async
   await page.getByRole('combobox', { name: 'Schweregrad', exact: true }).selectOption('error')
   await page.getByRole('button', { name: 'Anwenden', exact: true }).click()
   await expect(page).toHaveURL(/page=1/)
-  await page.getByRole('button', { name: 'Befund zu Test-Hafenbühne ansehen' }).click()
-  await expect(page.getByRole('dialog', { name: 'Test-Hafenbühne' })).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(
-    page.getByRole('button', { name: 'Befund zu Test-Hafenbühne ansehen' }),
-  ).toBeFocused()
+  await expect(page.getByRole('heading', { name: 'Test-Hafenbühne' })).toBeVisible()
+  await expect(page.getByRole('table').getByRole('button')).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.screenshot({ path: testInfo.outputPath('findings.png'), fullPage: true })
   expect(errors).toEqual([])
 })

@@ -114,6 +114,16 @@ export const actionSchema = z
     return action.href === `${path}?entity_key=${key}${suffix}`
   }, 'Invalid internal action target')
 
+// Accept earlier thumbnail formats during deployment; new URLs omit cropping ratios.
+export const activityImageUrlSchema = z.union([
+  z
+    .string()
+    .regex(
+      /^https:\/\/api\.kulturbytes\.de\/api\/image\/[0-9a-f-]{36}\?(?:width=320(?:&ratio=16%3A9)?|width=160&ratio=1%3A1)$/i,
+    ),
+  z.string().regex(/^https:\/\/api\.kulturbytes\.de\/api\/user\/[0-9a-f-]{36}\/avatar\/128$/i),
+])
+
 export const findingSchema = z.object({
   sql_diagnostic_available: z.boolean().optional().default(false),
   location_suggestion_request_id: z.uuid().nullable().optional(),
@@ -132,6 +142,7 @@ export const findingSchema = z.object({
   field: z.string(),
   message: z.string(),
   action: actionSchema.nullable().optional(),
+  image_url: activityImageUrlSchema.nullable().optional(),
   address: z.object({
     street: z.string().nullable().optional(),
     house_number: z.string().nullable().optional(),
@@ -422,15 +433,6 @@ export const entityTypeSchema = z.enum([
   'partner_request',
   'team_membership',
   'image',
-])
-// Accept earlier thumbnail formats during deployment; new URLs omit cropping ratios.
-export const activityImageUrlSchema = z.union([
-  z
-    .string()
-    .regex(
-      /^https:\/\/api\.kulturbytes\.de\/api\/image\/[0-9a-f-]{36}\?(?:width=320(?:&ratio=16%3A9)?|width=160&ratio=1%3A1)$/i,
-    ),
-  z.string().regex(/^https:\/\/api\.kulturbytes\.de\/api\/user\/[0-9a-f-]{36}\/avatar\/128$/i),
 ])
 export const activityLocationSchema = z
   .object({
@@ -1518,7 +1520,10 @@ const diagnosticValueSchema = z.union([
   z.null(),
 ])
 export const diagnosticRequestSchema = z
-  .object({ finding_id: z.string().min(1).max(8192) })
+  .object({
+    finding_id: z.string().min(1).max(8192),
+    mode: z.enum(['persisted', 'live']).optional(),
+  })
   .strict()
 export const sqlDiagnosticDefinitionSchema = z
   .object({
@@ -1532,7 +1537,7 @@ export const sqlDiagnosticDefinitionSchema = z
     parameters: z.record(z.string(), diagnosticValueSchema),
     explanation: z.string(),
     columns: z.array(diagnosticColumnSchema),
-    last_seen_at: z.iso.datetime(),
+    last_seen_at: z.iso.datetime().nullable(),
   })
   .strict()
 export const sqlDiagnosticResultSchema = z

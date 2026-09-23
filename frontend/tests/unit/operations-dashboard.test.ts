@@ -46,10 +46,9 @@ const global = {
     EmptyState,
   },
   stubs: {
+    SqlEditorModal: true,
     AppIcon: true,
     RequestState: true,
-    FindingDetail: true,
-    SqlEditorModal: true,
     NuxtLink: { name: 'NuxtLink', props: ['to'], template: '<a><slot /></a>' },
   },
 }
@@ -107,9 +106,9 @@ it('shows all nine incoming types, real zero, four attention KPIs and three unco
     'Teameinladungen',
     'Aktivierungen',
   ])
-  expect(view.get('table summary').attributes('aria-label')).toBe(
-    'Weitere Aktionen für Küstenkonzert',
-  )
+  expect(view.find('table summary').exists()).toBe(false)
+  expect(view.get('table').findAll('button')).toHaveLength(1)
+  expect(view.get('table').text()).not.toContain('Markierungen & Notizen')
 })
 it('preserves the four-record preview, active-only severity filter and advanced filter navigation', async () => {
   const view = await render()

@@ -38,13 +38,20 @@ test('missing-location workflow, retry, global queue and session reset', async (
     return route.fulfill({ json: item })
   })
   await page.goto('/findings')
-  await expect(page.getByRole('link', { name: 'Standortvorschlag prüfen' })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Priorisierte Befunde' })).toContainText(
+    'Veranstaltungsort hat keine Geoposition.',
+  )
+  await expect(page.getByRole('link', { name: 'Standortvorschlag prüfen' })).toHaveCount(0)
   await page
     .getByRole('combobox', { name: 'Regel', exact: true })
     .selectOption('venue_missing_location')
   await page.getByRole('button', { name: 'Anwenden', exact: true }).click()
   await expect(page).toHaveURL(/rule=venue_missing_location/)
-  await page.getByRole('link', { name: 'Standortvorschlag prüfen' }).click()
+  await page
+    .locator('#main-content')
+    .getByRole('link', { name: 'Standortvorschläge', exact: true })
+    .click()
+  await page.goto(`/geocoding/${item.id}`)
   await expect(page.getByText('100 % Adressübereinstimmung')).toBeVisible()
   await expect(page.getByText('Hausnummer stimmt überein')).toBeVisible()
   await expect(

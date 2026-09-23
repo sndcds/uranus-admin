@@ -11,6 +11,32 @@ Schlusssektion aller sechs Record-Typen verwendet über `EntityTechnicalMetadata
 Fehlende Quellzeitpunkte werden ausgelassen, Copy und `<time datetime>` bleiben erhalten.
 Weitere Seiten erhalten technische Informationen nur aus verifizierten vorhandenen Daten.
 
+## Operations Workflows v2.1
+
+`/inbox`, `/findings`, `/marks` und `/marks/:id` sind als Operations Workflow v2.1
+migriert. [Darstellung und Shared-Varianten](design-system.md#operations-workflow-v21--inbox-befunde-und-markierungen)
+und [synthetische Review-Matrix](screenshots/operations-workflows/README.md).
+
+- Inbox: Header → globale Counts/URL-Shortcuts → kompakte Filter → Aufgaben → Pagination → Technik.
+  Shortcuts kombinieren sich mit den anderen Filtern; Counts bleiben global. Fachliche
+  Zurückstellung wird separat von der operativen Assignment-Wiedervorlage bezeichnet.
+- Findings: Header → Gesamtzahl und **seitenlokale** Severity-Zahlen → alle bisherigen Filter
+  → gruppierte dichte Tabelle → Pagination → Technik. „Im Admin ansehen“ und die verfügbare SQL-Diagnose
+  als Zeilenaktionen; die Befund-Detailkomponente ist entfernt. Explizite SQL-Hashlinks bleiben erhalten.
+  Kompakte Vorschaubilder stammen aus dem optionalen `image_url` der Findings-Antwort,
+  mit derselben Bildzuordnung wie Activity und ohne eigene Detailabfragen pro Zeile.
+- Marks: Datensatzkontext und Create-Disclosure nur bei Scope; Reset erhält ihn. Dichte
+  Liste mit Gründen, Status/Dringlichkeit, Ersteller und belegtem Abschluss. Kein
+  zugewiesener Bearbeiter wird aus `created_by` abgeleitet. Das Detail trennt Status/Gründe,
+  Editor und eigenen unveränderlichen Mark-Verlauf.
+
+Alle vier nutzen TechnicalInfoBar nur mit belegten Werten. Marks hat keinen `observed_at`;
+Findings-Client-Abrufzeit ist ausdrücklich kein Prüflauf-/Beobachtungszeitpunkt. Inbox zeigt
+Zeitpunkte in der gelieferten Admin-Zeitzone. Marks verwendet weiter Europe/Berlin.
+Inbox-/Marks-Refresh erhält ausschließlich Ergebnisse derselben Query und kennzeichnet
+Stale-Daten; Querywechsel, 401/403 und ungültige Inbox-Filter entfernen alte Antworten.
+Findings-Store, Geo Scope, Pagination, Ranking und sämtliche Schreibverträge bleiben bestehen.
+
 ## Informationsarchitektur
 
 Das Dashboard trennt periodengebundene Neuanlagen vom aktuellen Arbeitsbestand:
@@ -188,7 +214,9 @@ Prüflaufhistorie, begrenzte Regelvorschau, vollständige Qualitätsliste und Ta
 Die bestehenden Playwright-Ausgaben enthalten Screenshots für Dashboard, Activity, Findings,
 Quality, Checks, Marks und Queues auf Desktop und Mobile (synthetische Testdaten).
 Bestehende E2E-Tests decken alle neun Activity-Drill-downs, Unknown-Zeitpunkte,
-Thumbnails/Modal, Auth-Verlust, Reviews, Markierungshistorie und Queue-Altersbasis weiterhin ab.
+Thumbnails/Modal, Auth-Verlust, Markierungshistorie und Queue-Altersbasis weiterhin ab.
+Die entfernte Befund-Reviewoberfläche wird durch Regressionen für Zeilen ohne Befund-Reviewmodal
+ersetzt; die Review-API und deren Authentifizierungs-/Contract-Tests bleiben erhalten.
 
 ### Zeitstempel in den Listen
 
@@ -219,15 +247,16 @@ Admin-Konto-ID; der Development-Principal besitzt keine persönliche Inbox. Fäl
 Europe/Berlin angezeigt, und die Datumsauswahl wird DST-sicher auf das Ende des Berliner
 Kalendertags abgebildet.
 
-`AssignmentEditor` wird im Finding-Detail geladen und ruft Admin-Auswahl und aktuelle
-Zuständigkeit gemeinsam ab. Create/Patch senden ausschließlich den Zod-validierten Taskzustand;
+`AssignmentEditor` ruft Admin-Auswahl und aktuelle Zuständigkeit gemeinsam ab.
+Die bisherige Einbettung im Finding-Detail entfällt mit dessen Entfernung; andere
+Workflow-Einbettungen bleiben erhalten. Create/Patch senden ausschließlich den Zod-validierten Taskzustand;
 Actor, Zeitstempel, Versionserhöhung und Verlauf kommen vom Server. Ein 409-Konflikt fordert zum
 Neuladen auf und überschreibt keine zwischenzeitliche Änderung. Das ältere Finding-Review-Feld
 für eine Uranus-User-ID ist keine Admin-Zuständigkeit und wird vom Editor nicht verwendet.
 
 ### Wiedervorlagen
 
-Der Attention-Filter und ResultSummary ergänzen „Wiedervorlagen“. Die bisherigen Counts
+Der Attention-Filter und der Operations-Count-Strip enthalten „Wiedervorlagen“. Die bisherigen Counts
 beziehen sich auf aktive Aufgaben; der neue Count auf alle aktiv zurückgestellten Tasks,
 serverseitig dedupliziert und unabhängig von der Seite. Die Wiedervorlagen-Ansicht zeigt den
 effektiven absoluten Zeitpunkt samt Admin-Zeitzone, nächster Zeitpunkt zuerst.
@@ -243,7 +272,8 @@ neue Entscheidung; keine automatische Wiederholung mit einer neueren Version.
 Finding-Snooze gehört weiterhin zum fachlichen Review. Assignment-Snooze ist organisatorisch
 und verändert ihn nicht. Beide können denselben Task ausblenden; der spätere aktive Zeitpunkt
 bestimmt dessen Rückkehr. Die Inbox kennzeichnet einen fachlichen Finding-Snooze gesondert
-und verlinkt zu dessen Review. Aufheben der organisatorischen Wiedervorlage lässt ihn bestehen.
+und verlinkt zum Befund in der Arbeitsliste. Aufheben der organisatorischen Wiedervorlage
+lässt die fachliche Zurückstellung bestehen; die Arbeitsliste bietet keine Reviewbearbeitung.
 Ablauf wird bei der nächsten Inbox-Abfrage berücksichtigt, ohne automatische Statusmutation.
 
 ### Logo quality
@@ -719,3 +749,12 @@ Direktaufruf; „Filter zurücksetzen“ kehrt zur offenen Einladungsliste zurü
 StatusBadge zeigt den aktuellen Status, das Einladungsdatum bleibt die Altersbasis und
 wird niemals als Beitrittsdatum ausgegeben. Counts und Pagination kommen vom Backend.
 Eine spätere Umbenennung in „Teammitgliedschaften“ bleibt eine separate Produktentscheidung.
+
+### SQL-Diagnose aus Live-Befunden
+
+Die Arbeitsliste übergibt ihren tatsächlich geladenen Modus an den SQL Editor.
+`sql_diagnostic_available` wird in beiden Modi aus der festen Recipe-Registry ermittelt.
+Definition und Ausführung akzeptieren optional `mode=live`; ohne Modus bleibt die
+persistierte Identität erforderlich. SQL-Hashlinks erhalten den Quellmodus. Es wird kein
+vollständiger Scan beim Öffnen/Ausführen ausgelöst, kein Review angelegt und kein
+Quelldatensatz verändert. Nicht unterstützte Regeln erhalten keinen SQL-Link.

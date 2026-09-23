@@ -1,6 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, h, reactive } from 'vue'
+import TechnicalInfoBar from '../../app/components/TechnicalInfoBar.vue'
+import InlineAlert from '../../app/components/InlineAlert.vue'
+import { AdminApiError, failure } from '../../shared/errors'
 import Inbox from '../../app/pages/inbox.vue'
 import InboxRow from '../../app/components/InboxRow.vue'
 import AppIcon from '../../app/components/AppIcon.vue'
@@ -18,7 +21,7 @@ import { inboxFixture } from '../fixtures/inbox'
 
 const push = vi.fn()
 const inbox = vi.fn()
-const route = reactive({ query: {} as Record<string, string> })
+const route = reactive({ query: {} as Record<string, unknown> })
 
 const NuxtLink = defineComponent({
   props: ['to'],
@@ -28,11 +31,15 @@ const NuxtLink = defineComponent({
       h('a', { href: typeof props.to === 'string' ? props.to : '' }, slots.default?.()),
 })
 
+const views: { unmount: () => void }[] = []
+afterEach(() => views.splice(0).forEach((view) => view.unmount()))
 function page() {
-  return mount(Inbox, {
+  const view = mount(Inbox, {
     global: {
       components: {
         AppIcon,
+        TechnicalInfoBar,
+        InlineAlert,
         DataListShell,
         EmptyState,
         EntityTypeBadge,
@@ -48,6 +55,8 @@ function page() {
       stubs: { NuxtLink },
     },
   })
+  views.push(view)
+  return view
 }
 
 beforeEach(() => {
@@ -72,7 +81,7 @@ describe('Inbox shared list page', () => {
     expect(view.findComponent(RequestState).exists()).toBe(true)
     expect(view.findComponent(ResultSummary).text()).toContain('25 Aufgaben insgesamt')
     expect(view.findComponent(ResultSummary).text()).toContain('Auf dieser Seite: 1 Einträge')
-    expect(view.findComponent(ResultSummary).text()).toContain('25 nicht zugewiesen')
+    expect(view.get('button[aria-label="25 Nicht zugewiesen"]').text()).toContain('25')
     expect(view.findAllComponents(DataListShell)).toHaveLength(1)
     expect(view.findAll('.data-list')).toHaveLength(1)
     expect(view.find('.data-list').classes()).toContain('divide-y')
@@ -173,7 +182,82 @@ it('restores the reminder filter and shows authoritative reminder counts and tim
   const view = page()
   await flushPromises()
   expect(inbox).toHaveBeenCalledWith(expect.objectContaining({ attention: 'snoozed' }))
-  expect(view.findComponent(ResultSummary).text()).toContain('12 Wiedervorlagen')
+  expect(view.get('button[aria-label="12 Wiedervorlagen"]').attributes('aria-pressed')).toBe('true')
   expect(view.get('.data-row').text()).toContain('25.01.2027, 09:00')
-  expect(view.get('time').attributes('datetime')).toBe('2027-01-25T08:00:00Z')
+  expect(view.get('time[datetime="2027-01-25T08:00:00Z"]').attributes('datetime')).toBe(
+    '2027-01-25T08:00:00Z',
+  )
+})
+
+it.each([
+  ['Kritisch', { attention: 'critical' }],
+  ['Meine', { scope: 'mine' }],
+  ['Nicht zugewiesen', { scope: 'unassigned' }],
+  ['Heute fällig', { attention: 'due_today' }],
+  ['Überfällig', { attention: 'overdue' }],
+  ['Wiedervorlagen', { attention: 'snoozed' }],
+])(
+  'writes the %s count shortcut to the URL, preserving unrelated filters',
+  async (label, filter) => {
+    route.query = { kind: 'finding', entity_type: 'venue', page: '3', page_size: '10' }
+    const view = page()
+    await flushPromises()
+    await view
+      .findAll('button[aria-pressed]')
+      .find((button) => button.attributes('aria-label')?.endsWith(` ${label}`))!
+      .trigger('click')
+    expect(push).toHaveBeenLastCalledWith({
+      query: { kind: 'finding', entity_type: 'venue', page_size: 10, ...filter },
+    })
+    route.query = { ...filter }
+    await flushPromises()
+    expect(view.findAll('button[aria-pressed="true"]')).toHaveLength(1)
+  },
+)
+it.each([{ page: '0' }, { scope: ['mine', 'all'] }, { unknown: 'x' }])(
+  'rejects invalid URL %j without an API request',
+  async (query) => {
+    route.query = query
+    const view = page()
+    await flushPromises()
+    expect(inbox).not.toHaveBeenCalled()
+    expect(view.text()).toContain('ungültige Inbox-Filter')
+  },
+)
+it('retains same-query refresh data but clears on query change, stale invalid-query responses and denial', async () => {
+  const view = page()
+  await flushPromises()
+  inbox.mockRejectedValueOnce(new AdminApiError(failure(503)))
+  await view
+    .findAll('button')
+    .find((el) => el.text().includes('Aktualisieren'))!
+    .trigger('click')
+  await flushPromises()
+  expect(view.text()).toContain('Kühlhaus Flensburg')
+  expect(view.text()).toContain('veraltet')
+  let resolve!: (value: typeof inboxFixture) => void
+  inbox.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done
+      }),
+  )
+  route.query = { scope: 'mine' }
+  await flushPromises()
+  expect(view.text()).not.toContain('Kühlhaus Flensburg')
+  route.query = { page: '0' }
+  await flushPromises()
+  resolve(inboxFixture)
+  await flushPromises()
+  expect(view.text()).not.toContain('Kühlhaus Flensburg')
+  route.query = {}
+  await flushPromises()
+  inbox.mockRejectedValueOnce(new AdminApiError(failure(403)))
+  await view
+    .findAll('button')
+    .find((el) => el.text().includes('Aktualisieren'))!
+    .trigger('click')
+  await flushPromises()
+  expect(view.text()).not.toContain('Kühlhaus Flensburg')
+  expect(view.text()).toContain('Zugriff gesperrt')
 })

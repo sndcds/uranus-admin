@@ -95,8 +95,6 @@ for (const path of ['/', '/findings']) {
       })
     })
     await page.goto(path)
-    if (path === '/')
-      await page.locator('summary[aria-label="Weitere Aktionen für Test-Hafenbühne"]').click()
     const trigger = page.getByRole('button', { name: 'SQL Editor für Test-Hafenbühne' })
     await expect(trigger).toBeVisible()
     expect(definitions).toBe(0)
@@ -297,4 +295,101 @@ test('SQL Editor follows the mockup and reopens the finding through its new-tab 
   await expect(popup.locator('dialog aside')).toContainText('Kürbismenü')
   await expect(popup.locator('dialog code')).toHaveText(formatPostgresql(sql))
   await popup.close()
+})
+
+test('live findings open, execute and hash-link SQL without requiring persisted findings', async ({
+  page,
+}) => {
+  let executions = 0
+  await page.route('**/api/admin/api/v1/**', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/sql-diagnostic/execute')) {
+      executions++
+      expect(route.request().postDataJSON()).toEqual({
+        finding_id: supportedFinding.id,
+        mode: 'live',
+      })
+      return route.fulfill({ json: diagnosticResult })
+    }
+    if (url.pathname.endsWith('/sql-diagnostic')) {
+      expect(url.searchParams.get('mode')).toBe('live')
+      expect(url.searchParams.get('finding_id')).toBe(supportedFinding.id)
+      return route.fulfill({ json: { ...diagnosticDefinition, last_seen_at: null } })
+    }
+    if (url.pathname.endsWith('/findings')) {
+      expect(url.searchParams.get('mode')).toBe('live')
+      return route.fulfill({ json: { ...findings, mode: 'live', items: [supportedFinding] } })
+    }
+    if (url.pathname.endsWith('/dashboard/summary')) return route.fulfill({ json: summary })
+    return route.fulfill({ json: { items: [] } })
+  })
+  await page.goto('/findings?mode=live&active_only=false&page=1&page_size=50')
+  await page.getByRole('button', { name: `SQL Editor für ${supportedFinding.entity_name}` }).click()
+  const dialog = page.getByRole('dialog', { name: 'SQL Editor' })
+  await expect(dialog.getByText('Noch keine Abfrage ausgeführt.')).toBeVisible()
+  expect(executions).toBe(0)
+  await dialog.getByRole('button', { name: 'Abfrage ausführen' }).click()
+  await expect(dialog.getByRole('table', { name: 'Diagnose-Ergebnis' })).toBeVisible()
+  expect(executions).toBe(1)
+  const href = await dialog
+    .getByRole('link', { name: 'SQL Editor in neuem Tab öffnen' })
+    .getAttribute('href')
+  expect(new URL(href!, 'http://test').searchParams.get('mode')).toBe('live')
+  await page.goto(href!)
+  await expect(page.getByRole('dialog', { name: 'SQL Editor' })).toBeVisible()
+  expect(executions).toBe(1)
+})
+
+test('readonly SQL keeps line numbers aligned through wrapped lines beyond line 207', async ({
+  page,
+}) => {
+  const sql = [
+    ...Array.from(
+      { length: 210 },
+      (_, index) => `-- Zeile ${index + 1}: ${'synthetischer Kommentar '.repeat(8)}`,
+    ),
+    'SELECT uuid, name FROM uranus.venue ORDER BY name LIMIT 50;',
+  ].join('\n')
+  await page.route('**/api/admin/api/v1/**', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/sql-diagnostic'))
+      return route.fulfill({ json: { ...diagnosticDefinition, sql, copy_sql: sql } })
+    if (url.pathname.endsWith('/dashboard/summary')) return route.fulfill({ json: summary })
+    return route.fulfill({ json: { ...findings, mode: 'persisted', items: [supportedFinding] } })
+  })
+  await page.goto('/findings')
+  await page.getByRole('button', { name: `SQL Editor für ${supportedFinding.entity_name}` }).click()
+  const code = page.getByRole('region', { name: 'SQL-Abfrage, Nur-Lese-Modus' })
+  await expect(code.locator('.token.keyword').first()).toBeVisible()
+  await page.evaluate(() => document.fonts.ready)
+  const geometry = await code.evaluate((element) => {
+    const lines = [...element.querySelectorAll('.sql-line')]
+    const numbers = [...element.querySelectorAll('.sql-gutter > div')]
+    return {
+      count: lines.length,
+      numberCount: numbers.length,
+      lastNumber: numbers.at(-1)?.textContent,
+      logicalLines: element.querySelector('code')!.textContent!.split('\n').length,
+      wrapped: lines.some((line) => line.getBoundingClientRect().height > 30),
+      aligned: lines.every((line, index) => {
+        const number = numbers[index]?.getBoundingClientRect()
+        const content = line.getBoundingClientRect()
+        return (
+          number &&
+          Math.abs(number.top - content.top) < 1 &&
+          Math.abs(number.height - content.height) < 1
+        )
+      }),
+    }
+  })
+  expect(geometry.count).toBeGreaterThan(207)
+  expect(geometry.numberCount).toBe(geometry.logicalLines)
+  expect(geometry.lastNumber).toBe(String(geometry.logicalLines))
+  expect(geometry.wrapped).toBe(true)
+  expect(geometry.aligned).toBe(true)
+  await code.evaluate((element) => {
+    element.scrollTop = element.scrollHeight
+  })
+  await expect(code.locator('.sql-gutter > div').last()).toBeInViewport()
+  await expect(code.locator('.sql-line').last()).toBeInViewport()
 })

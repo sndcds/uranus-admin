@@ -1,118 +1,114 @@
 <script setup lang="ts">
+import { qualityRuleLabel } from '~/utils/quality'
 import { dateTime, findingStatusLabels } from '~/utils/presentation'
+import {
+  findingAdditionalMessage,
+  findingRecordKey,
+  findingRecordName,
+} from '~/utils/finding-presentation'
 import type { Finding } from '#shared/contracts'
 import SqlEditorModal from './sql/SqlEditorModal.vue'
-defineProps<{ items: Finding[]; compact?: boolean }>()
-const detail = useTemplateRef('detail')
+withDefaults(
+  defineProps<{
+    items: Finding[]
+    compact?: boolean
+    workspace?: boolean
+    mode?: 'persisted' | 'live'
+  }>(),
+  { mode: 'persisted' },
+)
 const sqlEditor = useTemplateRef('sqlEditor')
 </script>
 
 <template>
-  <table v-if="compact" class="operations-table operations-table-stack" role="table">
+  <table v-if="compact" class="operations-table findings-table" role="table">
     <caption class="sr-only">
       Priorisierte Befunde
     </caption>
     <colgroup>
-      <col class="w-[36%]" />
-      <col class="w-[18%]" />
-      <col class="w-[30%]" />
-      <col class="w-[16%]" />
+      <col class="w-[31%]" />
+      <col class="w-[32%]" />
+      <col class="w-[17%]" />
+      <col class="w-[20%]" />
     </colgroup>
     <thead role="rowgroup">
       <tr role="row">
-        <th scope="col" role="columnheader">Titel / Priorität</th>
-        <th scope="col" role="columnheader">Typ / Status</th>
-        <th scope="col" role="columnheader">Quelle / Beobachtet</th>
+        <th scope="col" role="columnheader">Datensatz</th>
+        <th scope="col" role="columnheader">Befund</th>
+        <th scope="col" role="columnheader">Priorität / Status</th>
         <th scope="col" role="columnheader">Aktionen</th>
       </tr>
     </thead>
     <tbody role="rowgroup">
       <tr v-for="finding in items" :key="finding.id" role="row">
-        <th scope="row" role="rowheader" class="max-sm:block">
-          <span class="operations-cell-label max-sm:hidden" aria-hidden="true"
-            >Titel / Priorität</span
-          >
-          <div class="min-w-0 py-1">
-            <div class="flex flex-wrap items-baseline gap-x-2">
+        <th scope="row" role="rowheader" class="findings-record">
+          <div class="flex min-w-0 items-start gap-3 py-2">
+            <ActivityThumbnail :item="finding" compact />
+            <div class="min-w-0 space-y-1">
+              <component :is="workspace ? 'h3' : 'h4'" class="text-sm font-semibold leading-5">
+                {{ findingRecordName(finding) }}
+              </component>
+              <p v-if="findingRecordKey(finding)" class="text-xs font-normal text-slate-500">
+                <span :title="finding.entity_key">{{ findingRecordKey(finding) }}</span>
+              </p>
+              <EntityTypeBadge :type="finding.entity_type" />
+              <p
+                v-if="finding.organization_name"
+                class="text-xs font-normal leading-4 text-slate-500"
+              >
+                {{ finding.organization_name }}
+              </p>
+            </div>
+          </div>
+        </th>
+        <td role="cell" class="findings-evidence">
+          <div class="space-y-1 py-2">
+            <p class="text-sm font-medium leading-5 text-slate-900">
+              {{ qualityRuleLabel(finding.rule) }}
+            </p>
+            <p v-if="findingAdditionalMessage(finding)" class="text-xs leading-4 text-slate-600">
+              {{ findingAdditionalMessage(finding) }}
+            </p>
+            <p class="pt-1 text-xs leading-4 text-slate-500">
+              Feld: {{ finding.field }}
+              <span class="block"
+                >Beobachtet:
+                <time :datetime="finding.last_seen_at" title="Europe/Berlin">{{
+                  dateTime(finding.last_seen_at)
+                }}</time>
+              </span>
+            </p>
+          </div>
+        </td>
+        <td role="cell" class="findings-status">
+          <div class="space-y-2 py-2">
+            <div class="flex flex-wrap items-center gap-2">
               <span
-                class="text-xs font-semibold text-slate-600"
+                class="rounded bg-slate-900 px-1.5 py-0.5 text-xs font-semibold text-white"
                 :aria-label="`Priorität ${finding.priority}`"
                 >P{{ finding.priority }}</span
               >
-              <h4 class="text-sm font-semibold">{{ finding.entity_name }}</h4>
+              <SeverityBadge :severity="finding.severity" />
             </div>
-            <p class="mt-1 text-xs font-normal leading-4 text-slate-600">{{ finding.message }}</p>
-          </div>
-        </th>
-        <td role="cell">
-          <span class="operations-cell-label" aria-hidden="true">Typ / Status</span>
-          <div class="flex flex-wrap gap-1 py-1">
-            <SeverityBadge :severity="finding.severity" />
-            <EntityTypeBadge :type="finding.entity_type" />
             <StatusBadge
               v-if="finding.status"
               :label="findingStatusLabels[finding.status] ?? finding.status"
             />
           </div>
         </td>
-        <td role="cell">
-          <span class="operations-cell-label" aria-hidden="true">Quelle / Beobachtet</span>
-          <div class="space-y-1 py-1 text-xs text-slate-600">
-            <p>{{ finding.organization_name || 'Keine eindeutige Organisation' }}</p>
-            <p>Feld: {{ finding.field }}</p>
-            <time :datetime="finding.last_seen_at" title="Europe/Berlin">{{
-              dateTime(finding.last_seen_at)
-            }}</time>
-          </div>
-        </td>
-        <td role="cell">
-          <span class="operations-cell-label" aria-hidden="true">Aktionen</span>
-          <div class="flex flex-wrap items-center">
-            <button
-              class="action-link min-w-11 justify-center"
-              :aria-label="`Befund zu ${finding.entity_name} ansehen`"
-              @click="detail?.open(finding)"
+        <td role="cell" class="findings-actions">
+          <div class="flex flex-col items-start sm:[&_.action-link]:min-h-6">
+            <NuxtLink v-if="finding.action" :to="finding.action.href" class="action-link text-xs"
+              >Im Admin ansehen</NuxtLink
             >
-              <AppIcon name="arrow" :size="16" />
+            <button
+              v-if="finding.sql_diagnostic_available"
+              class="action-link text-xs"
+              :aria-label="`SQL Editor für ${findingRecordName(finding)}`"
+              @click="sqlEditor?.open(finding, mode)"
+            >
+              SQL Editor
             </button>
-            <details class="relative">
-              <summary
-                class="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded text-slate-600 hover:bg-slate-100"
-                :aria-label="`Weitere Aktionen für ${finding.entity_name}`"
-              >
-                <AppIcon name="menu" :size="16" />
-              </summary>
-              <div class="operations-panel absolute right-0 z-10 w-56 p-2 shadow-lg">
-                <button
-                  v-if="finding.sql_diagnostic_available"
-                  class="action-link w-full text-xs"
-                  :aria-label="`SQL Editor für ${finding.entity_name}`"
-                  @click="sqlEditor?.open(finding)"
-                >
-                  SQL Editor <AppIcon name="arrow" :size="14" />
-                </button>
-                <NuxtLink
-                  v-if="finding.action"
-                  :to="finding.action.href"
-                  class="action-link w-full text-xs"
-                  >Im Admin ansehen</NuxtLink
-                >
-                <NuxtLink
-                  v-if="finding.location_suggestion_request_id"
-                  :to="`/geocoding/${finding.location_suggestion_request_id}`"
-                  class="action-link w-full text-xs"
-                  >Standortvorschlag prüfen</NuxtLink
-                >
-                <div
-                  class="[&_a]:m-0 [&_a]:w-full [&_a]:justify-start [&_a]:border-0 [&_a]:px-0 [&_a]:text-xs"
-                >
-                  <RecordMarkLink
-                    :entity-type="finding.entity_type"
-                    :entity-key="finding.entity_key"
-                  />
-                </div>
-              </div>
-            </details>
           </div>
         </td>
       </tr>
@@ -122,22 +118,12 @@ const sqlEditor = useTemplateRef('sqlEditor')
     <li
       v-for="finding in items"
       :key="finding.id"
-      class="data-row grid gap-3 md:grid-cols-[auto_minmax(0,1fr)]"
+      class="data-row grid grid-cols-[auto_minmax(0,1fr)] gap-3"
     >
-      <span
-        aria-hidden="true"
-        class="mt-1 hidden h-3 w-3 rounded-full md:block"
-        :class="
-          finding.severity === 'error'
-            ? 'bg-rose-500'
-            : finding.severity === 'warning'
-              ? 'bg-amber-400'
-              : 'bg-sky-400'
-        "
-      />
+      <ActivityThumbnail :item="finding" compact />
       <div class="min-w-0 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-x-4">
         <div class="flex flex-wrap items-center gap-2">
-          <h3 class="break-words text-sm font-semibold">{{ finding.entity_name }}</h3>
+          <h3 class="break-words text-sm font-semibold">{{ findingRecordName(finding) }}</h3>
           <SeverityBadge :severity="finding.severity" /><EntityTypeBadge
             :type="finding.entity_type"
           />
@@ -146,50 +132,124 @@ const sqlEditor = useTemplateRef('sqlEditor')
             :label="findingStatusLabels[finding.status] ?? finding.status"
           />
         </div>
-        <p class="mt-1 break-words text-sm text-slate-600 lg:col-start-1">{{ finding.message }}</p>
+        <p
+          v-if="findingRecordKey(finding)"
+          class="text-xs text-slate-500"
+          :title="finding.entity_key"
+        >
+          {{ findingRecordKey(finding) }}
+        </p>
+        <p v-if="finding.organization_name" class="mt-1 text-xs text-slate-500 lg:col-start-1">
+          {{ finding.organization_name }}
+        </p>
+        <p class="mt-2 text-sm font-medium lg:col-start-1">{{ qualityRuleLabel(finding.rule) }}</p>
+        <p
+          v-if="findingAdditionalMessage(finding)"
+          class="mt-1 text-xs text-slate-600 lg:col-start-1"
+        >
+          {{ findingAdditionalMessage(finding) }}
+        </p>
         <p class="mt-1 text-xs text-slate-500 lg:col-start-1">
-          Feld: {{ finding.field }} ·
-          {{ finding.organization_name || 'Keine eindeutige Organisation' }} · beobachtet
-          {{ dateTime(finding.last_seen_at) }}
+          Feld: {{ finding.field }} · beobachtet
+          <time :datetime="finding.last_seen_at">{{ dateTime(finding.last_seen_at) }}</time>
         </p>
         <div
-          class="mt-2 flex flex-wrap items-center lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0 lg:max-w-40 lg:justify-end gap-x-4 gap-y-2 text-xs [&_a]:mt-0 [&_a]:p-0 [&_a]:border-0 [&_a]:text-xs"
+          class="mt-2 flex flex-col items-start sm:[&_.action-link]:min-h-6 lg:col-start-2 lg:row-span-6 lg:row-start-1 lg:mt-0"
         >
-          <button
-            v-if="finding.sql_diagnostic_available"
-            class="inline-flex items-center gap-1 rounded font-semibold text-fuchsia-700 hover:underline"
-            :aria-label="`SQL Editor für ${finding.entity_name}`"
-            @click="sqlEditor?.open(finding)"
-          >
-            SQL Editor <AppIcon name="arrow" :size="14" />
-          </button>
-          <button
-            class="rounded hover:underline"
-            :class="
-              finding.sql_diagnostic_available ? 'text-slate-500' : 'font-semibold text-fuchsia-700'
-            "
-            :aria-label="`Befund zu ${finding.entity_name} ansehen`"
-            @click="detail?.open(finding)"
-          >
-            {{ finding.sql_diagnostic_available ? 'Details' : 'Ansehen' }}
-          </button>
-          <NuxtLink
-            v-if="finding.action"
-            :to="finding.action.href"
-            class="rounded text-fuchsia-700 hover:underline"
+          <NuxtLink v-if="finding.action" :to="finding.action.href" class="action-link text-xs"
             >Im Admin ansehen</NuxtLink
           >
-          <NuxtLink
-            v-if="finding.location_suggestion_request_id"
-            :to="`/geocoding/${finding.location_suggestion_request_id}`"
-            class="text-fuchsia-700 hover:underline"
-            >Standortvorschlag prüfen</NuxtLink
+          <button
+            v-if="finding.sql_diagnostic_available"
+            class="action-link text-xs"
+            :aria-label="`SQL Editor für ${findingRecordName(finding)}`"
+            @click="sqlEditor?.open(finding, mode)"
           >
-          <RecordMarkLink :entity-type="finding.entity_type" :entity-key="finding.entity_key" />
+            SQL Editor
+          </button>
         </div>
       </div>
     </li>
   </ul>
-  <FindingDetail ref="detail" />
   <SqlEditorModal ref="sqlEditor" />
 </template>
+
+<style scoped>
+.findings-table tbody :is(th, td) {
+  vertical-align: top;
+}
+@media (max-width: 1100px) {
+  .findings-table,
+  .findings-table tbody {
+    display: block;
+    width: 100%;
+  }
+  .findings-table colgroup {
+    display: none;
+  }
+  .findings-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .findings-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 11rem;
+    height: auto;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--color-slate-200);
+  }
+  .findings-table tbody :is(th, td) {
+    min-width: 0;
+    border: 0;
+  }
+  .findings-record {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .findings-evidence {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .findings-status {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .findings-actions {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+@media (max-width: 639px) {
+  .findings-table tbody tr {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .findings-table tbody :is(th, td) {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .findings-record {
+    order: 1;
+  }
+  .findings-status {
+    order: 2;
+  }
+  .findings-evidence {
+    order: 3;
+  }
+  .findings-actions {
+    order: 4;
+  }
+  .findings-status > div > * {
+    margin-block: 0;
+  }
+  .findings-status > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+</style>

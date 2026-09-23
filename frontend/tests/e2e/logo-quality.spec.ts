@@ -100,7 +100,9 @@ for (const entry of cases) {
         url.searchParams.get('rule') === entry.rule &&
         url.searchParams.get('active_only') === 'true',
     )
-    const row = page.getByRole('list', { name: 'Befunde', exact: true }).getByRole('listitem')
+    const row = page
+      .getByRole('table', { name: 'Priorisierte Befunde', exact: true })
+      .locator('tbody tr')
     await expect(row).toContainText('Logo-Testdatensatz')
     await expect(
       row.getByText(entry.entity === 'venue' ? 'Ort' : 'Organisation', { exact: true }),
@@ -112,10 +114,10 @@ for (const entry of cases) {
       'href',
       `/${entry.section}/${entityKey}`,
     )
-    await row.getByRole('button', { name: 'Befund zu Logo-Testdatensatz ansehen' }).click()
-    await expect(page.getByRole('dialog', { name: 'Logo-Testdatensatz' })).toContainText(
-      `${entry.rule} / ${field}`,
-    )
+    await expect(row).toContainText(entry.label)
+    await expect(row).toContainText(`Feld: ${field}`)
+    await expect(row.getByRole('button')).toHaveCount(0)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     expect(receivedFilters?.get('rule')).toBe(entry.rule)
     expect(receivedFilters?.get('entity_type')).toBe(
       entry.rule === 'logo_unsupported_format' ? null : entry.entity,

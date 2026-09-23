@@ -1,8 +1,8 @@
 import type { Finding } from '#shared/contracts'
 /** Only finding identity/filter state travels in the URL, never SQL or result data. */
-export function sqlFindingLink(finding: Finding): string {
+export function sqlFindingLink(finding: Finding, mode: 'persisted' | 'live' = 'persisted'): string {
   const query = new URLSearchParams({
-    mode: 'persisted',
+    mode,
     entity_type: finding.entity_type,
     entity_key: finding.entity_key,
     rule: finding.rule,

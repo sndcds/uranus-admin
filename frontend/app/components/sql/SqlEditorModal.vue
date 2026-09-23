@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { qualityRuleLabel } from '~/utils/quality'
 import { defineAsyncComponent, onBeforeUnmount, ref, useTemplateRef } from 'vue'
 import SqlWorkspaceModal from './SqlWorkspaceModal.vue'
 import SqlQueryPanel from './SqlQueryPanel.vue'
@@ -13,6 +14,7 @@ import { asFailure } from '#shared/errors'
 import { dateTime, findingStatusLabels } from '~/utils/presentation'
 
 const SqlConsolePanel = defineAsyncComponent(() => import('./SqlConsolePanel.vue'))
+const mode = ref<'persisted' | 'live'>('persisted')
 const editing = ref(false),
   consoleBusy = ref(false)
 const consolePanel = ref<{ cancel: () => void } | null>(null)
@@ -46,9 +48,10 @@ function reset() {
   running.value = false
 }
 onBeforeUnmount(reset)
-function open(value: Finding) {
+function open(value: Finding, source: 'persisted' | 'live' = 'persisted') {
   reset()
   finding.value = value
+  mode.value = source
   void dialog.value?.open()
   void load()
 }
@@ -59,7 +62,9 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const value = await $adminApi.sqlDiagnostic(id)
+    const value = await (mode.value === 'live'
+      ? $adminApi.sqlDiagnostic(id, 'live')
+      : $adminApi.sqlDiagnostic(id))
     if (current === revision) definition.value = value
   } catch (cause) {
     if (current === revision) error.value = asFailure(cause).message
@@ -74,7 +79,9 @@ async function execute() {
   error.value = ''
   result.value = null
   try {
-    const value = await $adminApi.executeSqlDiagnostic(finding.value.id)
+    const value = await (mode.value === 'live'
+      ? $adminApi.executeSqlDiagnostic(finding.value.id, 'live')
+      : $adminApi.executeSqlDiagnostic(finding.value.id))
     if (current === revision) result.value = value
   } catch (cause) {
     if (current === revision) error.value = asFailure(cause).message
@@ -98,7 +105,7 @@ defineExpose({ open })
     <template #actions
       ><a
         v-if="finding"
-        :href="sqlFindingLink(finding)"
+        :href="sqlFindingLink(finding, mode)"
         target="_blank"
         rel="noopener noreferrer"
         class="button text-xs"
@@ -231,7 +238,7 @@ defineExpose({ open })
         aria-label="Regel-Informationen"
       >
         <h3 class="font-semibold">Regel-Informationen</h3>
-        <p class="break-all font-mono text-xs">{{ finding.rule }}</p>
+        <p class="break-words text-sm">{{ qualityRuleLabel(finding.rule) }}</p>
         <p v-if="definition">{{ definition.explanation }}</p>
         <p v-if="definition" class="text-xs text-slate-500">
           {{ definition.title }} · {{ definition.datasource }}

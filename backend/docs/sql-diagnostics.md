@@ -1,6 +1,6 @@
 # Finding SQL Diagnostics – Phase 1
 
-Systemadmins können für gespeicherte Findings die registrierte Quellprüfung ansehen,
+Systemadmins können für gespeicherte und Live-Findings die registrierte Quellprüfung ansehen,
 eine psql-fähige Fassung kopieren und aktuelle Quelldaten ausdrücklich abfragen.
 Die Diagnose verändert weder Finding-Status noch Prüflaufhistorie. Auch behobene Befunde
 bleiben diagnostizierbar: `matched=false` bedeutet, dass aktuelle Daten die Regel nicht
@@ -11,12 +11,22 @@ mehr erfüllen. Bei entferntem Quelldatensatz ist `matched=null`.
 `app/sql_diagnostics/` enthält unveränderliche Recipe-Modelle, die feste Registry,
 Parameterprüfung, Literal-Rendering, strukturierte Python-Auswertungen und den Executor.
 `app/api/sql_diagnostics.py` lädt ID, Regel, Objekttyp, Objektschlüssel, Feld und letzten
-Beobachtungszeitpunkt serverseitig aus der Admin-Ablage. Keine Browser-Metadaten als Quelle.
+Beobachtungszeitpunkt im Standardmodus `persisted` serverseitig aus der Admin-Ablage.
+Mit explizitem `mode=live` wird die kanonische, vierteilige Finding-ID dekodiert und
+gegen dieselbe Registry geprüft: Regel, Objekttyp und Feld müssen zu einem festen Recipe
+passen; Objektschlüssel sind UUIDs oder streng geprüfte Composite Keys. Abweichende
+Kodierungen, SQL-/Feld-/Parameter-Overrides und unbekannte Modi werden abgewiesen.
+Es erfolgen weder ein vollständiger Qualitätsscan noch Admin-Persistierung. Die Definition
+belegt keinen aktuellen Regelverstoß; erst explizites Ausführen liest den Datensatz und
+wertet den aktuellen Zustand aus. `last_seen_at` der Live-Definition bleibt deshalb null.
+Die Beobachtungszeit des angezeigten Live-Befunds stammt weiterhin aus der Listenantwort;
+das Ausführungsergebnis hat seinen eigenen tatsächlichen `observed_at`.
 
 - `GET /api/v1/findings/sql-diagnostic?finding_id=...`: Definition, SQL, Copy-SQL,
-  Parameter, Spalten, Erklärung; **keine Quellquery**.
+  Parameter, Spalten, Erklärung; optional `mode=live`, **keine Quellquery**.
 - `POST /api/v1/findings/sql-diagnostic/execute`: JSON ausschließlich
-  `{"finding_id": "<persisted finding ID>"}`. Keine SQL-, Parameter- oder Limit-Overrides.
+  `{"finding_id": "<finding ID>", "mode": "persisted" | "live"}`; `mode` ist optional
+  und standardmäßig `persisted`. Keine SQL-, Parameter- oder Limit-Overrides.
   Unbekannte Body-Felder und Queryparameter werden abgewiesen.
 
 Beide Endpunkte verwenden `get_current_admin`; Cookie-POSTs verlangen exakte Origin
@@ -25,16 +35,16 @@ Antworten sind `private, no-store`. Der eigenständige SQL Editor lädt beim Öf
 großen Modals und führt nur über „Abfrage ausführen“ aus. Beim Schließen werden
 Ergebnisse verworfen. Der sichtbare SQL-Text bleibt unveränderlich und wird nie gesendet.
 
-Persistierte Finding-Responses enthalten `sql_diagnostic_available`. Die bestehende
+Persistierte und Live-Finding-Listen enthalten `sql_diagnostic_available`. Die bestehende
 Registry prüft Regel, Typ, Feld und Identität ohne Quellquery; gespeicherte
-Display-Metadaten können dieses Flag nicht überschreiben. Live-Findings liefern false.
-Auch `resolved` Findings behalten die Diagnoseaktion. Keine neue Route, Migration oder
-Änderung am Execute-Vertrag. [Frontend und Dependency-Audit](../../frontend/docs/sql-editor.md).
+Display-Metadaten können dieses Flag nicht überschreiben. Nicht unterstützte Regeln
+bleiben ohne Diagnoseaktion. Live-Hashlinks behalten `mode=live`.
+Auch `resolved` Findings behalten die Diagnoseaktion. Keine neue Route oder Migration. [Frontend und Dependency-Audit](../../frontend/docs/sql-editor.md).
 
 ## Sicherheitsmodell
 
 - Ausschließlich die Source-Engine aus `DATABASE_URL` mit eingeschränkter Reader-Rolle.
-  Die Admin-Verbindung liest nur die Finding-Identität.
+  Die Admin-Verbindung liest nur im Modus `persisted` die Finding-Identität.
 - Separate `REPEATABLE READ, READ ONLY`-Transaktion; immer **ROLLBACK**, auch bei Fehlern.
   Die Datenbankrolle bleibt die primäre Sicherheitsgrenze.
 - `statement_timeout=5000ms`, `lock_timeout=1000ms`,

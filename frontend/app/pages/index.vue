@@ -317,7 +317,12 @@ const technicalItems = computed<TechnicalFact[]>(() => {
             @retry="findings.load($adminApi)"
           />
         </div>
-        <FindingsList v-if="findings.data?.items.length" compact :items="findings.data.items" />
+        <FindingsList
+          v-if="findings.data?.items.length"
+          compact
+          :items="findings.data.items"
+          :mode="findings.data.mode ?? findings.filters.mode"
+        />
         <EmptyState
           v-else-if="findings.data && !findings.loading"
           compact

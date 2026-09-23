@@ -17,7 +17,7 @@ test('unassigned event-date findings render and link to the matching finding fil
   await expect(page.getByRole('heading', { name: 'Testtermin' })).toBeVisible()
   await expect(page.getByText('Das Enddatum liegt vor dem Startdatum.')).toBeVisible()
   await expect(page.getByText('Abruf fehlgeschlagen')).toHaveCount(0)
-  const link = page.getByRole('link', { name: 'Finding ansehen' })
+  const link = page.getByRole('link', { name: 'Befund ansehen' })
   await expect(link).toHaveAttribute('href', unassignedFindingInboxFixture.items[0]!.href)
   await link.click()
   await expect(page).toHaveURL(/\/findings\?entity_key=.*&rule=event_date_end_before_start$/)

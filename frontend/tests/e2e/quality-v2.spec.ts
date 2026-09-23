@@ -70,7 +70,7 @@ test('internal membership integrity has readable label and safe organization act
   await page.goto('/quality')
   await expect(page.getByRole('heading', { name: 'Interne Sicherheit' })).toBeVisible()
   await page.getByRole('link', { name: /Einladungstoken nach Beitritt vorhanden/ }).click()
-  const list = page.getByRole('list', { name: 'Befunde', exact: true })
+  const list = page.getByRole('table', { name: 'Priorisierte Befunde', exact: true })
   await expect(list).toContainText('Eine bereits angenommene Team-Einladung')
   await expect(list.getByRole('link', { name: 'Im Admin ansehen' })).toHaveAttribute(
     'href',
@@ -79,7 +79,8 @@ test('internal membership integrity has readable label and safe organization act
   expect(filters?.get('rule')).toBe(rule)
   expect(filters?.get('entity_type')).toBe('team_membership')
   expect(filters?.get('mode')).toBe('persisted')
-  await list.getByRole('button', { name: /ansehen/ }).click()
-  await expect(page.getByRole('dialog')).toContainText('Einladungstoken')
-  await expect(page.getByRole('dialog')).not.toContainText('"token_present":')
+  await expect(list.getByRole('button', { name: /ansehen/ })).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(list).toContainText('Einladungstoken')
+  await expect(list).not.toContainText('"token_present":')
 })

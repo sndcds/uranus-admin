@@ -1,5 +1,28 @@
 import type { Severity } from '#shared/contracts'
 
+// Rule identifiers remain unchanged in URLs and API requests.
+const additionalRuleLabels: Record<string, string> = {
+  venue_missing_geolocation: 'Geoposition fehlt',
+  url_syntax: 'Ungültige URL-Syntax',
+  event_without_dates: 'Veranstaltung ohne Termine',
+  event_without_location: 'Veranstaltung ohne Termine und ohne Ort oder Online-Alternative',
+  event_date_without_location: 'Termin ohne Ort oder Online-Alternative',
+  event_date_space_venue_mismatch: 'Raum gehört nicht zum Veranstaltungsort des Termins',
+  image_link_without_image: 'Bildverknüpfung ohne Bild',
+  image_link_unknown_context: 'Unbekannter Bildkontext',
+  image_link_invalid_identifier: 'Ungültige Bildkennung für diesen Kontext',
+  image_link_missing_target: 'Ziel der Bildverknüpfung fehlt',
+  image_orphaned_upload: 'Nicht verknüpfter Bild-Upload',
+  partner_self_request: 'Partneranfrage an die eigene Organisation',
+  partner_missing_organization: 'Partneranfrage ohne zugehörige Organisation',
+  partner_missing_user: 'Partneranfrage ohne zugehörigen Benutzer',
+  partner_unknown_status: 'Partneranfrage mit unbekanntem Status',
+  partner_long_pending: 'Seit Langem offene Partneranfrage',
+  partner_accepted_without_grant: 'Angenommene Partneranfrage ohne Berechtigung',
+  team_invitation_old: 'Seit Langem offene Teameinladung',
+  user_activation_old: 'Seit Langem ausstehende Benutzeraktivierung',
+}
+
 export const qualityRules: Record<
   string,
   { label: string; severity: Severity; group: string; entityType?: string }
@@ -167,4 +190,13 @@ export const qualityRules: Record<
     group: 'Veranstaltungsqualität',
     entityType: 'event',
   },
+}
+
+export const qualityRuleLabels: Record<string, string> = {
+  ...additionalRuleLabels,
+  ...Object.fromEntries(Object.entries(qualityRules).map(([code, rule]) => [code, rule.label])),
+}
+
+export function qualityRuleLabel(code: string): string {
+  return Object.hasOwn(qualityRuleLabels, code) ? qualityRuleLabels[code]! : 'Unbekannte Prüfregel'
 }

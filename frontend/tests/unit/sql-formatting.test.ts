@@ -133,3 +133,10 @@ it('opens only a supported finding returned by the authenticated list', () => {
   expect(sqlFindingFromHash('#sql-editor=%XX', [finding])).toBeUndefined()
   expect(sqlFindingFromHash('#sql-editor=unknown', [finding])).toBeUndefined()
 })
+
+it('keeps live SQL hash links in live mode', () => {
+  const finding = { ...findings.items[0]!, sql_diagnostic_available: true }
+  const url = new URL(sqlFindingLink(finding, 'live'), 'https://admin.example')
+  expect(url.searchParams.get('mode')).toBe('live')
+  expect(sqlFindingFromHash(url.hash, [finding])).toEqual(finding)
+})

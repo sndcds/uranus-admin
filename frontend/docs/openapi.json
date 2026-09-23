@@ -1083,7 +1083,7 @@
           "Findings"
         ],
         "summary": "List persisted or explicit live quality findings",
-        "description": "Defaults to persisted findings without a source scan. Explicit mode=live runs a full diagnostic scan. Only open findings exist in live mode; other status filters return an empty live result, not historical workflow data. active_only=true excludes resolved findings and combines with other filters. Ordered by priority_score descending and stable finding ID.",
+        "description": "Defaults to persisted findings without a source scan. Explicit mode=live runs a full diagnostic scan. Only open findings exist in live mode; other status filters return an empty live result, not historical workflow data. active_only=true excludes resolved findings and combines with other filters. Ordered by priority_score descending and stable finding ID. Public record thumbnails are enriched for the current page using a bounded source read.",
         "operationId": "findings_api_v1_findings_get",
         "security": [
           {
@@ -1367,7 +1367,7 @@
           "Finding SQL diagnostics"
         ],
         "summary": "Get Definition",
-        "description": "Inspect the registered diagnostic for a persisted finding. Does not execute source SQL.",
+        "description": "Inspect a registered diagnostic for a persisted finding (default) or a canonical live finding identity. Does not execute source SQL or establish current rule status.",
         "operationId": "get_definition_api_v1_findings_sql_diagnostic_get",
         "security": [
           {
@@ -1384,6 +1384,20 @@
               "minLength": 1,
               "maxLength": 8192,
               "title": "Finding Id"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "persisted",
+                "live"
+              ],
+              "type": "string",
+              "default": "persisted",
+              "title": "Mode"
             }
           }
         ],
@@ -1487,7 +1501,7 @@
           "Finding SQL diagnostics"
         ],
         "summary": "Run Diagnostic",
-        "description": "Execute the server-registered read-only diagnostic. Accepts only a persisted finding ID; no SQL or parameter overrides.",
+        "description": "Execute the server-registered read-only diagnostic. Accepts a persisted finding ID (default) or a canonical live finding identity. Only registered recipes and typed identity parameters; no SQL overrides.",
         "operationId": "run_diagnostic_api_v1_findings_sql_diagnostic_execute_post",
         "requestBody": {
           "content": {
@@ -22553,6 +22567,15 @@
             "maxLength": 8192,
             "minLength": 1,
             "title": "Finding Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "persisted",
+              "live"
+            ],
+            "title": "Mode",
+            "default": "persisted"
           }
         },
         "additionalProperties": false,
@@ -23910,6 +23933,18 @@
                 "type": "null"
               }
             ]
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url",
+            "description": "Current public record thumbnail, enriched only for this page."
           },
           "address": {
             "$ref": "#/components/schemas/Address"
@@ -28691,8 +28726,15 @@
             "title": "Columns"
           },
           "last_seen_at": {
-            "type": "string",
-            "format": "date-time",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Last Seen At"
           }
         },

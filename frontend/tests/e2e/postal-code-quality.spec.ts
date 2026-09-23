@@ -73,7 +73,9 @@ for (const mode of ['live', 'persisted'] as const) {
         url.searchParams.get('rule') === rule &&
         url.searchParams.get('active_only') === 'true',
     )
-    const rows = page.getByRole('list', { name: 'Befunde', exact: true }).getByRole('listitem')
+    const rows = page
+      .getByRole('table', { name: 'Priorisierte Befunde', exact: true })
+      .locator('tbody tr')
     await expect(rows).toHaveCount(2)
     for (const owner of owners) {
       const row = rows.filter({ hasText: `PLZ-Test ${owner.label}` })
@@ -86,13 +88,9 @@ for (const mode of ['live', 'persisted'] as const) {
         `/${owner.section}/${key}`,
       )
     }
-    await rows
-      .first()
-      .getByRole('button', { name: 'Befund zu PLZ-Test Organisation ansehen' })
-      .click()
-    await expect(page.getByRole('dialog', { name: 'PLZ-Test Organisation' })).toContainText(
-      `${rule} / postal_code`,
-    )
+    await expect(rows.first()).toContainText('Postleitzahlen mit Leerzeichen')
+    await expect(rows.getByRole('button')).toHaveCount(0)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     expect(receivedFilters?.get('rule')).toBe(rule)
     expect(receivedFilters?.get('entity_type')).toBeNull()
     expect(receivedFilters?.get('mode')).toBe(mode)

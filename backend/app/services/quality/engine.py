@@ -12,6 +12,8 @@ from app.services.geo.membership import filter_live_findings
 from app.services.quality.core import CORE_RULES, QualityContext, RuleResult, evaluate_core
 from app.services.quality.venues import map_venue
 from app.services.queues import queue_findings
+from app.sql_diagnostics.identity import diagnostic_available
+from app.sql_diagnostics.models import StoredFinding
 
 
 async def scan(connection: AsyncConnection, settings: Settings, now: datetime) -> list[RuleResult]:
@@ -48,8 +50,15 @@ def findings_page(items: list[Finding], filters: FindingFilters, now: datetime) 
     items.sort(key=lambda item: (-item.priority_score, item.id))
     total = len(items)
     start = (filters.page - 1) * filters.page_size
+    page_items = items[start : start + filters.page_size]
+    for item in page_items:
+        item.sql_diagnostic_available = diagnostic_available(
+            StoredFinding(
+                item.id, item.rule, item.entity_type, item.entity_key, item.field, item.last_seen_at
+            )
+        )
     return FindingPage(
-        items=items[start : start + filters.page_size],
+        items=page_items,
         observed_at=now,
         pagination=Pagination(
             page=filters.page,

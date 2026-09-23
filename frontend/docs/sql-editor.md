@@ -4,8 +4,8 @@ Finding SQL Editor/Diagnostics and SQL / Datenherkunft/Provenance use the same
 `SqlWorkspace`/`SqlWorkspaceModal`, `SqlQueryPanel`, `SqlCodeEditor`, `SqlParameterTable`,
 `SqlResultTable`, `SqlJsonResult` and `SqlReadonlyNotice`. `SqlSourceTabs` selects one
 provenance query at a time. The former vertical finding card and stacked provenance
-code boxes are replaced; both existing controllers retain their execution contracts.
-FindingDetail continues to link to the editor, with no second inline SQL renderer.
+code boxes are replaced. Finding rows link directly to the editor; the former
+FindingDetail modal is removed. Live diagnostics use the explicit mode described below.
 
 ## Layout and mockup
 
@@ -23,7 +23,10 @@ Below the desktop breakpoint the order is header, context, navigation, query,
 parameters, result/evaluation, notice. Long code and tables scroll inside their own
 containers; they do not widen the dialog. The native dialog retains Escape, focus
 trapping and focus return. Source tabs support arrows, Home and End. Line numbers are
-hidden from assistive technology and excluded from text selection.
+hidden from assistive technology and excluded from text selection. In read-only mode,
+gutter and highlighted SQL share CSS grid rows via subgrid, one per logical SQL line.
+Wrapped lines expand their matching number row, keeping numbering aligned through the
+end of long queries; formatting, token text and copy content remain unchanged.
 
 The reference mockup determines layout and placement. The existing design system's
 1024px maximum width, fonts, buttons and badges are retained. The actual registered
@@ -205,3 +208,13 @@ Bilder. Native Carets, Animationen und der von CodeMirror gezeichnete Cursor wer
 nur während der Aufnahme ausgeblendet; Fokus, Selektion und Theme bleiben unverändert.
 Keine pauschalen Sleeps. Die Toleranz bleibt **0.001**; Tokenfarben, Typografie,
 Hintergrund und Gutter-/Textgeometrie werden weiterhin zusätzlich exakt verglichen.
+
+## Live-Befunde
+
+Unterstützte Live-Befunde öffnen denselben SQL Editor wie gespeicherte Befunde.
+Der Modus wird mit der Finding-ID an Definition/Ausführung und in SQL-Hashlinks übergeben.
+Die API validiert die kanonische Live-ID gegen feste Recipes und typisierte Schlüssel;
+SQL, beliebige Spalten und Parameter-Overrides sind weiterhin nicht Teil des Requests.
+Die Live-Definition behauptet keine gespeicherte Beobachtung (`last_seen_at: null`).
+Erst „Abfrage ausführen“ liest und bewertet den aktuellen Datensatz. Authentifizierung,
+Origin/CSRF, Lese-Transaktionen sowie Zeit-/Zeilen-/Ergebnislimits bleiben unverändert.

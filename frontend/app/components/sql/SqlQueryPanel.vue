@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onBeforeUnmount, onDeactivated, watch } from 'vue'
+import { ref, watch } from 'vue'
+import CopyValueButton from '../CopyValueButton.vue'
 import type { SqlDiagnosticDefinition } from '#shared/contracts'
 import type { ProvenanceSource } from '#shared/sql-provenance'
 import SqlCodeEditor from './SqlCodeEditor.vue'
@@ -31,54 +32,13 @@ const props = defineProps<{
   status?: string
 }>()
 defineEmits<{ execute: []; cancel: []; format: []; 'update:sql': [value: string] }>()
-const feedback = ref(''),
-  view = ref<'table' | 'json'>('table')
-let revision = 0,
-  timer: ReturnType<typeof setTimeout> | undefined
-let copyInput: string | null = null,
-  formattedCopy: Promise<string> | null = null
-function reset() {
-  revision++
-  feedback.value = ''
-  view.value = 'table'
-  clearTimeout(timer)
-  copyInput = null
-  formattedCopy = null
-}
-watch(() => [props.sql, props.copySql], reset)
+const view = ref<'table' | 'json'>('table')
 watch(
-  () => props.result,
+  () => [props.sql, props.copySql, props.result],
   () => {
     view.value = 'table'
   },
 )
-onBeforeUnmount(reset)
-onDeactivated(() => {
-  revision++
-  clearTimeout(timer)
-  feedback.value = ''
-})
-async function copy() {
-  if (!props.copySql) return
-  const current = revision
-  clearTimeout(timer)
-  try {
-    if (copyInput !== props.copySql) {
-      copyInput = props.copySql
-      formattedCopy = formatSql(props.copySql)
-    }
-    const text = await formattedCopy
-    if (current !== revision || text === null) return
-    await navigator.clipboard.writeText(text)
-    if (current === revision) feedback.value = 'SQL kopiert'
-  } catch {
-    if (current === revision) feedback.value = 'SQL konnte nicht kopiert werden.'
-  }
-  if (current === revision)
-    timer = setTimeout(() => {
-      feedback.value = ''
-    }, 2500)
-}
 function download() {
   if (!props.result) return
   const url = URL.createObjectURL(
@@ -112,9 +72,17 @@ function download() {
           >
             SQL formatieren
           </button>
-          <button class="button" aria-label="SQL kopieren" :disabled="!copySql" @click="copy">
-            <AppIcon name="copy" :size="14" />SQL kopieren
-          </button>
+          <CopyValueButton
+            :value="copySql"
+            label="SQL"
+            button-text="SQL kopieren"
+            variant="button"
+            :disabled="!copySql"
+            :format-value="formatSql"
+            :reset-key="sql"
+            success-message="SQL kopiert"
+            error-message="SQL konnte nicht kopiert werden."
+          />
           <button
             v-if="executable"
             class="button-primary"
@@ -135,7 +103,6 @@ function download() {
           </button>
         </div>
       </div>
-      <p v-if="feedback" role="status" class="text-xs text-slate-600">{{ feedback }}</p>
       <p v-if="status" role="status" aria-live="polite" class="text-xs text-slate-600">
         <span
           v-if="running"

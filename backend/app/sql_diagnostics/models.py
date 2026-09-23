@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 class DiagnosticRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     finding_id: str = Field(min_length=1, max_length=8192)
+    mode: Literal["persisted", "live"] = "persisted"
 
 
 class DiagnosticCheck(BaseModel):
@@ -36,7 +37,7 @@ class SqlDiagnosticDefinition(BaseModel):
     parameters: dict[str, JsonValue]
     explanation: str
     columns: list[str]
-    last_seen_at: datetime
+    last_seen_at: datetime | None
 
 
 class SqlDiagnosticResult(BaseModel):
@@ -56,7 +57,7 @@ class StoredFinding:
     entity_type: str
     entity_key: str
     field: str
-    last_seen_at: datetime
+    last_seen_at: datetime | None
 
 
 @dataclass(frozen=True)

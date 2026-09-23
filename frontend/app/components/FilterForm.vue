@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { qualityRules } from '~/utils/quality'
+import { qualityRuleLabel, qualityRuleLabels } from '~/utils/quality'
 import { entityPresentation } from '~/utils/activity'
 import { findingStatusLabels } from '~/utils/presentation'
 import type { FindingFilters } from '#shared/contracts'
 import { filtersSchema, statusSchema } from '#shared/contracts'
-const props = defineProps<{ filters: FindingFilters }>()
+const props = defineProps<{ filters: FindingFilters; compact?: boolean }>()
 const emit = defineEmits<{ apply: [filters: FindingFilters]; reset: [] }>()
 const severity = ref(props.filters.severity ?? '')
 const organization = ref(props.filters.organization_id ?? '')
@@ -43,7 +43,7 @@ function apply() {
 </script>
 
 <template>
-  <FilterBar @apply="apply">
+  <FilterBar :compact="compact" @apply="apply">
     <label
       ><span class="label">Schweregrad</span
       ><select v-model="severity" class="input">
@@ -83,39 +83,11 @@ function apply() {
       ><span class="label">Regel</span
       ><select v-model="rule" class="input">
         <option value="">Alle verfügbaren</option>
-        <option value="venue_missing_geolocation">Geoposition fehlt</option>
-        <option
-          v-for="code in ['organization_missing_location', 'venue_missing_location']"
-          :key="code"
-          :value="code"
-        >
-          {{ qualityRules[code]!.label }}
+        <option v-if="rule && !Object.hasOwn(qualityRuleLabels, rule)" :value="rule">
+          {{ qualityRuleLabel(rule) }}
         </option>
-        <option
-          v-for="code in [
-            'url_syntax',
-            'event_without_dates',
-            'event_without_location',
-            'event_date_without_location',
-            'event_date_space_venue_mismatch',
-            'image_link_without_image',
-            'image_link_unknown_context',
-            'image_link_invalid_identifier',
-            'image_link_missing_target',
-            'image_orphaned_upload',
-            'partner_self_request',
-            'partner_missing_organization',
-            'partner_missing_user',
-            'partner_unknown_status',
-            'partner_long_pending',
-            'partner_accepted_without_grant',
-            'team_invitation_old',
-            'user_activation_old',
-          ]"
-          :key="code"
-          :value="code"
-        >
-          {{ code }}
+        <option v-for="(label, code) in qualityRuleLabels" :key="code" :value="code">
+          {{ label }}
         </option>
       </select></label
     >

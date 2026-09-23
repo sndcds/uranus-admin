@@ -122,7 +122,7 @@ const routes: Record<string, readonly string[]> = {
     'page',
     'page_size',
   ],
-  '/api/v1/findings/sql-diagnostic': ['finding_id'],
+  '/api/v1/findings/sql-diagnostic': ['finding_id', 'mode'],
   '/api/v1/findings/sql-diagnostic/execute': [],
   '/api/v1/findings': [
     'active_only',

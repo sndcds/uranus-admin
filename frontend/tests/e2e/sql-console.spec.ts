@@ -1,3 +1,4 @@
+import { sqlFindingLink } from '../../app/utils/sql-finding-link'
 import { test, expect } from '../fixtures/authenticated'
 import { findings } from '../fixtures/api'
 import { diagnosticDefinition } from '../fixtures/sql-diagnostics'
@@ -127,11 +128,10 @@ test('finding: readonly/editable parity and Escape cancels before closing', asyn
     route.fulfill({
       json: route.request().url().includes('sql-diagnostic')
         ? { ...diagnosticDefinition, sql, console_sql: sql }
-        : { ...findings, items: [finding] },
+        : { ...findings, mode: 'persisted', items: [finding] },
     }),
   )
-  await page.goto('/findings')
-  await page.getByRole('button', { name: `SQL Editor für ${finding.entity_name}` }).click()
+  await page.goto(sqlFindingLink(finding))
   const dialog = page.getByRole('dialog', { name: 'SQL Editor', exact: true })
   await expect(dialog.locator('.token.keyword').first()).toBeVisible()
   await fontsReady(page)
