@@ -1047,9 +1047,12 @@ ab; es gibt keinen Fallback auf einen alten Stand. Der Checkout wird nicht gewec
 Eine bereits vorhandene Ausgabedatei wird weiterhin nicht überschrieben; beim nächsten
 Release einen neuen Archivpfad wählen.
 
-Mit `--update-local-inventories` kann der aufgelöste absolute `--output`-Pfad nach
-erfolgreicher Archiverstellung direkt in die drei lokalen YAML-Dateien übernommen
-werden. `~` wird expandiert, relative Output-Pfade beziehen sich auf das aktuelle
+Mit `--update-local-inventories` werden nach erfolgreicher Archiverstellung alle drei
+technischen Release-Pins gemeinsam in die lokalen YAML-Dateien übernommen:
+`ua_release_sha` (paketierter Commit), `ua_artifact` (aufgelöster absoluter Output-Pfad)
+und `ua_artifact_sha256` (Prüfsumme des erzeugten Archivs). Die Werte stammen direkt
+aus derselben Paketierlogik wie die JSON-Ausgabe auf stdout; es erfolgt keine separate
+Ermittlung der Pins. `~` wird expandiert, relative Output-Pfade beziehen sich auf das aktuelle
 Arbeitsverzeichnis. Die Konfigurationsdateien werden relativ zum Script gefunden.
 Die optionale YAML-Bearbeitung nutzt das bereits durch die Controller-Requirements
 bereitgestellte PyYAML; der bisherige Packager-Aufruf ohne diese Option benötigt
@@ -1065,16 +1068,18 @@ uv run \
   --update-local-inventories
 ```
 
-Die Zuordnung ist auf folgende vorhandene Keys begrenzt:
+In diesen vorhandenen Mappings werden ausschließlich `ua_release_sha`, `ua_artifact`
+und `ua_artifact_sha256` gemeinsam aktualisiert:
 
-| Datei                         | YAML-Key                                             |
-| ----------------------------- | ---------------------------------------------------- |
-| `ansible/inventory.lxd.yml`   | `all.children.uranus_admin.hosts.<Host>.ua_artifact` |
-| `ansible/approvals.local.yml` | `ua_artifact`                                        |
-| `ansible/inventory.local.yml` | `all.children.uranus_admin.hosts.<Host>.ua_artifact` |
+| Datei                         | YAML-Mapping                             |
+| ----------------------------- | ---------------------------------------- |
+| `ansible/inventory.lxd.yml`   | `all.children.uranus_admin.hosts.<Host>` |
+| `ansible/approvals.local.yml` | Top-Level                                |
+| `ansible/inventory.local.yml` | `all.children.uranus_admin.hosts.<Host>` |
 
 In den Inventories werden alle direkt unter `uranus_admin.hosts` eingetragenen Hosts
-berücksichtigt. Jeder muss einen expliziten `ua_artifact`-String besitzen. Fehlende
+berücksichtigt. Jeder muss alle drei Pins als explizite, einzeilige Strings besitzen.
+Dasselbe gilt für die Top-Level-Pins der Approval-Datei. Fehlende
 Dateien/Keys, mehrdeutige Keys, YAML-Anker/Aliase, Blockskalare und Symlinks werden
 abgewiesen; es werden keine Keys angelegt oder geerbte Werte geändert. Kommentare,
 sonstige Inhalte und Dateimodi bleiben erhalten; identische Werte werden nicht neu
@@ -1087,17 +1092,23 @@ geteilt.
 
 Mit zusätzlichem `--dry-run` wird das Archiv **weiterhin erstellt**, aber nur angezeigt,
 welche YAML-Werte geändert würden. Diese Option erfordert `--update-local-inventories`.
-Die Übersicht nennt Datei, vollständigen Key sowie alten und neuen Pfad oder
+Die Übersicht nennt für alle drei Pins Datei, vollständigen Key sowie alten und neuen Wert oder
 `already up to date`. Sie erscheint auf stderr; stdout bleibt das bisherige JSON
 mit Commit, Archivpfad und SHA256. Ohne Update-Option werden die YAML-Dateien nicht
 gelesen oder verändert. Bei fehlgeschlagener Konfigurationsaktualisierung bleibt das
 erfolgreich erzeugte Archiv verfügbar; der Befehl endet mit Fehlerstatus.
 
-**Die Option aktualisiert ausschließlich `ua_artifact`.** `ua_release_sha`,
-`ua_artifact_sha256` und Freigaben bleiben unverändert. Commit und Prüfsumme müssen
-vor einem Deployment weiterhin anhand der ausgegebenen Release-Metadaten abgeglichen
-und übernommen werden; vorhandene Freigaben gelten nicht automatisch für das neue
-Archiv. Die Approval-Datei kann die Release-Pins des Inventories überschreiben.
+**Die Aktualisierung der technischen Release-Identität ist keine Deployment-Freigabe.**
+Alle menschlichen Entscheidungen bleiben unverändert: `ua_apply_confirmation`,
+`ua_reviewed_dry_run`, `ua_backup_reference`, `ua_maintenance_window`,
+`ua_secret_adoption_approved`, `ua_admin_database_bootstrap_approved`,
+`ua_admin_database_upgrade_approved`, `ua_disable_notification_timer_approved`,
+`ua_manage_notification_timer` und `ua_sql_console_provision_approved`.
+Vorhandene Freigaben gelten nicht automatisch für das neue Archiv; die bisherigen
+Prüf- und Freigabeschritte bleiben erforderlich. Die Approval-Datei kann die Release-Pins
+des Inventories überschreiben und erhält deshalb exakt dieselben drei neuen Werte.
+So führt die Paketierung nicht mehr durch veraltete Approval-Pins zu
+`Archive checksum mismatch`.
 
 „Latest main“ gilt zum Zeitpunkt der Paketierung. Danach bleiben Commit und Archiv für
 Dry Run und ausdrückliche Apply-Freigabe unveränderlich. Neue Commits auf `main` erfordern
