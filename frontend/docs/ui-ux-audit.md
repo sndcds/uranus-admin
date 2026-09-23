@@ -54,9 +54,15 @@ Finding-Identitäten, festen Recipes und typisierten Schlüsseln. Die Standardse
 bleibt `persisted`; Authentifizierung und Lese-/Ressourcengrenzen bleiben erhalten.
 Gemeinsame Kopieraktionen und SQL-Zeilennummern wurden ebenfalls vereinheitlicht/korrigiert.
 
-Validierungsstand des Findings-Follow-ups: vollständige GitHub-CI und aktuelle synthetische Review-Aufnahmen werden vor Ready-for-Review geprüft.
-Lokale Tests wurden auf ausdrücklichen Wunsch wegen Rechnerauslastung gestoppt;
-vorherige Ergebnisse und Screenshots belegen nur einen Zwischenstand.
+Validierungsstand des Findings-Follow-ups: [CI für `004df82`](https://github.com/sndcds/uranus-admin/actions/runs/35922079338)
+vollständig bestanden: Backend-Lint/mypy, 1922 pytest-Tests; Frontend-Lint/Typecheck,
+654 Unit-Tests, Build und 391 Production-E2E inklusive CSP. Neun absichtliche doppelte
+Viewport-/Desktop-Fälle sind übersprungen. Aktuelle Findings-/Detailaufnahmen wurden für
+1440/1024/390/360 manuell gesichtet; automatisierte Prüfungen sichern Spaltenaufteilung,
+langen Text, Sticky-Kopf und fehlenden Seiten-/Dialogüberlauf ab. Lokale Testläufe blieben
+auf Wunsch wegen Rechnerlast aus. Die früheren Inbox-/Marks-Aufnahmen bleiben unverändert
+als Zwischenstand gekennzeichnet; die scoped Marks-Aufnahme wartet separat auf eine
+Neuerfassung nach vollständig geladener Liste.
 
 Stand ist Code-/Reviewstand, keine Behauptung eines Deployments. [Review-Aufnahmen](screenshots/operations-workflows/README.md).
 

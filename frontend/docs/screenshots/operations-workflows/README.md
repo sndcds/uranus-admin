@@ -8,10 +8,10 @@ Die Matrix erfasst 1440 × 1000, 1024 × 768, 390 × 844 und 360 × 800. Fixture
 Abrufzeit sind für diese Aufnahmen auf den 23.09.2026, 14:00 Europe/Berlin fixiert.
 Die globale Kopfzeile zeigt die Laufzeit des CI-Servers. Weder Namen noch Bilder oder Datenstände stammen aus Produktion.
 
-| Ansicht        | Desktop                                   | Mobile                                 |
-| -------------- | ----------------------------------------- | -------------------------------------- |
-| Befunde        | [1440 × 1000](findings-desktop.png)       | [390 × 844](findings-mobile.png)       |
-| Finding Detail | [1440 × 1000](finding-detail-desktop.png) | [390 × 844](finding-detail-mobile.png) |
+| Ansicht        | Desktop                                   | Tablet                                  | Mobile                                 | Small Mobile                                 |
+| -------------- | ----------------------------------------- | --------------------------------------- | -------------------------------------- | -------------------------------------------- |
+| Befunde        | [1440 × 1000](findings-desktop.png)       | [1024 × 768](findings-tablet.png)       | [390 × 844](findings-mobile.png)       | [360 × 800](findings-small-mobile.png)       |
+| Finding Detail | [1440 × 1000](finding-detail-desktop.png) | [1024 × 768](finding-detail-tablet.png) | [390 × 844](finding-detail-mobile.png) | [360 × 800](finding-detail-small-mobile.png) |
 
 Die Liste zeigt Priorität zuerst, getrennte Datensatz-/Befundzellen, Reviewstatus,
 44px-Bearbeitung und verfügbare SQL-Aktionen. Der Tabellenkopf haftet nur innerhalb
@@ -19,10 +19,18 @@ des lokalen Desktop-Scrollbereichs. Tablet nutzt ein Grid, Mobile gestapelte Zei
 Das breite Detail trennt Evidenz, Priorisierung, Review, operative Zuständigkeit,
 Werkzeuge und Technik. Live hat keine Review-/Assignment-Aktion.
 
-Die CI stellt `frontend-test-results` auch bei erfolgreichen Läufen bereit. Die
-Review-Screenshots werden nach Sichtung gezielt aus diesem Artefakt übernommen;
-Visual-Goldens werden nicht automatisch überschrieben. Der abschließende CI-Lauf
-und die Sichtung werden nach Fertigstellung hier dokumentiert.
+Die Aufnahmen stammen aus dem vollständig erfolgreichen [CI-Lauf 35922079338](https://github.com/sndcds/uranus-admin/actions/runs/35922079338)
+für `004df8245773f1cb1b23cd412e8745a9912dbc11`. Alle acht Findings-/Detailaufnahmen wurden
+manuell gesichtet: Priorität und Zeilengrenzen sind erkennbar; Tablet zeigt ein Grid,
+Mobile eine einzelne Spalte; lange Namen sowie Seiten-/Dialogüberlauf sind zusätzlich
+automatisch geprüft. Das Detail scrollt vertikal; Werkzeuge und Technik folgen unterhalb
+des initialen Ausschnitts. Die Screenshots sind Review-Artefakte, keine Pixel-Goldens.
+
+Ergebnis: Backend-Lint/Format/mypy und **1922 pytest-Tests** bestanden;
+Frontend-Lint/Typecheck, **654 Unit-Tests in 49 Dateien**, Build und **391 Production-E2E**
+inklusive CSP bestanden. Neun Browserfälle sind absichtliche Doppelungen der Viewportmatrix
+bzw. der reine Desktop-Sticky-Test im Mobile-Projekt; kein fachlicher Test wurde ausgesetzt.
+`frontend-test-results` wird auch nach erfolgreichen Läufen als CI-Artefakt bereitgestellt.
 
 Reproduktion aus `frontend/` nach Installation und Build:
 
