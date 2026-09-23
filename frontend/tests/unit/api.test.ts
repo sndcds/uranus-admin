@@ -4,6 +4,22 @@ import { createAdminApi } from '../../app/utils/admin-api'
 import { summary, findings } from '../fixtures/api'
 
 describe('browser API client', () => {
+  it('parses JSON null for an unassigned workflow', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response('null', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      }),
+    )
+    const workflowKey = '00000000-0000-4000-8000-000000000850'
+    await expect(
+      createAdminApi(fetcher).assignmentForWorkflow('geocode_request', workflowKey),
+    ).resolves.toBeNull()
+    expect(fetcher.mock.calls[0]?.[0]).toBe(
+      `/api/admin/api/v1/assignments?workflow_type=geocode_request&workflow_key=${workflowKey}`,
+    )
+  })
+
   it.each([401, 403, 422, 500, 503])(
     'handles HTTP %i without exposing backend text',
     async (status) => {
