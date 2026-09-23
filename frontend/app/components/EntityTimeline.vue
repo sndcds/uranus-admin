@@ -4,7 +4,11 @@ import type { TimelineEntityType, TimelineItem } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
 import { adminTimeZone, dateTime } from '~/utils/presentation'
 
-const props = defineProps<{ entityType: TimelineEntityType; entityKey: string }>()
+const props = defineProps<{
+  entityType: TimelineEntityType
+  entityKey: string
+  compact?: boolean
+}>()
 const { $adminApi } = useNuxtApp()
 const items = ref<TimelineItem[]>([])
 const cursor = ref<string | null>(null)
@@ -79,7 +83,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="space-y-3" aria-labelledby="entity-timeline-heading">
+  <section
+    class="space-y-3"
+    :class="{ 'timeline-compact': compact }"
+    aria-labelledby="entity-timeline-heading"
+  >
     <SectionHeader
       title-id="entity-timeline-heading"
       title="Verlauf"
@@ -94,7 +102,8 @@ onBeforeUnmount(() => {
     <DataListShell v-if="items.length" as="ul" aria-label="Datensatzverlauf">
       <li v-for="item in items" :key="item.id" class="data-row flex gap-3">
         <span
-          class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600"
+          class="timeline-icon mt-0.5 flex shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600"
+          :class="compact ? 'h-6 w-6' : 'h-8 w-8'"
         >
           <AppIcon :name="iconByKind[item.kind]" :size="16" />
         </span>
@@ -109,16 +118,25 @@ onBeforeUnmount(() => {
               {{ dateTime(item.occurred_at) }}
             </time>
           </div>
-          <p v-if="item.summary" class="mt-1 whitespace-pre-line text-sm text-slate-700">
+          <p
+            v-if="item.summary"
+            class="timeline-summary whitespace-pre-line text-slate-700"
+            :class="compact ? 'text-xs leading-5' : 'mt-1 text-sm'"
+          >
             {{ item.summary }}
           </p>
-          <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <div
+            v-if="item.metadata.severity || item.actor || item.href"
+            class="timeline-meta flex flex-wrap items-center gap-2 text-xs text-slate-500"
+            :class="compact ? 'mt-1' : 'mt-2'"
+          >
             <SeverityBadge v-if="item.metadata.severity" :severity="item.metadata.severity" />
             <span v-if="item.actor">{{ item.actor }}</span>
             <NuxtLink
               v-if="item.href"
               :to="item.href"
               class="font-semibold text-fuchsia-700 hover:text-fuchsia-900"
+              :class="compact ? 'inline-flex min-h-11 items-center' : undefined"
               :aria-label="`Details öffnen: ${item.title}`"
             >
               Details öffnen
@@ -129,6 +147,7 @@ onBeforeUnmount(() => {
     </DataListShell>
     <EmptyState
       v-else-if="!loading && !error"
+      :compact="compact"
       message="Für diesen Datensatz sind noch keine Ereignisse mit belegtem Zeitpunkt vorhanden."
     />
     <div v-if="hasMore" class="flex justify-center">

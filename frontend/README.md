@@ -272,6 +272,14 @@ Responses. Für Login/Logout verwendet Playwright einen kontrollierten lokalen T
 auf Port 31902; dieser wird nie in die Anwendung eingebunden. Backend/PostGIS-Integration wird
 separat im Backend geprüft.
 
+Visuelle SQL-Baselines müssen mit dem gepinnten Playwright-Container aus
+[`ci.yml`](../.github/workflows/ci.yml) geprüft und aktualisiert werden. Lokale Linux-Fonts
+können trotz gleichem Snapshot-Dateinamen abweichen. Nach `pnpm build` den Docker-Befehl
+des Workflows verwenden; für ein gezieltes Update
+`tests/e2e/sql-console.spec.ts --project=desktop --update-snapshots` an den Testaufruf
+anhängen und anschließend ohne `--update-snapshots` prüfen. Die Testserver im
+Produktionslauf starten direkt mit Node; pnpm ist im Browser-Container nicht erforderlich.
+
 Ergebnisse und Grenzen: [Verifikation](docs/verification.md).
 Verbindliche Fach-/Sicherheitsverträge: [Backend-Verträge](../backend/docs/contracts.md).
 
@@ -281,9 +289,13 @@ Uranus-SSO, MFA und Self-Service-Kontowiederherstellung, fachliches Editieren, p
 vollständiges Auditjournal, automatische Geocodierung/Merges und externe URL-/Dateiabfragen.
 Portal-Bildziele sowie Space-Feature-Zuordnungen bleiben bis zur eindeutigen Quellklärung offen.
 
-## Design System v2
+## Design System v2.1
 
-Der [Design Guide v2](docs/design-system.md) ist der kanonische UI-Vertrag.
+Der [Design Guide v2.1 — Admin Operations Center](docs/design-system.md) ist der kanonische UI-Vertrag.
+Die gemeinsamen Foundations bieten eine dunkle Sidebar, kompaktere Abstände und Kopfzeilen,
+explizite Panel-Surfaces, CompactFacts, TechnicalInfoBar, DenseTable sowie kompakte
+EmptyState-/Timeline-Varianten. Die vollständige Migration einzelner Seiten folgt separat.
+[Komponentenreview und Screenshots](docs/screenshots/operations-foundations/README.md).
 Der [vollständige Frontend-Audit](docs/ui-ux-audit.md) dokumentiert den main-Ausgangsstand,
 alle Routen, historische Sprachabweichungen und den aktuellen Migrationsstand.
 Alle sechs Entity-Detailtypen verwenden Record Detail v2; Geocoding verwendet Workflow v2.

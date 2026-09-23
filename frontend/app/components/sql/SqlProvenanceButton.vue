@@ -42,7 +42,7 @@ onBeforeUnmount(() => unsubscribe?.())
   <template v-if="target">
     <button
       type="button"
-      class="button min-h-11 whitespace-nowrap sm:min-h-0"
+      class="button min-h-11 whitespace-nowrap"
       :disabled="!state?.parameters"
       @click="drawer?.open()"
     >

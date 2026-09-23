@@ -1,6 +1,14 @@
-# Kulturbytes Admin Design System v2
+# Kulturbytes Admin Design System v2.1 — Admin Operations Center
 
-Kanonischer UI-Vertrag für neue und migrierte Oberflächen. Grundlage ist der
+Kanonischer UI-Vertrag für neue und migrierte Oberflächen. Version 2.1 folgt dem
+Operations-Center-Mockup: dunkles Navy, Fuchsia-Akzente, kompakte Überschriften,
+klare Panelgrenzen und horizontale technische Metadaten.
+
+**Stand dieser Phase:** gemeinsame Foundations und Shell; keine komplette Route
+auf v2.1 migriert. Dashboard, Record-Details und Workflows behalten ihre fachliche
+Gliederung. [Review-Aufnahmen und offene Anpassungen](screenshots/operations-foundations/README.md).
+Die bisherigen v2-Verträge unten gelten weiter, sofern die neuen Dichte-/Surface-Regeln
+sie nicht ausdrücklich ersetzen. Beispiele sind keine neuen API-Felder. Grundlage ist der
 [vollständige Frontend-Audit](ui-ux-audit.md) gegen `main` bei `4560304` (initialer Audit: `e615df3`).
 Alle sechs Entity-Detailtypen verwenden Record Detail v2; Geocoding verwendet Workflow v2.
 Bestehende Seiten sind nicht allein durch diese Dokumentation bereits migriert.
@@ -16,7 +24,7 @@ sind keine Uranus-Schreibrechte. Fehlende Daten bleiben unbekannt.
 Fünf Muster sind gleichberechtigt: Overview, Collection, Record Detail, Workflow,
 Workspace. **Activity ist die Referenz für kompakte Listenzeilen, nicht für Record
 Details.** Domain-Inhalt bestimmt die Gliederung; gemeinsame Primitive bestimmen
-Abstände, Typografie, Fokus, Fehler und Aktionen. Bestehende Shell bleibt bestehen.
+Abstände, Typografie, Fokus, Fehler und Aktionen. Routing, Navigation und Zugangsregeln der Shell bleiben bestehen.
 
 ## 2. Sprache und Terminologie
 
@@ -84,7 +92,7 @@ keine zweite Typografiebibliothek. Neue Presenter verwenden diese Rollen statt e
 | Rolle         | Token                | Größe / Gewicht / Verwendung                                         |
 | ------------- | -------------------- | -------------------------------------------------------------------- |
 | Page title    | `type-page-title`    | 24px, bold, tight; genau ein primärer Titel                          |
-| Record title  | `type-record-title`  | 24px mobil / 30px ab sm, bold, tight; ersetzt den Page-Titel im Hero |
+| Record title  | `type-record-title`  | 24px mobil / 28px ab sm, bold, tight; ersetzt den Page-Titel im Hero |
 | Section title | `type-section-title` | 18px, semibold; h3                                                   |
 | Row title     | `type-row-title`     | 14px, semibold; h3 oder h4 nach Kontext                              |
 | Body          | `type-body`          | 14px, 1.5; slate-700                                                 |
@@ -98,17 +106,27 @@ nur bei ihrer gezielten Migration auf Tokens umgestellt, nicht durch einen globa
 
 ## 6. Inhaltsbreiten
 
-Shell/Workspace: `max-w-7xl`; bestehende Shell-Innenabstände behalten.
+Shell/Workspace: `max-w-7xl`; 16px Innenabstand mobil, 20px ab sm.
 Record Detail: `record-detail` mit `max-w-6xl`, innerhalb der Shell links ausgerichtet.
 Fließtext: `prose-admin`, 72ch. Kein erzwungener zweispaltiger Text.
 Karten/Diagramme/SQL besitzen eigene lokale Scroll-/Zoomflächen, keinen Seitenoverflow.
 
 ## 7. Abstände
 
-Mobile: Shell `p-4`, Hauptabschnitte `space-y-4`; Desktop Shell `p-8`, Record-Abschnitte
-`space-y-8`. Innerhalb eines Abschnitts 12–16px, Label → Eingabe 6px, zusammengehörige
-Metadaten 4–8px. 24–32px trennen unterschiedliche Aufgaben. Keine zusätzlichen
-verschachtelten Außen-Paddings, die auf 360px die Lesebreite aufbrauchen.
+Hauptblöcke 16–24px; Standard `.operations-page` und `.record-detail` 20px.
+Panel-Innenabstand 16px, Grid-Abstand 12px, zusammengehörige Metadaten 4–8px.
+Keine verschachtelten Außen-Paddings auf kleinen Screens. Kein pauschales
+`sm:space-y-8` für neue Record-Seiten. Tailwind-Tokens in `main.css`:
+
+| Token                        | Wert | Verwendung                    |
+| ---------------------------- | ---- | ----------------------------- |
+| `--spacing-operations-page`  | 20px | Hauptblöcke                   |
+| `--spacing-operations-panel` | 16px | Panelinhalt/Header horizontal |
+| `--spacing-operations-grid`  | 12px | Gemeinsame Grids              |
+
+Buttons/Inputs: 8px Radius; Panels/Listen: 12px. Borders tragen die Gliederung;
+`shadow-soft` ist nur ein sehr dezenter 1px-Schatten. Echte Controls bleiben 44px hoch.
+Dichte entsteht durch weniger Zwischenraum und kompakte Metadaten, nicht kleinere Touchflächen.
 
 ## 8. Farben und semantische Töne
 
@@ -121,16 +139,61 @@ Kontrast für kleine Texte mindestens 4,5:1, große Texte/Controls mindestens 3:
 
 ## 9. Surfaces
 
-| Surface       | Bedeutung                                              | Primitive                   |
-| ------------- | ------------------------------------------------------ | --------------------------- |
-| Plain section | Inhalt mit Überschrift, keine eigene Interaktionsebene | `RecordSection` / section   |
-| Panel         | Zusammengehörige Controls oder abgegrenzte Daten       | `.panel`                    |
-| Card          | Eigenständig verständlicher Einstieg/Überblick         | `.card`, KpiCard            |
-| Data list     | Wiederholte gleichartige Zeilen                        | DataListShell + `.data-row` |
-| Inline alert  | Handlungsrelevanter Zustand/Fehler                     | InlineAlert                 |
+| Surface | Zweck                                             | Primitive                                                 |
+| ------- | ------------------------------------------------- | --------------------------------------------------------- |
+| Plain   | Einfacher Text ohne eigene Interaktionsebene      | `.section-plain`, `RecordSection surface="plain"`         |
+| Panel   | Standard für zusammengehörige Informationen       | `.section-panel` / `.operations-panel`, `surface="panel"` |
+| Subtle  | Kontext, untergeordnete Bearbeitung               | `.section-subtle`, `surface="subtle"`                     |
+| Table   | Dichte Datenlisten ohne zusätzliches Panelpadding | `.section-table`, `surface="table"`                       |
+| Technik | Technischer Abschluss mit belegten Werten         | `.technical-bar`, `TechnicalInfoBar`                      |
 
-Beschreibung, einfache Fakten und technische Schlusssektion brauchen keine weiße Card.
-Keine Card in Card in Card. Ein Alert ist keine dekorative Zusammenfassung.
+`RecordSection` bleibt zur kompatiblen schrittweisen Migration standardmäßig plain.
+Panel/Subtle/Table erhalten ein Headerband (`.operations-panel-header`), Panel/Subtle
+zusätzlich 16px Inhaltsabstand. Neue größere Informationsgruppen explizit begrenzen.
+Keine verschachtelten dekorativen Karten. `.operations-grid` bietet mobil eine, ab sm
+zwei Spalten. `.operations-toolbar` bricht Controls um; `.operations-meta` ist 12px.
+
+### Sidebar und Topbar
+
+Sidebar ab lg: Slate-900, Labels Slate-200, aktive Route Fuchsia-900 mit weißem Text
+und sichtbarem `aria-current`. Fokus Fuchsia-300 auf dunkler Fläche. Navigation bleibt
+bei 256px Breite, 44px Linkhöhe und eigenem Scrollbereich. Systembereich durch Border
+getrennt. Bestehende Reihenfolge und `utils/navigation.ts` bleiben maßgeblich.
+Mobile Drawer verwendet dieselben Farben und unveränderte Dialog-/Fokusregeln.
+Desktop-Topbar: Suche links, Zeit/Gebiet/Sitzung rechts, bei Platzmangel Umbruch.
+Der App-Titel bleibt als h1 für Hilfstechnologien erhalten; PageHeader bleibt h2.
+Kein aus einer Anmeldung abgeleiteter Live-Systemstatus.
+
+### CompactFacts
+
+`items`: eindeutiges `label`, `value`, optional `metadata` und `tone`.
+`columns`: 2 (Default), 3 oder 4; mobil eine, ab sm zwei, ab xl die gewählte Zahl.
+`missing="label"` zeigt „Nicht verfügbar“ für null/undefined/leere Strings;
+`missing="omit"` lässt diese aus. 0 und false bleiben sichtbar; Boolean als Ja/Nein.
+Domain-Labels und formatierte Zeit-/Zahlenwerte liefert der Aufrufer. Semantik: dl/dt/dd.
+Keine Feldableitung oder API-Abrufe in diesem Präsentationsbaustein.
+
+### TechnicalInfoBar
+
+`items`: dieselben Felder plus `copyable` und `mono`. Leere Werte und komplett leere
+Leisten entfallen. Standardtitel „Technische Informationen“, anpassbar über `title`.
+Nur echte Contract-Werte übergeben, keine erfundenen Release-/API-/Verbindungsdaten.
+Desktop: horizontale, umbrechende Metadaten; mobil einspaltig, Tablet zweispaltig.
+UUIDs bleiben vollständig lesbar. Kopieren ist explizit, mit Live-Rückmeldung und
+lesbarem Fehler; nach Datenwechsel werden veraltete Kopierrückmeldungen verworfen.
+Töne: neutral, info, success, warning, error; stets auch ein aussagekräftiger Textwert.
+
+### DenseTable
+
+Typisierte `columns` (`key`, `label`, optional `rowHeader`), `rows`, stabile `rowKey`-
+Funktion und Pflicht-`caption`. Slots `cell-<key>` erhalten `row`/`value`, `actions`
+erhält `row`. Statuszellen verwenden `StatusBadge`; zugängliche Aktionsnamen nennen das Ziel.
+Keine eingebaute Sortierung, Filterung, Pagination oder Datenbeschaffung.
+Desktop-Zeilen ca. 48px, bei Controls 52px oder bei langen Inhalten bedarfsgerecht höher.
+Default `mobile="stack"`: beschriftete Zellen untereinander unter 640px, alle Werte
+bleiben erhalten. Native Tabelle plus explizite Rollen/Headers erhalten die Zuordnung.
+Für echte Vergleichsmatrizen `mobile="scroll"`: benannte, fokussierbare lokale Scrollfläche.
+`busy` zeigt Aktualisierung statt leerem Erfolg; ohne Zeilen kompakter EmptyState.
 
 ## 10. Aktionen
 
@@ -370,6 +433,11 @@ benennen und Neuladen anbieten, ungespeicherte Änderungen nicht still überschr
 
 ## 22. Leere Zustände
 
+`EmptyState compact` reduziert die leere Fläche auf mindestens 64px; Aktionen können
+über den Default-Slot ergänzt werden. Bestehender Default bleibt kompatibel.
+`EntityTimeline compact` reduziert Padding/Icon/Summary-Abstände bei identischen
+Ereignissen, Zeitangaben, Metadaten und Pagination. Keine abgeschnittene Evidenz.
+
 Titel + kurze Erklärung + optionale Aktion. Beispiel Collection: „Keine passenden
 Veranstaltungen“ / „Ändere die Filter, um weitere Datensätze zu sehen.“ / „Filter zurücksetzen“.
 Ungefilterter Bestand: keine Ergebnisse erfinden, keine Recovery anbieten, die nichts tut.
@@ -388,7 +456,7 @@ allein ableiten; kleine farbige Texte in der Abschlussprüfung messen.
 
 ## 24. Responsive / Mobile
 
-Shell unverändert: Sidebar ab lg, darunter Native-Navigation, kompakter Header und Gebiet.
+Shell: dunkle Sidebar ab lg, darunter Native-Navigation, kompakter Header und Gebiet.
 Record-Inhalt einspaltig mobil, Fakten ab sm in zwei/drei Spalten. Reihenfolge im DOM bleibt
 Lesereihenfolge. Mindestens 44px Touchflächen, keine schwebende Leiste vor Text.
 Lange URLs/Namen/UUID umbrechen; Code/Table lokal scrollen. Keine horizontalen Seitenleisten.
@@ -397,18 +465,18 @@ Screenreader-Prüfung gehören zum finalen manuellen Audit, nicht zur Screenshot
 
 ## 25. Komponenten-Inventar
 
-| Familie       | Bestehende / neue Verantwortung                                                                                                                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shell         | layouts/default, auth, AppNavigation, GeoScopeSelector, GlobalSearchPalette                                                                                                                             |
-| Struktur      | PageHeader, SectionHeader, DataListShell, FilterBar, ResultSummary, PaginationBar                                                                                                                       |
-| Zustände      | RequestState, InlineAlert, EmptyState, StatusBadge, SeverityBadge, EntityTypeBadge                                                                                                                      |
-| Record v2     | EntityDetailPage (Shell/Slots), EntityHero (PageHeader/Identität), RecordSection (plain), Event/Organization/Venue/Space/User/ImageDetailContent (Domänen), SpaceDetailContext, EntityTechnicalMetadata |
-| Record-Inhalt | RecordRelations (globale Seite), RecordWorkflowSummary (Counts), RecordLocation (Adresse/Link)                                                                                                          |
-| Inhalt        | DetailFacts (kurze Werte), MarkdownContent (verifiziertes Rich Text), ActivityThumbnail                                                                                                                 |
-| Listen        | ActivityRow, EntityListPage, FindingsList, InboxRow                                                                                                                                                     |
-| Workflow      | FindingDetail, AssignmentEditor/Snooze, MarkFields, GeocodeSourceSummary, LocationSuggestion, GeocodeTechnicalMetadata, NotificationPreview                                                             |
-| Workspaces    | GraphWorkspace/EntityGraph/GraphNodeDetails, SqlWorkspace/QueryPanel, Statistik-Charts, CandidateMap                                                                                                    |
-| Interaktion   | AppModal, EntitySearch, AppIcon                                                                                                                                                                         |
+| Familie       | Bestehende / neue Verantwortung                                                                                                                                                                                      |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shell         | layouts/default, auth, AppNavigation, GeoScopeSelector, GlobalSearchPalette                                                                                                                                          |
+| Struktur      | PageHeader, SectionHeader, DataListShell, FilterBar, ResultSummary, PaginationBar                                                                                                                                    |
+| Zustände      | RequestState, InlineAlert, EmptyState, StatusBadge, SeverityBadge, EntityTypeBadge                                                                                                                                   |
+| Record v2     | EntityDetailPage (Shell/Slots), EntityHero (PageHeader/Identität), RecordSection (explizite Surfaces), Event/Organization/Venue/Space/User/ImageDetailContent (Domänen), SpaceDetailContext, EntityTechnicalMetadata |
+| Record-Inhalt | RecordRelations (globale Seite), RecordWorkflowSummary (Counts), RecordLocation (Adresse/Link)                                                                                                                       |
+| Inhalt        | CompactFacts / TechnicalInfoBar (v2.1), DetailFacts (bestehend), MarkdownContent (verifiziertes Rich Text), ActivityThumbnail                                                                                        |
+| Listen        | DenseTable (v2.1), ActivityRow, EntityListPage, FindingsList, InboxRow                                                                                                                                               |
+| Workflow      | FindingDetail, AssignmentEditor/Snooze, MarkFields, GeocodeSourceSummary, LocationSuggestion, GeocodeTechnicalMetadata, NotificationPreview                                                                          |
+| Workspaces    | GraphWorkspace/EntityGraph/GraphNodeDetails, SqlWorkspace/QueryPanel, Statistik-Charts, CandidateMap                                                                                                                 |
+| Interaktion   | AppModal, EntitySearch, AppIcon                                                                                                                                                                                      |
 
 Keine Domain-Platzhalter ohne fachliche Migration. Slot-Vertrag statt
 riesigem Switch. Neue Primitive gezielt testen, nicht bloß Implementierungsdetails spiegeln.

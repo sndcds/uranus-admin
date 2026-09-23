@@ -34,14 +34,14 @@ function closeMenu() {
       >Zum Inhalt</a
     >
     <aside
-      class="fixed inset-y-0 left-0 z-20 w-64 hidden flex-col border-r border-slate-200 bg-white lg:flex"
+      class="fixed inset-y-0 left-0 z-20 w-64 hidden flex-col operations-sidebar border-r border-slate-800 lg:flex"
     >
       <AppNavigation />
     </aside>
     <dialog
       ref="menu"
       aria-label="Mobile Navigation"
-      class="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-80 max-w-[90vw] border-0 bg-white p-0 backdrop:bg-slate-900/40"
+      class="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-80 max-w-[90vw] operations-sidebar border-0 p-0 backdrop:bg-slate-900/40"
       @cancel.prevent="closeMenu"
       @click="$event.target === menu && closeMenu()"
     >
@@ -61,7 +61,7 @@ function closeMenu() {
           <div class="flex h-14 min-w-0 items-center gap-3 px-4">
             <button
               ref="menuButton"
-              class="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white"
+              class="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white"
               aria-label="Navigation öffnen"
               :disabled="!interactive"
               :aria-expanded="menuOpen"
@@ -73,7 +73,7 @@ function closeMenu() {
               {{ heading }}
             </h1>
             <button
-              class="ml-auto grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white"
+              class="ml-auto grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white"
               aria-label="Globale Suche öffnen"
               :disabled="!interactive"
               @click="palette?.show()"
@@ -86,31 +86,23 @@ function closeMenu() {
           </div>
         </div>
         <div
-          class="hidden min-h-16 items-center justify-between gap-3 px-8 py-3 lg:flex"
+          class="hidden min-h-16 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-5 py-2 lg:flex"
           data-desktop-app-header
         >
-          <div class="flex min-w-0 items-center gap-3">
-            <div>
-              <div class="text-xs font-medium uppercase tracking-wider text-slate-500">
-                {{ dateTime(now) }} · Berlin
-              </div>
-              <h1 class="text-base font-semibold">
-                {{ heading }}
-              </h1>
-            </div>
-          </div>
-          <div class="flex flex-wrap items-center gap-3">
-            <button
-              class="button min-h-11"
-              aria-label="Globale Suche öffnen"
-              :disabled="!interactive"
-              @click="palette?.show()"
-            >
-              <AppIcon name="search" :size="16" /> Suchen
-              <kbd class="text-xs text-slate-500">Ctrl/⌘ K</kbd>
-            </button>
+          <h1 class="sr-only">{{ heading }}</h1>
+          <button
+            class="button min-w-48 justify-start"
+            aria-label="Globale Suche öffnen"
+            :disabled="!interactive"
+            @click="palette?.show()"
+          >
+            <AppIcon name="search" :size="16" /> Suchen
+            <kbd class="ml-auto text-xs font-normal text-slate-500">Ctrl/⌘ K</kbd>
+          </button>
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <span class="text-xs text-slate-600">{{ dateTime(now) }} · Berlin</span>
             <GeoScopeSelector />
-            <span class="text-sm text-slate-600">Systemadministrator</span>
+            <span class="text-xs text-slate-600">Systemadministrator</span>
             <button
               class="button"
               :disabled="!interactive || auth.loggingOut"
@@ -123,9 +115,8 @@ function closeMenu() {
               class="button"
               title="Anlegen benötigt eine autorisierte Uranus-Verbindung; die Admin-Anmeldung erteilt keine Domain-Schreibrechte."
             >
-              + Datensatz<span class="block text-xs font-normal"
-                >Uranus-Schreibzugriff nicht eingerichtet</span
-              >
+              + Datensatz<span class="text-xs font-normal">Nur Lesen</span>
+              <span class="sr-only">Uranus-Schreibzugriff nicht eingerichtet</span>
             </button>
           </div>
         </div>
@@ -133,7 +124,7 @@ function closeMenu() {
       <main
         id="main-content"
         tabindex="-1"
-        class="mx-auto max-w-7xl space-y-4 p-4 sm:space-y-5 sm:p-8"
+        class="mx-auto max-w-7xl space-y-4 p-4 sm:space-y-5 sm:p-5"
       >
         <p v-if="preferences.geoScopeError" role="alert" class="text-sm text-amber-800">
           {{ preferences.geoScopeError }}

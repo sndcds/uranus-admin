@@ -25,6 +25,13 @@ export default defineConfig({
   ],
   webServer: [
     {
+      // Isolated component fixture; CI's browser container has Node but no pnpm.
+      command:
+        'node node_modules/vite/bin/vite.js --config tests/fixtures/operations/vite.config.ts',
+      url: 'http://127.0.0.1:3101',
+      reuseExistingServer: false,
+    },
+    {
       command: 'node tests/fixtures/auth-server.mjs',
       url: 'http://127.0.0.1:31902/health',
       reuseExistingServer: false,
