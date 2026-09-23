@@ -89,7 +89,7 @@ for (const viewport of [
         await expect(hero.getByText(data.item.entity_name, { exact: true })).toHaveCount(1)
         await expect(main.getByRole('link', { name: /auf OpenStreetMap öffnen/ })).toHaveAttribute(
           'href',
-          /^https:\/\/www.openstreetmap.org\//,
+          'https://www.openstreetmap.org/?mlat=54.793&mlon=9.446#map=17/54.793/9.446',
         )
       }
       if (section === 'venues') {
