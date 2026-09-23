@@ -4,11 +4,18 @@
 
 Audit vor Anwendungsänderungen, 23.09.2026. Frisch geholtes `main`:
 `e615df3403b4ff00140e326a717fdcefb012ad78` (PR #100). Die Analyse umfasst sämtliche
-131 Dateien / 12.634 Zeilen unter `app/pages`, `app/components`, `app/layouts`,
+131 Dateien / ursprünglich 12.634 Zeilen unter `app/pages`, `app/components`, `app/layouts`,
 `app/utils`, `app/assets/css`, ihre Templates, UI-Texte, State-Lebenszyklen und CSS.
 Die vollständige Dateiliste steht unten. Zusätzlich geprüft: AGENTS, Root-/Frontend-README,
 Design-/Daten-/Activity-/Statistik-/Graph-/SQL-Dokumentation, Contracts, Entity-Repositories,
 `layout-consistency.spec.ts`, `unified-ui.spec.ts`, Entity-Tests und Fixtures.
+
+Abschließender main-Abgleich: `456030465c8056e3ffafae0e5d3a3c44f03bc87d` (PR #101).
+Die seit Auditbeginn hinzugekommenen Änderungen an Queue-Seite, API-Client, Contracts,
+Proxy und Tests wurden zusätzlich geprüft und vor Abschluss übernommen. Der aktuelle
+Quellumfang umfasst weiterhin 131 Dateien, nun 12.671 Zeilen. Teammitgliedschaften haben
+jetzt eine begrenzte Statusauswahl und einen erklärten Direktaufruf; die Profile und
+das Inventar unten berücksichtigen diesen Stand. Die Event-Verträge bleiben unverändert.
 
 Screenshots sind ergänzende Evidenz, kein Ersatz für Codeprüfung. Insbesondere
 `ui-consistency/event-detail.png` belegt den doppelten Titel und die prominente UUID.
@@ -94,9 +101,9 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 ### `/checks` — WORKFLOW
 
 - **Aufgabe / Hierarchie:** Prüfläufe starten und überwachen. Header → asynchroner Start → letzte Läufe.
-- **Header / Actions / Filter:** Prüflauf starten, Aktualisieren, Pagination. Gemeinsamer Header; keine Source-Schreibaktion.
+- **Header / Actions / Filter:** Prüflauf starten, Gespeicherte Befunde, Pagination. Gemeinsamer Header; keine Source-Schreibaktion.
 - **Surfaces / Typografie / Status:** Kompakte Laufzeilen; StatusBadge. Gemeinsames Prüfraster gilt; Worker-Hinweis korrekt; Start ist kein Ergebnis.
-- **Loading / Error / Empty:** Letzte Daten bleiben während gültiger Aktualisierung sichtbar. Sichere Fehler/Retry erhalten; leere Ergebnisse erklären und bei Filtern Reset anbieten. Ein Detail-404 ist kein leerer Bestand.
+- **Loading / Error / Empty:** Hintergrund-Polling hält die Laufzeilen; manueller Abruf und Fehler leeren sie. RequestState bietet Retry. Leere Historie bedeutet noch keine gespeicherten Läufe, nicht fehlerfreie Quelldaten. Refresh-Erhalt ist ein eigener Folgepunkt.
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Primäre Startaktion behalten; Fortschritt und letzten Erfolg unterscheiden. Priorität P2.
 
@@ -120,8 +127,8 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 
 ### `/queues/team_invitations` — WORKFLOW
 
-- **Aufgabe / Hierarchie:** Einladungen nach Alter und Zustand prüfen. Header → Filter → Benutzer/Organisation → Einladung.
-- **Header / Actions / Filter:** Organisation, Mindestalter, Status, Öffnen/Markieren. Gemeinsamer Header; keine Source-Schreibaktion.
+- **Aufgabe / Hierarchie:** Einladungen und beigetretene Mitgliedschaften nach belegtem Alter und Zustand prüfen. Header → Filter → Benutzer/Organisation → Einladung.
+- **Header / Actions / Filter:** Organisation, Mindestalter, Statusselect Eingeladen/Beigetreten/Alle, Öffnen/Markieren. URL steuert Filter; Direktaufruf per entity_key erklärt und deaktiviert die nicht angewendeten Filter. Reset öffnet die Einladungsliste. Keine Source-Schreibaktion.
 - **Surfaces / Typografie / Status:** Gleiche Queue-Zeile. Gemeinsames Prüfraster gilt; Einladungsdatum ist kein Beitritt; has_joined bleibt eigener Fakt.
 - **Loading / Error / Empty:** Lokaler Abruf leert überwiegend den vorherigen Datensatz; bei gleicher Identität Refresh-Erhalt prüfen. Sichere Fehler/Retry erhalten; leere Ergebnisse erklären und bei Filtern Reset anbieten. Ein Detail-404 ist kein leerer Bestand.
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
@@ -214,7 +221,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Header / Actions / Filter:** Root, Tiefe, Beziehungen, Fit/Zoom/Vollbild. Gemeinsamer Header; keine Source-Schreibaktion.
 - **Surfaces / Typografie / Status:** Workspace mit eigener fester Canvas-Höhe. Gemeinsames Prüfraster gilt; Entity-Relationship Graph, Entitätstypen, Im Admin ansehen, Live-Seite.
 - **Loading / Error / Empty:** Lokaler Abruf leert überwiegend den vorherigen Datensatz; bei gleicher Identität Refresh-Erhalt prüfen. Sichere Fehler/Retry erhalten; leere Ergebnisse erklären und bei Filtern Reset anbieten. Ein Detail-404 ist kein leerer Bestand.
-- **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
+- **Mobile / Accessibility:** Canvas mit Pan/Zoom und separatem Detailpanel; auf kleinen Viewports stapeln. Root-Suche/Filter benötigen sichtbare Labels. Knoten-Auswahl, zugängliche Namen, Vollbild/Escape und Lesbarkeit des Detailpanels erhalten; Farbe allein darf keine Auswahl vermitteln.
 - **Terminologie / Änderung:** Deutsch; Root-Suche sichtbar beschriften; Rohkennung im Detail unterordnen. Priorität P2.
 
 ### `/statistics` — WORKSPACE
@@ -223,7 +230,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Header / Actions / Filter:** Zeitfenster, Intervall, Serien, Vorperiode. Gemeinsamer Header; keine Source-Schreibaktion.
 - **Surfaces / Typografie / Status:** Chart-Panels/KPI-Cards; zugängliche Datentabelle. Gemeinsames Prüfraster gilt; Neue Entitäten, technische Gebietssemantik korrekt.
 - **Loading / Error / Empty:** Lokaler Abruf leert überwiegend den vorherigen Datensatz; bei gleicher Identität Refresh-Erhalt prüfen. Sichere Fehler/Retry erhalten; leere Ergebnisse erklären und bei Filtern Reset anbieten. Ein Detail-404 ist kein leerer Bestand.
-- **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
+- **Mobile / Accessibility:** Chart hat Tastatur-Crosshair und eine Datentabelle als Textalternative mit Caption/Zeitzone. Serien-Legende und Vergleich müssen tastaturbedienbar bleiben. Mobile Kennzahlen umbrechen; Tabellen dürfen intern, nicht die Seite horizontal scrollen.
 - **Terminologie / Änderung:** Datensätze statt Entitäten; Refresh ohne Chartkollaps bei gleichem Kontext. Priorität P2.
 
 ### `/statistics?view=event-content` — WORKSPACE
@@ -240,8 +247,8 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Aufgabe / Hierarchie:** Begrenzte SQL-Abfragen lesend untersuchen. Header → Kontext → Editor → Ergebnis.
 - **Header / Actions / Filter:** Ausführen, Abbrechen, Formatieren, Kopieren, CSV. Gemeinsamer Header; keine Source-Schreibaktion.
 - **Surfaces / Typografie / Status:** SqlWorkspace; lokale Scrollbereiche; dunkler Editor. Gemeinsames Prüfraster gilt; SQL Console doppelt; Datasource/Mode/Scope/Connection/READ ONLY.
-- **Loading / Error / Empty:** Abfrageergebnis gehört exakt zur Ausführung; nicht als Ergebnis geänderter SQL ausgeben. Sichere Fehler/Retry erhalten; leere Ergebnisse erklären und bei Filtern Reset anbieten. Ein Detail-404 ist kein leerer Bestand.
-- **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
+- **Loading / Error / Empty:** Abfrageergebnis gehört exakt zur Ausführung; nicht als Ergebnis geänderter SQL ausgeben. Laufender Request zeigt seinen Zustand im Workspace; Abbrechen und sichere Fehler gehören zur konkreten Ausführung. Null Ergebniszeilen sind von noch nicht ausgeführter SQL zu unterscheiden; kein Collection-Filter-Reset.
+- **Mobile / Accessibility:** Editor und Ergebnistabelle scrollen lokal, die Seite nicht horizontal. Tastatursteuerung, Fokus nach Modal-Schließen, Tabellen-Caption und verständliche Beschriftung der Verbindungsdaten erhalten. Das innere main kollidiert mit dem Shell-Landmark.
 - **Terminologie / Änderung:** Deutsch, ein Titel, verschachteltes main entfernen; Editor-Theme erhalten. Priorität P2.
 
 ### `/login` — WORKFLOW
@@ -249,8 +256,8 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Aufgabe / Hierarchie:** Unabhängige Admin-Anmeldung. Marke → h1 → zwei Eingaben → Anmelden → Fehler.
 - **Header / Actions / Filter:** Benutzername/Passwort; Abmelden bei fehlender Berechtigung. Gemeinsamer Header; keine Source-Schreibaktion.
 - **Surfaces / Typografie / Status:** Eigenes Auth-Layout, kompakte Card. Gemeinsames Prüfraster gilt; Admin-Konto ist kein Uranus-Konto.
-- **Loading / Error / Empty:** Kein Collection-Loading: Submit sperrt Eingaben, Passwort wird anschließend geleert; Auth-Fehler separat. Sichere Fehler/Retry erhalten; leere Ergebnisse erklären und bei Filtern Reset anbieten. Ein Detail-404 ist kein leerer Bestand.
-- **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
+- **Loading / Error / Empty:** Kein Collection-Loading: Submit sperrt Eingaben, Passwort wird anschließend geleert; Auth-Fehler separat. Ein falsches Passwort, fehlende Systemadmin-Berechtigung und eine abgelaufene Sitzung bleiben unterscheidbare Auth-Zustände. Kein Collection-Empty-State und kein Filter-Reset.
+- **Mobile / Accessibility:** Eigener Auth-Landmark statt geschützter Shell. Native Formularlabels, Passworttyp und Submit-Reihenfolge erhalten; Fehlermeldung per Alert. Auf 360/390px darf die Login-Card keine horizontale Seite erzeugen.
 - **Terminologie / Änderung:** Bestehende Sicherheitszustände erhalten; Fokus/Fehlerzuordnung nachprüfen. Priorität P2.
 
 ### `/events` — COLLECTION
@@ -400,7 +407,8 @@ AssignmentSnooze, Statistik-Zeitfenster und SQL-Editor. Jedes wurde auf sichtbar
 Submit/Reset, Disabled/Pending, Fehlernähe, Tastatur und URL-Verhalten geprüft.
 
 Konkrete Lücken: Notification-Liste führt Filter lokal statt URL-basiert; Delivery- und
-Geocoding-Listen haben keinen Reset; Queue-Status ist Freitext; Graph nutzt unsichtbare
+Geocoding-Listen haben keinen Reset; Partner-/Aktivierungs-Queue-Status ist Freitext
+(Teammitgliedschaften seit PR #101 als Select); Graph nutzt unsichtbare
 Select-Labels; FilterForm lässt viele Regeln als Code stehen; FindingDetail zeigt bekannte
 Review-Status roh. Markierungsfehler stehen erst unter dem ganzen Formular. SQL besitzt
 ein verschachteltes `main`; im späteren Workspace-PR als Region ausweisen.
@@ -601,7 +609,7 @@ bleiben im Pilot unverändert. Zeilenzahlen beziehen sich auf den oben genannten
 | `app/pages/organizations/[id].vue`                      |      3 | Route / Muster / Zustände                         |
 | `app/pages/organizations/index.vue`                     |      3 | Route / Muster / Zustände                         |
 | `app/pages/quality.vue`                                 |     49 | Route / Muster / Zustände                         |
-| `app/pages/queues/[kind].vue`                           |    164 | Route / Muster / Zustände                         |
+| `app/pages/queues/[kind].vue`                           |    200 | Route / Muster / Zustände                         |
 | `app/pages/spaces/[id].vue`                             |      3 | Route / Muster / Zustände                         |
 | `app/pages/spaces/index.vue`                            |      3 | Route / Muster / Zustände                         |
 | `app/pages/sql.vue`                                     |     46 | Route / Muster / Zustände                         |
@@ -611,7 +619,7 @@ bleiben im Pilot unverändert. Zeilenzahlen beziehen sich auf den oben genannten
 | `app/pages/venues/[id].vue`                             |      3 | Route / Muster / Zustände                         |
 | `app/pages/venues/index.vue`                            |      3 | Route / Muster / Zustände                         |
 | `app/utils/activity.ts`                                 |    107 | Labels / Formatierung / Daten- und Aktionsgrenzen |
-| `app/utils/admin-api.ts`                                |    336 | Labels / Formatierung / Daten- und Aktionsgrenzen |
+| `app/utils/admin-api.ts`                                |    337 | Labels / Formatierung / Daten- und Aktionsgrenzen |
 | `app/utils/admin-time.ts`                               |     93 | Labels / Formatierung / Daten- und Aktionsgrenzen |
 | `app/utils/auth-redirect.ts`                            |     34 | Labels / Formatierung / Daten- und Aktionsgrenzen |
 | `app/utils/entities.ts`                                 |     67 | Labels / Formatierung / Daten- und Aktionsgrenzen |

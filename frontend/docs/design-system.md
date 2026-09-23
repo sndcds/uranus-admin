@@ -1,7 +1,7 @@
 # Kulturbytes Admin Design System v2
 
 Kanonischer UI-Vertrag für neue und migrierte Oberflächen. Grundlage ist der
-[vollständige Frontend-Audit](ui-ux-audit.md) gegen `main` bei `e615df3`.
+[vollständige Frontend-Audit](ui-ux-audit.md) gegen `main` bei `4560304` (initialer Audit: `e615df3`).
 V2 wird schrittweise eingeführt: `/events/:id` ist der erste Record-Detail-Pilot.
 Bestehende Seiten sind nicht allein durch diese Dokumentation bereits migriert.
 Fachliche Datenverträge: [Datenansichten](data-pages.md), [Aktivität](activity-stream.md),
