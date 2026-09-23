@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+import pytest
 from sqlalchemy import text
 
 from app.schemas.queues import QueueFilters
@@ -163,10 +164,12 @@ async def test_sql_queue_pagination_matches_domain_mapping(db_connection, settin
             {"entity_key": candidates[0][0].entity_key},
             {"entity_key": "' OR 1=1 --"},
         ):
+            if kind == "team_invitations" and "status" in extra:
+                continue  # Memberships use the separate typed filter.
             filters = QueueFilters(page_size=3, **extra)
             expected = []
             for item, row in candidates:
-                if item.status in {"joined", "active"}:
+                if item.status == "active" or (item.status == "joined" and not filters.entity_key):
                     continue
                 if filters.organization_id and filters.organization_id not in {
                     item.organization_id,
@@ -221,3 +224,153 @@ async def test_email_label_preserves_existing_review_fingerprint(db_connection, 
         assert finding.entity_name == "no-name@example.org"
         assert finding.metadata["source_fingerprint"] == expected
         assert "review_user_name" not in finding.model_dump_json()
+
+
+@pytest.fixture
+async def memberships(db_connection, now):
+    await db_connection.execute(
+        text(
+            "INSERT INTO uranus.organization_member_link "
+            "(org_uuid,user_uuid,created_at,invited_at,has_joined) "
+            "VALUES (:org,:user,:stamp,:stamp,true)"
+        ),
+        {"org": uid(11), "user": uid(1), "stamp": now.replace(tzinfo=None)},
+    )
+    return {"invited": f"membership:{uid(10)}:{uid(1)}", "joined": f"membership:{uid(11)}:{uid(1)}"}
+
+
+@pytest.mark.parametrize(
+    "status,expected",
+    [
+        (None, ["invited"]),
+        ("invited", ["invited"]),
+        ("joined", ["joined"]),
+        ("all", ["invited", "joined"]),
+    ],
+)
+async def test_membership_status_counts_and_pages(
+    memberships, db_connection, settings, now, status, expected
+):
+    filters = QueueFilters(**({"membership_status": status} if status else {}), page_size=1)
+    found = []
+    for page_number in range(1, len(expected) + 2):
+        filters.page = page_number
+        result = await get_queue(db_connection, settings, "team_invitations", filters, now)
+        assert result.pagination.total == len(expected)
+        assert result.pagination.pages == len(expected)
+        assert len(result.items) == (1 if page_number <= len(expected) else 0)
+        found.extend(item.status for item in result.items)
+    assert sorted(found) == sorted(expected)
+
+
+@pytest.mark.parametrize("state", ["joined", "invited"])
+@pytest.mark.parametrize("status", ["invited", "joined", "all"])
+async def test_exact_membership_overrides_filters(
+    memberships, db_connection, settings, now, state, status
+):
+    filters = QueueFilters(
+        entity_key=memberships[state],
+        membership_status=status,
+        organization_id=uid(999),
+        min_age_days=36500,
+    )
+    result = await get_queue(db_connection, settings, "team_invitations", filters, now)
+    assert result.pagination.total == result.pagination.pages == 1
+    assert len(result.items) == 1
+    item = result.items[0]
+    assert item.entity_key == memberships[state]
+    assert item.status == state
+    assert item.has_joined == (state == "joined")
+    assert not item.checks
+    from urllib.parse import parse_qs, urlsplit
+
+    assert parse_qs(urlsplit(item.action.href).query) == {"entity_key": [memberships[state]]}
+
+
+@pytest.mark.parametrize("key", [f"membership:{uid(999)}:{uid(1)}", "' OR 1=1 --"])
+async def test_missing_membership_and_bound_key(memberships, db_connection, settings, now, key):
+    from app.repositories.queues import queue_page_queries
+
+    filters = QueueFilters(entity_key=key)
+    result = await get_queue(db_connection, settings, "team_invitations", filters, now)
+    assert result.items == []
+    assert result.pagination.total == result.pagination.pages == 0
+    for query in queue_page_queries("team_invitations", filters, now, "UTC").values():
+        assert key not in str(query.statement)
+        assert query.parameters["entity_key"] == key
+
+
+@pytest.mark.parametrize(
+    "params", [{"membership_status": "active"}, {"membership_status": ""}, {"status": "joined"}]
+)
+async def test_membership_api_rejects_ambiguous_status(db_client, headers, params):
+    response = await db_client.get(
+        "/api/v1/work-queues/team_invitations", headers=headers, params=params
+    )
+    assert response.status_code == 422
+
+
+async def test_membership_api_uses_readonly_source(db_client, headers):
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    statements = []
+
+    def capture(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(Engine, "before_cursor_execute", capture)
+    try:
+        response = await db_client.get(
+            "/api/v1/work-queues/team_invitations",
+            headers=headers,
+            params={"membership_status": "all"},
+        )
+    finally:
+        event.remove(Engine, "before_cursor_execute", capture)
+    assert response.status_code == 200
+    assert response.json()["items"][0]["status"] == "invited"
+    assert any("READ ONLY" in statement for statement in statements)
+    assert not any(
+        statement.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))
+        for statement in statements
+    )
+
+
+async def test_user_timeline_membership_link_opens_joined_record(
+    memberships, admin_store, db_connection, settings, now, headers
+):
+    from urllib.parse import urlsplit
+
+    from httpx import ASGITransport, AsyncClient
+
+    from app.database import get_connection
+    from app.main import create_app
+    from app.repositories.timeline import timeline_page
+    from app.schemas.timeline import TimelineFilters
+
+    timeline = await timeline_page(
+        db_connection, admin_store, settings, "user", uid(1), TimelineFilters(), now
+    )
+    invitation = next(
+        item
+        for item in timeline.items
+        if item.kind == "team_invitation" and item.metadata.status == "joined"
+    )
+    assert invitation.href is not None
+    query = urlsplit(invitation.href).query
+
+    async def source():
+        yield db_connection
+
+    app = create_app(settings)
+    app.dependency_overrides[get_connection] = source
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get(
+            f"/api/v1/work-queues/team_invitations?{query}", headers=headers
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["pagination"]["total"] == 1
+    assert data["items"][0]["entity_key"] == memberships["joined"]
+    assert data["items"][0]["status"] == "joined"

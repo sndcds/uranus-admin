@@ -109,7 +109,16 @@ sind durch aktuellen Handlercode belegt. Grant für Anfrage A → B wird in Rich
 Nullrechte gelten nicht als Fehler. Accepted ohne Grant ist ein Hinweis, weil der Grant später
 entfernt worden sein könnte. Gelöschte Ablehnungen werden nicht rekonstruiert.
 
-Einladungsliste enthält `has_joined=false`; Alter nur aus `invited_at`, bei NULL unbekannt.
+Die Teamliste verwendet ausschließlich den typisierten `membership_status=invited|joined|all`:
+Standard `invited` → `NOT COALESCE(has_joined, false)`, `joined` →
+`COALESCE(has_joined, false)`, `all` → keine `has_joined`-Bedingung. Der freie `status`-Parameter
+ist für diese Queue ungültig (422); Partneranfragen und Aktivierungen behalten ihre Semantik.
+Ein exakter `entity_key=membership:<org_uuid>:<user_uuid>` hat Vorrang vor Status-,
+Organisations- und Altersfiltern. COUNT und Seitenabfrage verwenden dieselben Bedingungen;
+Werte bleiben gebundene Parameter. Fehlende Schlüssel liefern eine leere Seite.
+Alter nur aus `invited_at`, bei NULL unbekannt; `has_joined` belegt keinen Beitrittszeitpunkt.
+Timeline- und Action-Links behalten das kanonische Queue-Ziel. Die UI zeigt „Eingeladen“
+oder „Beigetreten“, URL-basierte Statusauswahl und einen Hinweis bei direktem Aufruf.
 Aktivierungsliste enthält `is_active=false`; Alter nur aus `created_at`, keine Inaktivitätsaussage.
 Zukünftige Zeitpunkte erhalten kein künstliches Alter 0, sondern unbekanntes Alter.
 Schwellen: `PENDING_AGE_DAYS=14`, `ACTIVATION_AGE_DAYS=7`, jeweils strikt älter als die Schwelle.

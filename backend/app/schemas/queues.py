@@ -10,9 +10,13 @@ from app.schemas.finding import Pagination
 QueueKind = Literal["partner_requests", "team_invitations", "user_activation"]
 
 
+MembershipStatus = Literal["invited", "joined", "all"]
+
+
 class QueueFilters(BaseModel):
     organization_id: UUID | None = None
     entity_key: str | None = Field(default=None, min_length=1, max_length=1024)
+    membership_status: MembershipStatus = "invited"
     status: str | None = Field(default=None, max_length=64)
     min_age_days: int | None = Field(default=None, ge=0, le=36500)
     page: int = Field(default=1, ge=1, le=100_000)
