@@ -184,10 +184,12 @@
   .section-panel,
   .section-subtle,
   .section-table,
+  .operations-techbar,
   .technical-bar {
     @apply min-w-0 rounded-xl border border-slate-200 bg-white;
   }
   .section-subtle,
+  .operations-techbar,
   .technical-bar {
     @apply bg-slate-50;
   }
@@ -202,6 +204,11 @@
   }
   .operations-meta {
     @apply text-xs leading-5 text-slate-600;
+  }
+  .operations-row,
+  .data-list-dense > .data-row {
+    @apply min-h-11 min-w-0 break-words border-b border-slate-200 px-3 py-1 hover:bg-slate-50 last:border-b-0;
+    overflow-wrap: anywhere;
   }
   .operations-sidebar {
     @apply bg-slate-900 text-slate-100;

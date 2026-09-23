@@ -1,5 +1,16 @@
 # Gemeinsame Daten- und Arbeitsseiten
 
+## Operations-Center-Foundations v2.1
+
+Der [Design Guide v2.1](design-system.md) konsolidiert Dichte und Arbeitsflächen bei
+unveränderten fünf Seitenmustern. `DataListShell dense` ist optional; fachliche Zeilen
+und Pagination bleiben Sache der aufrufenden Komponente. `RecordSection surface="panel"`
+mit Icon-/Actions-Slots ist das gemeinsame OperationsPanel-Pattern. Die technische
+Schlusssektion aller sechs Record-Typen verwendet über `EntityTechnicalMetadata` jetzt
+`TechnicalInfoBar`, weiterhin mit UUID, belegtem created_at und observed_at in Europe/Berlin.
+Fehlende Quellzeitpunkte werden ausgelassen, Copy und `<time datetime>` bleiben erhalten.
+Weitere Seiten erhalten technische Informationen nur aus verifizierten vorhandenen Daten.
+
 ## Informationsarchitektur
 
 Das Dashboard trennt periodengebundene Neuanlagen vom aktuellen Arbeitsbestand:

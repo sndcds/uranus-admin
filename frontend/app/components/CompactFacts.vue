@@ -33,8 +33,8 @@ const layouts = {
         :class="operationTones[item.tone ?? 'neutral']"
       >
         {{ operationValue(item.value) }}
-        <span v-if="item.metadata" class="operations-meta block font-normal">{{
-          item.metadata
+        <span v-if="item.description || item.metadata" class="operations-meta block font-normal">{{
+          item.description || item.metadata
         }}</span>
       </dd>
     </div>

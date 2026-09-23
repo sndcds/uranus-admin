@@ -7,6 +7,9 @@ import RecordSection from '../../../app/components/RecordSection.vue'
 import EmptyState from '../../../app/components/EmptyState.vue'
 import StatusBadge from '../../../app/components/StatusBadge.vue'
 import AppIcon from '../../../app/components/AppIcon.vue'
+import PageHeader from '../../../app/components/PageHeader.vue'
+import DataListShell from '../../../app/components/DataListShell.vue'
+import EntityTimeline from '../../../app/components/EntityTimeline.vue'
 const selected = ref('')
 const rows = [
   {
@@ -35,25 +38,28 @@ const columns = [
 <template>
   <main class="operations-page mx-auto max-w-6xl p-4 sm:p-5">
     <h1 class="sr-only">Kulturbytes Komponentenreview</h1>
-    <header class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 class="type-page-title">Operations Center</h2>
-        <p class="type-metadata">
-          Design System v2.1 · Komponentenreview · synthetische Beispieldaten
-        </p>
-      </div>
-      <a href="#worklist" class="button-primary"
-        ><AppIcon name="list" :size="16" />Arbeitsliste ansehen</a
+    <PageHeader
+      title="Operations Center"
+      description="Design System v2.1 · Komponentenreview · synthetische Beispieldaten"
+    >
+      <template #actions
+        ><a href="#worklist" class="button-primary"
+          ><AppIcon name="list" :size="16" />Arbeitsliste ansehen</a
+        ></template
       >
-    </header>
+    </PageHeader>
     <div class="operations-grid">
       <RecordSection title="Benutzerinformationen" surface="panel">
+        <template #icon><AppIcon name="users" :size="18" /></template>
+        <template #actions
+          ><a class="action-link" href="#technical-review">Technik ansehen</a></template
+        >
         <CompactFacts
           :items="[
             { label: 'E-Mail', value: 'anna@example.invalid' },
             { label: 'Benutzername', value: 'anna.beispiel' },
             { label: 'Kontostatus', value: 'Nicht aktiv', tone: 'error' },
-            { label: 'Teammitgliedschaften', value: 0, metadata: 'einschließlich Einladungen' },
+            { label: 'Teammitgliedschaften', value: 0, description: 'einschließlich Einladungen' },
           ]"
         />
       </RecordSection>
@@ -98,7 +104,10 @@ const columns = [
     </RecordSection>
     <div class="operations-grid">
       <RecordSection title="Verknüpfte Datensätze" surface="panel"
-        ><EmptyState compact message="Keine belegten Verknüpfungen auf dieser Seite vorhanden."
+        ><EmptyState
+          variant="compact"
+          title="Keine Verknüpfungen"
+          message="Auf dieser Seite sind keine belegten Verknüpfungen vorhanden."
       /></RecordSection>
       <RecordSection title="Bearbeitung" surface="subtle"
         ><p class="type-body">
@@ -107,7 +116,27 @@ const columns = [
         </p></RecordSection
       >
     </div>
+    <RecordSection title="Dichte Liste" surface="table">
+      <DataListShell as="ul" dense aria-label="Dichte Beispiel-Liste" class="border-0">
+        <li
+          v-for="row in rows"
+          :key="row.id"
+          class="data-row flex flex-wrap items-center justify-between gap-x-3"
+        >
+          <span class="type-row-title min-w-0">{{ row.title }}</span>
+          <button
+            class="action-link"
+            :aria-label="`Listendetails: ${row.title}`"
+            @click="selected = row.title"
+          >
+            Details
+          </button>
+        </li>
+      </DataListShell>
+    </RecordSection>
+    <EntityTimeline entity-type="user" entity-key="20000000-0000-4000-8000-000000000001" compact />
     <TechnicalInfoBar
+      id="technical-review"
       :items="[
         {
           label: 'UUID',

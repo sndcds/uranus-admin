@@ -100,8 +100,7 @@ it('renders one record title, readable Markdown, a generic relation page, then t
     'Verlauf',
     'Technische Informationen',
   ])
-  const sections = wrapper.findAllComponents(RecordSection)
-  expect(sections.at(-1)!.text()).toContain(data.item.entity_key)
+  expect(wrapper.getComponent(EntityTechnicalMetadata).text()).toContain(data.item.entity_key)
   expect(wrapper.get('[data-entity-hero]').text()).not.toContain(data.item.entity_key)
   expect(wrapper.get('[data-entity-hero]').text()).toContain(data.item.subtitle)
   expect(wrapper.get('a.button-primary').attributes('href')).toBe(data.item.public_url)
@@ -279,7 +278,7 @@ it.each(placeSections)(
       'Verlauf',
       'Technische Informationen',
     ])
-    expect(wrapper.findAllComponents(RecordSection).at(-1)!.text()).toContain(data.item.entity_key)
+    expect(wrapper.getComponent(EntityTechnicalMetadata).text()).toContain(data.item.entity_key)
     const links = hero.findAll('a')
     expect(links.find((link) => link.text() === 'Beziehungen')!.attributes('data-to')).toContain(
       `root_type=${data.item.entity_type}`,

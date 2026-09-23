@@ -8,6 +8,9 @@ import RecordSection from '../../app/components/RecordSection.vue'
 import EmptyState from '../../app/components/EmptyState.vue'
 import EntityTimeline from '../../app/components/EntityTimeline.vue'
 import DataListShell from '../../app/components/DataListShell.vue'
+import PageHeader from '../../app/components/PageHeader.vue'
+import EntityTechnicalMetadata from '../../app/components/EntityTechnicalMetadata.vue'
+import { eventDetailFixture } from '../fixtures/event-detail'
 import { timelineFixture } from '../fixtures/entities'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -16,8 +19,9 @@ it('distinguishes zero, false, missing and blank facts and escapes values', () =
   const view = mount(CompactFacts, {
     props: {
       items: [
-        { label: 'Anzahl', value: 0, metadata: 'einschließlich Einladungen' },
+        { label: 'Anzahl', value: 0, description: 'einschließlich Einladungen' },
         { label: 'Aktiv', value: false },
+        { label: 'Geprüft', value: true },
         { label: 'Unbekannt', value: null },
         { label: 'Leer', value: '  ' },
         { label: 'Name', value: '<img src=x onerror=alert(1)>' },
@@ -27,6 +31,7 @@ it('distinguishes zero, false, missing and blank facts and escapes values', () =
   expect(view.findAll('dt').map((el) => el.text())).toEqual([
     'Anzahl',
     'Aktiv',
+    'Geprüft',
     'Unbekannt',
     'Leer',
     'Name',
@@ -34,6 +39,7 @@ it('distinguishes zero, false, missing and blank facts and escapes values', () =
   expect(view.findAll('dd').map((el) => el.text())).toEqual([
     '0 einschließlich Einladungen',
     'Nein',
+    'Ja',
     'Nicht verfügbar',
     'Nicht verfügbar',
     '<img src=x onerror=alert(1)>',
@@ -67,6 +73,7 @@ it('shows only supplied technical values and reports clipboard success and failu
         { label: 'UUID', value: 'test-key', mono: true, copyable: true },
         { label: 'Versuche', value: 0 },
         { label: 'Fehlt', value: null },
+        { label: 'Unbekannt', value: undefined },
         { label: 'Leer', value: ' ' },
       ],
     },
@@ -161,20 +168,122 @@ it('distinguishes loading from an empty table and labels its optional scroll reg
   expect(view.findComponent(EmptyState).text()).toContain('Keine Ergebnisse')
 })
 
-it('preserves named sections and compact empty-state recovery actions', async () => {
+it('preserves panel headings, icons, actions and compact empty-state recovery', async () => {
   const view = mount(RecordSection, {
     props: { title: 'Kontext', surface: 'panel' },
-    slots: { default: '<p>Fakten</p>', actions: '<button>Öffnen</button>' },
+    slots: {
+      default: '<p>Fakten</p>',
+      icon: '<svg aria-hidden="true" />',
+      actions: '<button>Öffnen</button>',
+    },
   })
   expect(view.attributes('aria-labelledby')).toBe(view.get('h3').attributes('id'))
   expect(view.get('button').text()).toBe('Öffnen')
+  expect(view.get('h3 svg').attributes('aria-hidden')).toBe('true')
   const reset = vi.fn()
   const empty = mount(EmptyState, {
-    props: { message: 'Keine Treffer', compact: true },
-    slots: { default: () => h('button', { onClick: reset }, 'Filter zurücksetzen') },
+    props: { title: 'Keine Treffer', message: 'Passe die Filter an.', variant: 'compact' },
+    slots: { actions: () => h('button', { onClick: reset }, 'Filter zurücksetzen') },
   })
   await empty.get('button').trigger('click')
   expect(reset).toHaveBeenCalledOnce()
+  expect(empty.text()).toContain('Keine Treffer')
+  expect(empty.text()).toContain('Passe die Filter an.')
+})
+
+it('retains PageHeader slots with named actions and compatible default actions', () => {
+  const view = mount(PageHeader, {
+    props: { title: 'Datensatz', description: 'Kontext' },
+    slots: {
+      leading: '<span>Icon</span>',
+      badge: '<span>Status</span>',
+      context: '<p>Organisation</p>',
+      actions: '<button>Aktualisieren</button>',
+    },
+  })
+  expect(view.get('h2').text()).toBe('Datensatz')
+  for (const text of ['Kontext', 'Icon', 'Status', 'Organisation'])
+    expect(view.text()).toContain(text)
+  expect(view.get('button').text()).toBe('Aktualisieren')
+  expect(
+    mount(PageHeader, {
+      props: { title: 'Legacy' },
+      slots: { default: '<button>Öffnen</button>' },
+    })
+      .get('button')
+      .text(),
+  ).toBe('Öffnen')
+})
+
+it('keeps dense list semantics, complete long content and actionable rows', async () => {
+  const longValue = 'LangerDatensatzname'.repeat(30)
+  const open = vi.fn()
+  const view = mount(DataListShell, {
+    props: { as: 'ul', dense: true },
+    attrs: { 'aria-label': 'Datensätze', 'aria-busy': true },
+    slots: {
+      default: () =>
+        h('li', { class: 'data-row' }, [longValue, h('button', { onClick: open }, 'Öffnen')]),
+    },
+  })
+  expect(view.element.tagName).toBe('UL')
+  expect(view.attributes('aria-label')).toBe('Datensätze')
+  expect(view.attributes('aria-busy')).toBe('true')
+  expect(view.get('li').text()).toContain(longValue)
+  await view.get('button').trigger('click')
+  expect(open).toHaveBeenCalledOnce()
+  expect(
+    mount(CompactFacts, { props: { items: [{ label: 'Lang', value: longValue }] } })
+      .get('dd')
+      .text(),
+  ).toBe(longValue)
+})
+
+it('can hide the technical heading while preserving a named region and time semantics', () => {
+  const view = mount(TechnicalInfoBar, {
+    props: {
+      showTitle: false,
+      items: [
+        {
+          label: 'Stand',
+          value: '29.03.2026 · 03:30',
+          datetime: '2026-03-29T01:30:00Z',
+          timezone: 'Europe/Berlin',
+        },
+      ],
+    },
+  })
+  expect(view.find('h3').exists()).toBe(false)
+  expect(view.attributes('aria-label')).toBe('Technische Informationen')
+  expect(view.get('time').attributes('datetime')).toBe('2026-03-29T01:30:00Z')
+  expect(view.get('time').attributes('title')).toBe('Europe/Berlin')
+})
+
+it('adapts verified record metadata to the shared bar without inventing creation times', async () => {
+  const data = eventDetailFixture()
+  data.item.created_at = '2026-03-29T01:30:00Z'
+  const writeText = vi.fn().mockResolvedValue(undefined)
+  vi.stubGlobal('navigator', { clipboard: { writeText } })
+  const view = mount(EntityTechnicalMetadata, { props: { data } })
+  expect(view.findAll('dt').map((el) => el.text())).toEqual([
+    'UUID',
+    'Quelldatensatz angelegt',
+    'Datenstand des Abrufs',
+  ])
+  expect(view.findAll('time').map((el) => el.attributes('datetime'))).toEqual([
+    data.item.created_at,
+    data.observed_at,
+  ])
+  expect(view.text()).toContain('29.03.2026 · 03:30')
+  expect(view.text()).toContain('Europe/Berlin')
+  await view.get('button[aria-label="UUID kopieren"]').trigger('click')
+  await flushPromises()
+  expect(writeText).toHaveBeenCalledWith(data.item.entity_key)
+  expect(view.get('[role=status]').text()).toBe('UUID kopiert.')
+  await view.setProps({ data: { ...data, item: { ...data.item, created_at: null } } })
+  expect(view.text()).not.toContain('Quelldatensatz angelegt')
+  expect(view.findAll('time')).toHaveLength(1)
+  expect(view.get('[role=status]').text()).toBe('')
 })
 
 it('compact timeline retains evidence, timestamps, links and pagination', async () => {
