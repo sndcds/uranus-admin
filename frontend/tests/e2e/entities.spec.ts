@@ -23,9 +23,7 @@ for (const section of entitySectionSchema.options) {
     ).toHaveText(`Fixture ${section}`)
     await expect(
       page.getByRole('link', {
-        name: ['events', 'organizations', 'venues', 'spaces'].includes(section)
-          ? 'Befunde anzeigen'
-          : 'Befunde zu diesem Datensatz',
+        name: 'Befunde anzeigen',
       }),
     ).toHaveAttribute('href', /entity_key=/)
     await expect(
@@ -50,9 +48,7 @@ for (const section of entitySectionSchema.options) {
     if (section !== 'images')
       await expect(
         page.getByRole('link', {
-          name: ['events', 'organizations', 'venues', 'spaces'].includes(section)
-            ? 'Beziehungen'
-            : 'Beziehungen anzeigen',
+          name: 'Beziehungen',
         }),
       ).toHaveAttribute('href', /root_key=/)
     expect(
@@ -192,7 +188,9 @@ test('email-only user titles in list, autocomplete, detail and memberships', asy
   await expect(option.locator('.font-medium')).toHaveText(email)
   await option.click()
   await expect(page.getByRole('heading', { level: 2, name: email, exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { level: 3, name: email, exact: true })).toHaveCount(2)
+  await expect(page.getByRole('heading', { level: 3, name: email, exact: true })).toHaveCount(0)
+  await expect(page.getByRole('heading', { level: 4, name: email, exact: true })).toHaveCount(1)
+  await expect(page.locator('[data-entity-hero]').getByText(email, { exact: true })).toHaveCount(1)
   await expect(page.getByText(item.entity_key, { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: item.entity_key, exact: true })).toHaveCount(0)
 })

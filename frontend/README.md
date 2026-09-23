@@ -285,8 +285,8 @@ Portal-Bildziele sowie Space-Feature-Zuordnungen bleiben bis zur eindeutigen Que
 
 Der [Design Guide v2](docs/design-system.md) ist der kanonische UI-Vertrag.
 Der [vollständige Frontend-Audit](docs/ui-ux-audit.md) dokumentiert den main-Ausgangsstand,
-alle Routen, Sprachabweichungen und den Migrationsplan. `/events/:id` ist der erste
-Record-Detail-Pilot; andere Detailtypen folgen in eigenen PRs.
+alle Routen, historische Sprachabweichungen und den aktuellen Migrationsstand.
+Alle sechs Entity-Detailtypen verwenden Record Detail v2; Geocoding verwendet Workflow v2.
 
 Markdown wird zunächst ausschließlich für die verifizierte Veranstaltungsbeschreibung
 verwendet. markdown-it wurde wegen seines konfigurierbaren Tokenparsers gewählt; Vue
@@ -327,8 +327,8 @@ Siehe [Activity-Vertrag](../backend/docs/contracts.md#user-avatars-and-organizat
 ## Domain inspection
 
 Events, venues, spaces, organizations, users and images have paginated list and
-UUID detail pages. Activity remains the compact list-row reference; event, organization,
-venue and space details use the Record Detail v2 pattern. EntityDetailPage retains retrieval,
+UUID detail pages. Activity remains the compact list-row reference; all six entity details
+use Record Detail v2. EntityDetailPage retains retrieval,
 stale/auth/identity handling and Timeline; domain presenters override the EntityHero context.
 Organizations show event/venue/membership counts (including invitations) and address;
 venues show organization, room count, address and a public link only when supplied;
@@ -336,8 +336,14 @@ spaces show the verified parent venue and organization once in their hero contex
 RecordRelations retains the global bounded relation page and other query parameters;
 RecordWorkflowSummary shares count semantics, and RecordLocation uses the existing OSM
 helper only for provided coordinates (currently organization previews). Null is unknown,
-not zero. Technical metadata follows Timeline. Users/images await migration. No source writes,
-API semantics, Markdown fields or external requests are added. Search/filter/page state is
+not zero. Technical metadata follows Timeline.
+`/users/:id` and `/images/:id` are **RECORD DETAIL v2**: users retain the canonical server
+identity, deduplicated email/username context, translated account status and membership
+counts explicitly including invitations. Images use a large natural-ratio preview with the
+existing safe URL helper and modal, readable failure fallback, link counts and nullable
+orphan state. Global relation pagination stays explicit; neither grouped teams nor image
+metadata are inferred. No source writes,
+API semantics, Markdown fields, external sources or metadata requests are added. Search/filter/page state is
 URL-based. Detail relations are independently paginated; graph, marks and exact
 finding links remain available. Source timestamps retain their actual meaning.
 The global create action remains disabled until an authorized Uranus write adapter

@@ -1,6 +1,6 @@
 # Record Detail v2 — Review
 
-Synthetische Veranstaltungen, Organisationen, Orte und Räume, keine Produktionsdaten. Aufnahmen aus dem
+Synthetische Veranstaltungen, Organisationen, Orte, Räume, Benutzer und Bilder, keine Produktionsdaten. Aufnahmen aus dem
 Produktionsbuild mit kontrollierten API-/Bild-Fixtures und erzwungener Test-CSP.
 Sie dienen dem Review, nicht als pixelgenaue Vollseiten-Goldens.
 
@@ -22,6 +22,14 @@ erscheinen beim Raum einmal im Hero. Die Ortsaufnahme enthält keine erfundenen 
 | Organisation | [Desktop](organization-desktop.png) | [Mobile](organization-mobile.png) |
 | Ort          | [Desktop](venue-desktop.png)        | [Mobile](venue-mobile.png)        |
 | Raum         | [Desktop](space-desktop.png)        | [Mobile](space-mobile.png)        |
+| Benutzer     | [Desktop](user-desktop.png)         | [Mobile](user-mobile.png)         |
+| Bild         | [Desktop](image-desktop.png)        | [Mobile](image-mobile.png)        |
+
+Benutzer/Bild verwenden kompakte synthetische Review-Beispiele mit zwei beziehungsweise
+drei belegten Verknüpfungen. Der Benutzerzähler benennt Einladungen ausdrücklich;
+das Bild bleibt im Originalverhältnis sichtbar. `user-image-detail-v2.spec.ts` prüft
+zusätzlich große Fixtures mit 26/27 global paginierten Relationen, lange E-Mail/Alttexte,
+Bildfehler, Hoch-/Querformat und Modal-Fokus auf allen vier Größen.
 
 `tests/e2e/event-detail-v2.spec.ts` und `tests/e2e/place-detail-v2.spec.ts` prüfen zusätzlich
 1024 × 768 und 360 × 800, einschließlich benannter Regionen, Aktionen, Touch-Zielen und Overflow.
@@ -32,7 +40,7 @@ im Playwright-Ausgabeverzeichnis und im CI-Artefakt `frontend-test-results`.
 Reproduktion nach `pnpm build`:
 
 ```sh
-TEST_PRODUCTION=1 pnpm test:e2e tests/e2e/event-detail-v2.spec.ts tests/e2e/place-detail-v2.spec.ts tests/e2e/layout-consistency.spec.ts
+TEST_PRODUCTION=1 pnpm test:e2e tests/e2e/event-detail-v2.spec.ts tests/e2e/place-detail-v2.spec.ts tests/e2e/user-image-detail-v2.spec.ts tests/e2e/layout-consistency.spec.ts
 ```
 
 Weitere Befunde und der Migrationsplan stehen im

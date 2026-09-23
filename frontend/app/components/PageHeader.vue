@@ -8,7 +8,11 @@ defineProps<{ title: string; description?: string; titleId?: string; record?: bo
       <slot name="leading" />
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-3">
-          <h2 :id="titleId" :class="record ? 'type-record-title' : 'type-page-title'">
+          <h2
+            :id="titleId"
+            class="min-w-0 max-w-full"
+            :class="record ? 'type-record-title' : 'type-page-title'"
+          >
             {{ title }}
           </h2>
           <slot name="badge" />

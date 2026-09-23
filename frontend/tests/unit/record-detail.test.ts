@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils'
 import { reactive } from 'vue'
+import UserPage from '../../app/pages/users/[id].vue'
+import ImagePage from '../../app/pages/images/[id].vue'
+import UserDetailContent from '../../app/components/UserDetailContent.vue'
+import ImageDetailContent from '../../app/components/ImageDetailContent.vue'
+import ActivityThumbnail from '../../app/components/ActivityThumbnail.vue'
+import { entityDetailSchema } from '../../shared/contracts'
 import OrganizationPage from '../../app/pages/organizations/[id].vue'
 import VenuePage from '../../app/pages/venues/[id].vue'
 import SpacePage from '../../app/pages/spaces/[id].vue'
@@ -11,7 +17,12 @@ import SpaceDetailContext from '../../app/components/SpaceDetailContext.vue'
 import RecordRelations from '../../app/components/RecordRelations.vue'
 import RecordWorkflowSummary from '../../app/components/RecordWorkflowSummary.vue'
 import RecordLocation from '../../app/components/RecordLocation.vue'
-import { placeDetailFixture, placeSections } from '../fixtures/entities'
+import {
+  placeDetailFixture,
+  placeSections,
+  identityDetailFixture,
+  identitySections,
+} from '../fixtures/entities'
 import EventPage from '../../app/pages/events/[id].vue'
 import EntityDetailPage from '../../app/components/EntityDetailPage.vue'
 import EntityHero from '../../app/components/EntityHero.vue'
@@ -31,6 +42,8 @@ const api = { entity: vi.fn() }
 const route = reactive({ params: { id: '' }, query: {} as Record<string, string>, fullPath: '' })
 const global = {
   components: {
+    UserDetailContent,
+    ImageDetailContent,
     OrganizationDetailContent,
     VenueDetailContent,
     SpaceDetailContent,
@@ -53,7 +66,7 @@ const global = {
     ResultSummary: true,
     ActivityThumbnail: true,
     EntityTypeBadge: true,
-    StatusBadge: true,
+    StatusBadge: { props: ['label'], template: '<span>{{label}}</span>' },
     InlineAlert: { template: '<div role="alert"><slot /></div>' },
     AppIcon: true,
     EntityTimeline: { template: '<section><h3>Verlauf</h3></section>' },
@@ -527,3 +540,214 @@ it.each([401, 403, 404])(
     wrapper.unmount()
   },
 )
+
+const identityPages = { users: UserPage, images: ImagePage }
+it.each(identitySections)(
+  'renders %s hierarchy, honest pagination and shared workflow',
+  async (section) => {
+    const data = identityDetailFixture(section)
+    expect(entityDetailSchema.parse(data)).toEqual(data)
+    api.entity.mockResolvedValue(data)
+    route.query = { context: 'retained' }
+    const wrapper = mount(identityPages[section], { global })
+    await flushPromises()
+    expect(wrapper.findAll('h2').map((h) => h.text())).toEqual([data.item.entity_name])
+    const hero = wrapper.get('[data-entity-hero]')
+    expect(hero.text().split(data.item.entity_name).length - 1).toBe(1)
+    expect(hero.text()).not.toContain(data.item.entity_key)
+    expect(hero.find('li').exists()).toBe(false)
+    expect(wrapper.findAll('h3').map((h) => h.text())).toEqual([
+      ...(section === 'users' ? ['Benutzerinformationen', 'Teamkontext'] : ['Bildinformationen']),
+      'Verknüpfte Datensätze',
+      'Qualität & Arbeitsstand',
+      'Verlauf',
+      'Technische Informationen',
+    ])
+    expect(wrapper.get('[data-record-relations]').findAll('h4')).toHaveLength(25)
+    expect(wrapper.get('[data-record-relations]').text()).toContain(
+      `25 auf dieser Seite von ${data.related.pagination.total} insgesamt`,
+    )
+    expect(
+      wrapper
+        .findAll('a')
+        .find((a) => a.text() === 'Weiter')!
+        .attributes('data-to'),
+    ).toContain('"context":"retained"')
+    expect(
+      wrapper
+        .getComponent(RecordWorkflowSummary)
+        .findAll('dd')
+        .map((d) => d.text()),
+    ).toEqual(['2', '1'])
+    expect(wrapper.getComponent(EntityTechnicalMetadata).text()).toContain(data.item.entity_key)
+    api.entity.mockResolvedValueOnce(identityDetailFixture(section, 2))
+    route.query.related_page = '2'
+    route.fullPath += '?related_page=2'
+    await flushPromises()
+    expect(wrapper.get('[data-record-relations]').findAll('h4')).toHaveLength(
+      section === 'users' ? 1 : 2,
+    )
+  },
+)
+
+it.each(['active', 'inactive'])(
+  'renders user identity and translated %s status',
+  async (status) => {
+    const data = identityDetailFixture('users')
+    data.item.status = status
+    api.entity.mockResolvedValue(data)
+    const wrapper = mount(UserPage, { global })
+    await flushPromises()
+    const hero = wrapper.get('[data-entity-hero]')
+    expect(hero.text()).toContain(status === 'active' ? 'Aktiv' : 'Nicht aktiv')
+    expect(hero.text()).toContain(data.item.email)
+    expect(hero.text()).toContain(data.item.facts.username)
+    expect(wrapper.text()).toContain('Teammitgliedschaften13Einschließlich Einladungen')
+    expect(hero.find('a[target="_blank"]').exists()).toBe(false)
+  },
+)
+
+it.each(['email', 'username'] as const)(
+  'does not repeat the canonical %s title as context',
+  async (field) => {
+    const data = identityDetailFixture('users')
+    data.item.entity_name = field === 'email' ? data.item.email! : data.item.facts.username!
+    api.entity.mockResolvedValue(data)
+    const wrapper = mount(UserPage, { global })
+    await flushPromises()
+    expect(wrapper.get('[data-entity-hero]').text().split(data.item.entity_name).length - 1).toBe(1)
+  },
+)
+
+it.each([null, '', '   '])('omits missing user identity context (%s)', async (value) => {
+  const data = identityDetailFixture('users')
+  data.item.email = data.item.facts.username = value
+  data.item.status = null
+  api.entity.mockResolvedValue(data)
+  const wrapper = mount(UserPage, { global })
+  await flushPromises()
+  expect(wrapper.get('[data-entity-hero]').findAll('p')).toHaveLength(0)
+  expect(wrapper.findAll('h3').map((h) => h.text())).not.toContain('Benutzerinformationen')
+})
+
+it.each([null, 0])('keeps user and image unknown versus zero counts (%s)', async (value) => {
+  for (const section of identitySections) {
+    const data = identityDetailFixture(section)
+    data.item.facts.memberships = data.item.facts.image_links = value
+    data.item.facts.orphan = null
+    api.entity.mockResolvedValue(data)
+    const wrapper = mount(identityPages[section], { global })
+    await flushPromises()
+    const facts = wrapper
+      .findAllComponents(RecordSection)
+      .find(
+        (s) => s.props('title') === (section === 'users' ? 'Teamkontext' : 'Bildinformationen'),
+      )!
+    expect(facts.get('dd.font-semibold').text()).toBe(value === null ? 'Nicht verfügbar' : '0')
+    if (section === 'images') expect(facts.findAll('dd')[1]!.text()).toBe('Nicht verfügbar')
+    wrapper.unmount()
+  }
+})
+
+it.each([true, false])('renders orphan=%s as link existence only', async (orphan) => {
+  const data = identityDetailFixture('images')
+  data.item.facts.orphan = orphan
+  api.entity.mockResolvedValue(data)
+  const wrapper = mount(ImagePage, { global })
+  await flushPromises()
+  const facts = wrapper.findAllComponents(RecordSection)[0]!
+  expect(facts.findAll('dd').map((d) => d.text())).toEqual(['27', orphan ? 'Ja' : 'Nein'])
+  expect(facts.text()).not.toContain('ungenutzt')
+})
+
+it('uses a neutral image title for the UUID fallback', async () => {
+  const data = identityDetailFixture('images')
+  data.item.entity_name = data.item.entity_key
+  api.entity.mockResolvedValue(data)
+  const wrapper = mount(ImagePage, { global })
+  await flushPromises()
+  expect(wrapper.get('h2').text()).toBe('Bild ohne Anzeigenamen')
+  expect(wrapper.get('[data-entity-hero]').text()).not.toContain(data.item.entity_key)
+})
+
+it('shows a safe large preview, removes failed images and resets only on a changed source', async () => {
+  const data = identityDetailFixture('images')
+  const wrapper = mount(ActivityThumbnail, { props: { item: data.item, record: true }, global })
+  const image = wrapper.get('[data-record-preview] img')
+  expect(image.attributes('src')).toBe(data.item.image_url!.replace('320', '1280'))
+  expect(image.attributes('alt')).toBe(data.item.entity_name)
+  expect(image.attributes('referrerpolicy')).toBe('no-referrer')
+  expect(image.attributes('crossorigin')).toBe('anonymous')
+  expect(image.attributes('decoding')).toBe('async')
+  await image.trigger('error')
+  expect(wrapper.find('[data-record-preview] img').exists()).toBe(false)
+  expect(wrapper.find('[data-record-preview] button').exists()).toBe(false)
+  expect(wrapper.text()).toContain('Bildvorschau konnte nicht geladen werden.')
+  await wrapper.setProps({ item: { ...data.item } })
+  expect(wrapper.find('[data-record-preview] img').exists()).toBe(false)
+  await wrapper.setProps({ item: { ...data.item, image_url: null } })
+  expect(wrapper.text()).toContain('Keine Bildvorschau verfügbar.')
+  await wrapper.setProps({ item: data.item })
+  expect(wrapper.find('[data-record-preview] img').exists()).toBe(true)
+})
+
+it('retains user refresh data, marks stale failures, immediately clears a changed identity and ignores late responses', async () => {
+  const data = identityDetailFixture('users')
+  api.entity.mockResolvedValue(data)
+  const wrapper = mount(UserPage, { global })
+  await flushPromises()
+  let oldResponse!: (value: EntityDetail) => void
+  api.entity.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        oldResponse = resolve
+      }),
+  )
+  route.fullPath += '?related_page=2'
+  await flushPromises()
+  expect(wrapper.get('h2').text()).toBe(data.item.entity_name)
+  expect(wrapper.text()).toContain('Daten werden aktualisiert')
+  api.entity.mockRejectedValueOnce(new Error('private driver'))
+  route.fullPath += '&retry=1'
+  await flushPromises()
+  expect(wrapper.get('h2').text()).toBe(data.item.entity_name)
+  expect(wrapper.text()).toContain('veraltet')
+  expect(wrapper.text()).not.toContain('private driver')
+  let newResponse!: (value: EntityDetail) => void
+  api.entity.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        newResponse = resolve
+      }),
+  )
+  route.params.id = '20000000-0000-4000-8000-000000000099'
+  route.fullPath = `/users/${route.params.id}`
+  await flushPromises()
+  expect(wrapper.find('[data-entity-hero]').exists()).toBe(false)
+  expect(wrapper.text()).not.toContain(data.item.entity_name)
+  oldResponse(data)
+  await flushPromises()
+  expect(wrapper.find('[data-entity-hero]').exists()).toBe(false)
+  const next = identityDetailFixture('users')
+  next.item.entity_key = route.params.id
+  next.item.entity_name = 'Neuer Benutzer'
+  newResponse(next)
+  await flushPromises()
+  expect(wrapper.get('h2').text()).toBe('Neuer Benutzer')
+  wrapper.unmount()
+})
+
+it.each([401, 403, 404])('discards user data on access loss or removal (%s)', async (status) => {
+  const data = identityDetailFixture('users')
+  api.entity.mockResolvedValue(data)
+  const wrapper = mount(UserPage, { global })
+  await flushPromises()
+  expect(wrapper.get('h2').text()).toBe(data.item.entity_name)
+  api.entity.mockRejectedValueOnce(new AdminApiError(failure(status)))
+  route.fullPath += '?related_page=2'
+  await flushPromises()
+  expect(wrapper.find('[data-entity-hero]').exists()).toBe(false)
+  expect(wrapper.find('[data-record-relations]').exists()).toBe(false)
+  expect(wrapper.text()).not.toContain(data.item.entity_name)
+  wrapper.unmount()
+})

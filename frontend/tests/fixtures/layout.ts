@@ -4,7 +4,12 @@ import { activityFixture } from './activity'
 import { statisticsFixture } from './statistics'
 import { eventContentFixture } from './event-content'
 import { graphFixture } from './graph'
-import { entityFixture, detailFixture, timelineFixture, placeDetailFixture } from './entities'
+import {
+  entityFixture,
+  identityDetailFixture,
+  timelineFixture,
+  placeDetailFixture,
+} from './entities'
 import { eventDetailFixture } from './event-detail'
 import { inboxFixture } from './inbox'
 import { geocodeDetail, geocodePage } from './geocoding'
@@ -101,7 +106,7 @@ export async function mockLayoutApi(page: Page) {
     route.fulfill({
       contentType: 'image/svg+xml',
       headers: { 'access-control-allow-origin': '*' },
-      body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="210"><rect width="320" height="210" fill="#f5d0fe"/><path d="M0 150L85 60 145 130 235 35 320 140V210H0Z" fill="#86198f"/><circle cx="60" cy="45" r="18" fill="#fdf4ff"/></svg>',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="840" viewBox="0 0 320 210"><rect width="320" height="210" fill="#f5d0fe"/><path d="M0 150L85 60 145 130 235 35 320 140V210H0Z" fill="#86198f"/><circle cx="60" cy="45" r="18" fill="#fdf4ff"/></svg>',
     }),
   )
   await page.route('**/api/admin/api/v1/**', (route) => {
@@ -123,7 +128,7 @@ export async function mockLayoutApi(page: Page) {
               ? eventDetailFixture()
               : section === 'organizations' || section === 'venues' || section === 'spaces'
                 ? placeDetailFixture(section, Number(url.searchParams.get('related_page') ?? 1))
-                : detailFixture(section),
+                : identityDetailFixture(section, Number(url.searchParams.get('related_page') ?? 1)),
       })
     const fixed: Record<string, unknown> = {
       'dashboard/summary': summary,

@@ -15,7 +15,9 @@ const relationships = computed(() => graphHref(props.item.entity_type, props.ite
 <template>
   <div class="space-y-4 border-b border-slate-200 pb-5" data-entity-hero>
     <PageHeader :title="name" record>
-      <template #leading><ActivityThumbnail :item="item" /></template>
+      <template #leading
+        ><slot name="leading"><ActivityThumbnail :item="item" /></slot
+      ></template>
       <template #badge>
         <EntityTypeBadge :type="item.entity_type" />
         <StatusBadge v-if="status" :label="status" />

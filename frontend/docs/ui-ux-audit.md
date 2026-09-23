@@ -58,6 +58,27 @@ zeigen unterschiedliche Aufgaben, die keine universelle Activity-Seite lösen ka
 Sie sind keine Beschreibung des aktuellen Deployments. Neue Review-Aufnahmen sind
 synthetisch und beweisen weder Produktionsdaten noch vollständige WCAG-Konformität.
 
+## Benutzer/Bilder: aktueller Migrationsabgleich
+
+Ausgangspunkt: frisch geholtes `main` bei `673884698b1697214fe9c8a271fbe6b3b672e33b`.
+Bestehende User-/Image-Routen, Shared-Komponenten/Helper, Contracts, Entity-/Activity-/
+Preview-/Queue-Repositories und Queue-Service sowie Record-/Entity-/Layouttests geprüft.
+Neue Domain Presenter nutzen ausschließlich vorhandene Felder; keine Backend-Änderungen.
+`entity_name` bleibt beim Benutzer serverseitig kanonisch, einschließlich UUID als letzter
+Fallback. E-Mail und Username werden im Hero dedupliziert. Keine Credentials.
+Bilder haben eine große sichere Vorschau aus der gelieferten URL; Vergrößerung verwendet
+das bestehende AppModal. Ein Bild kann derzeit kein Graph-Root sein; dafür wird kein Link erfunden.
+Alle sechs Entity-Detailtypen sind jetzt Record Detail v2, Geocoding bleibt Workflow v2.
+Die Matrix trennt Ausgangszustand, aktuellen Zustand, Ziel und Status.
+
+Synthetische Reviewbilder: [User Desktop](screenshots/record-detail-v2/user-desktop.png),
+[User Mobile](screenshots/record-detail-v2/user-mobile.png),
+[Image Desktop](screenshots/record-detail-v2/image-desktop.png),
+[Image Mobile](screenshots/record-detail-v2/image-mobile.png).
+`user-image-detail-v2.spec.ts` prüft 1440×1000, 1024×768, 390×844 und 360×800,
+Pagination, Aktionen, Modal-Fokus, lange Texte, Hoch-/Querformat und Bildfehler;
+dieselben Routen laufen auch mit erzwingender Production-CSP.
+
 ## Geocoding Workflow v2: aktueller Abgleich
 
 Ausgangspunkt ist frisch geholtes `main` bei `61833d3fc59ec66106897b2e188dc4f37725deb0`
@@ -77,9 +98,9 @@ nicht verlässlich; deshalb keine heuristische Adresszerlegung. `checked_at` ist
 `observed_at` nicht. Request-ID/Generation/Versuche sind echte technische Daten. Kein
 Backend-/Provider-/Koordinatenschreibvertrag wurde erweitert.
 
-## Zusammenfassung und Prioritäten
+## Historische Audit-Befunde: Ausgangszustand und Prioritäten
 
-- **P0 / Pilot:** Record Detail ist heute eine Listenvorschau mit Faktenanhang.
+- **P0 / Pilot:** Record Detail war im Audit-Ausgangszustand eine Listenvorschau mit Faktenanhang.
   Titel doppelt, Beschreibung in `DetailFacts`, UUID vor Inhalt, Timeline vor Beziehungen.
 - **P1:** Sprach- und Statusdrift in Workflows; fachliche Befundbewertung, Assignment
   und Versandzustand brauchen getrennte Begriffe. Keine Workflow-Semantik ändern.
@@ -95,11 +116,13 @@ wird mit fünf gleichberechtigten Seitenmustern ersetzt.
 
 ## Prüfraster, das für jede Route gilt
 
-Die folgenden routebezogenen Profile verwenden diese gemeinsamen Feststellungen;
+Die folgenden Feststellungen beschreiben den historischen Audit-Ausgangszustand;
+aktuelle Migrationen stehen ausdrücklich in den v2-Profilen und der Matrix.
+Die routebezogenen Profile verwenden diese gemeinsamen Feststellungen;
 Abweichungen stehen im jeweiligen Profil. Damit sind auch Wrapper-Seiten über ihren
 wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Dateinamen.
 
-| Dimension             | Befund im aktuellen main / Ziel                                                                                                                                                                   |
+| Dimension             | Befund im Audit-Ausgangszustand / Ziel                                                                                                                                                            |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Header und Typografie | Shell h1, PageHeader h2, SectionHeader h3; viele Inline-Klassen statt benannter Rollen. Workflow-Unterabschnitte teils erneut h2.                                                                 |
 | Aktionen              | Filled Fuchsia und bordered vorhanden, aber Inspektionslinks häufig gleich gewichtet. Tertiäre Links und genau eine priorisierte Aktion pro Kontext definieren.                                   |
@@ -112,7 +135,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 | Accessibility         | Skiplink, main, aktive Navigation, Dialog-Fokus, Textalternativen vorhanden. Überschriftenordnung, Linkziele, 44px Touch, Kontrast, Tabellen-Captions prüfen. Keine pauschale Konformitätszusage. |
 | Surfaces              | panel/card/data-list existieren; card und panel visuell kaum unterschieden. Freie Inhaltsabschnitte brauchen keinen Kasten.                                                                       |
 
-## Routenprofile
+## Routenprofile: historische Ausgangsbefunde und markierte Migrationen
 
 ### `/` — OVERVIEW
 
@@ -321,7 +344,10 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Kompakte Zeilen beibehalten; domänenspezifische Metadaten verdichten. Priorität P2.
 
-### `/events/:id` — RECORD DETAIL
+### `/events/:id` — historischer Ausgangszustand (aktuell RECORD DETAIL v2)
+
+Die folgenden Befunde beschreiben den Zustand vor dem abgeschlossenen Event-Pilot.
+Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
 
 - **Aufgabe / Hierarchie:** Veranstaltungen suchen und Termine einordnen. PageHeader → ActivityRow → DetailFacts → Timeline → Beziehungen.
 - **Header / Actions / Filter:** Zur Liste, Befunde, öffentliche/Graph/Markierungslinks sofern geliefert. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -393,14 +419,13 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Kompakte Zeilen beibehalten; domänenspezifische Metadaten verdichten. Priorität P2.
 
-### `/users/:id` — RECORD DETAIL
+### `/users/:id` — RECORD DETAIL v2 (migriert)
 
-- **Aufgabe / Hierarchie:** Uranus-Benutzer und Teamkontext prüfen. PageHeader → ActivityRow → DetailFacts → Timeline → Beziehungen.
-- **Header / Actions / Filter:** Zur Liste, Befunde, öffentliche/Graph/Markierungslinks sofern geliefert. Gemeinsamer Header; keine Source-Schreibaktion.
-- **Surfaces / Typografie / Status:** Generische Datenliste als Hero, Faktenpanel, Relationsliste. Gemeinsames Prüfraster gilt; Username/UUID prominent; Mitgliedschaften pauschal.
-- **Loading / Error / Empty:** Lokaler Abruf leert überwiegend den vorherigen Datensatz; bei gleicher Identität Refresh-Erhalt prüfen. Sichere Fehler/Retry erhalten; leere Ergebnisse erklären und bei Filtern Reset anbieten. Ein Detail-404 ist kein leerer Bestand.
-- **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
-- **Terminologie / Änderung:** Teammitgliedschaften, Einladungen, Organisationen; canonical Label erhalten. Priorität P1.
+- **Ausgangszustand:** Generic Entity Detail mit ActivityRow-Hero, doppeltem Titel, frühen UUID-Fakten und Timeline vor Beziehungen.
+- **Aktueller Zustand:** Hero (Avatar, Servername, deduplizierte E-Mail/Username, Aktiv/Nicht aktiv) → Benutzerinformationen → Teamkontext → Verknüpfte Datensätze → Qualität & Arbeitsstand → Timeline → Technische Informationen.
+- **Semantik:** `facts.memberships` zählt Teammitgliedschaften einschließlich Einladungen. Status Eingeladen/Beigetreten bleibt erhalten; kein Join-Zeitpunkt wird erfunden. Keine vollständigen Teamgruppen aus einer Relationsseite.
+- **Shared:** EntityDetailPage, EntityHero, RecordSection, RecordRelations, RecordWorkflowSummary, EntityTimeline und EntityTechnicalMetadata. Keine neuen Backend-Felder, Source Writes oder Markdown-Felder.
+- **Zustände / Accessibility:** Ein h2, Sections h3, Relationszeilen h4; gleiche Identität bleibt bei Refresh sichtbar, 401/403/404 und Identitätswechsel löschen alte Inhalte, späte Antworten werden verworfen. Plaintext, lange Inhalte und Vorschauverhältnisse auf 1440/1024/390/360px geprüft.
 
 ### `/images` — COLLECTION
 
@@ -411,23 +436,22 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Kompakte Zeilen beibehalten; domänenspezifische Metadaten verdichten. Priorität P2.
 
-### `/images/:id` — RECORD DETAIL
+### `/images/:id` — RECORD DETAIL v2 (migriert)
 
-- **Aufgabe / Hierarchie:** Bilder und Verknüpfungen prüfen. PageHeader → ActivityRow → DetailFacts → Timeline → Beziehungen.
-- **Header / Actions / Filter:** Zur Liste, Befunde, öffentliche/Graph/Markierungslinks sofern geliefert. Gemeinsamer Header; keine Source-Schreibaktion.
-- **Surfaces / Typografie / Status:** Generische Datenliste als Hero, Faktenpanel, Relationsliste. Gemeinsames Prüfraster gilt; Bild als kleine Listenminiatur; orphan/Links generisch.
-- **Loading / Error / Empty:** Lokaler Abruf leert überwiegend den vorherigen Datensatz; bei gleicher Identität Refresh-Erhalt prüfen. Sichere Fehler/Retry erhalten; leere Ergebnisse erklären und bei Filtern Reset anbieten. Ein Detail-404 ist kein leerer Bestand.
-- **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
-- **Terminologie / Änderung:** Große sichere Vorschau, Verknüpfungen, Herkunft; Technik nachrangig. Priorität P2.
+- **Ausgangszustand:** Generic Entity Detail mit ActivityRow-Hero, doppeltem Titel, frühen UUID-Fakten und Timeline vor Beziehungen.
+- **Aktueller Zustand:** Hero und große sichere Vorschau → Bildinformationen → Verknüpfte Datensätze → Qualität & Arbeitsstand → Timeline → Technische Informationen.
+- **Semantik:** `facts.image_links` zählt Verknüpfungen, `facts.orphan` zeigt Ja/Nein/Nicht verfügbar. Große ActivityThumbnail-Variante mit bestehender URL-Prüfung und AppModal; Fehlertext ohne automatische Wiederholung. Keine Metadaten oder semantischen Bildtitel erfinden.
+- **Shared:** EntityDetailPage, EntityHero, RecordSection, RecordRelations, RecordWorkflowSummary, EntityTimeline und EntityTechnicalMetadata. Keine neuen Backend-Felder, Source Writes oder Markdown-Felder.
+- **Zustände / Accessibility:** Ein h2, Sections h3, Relationszeilen h4; gleiche Identität bleibt bei Refresh sichtbar, 401/403/404 und Identitätswechsel löschen alte Inhalte, späte Antworten werden verworfen. Plaintext, lange Inhalte und Vorschauverhältnisse auf 1440/1024/390/360px geprüft.
 
-## UI-Wörterbuch-Audit und konkrete Fundstellen
+## UI-Wörterbuch-Audit: historische Fundstellen im Ausgangszustand
 
 Alle statischen Template-Texte und sichtbaren Label-Maps der inventarisierten Dateien wurden
 geprüft. API-Keys, SQL, Datenwerte und Quellinhalte werden nicht übersetzt. Folgende
 Abweichungsgruppen decken die gefundenen Produkttexte ab; die verbindlichen Zielbegriffe
 stehen im [Design Guide](design-system.md#2-sprache-und-terminologie).
 
-| Aktueller Text / Ort                                                                     | Ziel / Migration                                                                            |
+| Text im Ausgangszustand / Ort                                                            | Ziel / Migration                                                                            |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | Dashboard (`pages/index`)                                                                | Übersicht; Navigation heißt bereits so.                                                     |
 | Inbox, Findings, Finding-Snooze, Finding-Review (`inbox`, `InboxRow`)                    | Aufgabenübersicht, Befunde, fachliche Zurückstellung, Befundbewertung.                      |
@@ -451,7 +475,7 @@ stehen im [Design Guide](design-system.md#2-sprache-und-terminologie).
 | Dansk/English in E-Mail-Vorschau                                                         | Sprach-Eigennamen erhalten; nicht Admin-Oberflächensprache.                                 |
 | Development-Token/Worker/Generation                                                      | Nur in explizitem Entwicklungs-/Technikkontext; normale Aufgaben nicht damit überschreiben. |
 
-## Form-, Status- und Refresh-Audit
+## Form-, Status- und Refresh-Audit: Ausgangszustand
 
 Die Formflächen sind FilterBar/FilterForm, EntitySearch, GraphFilters, GeoScopeSelector,
 LoginPanel/AccessPanel, MarkFields und Mark-Formulare, FindingDetail, AssignmentEditor,
@@ -465,14 +489,15 @@ Select-Labels; FilterForm lässt viele Regeln als Code stehen; FindingDetail zei
 Review-Status roh. Markierungsfehler stehen erst unter dem ganzen Formular. SQL besitzt
 ein verschachteltes `main`; im späteren Workspace-PR als Region ausweisen.
 
-Refresh-Löschstellen: EntityDetailPage, EntityListPage, Activity, Marks (Liste/Detail),
+Historische Refresh-Löschstellen: EntityDetailPage, EntityListPage, Activity, Marks (Liste/Detail),
 Notifications (Liste/Detail/Versände), Geocoding (Liste/Detail), Queues, Statistik und
 EventContentStatistics. Checks behält Daten beim Polling, leert beim manuellen Abruf.
 Inbox hält Daten außer bei ungültigen Filtern; Dashboard/Findings/Quality verwenden Stores.
 GlobalSearchPalette ist bereits sauber getrennt und wird nicht neu gebaut.
 EntityTimeline löscht beim Identitätswechsel korrekt. GeoScope-Suchergebnisse und
 SQL-Ergebnisse dürfen nicht ungekennzeichnet zu anderen Parametern passen.
-Der Pilot hält nur Daten derselben Datensatzidentität beim Beziehungsseitenwechsel/Retry;
+Aktuell halten alle sechs Entity-Details nur Daten derselben Datensatzidentität beim
+Beziehungsseitenwechsel/Retry; Geocoding Workflow v2 hat ebenfalls einen Refresh-Erhalt.
 Auth-/Identitätswechsel und verspätete Antworten bleiben geschützt.
 
 ## Verifizierter Event-Vertrag und Markdown
@@ -522,63 +547,70 @@ Dieser Review-Fix erhält v2-Shell, Hero, Beschreibung, Qualität, Timeline, Tec
 Refresh-/Auth-Semantik ohne Backend-Änderung. `finding_count` ist nicht automatisch offene Inbox-Arbeit;
 `mark_count` umfasst auch erledigte Markierungen. null heißt nicht verfügbar.
 
-## Migrationsplan je Route
+## Migrationsmatrix je Route
 
-| Route                            | Aktuelles Muster                  | Zielmuster       | Priorität | Shared-Komponenten                                                            | Backend-Abhängigkeit                                                   |
-| -------------------------------- | --------------------------------- | ---------------- | --------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `/`                              | OVERVIEW                          | OVERVIEW         | P2        | KpiCard, QualityOverview                                                      | Nein                                                                   |
-| `/activity`                      | COLLECTION                        | COLLECTION       | P2        | ActivityRow, RequestState                                                     | Nein                                                                   |
-| `/inbox`                         | WORKFLOW                          | WORKFLOW         | P1        | InboxRow, AssignmentEditor                                                    | Nein                                                                   |
-| `/findings`                      | WORKFLOW                          | WORKFLOW         | P1        | FindingDetail, FilterForm                                                     | Nein                                                                   |
-| `/checks`                        | WORKFLOW                          | WORKFLOW         | P2        | DashboardCheckStatus                                                          | Nein                                                                   |
-| `/quality`                       | OVERVIEW                          | OVERVIEW         | P2        | QualityOverview, quality.ts                                                   | Nein                                                                   |
-| `/queues/partner_requests`       | WORKFLOW                          | WORKFLOW         | P2        | Queue-Zeile, FilterBar                                                        | Ja: neue verständliche Diagnoseaussagen nur mit geprüftem Code-Mapping |
-| `/queues/team_invitations`       | WORKFLOW                          | WORKFLOW         | P2        | Queue-Zeile                                                                   | Nein                                                                   |
-| `/queues/user_activation`        | WORKFLOW                          | WORKFLOW         | P2        | Queue-Zeile                                                                   | Nein                                                                   |
-| `/notifications`                 | COLLECTION                        | COLLECTION       | P1        | FilterBar, ResultSummary                                                      | Nein                                                                   |
-| `/notifications/:id`             | WORKFLOW                          | WORKFLOW         | P2        | Workflow-Detail, NotificationPreview                                          | Nein                                                                   |
-| `/notifications/deliveries`      | COLLECTION                        | COLLECTION       | P2        | FilterBar, Versandzeile                                                       | Nein                                                                   |
-| `/notifications/deliveries/:id`  | WORKFLOW                          | WORKFLOW         | P1        | Workflow-Detail, AssignmentEditor                                             | Nein                                                                   |
-| `/marks`                         | COLLECTION                        | COLLECTION       | P2        | MarkFields, EntityHero                                                        | Nein                                                                   |
-| `/marks/:id`                     | WORKFLOW                          | WORKFLOW         | P1        | MarkFields, Workflow-Detail                                                   | Nein                                                                   |
-| `/geocoding`                     | COLLECTION                        | COLLECTION       | P2        | FilterBar, ResultSummary                                                      | Nein                                                                   |
-| `/geocoding/:id`                 | WORKFLOW v2                       | WORKFLOW v2      | Umgesetzt | GeocodeSourceSummary, LocationSuggestion, AssignmentEditor                                          | Nein                                                                   |
-| `/graph`                         | WORKSPACE                         | WORKSPACE        | P2        | GraphWorkspace, GraphNodeDetails                                              | Nein                                                                   |
-| `/statistics`                    | WORKSPACE                         | WORKSPACE        | P2        | Statistik-Komponenten                                                         | Nein                                                                   |
-| `/statistics?view=event-content` | WORKSPACE                         | WORKSPACE        | P2        | EventContentStatistics                                                        | Nein                                                                   |
-| `/sql`                           | WORKSPACE                         | WORKSPACE        | P2        | SqlWorkspace, SqlQueryPanel                                                   | Nein                                                                   |
-| `/login`                         | WORKFLOW                          | WORKFLOW         | P2        | LoginPanel                                                                    | Nein                                                                   |
-| `/events`                        | COLLECTION                        | COLLECTION       | P2        | EntityListPage, ActivityRow                                                   | Nein                                                                   |
-| `/events/:id`                    | RECORD DETAIL v2                  | RECORD DETAIL v2 | Umgesetzt | EventDetailContent, EntityHero, RecordRelations, RecordWorkflowSummary        | Nein; typisierte Fachgruppen bleiben Folgearbeit                       |
-| `/organizations`                 | COLLECTION                        | COLLECTION       | P2        | EntityListPage, ActivityRow                                                   | Nein                                                                   |
-| `/organizations/:id`             | RECORD DETAIL v2                  | RECORD DETAIL v2 | Umgesetzt | OrganizationDetailContent, EntityHero, RecordRelations, RecordWorkflowSummary | Nein; typisierte Fachgruppen bleiben Folgearbeit                       |
-| `/venues`                        | COLLECTION                        | COLLECTION       | P2        | EntityListPage, ActivityRow                                                   | Nein                                                                   |
-| `/venues/:id`                    | RECORD DETAIL v2                  | RECORD DETAIL v2 | Umgesetzt | VenueDetailContent, EntityHero, RecordRelations, RecordWorkflowSummary        | Nein; typisierte Fachgruppen bleiben Folgearbeit                       |
-| `/spaces`                        | COLLECTION                        | COLLECTION       | P2        | EntityListPage, ActivityRow                                                   | Nein                                                                   |
-| `/spaces/:id`                    | RECORD DETAIL v2                  | RECORD DETAIL v2 | Umgesetzt | SpaceDetailContent, EntityHero, RecordRelations, RecordWorkflowSummary        | Nein; typisierte Fachgruppen bleiben Folgearbeit                       |
-| `/users`                         | COLLECTION                        | COLLECTION       | P2        | EntityListPage, ActivityRow                                                   | Nein                                                                   |
-| `/users/:id`                     | Generische Activity-Detailansicht | RECORD DETAIL    | P1        | EntityDetailPage-Slots, EntityHero, Domain-Presenter                          | Nein für Shell; Ja für unabhängige Fachgruppen/fehlende Fakten         |
-| `/images`                        | COLLECTION                        | COLLECTION       | P2        | EntityListPage, ActivityRow                                                   | Nein                                                                   |
-| `/images/:id`                    | Generische Activity-Detailansicht | RECORD DETAIL    | P2        | EntityDetailPage-Slots, EntityHero, Domain-Presenter                          | Nein für Shell; Ja für unabhängige Fachgruppen/fehlende Fakten         |
+Ausgangszustand bezeichnet den ursprünglichen Auditstand, aktueller Zustand den Code
+nach den hier dokumentierten Migrationen. „Migriert“ ist keine Deployment-Aussage.
+Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung der v2-UI.
 
-## Lieferfolge
+| Route                            | Ausgangszustand       | Aktueller Zustand | Zielzustand                                              | Status     |
+| -------------------------------- | --------------------- | ----------------- | -------------------------------------------------------- | ---------- |
+| `/`                              | OVERVIEW              | OVERVIEW          | OVERVIEW                                                 | offen (P2) |
+| `/activity`                      | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
+| `/inbox`                         | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P1) |
+| `/findings`                      | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P1) |
+| `/checks`                        | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
+| `/quality`                       | OVERVIEW              | OVERVIEW          | OVERVIEW                                                 | offen (P2) |
+| `/queues/partner_requests`       | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
+| `/queues/team_invitations`       | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
+| `/queues/user_activation`        | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
+| `/notifications`                 | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P1) |
+| `/notifications/:id`             | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
+| `/notifications/deliveries`      | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
+| `/notifications/deliveries/:id`  | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P1) |
+| `/marks`                         | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
+| `/marks/:id`                     | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P1) |
+| `/geocoding`                     | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
+| `/geocoding/:id`                 | WORKFLOW (generisch)  | WORKFLOW v2       | WORKFLOW v2                                              | migriert   |
+| `/graph`                         | WORKSPACE             | WORKSPACE         | WORKSPACE                                                | offen (P2) |
+| `/statistics`                    | WORKSPACE             | WORKSPACE         | WORKSPACE                                                | offen (P2) |
+| `/statistics?view=event-content` | WORKSPACE             | WORKSPACE         | WORKSPACE                                                | offen (P2) |
+| `/sql`                           | WORKSPACE             | WORKSPACE         | WORKSPACE                                                | offen (P2) |
+| `/login`                         | WORKFLOW              | WORKFLOW          | WORKFLOW                                                 | offen (P2) |
+| `/events`                        | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
+| `/events/:id`                    | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/organizations`                 | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
+| `/organizations/:id`             | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/venues`                        | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
+| `/venues/:id`                    | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/spaces`                        | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
+| `/spaces/:id`                    | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/users`                         | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
+| `/users/:id`                     | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/images`                        | COLLECTION            | COLLECTION        | COLLECTION                                               | offen (P2) |
+| `/images/:id`                    | Generic Entity Detail | RECORD DETAIL v2  | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+
+## Ursprüngliche Lieferfolge mit aktuellem Abschlussstand
 
 1. Dieses Audit + kanonischer Design Guide v2, danach Event-Detail als begrenzter Pilot.
 2. Gemeinsame Shell/Presenter, Markdown-Primitive und Pilot mit Regressionstests (gemeinsam
    reviewbar oder eigener Implementierungs-PR; keine Massenmigration).
    Vor semantischen Event-Gruppen: eigener begrenzter Event-Relationsvertrag mit fachlicher
    Terminreihenfolge, unabhängigen Referenzen und Medienpagination; keine Gruppen aus globaler Seite.
-3. **PR 3 (diese Migration):** Organisationen/Orte/Räume mit bestehenden Facts und ehrlicher
+3. **PR 3 (abgeschlossen):** Organisationen/Orte/Räume mit bestehenden Facts und ehrlicher
    globaler Pagination umgesetzt; gemeinsame Relations-/Arbeitsstand-/Standort-Komponenten.
    Typisierte Fachgruppen ausdrücklich nicht Teil dieser Frontend-Migration.
-4. **PR 4:** Benutzer/Bilder; Team/Einladung trennen, kanonische Namen, Bildrechte/Herkunft nur aus Vertrag.
+4. **PR 4 (abgeschlossen):** Benutzer/Bilder migriert; Team-/Einladungsstatus und Counts bleiben präzise, keine getrennten Gruppen aus der globalen Relationsseite. Bildrechte/Herkunft fehlen im Vertrag und werden weggelassen.
 5. **PR 5:** Workflows; Deutsch, Status, Formularfehler, Aufgaben-/Befund-Snooze klar trennen.
 6. **PR 6:** Rich-Text-Rollout nach feldweiser Quellprüfung; kein Markdown-Heuristikschalter.
 7. **PR 7:** Analytics/Workspaces; Terminologie, Labels, lokale Scrollbereiche, Refresh.
 8. **PR 8:** Abschließender Responsive-/Accessibility-Audit mit Tastatur, Screenreader,
    Kontrastmessung, langen Inhalten, Fehler-/Leer-/Ladezuständen und realen Browser-Zoomstufen.
 
-## Vollständiges Quellinventar
+## Vollständiges Quellinventar des ursprünglichen Audits
+
+Dieses Inventar bildet den historischen Audit-Ausgangspunkt ab, nicht das aktuelle
+Dateiverzeichnis. Neuere Presenter und Migrationen sind oben separat dokumentiert.
 
 Jede aufgeführte Datei wurde in die Code-/Template-/String-/State-Prüfung einbezogen.
 Nicht jede Datei erhält Änderungen; Diagrammgeometrie, Auth, API-Adapter und SQL-Ausführung

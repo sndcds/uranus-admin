@@ -194,3 +194,92 @@ export function placeDetailFixture(section: PlaceSection, page = 1): EntityDetai
   }
   return data
 }
+
+export const identitySections = ['users', 'images'] as const
+export type IdentitySection = (typeof identitySections)[number]
+
+/** Synthetic domain records using only the existing, globally paginated contract. */
+export function identityDetailFixture(section: IdentitySection, page = 1): EntityDetail {
+  const data = detailFixture(section)
+  data.item.entity_name =
+    section === 'users'
+      ? 'Alexandra Beispiel'
+      : 'Abstrakte Hafenlandschaft in Violett – Plakat für die gemeinsame Kulturnacht'
+  data.item.organization_id = data.item.organization_name = data.item.subtitle = null
+  data.item.email =
+    section === 'users'
+      ? 'alexandra.beispiel.kulturprogramm-und-teamkoordination@example.org'
+      : null
+  data.item.image_url =
+    section === 'users'
+      ? `https://api.kulturbytes.de/api/user/${data.item.entity_key}/avatar/128`
+      : data.item.image_url
+  data.item.facts =
+    section === 'users'
+      ? { ...data.item.facts, username: 'alexandra-beispiel', memberships: 13 }
+      : { ...data.item.facts, image_links: 27, orphan: false }
+  const organization = activityFixture.items.find((item) => item.entity_type === 'organization')!
+  const membership = activityFixture.items.find((item) => item.entity_type === 'team_membership')!
+  const items =
+    section === 'users'
+      ? [
+          ...Array.from({ length: 13 }, (_, index) => {
+            const key = `40000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`
+            return {
+              ...organization,
+              entity_key: key,
+              entity_name: `Kulturteam ${index + 1}`,
+              action: {
+                type: 'view' as const,
+                route: 'activity' as const,
+                entity_type: 'organization' as const,
+                entity_key: key,
+                href: `/organizations/${key}`,
+              },
+            }
+          }),
+          ...Array.from({ length: 13 }, (_, index) => {
+            const org = `40000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`
+            const key = `membership:${org}:${data.item.entity_key}`
+            return {
+              ...membership,
+              entity_key: key,
+              entity_name: data.item.entity_name,
+              organization_id: org,
+              organization_name: `Kulturteam ${index + 1}`,
+              status: index % 2 ? 'joined' : 'invited',
+              subtitle: 'Eingeladen: 02.02.2026 13:00 (Europe/Berlin)',
+              action: {
+                type: 'view' as const,
+                route: 'team_invitations' as const,
+                entity_type: 'team_membership' as const,
+                entity_key: key,
+                href: `/queues/team_invitations?entity_key=${encodeURIComponent(key)}`,
+              },
+            }
+          }),
+        ]
+      : Array.from({ length: 27 }, (_, index) => {
+          const type = index < 9 ? 'event' : index < 18 ? 'organization' : 'venue'
+          const related = activityFixture.items.find((item) => item.entity_type === type)!
+          const key = `50000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`
+          const path = { event: 'events', organization: 'organizations', venue: 'venues' }[type]
+          return {
+            ...related,
+            entity_key: key,
+            entity_name: `Bildkontext ${index + 1}`,
+            action: {
+              type: 'view' as const,
+              route: 'activity' as const,
+              entity_type: type,
+              entity_key: key,
+              href: `/${path}/${key}`,
+            },
+          }
+        })
+  data.related = {
+    items: items.slice((page - 1) * 25, page * 25),
+    pagination: { page, page_size: 25, total: items.length, pages: Math.ceil(items.length / 25) },
+  }
+  return data
+}
