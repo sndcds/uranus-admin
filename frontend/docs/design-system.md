@@ -1,4 +1,6 @@
-# Kulturbytes Admin Design System v2.1 — Admin Operations Center
+# Kulturbytes Admin Design System v2.1
+
+## Admin Operations Center
 
 Kanonischer UI-Vertrag für neue und migrierte Oberflächen. Version 2.1 folgt dem
 Operations-Center-Mockup: dunkles Navy, Fuchsia-Akzente, kompakte Überschriften,
@@ -67,7 +69,7 @@ Eine Seitenaktion gehört in den Seitenkontext, nicht in die globale Shell. Zur 
 führt zur fachlichen Collection. Root-Suche im Graph ist kein globaler Gebietsfilter.
 
 Geschütztes Layout: Skiplink → App-Navigation → Shell-Header (h1) → `main` →
-PageHeader (h2) → Abschnitte (h3) → Datensatzzeilen (h4 in Abschnittslisten).
+PageHeader (h2; Slots `leading`, `badge`, `context`, `actions`, Default als Actions-Fallback) → Abschnitte (h3) → Datensatzzeilen (h4 in Abschnittslisten).
 Login besitzt ein eigenes h1. Dialoge haben eigene benannte Überschriften.
 Kein zweites `main` im Workspace. Keine Überschrift nur wegen ihrer Schriftgröße wählen.
 
@@ -144,6 +146,8 @@ Karten/Diagramme/SQL besitzen eigene lokale Scroll-/Zoomflächen, keinen Seiteno
 
 ## 7. Abstände
 
+### Density
+
 Hauptblöcke 16–24px; Standard `.operations-page` und `.record-detail` 20px.
 Panel-Innenabstand 16px, Grid-Abstand 12px, zusammengehörige Metadaten 4–8px.
 Keine verschachtelten Außen-Paddings auf kleinen Screens. Kein pauschales
@@ -170,17 +174,35 @@ Kontrast für kleine Texte mindestens 4,5:1, große Texte/Controls mindestens 3:
 
 ## 9. Surfaces
 
+### Operations surfaces
+
+Benannte Rollen sind Tailwind-Kompositionen in `main.css`, kein zweites CSS-System:
+
+| Rolle                      | Aufgabe                                  |
+| -------------------------- | ---------------------------------------- |
+| `.operations-page`         | Abstand zwischen Hauptblöcken            |
+| `.operations-panel`        | Begrenzte Arbeitsfläche                  |
+| `.operations-panel-header` | Titelband mit optionalen Aktionen        |
+| `.operations-toolbar`      | Umbrechende Controls                     |
+| `.operations-grid`         | Responsives Inhaltsraster                |
+| `.operations-meta`         | Sekundäre Metadaten                      |
+| `.operations-techbar`      | Kompakter technischer Abschluss          |
+| `.operations-row`          | Dichte, bei Bedarf wachsende Zeile       |
+| `.operations-table`        | Semantische Tabelle mit kompakten Zellen |
+
 | Surface | Zweck                                             | Primitive                                                 |
 | ------- | ------------------------------------------------- | --------------------------------------------------------- |
 | Plain   | Einfacher Text ohne eigene Interaktionsebene      | `.section-plain`, `RecordSection surface="plain"`         |
 | Panel   | Standard für zusammengehörige Informationen       | `.section-panel` / `.operations-panel`, `surface="panel"` |
 | Subtle  | Kontext, untergeordnete Bearbeitung               | `.section-subtle`, `surface="subtle"`                     |
 | Table   | Dichte Datenlisten ohne zusätzliches Panelpadding | `.section-table`, `surface="table"`                       |
-| Technik | Technischer Abschluss mit belegten Werten         | `.technical-bar`, `TechnicalInfoBar`                      |
+| Technik | Technischer Abschluss mit belegten Werten         | `.operations-techbar`, `TechnicalInfoBar`                 |
 
 `RecordSection` bleibt zur kompatiblen schrittweisen Migration standardmäßig plain.
 Panel/Subtle/Table erhalten ein Headerband (`.operations-panel-header`), Panel/Subtle
-zusätzlich 16px Inhaltsabstand. Neue größere Informationsgruppen explizit begrenzen.
+zusätzlich 16px Inhaltsabstand. `RecordSection surface="panel"` ist das gemeinsame
+OperationsPanel-Pattern: `title`, `description`, dekorativer `icon`-Slot, `actions`-Slot
+und Default-Inhalt. Es gibt keinen zweiten Panel-Wrapper. Neue größere Informationsgruppen explizit begrenzen.
 Keine verschachtelten dekorativen Karten. `.operations-grid` bietet mobil eine, ab sm
 zwei Spalten. `.operations-toolbar` bricht Controls um; `.operations-meta` ist 12px.
 
@@ -197,7 +219,8 @@ Kein aus einer Anmeldung abgeleiteter Live-Systemstatus.
 
 ### CompactFacts
 
-`items`: eindeutiges `label`, `value`, optional `metadata` und `tone`.
+`items`: eindeutiges `label`, `value`, optional `description` und `tone`.
+`metadata` bleibt als kompatibler Beschreibungsalias verfügbar; `description` hat Vorrang.
 `columns`: 2 (Default), 3 oder 4; mobil eine, ab sm zwei, ab xl die gewählte Zahl.
 `missing="label"` zeigt „Nicht verfügbar“ für null/undefined/leere Strings;
 `missing="omit"` lässt diese aus. 0 und false bleiben sichtbar; Boolean als Ja/Nein.
@@ -208,13 +231,47 @@ Keine Feldableitung oder API-Abrufe in diesem Präsentationsbaustein.
 
 `items`: dieselben Felder plus `copyable` und `mono`. Leere Werte und komplett leere
 Leisten entfallen. Standardtitel „Technische Informationen“, anpassbar über `title`.
+`showTitle=false` lässt das Titelband weg und erhält die benannte Region.
+Optionale `datetime`/`timezone` erhalten `<time datetime>` und die sichtbare Zeitzone.
+`EntityTechnicalMetadata` verwendet diese Leiste für UUID/Kopieren, belegtes created_at
+und observed_at mit den bestehenden Europe/Berlin-Formattern.
 Nur echte Contract-Werte übergeben, keine erfundenen Release-/API-/Verbindungsdaten.
 Desktop: horizontale, umbrechende Metadaten; mobil einspaltig, Tablet zweispaltig.
 UUIDs bleiben vollständig lesbar. Kopieren ist explizit, mit Live-Rückmeldung und
 lesbarem Fehler; nach Datenwechsel werden veraltete Kopierrückmeldungen verworfen.
 Töne: neutral, info, success, warning, error; stets auch ein aussagekräftiger Textwert.
 
-### DenseTable
+### Technical info: Einsatzregel
+
+**Technische Informationen sollen auf jeder Seite erscheinen, wenn dafür verifizierte
+technische Daten verfügbar sind.** Eine Seite braucht keine künstliche Tech-Bar.
+Die folgenden Beispiele sind Auswahlhilfen, keine zusätzlichen API-Felder oder Auftrag
+zur sofortigen Seitenmigration:
+
+| Kontext    | Mögliche belegte Werte                                                             |
+| ---------- | ---------------------------------------------------------------------------------- |
+| Record     | UUID, created_at, observed_at                                                      |
+| Geocoding  | Request-ID, Generation, Attempts, checked_at                                       |
+| Dashboard  | Datenstand, Zeitzone, letzter erfolgreicher Prüflauf aus einem vorhandenen Vertrag |
+| Statistics | Zeitraum, Intervall, Timezone, Scope                                               |
+| SQL        | Datasource, Readonly, Limits, Connection                                           |
+| Graph      | Root, Depth, Nodes, Edges, Truncated                                               |
+| Collection | observed_at, Scope, hilfreiche Seitengröße                                         |
+
+Nur gelieferte Werte und vorhandene verifizierte Konfiguration verwenden. Kein
+zusätzlicher Request oder erfundener Timestamp nur für diese Darstellung.
+
+### Dense rows
+
+`DataListShell dense` verdichtet ausschließlich direkte `.data-row`-Kinder. `as="ul"`
+und echte `li` erhalten Listensemantik; `aria-label`/`aria-busy` werden durchgereicht.
+Alternativ kann `.operations-row` eine einzelne Zeile kennzeichnen. Minimum 44px,
+mit Controls typischerweise 52px; lange Inhalte wachsen ohne Abschneiden.
+Divider, Hover und 12px Seitenpadding sind gemeinsam definiert. Der Aufrufer ordnet
+seine fachlichen Felder und Aktionen; mobil darf deren Flex-/Grid-Struktur stapeln.
+Der Default von DataListShell und alle bestehenden Listen bleiben kompatibel.
+
+### Dense tables — DenseTable
 
 Typisierte `columns` (`key`, `label`, optional `rowHeader`), `rows`, stabile `rowKey`-
 Funktion und Pflicht-`caption`. Slots `cell-<key>` erhalten `row`/`value`, `actions`
@@ -227,6 +284,12 @@ Für echte Vergleichsmatrizen `mobile="scroll"`: benannte, fokussierbare lokale 
 `busy` zeigt Aktualisierung statt leerem Erfolg; ohne Zeilen kompakter EmptyState.
 
 ## 10. Aktionen
+
+### Action hierarchy
+
+Maximal eine Primary Action pro Kontext; ohne priorisierte Aufgabe ist keine nötig.
+Danger kennzeichnet ausschließlich echte destruktive Aktionen, nicht normale Navigation,
+Filter-Reset oder eine Warnung. Keine sechs gleich starken Buttons nebeneinander.
 
 | Gewicht   | Darstellung                       | Einsatz                              |
 | --------- | --------------------------------- | ------------------------------------ |
@@ -464,10 +527,18 @@ benennen und Neuladen anbieten, ungespeicherte Änderungen nicht still überschr
 
 ## 22. Leere Zustände
 
-`EmptyState compact` reduziert die leere Fläche auf mindestens 64px; Aktionen können
-über den Default-Slot ergänzt werden. Bestehender Default bleibt kompatibel.
+### Compact empty states
+
+`EmptyState variant="compact"` reduziert die leere Fläche auf mindestens 64px.
+Optionaler `title`, Beschreibung über das bestehende `message` und ein `actions`-Slot.
+Der boolesche Alias `compact` und Aktionen im Default-Slot bleiben kompatibel;
+ein explizites `variant` hat Vorrang. Die Standardvariante behält ihre bisherigen Abstände.
+
+### Compact timeline
+
 `EntityTimeline compact` reduziert Padding/Icon/Summary-Abstände bei identischen
 Ereignissen, Zeitangaben, Metadaten und Pagination. Keine abgeschnittene Evidenz.
+Links bleiben echte 44px-Controls; Datum und Europe/Berlin-Bedeutung ändern sich nicht.
 
 Titel + kurze Erklärung + optionale Aktion. Beispiel Collection: „Keine passenden
 Veranstaltungen“ / „Ändere die Filter, um weitere Datensätze zu sehen.“ / „Filter zurücksetzen“.

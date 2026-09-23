@@ -5,12 +5,22 @@ Referenz: das bereitgestellte Operations-Center-Mockup. Diese Phase setzt dessen
 Designsprache in gemeinsamen Komponenten und im App-Rahmen um. Die dort gezeigten
 vollständigen Dashboard-/Record-/Geocoding-Umbauten folgen in eigenen PRs.
 
+## Ergänzung nach PR #109
+
+Der separate Foundation-Folge-PR basiert auf `main` bei
+`b19b19d9e1381ff1d30be4dfc5ebb315a24697cc` (inklusive PR #110). Er ergänzt den dichten Listenmodus,
+den echten PageHeader und die kompakte EntityTimeline in der isolierten Fixture.
+Die Komponenten werden bei 1440×1000, 1024×768, 390×844 und 360×800 geprüft.
+Die historischen Sidebar-Aufnahmen bleiben gültig: dieser Folge-PR verändert die Shell nicht.
+Vollständige Lint-/Typ-/Unit-/Build-/Production-E2E-/CSP-Prüfungen erfolgen in GitHub CI;
+die unten aufgeführten alten Testergebnisse gelten ausschließlich für PR #109.
+
 ## Review-Aufnahmen
 
 Alle Werte sind synthetische Fixtures, keine Produktions- oder Source-Evidenz.
 
 - [Komponenten, Desktop](components-1440.png)
-- [Komponenten, Tablet](components-820.png)
+- [Komponenten, Tablet](components-1024.png)
 - [Komponenten, Mobil](components-390.png)
 - [Komponenten, schmal mobil](components-360.png)
 - [Desktop-Sidebar](sidebar-desktop.png)
@@ -18,9 +28,12 @@ Alle Werte sind synthetische Fixtures, keine Produktions- oder Source-Evidenz.
 - [CompactFacts](compact-facts.png)
 - [TechnicalInfoBar](technical-info.png)
 - [DenseTable](dense-table.png)
+- [Dichte Liste](dense-list.png)
+- [Kompakte Timeline](compact-timeline.png)
 
 Die Komponentenansicht zeigt CompactFacts, explizite Panel-/Subtle-Surfaces,
-DenseTable mit Status/Zeilenaktionen, kompakten EmptyState und TechnicalInfoBar.
+DenseTable mit Status/Zeilenaktionen, dichte Liste, kompakten EmptyState, echte kompakte
+EntityTimeline und TechnicalInfoBar. Der PageHeader verwendet den benannten Actions-Slot.
 Sie läuft ausschließlich als separate Vite-Testfixture auf Loopback-Port 3101;
 es gibt keine zusätzliche Nuxt-Route, kein Demo-Featureflag und keine API-Requests.
 
@@ -30,6 +43,8 @@ Aus `frontend/`:
 
 ```sh
 pnpm test:e2e tests/e2e/operations-foundations.spec.ts --workers=2
+# Bewusst nur die versionierten Komponentenaufnahmen aktualisieren:
+UPDATE_FOUNDATION_SCREENSHOTS=1 pnpm test:e2e operations-foundations --project=desktop --grep "operations primitives"
 ```
 
 Playwright schreibt neue Aufnahmen in `test-results/`; ausgewählte Review-Aufnahmen
@@ -59,7 +74,7 @@ bestehende CSP-Suite separat gegen den Nuxt-Produktionsbuild.
 Screenreader-Handprüfung und 200%-Zoom-Review bleiben Teil des abschließenden
 Accessibility-Audits; Screenshots und Browser-Tests behaupten keine vollständige WCAG-Prüfung.
 
-## Validierung
+## Historische Validierung von PR #109
 
 - Frozen-Lockfile-Installation, ESLint, Typecheck und Produktionsbuild erfolgreich.
 - Unit-Tests: 43 Dateien, 602 Tests erfolgreich.

@@ -7,9 +7,10 @@ import {
   operationTones,
   type TechnicalFact,
 } from '~/utils/operations'
-const props = withDefaults(defineProps<{ items: readonly TechnicalFact[]; title?: string }>(), {
-  title: 'Technische Informationen',
-})
+const props = withDefaults(
+  defineProps<{ items: readonly TechnicalFact[]; title?: string; showTitle?: boolean }>(),
+  { title: 'Technische Informationen', showTitle: true },
+)
 const id = useId()
 const visible = computed(() => props.items.filter((item) => hasOperationValue(item.value)))
 const feedback = ref('')
@@ -39,8 +40,13 @@ async function copy(item: TechnicalFact) {
 </script>
 
 <template>
-  <section v-if="visible.length" class="technical-bar" :aria-labelledby="id">
-    <header class="operations-panel-header">
+  <section
+    v-if="visible.length"
+    class="operations-techbar"
+    :aria-labelledby="showTitle ? id : undefined"
+    :aria-label="showTitle ? undefined : title"
+  >
+    <header v-if="showTitle" class="operations-panel-header">
       <h3 :id="id" class="flex items-center gap-2 text-sm font-semibold">
         <AppIcon name="database" :size="16" />{{ title }}
       </h3>
@@ -56,7 +62,15 @@ async function copy(item: TechnicalFact) {
           class="flex min-w-0 flex-wrap items-center gap-x-2 text-xs leading-5"
           :class="operationTones[item.tone ?? 'neutral']"
         >
+          <time
+            v-if="item.datetime"
+            :datetime="item.datetime"
+            :title="item.timezone"
+            class="min-w-0 break-words"
+            >{{ operationValue(item.value) }}</time
+          >
           <component
+            v-else
             :is="item.mono ? 'code' : 'span'"
             class="min-w-0 break-words [overflow-wrap:anywhere]"
             >{{ operationValue(item.value) }}</component
@@ -70,7 +84,10 @@ async function copy(item: TechnicalFact) {
           >
             <AppIcon name="copy" :size="14" />Kopieren
           </button>
-          <span v-if="item.metadata" class="operations-meta basis-full">{{ item.metadata }}</span>
+          <span v-if="item.timezone" class="operations-meta">{{ item.timezone }}</span>
+          <span v-if="item.description || item.metadata" class="operations-meta basis-full">{{
+            item.description || item.metadata
+          }}</span>
         </dd>
       </div>
     </dl>

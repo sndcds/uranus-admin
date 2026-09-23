@@ -18,6 +18,15 @@ Diese Folgephasen benötigen jeweils einen eigenen Review; sie gehören nicht zu
 [Komponenten-/Shell-Aufnahmen und Reproduktion](screenshots/operations-foundations/README.md).
 Historische Auditbefunde und v2-Migrationsverträge unten bleiben als Kontext erhalten.
 
+Foundation-Abgleich nach PR #109, erneut geprüft auf `main` bei
+`b19b19d9e1381ff1d30be4dfc5ebb315a24697cc` (inklusive gemergtem Dashboard-PR #110): fehlende Shared-Verträge ergänzt. EntityTechnicalMetadata verwendet
+TechnicalInfoBar mit unveränderter UUID-/Zeitsemantik. DataListShell bietet einen opt-in
+dense-Modus; RecordSection ist das Panel-Pattern mit Icon und Aktionen. PageHeader erhält
+einen benannten Actions-Slot, EmptyState die benannte compact-Variante. Die isolierte
+Fixture zeigt den echten PageHeader und EntityTimeline in den vier geforderten Größen.
+Alle sechs Record-v2-Migrationen und Geocoding Workflow v2 bleiben erhalten. Die gemeinsame
+Tech-Bar-Adoption ist keine vollständige Fachseitenmigration auf v2.1.
+
 ## Prüfstand und Methode
 
 Audit vor Anwendungsänderungen, 23.09.2026. Frisch geholtes `main`:

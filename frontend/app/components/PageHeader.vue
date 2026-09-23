@@ -30,7 +30,7 @@ defineProps<{ title: string; description?: string; titleId?: string; record?: bo
         data-page-header-primary-actions
         class="order-1 flex min-w-0 flex-wrap items-center gap-2 empty:hidden sm:order-2"
       >
-        <slot />
+        <slot name="actions"><slot /></slot>
       </div>
     </div>
   </header>

@@ -150,6 +150,9 @@ for (const viewport of [
       const nav = page
         .getByRole('navigation', { name: 'Hauptnavigation' })
         .filter({ visible: true })
+      await expect(nav).toBeVisible()
+      // Both navigation surfaces retain the Operations theme on every route.
+      expect(await nav.evaluate((el) => el.closest('.operations-sidebar') !== null)).toBe(true)
       if (label)
         await expect(nav.getByRole('link', { name: label, exact: true })).toHaveAttribute(
           'aria-current',

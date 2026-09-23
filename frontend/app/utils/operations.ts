@@ -4,12 +4,15 @@ export type OperationTone = 'neutral' | 'info' | 'success' | 'warning' | 'error'
 export interface CompactFact {
   label: string
   value: OperationValue
+  description?: string
   metadata?: string
   tone?: OperationTone
 }
 export interface TechnicalFact extends CompactFact {
   copyable?: boolean
   mono?: boolean
+  datetime?: string
+  timezone?: string
 }
 export const operationTones: Record<OperationTone, string> = {
   neutral: 'text-slate-900',
