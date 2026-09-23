@@ -10,7 +10,7 @@ from app.config import Settings
 from app.errors import APIError
 from app.repositories.activity import ENTITY_ACTIVITY_SQL
 from app.repositories.activity_previews import activity_previews
-from app.repositories.entity_search import escape_search
+from app.repositories.entity_search import SEARCH_DEFINITIONS, SearchDefinition, search_parameters
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
 from app.repositories.query import ReadQuery
 from app.repositories.spatial import mixed_spatial_predicate
@@ -28,9 +28,6 @@ from app.schemas.graph import (
 MAX_NODES = 100
 MAX_EDGES = 200
 TYPES = ("organization", "venue", "space", "event", "event_date", "user")
-# Reuse the explicit safe Activity name/status projection. PostgreSQL can inline this CTE.
-ENTITY_SQL = " UNION ALL ".join(ENTITY_ACTIVITY_SQL.values())
-NODES_SQL = f"SELECT * FROM ({ENTITY_SQL}) a WHERE entity_type = ANY(:types)"
 SOURCE_ALIASES = {
     "organization": "o",
     "venue": "v",
@@ -171,6 +168,7 @@ def node(row: dict[str, Any]) -> GraphNode:
         type=kind,
         key=key,
         label=row["entity_name"],
+        subtitle=row.get("subtitle"),
         status=row["status"],
         admin_url=Action(route="activity", entity_type=kind, entity_key=key).href,
     )
@@ -182,22 +180,44 @@ def graph_search_query(
     if filters.geo_scope_id and filters.entity_type == "user":
         raise APIError(422, "invalid_input", "Users have no spatial membership.")
     geo = " AND " + mixed_spatial_predicate() if geo_scope_wkb is not None else ""
-    # Literal substring matching: % and _ in names are not wildcard instructions.
-    query = escape_search(filters.q)
+    # Dates retain their graph-only name/UUID semantics; shared types use the
+    # same fields, labels, rank and literal matching as global/entity search.
+    date_definition = SearchDefinition(
+        f"({ENTITY_ACTIVITY_SQL['event_date']}) "
+        "d(entity_type,entity_key,entity_name,organization_id,organization_name,created_at,status)",
+        ("d.entity_key", "d.entity_name"),
+        "d.entity_name",
+        "NULL::text",
+        organization="d.organization_id",
+        status="d.status",
+        created_at="d.created_at",
+        field_names=("uuid", "name"),
+    )
+    branches = []
+    for kind in TYPES:
+        if filters.entity_type and kind != filters.entity_type:
+            continue
+        if geo_scope_wkb is not None and kind == "user":
+            continue
+        definition = date_definition if kind == "event_date" else SEARCH_DEFINITIONS[kind]
+        branches.append(f"""(SELECT entity_type,entity_key,label entity_name,subtitle,status,
+            {definition.rank()} rank FROM (
+                SELECT '{kind}' entity_type,{definition.projection()[7:]}
+            ) a WHERE ({definition.matches()})
+            AND (CAST(:org AS uuid) IS NULL OR organization_id=:org
+              OR (entity_type='user' AND EXISTS (
+                SELECT 1 FROM uranus.organization_member_link m
+                WHERE m.user_uuid::text=a.entity_key AND m.org_uuid=:org))) {geo}
+            ORDER BY rank,lower(label) COLLATE "C",entity_key COLLATE "C" LIMIT :limit)""")
     return ReadQuery(
-        text(f"""
-        SELECT entity_type,entity_key,entity_name,status FROM ({NODES_SQL}) a
-        WHERE (entity_name ILIKE :q OR entity_key ILIKE :q)
-        AND (CAST(:org AS uuid) IS NULL OR organization_id=:org
-          OR (entity_type='user' AND EXISTS (
-            SELECT 1 FROM uranus.organization_member_link m
-            WHERE m.user_uuid::text=a.entity_key AND m.org_uuid=:org)))
-        {geo}
-        ORDER BY lower(entity_name),entity_type,entity_key LIMIT :limit
-    """),
+        text(
+            "SELECT entity_type,entity_key,entity_name,subtitle,status FROM ("
+            + " UNION ALL ".join(branches)
+            + ') a ORDER BY rank,lower(entity_name) COLLATE "C",entity_type,'
+            'entity_key COLLATE "C" LIMIT :limit'
+        ),
         {
-            "types": [filters.entity_type] if filters.entity_type else list(TYPES),
-            "q": f"%{query}%",
+            **search_parameters(filters.q),
             "geo_scope_wkb": geo_scope_wkb,
             "org": filters.organization_id,
             "limit": filters.limit,

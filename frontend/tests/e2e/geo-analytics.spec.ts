@@ -132,7 +132,7 @@ test('geo context spans analytics; global metrics and complete graph relationshi
   await expect(page.getByText('1. Kategorie im Gebiet', { exact: true }).first()).toBeVisible()
   await expect(page.getByText(/Rankings und Anteile beziehen sich/)).toBeVisible()
   await navigate(page, 'Beziehungsgraph')
-  await page.getByLabel('Nach Name oder UUID suchen', { exact: true }).fill('Organisation')
+  await page.getByLabel('Nach Name, E-Mail oder UUID suchen', { exact: true }).fill('Organisation')
   await expect(
     page.getByRole('button', { name: 'Organisation im Gebiet Organisation', exact: true }),
   ).toBeVisible()
