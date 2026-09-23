@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { supportsGeoScope } from '~/utils/geo'
 import { dateTime } from '~/utils/presentation'
+const palette = useTemplateRef('palette')
 const preferences = useFilterPreferencesStore()
 const route = useRoute()
 const auth = useAuthStore()
@@ -26,6 +27,7 @@ function closeMenu() {
 
 <template>
   <div v-if="auth.isAdmin" :key="auth.revision">
+    <GlobalSearchPalette ref="palette" />
     <a
       href="#main-content"
       class="fixed left-4 top-2 z-50 -translate-y-24 rounded-xl bg-white p-3 font-semibold focus:translate-y-0"
@@ -70,6 +72,14 @@ function closeMenu() {
             <h1 class="min-w-0 truncate text-base font-semibold">
               {{ heading }}
             </h1>
+            <button
+              class="ml-auto grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white"
+              aria-label="Globale Suche öffnen"
+              :disabled="!interactive"
+              @click="palette?.show()"
+            >
+              <AppIcon name="search" />
+            </button>
           </div>
           <div class="border-t border-slate-100 px-4 py-2">
             <GeoScopeSelector compact />
@@ -90,6 +100,15 @@ function closeMenu() {
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-3">
+            <button
+              class="button min-h-11"
+              aria-label="Globale Suche öffnen"
+              :disabled="!interactive"
+              @click="palette?.show()"
+            >
+              <AppIcon name="search" :size="16" /> Suchen
+              <kbd class="text-xs text-slate-500">Ctrl/⌘ K</kbd>
+            </button>
             <GeoScopeSelector />
             <span class="text-sm text-slate-600">Systemadministrator</span>
             <button

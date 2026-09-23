@@ -1,4 +1,4 @@
-"""Fixed search projections shared by autocomplete and paginated entity lists."""
+"""Canonical fields, presentation and ranking for entity, global and graph search."""
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -14,6 +14,12 @@ from app.repositories.temporal import temporal_predicate
 from app.repositories.user_presentation import USER_DISPLAY_LABEL_SQL
 from app.schemas.action import Action
 from app.schemas.entities import EntitySearchFilters, EntitySearchItem, EntitySearchResponse
+from app.schemas.search import (
+    GlobalSearchFilters,
+    GlobalSearchGroup,
+    GlobalSearchItem,
+    GlobalSearchResponse,
+)
 
 
 def escape_search(value: str) -> str:
@@ -27,6 +33,7 @@ class SearchDefinition:
     fields: tuple[str, ...]  # First field is always the UUID cast to text.
     label: str
     subtitle: str
+    field_names: tuple[str, ...] = field(kw_only=True)
     created_at: str = field(kw_only=True)
     organization: str = "NULL::uuid"
     status: str = "NULL::text"
@@ -38,6 +45,20 @@ class SearchDefinition:
             f"{self.created_at} created_at,{self.organization} organization_id,"
             f"{self.status} status,{fields} FROM {self.source}"
         )
+
+    def rank(self) -> str:
+        return (
+            f"CASE WHEN search_0 ILIKE :exact THEN 0 "
+            f"WHEN {self.matches('exact')} THEN 1 "
+            f"WHEN {self.matches('prefix')} THEN 2 ELSE 3 END"
+        )
+
+    def matched_fields(self) -> str:
+        fields = ",".join(
+            f"CASE WHEN search_{i} ILIKE :q THEN '{name}' END"
+            for i, name in enumerate(self.field_names)
+        )
+        return f"array_remove(ARRAY[{fields}],NULL)"
 
     def matches(self, parameter: str = "q") -> str:
         return " OR ".join(f"search_{i} ILIKE :{parameter}" for i in range(len(self.fields)))
@@ -54,6 +75,7 @@ SEARCH_DEFINITIONS = {
         f"NULLIF('@'||NULLIF(NULLIF(u.username,''),{USER_DISPLAY_LABEL_SQL}),"
         f"{USER_DISPLAY_LABEL_SQL}),"
         f"NULLIF(NULLIF(u.email,''),{USER_DISPLAY_LABEL_SQL})), '')",
+        field_names=("uuid", "username", "display_name", "email", "first_name", "last_name"),
         created_at="u.created_at",
         status="CASE WHEN u.is_active THEN 'active' ELSE 'inactive' END",
     ),
@@ -64,6 +86,7 @@ SEARCH_DEFINITIONS = {
         "COALESCE(NULLIF(concat_ws(' · ',NULLIF(o.city,''),NULLIF(o.postal_code,'')),''),"
         "NULLIF(o.contact_email,''))",
         "o.uuid",
+        field_names=("uuid", "name", "contact_email", "city", "postal_code"),
         created_at="o.created_at",
     ),
     "venue": SearchDefinition(
@@ -82,6 +105,15 @@ SEARCH_DEFINITIONS = {
         "NULLIF(concat_ws(' ',NULLIF(v.street,''),NULLIF(v.house_number,'')),''),"
         "NULLIF(concat_ws(' ',NULLIF(v.postal_code,''),NULLIF(v.city,'')),'')),''),o.name)",
         "v.org_uuid",
+        field_names=(
+            "uuid",
+            "name",
+            "contact_email",
+            "street",
+            "house_number",
+            "postal_code",
+            "city",
+        ),
         created_at="v.created_at",
     ),
     "space": SearchDefinition(
@@ -90,6 +122,7 @@ SEARCH_DEFINITIONS = {
         "s.name",
         "COALESCE(NULLIF(v.name,''),NULLIF(s.space_type,''))",
         "v.org_uuid",
+        field_names=("uuid", "name", "venue_name", "space_type"),
         created_at="s.created_at",
     ),
     "event": SearchDefinition(
@@ -99,6 +132,7 @@ SEARCH_DEFINITIONS = {
         "COALESCE(NULLIF(e.subtitle,''),NULLIF(o.name,''),e.release_status::text,e.external_id)",
         "e.org_uuid",
         "e.release_status::text",
+        field_names=("uuid", "title", "subtitle", "external_id"),
         created_at="e.created_at",
     ),
     "image": SearchDefinition(
@@ -106,6 +140,7 @@ SEARCH_DEFINITIONS = {
         ("i.uuid::text", "i.file_name", "i.alt_text", "i.creator_name", "i.mime_type"),
         "COALESCE(NULLIF(i.alt_text,''),NULLIF(i.file_name,''),i.uuid::text)",
         "NULLIF(i.mime_type,'')",
+        field_names=("uuid", "file_name", "alt_text", "creator_name", "mime_type"),
         created_at="i.created_at",
     ),
 }
@@ -146,8 +181,7 @@ def entity_search_query(
         WHERE ({definition.matches()}) AND {ORGANIZATION_FILTER}
         AND (CAST(:status AS text) IS NULL OR status=:status)
         AND {temporal} AND {period_sql} AND {spatial}
-        ORDER BY CASE WHEN {definition.matches("exact")} THEN 0
-                      WHEN {definition.matches("prefix")} THEN 1 ELSE 2 END,
+        ORDER BY {definition.rank()},
                  lower(label) COLLATE "C",entity_key COLLATE "C"
         LIMIT :limit"""),
         {
@@ -187,4 +221,54 @@ async def entity_search(
             )
             for row in rows
         ]
+    )
+
+
+def search_parameters(q: str) -> dict[str, str]:
+    escaped = escape_search(q)
+    return {"q": f"%{escaped}%", "exact": escaped, "prefix": f"{escaped}%"}
+
+
+def global_search_query(filters: GlobalSearchFilters) -> ReadQuery:
+    # Each branch sorts/limits in PostgreSQL before UNION; at most 60 compact rows.
+    branches = []
+    for kind in filters.selected_types:
+        definition = SEARCH_DEFINITIONS[kind]
+        branches.append(f"""(SELECT '{kind}' entity_type,entity_key,label,subtitle,
+            {definition.matched_fields()} matched_fields,{definition.rank()} rank
+            FROM ({definition.projection()}) a WHERE ({definition.matches()})
+            ORDER BY rank,lower(label) COLLATE "C",entity_key COLLATE "C"
+            LIMIT :limit)""")
+    return ReadQuery(
+        text(
+            "SELECT entity_type,entity_key,label,subtitle,matched_fields FROM ("
+            + " UNION ALL ".join(branches)
+            + ') a ORDER BY entity_type COLLATE "C",rank,lower(label) COLLATE "C",'
+            'entity_key COLLATE "C"'
+        ),
+        {**search_parameters(filters.q), "limit": filters.limit_per_type},
+    )
+
+
+async def global_search(
+    connection: AsyncConnection, filters: GlobalSearchFilters
+) -> GlobalSearchResponse:
+    query = global_search_query(filters)
+    rows = (await connection.execute(query.statement, query.parameters)).mappings()
+    groups: dict[str, list[GlobalSearchItem]] = {}
+    for row in rows:
+        item = GlobalSearchItem(
+            **row,
+            action=Action(
+                route="activity", entity_type=row["entity_type"], entity_key=row["entity_key"]
+            ),
+        )
+        groups.setdefault(item.entity_type, []).append(item)
+    return GlobalSearchResponse(
+        query=filters.q,
+        groups=[
+            GlobalSearchGroup(entity_type=kind, items=groups[kind])
+            for kind in filters.selected_types
+            if kind in groups
+        ],
     )

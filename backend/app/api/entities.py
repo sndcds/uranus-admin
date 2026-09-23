@@ -7,7 +7,7 @@ from fastapi import APIRouter, Query, Request
 from app.admin_database import connect_admin
 from app.database import ConnectionDep, SettingsDep
 from app.repositories.entities import entity_detail, entity_page, workflow_counts
-from app.repositories.entity_search import entity_search
+from app.repositories.entity_search import entity_search, global_search
 from app.schemas.entities import (
     EntityDetail,
     EntityFilters,
@@ -16,6 +16,7 @@ from app.schemas.entities import (
     EntitySearchResponse,
     EntitySection,
 )
+from app.schemas.search import GlobalSearchFilters, GlobalSearchResponse
 from app.services.geo.scopes import request_geo_scope
 
 router = APIRouter(tags=["Domain records"])
@@ -32,6 +33,14 @@ async def search(
     return await entity_search(
         connection, filters, settings, datetime.now(UTC), scope.ewkb if scope else None
     )
+
+
+@router.get("/search", response_model=GlobalSearchResponse)
+async def search_globally(
+    connection: ConnectionDep,
+    filters: Annotated[GlobalSearchFilters, Query()],
+) -> GlobalSearchResponse:
+    return await global_search(connection, filters)
 
 
 # Register six explicit endpoints; no catch-all source table or arbitrary projection.

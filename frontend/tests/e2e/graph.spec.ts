@@ -21,7 +21,7 @@ test('search, explore, select, filter and navigate back', async ({ page }, info)
   await page.goto('/graph')
   await expectLogoutAvailable(page)
   await expect(page.getByRole('heading', { name: 'Zusammenhänge entdecken' })).toBeVisible()
-  await page.getByLabel('Nach Name oder UUID suchen', { exact: true }).fill('Rendsburg')
+  await page.getByLabel('Nach Name, E-Mail oder UUID suchen', { exact: true }).fill('Rendsburg')
   await page
     .getByRole('button', { name: 'Kulturzentrum Rendsburg e.V. Organisation', exact: true })
     .click()
@@ -53,7 +53,7 @@ test('user search accepts canonical detail links and opens the graph', async ({ 
   )
   await page.goto('/graph')
   await expectLogoutAvailable(page)
-  await page.getByLabel('Nach Name oder UUID suchen', { exact: true }).fill('Max')
+  await page.getByLabel('Nach Name, E-Mail oder UUID suchen', { exact: true }).fill('Max')
   await page.getByRole('button', { name: 'Max Mustermann Benutzer', exact: true }).click()
   await expect(page).toHaveURL(/root_type=user/)
   await expect(page.locator('.graph-node')).toHaveCount(12)
@@ -88,7 +88,7 @@ test('truncation, failure and empty results are explicit', async ({ page }) => {
   await page.route('**/api/admin/api/v1/graph/search?**', (route) =>
     route.fulfill({ json: { items: [] } }),
   )
-  await page.getByLabel('Nach Name oder UUID suchen', { exact: true }).fill('missing')
+  await page.getByLabel('Nach Name, E-Mail oder UUID suchen', { exact: true }).fill('missing')
   await expect(page.getByText('Keine passenden Datensätze gefunden.')).toBeVisible()
   await page.route('**/api/admin/api/v1/graph?**', (route) =>
     route.fulfill({
@@ -131,7 +131,7 @@ test('email-only user labels survive root, neighbor, search and technical detail
   await expect(node).toBeVisible()
   await node.click()
   await expect(panel.getByRole('heading', { name: user.label, exact: true })).toBeVisible()
-  await page.getByLabel('Nach Name oder UUID suchen', { exact: true }).fill(user.label)
+  await page.getByLabel('Nach Name, E-Mail oder UUID suchen', { exact: true }).fill(user.label)
   await page.getByRole('button', { name: `${user.label} Benutzer`, exact: true }).click()
   await expect(page).toHaveURL(/root_type=user/)
   await expect(panel.getByRole('heading', { name: user.label, exact: true })).toBeVisible()

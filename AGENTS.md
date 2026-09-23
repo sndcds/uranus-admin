@@ -75,6 +75,20 @@ MUST NOT be enabled by a browser capability flag.
   Blank strings count as missing. Use the shared backend SQL projection; labels
   containing email remain restricted to authenticated admin responses.
 
+- `repositories/entity_search.py::SEARCH_DEFINITIONS` owns canonical search fields,
+  presentation, literal ILIKE matching and SQL ranking for entity autocomplete, global
+  search and shared graph root types; entity lists reuse its matching fields. Never
+  duplicate field definitions. Fields: user uuid/username/display_name/email/first_name/
+  last_name; organization uuid/name/contact_email/city/postal_code; venue uuid/name/
+  contact_email/street/house_number/postal_code/city; space uuid/name/venue.name/space_type;
+  event uuid/title/subtitle/external_id; image uuid/file_name/alt_text/creator_name/mime_type.
+  Rank exact UUID, exact field, prefix, substring, lower(label) and entity_key (C collation).
+  Global `/api/v1/search` is authenticated and systemwide: q 2–120, default 5/max 10 per
+  type, at most 60 rows, each UNION branch limited in SQL. No source indexes/extensions.
+  Future pg_trgm indexes belong to Uranus migrations. Keep q/results out of logs/history.
+  Ctrl/Cmd+K palette state is component-memory-only; clear on close/navigation/auth loss.
+  Sidebar and palette use `app/utils/navigation.ts`; do not duplicate navigation labels.
+
 - Use explicit source columns, bound values and fixed application-owned identifiers.
   Do not add `SELECT *` domain projections or ORM reflection of Uranus tables.
 - Verify schema, joins, ownership and timestamp meaning before extending a query.

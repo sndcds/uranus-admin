@@ -295,3 +295,230 @@ async def test_search_uses_real_read_only_connection(db_client, headers):
     )
     assert response.status_code == 200
     assert response.json()["items"][0]["entity_key"] == str(uid(60))
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("kind,section,key,queries", CASES)
+async def test_global_and_graph_share_canonical_fields(
+    search_client, headers, kind, section, key, queries
+):
+    for query in [*queries, str(uid(key)), str(uid(key))[:8]]:
+        response = await search_client.get(
+            "/api/v1/search", params={"q": query, "types": kind}, headers=headers
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["query"] == query
+        assert len(data["groups"]) == 1
+        group = data["groups"][0]
+        assert group["entity_type"] == kind
+        item = next(item for item in group["items"] if item["entity_key"] == str(uid(key)))
+        assert item["action"]["href"] == f"/{section}/{uid(key)}"
+        assert item["matched_fields"]
+        assert set(item) == {
+            "entity_type",
+            "entity_key",
+            "label",
+            "subtitle",
+            "matched_fields",
+            "action",
+        }
+        if kind != "image":
+            graph_response = await search_client.get(
+                "/api/v1/graph/search", params={"q": query, "entity_type": kind}, headers=headers
+            )
+            assert graph_response.status_code == 200, graph_response.text
+            graph_item = next(
+                i for i in graph_response.json()["items"] if i["key"] == str(uid(key))
+            )
+            assert (graph_item["label"], graph_item["subtitle"]) == (
+                item["label"],
+                item["subtitle"],
+            )
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"q": ""},
+        {"q": "x"},
+        {"q": "  "},
+        {"q": "x" * 121},
+        {"limit_per_type": 0},
+        {"limit_per_type": 11},
+        {"limit_per_type": "x"},
+        {"types": ""},
+        {"types": "user,user"},
+        {"types": "user,unknown"},
+        {"types": "admin_account"},
+        {"types": "user;DROP TABLE"},
+        {"geo_scope_id": str(uid(1))},
+    ],
+)
+async def test_global_validation(client, headers, params):
+    async def unused_connection():
+        yield None
+
+    client._transport.app.dependency_overrides[get_connection] = unused_connection
+    result = await client.get("/api/v1/search", params={"q": "max", **params}, headers=headers)
+    assert result.status_code == 422
+
+
+async def test_global_authentication(client):
+    assert (await client.get("/api/v1/search?q=person@example.org")).status_code == 401
+
+
+@pytest.mark.integration
+async def test_global_email_and_fallbacks(search_client, db_connection, headers):
+    for query in ("max@example.org", "@example.org"):
+        result = await search_client.get("/api/v1/search", params={"q": query}, headers=headers)
+        user = result.json()["groups"][0]["items"][0]
+        assert user["label"] == "Max Mustermann"
+        assert user["matched_fields"] == ["email"]
+    for assignment, expected in (
+        ("display_name=''", "max"),
+        ("username=NULL", "max@example.org"),
+        ("email=''", str(uid(1))),
+    ):
+        await db_connection.execute(
+            text(f'UPDATE uranus."user" SET {assignment} WHERE uuid=:id'), {"id": uid(1)}
+        )
+        data = (
+            await search_client.get(
+                "/api/v1/search", params={"q": str(uid(1)), "types": "user"}, headers=headers
+            )
+        ).json()
+        assert data["groups"][0]["items"][0]["label"] == expected
+
+
+@pytest.mark.integration
+async def test_global_literal_and_no_secret_search(search_client, db_connection, headers):
+    value = r"100% max_ back\slash"
+    await db_connection.execute(
+        text('UPDATE uranus."user" SET display_name=:name WHERE uuid=:id'),
+        {"id": uid(1), "name": value},
+    )
+    for query in (
+        "100%",
+        "max_",
+        "back\\",
+        "%%",
+        "__",
+        r"\\",
+        "private-activation-secret",
+        "not-a-password-hash",
+        "private-storage-path",
+        "not-searchable-description",
+    ):
+        response = await search_client.get("/api/v1/search", params={"q": query}, headers=headers)
+        assert response.status_code == 200
+        assert bool(response.json()["groups"]) == (query in value)
+        for secret in ("activate_token", "password_hash", "gen_file_name", "matched_values"):
+            assert secret not in response.text
+
+
+@pytest.mark.integration
+async def test_global_ranking_limits_single_query_and_explain(db_connection):
+    from app.repositories.entity_search import global_search, global_search_query
+    from app.schemas.search import GlobalSearchFilters
+
+    # Exact UUID must outrank a different user's exact display-name match.
+    for n, name in enumerate(["zzmax", "Maxwell", "max", "amax", "max", str(uid(102))], 100):
+        await db_connection.execute(
+            text(
+                'INSERT INTO uranus."user" (uuid,email,password_hash,display_name) '
+                "VALUES (:id,:email,'unused',:name)"
+            ),
+            {"id": uid(n), "email": f"{n}@fixture.invalid", "name": name},
+        )
+    statements = []
+
+    def capture(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(db_connection.sync_connection, "before_cursor_execute", capture)
+    try:
+        result = await global_search(db_connection, GlobalSearchFilters(q="max", limit_per_type=4))
+        assert [i.entity_key for i in result.groups[0].items] == [
+            str(uid(n)) for n in (102, 104, 101, 103)
+        ]
+        assert len(statements) == 1
+        assert statements[0].count("LIMIT") == 6
+        assert "SELECT *" not in statements[0]
+    finally:
+        event.remove(db_connection.sync_connection, "before_cursor_execute", capture)
+    result = await global_search(db_connection, GlobalSearchFilters(q=str(uid(102))))
+    assert [i.entity_key for i in result.groups[0].items] == [str(uid(102)), str(uid(105))]
+    for limit in (5, 10):
+        filters = GlobalSearchFilters(
+            q="00", limit_per_type=limit, types="image,event,space,venue,organization,user"
+        )
+        result = await global_search(db_connection, filters)
+        assert [g.entity_type for g in result.groups] == list(filters.selected_types)
+        assert all(len(g.items) <= limit for g in result.groups)
+        assert sum(len(g.items) for g in result.groups) <= 6 * limit
+    query = global_search_query(GlobalSearchFilters(q="max"))
+    plan = (
+        await db_connection.execute(
+            text("EXPLAIN (ANALYZE, FORMAT JSON) " + str(query.statement)), query.parameters
+        )
+    ).scalar_one()
+
+    def nodes(node):
+        yield node
+        for child in node.get("Plans", []):
+            yield from nodes(child)
+
+    assert sum(n["Node Type"] == "Limit" for n in nodes(plan[0]["Plan"])) == 6
+
+
+def test_global_bound_parameters_and_definition_fields():
+    from app.repositories.entity_search import SEARCH_DEFINITIONS, global_search_query
+    from app.schemas.search import GlobalSearchFilters
+
+    value = "private@example.org' OR TRUE --"
+    query = global_search_query(GlobalSearchFilters(q=value))
+    assert value not in str(query.statement)
+    assert query.parameters["exact"] == value
+    assert GlobalSearchFilters(q=" max ").q == "max"
+    assert GlobalSearchFilters(q="max").limit_per_type == 5
+    for definition in SEARCH_DEFINITIONS.values():
+        assert len(definition.fields) == len(definition.field_names)
+        assert definition.field_names[0] == "uuid"
+        assert not {"password_hash", "activate_token", "api_import_token"} & set(
+            definition.field_names
+        )
+
+
+@pytest.mark.integration
+async def test_global_real_readonly_and_privacy(db_client, headers, caplog):
+    import logging
+    from unittest.mock import patch
+
+    with patch("app.logging.logging.getLogger", return_value=logging.getLogger("search-test")):
+        with caplog.at_level(logging.INFO, logger="search-test"):
+            result = await db_client.get(
+                "/api/v1/search", params={"q": "fixture@example.invalid"}, headers=headers
+            )
+    assert result.status_code == 200
+    assert result.headers["cache-control"] == "private, no-store"
+    assert result.json()["groups"][0]["items"][0]["label"] == "fixture@example.invalid"
+    assert "fixture@example.invalid" not in caplog.text
+    assert all(not hasattr(record, "q") for record in caplog.records)
+
+
+@pytest.mark.integration
+async def test_global_default_and_max_group_limit(search_client, db_connection, headers):
+    await db_connection.execute(
+        text("""INSERT INTO uranus.pluto_image (uuid,file_name)
+        SELECT md5(n::text)::uuid,'global-bounded-search.jpg' FROM generate_series(1,25) n""")
+    )
+    for params, count in (({}, 5), ({"limit_per_type": 10}, 10)):
+        response = await search_client.get(
+            "/api/v1/search", headers=headers, params={"q": "global-bounded-search", **params}
+        )
+        assert response.status_code == 200
+        groups = response.json()["groups"]
+        assert len(groups) == 1
+        assert groups[0]["entity_type"] == "image"
+        assert len(groups[0]["items"]) == count

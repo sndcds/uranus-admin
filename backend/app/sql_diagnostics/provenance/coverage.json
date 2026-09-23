@@ -725,5 +725,20 @@
     "query_groups": "0",
     "post_processing": "Code-owned labels, rule definitions, navigation; no SQL",
     "coverage": "not_applicable"
+  },
+  {
+    "view_id": "search",
+    "endpoint": "/search",
+    "datasources": [
+      "uranus"
+    ],
+    "implementation_ref": "repositories.entity_search",
+    "sql_capable": true,
+    "query_groups": "1 bounded UNION ALL query",
+    "post_processing": "Canonical type order, omit empty groups, server-generated detail Actions. No search history.",
+    "coverage": "registered",
+    "source_ids": [
+      "search.records"
+    ]
   }
 ]

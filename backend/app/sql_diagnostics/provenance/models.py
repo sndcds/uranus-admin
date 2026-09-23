@@ -19,6 +19,7 @@ from app.schemas.notifications import (
     NotificationType,
 )
 from app.schemas.queues import QueueFilters
+from app.schemas.search import GlobalSearchFilters
 from app.schemas.statistics import StatisticsFilters
 
 
@@ -144,3 +145,7 @@ class ProvenanceResult(BaseModel):
     duration_ms: float
     observed_at: datetime
     truncated: bool
+
+
+class GlobalSearchParameters(GlobalSearchFilters, Parameters):
+    model_config = ConfigDict(extra="forbid")
