@@ -88,7 +88,9 @@ test('queue shows actual invitation age and preserves unknown values', async ({ 
       .locator('td')
       .filter({ hasText: 'Basis: Einladungsdatum' }),
   ).toContainText('Nicht verfügbar')
-  await expect(page.getByRole('listitem').getByText('Eingeladen', { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('table', { name: 'Vorgänge' }).getByText('Eingeladen', { exact: true }),
+  ).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: info.outputPath('queue.png'), fullPage: true })
   await page.getByLabel('Mindestalter (Tage)').fill('14')
