@@ -1168,3 +1168,13 @@ in [admin-dashboard-empfehlung.md](https://github.com/sndcds/uranus/blob/7519046
 This PR does not repair it or change Uranus. Compare the DDL/default with the real
 running schema separately; repository review and synthetic tests are not live-schema
 verification.
+
+### Venue list scope filter
+
+`GET /api/v1/venues` accepts optional `scope=organization|shared`. Omit the parameter
+for all venues; unknown values return 422. The filter uses the authoritative `v.scope`
+projection with a bound SQL parameter in both the count and paginated record query,
+and composes with search, organization, creation period, temporal and geographic filters.
+Other entity sections ignore a valid scope in direct backend requests; Nitro only
+allowlists it on the venue collection. No source writes, migrations or grants are required.
+SQL provenance includes the applied scope and reproduces the same filtered queries.

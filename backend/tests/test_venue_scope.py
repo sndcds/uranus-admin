@@ -160,3 +160,67 @@ async def test_authoritative_scope_across_record_and_search_responses(
         ).items
     finally:
         event.remove(db_connection.sync_connection, "before_cursor_execute", capture)
+
+
+@pytest.mark.integration
+async def test_scope_filter_limits_venue_rows_counts_and_pages(db_connection, settings, headers):
+    # Guarded, transaction-local fixture changes; ownership stays identical.
+    await db_connection.execute(
+        text("UPDATE uranus.venue SET scope='shared' WHERE uuid=:id"), {"id": uid(21)}
+    )
+
+    async def connection():
+        yield db_connection
+
+    app = create_app(settings)
+    app.dependency_overrides[get_connection] = connection
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        for scope, keys in [(None, [20, 21, 22]), ("organization", [20, 22]), ("shared", [21])]:
+            params = {"scope": scope} if scope else {}
+            response = await client.get("/api/v1/venues", params=params, headers=headers)
+            assert response.status_code == 200, response.text
+            data = response.json()
+            assert data["pagination"]["total"] == len(keys)
+            assert [item["entity_key"] for item in data["items"]] == [str(uid(k)) for k in keys]
+            if scope:
+                assert all(item["venue_scope"] == scope for item in data["items"])
+        for page, key in [(1, 20), (2, 22)]:
+            response = await client.get(
+                "/api/v1/venues",
+                params={"scope": "organization", "page_size": 1, "page": page},
+                headers=headers,
+            )
+            assert response.status_code == 200
+            assert response.json()["pagination"]["total"] == 2
+            assert response.json()["items"][0]["entity_key"] == str(uid(key))
+        response = await client.get(
+            "/api/v1/venues",
+            params={"scope": "shared", "q": str(uid(20)), "organization_id": str(uid(10))},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["items"] == []
+        assert response.json()["pagination"]["total"] == 0
+        for section in ("spaces", "events", "organizations", "users", "images"):
+            baseline = await client.get(f"/api/v1/{section}", headers=headers)
+            assert baseline.status_code == 200
+            for scope in ("organization", "shared"):
+                scoped = await client.get(
+                    f"/api/v1/{section}", params={"scope": scope}, headers=headers
+                )
+                assert scoped.status_code == 200
+                assert scoped.json()["items"] == baseline.json()["items"]
+                assert scoped.json()["pagination"] == baseline.json()["pagination"]
+
+
+@pytest.mark.parametrize("scope", ["foobar", "standard", "shared' OR true --"])
+async def test_invalid_scope_filter_is_rejected(settings, headers, scope):
+    async def connection():
+        yield None
+
+    app = create_app(settings)
+    app.dependency_overrides[get_connection] = connection
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/venues", params={"scope": scope}, headers=headers)
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_input"

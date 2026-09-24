@@ -1105,6 +1105,17 @@ export type GlobalSearchQuery = { q: string; limit_per_type?: number; types?: st
 
 export const temporalFilterSchema = z.enum(['upcoming', 'past'])
 export type TemporalFilter = z.infer<typeof temporalFilterSchema>
+export type EntityQuery = {
+  q?: string
+  organization_id?: string
+  geo_scope_id?: string
+  temporal?: TemporalFilter
+  period?: SharedPeriod
+  status?: string
+  scope?: VenueScope
+  page?: string | number
+  page_size?: string | number
+}
 export type EntitySearchQuery = {
   geo_scope_id?: string
   q: string

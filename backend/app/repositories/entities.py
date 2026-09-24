@@ -153,6 +153,11 @@ def entity_page_queries(
         "tz": require_timezone(settings),
     }
     definition = SEARCH_DEFINITIONS[kind]
+    scope = "TRUE"
+    if section == "venues":
+        # venue_scope is the authoritative v.scope projection in SOURCES['venue'].
+        scope = "(CAST(:scope AS text) IS NULL OR a.venue_scope=:scope)"
+        params["scope"] = filters.scope
     search = (
         f"entity_key IN (SELECT entity_key FROM ({definition.projection()}) search "
         f"WHERE {definition.matches()})"
@@ -162,7 +167,8 @@ def entity_page_queries(
     base = f"""SELECT a.* FROM ({SOURCES[kind]}) a
         WHERE {search}
         AND (CAST(:status AS text) IS NULL OR status=:status)
-        AND {ORGANIZATION_FILTER} AND {temporal} AND {period_sql} AND {spatial}"""
+        AND {ORGANIZATION_FILTER} AND {temporal} AND {period_sql} AND {spatial}
+        AND {scope}"""
     return {
         "count": ReadQuery(text(f"SELECT count(*) FROM ({base}) a"), params),
         "records": ReadQuery(

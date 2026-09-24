@@ -245,6 +245,7 @@ export async function forwardAdminRequest(
                 'temporal',
                 'page',
                 'page_size',
+                ...(input.path === '/api/v1/venues' ? ['scope'] : []),
                 ...(spatialList ? ['geo_scope_id'] : []),
               ]
             : entityDetail

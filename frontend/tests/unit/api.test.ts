@@ -67,3 +67,14 @@ it('serializes active-only findings queries as explicit booleans', async () => {
     expect(url.searchParams.get('active_only')).toBe(String(active_only))
   }
 })
+
+it('sends venue scope and retains it for SQL provenance', async () => {
+  const { entityFixture } = await import('../fixtures/entities')
+  const fetcher = vi.fn().mockImplementation(async () => Response.json(entityFixture('venues')))
+  const api = createAdminApi(fetcher)
+  for (const scope of ['organization', 'shared'] as const) {
+    await api.entities('venues', { scope, page: 1 })
+    expect(fetcher.mock.lastCall?.[0]).toBe(`/api/admin/api/v1/venues?scope=${scope}&page=1`)
+    expect(api.viewRead('/api/v1/venues')?.query.scope).toBe(scope)
+  }
+})

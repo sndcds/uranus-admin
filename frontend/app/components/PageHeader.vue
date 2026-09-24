@@ -6,6 +6,7 @@ defineProps<{
   titleId?: string
   record?: boolean
   stackActions?: boolean
+  compactActions?: boolean
 }>()
 </script>
 <template>
@@ -32,12 +33,16 @@ defineProps<{
     </div>
     <div
       data-page-header-actions
-      class="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end"
+      class="flex w-full min-w-0 gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end"
+      :class="compactActions ? 'flex-row flex-wrap items-center' : 'flex-col'"
     >
-      <div class="order-2 flex empty:hidden sm:order-1"><SqlProvenanceButton /></div>
+      <div class="flex empty:hidden" :class="compactActions ? 'order-1' : 'order-2 sm:order-1'">
+        <SqlProvenanceButton />
+      </div>
       <div
         data-page-header-primary-actions
-        class="order-1 flex min-w-0 flex-wrap items-center gap-2 empty:hidden sm:order-2"
+        class="flex min-w-0 flex-wrap items-center gap-2 empty:hidden"
+        :class="compactActions ? 'order-2' : 'order-1 sm:order-2'"
       >
         <slot name="actions"><slot /></slot>
       </div>

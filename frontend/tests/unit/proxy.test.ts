@@ -414,3 +414,38 @@ it('forwards active_only only on findings and rejects duplicate filter keys', as
     ).status,
   ).toBe(422)
 })
+
+it('allows scope only on the venue list and rejects duplicate scope parameters', async () => {
+  const fetcher = vi.fn().mockImplementation(async () => Response.json({ items: [] }))
+  for (const scope of ['organization', 'shared']) {
+    const request = { ...input, path: '/api/v1/venues', query: new URLSearchParams({ scope }) }
+    expect((await forwardAdminRequest(request, base, fetcher)).status).toBe(200)
+    expect(new URL(String(fetcher.mock.lastCall?.[0])).searchParams.get('scope')).toBe(scope)
+  }
+  fetcher.mockClear()
+  for (const section of ['spaces', 'events', 'organizations', 'users', 'images', 'entity-search']) {
+    expect(
+      (
+        await forwardAdminRequest(
+          { ...input, path: `/api/v1/${section}`, query: new URLSearchParams({ scope: 'shared' }) },
+          base,
+          fetcher,
+        )
+      ).status,
+    ).toBe(422)
+  }
+  expect(
+    (
+      await forwardAdminRequest(
+        {
+          ...input,
+          path: '/api/v1/venues',
+          query: new URLSearchParams('scope=shared&scope=organization'),
+        },
+        base,
+        fetcher,
+      )
+    ).status,
+  ).toBe(422)
+  expect(fetcher).not.toHaveBeenCalled()
+})

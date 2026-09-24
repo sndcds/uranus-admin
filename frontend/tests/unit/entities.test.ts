@@ -47,7 +47,7 @@ const global = {
       props: ['loading', 'error'],
       template: '<div>{{loading ? "loading" : error ? "error" : ""}}</div>',
     },
-    EmptyState: { props: ['message'], template: '<p>{{message}}</p>' },
+    EmptyState: { props: ['message'], template: '<div>{{message}}<slot name="actions" /></div>' },
     SectionHeader: { props: ['title'], template: '<h3>{{title}}</h3>' },
     AppIcon: true,
     SeverityBadge: { props: ['severity'], template: '<span>{{severity}}</span>' },
@@ -95,6 +95,7 @@ it.each(entitySectionSchema.options)(
         organization_id: undefined,
         status: undefined,
         temporal: undefined,
+        scope: undefined,
         period: undefined,
         page: '1',
       },
@@ -237,6 +238,7 @@ it.each(entitySectionSchema.options)(
         organization_id: org,
         status: undefined,
         temporal: undefined,
+        scope: undefined,
         period: undefined,
         page: '1',
       },
@@ -463,5 +465,88 @@ it.each(['users', 'images'] as const)(
     expect(wrapper.text()).not.toContain('Gebiet: Flensburg')
     expect(wrapper.findComponent(EntitySearch).props('geoScopeId')).toBeUndefined()
     wrapper.unmount()
+  },
+)
+
+it.each(['organization', 'shared'] as const)(
+  'applies venue scope %s from URL and resets empty results',
+  async (scope) => {
+    route.query = { scope, page: '2' }
+    api.entities.mockResolvedValue({
+      ...entityFixture('venues'),
+      items: [],
+      pagination: { page: 1, pages: 0, total: 0, page_size: 25 },
+    })
+    const list = mount(EntityListPage, { props: { section: 'venues' }, global })
+    await flushPromises()
+    const scopeSelect = list
+      .findAll('select')
+      .find((item) => item.element.parentElement?.textContent?.includes('Ortstyp'))!
+    expect(scopeSelect.element.value).toBe(scope)
+    expect(scopeSelect.findAll('option').map((o) => o.text())).toEqual([
+      'Alle',
+      'Provisorischer Ort (nicht eigener Ort)',
+      'Eigener Ort',
+    ])
+    expect(api.entities).toHaveBeenLastCalledWith('venues', { scope, page: '2' })
+    expect(list.getComponent(ResultSummary).props('description')).toContain(
+      scope === 'shared'
+        ? 'Ortstyp: Eigener Ort'
+        : 'Ortstyp: Provisorischer Ort (nicht eigener Ort)',
+    )
+    await scopeSelect.setValue(scope === 'shared' ? 'organization' : 'shared')
+    await list.get('form').trigger('submit')
+    expect(push).toHaveBeenLastCalledWith({
+      query: expect.objectContaining({
+        scope: scope === 'shared' ? 'organization' : 'shared',
+        page: '1',
+      }),
+    })
+    const resets = list
+      .findAll('button')
+      .filter((button) => button.text() === 'Filter zurücksetzen')
+    expect(resets).toHaveLength(2)
+    await resets[1]!.trigger('click')
+    expect(scopeSelect.element.value).toBe('')
+    expect(push).toHaveBeenLastCalledWith({ query: { page: '1' } })
+    expect(useFilterPreferencesStore().entities.venues.scope).toBe('')
+    list.unmount()
+  },
+)
+
+it('does not display or forward venue scope on spaces', async () => {
+  route.query = { scope: 'shared' }
+  api.entities.mockResolvedValue(entityFixture('spaces'))
+  const list = mount(EntityListPage, { props: { section: 'spaces' }, global })
+  await flushPromises()
+  expect(list.text()).not.toContain('Ortstyp')
+  expect(api.entities).toHaveBeenLastCalledWith('spaces', {})
+  list.unmount()
+})
+
+it.each(['venues', 'spaces'] as const)(
+  'keeps compact header navigation and refresh on %s',
+  async (section) => {
+    api.entities.mockResolvedValue(entityFixture(section))
+    const list = mount(EntityListPage, { props: { section }, global })
+    await flushPromises()
+    const header = list.getComponent(PageHeader)
+    for (const [title, target] of [
+      ['Orte', 'venues'],
+      ['Räume', 'spaces'],
+    ]) {
+      const link = header.findAll('a').find((a) => a.text() === title)!
+      expect(link.classes()).toEqual(expect.arrayContaining(['button', 'button-compact']))
+      expect(link.attributes('aria-current')).toBe(section === target ? 'page' : undefined)
+      expect(link.attributes('data-to')).toBe(JSON.stringify(`/${target}`))
+    }
+    const refresh = header.findAll('button').find((b) => b.text() === 'Aktualisieren')!
+    expect(refresh.classes()).toContain('button-compact')
+    expect(refresh.attributes('disabled')).toBeUndefined()
+    const calls = api.entities.mock.calls.length
+    await refresh.trigger('click')
+    await flushPromises()
+    expect(api.entities).toHaveBeenCalledTimes(calls + 1)
+    list.unmount()
   },
 )

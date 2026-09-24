@@ -52,6 +52,8 @@ import type {
   FindingFilters,
   EventContentQuery,
   EntitySearchQuery,
+  EntityQuery,
+  EntitySection,
   GlobalSearchQuery,
   QueueQuery,
   Period,
@@ -239,7 +241,7 @@ export function createAdminApi(
       request('/api/v1/search', globalSearchResponseSchema, query, 'GET', undefined, signal),
     entitySearch: (query: EntitySearchQuery) =>
       request('/api/v1/entity-search', entitySearchResponseSchema, query),
-    entities: (section: string, query: Record<string, string | number | undefined>) =>
+    entities: (section: EntitySection, query: EntityQuery) =>
       request(`/api/v1/${section}`, entityPageSchema, query),
     entity: (section: string, id: string, relatedPage = 1) =>
       request(`/api/v1/${section}/${encodeURIComponent(id)}`, entityDetailSchema, {

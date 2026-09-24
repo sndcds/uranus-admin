@@ -23,6 +23,7 @@ class EntityFilters(BaseModel):
     temporal: TemporalFilter | None = None
     period: PresetPeriod | None = None
     status: str | None = Field(default=None, max_length=32)
+    scope: VenueScope | None = None
     page: int = Field(default=1, ge=1, le=100_000)
     page_size: int = Field(default=25, ge=1, le=100)
 
