@@ -81,3 +81,51 @@
   fill: var(--color-slate-500);
   font-size: 10px;
 }
+.statistics-metric {
+  box-shadow: inset 0 2px var(--series-color);
+}
+.statistics-metric-hidden {
+  box-shadow: none;
+  background: #f8fafc;
+}
+.statistics-metric-hidden .statistics-metric-label {
+  text-decoration: line-through;
+}
+.statistics-metric .statistics-sparkline {
+  height: 22px;
+  margin-top: 4px;
+}
+@media (min-width: 640px) {
+  .statistics-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .statistics-distribution-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 1.5rem;
+  }
+}
+@media (min-width: 1280px) {
+  .statistics-metrics {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .event-content-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.statistics-periods {
+  flex-basis: 100%;
+}
+.statistics-period-actions select {
+  width: auto;
+  max-width: 100%;
+}
+@media (max-width: 639px) {
+  .statistics-period-actions {
+    flex-wrap: wrap;
+  }
+  .event-content-workspace .operations-workspace-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

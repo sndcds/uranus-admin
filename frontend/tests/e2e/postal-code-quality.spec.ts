@@ -63,9 +63,10 @@ for (const mode of ['live', 'persisted'] as const) {
     await page.goto('/quality')
     await expect(page.getByRole('heading', { name: 'Adressqualität' })).toBeVisible()
     const link = page.getByRole('link', { name: /Postleitzahlen mit Leerzeichen/ })
-    await expect(link).toContainText('2')
-    await expect(link).toContainText('Warnung')
-    await expect(link).toContainText('Schlechte Datenqualität')
+    const ruleRow = page.locator(`[data-quality-rule="${rule}"]`)
+    await expect(ruleRow).toContainText('2')
+    await expect(ruleRow).toContainText('Warnung')
+    await expect(ruleRow).toContainText('Führende oder abschließende Leerzeichen')
     await link.click()
     await expect(page).toHaveURL(
       (url) =>

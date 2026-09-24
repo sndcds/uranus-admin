@@ -18,7 +18,7 @@ const shape = arc<(typeof slices.value)[number]>().innerRadius(63).outerRadius(9
 </script>
 <template>
   <section
-    class="statistics-panel statistics-distribution self-start panel p-4 sm:p-5"
+    class="statistics-panel statistics-distribution section-subtle p-3"
     aria-labelledby="distribution-title"
   >
     <SectionHeader title-id="distribution-title" title="Verteilung nach Entitätstyp" />
@@ -30,7 +30,7 @@ const shape = arc<(typeof slices.value)[number]>().innerRadius(63).outerRadius(9
       class="statistics-distribution-body mt-3 flex flex-col items-center gap-4 sm:flex-row"
     >
       <svg
-        class="w-48 shrink-0 sm:w-2/5"
+        class="w-36 shrink-0"
         viewBox="0 0 210 210"
         role="img"
         aria-label="Anteile der neu angelegten Entitäten"
@@ -50,7 +50,7 @@ const shape = arc<(typeof slices.value)[number]>().innerRadius(63).outerRadius(9
           <text text-anchor="middle" y="21" class="donut-caption">neue Entitäten</text>
         </g>
       </svg>
-      <ul class="w-full min-w-0 flex-1 divide-y divide-slate-100">
+      <ul class="statistics-distribution-list w-full min-w-0 flex-1">
         <li
           v-for="seriesItem in sorted"
           :key="seriesItem.entity_type"
@@ -73,6 +73,6 @@ const shape = arc<(typeof slices.value)[number]>().innerRadius(63).outerRadius(9
         </li>
       </ul>
     </div>
-    <EmptyState v-else message="Keine neuen Entitäten in diesem Zeitraum." />
+    <EmptyState v-else compact message="Keine neuen Entitäten in diesem Zeitraum." />
   </section>
 </template>

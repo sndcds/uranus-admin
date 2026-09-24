@@ -790,3 +790,35 @@ Definition und Ausführung akzeptieren optional `mode=live`; ohne Modus bleibt d
 persistierte Identität erforderlich. SQL-Hashlinks erhalten den Quellmodus. Es wird kein
 vollständiger Scan beim Öffnen/Ausführen ausgelöst, kein Review angelegt und kein
 Quelldatensatz verändert. Nicht unterstützte Regeln erhalten keinen SQL-Link.
+
+## Analytics / Quality Workspaces v2.1
+
+Die Migration verändert ausschließlich Präsentation und sicheren Same-query-Erhalt.
+[Gestaltung](design-system.md#analytics-workspace-v21) und
+[Review-Aufnahmen](screenshots/operations-analytics/README.md).
+
+- Erstellung verwendet die bestehenden sieben Serien: `created_at`, für Teameinladungen
+  den zuletzt gespeicherten `invited_at`. Letzterer ist keine Versand- oder Join-Historie.
+  Die Antwort liefert ein halboffenes Fenster `[from_at,to_at)`, natürliche Buckets in
+  Admin-Zeitzone und `observed_at`. Custom: höchstens 365 Tage; Kalendergrenzen/DST
+  werden weiter mit dem bestehenden Helfer und der bekannten Serverzeitzone gebildet.
+- Vergleich ist die unmittelbar vorhergehende gleichlange Zeitspanne. Deltas bewerten
+  weder Anstieg noch Rückgang. Event-Inhalte verwenden ausschließlich `event.created_at`,
+  optional Status und Gebiet, niemals Terminbeginn. „Alle“ hat keine Vorperiode.
+- Coverage/Rankings zählen Events mit Zuordnung. Mehrfachzuordnungen können die Summe
+  der Anteile über 100 % führen; fehlende Counts sind eigene gelieferte Werte. Geo-Serien
+  und systemweite Serien bleiben getrennt gekennzeichnet, keine erfundene Gesamtregion.
+- Recent-Actions behalten ihre kanonischen Ziele; ausschließlich Activity-Ziele tragen
+  die bestehende `creation_basis=statistics`. „Öffnen“ ändert nicht den Linkvertrag.
+- Quality liest weiterhin DashboardStore systemweit. `persisted_counts` zählt alle
+  nicht behobenen Befunde inklusive Snooze/Ausnahmen, unabhängig vom Dashboard-Zeitraum.
+  Die Anzeige berücksichtigt einen tatsächlich gelieferten Live-Modus. Ein vorhandener
+  Gebiets-Summary wird vor Anzeige global nachgeladen. Kein zweiter API-Abrufpfad.
+- Regel-Counts werden nicht aus der Liste neu berechnet. Null/missing bleiben unbekannt,
+  0 bleibt 0. Die vorhandenen Gruppen aus `quality.ts` gelten; die separate Venue-
+  Geopositionsaktion ist in Standorte integriert und behält ihren offenen Venue-Filter.
+  PLZ-Leerzeichen betreffen Organisationen und Orte, daher bleibt der Drilldown ohne
+  Entity-Filter. Andere bestehende Modus-/Aktivfilter bleiben erhalten.
+- DashboardSummary enthält keinen `observed_at` für Quality. TechnicalInfoBar nennt
+  daher keinen Beobachtungszeitpunkt; der vorhandene Stale-Hinweis bezeichnet einen
+  Client-Zeitpunkt nur als letzten erfolgreichen Abruf.

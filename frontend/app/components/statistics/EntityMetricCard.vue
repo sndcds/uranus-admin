@@ -16,8 +16,8 @@ const delta = computed(() =>
 </script>
 <template>
   <button
-    class="statistics-metric panel p-4 text-left hover:border-fuchsia-300"
-    :class="{ 'opacity-50 border-dashed': !selected }"
+    class="statistics-metric analytics-kpi text-left hover:bg-slate-50"
+    :class="{ 'statistics-metric-hidden': !selected }"
     :aria-pressed="selected"
     :aria-label="`${presentation.card}: ${metric(series.total)}`"
     :style="{ '--series-color': presentation.color }"
@@ -27,31 +27,26 @@ const delta = computed(() =>
     @focus="$emit('highlight')"
     @blur="$emit('unhighlight')"
   >
-    <div class="statistics-metric-main flex items-start gap-3">
+    <div class="statistics-metric-main flex items-start gap-2">
       <span
-        class="statistics-metric-icon grid h-10 w-10 shrink-0 place-items-center rounded-xl"
+        class="statistics-metric-icon grid h-7 w-7 shrink-0 place-items-center rounded-md"
         :style="{
           color: presentation.color,
           background: `color-mix(in srgb, ${presentation.color} 10%, white)`,
         }"
-        ><AppIcon :name="presentation.icon" :size="22"
+        ><AppIcon :name="presentation.icon" :size="16"
       /></span>
       <div class="min-w-0">
         <span class="statistics-metric-label block text-xs text-slate-600">{{
           presentation.card
         }}</span
-        ><strong class="block text-xl font-semibold tabular-nums">{{
+        ><strong class="block text-lg font-semibold tabular-nums">{{
           metric(series.total)
         }}</strong>
       </div>
     </div>
     <div v-if="delta" class="statistics-comparison mt-2 text-xs">
-      <span
-        :class="
-          delta.difference < 0
-            ? 'rounded-md bg-rose-50 px-2 py-0.5 text-rose-700'
-            : 'rounded-md bg-emerald-50 px-2 py-0.5 text-emerald-700'
-        "
+      <span class="font-semibold text-slate-700"
         >{{ delta.difference < 0 ? '↓' : delta.difference > 0 ? '↑' : '→' }} {{ delta.label }}</span
       >
       <small class="mt-1 block text-xs text-slate-500">gegenüber vorherigem Zeitraum</small>
@@ -62,6 +57,7 @@ const delta = computed(() =>
     <span v-if="showScope" class="block text-xs font-semibold">{{
       series.scope === 'geo' ? 'Gebiet' : 'Systemweit'
     }}</span>
+    <span class="sr-only">{{ selected ? 'Serie eingeblendet' : 'Serie ausgeblendet' }}</span>
     <EntitySparkline :points="series.points" :color="presentation.color" />
   </button>
 </template>

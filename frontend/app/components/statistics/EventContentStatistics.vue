@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, watch, onMounted } from 'vue'
 import type { LocationQuery } from 'vue-router'
 import {
   geoScopeIdSchema,
@@ -8,7 +8,8 @@ import {
   type EventContentStatistics,
   type EventContentQuery,
 } from '#shared/contracts'
-import { asFailure, type ApiFailure } from '#shared/errors'
+import { useOperationsRequest } from '~/composables/useOperationsRequest'
+import type { TechnicalFact } from '~/utils/operations'
 import { useFilterPreferencesStore } from '~/stores/filter-preferences'
 import { eventContentPeriods } from '~/utils/periods'
 import { eventStatusLabels } from '~/utils/entities'
@@ -19,9 +20,7 @@ const props = defineProps<{ query: LocationQuery }>()
 const preferences = useFilterPreferencesStore()
 const router = useRouter()
 const { $adminApi } = useNuxtApp()
-const data = ref<EventContentStatistics | null>(null),
-  loading = ref(false),
-  error = ref<ApiFailure | null>(null)
+const { data, loading, error, load: requestData } = useOperationsRequest<EventContentStatistics>()
 const period = computed(
   () => props.query.period ?? preferences.resolvePeriodForPage('eventContent'),
 )
@@ -43,13 +42,62 @@ const dimensions = [
 ] as const
 const percentage = (value: number) =>
   new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(value)
-let generation = 0
+const technicalItems = computed<TechnicalFact[]>(() =>
+  data.value
+    ? [
+        { label: 'Zeitraum', value: eventContentPeriods[data.value.period] },
+        {
+          label: 'Von',
+          value: data.value.from_at
+            ? statisticsDate(data.value.from_at, data.value.timezone)
+            : null,
+          datetime: data.value.from_at ?? undefined,
+        },
+        {
+          label: 'Bis (exklusiv)',
+          value: data.value.to_at ? statisticsDate(data.value.to_at, data.value.timezone) : null,
+          datetime: data.value.to_at ?? undefined,
+        },
+        { label: 'Zeitzone', value: data.value.timezone },
+        {
+          label: 'Status',
+          value: data.value.status ? eventStatusLabels[data.value.status] : 'Alle',
+        },
+        { label: 'Events', value: data.value.event_count },
+        {
+          label: 'Vergleich von',
+          value: data.value.comparison
+            ? statisticsDate(data.value.comparison.from_at, data.value.timezone)
+            : null,
+          datetime: data.value.comparison?.from_at,
+        },
+        {
+          label: 'Vergleich bis (exklusiv)',
+          value: data.value.comparison
+            ? statisticsDate(data.value.comparison.to_at, data.value.timezone)
+            : null,
+          datetime: data.value.comparison?.to_at,
+        },
+        {
+          label: 'Aktualisiert',
+          value: statisticsDate(data.value.observed_at, data.value.timezone),
+          datetime: data.value.observed_at,
+        },
+        { label: 'Scope', value: props.query.geo_scope_id ? 'Gewähltes Gebiet' : 'Systemweit' },
+        {
+          label: 'Geo Scope',
+          value: typeof props.query.geo_scope_id === 'string' ? props.query.geo_scope_id : null,
+          mono: true,
+        },
+      ]
+    : [],
+)
 async function load() {
-  const id = ++generation
-  loading.value = true
-  data.value = null
-  error.value = null
-  try {
+  const key = JSON.stringify([
+    Object.entries(props.query).sort(([a], [b]) => a.localeCompare(b)),
+    period.value,
+  ])
+  await requestData(key, async () => {
     for (const key of Object.keys(props.query))
       if (!['view', 'period', 'status', 'compare', 'geo_scope_id'].includes(key))
         throw new Error('Invalid query')
@@ -62,13 +110,8 @@ async function load() {
       if (props.query.compare !== 'previous') throw new Error('Invalid comparison')
       request.compare = 'previous'
     }
-    const result = await $adminApi.eventContent(request)
-    if (id === generation) data.value = result
-  } catch (cause) {
-    if (id === generation) error.value = asFailure(cause)
-  } finally {
-    if (id === generation) loading.value = false
-  }
+    return $adminApi.eventContent(request)
+  })
 }
 function setFilter(key: 'period' | 'status' | 'compare', value: string) {
   if (key === 'period') preferences.hydratePeriod('eventContent', value)
@@ -83,13 +126,13 @@ function setFilter(key: 'period' | 'status' | 'compare', value: string) {
 }
 onMounted(load)
 watch(() => props.query, load)
-onBeforeUnmount(() => {
-  generation++
-})
 </script>
 <template>
-  <div class="space-y-5">
-    <div class="panel flex flex-wrap items-end gap-4 p-4" aria-label="Event-Inhalte filtern">
+  <div class="operations-page event-content-workspace">
+    <div
+      class="operations-workspace-toolbar flex flex-wrap items-end gap-3"
+      aria-label="Event-Inhalte filtern"
+    >
       <label class="min-w-0"
         ><span class="label">Zeitraum</span>
         <select
@@ -115,7 +158,7 @@ onBeforeUnmount(() => {
           </option>
         </select>
       </label>
-      <label class="flex items-center gap-2 text-sm"
+      <label class="flex min-h-11 items-center gap-2 text-xs"
         ><input
           type="checkbox"
           role="switch"
@@ -129,25 +172,29 @@ onBeforeUnmount(() => {
       <span v-if="period === 'all'" class="text-xs text-slate-500"
         >Für „Alle“ gibt es keine Vorperiode.</span
       >
+      <button class="button button-compact" :disabled="loading" @click="load">
+        <AppIcon name="refresh" :size="14" />Aktualisieren
+      </button>
     </div>
-    <p v-if="query.geo_scope_id" class="text-sm text-slate-600">
+    <p v-if="query.geo_scope_id" class="text-xs text-slate-600">
       Rankings und Anteile beziehen sich auf Veranstaltungen im gewählten Gebiet.
     </p>
-    <p class="text-sm text-slate-600">
-      Ein Event kann mehreren Kategorien, Genres oder Typen zugeordnet sein. Die Anteile beziehen
-      sich jeweils auf alle Events im gewählten Erstellungszeitraum und summieren sich nicht
-      zwingend zu 100 %.
+    <p class="operations-meta">
+      Erstellt, nicht Veranstaltungsdatum. Ein Event kann mehreren Kategorien, Genres oder Typen
+      zugeordnet sein. Die Anteile beziehen sich jeweils auf alle Events im gewählten
+      Erstellungszeitraum und summieren sich nicht zwingend zu 100 %.
     </p>
-    <RequestState :loading="loading" :error="error" @retry="load" />
+    <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
     <template v-if="data">
       <div
-        class="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        class="analytics-kpi-strip event-content-metrics"
+        :aria-busy="loading"
         aria-label="Event-Inhalte Kennzahlen"
       >
-        <section class="panel p-4" aria-label="Events erstellt">
-          <h3 class="text-sm text-slate-600">Events erstellt</h3>
-          <strong class="block text-2xl tabular-nums">{{ metric(data.event_count) }}</strong>
-          <p class="text-sm">
+        <section class="analytics-kpi" aria-label="Events erstellt">
+          <h3 class="text-xs text-slate-600">Events erstellt</h3>
+          <strong class="block text-lg tabular-nums">{{ metric(data.event_count) }}</strong>
+          <p class="text-xs">
             {{ data.period === 'all' ? 'Alle Events' : eventContentPeriods[data.period]
             }}<template v-if="data.status"> · {{ eventStatusLabels[data.status] }}</template>
           </p>
@@ -158,14 +205,14 @@ onBeforeUnmount(() => {
         <section
           v-for="dimension in dimensions"
           :key="dimension.key"
-          class="panel p-4"
+          class="analytics-kpi"
           :aria-label="dimension.coverage"
         >
-          <h3 class="text-sm text-slate-600">{{ dimension.coverage }}</h3>
-          <strong class="block text-2xl tabular-nums"
+          <h3 class="text-xs text-slate-600">{{ dimension.coverage }}</h3>
+          <strong class="block text-lg tabular-nums"
             >{{ percentage(data.coverage[dimension.key].coverage_percent) }} %</strong
           >
-          <p class="text-sm">
+          <p class="text-xs">
             {{ metric(data.coverage[dimension.key].events_with_assignment) }} von
             {{ metric(data.event_count) }} Events
           </p>
@@ -180,9 +227,10 @@ onBeforeUnmount(() => {
       </div>
       <EmptyState
         v-if="!data.event_count"
+        compact
         message="Keine Events im gewählten Erstellungszeitraum."
       />
-      <div class="grid min-w-0 gap-5 xl:grid-cols-3">
+      <div class="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
         <RankingBarChart
           v-for="dimension in dimensions"
           :key="dimension.key"
@@ -191,17 +239,8 @@ onBeforeUnmount(() => {
           :total-events="data.event_count"
         />
       </div>
-      <p class="text-xs text-slate-500">
-        <template v-if="data.from_at && data.to_at"
-          >{{ statisticsDate(data.from_at, data.timezone) }} –
-          {{ statisticsDate(data.to_at, data.timezone) }} · </template
-        >{{ data.timezone }} · Erstellt, nicht Veranstaltungsdatum.
-        <template v-if="data.comparison">
-          Vergleich: {{ statisticsDate(data.comparison.from_at, data.timezone) }} –
-          {{ statisticsDate(data.comparison.to_at, data.timezone) }} (gleichlange
-          Vorperiode).</template
-        >
-      </p>
+      <p v-if="data.comparison" class="operations-meta">Vergleich: gleichlange Vorperiode.</p>
+      <TechnicalInfoBar :items="technicalItems" :show-title="false" />
     </template>
   </div>
 </template>

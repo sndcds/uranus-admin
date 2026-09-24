@@ -85,11 +85,9 @@ for (const entry of cases) {
     await page.goto('/quality')
     await expect(page.getByRole('heading', { name: 'Logos & Bilder' })).toBeVisible()
     for (const item of cases) {
-      const link = page.getByRole('link', { name: new RegExp(item.label) })
+      const link = page.locator(`[data-quality-rule="${item.rule}"]`)
       await expect(link).toContainText(String(item.count))
-      await expect(link).toContainText(
-        item.severity === 'info' ? 'Hinweis' : 'Schlechte Datenqualität',
-      )
+      await expect(link).toContainText(item.severity === 'info' ? 'Hinweis' : 'Warnung')
     }
     if (entry.rule === 'venue_missing_logo')
       await page.screenshot({ path: testInfo.outputPath('logo-quality.png'), fullPage: true })
@@ -162,5 +160,5 @@ test('quality loading, error retry and empty logo counts', async ({ page }) => {
   await page.getByRole('button', { name: 'Erneut versuchen' }).click()
   await expect(page.getByText('Keine aktuellen Qualitätsbefunde.')).toBeVisible()
   for (const entry of cases)
-    await expect(page.getByRole('link', { name: new RegExp(entry.label) })).toContainText('0')
+    await expect(page.locator(`[data-quality-rule="${entry.rule}"]`)).toContainText('0')
 })

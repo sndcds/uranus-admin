@@ -11,7 +11,7 @@ Das Dashboard `/` ist im folgenden Schritt als Operations Overview v2.1 migriert
 (Basis: `76016593bfde39d5aada821f2e0afd9f14eba63a`, nach PR #109).
 
 **Visual consolidation / density migration pending:** Geocoding/Workflow →
-Statistics/Quality → abschließender Responsive-/Accessibility-Audit.
+abschließender Responsive-/Accessibility-Audit.
 Diese Folgephasen benötigen jeweils einen eigenen Review; sie gehören nicht zu diesem PR.
 
 [Komponenten-/Shell-Aufnahmen und Reproduktion](screenshots/operations-foundations/README.md).
@@ -153,6 +153,33 @@ Verbindung erst bei Ausführung auf; „getrennt“ im Anfangszustand behauptet 
 [Synthetische Screenshots und Validierung](screenshots/operations-workspaces/README.md).
 Reviewstand, kein Deployment-Nachweis. Statistics, Quality und der abschließende
 Accessibility-Audit gehören nicht zu dieser Migration.
+
+## Statistics / Quality: Analytics Workspaces v2.1
+
+Basis: frisch geholtes main nach PR #116,
+`3b2d337c6f4651e5226750dde312d5d60a42c701`.
+**Migriert:** `/statistics`, `/statistics?view=event-content` und `/quality`.
+
+Erstellung: kompakte View-/Filtertoolbar, sieben interaktive Kennzahlen in einem Strip,
+Timeline als Hauptanalyse, sekundäre Verteilung, DenseTable mit expliziten „Öffnen“-Aktionen,
+Datentabellen-Disclosure und TechnicalInfoBar. Same-query Refresh behält den Stand;
+Query-/Viewwechsel und 401/403/404/422 entfernen ihn. Highlight und Late Responses sind
+an die aktuelle Query gebunden; Präferenzen, Datumsgrenzen und Seriensteuerung bleiben.
+
+Event-Inhalte: dieselben Toolbar-/KPI-Rollen, Coverage inklusive fehlender Zuordnungen,
+drei responsive Rankings und technische Kohorten-/Vergleichsgrenzen. Keine Event-Date-
+Semantik und kein Vergleich für „Alle“.
+
+Quality: systemweiter, tatsächlich benannter Modus aus DashboardStore; kompakte
+Severity-/Bestandsübersicht, vorhandene Regelgruppen, eindeutige Count-/Unavailable-
+Darstellung und explizite Finding-Drilldowns. Geoposition ist Teil von Standorte, keine
+Sonderkarte. Kein erfundener Qualitätszeitpunkt. Dashboard-Vorschau bleibt unverändert.
+
+[Workspace-Regeln](design-system.md#analytics-workspace-v21) und
+[synthetische Screenshots mit Prüfstand](screenshots/operations-analytics/README.md).
+Frontend-only; keine Backend-/API-/Domain-/Security-Semantik geändert. Dies ist ein
+Reviewstand, kein Deployment-Nachweis. Keine weiteren Feature-Redesigns in dieser Phase;
+FINAL UI CONSISTENCY + ACCESSIBILITY AUDIT folgt separat.
 
 ## Prüfstand und Methode
 
@@ -338,7 +365,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Primäre Startaktion behalten; Fortschritt und letzten Erfolg unterscheiden. Priorität P2.
 
-### `/quality` — OVERVIEW
+### `/quality` — historischer Ausgangszustand (aktuell Quality Workspace v2.1)
 
 - **Aufgabe / Hierarchie:** Qualitätsprobleme nach Regel eingrenzen. Header → Bestandssemantik → Regelgruppen → Spezialabfrage.
 - **Header / Actions / Filter:** Prüfläufe öffnen, Befunde ansehen. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -455,7 +482,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Canvas mit Pan/Zoom und separatem Detailpanel; auf kleinen Viewports stapeln. Root-Suche/Filter benötigen sichtbare Labels. Knoten-Auswahl, zugängliche Namen, Vollbild/Escape und Lesbarkeit des Detailpanels erhalten; Farbe allein darf keine Auswahl vermitteln.
 - **Terminologie / Änderung:** Deutsch; Root-Suche sichtbar beschriften; Rohkennung im Detail unterordnen. Priorität P2.
 
-### `/statistics` — WORKSPACE
+### `/statistics` — historischer Ausgangszustand (aktuell Analytics Workspace v2.1)
 
 - **Aufgabe / Hierarchie:** Neuanlagen zeitlich vergleichen. Header → Ansicht/Zeitraum → Diagramm → Kennzahlen → Tabelle.
 - **Header / Actions / Filter:** Zeitfenster, Intervall, Serien, Vorperiode. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -464,7 +491,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Chart hat Tastatur-Crosshair und eine Datentabelle als Textalternative mit Caption/Zeitzone. Serien-Legende und Vergleich müssen tastaturbedienbar bleiben. Mobile Kennzahlen umbrechen; Tabellen dürfen intern, nicht die Seite horizontal scrollen.
 - **Terminologie / Änderung:** Datensätze statt Entitäten; Refresh ohne Chartkollaps bei gleichem Kontext. Priorität P2.
 
-### `/statistics?view=event-content` — WORKSPACE
+### `/statistics?view=event-content` — historischer Ausgangszustand (aktuell Analytics Workspace v2.1)
 
 - **Aufgabe / Hierarchie:** Veranstaltungsinhalte nach Zuordnung vergleichen. Header → Zeitraum/Status → Coverage → Rankings.
 - **Header / Actions / Filter:** Zeitraum, Status, Vorperiode. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -716,7 +743,7 @@ Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung de
 | `/inbox`                         | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/findings`                      | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/checks`                        | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
-| `/quality`                       | OVERVIEW              | OVERVIEW                 | OVERVIEW                                                 | offen (P2) |
+| `/quality` | OVERVIEW | Quality Workspace v2.1 | Quality Workspace v2.1 | migriert |
 | `/queues/partner_requests`       | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
 | `/queues/team_invitations`       | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
 | `/queues/user_activation`        | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
@@ -729,8 +756,8 @@ Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung de
 | `/geocoding`                     | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
 | `/geocoding/:id`                 | WORKFLOW (generisch)  | WORKFLOW v2              | WORKFLOW v2                                              | migriert   |
 | `/graph` | WORKSPACE | Operations Workspace v2.1 | Operations Workspace v2.1 | migriert |
-| `/statistics`                    | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
-| `/statistics?view=event-content` | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
+| `/statistics` | WORKSPACE | Analytics Workspace v2.1 | Analytics Workspace v2.1 | migriert |
+| `/statistics?view=event-content` | WORKSPACE | Analytics Workspace v2.1 | Analytics Workspace v2.1 | migriert |
 | `/sql` | WORKSPACE | Operations Workspace v2.1 | Operations Workspace v2.1 | migriert |
 | `/login`                         | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
 | `/events`                        | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |

@@ -1,24 +1,60 @@
 <script setup lang="ts">
-import SectionHeader from '~/components/SectionHeader.vue'
+import type { TechnicalFact } from '~/utils/operations'
 const store = useDashboardStore()
 const { $adminApi } = useNuxtApp()
 const globalData = computed(() => (store.data?.geo_scope_id ? null : store.data))
+const sourceLabel = computed(() =>
+  globalData.value?.quality.mode === 'live'
+    ? 'Live-Diagnose'
+    : globalData.value?.quality.mode === 'persisted'
+      ? 'Persistierter Bestand'
+      : 'Qualitätsbestand',
+)
+const technicalItems = computed<TechnicalFact[]>(() => [
+  {
+    label: 'Quelle',
+    value:
+      globalData.value?.quality.mode === 'persisted'
+        ? 'Persistiert'
+        : globalData.value?.quality.mode === 'live'
+          ? 'Live-Diagnose'
+          : null,
+  },
+  { label: 'Scope', value: 'Systemweit' },
+  { label: 'Gelieferte Regeln', value: globalData.value?.quality.rules?.length },
+])
 onMounted(() => {
   if (!store.data || store.data.geo_scope_id) void store.load($adminApi)
 })
 </script>
 
 <template>
-  <div class="space-y-5">
+  <section class="operations-page" aria-labelledby="quality-title">
     <PageHeader
       title="Datenqualität"
+      title-id="quality-title"
       description="Regelbasierte Datenprobleme prüfen und priorisieren."
-      ><NuxtLink to="/checks" class="button">Prüfläufe öffnen</NuxtLink></PageHeader
     >
-    <p class="muted">
-      Aktueller Bestand · unabhängig vom Dashboard-Zeitraum. Gespeicherte Zahlen schließen behobene
-      Befunde aus, enthalten aber Zurückstellungen und Ausnahmen.
-    </p>
+      <NuxtLink to="/checks" class="button">Prüfläufe</NuxtLink>
+    </PageHeader>
+    <div class="section-subtle flex flex-wrap items-center justify-between gap-3 p-3" role="status">
+      <div class="min-w-0">
+        <p class="text-sm font-semibold">
+          {{ sourceLabel }} · Systemweit · unabhängig vom Dashboard-Zeitraum
+        </p>
+        <p class="operations-meta mt-1">
+          Gespeicherte Zahlen schließen behobene Befunde aus, enthalten aber Zurückstellungen und
+          Ausnahmen.
+        </p>
+      </div>
+      <button
+        class="button button-compact"
+        :disabled="store.loading"
+        @click="store.load($adminApi)"
+      >
+        <AppIcon name="refresh" :size="14" />Aktualisieren
+      </button>
+    </div>
     <RequestState
       :loading="store.loading"
       :error="store.error"
@@ -26,24 +62,7 @@ onMounted(() => {
       :last-success="store.lastSuccess"
       @retry="store.load($adminApi)"
     />
-    <div class="space-y-4">
-      <QualityOverview :data="globalData" />
-      <section class="rounded-2xl border border-slate-200 bg-white p-4">
-        <SectionHeader title="Orte ohne Geoposition" />
-        <p class="mt-2 text-sm text-slate-600">
-          Ein fehlender oder leerer Punkt ist eine Warnung. Kommende Termine erhöhen die Priorität;
-          baldige veröffentlichte Termine stehen innerhalb der Warnungen zuerst.
-        </p>
-        <p class="mt-2 text-sm text-slate-600">
-          Die Abfrage ist lesend. Es wird kein gespeicherter Prüflauf gestartet und kein Datensatz
-          verändert.
-        </p>
-        <NuxtLink
-          to="/findings?rule=venue_missing_geolocation&entity_type=venue&status=open"
-          class="button mt-3"
-          >Befunde ansehen <AppIcon name="arrow" :size="16"
-        /></NuxtLink>
-      </section>
-    </div>
-  </div>
+    <QualityOverview :data="globalData" />
+    <TechnicalInfoBar v-if="globalData" :items="technicalItems" :show-title="false" />
+  </section>
 </template>

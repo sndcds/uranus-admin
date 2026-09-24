@@ -200,3 +200,15 @@ export const qualityRuleLabels: Record<string, string> = {
 export function qualityRuleLabel(code: string): string {
   return Object.hasOwn(qualityRuleLabels, code) ? qualityRuleLabels[code]! : 'Unbekannte Prüfregel'
 }
+
+/** Overview explanations only; counts and severity continue to come from existing contracts. */
+export const qualityRuleDescriptions: Record<string, string> = {
+  venue_missing_geolocation:
+    'Fehlende oder leere Position. Kommende Termine erhöhen die Priorität. Der Drilldown zeigt offene Befunde.',
+  organization_missing_location: 'Bei der Organisation ist keine Geoposition hinterlegt.',
+  venue_missing_location: 'Beim Ort ist keine Geoposition hinterlegt.',
+  venue_missing_logo: 'Beim Ort fehlt das Hauptlogo.',
+  organization_missing_logo: 'Bei der Organisation fehlt das Hauptlogo.',
+  logo_unsupported_format: 'Das Logo verwendet weder PNG noch WebP.',
+  postal_code_whitespace: 'Führende oder abschließende Leerzeichen bei Organisationen oder Orten.',
+}
