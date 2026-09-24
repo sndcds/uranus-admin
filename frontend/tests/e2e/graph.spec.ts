@@ -20,7 +20,7 @@ test('search, explore, select, filter and navigate back', async ({ page }, info)
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('/graph')
   await expectLogoutAvailable(page)
-  await expect(page.getByRole('heading', { name: 'Zusammenhänge entdecken' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Datensatz auswählen' })).toBeVisible()
   await page.getByLabel('Nach Name, E-Mail oder UUID suchen', { exact: true }).fill('Rendsburg')
   await page
     .getByRole('button', { name: 'Kulturzentrum Rendsburg e.V. Organisation', exact: true })
@@ -70,7 +70,7 @@ test('deep link and selected node as new root', async ({ page }) => {
   await page.goto(graphPath)
   await expect(page.locator('.graph-node')).toHaveCount(12)
   await page.locator('.graph-node').filter({ hasText: 'Max Mustermann' }).click()
-  await page.getByRole('button', { name: 'Als Ausgangspunkt verwenden', exact: true }).click()
+  await page.getByRole('button', { name: 'Beziehungen', exact: true }).click()
   await expect(page).toHaveURL(/root_type=user/)
   await expect(
     page

@@ -705,15 +705,82 @@ Aktion und bestätigt nur das Einplanen. Generation/Versuche/Request-ID stehen z
 Refresh behält nur Daten derselben ID, kennzeichnet Fehler als veraltet und verwirft den
 Stand bei Identitätswechsel oder 401/403/404. Keine erfundene Abruf-/Beobachtungszeit.
 
-## 16. Workspaces
+## 16. WORKSPACE v2.1
 
-Graph: eigene Canvas-Höhe, Fit/Zoom, zugängliche Knoten/Sidebar, begrenzte Expansion,
-Fullscreen innerhalb Browser-API; Daten nicht aus Bildpositionen ableiten.
-SQL: SqlWorkspace und gemeinsames Theme; Editor und Resultat scrollen lokal. Readonly und
-editierbare Konsole bleiben fachlich getrennt. Originalquery/-parameter nicht umformatieren.
-Statistik: Serienlegende, Textwerte/Datentabelle, klare Periodenbasis, Gebiets-/Systemgrenzen.
-Karte: Leaflet clientseitig, konfigurierte Tiles, Attribution, Fehleroverlay, vollständige Liste.
-Details stehen in den verlinkten Spezialdokumenten; V2 ersetzt keine Sicherheitsgrenze.
+`/graph` und `/sql` verwenden **Operations Workspace v2.1**, auf Basis von main
+`db43a15a457a02bb5615f92e43bb7711509e2b53` nach PR #115. Technische Workspaces sind
+eigenständige Seitenmuster mit breiter Arbeitsfläche und dichter Werkzeuganordnung.
+
+**Hierarchie:** PageHeader → Workspace Toolbar / Status → Primary Workspace →
+Context / Inspector → TechnicalInfoBar. Auf breiten Bildschirmen steht der Kontext
+neben der Arbeitsfläche; im DOM bleibt die fachliche Reihenfolge nachvollziehbar.
+Die vorhandene Shell-Breite wird ausgenutzt, Fließtext erhält keine Record-Lesebreite.
+
+Die kleinen gemeinsamen CSS-Rollen `operations-workspace`,
+`operations-workspace-toolbar`, `operations-workspace-sidebar`,
+`operations-workspace-main` und `operations-workspace-footer` gliedern weiße
+Arbeitsfläche, Controls, zurückhaltenden Kontext und technische Schlussleiste.
+Keine zusätzlichen Layoutbibliotheken. Controls bleiben mindestens 44px hoch.
+TechnicalInfoBar verwendet `showTitle=false` und behält ihre benannte Region.
+
+### Graph Workspace
+
+- PageHeader „Beziehungsgraph“, Beta und kurze Aufgabenbeschreibung.
+- Kompakte Toolbar mit sichtbaren Labels: Root-Suche, Objektart, Beziehung und Tiefe.
+  Suchorganisation, Anwenden/Zurücksetzen und Darstellung bilden die zweite Reihe.
+  Auf Tablet verteilt sich das Raster, mobil stapeln die Controls. „Darstellung“ öffnet
+  die einzelne Option „Beziehungen beschriften“ mit kurzem Hinweis.
+- Ohne Root zeigt ein kompakter Leerzustand „Datensatz auswählen“ und verweist auf die
+  weiterhin sichtbare Suche. Es wird keine leere Canvas reserviert.
+- Die vorhandene D3-Canvas nutzt viewportrelative Höhe mit Mindesthöhe. Ab 1280px
+  steht der 300px-Inspector rechts, darunter folgt er unter der Canvas. Name, Typ,
+  gelieferter Subtitle, technische UUID und direkte geladene Beziehungen bleiben sichtbar.
+  Aktionen: Öffnen, Beziehungen (als neuen Root wählen), Markierungen & Notizen sowie
+  ein öffentlicher Link ausschließlich bei geliefertem Ziel.
+- Nodes bleiben mit Tab/Enter/Leertaste auswählbar und vermitteln `aria-pressed`.
+  Direkte Beziehungen sind als Textliste mit Richtungszeichen zugänglich. Nach bewusster
+  Root-Auswahl erhält der neue Root Fokus. Fullscreen verwendet weiterhin dieselbe SVG,
+  Browser-API, Resize-/Fit- und Fokus-Rückgabe. Toolbar, Inspector, Legende, Fehler und
+  technische Leiste bleiben innerhalb des Fullscreen-Ziels.
+- Der Footer nennt Root, angewendete Tiefe, sichtbare/geladene Nodes und Edges,
+  Entity-/Relation-Filter und optional Geo Scope ausdrücklich nur für die Root-Suche.
+  `truncated`, `max_nodes` und `max_edges` stammen aus dem Response; keine Gesamtzahlen
+  außerhalb des geladenen Graphs oder Abrufzeitpunkte werden erfunden.
+- Aktualisieren/Anwenden derselben Auswahl erhält Graph und Auswahl mit `aria-busy`.
+  Temporäre Fehler kennzeichnen den Stand als veraltet. Root-/Filterwechsel und
+  401/403/404/422 löschen ihn; Generation-Guards verwerfen alte Antworten.
+  Debounce, Suchorganisation, Geo-Semantik und Präferenzen bleiben erhalten.
+
+### SQL Workspace
+
+- PageHeader „SQL Console“ mit „Uranus read-only untersuchen und SQL-Abfragen
+  kontrolliert ausführen.“ Die Seite nutzt `SqlWorkspace page`; Diagnose- und
+  Datenherkunftsdialoge behalten ihre eigene bestehende Geometrie.
+- Ab 1280px: 11rem breite Kontextspalte links, Editor und Ergebnis rechts. Darunter
+  kompakter Datenbankkontext oberhalb des Editors. READ ONLY ist neutral hervorgehoben;
+  Connection zeigt verbunden/getrennt als zugänglichen Textbadge aus dem Socketzustand.
+- Query → Editor → Actions → Status → Ergebnis. Ausführen ist primär, Abbrechen
+  während der Ausführung sekundär; Formatieren und Kopieren sind nachrangig.
+  Bereit, Wird ausgeführt, Wird abgebrochen, Abgebrochen, Abgeschlossen und Fehler
+  sind Präsentationslabels der bestehenden Zustände. Vor der ersten Ausführung ist
+  der Editor bereit, die bedarfsgesteuerte Verbindung noch getrennt.
+- Dichte Ergebnistabelle mit Caption, Sticky-Kopf und fokussierbarem lokalen Scrollbereich.
+  Lange Zellen behalten die bestehende Kürzung mit vollständigem Titel sowie JSON/CSV.
+  Fehler stehen in einem eigenen Bereich mit sicherer Erklärung und, falls geliefert,
+  SQL-Position in Monospace. Leere Ergebnisse und abgebrochene Abfragen bleiben unterscheidbar.
+- Footer: Datasource Uranus, Mode READ ONLY, Scope uranus.*, aktuelle Connection,
+  Query timeout 5s, Row limit 500 und Gesamtdeadline 8s. Diese vorhandenen Limits sind
+  keine neue Konfiguration und keine gemessenen Laufzeiten.
+- CodeMirror/Prism, Formatter, logische Zeilennummern und umgebrochene SQL-Zeilen
+  bleiben erhalten. Der bestehende Mechanismus SQL / Datenherkunft bleibt unverändert;
+  kein zusätzlicher Provenance-Button im Workspace.
+
+Frontend-only: keine API-, Query-, Proxy-, Auth-, CSP- oder Datenbankänderungen.
+[Review-Aufnahmen und Prüfstand](screenshots/operations-workspaces/README.md).
+Statistik, Quality und der abschließende Accessibility-Audit bleiben separate Aufgaben.
+Die bisherigen Regeln für weitere Workspaces gelten weiterhin: Statistik mit Serienlegende,
+Textwerten/Datentabelle, klarer Periodenbasis und Gebiets-/Systemgrenzen; Karte mit
+clientseitigem Leaflet, konfigurierten Tiles, Attribution, Fehleroverlay und vollständiger Liste.
 
 ## 17. Rich Text / Markdown
 

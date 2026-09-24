@@ -201,7 +201,13 @@ onBeforeUnmount(() => {
     select(svg.value).selectAll('.graph-node').on('.drag', null)
   }
 })
-defineExpose({ fit, fitAfterResize, reset: start })
+function focusRoot() {
+  const node = [...(svg.value?.querySelectorAll<SVGGElement>('.graph-node') ?? [])].find(
+    (element) => element.dataset.id === props.root,
+  )
+  node?.focus({ preventScroll: true })
+}
+defineExpose({ fit, fitAfterResize, reset: start, focusRoot })
 </script>
 <template>
   <div
@@ -349,11 +355,15 @@ defineExpose({ fit, fitAfterResize, reset: start })
     <div
       class="absolute bottom-4 left-4 flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
     >
-      <button class="p-2 hover:bg-slate-50" aria-label="Vergrößern" @click="scale(1.3)">
+      <button
+        class="min-h-11 min-w-11 p-2 hover:bg-slate-50"
+        aria-label="Vergrößern"
+        @click="scale(1.3)"
+      >
         <AppIcon name="plus" :size="16" />
       </button>
       <button
-        class="border-y border-slate-100 p-2 hover:bg-slate-50"
+        class="min-h-11 min-w-11 border-y border-slate-100 p-2 hover:bg-slate-50"
         aria-label="Verkleinern"
         @click="scale(1 / 1.3)"
       >
@@ -361,7 +371,7 @@ defineExpose({ fit, fitAfterResize, reset: start })
       </button>
       <button
         v-if="!workspaceControls"
-        class="p-2 hover:bg-slate-50"
+        class="min-h-11 min-w-11 p-2 hover:bg-slate-50"
         aria-label="Ansicht zurücksetzen"
         @click="start"
       >

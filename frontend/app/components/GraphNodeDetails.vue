@@ -44,23 +44,24 @@ watch(
 <template>
   <aside
     :class="{ 'graph-details-fullscreen': fullscreen }"
-    class="graph-details flex min-w-0 flex-col border-t border-slate-200 bg-white xl:border-l xl:border-t-0"
+    class="graph-details operations-workspace-sidebar flex min-w-0 flex-col border-t border-slate-200 xl:border-l xl:border-t-0 [overflow-wrap:anywhere]"
     aria-label="Knotendetails"
   >
-    <div class="p-4">
+    <div class="p-3">
+      <p class="operations-meta mb-1">Auswahl</p>
       <div class="flex items-start justify-between gap-3">
         <h3 class="text-sm font-bold leading-5">{{ node.label }}</h3>
         <button
-          class="rounded p-1 text-slate-400 hover:bg-slate-50"
+          class="grid min-h-11 min-w-11 place-items-center rounded text-slate-600 hover:bg-slate-100"
           aria-label="Details schließen"
           @click="$emit('close')"
         >
           <AppIcon name="close" :size="16" />
         </button>
       </div>
-      <div class="my-4 flex items-center gap-3">
+      <div class="my-2 flex items-center gap-2">
         <div
-          class="grid h-12 w-12 place-items-center rounded-xl"
+          class="grid h-9 w-9 place-items-center rounded-xl"
           :style="{
             color: nodePresentation[node.type].color,
             background: nodePresentation[node.type].fill,
@@ -79,11 +80,9 @@ watch(
         </div>
       </div>
       <dl class="grid grid-cols-[45px_minmax(0,1fr)] gap-x-3 gap-y-3 text-xs leading-5">
-        <dt class="text-slate-500">Name</dt>
-        <dd>{{ node.label }}</dd>
         <dt class="text-slate-500">UUID</dt>
         <dd class="flex min-w-0 flex-wrap items-center gap-x-2">
-          <span class="min-w-0 break-all text-xs">{{ node.key }}</span>
+          <span class="min-w-0 break-all font-mono text-xs">{{ node.key }}</span>
           <CopyValueButton
             :value="node.key"
             label="UUID"
@@ -109,6 +108,15 @@ watch(
           class="button"
           ><AppIcon name="external" :size="13" />Auf kulturbytes.de öffnen</a
         >
+        <button
+          class="button button-compact"
+          :disabled="node.id === root"
+          title="Als Ausgangspunkt verwenden"
+          @click="$emit('root', node)"
+        >
+          <AppIcon name="graph" :size="14" />Beziehungen
+        </button>
+        <RecordMarkLink :entity-type="node.type" :entity-key="node.key" variant="compact" />
       </div>
     </div>
     <div
@@ -123,7 +131,7 @@ watch(
           { key: 'places', label: 'Orte & Räume', count: places.length },
         ]"
         :key="item.key"
-        class="whitespace-nowrap border-b-2 px-1.5 py-3"
+        class="min-h-11 whitespace-nowrap border-b-2 px-1.5 py-3"
         :class="
           tab === item.key
             ? 'border-fuchsia-600 font-semibold text-fuchsia-700'
@@ -169,12 +177,6 @@ watch(
     <p v-if="!visible.length" class="p-4 text-xs text-slate-500">
       Keine Beziehungen in dieser Auswahl.
     </p>
-    <div class="space-y-3 border-t border-slate-100 p-4">
-      <p class="text-xs font-medium">Weiter erkunden</p>
-      <button class="button w-full" :disabled="node.id === root" @click="$emit('root', node)">
-        <AppIcon name="graph" :size="14" />Als Ausgangspunkt verwenden
-      </button>
-    </div>
   </aside>
 </template>
 <style scoped>
@@ -183,10 +185,11 @@ watch(
 }
 @media (min-width: 1280px) {
   .graph-details {
-    width: 320px;
+    width: 300px;
     flex-shrink: 0;
     max-height: min(72vh, 800px);
     min-height: 520px;
+    overflow: auto;
   }
 }
 .graph-details-fullscreen {

@@ -11,7 +11,7 @@ Das Dashboard `/` ist im folgenden Schritt als Operations Overview v2.1 migriert
 (Basis: `76016593bfde39d5aada821f2e0afd9f14eba63a`, nach PR #109).
 
 **Visual consolidation / density migration pending:** Geocoding/Workflow →
-Graph/SQL/Statistics/Quality → abschließender Responsive-/Accessibility-Audit.
+Statistics/Quality → abschließender Responsive-/Accessibility-Audit.
 Diese Folgephasen benötigen jeweils einen eigenen Review; sie gehören nicht zu diesem PR.
 
 [Komponenten-/Shell-Aufnahmen und Reproduktion](screenshots/operations-foundations/README.md).
@@ -128,6 +128,31 @@ Befundaktionen und „Details schließen“ bleiben unverändert.
 [Screenshots, Validierung und verbleibende Grenzen](screenshots/operations-record-details/README.md).
 Frontend-only; keine API-, Schema-, Migrations-, Grant- oder Workeränderung.
 Dies beschreibt den Reviewstand, kein Deployment und keinen vollständigen Accessibility-Audit.
+
+## Graph / SQL: Operations Workspace v2.1
+
+Basis: frisch geholtes main nach PR #115,
+`db43a15a457a02bb5615f92e43bb7711509e2b53`.
+**Migriert:** `/graph` und `/sql` als technische Operations Workspaces v2.1.
+
+Graph: kompakte Root-/Filtertoolbar mit sichtbaren Labels, geschlossenes
+Darstellungs-Disclosure, dominante D3-Canvas, rechter Inspector ab 1280px und
+technischer Footer. Ohne Root kompakter erklärter Zustand. Identischer Refresh
+behält den Graph; Wechsel und 401/403/404/422 entfernen alte Daten. Tastaturauswahl,
+Root-Fokus, kanonische Aktionen und vorhandenes Fullscreen bleiben erhalten.
+
+SQL: schmale Datenbankkontextspalte ab 1280px, darunter kompakter Kontext vor dem
+Editor; READ ONLY und Connection als Textbadge. Zusammenhängende Query-/Ergebnisfläche,
+klare Lauf-/Abbruch-/Fehlerzustände, lokaler Tabellen-Scroll und technische Limits am Ende.
+Die Seitenvariante enthält kein zweites main. Diagnose-/Provenance-Dialoglayout und
+SQL-Zeilen-/Tokengeometrie bleiben bestehen.
+
+Keine Backend-, API-, Query-, Proxy-, Datenbank-, Auth- oder CSP-Semantik geändert.
+Geo Scope begrenzt weiterhin ausschließlich die Graph-Root-Suche. SQL baut die
+Verbindung erst bei Ausführung auf; „getrennt“ im Anfangszustand behauptet keinen Fehler.
+[Synthetische Screenshots und Validierung](screenshots/operations-workspaces/README.md).
+Reviewstand, kein Deployment-Nachweis. Statistics, Quality und der abschließende
+Accessibility-Audit gehören nicht zu dieser Migration.
 
 ## Prüfstand und Methode
 
@@ -421,7 +446,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** 1440/1024/390/360px; ab xl mehrere Kandidaten neben der Karte, sonst darunter. Ein h2, Abschnitte h3, Kandidaten h4. Auswahltext, aria-current/pressed, Marker→Listenfokus und vollständige Textalternative bei Tile-Ausfall bleiben erhalten.
 - **Terminologie / Änderung:** Workflow v2 umgesetzt. Keine Quelladressenzerlegung, keine neue Karte/Provider-Fallbacks, kein Übernehmen von Koordinaten.
 
-### `/graph` — WORKSPACE
+### `/graph` — historischer Ausgangszustand (aktuell Operations Workspace v2.1)
 
 - **Aufgabe / Hierarchie:** Belegte Beziehungen erkunden. Header → Suche/Filter → Canvas + Detailpanel → Legende.
 - **Header / Actions / Filter:** Root, Tiefe, Beziehungen, Fit/Zoom/Vollbild. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -448,7 +473,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Veranstaltungsinhalte; keine Summe auf 100 % erfinden. Priorität P2.
 
-### `/sql` — WORKSPACE
+### `/sql` — historischer Ausgangszustand (aktuell Operations Workspace v2.1)
 
 - **Aufgabe / Hierarchie:** Begrenzte SQL-Abfragen lesend untersuchen. Header → Kontext → Editor → Ergebnis.
 - **Header / Actions / Filter:** Ausführen, Abbrechen, Formatieren, Kopieren, CSV. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -703,10 +728,10 @@ Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung de
 | `/marks/:id`                     | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/geocoding`                     | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
 | `/geocoding/:id`                 | WORKFLOW (generisch)  | WORKFLOW v2              | WORKFLOW v2                                              | migriert   |
-| `/graph`                         | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
+| `/graph` | WORKSPACE | Operations Workspace v2.1 | Operations Workspace v2.1 | migriert |
 | `/statistics`                    | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
 | `/statistics?view=event-content` | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
-| `/sql`                           | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
+| `/sql` | WORKSPACE | Operations Workspace v2.1 | Operations Workspace v2.1 | migriert |
 | `/login`                         | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
 | `/events`                        | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
 | `/events/:id`                    | Generic Entity Detail | Operations Record Detail v2.1 | Operations Record Detail v2.1 + optional typisierter Relationsvertrag | migriert   |

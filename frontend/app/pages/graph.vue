@@ -7,6 +7,7 @@ import { graphEntityTypeSchema, graphRelationTypeSchema } from '#shared/contract
 import { asFailure } from '#shared/errors'
 import type { ApiFailure } from '#shared/errors'
 import { filterGraph } from '~/utils/graph'
+import { nextTick } from 'vue'
 const preferences = useFilterPreferencesStore()
 const routeQuery = usePreferenceQuery(
   {
@@ -54,6 +55,8 @@ const visible = computed(() =>
     root.value,
   ),
 )
+const workspace = ref<{ focusRoot: () => void } | null>(null)
+let loadedSelection = ''
 let requestId = 0
 let searchId = 0
 let debounce: ReturnType<typeof setTimeout> | undefined
@@ -61,8 +64,19 @@ const stringParam = (key: string) =>
   typeof routeQuery.value[key] === 'string' ? (routeQuery.value[key] as string) : ''
 async function load() {
   const id = ++requestId
-  data.value = null
-  selected.value = ''
+  const selection = JSON.stringify([
+    stringParam('root_type'),
+    stringParam('root_key'),
+    stringParam('depth') || '2',
+    stringParam('entity_type'),
+    stringParam('relation_type'),
+    stringParam('geo_scope_id'),
+  ])
+  const retain = selection === loadedSelection
+  if (!retain) {
+    data.value = null
+    selected.value = ''
+  }
   error.value = null
   loading.value = false
   entityType.value = stringParam('entity_type')
@@ -91,11 +105,26 @@ async function load() {
     })
     if (id !== requestId) return
     data.value = response
-    selected.value = `${response.root.type}:${response.root.key}`
+    loadedSelection = selection
+    if (!retain || !response.nodes.some((node) => node.id === selected.value))
+      selected.value = `${response.root.type}:${response.root.key}`
   } catch (cause) {
-    if (id === requestId) error.value = asFailure(cause)
+    if (id === requestId) {
+      error.value = asFailure(cause)
+      if ([401, 403, 404, 422].includes(error.value.status)) {
+        data.value = null
+        selected.value = ''
+      }
+    }
   } finally {
-    if (id === requestId) loading.value = false
+    if (id === requestId) {
+      loading.value = false
+      if (focusAfterSelection && data.value) {
+        focusAfterSelection = false
+        await nextTick()
+        if (id === requestId) workspace.value?.focusRoot()
+      }
+    }
   }
 }
 function remember() {
@@ -106,7 +135,9 @@ function remember() {
   })
 }
 watch([entityType, relationType, depth], remember)
+let focusAfterSelection = false
 async function choose(node: GraphNode) {
+  focusAfterSelection = true
   query.value = ''
   results.value = []
   await router.push({
@@ -120,8 +151,22 @@ async function choose(node: GraphNode) {
       relation_type: relationType.value || undefined,
     },
   })
+  // Selecting the current root can be a duplicate navigation (no load watcher).
+  if (focusAfterSelection && !loading.value && root.value === node.id) {
+    focusAfterSelection = false
+    await nextTick()
+    workspace.value?.focusRoot()
+  }
 }
 async function apply() {
+  if (
+    depth.value === Number(stringParam('depth') || 2) &&
+    entityType.value === stringParam('entity_type') &&
+    relationType.value === stringParam('relation_type')
+  ) {
+    await load()
+    return
+  }
   await router.push({
     query: {
       ...routeQuery.value,
@@ -190,11 +235,11 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <section class="space-y-5" aria-labelledby="graph-title">
+  <section class="operations-page" aria-labelledby="graph-title">
     <PageHeader
       title="Beziehungsgraph"
       title-id="graph-title"
-      description="Visualisiert die Zusammenhänge zwischen Organisationen, Orten, Räumen, Veranstaltungen, Terminen und Benutzern."
+      description="Beziehungen zwischen Datensätzen untersuchen."
     >
       <template #badge><StatusBadge label="Beta" /></template>
     </PageHeader>
@@ -204,34 +249,28 @@ onBeforeUnmount(() => {
       v-model:relation-type="relationType"
       v-model:organization="organization"
       v-model:depth="depth"
+      v-model:show-labels="showLabels"
       :geo-active="!!geoScopeId"
       :results="results"
       :searching="searching"
       :searched="searched"
       :organizations="organizations"
       :loading="loading"
-      :has-root="!!data"
+      :has-root="!!routeQuery.root_key"
       :settings-open="settingsOpen"
       @settings="settingsOpen = !settingsOpen"
       @select="choose"
       @apply="apply"
       @reset="reset"
     />
-    <div v-if="settingsOpen" class="panel p-4 text-sm">
-      <label class="flex items-center gap-2"
-        ><input v-model="showLabels" type="checkbox" class="accent-fuchsia-600" />Beziehungen im
-        Graph beschriften</label
-      >
-      <p class="mt-2 text-xs text-slate-500">
-        Bei dichten Graphen erscheinen Beschriftungen nur an der Auswahl. Die Organisationsauswahl
-        grenzt die Suche auf Organisationen im geladenen Graph ein. Knotenfilter behalten den
-        Ausgangspunkt bei.
-      </p>
-    </div>
     <InlineAlert v-if="searchError" tone="warning">
       Suche fehlgeschlagen: {{ searchError.message }}
     </InlineAlert>
     <GraphWorkspace
+      ref="workspace"
+      :entity-filter="stringParam('entity_type')"
+      :relation-filter="stringParam('relation_type')"
+      :geo-scope="geoScopeId"
       :data="data"
       :nodes="visible.nodes"
       :edges="visible.edges"

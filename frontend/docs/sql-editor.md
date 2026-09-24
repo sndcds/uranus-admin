@@ -218,3 +218,28 @@ SQL, beliebige Spalten und Parameter-Overrides sind weiterhin nicht Teil des Req
 Die Live-Definition behauptet keine gespeicherte Beobachtung (`last_seen_at: null`).
 Erst „Abfrage ausführen“ liest und bewertet den aktuellen Datensatz. Authentifizierung,
 Origin/CSRF, Lese-Transaktionen sowie Zeit-/Zeilen-/Ergebnislimits bleiben unverändert.
+
+## SQL Console — Operations Workspace v2.1
+
+`/sql` verwendet `SqlWorkspace page`: ab 1280px eine kompakte 11rem-Kontextspalte,
+darunter Kontext vor dem Editor. Der Seitenheader beschreibt kontrollierte read-only
+Inspektion; READ ONLY bleibt sichtbar und neutral. Die Connection-Badge zeigt den
+bestehenden Socketzustand. Vor der ersten Ausführung ist die Verbindung getrennt;
+der Editor ist bereit und stellt sie erst bei Ausführung her.
+
+Editor, Actions und Ergebnis bilden eine Arbeitsfläche. Ausführen bleibt primär,
+Abbrechen erscheint während der Ausführung. Formatieren/Kopieren sind nachrangig.
+Die Seite übersetzt ausschließlich Statuslabels: Bereit, Wird ausgeführt, Wird
+abgebrochen, Abgebrochen, Abgeschlossen, Fehler. Ein eigener Fehlerbereich zeigt die
+sichere Erklärung und gegebenenfalls die gelieferte SQL-Position. Ein leeres Ergebnis
+bleibt vom noch nicht ausgeführten oder abgebrochenen Zustand unterscheidbar.
+
+TechnicalInfoBar ohne Titelband schließt die Seite mit Uranus, READ ONLY, uranus.*,
+Connection sowie den bestehenden Limits 5s / 500 Zeilen / 8s Gesamtdeadline ab.
+Ergebnistabelle und Editor scrollen lokal; Caption, Sticky-Kopf, JSON/CSV und
+logische Zeilennummern samt Umbruch bleiben erhalten. Die registrierten Diagnose-
+und Datenherkunftsdialoge behalten ihr bestehendes Layout. Ausführung, Protokoll,
+SQL-Berechtigungen, Authentifizierung und CSP bleiben unverändert.
+
+[Workspace-Regeln](design-system.md#16-workspace-v21) und
+[synthetische Review-Aufnahmen](screenshots/operations-workspaces/README.md).
