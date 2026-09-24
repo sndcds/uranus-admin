@@ -142,7 +142,7 @@ const detail = useTemplateRef('detail')
                 v-if="finding.action && !workspace"
                 :to="finding.action.href"
                 class="action-link text-xs"
-                >Im Admin ansehen</NuxtLink
+                >Öffnen</NuxtLink
               >
               <button
                 v-if="finding.sql_diagnostic_available"
@@ -201,7 +201,7 @@ const detail = useTemplateRef('detail')
           class="mt-2 flex flex-col items-start sm:[&_.action-link]:min-h-6 lg:col-start-2 lg:row-span-6 lg:row-start-1 lg:mt-0"
         >
           <NuxtLink v-if="finding.action" :to="finding.action.href" class="action-link text-xs"
-            >Im Admin ansehen</NuxtLink
+            >Öffnen</NuxtLink
           >
           <button
             v-if="finding.sql_diagnostic_available"

@@ -9,6 +9,7 @@ const props = defineProps<{
   observedAt: string
   grouped?: boolean
   dense?: boolean
+  relation?: boolean
 }>()
 const name = computed(() => activityName(props.item))
 const mapUrl = computed(() => activityMapUrl(props.item.location))
@@ -74,15 +75,12 @@ const status = computed(() => activityStatus(props.item.status))
         </a>
       </p>
       <slot name="context" />
-      <div
-        class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs [&_a]:mt-0 [&_a]:border-0 [&_a]:bg-transparent [&_a]:p-0 [&_a]:text-xs"
-        :class="dense ? '[&_a]:min-h-11 [&_a]:inline-flex [&_a]:items-center' : undefined"
-      >
+      <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
         <NuxtLink
           v-if="item.action"
           :to="item.action.href"
           :aria-label="`Öffnen: ${name}`"
-          class="rounded text-fuchsia-700 underline-offset-4 hover:underline"
+          class="button button-compact"
           >Öffnen</NuxtLink
         >
         <a
@@ -92,12 +90,16 @@ const status = computed(() => activityStatus(props.item.status))
           rel="noopener noreferrer"
           referrerpolicy="no-referrer"
           :aria-label="`${name} auf kulturbytes.de öffnen (neuer Tab)`"
-          class="inline-flex items-center gap-1 rounded text-fuchsia-700 underline-offset-4 hover:underline"
+          class="action-link text-xs"
           >Auf kulturbytes.de öffnen<AppIcon name="external" :size="13"
         /></a>
-        <GraphLink :entity-type="item.entity_type" :entity-key="item.entity_key" />
+        <GraphLink
+          :entity-type="item.entity_type"
+          :entity-key="item.entity_key"
+          :variant="relation ? 'compact' : 'action'"
+        />
         <RecordMarkLink
-          :variant="dense ? 'action' : 'button'"
+          :variant="relation ? 'compact' : 'action'"
           :entity-type="item.entity_type"
           :entity-key="item.entity_key"
           :aria-label="`Markierungen & Notizen zu ${name}`"
@@ -119,7 +121,11 @@ const status = computed(() => activityStatus(props.item.status))
         :title="`${dateTime(item.created_at)} (${adminTimeZone})`"
         :aria-label="`Erstellt am ${dateTime(item.created_at)} (${adminTimeZone})`"
         >{{
-          dense && grouped ? clockTime(item.created_at) : activityTime(item.created_at, observedAt)
+          relation
+            ? dateTime(item.created_at)
+            : dense && grouped
+              ? clockTime(item.created_at)
+              : activityTime(item.created_at, observedAt)
         }}</time
       >
       <span v-else class="md:col-start-4 md:row-start-1 md:justify-self-end">Ohne Zeitstempel</span>

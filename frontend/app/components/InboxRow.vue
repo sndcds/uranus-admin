@@ -24,14 +24,6 @@ const taskStatusLabels: Record<string, string> = {
   done: 'Erledigt',
   cancelled: 'Aufgehoben',
 }
-const actionLabels: Record<string, string> = {
-  event: 'Veranstaltung ansehen',
-  organization: 'Organisation ansehen',
-  venue: 'Ort ansehen',
-  space: 'Raum ansehen',
-  user: 'Benutzer ansehen',
-  image: 'Bild ansehen',
-}
 
 const workflowStatus = computed(() =>
   props.item.workflow_status ? workflowLabels[props.item.workflow_status] : null,
@@ -57,7 +49,6 @@ const workflowAction = computed(() => {
     return 'Zustellung ansehen'
   return 'Befund ansehen'
 })
-const entityAction = computed(() => actionLabels[props.item.entity_type] ?? 'Datensatz ansehen')
 const context = computed(() => {
   const organization = props.item.organization_name?.trim()
   return organization && organization !== props.item.entity_name ? organization : null
@@ -111,7 +102,7 @@ const icon = computed<'pin' | 'mail' | 'quality' | 'list'>(() => {
           v-if="item.entity_action"
           :to="item.entity_action.href"
           class="action-link text-xs"
-          >{{ entityAction }}</NuxtLink
+          >Öffnen</NuxtLink
         >
       </div>
     </div>

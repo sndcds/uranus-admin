@@ -96,9 +96,7 @@ onBeforeUnmount(() => {
             data.urgency === 'urgent' ? 'error' : data.urgency === 'high' ? 'warning' : 'neutral'
           "
       /></template>
-      <NuxtLink v-if="data?.action" :to="data.action.href" class="button"
-        >Datensatz öffnen</NuxtLink
-      >
+      <NuxtLink v-if="data?.action" :to="data.action.href" class="button">Öffnen</NuxtLink>
       <GraphLink
         v-if="data"
         class="min-h-11"

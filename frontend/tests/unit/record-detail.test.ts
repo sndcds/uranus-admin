@@ -28,6 +28,7 @@ import EntityDetailPage from '../../app/components/EntityDetailPage.vue'
 import EntityHero from '../../app/components/EntityHero.vue'
 import EventDetailContent from '../../app/components/EventDetailContent.vue'
 import EntityTechnicalMetadata from '../../app/components/EntityTechnicalMetadata.vue'
+import CompactFacts from '../../app/components/CompactFacts.vue'
 import PageHeader from '../../app/components/PageHeader.vue'
 import RecordSection from '../../app/components/RecordSection.vue'
 import MarkdownContent from '../../app/components/MarkdownContent.vue'
@@ -56,6 +57,7 @@ const global = {
     EventDetailContent,
     EntityTechnicalMetadata,
     PageHeader,
+    CompactFacts,
     RecordSection,
     MarkdownContent,
     RequestState,
@@ -307,7 +309,11 @@ it('shows organization counts including invitations without repeating its own na
     'Orte',
     'Teammitgliedschaften',
   ])
-  expect(facts.findAll('dd.font-semibold').map((value) => value.text())).toEqual(['26', '1', '1'])
+  expect(facts.findAll('dd.font-semibold').map((value) => value.text())).toEqual([
+    '26',
+    '1',
+    '1 Einschließlich Einladungen',
+  ])
   expect(facts.text()).toContain('Einschließlich Einladungen')
   expect(wrapper.text()).not.toMatch(/aktive Mitglieder/i)
   expect(wrapper.getComponent(RecordLocation).text()).toContain(data.item.address)
@@ -334,7 +340,7 @@ it.each([null, 0])('preserves unknown versus zero domain counts (%s)', (value) =
       wrapper
         .findAllComponents(RecordSection)[0]!
         .findAll('dd.font-semibold')
-        .map((entry) => entry.text()),
+        .map((entry) => entry.element.childNodes[0]?.textContent?.trim()),
     ).toEqual(
       Array(section === 'organizations' ? 3 : 1).fill(value === null ? 'Nicht verfügbar' : '0'),
     )
@@ -439,9 +445,9 @@ it.each([
   item.finding_count = findings
   item.mark_count = marks
   const wrapper = mount(RecordWorkflowSummary, { props: { item }, global })
-  expect(wrapper.findAll('dd').map((entry) => entry.text())).toEqual(
-    [findings, marks].filter((value) => value !== null).map(String),
-  )
+  expect(
+    wrapper.findAll('dd').map((entry) => entry.element.childNodes[0]?.textContent?.trim()),
+  ).toEqual([findings, marks].filter((value) => value !== null).map(String))
   expect(wrapper.text().includes('Der Arbeitsstand ist nicht verfügbar.')).toBe(
     findings === null && marks === null,
   )
@@ -576,7 +582,7 @@ it.each(identitySections)(
       wrapper
         .getComponent(RecordWorkflowSummary)
         .findAll('dd')
-        .map((d) => d.text()),
+        .map((d) => d.element.childNodes[0]?.textContent?.trim()),
     ).toEqual(['2', '1'])
     expect(wrapper.getComponent(EntityTechnicalMetadata).text()).toContain(data.item.entity_key)
     api.entity.mockResolvedValueOnce(identityDetailFixture(section, 2))
@@ -601,7 +607,7 @@ it.each(['active', 'inactive'])(
     expect(hero.text()).toContain(status === 'active' ? 'Aktiv' : 'Nicht aktiv')
     expect(hero.text()).toContain(data.item.email)
     expect(hero.text()).toContain(data.item.facts.username)
-    expect(wrapper.text()).toContain('Teammitgliedschaften13Einschließlich Einladungen')
+    expect(wrapper.text()).toContain('Teammitgliedschaften13 Einschließlich Einladungen')
     expect(hero.find('a[target="_blank"]').exists()).toBe(false)
   },
 )
@@ -642,7 +648,9 @@ it.each([null, 0])('keeps user and image unknown versus zero counts (%s)', async
       .find(
         (s) => s.props('title') === (section === 'users' ? 'Teamkontext' : 'Bildinformationen'),
       )!
-    expect(facts.get('dd.font-semibold').text()).toBe(value === null ? 'Nicht verfügbar' : '0')
+    expect(facts.get('dd.font-semibold').element.childNodes[0]?.textContent?.trim()).toBe(
+      value === null ? 'Nicht verfügbar' : '0',
+    )
     if (section === 'images') expect(facts.findAll('dd')[1]!.text()).toBe('Nicht verfügbar')
     wrapper.unmount()
   }
@@ -749,4 +757,15 @@ it.each([401, 403, 404])('discards user data on access loss or removal (%s)', as
   expect(wrapper.find('[data-record-relations]').exists()).toBe(false)
   expect(wrapper.text()).not.toContain(data.item.entity_name)
   wrapper.unmount()
+})
+
+it('keeps the venue hero and row vocabulary aligned with operations collections', async () => {
+  api.entity.mockResolvedValue(placeDetailFixture('venues'))
+  const wrapper = mount(VenuePage, { global })
+  await flushPromises()
+  expect(wrapper.get('[data-entity-hero]').classes()).toContain('operations-panel')
+  expect(wrapper.get('[data-record-info-grid]').classes()).toContain('operations-grid')
+  expect(wrapper.getComponent(RecordRelations).classes()).toContain('section-table')
+  expect(wrapper.getComponent(RecordWorkflowSummary).get('a').text()).toBe('Befunde öffnen')
+  expect(wrapper.text()).not.toContain('Im Admin ansehen')
 })

@@ -91,7 +91,7 @@ it('preserves a real organization and unknown status; omits unavailable action/t
   expect(wrapper.text()).toContain('Ohne Zeitstempel')
   expect(wrapper.find('time').exists()).toBe(false)
   expect(wrapper.findAll('a')).toHaveLength(2)
-  expect(wrapper.get('a[href^="/graph"]').text()).toContain('Beziehungen anzeigen')
+  expect(wrapper.get('a[href^="/graph"]').text()).toContain('Beziehungen')
   expect(activityStatus(null)).toBeNull()
   for (const value of ['constructor', '__proto__', 'toString'])
     expect(activityStatus(value)).toBe(value)
@@ -422,3 +422,15 @@ it.each(['user', 'team_membership'] as const)(
     }
   },
 )
+
+it('uses a button-styled Öffnen link for relation records without reverting to admin-view wording or time-only dates', async () => {
+  const wrapper = row()
+  await wrapper.setProps({ dense: true, relation: true })
+  const open = wrapper.get(`a[href="${first.action!.href}"]`)
+  expect(open.text()).toBe('Öffnen')
+  expect(open.classes()).toContain('button')
+  expect(open.classes()).toContain('button-compact')
+  expect(wrapper.text()).not.toContain('Im Admin ansehen')
+  expect(wrapper.get('time').text()).toBe(dateTime(first.created_at))
+  wrapper.unmount()
+})

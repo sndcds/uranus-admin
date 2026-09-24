@@ -106,9 +106,9 @@ for (const [name, width, height] of [
       workflowInbox.items[1]!.assignment!.assigned_to.id,
     )
     for (const label of [
-      'Im Admin ansehen',
+      'Öffnen',
       'Standortvorschlag prüfen',
-      'Beziehungen anzeigen',
+      'Beziehungen',
       'Markierungen & Notizen',
     ])
       await expect(dialog.getByRole('link', { name: label, exact: true })).toHaveCount(1)

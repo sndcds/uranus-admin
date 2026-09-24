@@ -59,7 +59,7 @@ test('user search accepts canonical detail links and opens the graph', async ({ 
   await expect(page.locator('.graph-node')).toHaveCount(12)
   const panel = page.getByRole('complementary', { name: 'Knotendetails' })
   await expect(panel.getByRole('heading', { name: user.label })).toBeVisible()
-  await expect(panel.getByRole('link', { name: 'Im Admin ansehen', exact: true })).toHaveAttribute(
+  await expect(panel.getByRole('link', { name: 'Öffnen', exact: true })).toHaveAttribute(
     'href',
     `/users/${user.key}`,
   )
@@ -77,6 +77,36 @@ test('deep link and selected node as new root', async ({ page }) => {
       .getByRole('complementary', { name: 'Knotendetails' })
       .getByRole('heading', { name: 'Max Mustermann' }),
   ).toBeVisible()
+})
+
+test('record actions distinguish internal and public destinations', async ({ page }) => {
+  const node = {
+    ...graphFixture.nodes[3]!,
+    public_url: 'https://kulturbytes.de/de/ort/kulturhaus-hafen',
+  }
+  await page.route('**/api/admin/api/v1/graph?**', (route) =>
+    route.fulfill({
+      json: {
+        ...graphFixture,
+        nodes: graphFixture.nodes.map((entry) => (entry.id === node.id ? node : entry)),
+      },
+    }),
+  )
+  await page.goto(graphPath)
+  await page.locator(`.graph-node[data-id="${node.id}"]`).click()
+  const panel = page.getByRole('complementary', { name: 'Knotendetails' })
+  await expect(panel.getByRole('link', { name: 'Öffnen', exact: true })).toHaveAttribute(
+    'href',
+    node.admin_url!,
+  )
+  const publicLink = panel.getByRole('link', {
+    name: `${node.label} auf kulturbytes.de öffnen (neuer Tab)`,
+    exact: true,
+  })
+  await expect(publicLink).toHaveText('Auf kulturbytes.de öffnen')
+  await expect(publicLink).toHaveAttribute('href', node.public_url)
+  await expect(publicLink).toHaveAttribute('target', '_blank')
+  await expect(publicLink).toHaveAttribute('rel', /noopener/)
 })
 
 test('truncation, failure and empty results are explicit', async ({ page }) => {

@@ -98,15 +98,16 @@ watch(
       </dl>
       <div class="mt-5 flex flex-wrap gap-2">
         <NuxtLink v-if="node.admin_url" :to="node.admin_url" class="button"
-          ><AppIcon name="external" :size="13" />Im Admin ansehen</NuxtLink
+          ><AppIcon name="external" :size="13" />Öffnen</NuxtLink
         ><a
           v-if="node.public_url"
           :href="node.public_url"
           target="_blank"
           rel="noopener noreferrer"
           referrerpolicy="no-referrer"
+          :aria-label="`${node.label} auf kulturbytes.de öffnen (neuer Tab)`"
           class="button"
-          ><AppIcon name="external" :size="13" />Zur Live-Seite</a
+          ><AppIcon name="external" :size="13" />Auf kulturbytes.de öffnen</a
         >
       </div>
     </div>

@@ -13,20 +13,19 @@ const findingsHref = computed(() => ({
 </script>
 
 <template>
-  <RecordSection title="Qualität & Arbeitsstand">
-    <dl class="flex flex-wrap gap-x-10 gap-y-3">
-      <div v-if="item.finding_count !== null">
-        <dt class="type-metadata">Gespeicherte Befunde ohne behobene</dt>
-        <dd class="type-body mt-1 font-semibold">{{ item.finding_count }}</dd>
-      </div>
-      <div v-if="item.mark_count !== null">
-        <dt class="type-metadata">Markierungen einschließlich erledigter</dt>
-        <dd class="type-body mt-1 font-semibold">{{ item.mark_count }}</dd>
-      </div>
-    </dl>
+  <RecordSection title="Qualität & Arbeitsstand" surface="subtle">
+    <template #actions>
+      <NuxtLink :to="findingsHref" class="button button-compact">Befunde öffnen</NuxtLink>
+    </template>
+    <CompactFacts
+      :items="[
+        { label: 'Gespeicherte Befunde', value: item.finding_count, description: 'Ohne behobene' },
+        { label: 'Markierungen', value: item.mark_count, description: 'Einschließlich erledigter' },
+      ]"
+      missing="omit"
+    />
     <p v-if="item.finding_count === null && item.mark_count === null" class="type-body">
       Der Arbeitsstand ist nicht verfügbar.
     </p>
-    <NuxtLink :to="findingsHref" class="action-link">Befunde anzeigen</NuxtLink>
   </RecordSection>
 </template>

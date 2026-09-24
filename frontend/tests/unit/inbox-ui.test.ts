@@ -104,9 +104,7 @@ describe('Inbox shared list page', () => {
     expect(row.get('a[href="/geocoding/076ca10a-459e-4d96-b7cb-35bd5df3b356"]').text()).toContain(
       'Vorschlag prüfen',
     )
-    expect(row.get('a[href="/venues/00000000-0000-4000-8000-000000000020"]').text()).toBe(
-      'Ort ansehen',
-    )
+    expect(row.get('a[href="/venues/00000000-0000-4000-8000-000000000020"]').text()).toBe('Öffnen')
   })
 
   it('restores URL filters and writes changed filters and pagination back to the URL', async () => {

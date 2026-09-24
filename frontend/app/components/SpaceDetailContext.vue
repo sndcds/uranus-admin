@@ -13,7 +13,7 @@ const venueAction = computed(() => {
 </script>
 
 <template>
-  <dl class="mt-3 space-y-2">
+  <dl class="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
     <div v-if="data.item.facts.venue_name?.trim()">
       <dt class="type-metadata">Zugehöriger Ort</dt>
       <dd class="type-body break-words font-semibold">

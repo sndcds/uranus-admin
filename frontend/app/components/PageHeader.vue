@@ -13,7 +13,7 @@ defineProps<{
     class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
     :class="{ 'operations-header': stackActions }"
   >
-    <div class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row">
+    <div class="flex min-w-0 flex-1 gap-3" :class="record ? 'flex-row' : 'flex-col sm:flex-row'">
       <slot name="leading" />
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">

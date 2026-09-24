@@ -83,7 +83,11 @@ for (const viewport of [
           'Orte',
           'Teammitgliedschaften',
         ])
-        await expect(facts.locator('dd.font-semibold')).toHaveText(['26', '1', '1'])
+        await expect(facts.locator('dd.font-semibold')).toHaveText([
+          '26',
+          '1',
+          '1 Einschließlich Einladungen',
+        ])
         await expect(facts).toContainText('Einschließlich Einladungen')
         await expect(hero).toContainText('Flensburg')
         await expect(hero.getByText(data.item.entity_name, { exact: true })).toHaveCount(1)
@@ -166,7 +170,7 @@ test('organization relations remain globally paginated, preserve context and kee
   await expect(relations).toContainText('3 auf dieser Seite von 28 insgesamt')
   await expect(
     page.getByRole('region', { name: 'Auf einen Blick' }).locator('dd.font-semibold'),
-  ).toHaveText(['26', '1', '1'])
+  ).toHaveText(['26', '1', '1 Einschließlich Einladungen'])
   await relations.getByRole('link', { name: 'Zurück', exact: true }).click()
   await expect(relations.getByRole('heading', { level: 4 })).toHaveCount(25)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

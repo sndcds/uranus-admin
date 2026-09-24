@@ -85,7 +85,7 @@ const global = {
       methods: { focusCandidate() {} },
     },
     AppIcon: true,
-    GraphLink: { template: '<a>Beziehungen anzeigen</a>' },
+    GraphLink: { template: '<a>Beziehungen</a>' },
     RecordMarkLink: { template: '<a>Markierungen &amp; Notizen</a>' },
   },
 }

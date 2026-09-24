@@ -326,7 +326,7 @@ describe('SQL editor', () => {
     expect(view.text()).not.toContain('Markierungen & Notizen')
     const rows = view.findAll('li')
     expect(rows[0]!.get('a').attributes('href')).toBe('/venues/test-record')
-    expect(rows[0]!.get('a').text()).toBe('Im Admin ansehen')
+    expect(rows[0]!.get('a').text()).toBe('Öffnen')
     expect(rows[1]!.findAll('a')).toHaveLength(0)
     await view.get('[aria-label="SQL Editor für Test-Hafenbühne"]').trigger('click')
     await flushPromises()

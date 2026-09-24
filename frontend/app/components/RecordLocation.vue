@@ -10,6 +10,7 @@ const mapUrl = computed(() => activityMapUrl(props.item.location))
   <RecordSection
     v-if="item.address?.trim() || mapUrl"
     :title="item.address?.trim() ? 'Adresse' : 'Standort'"
+    surface="panel"
   >
     <p v-if="item.address?.trim()" class="type-body max-w-[72ch] whitespace-pre-line break-words">
       {{ item.address }}

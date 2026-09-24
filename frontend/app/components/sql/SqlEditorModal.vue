@@ -228,9 +228,7 @@ defineExpose({ open })
         </div>
         <p>{{ finding.message }}</p>
         <p class="break-all text-xs text-slate-500">Befund-ID: {{ finding.id }}</p>
-        <NuxtLink v-if="finding.action" :to="finding.action.href" class="button"
-          >Im Admin ansehen</NuxtLink
-        >
+        <NuxtLink v-if="finding.action" :to="finding.action.href" class="button">Öffnen</NuxtLink>
       </section>
       <section
         v-if="tab === 'Regel-Informationen'"

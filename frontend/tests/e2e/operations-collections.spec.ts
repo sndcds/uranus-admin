@@ -47,7 +47,7 @@ for (const size of sizes) {
         fixture.items[0]!.action!.href,
       )
       await expect(rows.first().getByRole('link', { name: /Markierungen & Notizen/ })).toBeVisible()
-      await expect(rows.first().getByRole('link', { name: 'Beziehungen anzeigen' })).toHaveCount(
+      await expect(rows.first().getByRole('link', { name: 'Beziehungen' })).toHaveCount(
         section === 'images' ? 0 : 1,
       )
       if (section === 'events') {
