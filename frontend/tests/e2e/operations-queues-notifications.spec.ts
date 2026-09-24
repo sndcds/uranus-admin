@@ -39,11 +39,14 @@ for (const viewport of [
       if (name === 'notification-detail') {
         await page.getByRole('button', { name: 'Vorschau laden' }).click()
         await expect(page.frameLocator('iframe').locator('h1')).toBeVisible()
-        // Scroll the iframe element, not an element in its opaque sandbox frame.
-        await page
-          .locator('iframe')
-          .evaluate((frame) => frame.scrollIntoView({ block: 'center', behavior: 'instant' }))
-        await expect(page.locator('iframe')).toBeInViewport()
+        if (viewport.width <= 1100) {
+          // Exercise both real preview formats. Offscreen opaque iframes may be
+          // blank in Chromium full-page captures; narrow reviews use the text tab.
+          await page.getByRole('button', { name: 'Text', exact: true }).click()
+          await expect(
+            page.getByRole('region', { name: 'E-Mail-Vorschau' }).locator('pre'),
+          ).not.toBeEmpty()
+        }
         await expect(page.locator('details')).not.toHaveAttribute('open', '')
       }
       if (name === 'delivery-detail')
