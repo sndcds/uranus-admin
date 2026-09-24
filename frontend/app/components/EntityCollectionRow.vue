@@ -65,7 +65,7 @@ const subtitle = computed(() =>
       <NuxtLink
         v-if="item.action"
         :to="item.action.href"
-        class="button text-xs"
+        class="button button-compact"
         :aria-label="`Öffnen: ${name}`"
         >Öffnen</NuxtLink
       >

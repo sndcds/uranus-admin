@@ -69,7 +69,7 @@ function openPreview() {
       class="block w-full overflow-hidden rounded-xl border border-slate-100 transition-shadow hover:ring-2 hover:ring-fuchsia-300"
       :class="
         record
-          ? 'flex h-[min(55dvh,32rem)] items-center justify-center bg-slate-50 p-3'
+          ? 'flex h-[min(40dvh,22rem)] items-center justify-center bg-slate-50 p-3'
           : dense
             ? [
                 'flex h-14 items-center justify-center bg-white',
@@ -105,7 +105,7 @@ function openPreview() {
       class="flex flex-col items-center justify-center gap-3 rounded-xl border border-slate-100 p-3"
       :class="[
         presentation.tone,
-        record ? 'h-[min(55dvh,32rem)]' : dense ? 'h-14' : 'h-16 md:h-20',
+        record ? 'h-[min(40dvh,22rem)]' : dense ? 'h-14' : 'h-16 md:h-20',
       ]"
     >
       <AppIcon :name="icon" :size="28" />

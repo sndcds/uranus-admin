@@ -85,7 +85,7 @@ for (const mode of ['live', 'persisted'] as const) {
       await expect(row).toContainText(message)
       await row.getByRole('button', { name: /^Befund bearbeiten:/ }).click()
       const detail = page.getByRole('dialog', { name: `PLZ-Test ${owner.label}` })
-      await expect(detail.getByRole('link', { name: 'Im Admin ansehen' })).toHaveAttribute(
+      await expect(detail.getByRole('link', { name: 'Öffnen' })).toHaveAttribute(
         'href',
         `/${owner.section}/${key}`,
       )

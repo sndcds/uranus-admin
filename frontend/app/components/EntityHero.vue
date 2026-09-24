@@ -13,10 +13,10 @@ const relationships = computed(() => graphHref(props.item.entity_type, props.ite
 </script>
 
 <template>
-  <div class="space-y-4 border-b border-slate-200 pb-5" data-entity-hero>
+  <div class="operations-panel space-y-3 p-operations-panel" data-entity-hero>
     <PageHeader :title="name" record>
       <template #leading
-        ><slot name="leading"><ActivityThumbnail :item="item" /></slot
+        ><slot name="leading"><ActivityThumbnail :item="item" dense /></slot
       ></template>
       <template #badge>
         <EntityTypeBadge :type="item.entity_type" />
@@ -30,25 +30,20 @@ const relationships = computed(() => graphHref(props.item.entity_type, props.ite
           <p v-if="item.subtitle" class="type-body mt-1 break-words">{{ item.subtitle }}</p>
         </slot>
       </template>
-      <NuxtLink :to="`/${section}`" class="action-link">Zur Liste</NuxtLink>
     </PageHeader>
     <InlineAlert v-if="item.notice" tone="warning">{{ item.notice }}</InlineAlert>
-    <div
-      class="flex flex-wrap items-center gap-x-4 gap-y-2"
-      role="group"
-      aria-label="Datensatzaktionen"
-    >
+    <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Datensatzaktionen">
       <a
         v-if="item.public_url"
         :href="item.public_url"
-        class="button-primary"
+        class="button-primary button-compact"
         target="_blank"
         rel="noopener noreferrer"
         referrerpolicy="no-referrer"
         :aria-label="`${name} auf kulturbytes.de öffnen (neuer Tab)`"
         >Auf kulturbytes.de öffnen <AppIcon name="external" :size="16"
       /></a>
-      <NuxtLink v-if="relationships" :to="relationships" class="button">
+      <NuxtLink v-if="relationships" :to="relationships" class="button button-compact">
         <AppIcon name="graph" :size="16" />Beziehungen
       </NuxtLink>
       <NuxtLink
@@ -56,10 +51,11 @@ const relationships = computed(() => graphHref(props.item.entity_type, props.ite
           path: '/marks',
           query: { entity_type: item.entity_type, entity_key: item.entity_key, status: 'all' },
         }"
-        class="action-link"
+        class="button button-compact"
         :aria-label="`Markierungen & Notizen zu ${name}`"
         >Markierungen &amp; Notizen</NuxtLink
       >
+      <NuxtLink :to="`/${section}`" class="button button-compact sm:ml-auto">Zur Liste</NuxtLink>
     </div>
   </div>
 </template>

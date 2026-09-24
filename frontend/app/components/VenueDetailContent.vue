@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import type { EntityDetail } from '#shared/contracts'
-import { metric } from '~/utils/presentation'
 defineProps<{ data: EntityDetail; loading: boolean }>()
 </script>
 
 <template>
-  <RecordSection title="Auf einen Blick">
-    <dl>
-      <dt class="type-metadata">Räume insgesamt</dt>
-      <dd class="type-body mt-1 font-semibold">{{ metric(data.item.facts.spaces) }}</dd>
-    </dl>
-  </RecordSection>
-  <RecordLocation :item="data.item" />
+  <div class="operations-grid" data-record-info-grid>
+    <RecordSection title="Auf einen Blick" surface="panel">
+      <CompactFacts :items="[{ label: 'Räume insgesamt', value: data.item.facts.spaces }]" />
+    </RecordSection>
+    <RecordLocation :item="data.item" />
+  </div>
   <RecordRelations :data="data" :loading="loading" />
   <RecordWorkflowSummary :item="data.item" />
 </template>

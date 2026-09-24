@@ -12,7 +12,7 @@ bleiben erhalten; weitere Routen benötigen separate Migrationen. [Review-Aufnah
 Die bisherigen v2-Verträge unten gelten weiter, sofern die neuen Dichte-/Surface-Regeln
 sie nicht ausdrücklich ersetzen. Beispiele sind keine neuen API-Felder. Grundlage ist der
 [vollständige Frontend-Audit](ui-ux-audit.md) gegen `main` bei `4560304` (initialer Audit: `e615df3`).
-Alle sechs Entity-Detailtypen verwenden Record Detail v2; Geocoding verwendet Workflow v2.
+Alle sechs Entity-Detailtypen verwenden Operations Record Detail v2.1; Geocoding verwendet Workflow v2.
 Bestehende Seiten sind nicht allein durch diese Dokumentation bereits migriert.
 Fachliche Datenverträge: [Datenansichten](data-pages.md), [Aktivität](activity-stream.md),
 [Statistiken](statistics.md), [Graph](entity-relationship-graph.md), [SQL](sql-editor.md).
@@ -100,7 +100,7 @@ Die Dashboard-Migration basiert auf `main` bei `76016593bfde39d5aada821f2e0afd9f
   Datenqualität und offene Vorgänge rechts. Darunter einspaltiger Lesefluss.
 - `FindingsList compact` verwendet eine semantische Tabelle mit vier Befunden,
   Priorität, Titel/Evidenz, Typ/Status, Quelle/Feld/Beobachtungszeit und Aktionen.
-  Unter 640px werden beschriftete Zellen gestapelt. Zeilenaktionen sind „Im Admin ansehen“
+  Unter 640px werden beschriftete Zellen gestapelt. Zeilenaktionen sind „Öffnen“
   und bei verfügbarer Diagnose „SQL Editor“. Nur die SQL-Aktion öffnet ein Modal.
 - `QualityOverview compact` zeigt fünf Regeln nach vorhandener Anzahl absteigend;
   bei Gleichstand bleibt die bestehende Reihenfolge erhalten. Fehlende Counts bleiben
@@ -266,7 +266,7 @@ keine zweite Typografiebibliothek. Neue Presenter verwenden diese Rollen statt e
 | Rolle         | Token                | Größe / Gewicht / Verwendung                                         |
 | ------------- | -------------------- | -------------------------------------------------------------------- |
 | Page title    | `type-page-title`    | 24px, bold, tight; genau ein primärer Titel                          |
-| Record title  | `type-record-title`  | 24px mobil / 28px ab sm, bold, tight; ersetzt den Page-Titel im Hero |
+| Record title  | `type-record-title`  | 24px, bold, tight; ersetzt den Page-Titel im Hero |
 | Section title | `type-section-title` | 18px, semibold; h3                                                   |
 | Row title     | `type-row-title`     | 14px, semibold; h3 oder h4 nach Kontext                              |
 | Body          | `type-body`          | 14px, 1.5; slate-700                                                 |
@@ -281,7 +281,7 @@ nur bei ihrer gezielten Migration auf Tokens umgestellt, nicht durch einen globa
 ## 6. Inhaltsbreiten
 
 Shell/Workspace: `max-w-7xl`; 16px Innenabstand mobil, 20px ab sm.
-Record Detail: `record-detail` mit `max-w-6xl`, innerhalb der Shell links ausgerichtet.
+Record Detail: `record-detail` nutzt dieselbe verfügbare Shell-Breite wie die Collections.
 Fließtext: `prose-admin`, 72ch. Kein erzwungener zweispaltiger Text.
 Karten/Diagramme/SQL besitzen eigene lokale Scroll-/Zoomflächen, keinen Seitenoverflow.
 
@@ -289,7 +289,7 @@ Karten/Diagramme/SQL besitzen eigene lokale Scroll-/Zoomflächen, keinen Seiteno
 
 ### Density
 
-Hauptblöcke 16–24px; Standard `.operations-page` und `.record-detail` 20px.
+Hauptblöcke 16–24px; Standard `.operations-page` 20px, `.record-detail` 16px.
 Panel-Innenabstand 16px, Grid-Abstand 12px, zusammengehörige Metadaten 4–8px.
 Keine verschachtelten Außen-Paddings auf kleinen Screens. Kein pauschales
 `sm:space-y-8` für neue Record-Seiten. Tailwind-Tokens in `main.css`:
@@ -455,13 +455,13 @@ Filter-Reset oder eine Warnung. Keine sechs gleich starken Buttons nebeneinander
 | ---------- | -------------------------------------------------------------------------- |
 | Navigation | Öffnen, Zur Liste                                                          |
 | Extern     | Auf kulturbytes.de öffnen, Auf OpenStreetMap öffnen                        |
-| Inspektion | Befunde anzeigen, Beziehungen, Markierungen & Notizen, SQL / Datenherkunft |
+| Inspektion | Befunde öffnen, Beziehungen, Markierungen & Notizen, SQL / Datenherkunft |
 | Workflow   | Prüfen, Bearbeiten, Zuweisen, Wiedervorlegen, Erledigen, Erneut prüfen     |
 
 Nicht „Im Admin ansehen“, wenn der Benutzer bereits im Admin ist. Accessible name
 enthält bei wiederholten Aktionen das Ziel, z. B. „Öffnen: Hafenbühne“.
 Beim Event-Pilot ist der gelieferte öffentliche Link primär; fehlt er, wird kein
-Ersatz-Write-Button erfunden. Beziehungen sekundär, Markierungen/Zur Liste tertiär.
+Ersatz-Write-Button erfunden. Beziehungen und Markierungen sekundär; Zur Liste bleibt nachrangige Navigation.
 Externe Links kennzeichnen neuen Tab und verwenden `noopener noreferrer` und
 `referrerpolicy="no-referrer"`. Nur validierte canonical URLs benutzen.
 
@@ -522,8 +522,8 @@ kein erfundener Link. Teamzahlen schließen ausdrücklich Einladungen ein. Null 
 bei identischen Werten dedupliziert. Der kanonische Benutzername bleibt unverändert.
 Bilder besitzen keinen Graph-Root; separate Dateiname-/Creator-Felder werden nicht erfunden.
 
-`ActivityRow dense` und `ActivityThumbnail dense` sind opt-in; Detail-/Relationsansichten
-behalten ihre bisherigen Defaults. `useOperationsRequest` hält nur dieselbe Query bei
+`ActivityRow dense` und `ActivityThumbnail dense` sind opt-in; Relationsansichten verwenden
+zusätzlich `relation`, damit sie keine Uhrzeit ohne Datum aus Tagesgruppen übernehmen. `useOperationsRequest` hält nur dieselbe Query bei
 Refresh und vorübergehenden Fehlern sichtbar, mit `aria-busy` und Stale-Hinweis. Neue Query,
 401/403/404/422 und verspätete Antworten können keine alten Ergebnisse wiederherstellen.
 `usePreferenceQuery` und der Store bleiben unverändert: URL > Store > Default, vollständige
@@ -536,6 +536,60 @@ bestehende Anzeigezeitzone; diese Antworten liefern keine eigene Admin-Zeitzonen
 [Review-Aufnahmen und Prüfstand](screenshots/operations-collections/README.md).
 
 ## 14. Record Details
+
+### Record Detail v2.1 — Operations-aligned Details
+
+Alle sechs Detailtypen verwenden **Operations Record Detail v2.1**. Grundlage ist
+`main` bei `148340ce2fe4bdfe46a18b56d33d069b3e28928e` nach den Collection-Änderungen
+in PR #114. Hero → Operations Grid/Fachinhalt → Relations → Arbeitsstand → kompakter
+Verlauf → TechnicalInfoBar folgt derselben Surface-, Radius- und Farbsprache wie die Listen.
+
+- `EntityHero`: gemeinsame weiße Operations-Fläche, 56px-Vorschau, 24px-Titel,
+  Typ/Status und belegter Kontext. Aktionen umbrechen darunter; Zur Liste steht ab sm
+  nachrangig rechts. SQL/Datenherkunft bleibt im PageHeader, außerhalb der Record-Aktionsgruppe.
+- Organisation/Ort: CompactFacts und vorhandene Adresse/Standort nebeneinander;
+  Benutzer: Benutzerinformationen und Teamkontext. `operations-grid` hat ab 640px zwei,
+  mobil eine Spalte. Fehlende Adresse erzeugt kein leeres Panel.
+- Raum: Zugehöriger Ort und Organisation kompakt im Hero, ohne duplizierten Faktenkasten.
+  Der vorhandene Ortsname bleibt ein kontextueller Link, wenn die kanonische Relation vorliegt.
+- Bild: Vorschau und CompactFacts in einem gemeinsamen Panel; Bildverhältnis, Fehlertext
+  und Vergrößerungsmodal bleiben erhalten. Event: Faktenpanel und eigenes Beschreibungspanel,
+  unveränderte sichere Markdown-Darstellung und begrenzte Textbreite.
+- `RecordRelations surface="table"`: Titelband, Seitenumfang/Gesamtzahl, dichte echte Liste,
+  kompakter Leerzustand und unveränderte Pagination. `ActivityRow dense relation` erhält
+  Typ, Kontext, Status, Notices und belegtes Datum; keine chronologische Umdeutung.
+- `RecordWorkflowSummary surface="subtle"`: CompactFacts „Gespeicherte Befunde“ mit
+  „Ohne behobene“ und „Markierungen“ mit „Einschließlich erledigter“. Null bleibt unbekannt.
+  „Befunde öffnen“ ist ein kleiner Secondary Button im Header.
+- `EntityTimeline compact` erhält Evidenz, Metadaten, Cursor und Links. Technische
+  Informationen bleiben unverändert am Ende. Keine zusätzlichen Datenabrufe.
+
+#### Action label contract
+
+| Ziel | Verbindlicher Aktionstext |
+| --- | --- |
+| Interner Datensatz | Öffnen |
+| Öffentliche Kulturbytes-Seite | Auf kulturbytes.de öffnen |
+| Graph | Beziehungen |
+| Markierungen | Markierungen & Notizen |
+| Collection-Rücknavigation | Zur Liste |
+| SQL-Diagnose | SQL Editor |
+| Standortprüfung | Standortvorschlag prüfen |
+
+„Im Admin ansehen“, „Datensatz ansehen“, „Ansehen“ und „Details“ ersetzen nicht „Öffnen“,
+wenn lediglich derselbe interne Datensatz geöffnet wird. Benannte kontextuelle Links
+(z. B. der Ortsname), fachliche Workflowaktionen und „Details schließen“ behalten ihre Bedeutung.
+Timeline-Links öffnen fachliche Ereignisdetails, keine normale Entity-Navigation.
+
+Öffentliche Hauptaktion im Hero: `.button-primary`. Interne Haupt-/Werkzeugaktionen:
+`.button`. Ergänzende Navigation: `.action-link`. Die Hauptaktion einer Collection-/Relationszeile
+ist ein als Button gestalteter **Link** „Öffnen“, mit Ziel im Accessible Name.
+`.button-compact` ergänzt Primary/Secondary um kleinere Schrift und horizontales Padding,
+behält aber auf Desktop und Mobile mindestens 44px echte Höhe. Dichte entsteht nicht durch
+kleinere Touchziele. Weitere Collection-Aktionen dürfen abgestuft als Textlinks erscheinen;
+der kurze öffentliche Collection-Link „kulturbytes.de“ nennt die volle Aktion im Accessible Name.
+
+[Geprüfte synthetische Screenshots und Grenzen](screenshots/operations-record-details/README.md).
 
 `EntityDetailPage` besitzt Abruf, Fehler/Loading, Standard-Header, Canonical-Findings-Link,
 Timeline und Default-Presenter. Typisierte Slots erlauben Domain-Header, Inhalt und
@@ -566,7 +620,7 @@ Inhalt, kein Hero-Fakt. Ein Folge-PR benötigt für semantische Bereiche einen t
 begrenzten Vertrag: eigene chronologische Terminpagination, unabhängiger Veranstalter,
 Standardreferenzen und begrenzte Medien mit Gesamtzahl und Zugang zu weiteren Seiten.
 
-Organisationen, Orte und Räume verwenden ebenfalls Record Detail v2. Ihre Presenter
+Organisationen, Orte und Räume verwenden ebenfalls Record Detail v2.1. Ihre Presenter
 wählen eigene Fakten; sie kopieren nicht die Veranstaltungsstruktur:
 
 | Detailtyp    | Hero-Kontext                                                         | Fachlicher Inhalt vor den Beziehungen                                                                        |
@@ -596,7 +650,7 @@ Keine Adresse im Hero wiederholen. Öffentliche Kulturbytes-Links erscheinen aus
 bei vorhandenem `public_url`; ohne sinnvolle öffentliche Aktion ist kein Primary Button nötig.
 Danach folgen stets Arbeitsstand, Timeline und technische Informationen zuletzt.
 
-`/users/:id` und `/images/:id` sind ebenfalls **RECORD DETAIL v2**. Die eigenen
+`/users/:id` und `/images/:id` sind ebenfalls **Operations Record Detail v2.1**. Die eigenen
 Presenter `UserDetailContent` und `ImageDetailContent` enthalten ihren Hero vor den
 fachlichen Abschnitten; die Shell übernimmt weiterhin RequestState und Timeline.
 Ein bewusst leerer Header-Slot darf keinen Default-Header erzeugen.
@@ -610,11 +664,12 @@ Es gibt keine scheinbar vollständigen getrennten Teamgruppen und keinen öffent
 Benutzerlink. Der kanonische UUID-Fallback für Benutzer bleibt als letzte belegte
 Identität erhalten; eine zusätzliche technische UUID steht ausschließlich am Ende.
 
-Bilder: ein Hero-Titel und große Vorschau vor Bildinformationen, Beziehungen und Arbeitsstand.
+Bilder: ein Hero-Titel, dann Vorschau und Bildinformationen nebeneinander im Panel;
+mobil untereinander. Danach Beziehungen und Arbeitsstand.
 Ein UUID-Bildname wird mit dem bestehenden Helper neutral als „Bild ohne Anzeigenamen“
 angezeigt. Bildverknüpfungen zählen Links; „Ohne Verknüpfung“ zeigt Ja/Nein/Nicht verfügbar,
 keine Aussage über Nutzung. `ActivityThumbnail` bietet eine `record`-Variante mit
-reserviertem, auf 55dvh/32rem begrenztem Rahmen und unbeschnittenem Originalverhältnis.
+reserviertem, auf 40dvh/22rem begrenztem Rahmen und unbeschnittenem Originalverhältnis.
 Sie nutzt ausschließlich `activityImagePreviewUrl` für die vorhandene öffentliche URL,
 lazy/async, anonymous CORS und no-referrer. Der vorhandene AppModal bleibt zuständig für
 Vergrößerung und Fokus-Rückgabe. Bei Bildfehlern bleibt lesbarer Text ohne Retry-Schleife;

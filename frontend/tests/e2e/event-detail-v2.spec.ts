@@ -64,7 +64,7 @@ for (const viewport of [
     expect(headings.indexOf('Technische Informationen')).toBeGreaterThan(
       headings.indexOf('Verlauf'),
     )
-    await expect(main.getByRole('link', { name: 'Befunde anzeigen', exact: true })).toHaveAttribute(
+    await expect(main.getByRole('link', { name: 'Befunde öffnen', exact: true })).toHaveAttribute(
       'href',
       new RegExp(`entity_key=${data.item.entity_key}`),
     )

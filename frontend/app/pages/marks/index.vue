@@ -291,7 +291,7 @@ onBeforeUnmount(() => {
               >Markierung öffnen</NuxtLink
             >
             <NuxtLink v-if="item.action" :to="item.action.href" class="action-link text-xs"
-              >Datensatz öffnen</NuxtLink
+              >Öffnen</NuxtLink
             >
           </div>
         </li>

@@ -144,7 +144,7 @@ test('marks retain notes, completion authors and reopening history across naviga
   await page.getByLabel('Notiz (optional)', { exact: true }).fill('Datum beim Veranstalter prüfen')
   await page.getByRole('button', { name: 'Markierung speichern', exact: true }).click()
   await expect(page).toHaveURL(/\/marks\/20000000-/)
-  await expect(page.getByRole('link', { name: 'Datensatz öffnen', exact: true })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Öffnen', exact: true })).toHaveAttribute(
     'href',
     `/venues/${entityKey}`,
   )

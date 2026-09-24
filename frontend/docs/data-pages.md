@@ -21,7 +21,7 @@ und [synthetische Review-Matrix](screenshots/operations-workflows/README.md).
   Shortcuts kombinieren sich mit den anderen Filtern; Counts bleiben global. Fachliche
   Zurückstellung wird separat von der operativen Assignment-Wiedervorlage bezeichnet.
 - Findings: Header → kompakte Filter → Gesamtzahl und **seitenlokale** Severity-Zahlen
-  → gruppierte dichte Tabelle → Pagination → Technik. „Im Admin ansehen“ und die verfügbare SQL-Diagnose
+  → gruppierte dichte Tabelle → Pagination → Technik. „Öffnen“ und die verfügbare SQL-Diagnose
   als Werkzeuge; „Befund bearbeiten“ öffnet den strukturierten Workflow, SQL bleibt direkt in der Zeile. Explizite SQL-Hashlinks bleiben erhalten.
   Kompakte Vorschaubilder stammen aus dem optionalen `image_url` der Findings-Antwort,
   mit derselben Bildzuordnung wie Activity und ohne eigene Detailabfragen pro Zeile.
@@ -146,7 +146,12 @@ und ihren Migrationsbedarf. Der [Design Guide v2](design-system.md) ist der kano
 Gestaltungsvertrag mit fünf eigenständigen Seitenmustern. Login ist eine eigene Route;
 geschützte Seiten zeigen keine zusätzliche Login-Leiste.
 
-## Record Detail v2: alle sechs Entity-Detailtypen
+## Record Detail v2.1: alle sechs Entity-Detailtypen
+
+Alle sechs verwenden Operations Record Detail v2.1: kompakte Hero-Surface, fachliche
+Operations-Grids, dichte Relations mit „Öffnen“ als Button-Link, Arbeitsstand mit CompactFacts
+und „Befunde öffnen“, kompakte Timeline. [Darstellung und Aktionsvokabular](design-system.md#record-detail-v21--operations-aligned-details).
+Die folgenden fachlichen Verträge bleiben dabei unverändert.
 
 `/events/:id` verwendet `EntityDetailPage` als Abruf-/Fehler-/Timeline-Shell mit den Slots
 `header`, `content` und `after-timeline`. `EntityHero` integriert den gemeinsamen PageHeader

@@ -90,10 +90,8 @@ test('native fullscreen reuses the graph and survives root/history navigation', 
   await enterFullscreen()
   await workspace.locator('.graph-node').first().focus()
   await page.keyboard.press('Enter')
-  await panel.getByRole('link', { name: 'Im Admin ansehen', exact: true }).click()
-  await expect(page).toHaveURL(
-    new URL(`/organizations/${graphFixture.root.key}`, page.url()).href,
-  )
+  await panel.getByRole('link', { name: 'Öffnen', exact: true }).click()
+  await expect(page).toHaveURL(new URL(`/organizations/${graphFixture.root.key}`, page.url()).href)
   await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true)
   expect(errors).toEqual([])
 })

@@ -59,7 +59,7 @@ for (const viewport of [
       )
       await expect(
         main.getByRole('region', { name: 'Qualität & Arbeitsstand' }).locator('dd'),
-      ).toHaveText(['2', '1'])
+      ).toHaveText(['2 Ohne behobene', '1 Einschließlich erledigter'])
       await expect(main.getByRole('heading', { name: 'Verlauf', exact: true })).toBeVisible()
       await expect(main.getByRole('region', { name: 'Technische Informationen' })).toContainText(
         data.item.entity_key,
@@ -80,7 +80,7 @@ for (const viewport of [
         )
         await expect(
           main.getByRole('region', { name: 'Teamkontext' }).locator('dd.font-semibold'),
-        ).toHaveText('13')
+        ).toHaveText('13 Einschließlich Einladungen')
         await expect(relations.getByText('Eingeladen', { exact: true }).first()).toBeVisible()
         await expect(relations.getByText('Beigetreten', { exact: true }).first()).toBeVisible()
       } else {

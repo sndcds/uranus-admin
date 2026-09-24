@@ -10,8 +10,7 @@ Die Navigationsreihenfolge, fachlichen Daten, Abrufe und Backend-Verträge bleib
 Das Dashboard `/` ist im folgenden Schritt als Operations Overview v2.1 migriert
 (Basis: `76016593bfde39d5aada821f2e0afd9f14eba63a`, nach PR #109).
 
-**Visual consolidation / density migration pending:** sechs Record-Details →
-Geocoding/Workflow →
+**Visual consolidation / density migration pending:** Geocoding/Workflow →
 Graph/SQL/Statistics/Quality → abschließender Responsive-/Accessibility-Audit.
 Diese Folgephasen benötigen jeweils einen eigenen Review; sie gehören nicht zu diesem PR.
 
@@ -106,6 +105,29 @@ kanonische Aktionen und alle Backend-Verträge bleiben erhalten. Shared-Variante
 Die folgenden älteren Profile bleiben als historische Ausgangsbefunde erhalten.
 [Prüfstand und synthetische Review-Matrix](screenshots/operations-collections/README.md).
 Kein Deployment-Nachweis und kein abschließender Accessibility-Audit.
+
+## Operations Record Detail v2.1
+
+Basis: frisch geholtes main bei `148340ce2fe4bdfe46a18b56d33d069b3e28928e`
+(PR #114; enthält den gewünschten Ausgangspunkt nach #113).
+**Migriert:** `/events/:id`, `/organizations/:id`, `/venues/:id`, `/spaces/:id`,
+`/users/:id`, `/images/:id` — jeweils **Operations Record Detail v2.1**.
+
+Kompakter Hero auf einer Operations-Fläche, zweispaltige fachliche Informationsgruppen,
+dichte Relations mit „Öffnen“ als Button-Link, kompakter Arbeitsstand und Timeline.
+TechnicalInfoBar bleibt der Abschluss. Venue ist die visuelle Referenz zur Collection.
+Datenmenge, globale Relationspagination, unbekannte Werte und Markdown bleiben erhalten.
+
+Der semantische Aktionsaudit vereinheitlicht direkte Record-Links in Activity/Collections,
+Relations, Inbox, Markierungen, Befundwerkzeugen und den bestehenden Graph-/SQL-Record-Links auf „Öffnen“.
+GraphLink heißt „Beziehungen“. Die beiden Workspace-Dateien erhalten ausschließlich angepasste
+Aktionslabels; die öffentliche Graph-Aktion heißt ebenfalls „Auf kulturbytes.de öffnen“.
+Keine Graph-/SQL-/Statistics-/Quality-Migration. Fachliche Ereignisdetails,
+Befundaktionen und „Details schließen“ bleiben unverändert.
+
+[Screenshots, Validierung und verbleibende Grenzen](screenshots/operations-record-details/README.md).
+Frontend-only; keine API-, Schema-, Migrations-, Grant- oder Workeränderung.
+Dies beschreibt den Reviewstand, kein Deployment und keinen vollständigen Accessibility-Audit.
 
 ## Prüfstand und Methode
 
@@ -453,7 +475,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Kompakte Zeilen beibehalten; domänenspezifische Metadaten verdichten. Priorität P2.
 
-### `/events/:id` — historischer Ausgangszustand (aktuell RECORD DETAIL v2)
+### `/events/:id` — historischer Ausgangszustand (aktuell Operations Record Detail v2.1)
 
 Die folgenden Befunde beschreiben den Zustand vor dem abgeschlossenen Event-Pilot.
 Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
@@ -474,11 +496,11 @@ Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Kompakte Zeilen beibehalten; domänenspezifische Metadaten verdichten. Priorität P2.
 
-### `/organizations/:id` — RECORD DETAIL v2
+### `/organizations/:id` — Operations Record Detail v2.1
 
 - **Aufgabe / Hierarchie:** Organisation und belegten Kontext prüfen. Hero → Veranstaltungen/Orte/Teammitgliedschaften einschließlich Einladungen → optionale Adresse/Standort → generische Beziehungen → Arbeitsstand → Timeline → technische Informationen.
 - **Header / Actions / Filter:** Logo, Name einmal, Stadt-Subtitle. Zur Liste, Beziehungen, Markierungen & Notizen; keine erfundene öffentliche Primäraktion. Kein Filterformular; Relationsseite in der URL.
-- **Surfaces / Typografie / Status:** EntityHero, plain RecordSections, V2-Typografie; ActivityRow ausschließlich in der generischen Relationsliste. UUID nur technisch. Null-Counts bleiben unbekannt, 0 bleibt 0.
+- **Surfaces / Typografie / Status:** Operations-Hero, begrenzte RecordSections, CompactFacts und dichte Relationszeilen. UUID nur technisch. Null-Counts bleiben unbekannt, 0 bleibt 0.
 - **Loading / Error / Empty:** Gleiche Identität behält letzte erfolgreiche Daten mit Lade-/Stale-Hinweis. Identitätswechsel und 401/403/404 verwerfen Daten; späte Antworten werden ignoriert. Fehlende optionale Inhalte erzeugen keinen leeren Kasten. Leere Relation heißt nur „Keine belegten Verknüpfungen auf dieser Seite vorhanden“.
 - **Mobile / Accessibility:** Vier Größen 1440/1024/390/360px, lange Namen/Adressen, umbrechende Aktionen, 44px-Touchziele; ein h2, RecordSections h3, Relationszeilen h4. Benannte Regionen, externe Links mit neuem-Tab-Kontext, Timeline vor technischen Informationen.
 - **Terminologie / Änderung:** Teammitgliedschaften einschließlich Einladungen; keine aktiven Mitglieder behaupten. V2-Migration umgesetzt. Semantische Fachgruppen bleiben zurückgestellt bis zu einem typisierten, begrenzten Vertrag; globale Pagination bleibt ehrlich sichtbar.
@@ -492,11 +514,11 @@ Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Kompakte Zeilen beibehalten; domänenspezifische Metadaten verdichten. Priorität P2.
 
-### `/venues/:id` — RECORD DETAIL v2
+### `/venues/:id` — Operations Record Detail v2.1
 
 - **Aufgabe / Hierarchie:** Ort und belegten Kontext prüfen. Hero → Räume insgesamt → optionale Adresse → generische Beziehungen → Arbeitsstand → Timeline → technische Informationen.
 - **Header / Actions / Filter:** Bild, Name einmal, Organisation. Zur Liste, Beziehungen, Markierungen & Notizen; Kulturbytes-Primary nur aus vorhandenem public_url. Kein Filterformular; Relationsseite in der URL.
-- **Surfaces / Typografie / Status:** EntityHero, plain RecordSections, V2-Typografie; ActivityRow ausschließlich in der generischen Relationsliste. UUID nur technisch. Null-Counts bleiben unbekannt, 0 bleibt 0.
+- **Surfaces / Typografie / Status:** Operations-Hero, begrenzte RecordSections, CompactFacts und dichte Relationszeilen. UUID nur technisch. Null-Counts bleiben unbekannt, 0 bleibt 0.
 - **Loading / Error / Empty:** Gleiche Identität behält letzte erfolgreiche Daten mit Lade-/Stale-Hinweis. Identitätswechsel und 401/403/404 verwerfen Daten; späte Antworten werden ignoriert. Fehlende optionale Inhalte erzeugen keinen leeren Kasten. Leere Relation heißt nur „Keine belegten Verknüpfungen auf dieser Seite vorhanden“.
 - **Mobile / Accessibility:** Vier Größen 1440/1024/390/360px, lange Namen/Adressen, umbrechende Aktionen, 44px-Touchziele; ein h2, RecordSections h3, Relationszeilen h4. Benannte Regionen, externe Links mit neuem-Tab-Kontext, Timeline vor technischen Informationen.
 - **Terminologie / Änderung:** Räume insgesamt; keine aus Adressen errechnete oder erfundene Location. V2-Migration umgesetzt. Semantische Fachgruppen bleiben zurückgestellt bis zu einem typisierten, begrenzten Vertrag; globale Pagination bleibt ehrlich sichtbar.
@@ -510,11 +532,11 @@ Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Kompakte Zeilen beibehalten; domänenspezifische Metadaten verdichten. Priorität P2.
 
-### `/spaces/:id` — RECORD DETAIL v2
+### `/spaces/:id` — Operations Record Detail v2.1
 
 - **Aufgabe / Hierarchie:** Raum und belegten Kontext prüfen. Hero einschließlich der zwei belegten Kontextfakten → generische Beziehungen → Arbeitsstand → Timeline → technische Informationen.
 - **Header / Actions / Filter:** Name einmal, Zugehöriger Ort als Hauptkontext, Organisation darunter; kein zusätzlicher Venue-Subtitle. Zur Liste, Beziehungen, Markierungen & Notizen. Kein Filterformular; Relationsseite in der URL.
-- **Surfaces / Typografie / Status:** EntityHero, plain RecordSections, V2-Typografie; ActivityRow ausschließlich in der generischen Relationsliste. UUID nur technisch. Null-Counts bleiben unbekannt, 0 bleibt 0.
+- **Surfaces / Typografie / Status:** Operations-Hero, begrenzte RecordSections, CompactFacts und dichte Relationszeilen. UUID nur technisch. Null-Counts bleiben unbekannt, 0 bleibt 0.
 - **Loading / Error / Empty:** Gleiche Identität behält letzte erfolgreiche Daten mit Lade-/Stale-Hinweis. Identitätswechsel und 401/403/404 verwerfen Daten; späte Antworten werden ignoriert. Fehlende optionale Inhalte erzeugen keinen leeren Kasten. Leere Relation heißt nur „Keine belegten Verknüpfungen auf dieser Seite vorhanden“.
 - **Mobile / Accessibility:** Vier Größen 1440/1024/390/360px, lange Namen/Adressen, umbrechende Aktionen, 44px-Touchziele; ein h2, RecordSections h3, Relationszeilen h4. Benannte Regionen, externe Links mit neuem-Tab-Kontext, Timeline vor technischen Informationen.
 - **Terminologie / Änderung:** Zugehöriger Ort; kanonischer Link nur aus gelieferter Ortsrelation, sonst Text. V2-Migration umgesetzt. Semantische Fachgruppen bleiben zurückgestellt bis zu einem typisierten, begrenzten Vertrag; globale Pagination bleibt ehrlich sichtbar.
@@ -528,10 +550,10 @@ Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Kompakte Zeilen beibehalten; domänenspezifische Metadaten verdichten. Priorität P2.
 
-### `/users/:id` — RECORD DETAIL v2 (migriert)
+### `/users/:id` — Operations Record Detail v2.1 (migriert)
 
 - **Ausgangszustand:** Generic Entity Detail mit ActivityRow-Hero, doppeltem Titel, frühen UUID-Fakten und Timeline vor Beziehungen.
-- **Aktueller Zustand:** Hero (Avatar, Servername, deduplizierte E-Mail/Username, Aktiv/Nicht aktiv) → Benutzerinformationen → Teamkontext → Verknüpfte Datensätze → Qualität & Arbeitsstand → Timeline → Technische Informationen.
+- **Aktueller Zustand:** Hero (Avatar, Servername, deduplizierte E-Mail/Username, Aktiv/Nicht aktiv) → Benutzerinformationen/Teamkontext im Operations Grid → Verknüpfte Datensätze → Qualität & Arbeitsstand → Timeline → Technische Informationen.
 - **Semantik:** `facts.memberships` zählt Teammitgliedschaften einschließlich Einladungen. Status Eingeladen/Beigetreten bleibt erhalten; kein Join-Zeitpunkt wird erfunden. Keine vollständigen Teamgruppen aus einer Relationsseite.
 - **Shared:** EntityDetailPage, EntityHero, RecordSection, RecordRelations, RecordWorkflowSummary, EntityTimeline und EntityTechnicalMetadata. Keine neuen Backend-Felder, Source Writes oder Markdown-Felder.
 - **Zustände / Accessibility:** Ein h2, Sections h3, Relationszeilen h4; gleiche Identität bleibt bei Refresh sichtbar, 401/403/404 und Identitätswechsel löschen alte Inhalte, späte Antworten werden verworfen. Plaintext, lange Inhalte und Vorschauverhältnisse auf 1440/1024/390/360px geprüft.
@@ -545,10 +567,10 @@ Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Kompakte Zeilen beibehalten; domänenspezifische Metadaten verdichten. Priorität P2.
 
-### `/images/:id` — RECORD DETAIL v2 (migriert)
+### `/images/:id` — Operations Record Detail v2.1 (migriert)
 
 - **Ausgangszustand:** Generic Entity Detail mit ActivityRow-Hero, doppeltem Titel, frühen UUID-Fakten und Timeline vor Beziehungen.
-- **Aktueller Zustand:** Hero und große sichere Vorschau → Bildinformationen → Verknüpfte Datensätze → Qualität & Arbeitsstand → Timeline → Technische Informationen.
+- **Aktueller Zustand:** Hero → sichere Vorschau/Bildinformationen im Operations Grid → Verknüpfte Datensätze → Qualität & Arbeitsstand → Timeline → Technische Informationen.
 - **Semantik:** `facts.image_links` zählt Verknüpfungen, `facts.orphan` zeigt Ja/Nein/Nicht verfügbar. Große ActivityThumbnail-Variante mit bestehender URL-Prüfung und AppModal; Fehlertext ohne automatische Wiederholung. Keine Metadaten oder semantischen Bildtitel erfinden.
 - **Shared:** EntityDetailPage, EntityHero, RecordSection, RecordRelations, RecordWorkflowSummary, EntityTimeline und EntityTechnicalMetadata. Keine neuen Backend-Felder, Source Writes oder Markdown-Felder.
 - **Zustände / Accessibility:** Ein h2, Sections h3, Relationszeilen h4; gleiche Identität bleibt bei Refresh sichtbar, 401/403/404 und Identitätswechsel löschen alte Inhalte, späte Antworten werden verworfen. Plaintext, lange Inhalte und Vorschauverhältnisse auf 1440/1024/390/360px geprüft.
@@ -687,17 +709,17 @@ Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung de
 | `/sql`                           | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
 | `/login`                         | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
 | `/events`                        | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
-| `/events/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/events/:id`                    | Generic Entity Detail | Operations Record Detail v2.1 | Operations Record Detail v2.1 + optional typisierter Relationsvertrag | migriert   |
 | `/organizations`                 | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
-| `/organizations/:id`             | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/organizations/:id`             | Generic Entity Detail | Operations Record Detail v2.1 | Operations Record Detail v2.1 + optional typisierter Relationsvertrag | migriert   |
 | `/venues`                        | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
-| `/venues/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/venues/:id`                    | Generic Entity Detail | Operations Record Detail v2.1 | Operations Record Detail v2.1 + optional typisierter Relationsvertrag | migriert   |
 | `/spaces`                        | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
-| `/spaces/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/spaces/:id`                    | Generic Entity Detail | Operations Record Detail v2.1 | Operations Record Detail v2.1 + optional typisierter Relationsvertrag | migriert   |
 | `/users`                         | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
-| `/users/:id`                     | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/users/:id`                     | Generic Entity Detail | Operations Record Detail v2.1 | Operations Record Detail v2.1 + optional typisierter Relationsvertrag | migriert   |
 | `/images`                        | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
-| `/images/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
+| `/images/:id`                    | Generic Entity Detail | Operations Record Detail v2.1 | Operations Record Detail v2.1 + optional typisierter Relationsvertrag | migriert   |
 
 ## Ursprüngliche Lieferfolge mit aktuellem Abschlussstand
 

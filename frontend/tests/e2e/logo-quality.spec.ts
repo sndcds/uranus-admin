@@ -112,7 +112,7 @@ for (const entry of cases) {
     ).toBeVisible()
     await row.getByRole('button', { name: /^Befund bearbeiten:/ }).click()
     const detail = page.getByRole('dialog', { name: 'Logo-Testdatensatz' })
-    await expect(detail.getByRole('link', { name: 'Im Admin ansehen' })).toHaveAttribute(
+    await expect(detail.getByRole('link', { name: 'Öffnen' })).toHaveAttribute(
       'href',
       `/${entry.section}/${entityKey}`,
     )

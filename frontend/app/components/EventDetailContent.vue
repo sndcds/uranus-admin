@@ -12,15 +12,10 @@ const facts = computed(() =>
 </script>
 
 <template>
-  <RecordSection v-if="facts.length" title="Auf einen Blick">
-    <dl class="grid gap-4 sm:grid-cols-3">
-      <div v-for="fact in facts" :key="fact.label" class="min-w-0">
-        <dt class="type-metadata">{{ fact.label }}</dt>
-        <dd class="type-body mt-1 break-words font-semibold">{{ fact.value }}</dd>
-      </div>
-    </dl>
+  <RecordSection v-if="facts.length" title="Auf einen Blick" surface="panel">
+    <CompactFacts :items="facts" :columns="3" />
   </RecordSection>
-  <RecordSection v-if="data.item.facts.description?.trim()" title="Beschreibung">
+  <RecordSection v-if="data.item.facts.description?.trim()" title="Beschreibung" surface="panel">
     <MarkdownContent :source="data.item.facts.description" />
   </RecordSection>
   <RecordRelations :data="data" :loading="loading" data-event-relations>

@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import type { EntityDetail } from '#shared/contracts'
 import { activityStatus } from '~/utils/activity'
-import { metric } from '~/utils/presentation'
 const props = defineProps<{ data: EntityDetail; loading: boolean }>()
 // The server owns the canonical label. Only suppress identical context values here.
 const identity = computed(() => {
@@ -27,19 +26,22 @@ const status = computed(() => activityStatus(props.data.item.status))
       </p>
     </template>
   </EntityHero>
-  <RecordSection v-if="status" title="Benutzerinformationen">
-    <dl>
-      <dt class="type-metadata">Kontostatus</dt>
-      <dd class="type-body mt-1">{{ status }}</dd>
-    </dl>
-  </RecordSection>
-  <RecordSection title="Teamkontext">
-    <dl>
-      <dt class="type-metadata">Teammitgliedschaften</dt>
-      <dd class="type-body mt-1 font-semibold">{{ metric(data.item.facts.memberships) }}</dd>
-      <dd class="type-metadata">Einschließlich Einladungen</dd>
-    </dl>
-  </RecordSection>
+  <div class="operations-grid" data-record-info-grid>
+    <RecordSection v-if="status" title="Benutzerinformationen" surface="panel">
+      <CompactFacts :items="[{ label: 'Kontostatus', value: status }]" />
+    </RecordSection>
+    <RecordSection title="Teamkontext" surface="panel">
+      <CompactFacts
+        :items="[
+          {
+            label: 'Teammitgliedschaften',
+            value: data.item.facts.memberships,
+            description: 'Einschließlich Einladungen',
+          },
+        ]"
+      />
+    </RecordSection>
+  </div>
   <RecordRelations :data="data" :loading="loading">
     <template #description>
       Gemeinsame Liste nach Objektart und Name. „Eingeladen“ und „Beigetreten“ bezeichnen den

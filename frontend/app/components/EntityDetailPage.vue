@@ -90,6 +90,7 @@ onBeforeUnmount(() => {
         />
       </slot>
       <EntityTimeline
+        :compact="record"
         :entity-type="entitySections[section].type"
         :entity-key="data.item.entity_key"
       />

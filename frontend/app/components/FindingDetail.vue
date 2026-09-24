@@ -268,7 +268,7 @@ defineExpose({ open })
             :to="finding.action.href"
             class="action-link"
             @click="dialog?.close()"
-            >Im Admin ansehen</NuxtLink
+            >Öffnen</NuxtLink
           >
           <NuxtLink
             v-if="finding.location_suggestion_request_id"

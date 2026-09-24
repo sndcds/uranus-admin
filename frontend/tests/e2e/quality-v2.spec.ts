@@ -74,7 +74,7 @@ test('internal membership integrity has readable label and safe organization act
   await expect(list).toContainText('Eine bereits angenommene Team-Einladung')
   await list.getByRole('button', { name: /^Befund bearbeiten:/ }).click()
   const detail = page.getByRole('dialog', { name: 'Synthetische Mitgliedschaft' })
-  await expect(detail.getByRole('link', { name: 'Im Admin ansehen' })).toHaveAttribute(
+  await expect(detail.getByRole('link', { name: 'Öffnen' })).toHaveAttribute(
     'href',
     `/organizations/${key}`,
   )

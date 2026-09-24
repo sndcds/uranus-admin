@@ -23,7 +23,7 @@ for (const section of entitySectionSchema.options) {
     ).toHaveText(`Fixture ${section}`)
     await expect(
       page.getByRole('link', {
-        name: 'Befunde anzeigen',
+        name: 'Befunde öffnen',
       }),
     ).toHaveAttribute('href', /entity_key=/)
     await expect(
