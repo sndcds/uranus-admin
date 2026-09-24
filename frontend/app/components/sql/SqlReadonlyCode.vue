@@ -10,13 +10,19 @@ const highlightedSql = shallowRef<string | null>(null)
 const displayedTokens = computed(() =>
   highlightedSql.value === props.sql ? tokens.value : [{ text: props.sql, type: '' }],
 )
-const lineCount = computed(
-  () =>
-    displayedTokens.value
-      .map((token) => token.text)
-      .join('')
-      .split('\n').length,
-)
+const displayedLines = computed(() => {
+  const lines: SqlToken[][] = [[]]
+  for (const token of displayedTokens.value) {
+    const parts = token.text.split('\n')
+    parts.forEach((part, index) => {
+      const newline = index < parts.length - 1
+      if (part || newline)
+        lines[lines.length - 1]!.push({ text: part + (newline ? '\n' : ''), type: token.type })
+      if (newline) lines.push([])
+    })
+  }
+  return lines
+})
 let revision = 0
 async function highlight() {
   const current = ++revision
@@ -57,13 +63,13 @@ onBeforeUnmount(() => revision++)
         >SQL (PostgreSQL)</span
       >
     </div>
-    <div class="sql-lines">
+    <div class="sql-lines" :style="{ '--sql-line-count': displayedLines.length }">
       <div aria-hidden="true" class="sql-gutter select-none">
-        <div v-for="line in lineCount" :key="line">{{ line }}</div>
+        <div v-for="line in displayedLines.length" :key="line">{{ line }}</div>
       </div>
       <pre
         class="sql-text"
-      ><code class="language-sql"><span v-for="(token, index) in displayedTokens" :key="index" :class="token.type ? `token ${token.type}` : undefined">{{ token.text }}</span></code></pre>
+      ><code class="language-sql"><span v-for="(line, lineIndex) in displayedLines" :key="lineIndex" class="sql-line"><span v-for="(token, index) in line" :key="index" :class="token.type ? `token ${token.type}` : undefined">{{ token.text }}</span></span></code></pre>
     </div>
   </div>
 </template>

@@ -462,14 +462,15 @@ async def test_membership_token_api_and_least_privilege_reader(
         await setup.dispose()
 
 
-async def test_diagnostics_enforce_admin_and_cookie_csrf(settings):
+@pytest.mark.parametrize("mode", ["persisted", "live"])
+async def test_diagnostics_enforce_admin_and_cookie_csrf(settings, mode):
     from app.auth.service import AdminPrincipal
 
     settings.auth_public_origin = "http://test"
     app = create_app(settings)
     url = "/api/v1/findings/sql-diagnostic/execute"
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        assert (await client.post(url, json={"finding_id": "x"})).status_code == 401
+        assert (await client.post(url, json={"finding_id": "x", "mode": mode})).status_code == 401
         client.cookies.set(settings.session_cookie, "x" * 43)
         with (
             patch("app.auth.dependencies.session_identity", new_callable=AsyncMock) as identity,
@@ -481,14 +482,16 @@ async def test_diagnostics_enforce_admin_and_cookie_csrf(settings):
                 {"Origin": "http://evil.invalid", "X-Admin-CSRF": "1"},
                 {"Origin": "http://test"},
             ):
-                response = await client.post(url, headers=extra, json={"finding_id": "x"})
+                response = await client.post(
+                    url, headers=extra, json={"finding_id": "x", "mode": mode}
+                )
                 assert response.status_code == 403
                 assert response.json()["error"]["code"] == "csrf_rejected"
             identity.return_value = AdminPrincipal(subject="admin:fixture", system_admin=False)
             response = await client.post(
                 url,
                 headers={"Origin": "http://test", "X-Admin-CSRF": "1"},
-                json={"finding_id": "x"},
+                json={"finding_id": "x", "mode": mode},
             )
             assert response.status_code == 403
             assert response.json()["error"]["code"] == "admin_access_denied"

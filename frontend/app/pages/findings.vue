@@ -14,7 +14,7 @@ const invalidQuery = ref(false)
 const linkedSqlEditor = useTemplateRef<InstanceType<typeof SqlEditorModal>>('linkedSqlEditor')
 function openLinkedSql() {
   const finding = sqlFindingFromHash(route.hash ?? '', store.data?.items ?? [])
-  if (finding) linkedSqlEditor.value?.open(finding)
+  if (finding) linkedSqlEditor.value?.open(finding, store.data?.mode ?? store.filters.mode)
 }
 watch(() => route.hash, openLinkedSql)
 const severityCounts = computed(() => {
@@ -75,6 +75,7 @@ function page(value: number) {
       </button>
     </PageHeader>
     <FilterForm
+      compact
       :filters="store.filters"
       @apply="apply"
       @reset="router.push({ query: { geo_scope_id: route.query.geo_scope_id } })"
@@ -90,13 +91,13 @@ function page(value: number) {
       :last-success="store.lastSuccess"
       @retry="store.load($adminApi)"
     />
-    <template v-if="store.data">
+    <div v-if="store.data" class="space-y-0">
       <ResultSummary
+        class="border-b border-slate-200 px-3 py-3"
         :total="store.data.pagination.total"
         :visible="store.data.items.length"
         noun="Befunde"
         :description="`${(store.data.mode ?? store.filters.mode) === 'persisted' ? 'Gespeicherte Befunde' : 'Live-Auswertung'} · serverseitig priorisiert`"
-        :observed-at="store.data.observed_at"
         ><StatusBadge
           v-for="entry in severityCounts"
           :key="entry.label"
@@ -105,13 +106,31 @@ function page(value: number) {
         /><span>· auf dieser Seite</span></ResultSummary
       >
       <DataListShell v-if="store.data.items.length" :aria-busy="store.loading">
-        <FindingsList :items="store.data.items" />
+        <FindingsList
+          :items="store.data.items"
+          :mode="store.data.mode ?? store.filters.mode"
+          compact
+          workspace
+          @refresh="store.load($adminApi)"
+        />
       </DataListShell>
       <EmptyState
-        v-else
-        message="Keine Befunde auf dieser Seite. Filter ändern oder zur ersten Seite wechseln."
-      />
-      <PaginationBar :pagination="store.data.pagination" :loading="store.loading" @change="page">
+        v-else-if="!store.error"
+        variant="compact"
+        message="Keine Befunde für diese Auswahl."
+        ><NuxtLink
+          v-if="Object.keys(route.query).some((key) => key !== 'geo_scope_id')"
+          :to="{ query: { geo_scope_id: route.query.geo_scope_id } }"
+          class="action-link"
+          >Filter zurücksetzen</NuxtLink
+        ></EmptyState
+      >
+      <PaginationBar
+        class="mt-4"
+        :pagination="store.data.pagination"
+        :loading="store.loading"
+        @change="page"
+      >
         <label class="inline-flex items-center gap-2"
           ><span class="sr-only">Einträge pro Seite</span>
           <select
@@ -134,10 +153,34 @@ function page(value: number) {
           </select>
         </label>
       </PaginationBar>
-    </template>
-    <p v-if="store.lastSuccess" class="text-xs text-slate-500">
-      Letzter erfolgreicher Abruf: {{ dateTime(store.lastSuccess) }} · Europe/Berlin. Gespeicherte
-      Befunde enthalten Erstfund und Reviewstatus.
-    </p>
+    </div>
+    <TechnicalInfoBar
+      v-if="store.data"
+      :show-title="false"
+      :items="[
+        {
+          label: 'Datenstand',
+          value: dateTime(store.data.observed_at),
+          datetime: store.data.observed_at,
+          timezone: 'Europe/Berlin',
+        },
+        {
+          label: 'Modus',
+          value:
+            (store.data.mode ?? store.filters.mode) === 'persisted'
+              ? 'Gespeicherte Befunde'
+              : 'Live-Auswertung',
+        },
+        { label: 'Gesamtzahl', value: store.data.pagination.total },
+        { label: 'Einträge pro Seite', value: store.data.pagination.page_size },
+        {
+          label: 'Letzter erfolgreicher Abruf',
+          value: store.lastSuccess ? dateTime(store.lastSuccess) : null,
+          datetime: store.lastSuccess ?? undefined,
+          timezone: 'Europe/Berlin',
+          description: 'Client-Abrufzeit',
+        },
+      ]"
+    />
   </section>
 </template>

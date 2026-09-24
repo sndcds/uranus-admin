@@ -4,6 +4,7 @@ import type { GraphNode, GraphEdge } from '#shared/contracts'
 import { nodePresentation } from '~/utils/graph'
 import { activityStatus } from '~/utils/activity'
 import AppIcon from './AppIcon.vue'
+import CopyValueButton from './CopyValueButton.vue'
 const props = defineProps<{
   node: GraphNode
   nodes: GraphNode[]
@@ -13,7 +14,6 @@ const props = defineProps<{
 }>()
 defineEmits<{ close: []; select: [id: string]; root: [node: GraphNode] }>()
 const tab = ref('all')
-const copied = ref('')
 const relations = computed(() =>
   props.edges
     .filter((e) => e.source === props.node.id || e.target === props.node.id)
@@ -38,17 +38,8 @@ watch(
   () => props.node.id,
   () => {
     tab.value = 'all'
-    copied.value = ''
   },
 )
-async function copy() {
-  try {
-    await navigator.clipboard.writeText(props.node.key)
-    copied.value = 'UUID kopiert'
-  } catch {
-    copied.value = 'Kopieren nicht verfügbar'
-  }
-}
 </script>
 <template>
   <aside
@@ -91,22 +82,20 @@ async function copy() {
         <dt class="text-slate-500">Name</dt>
         <dd>{{ node.label }}</dd>
         <dt class="text-slate-500">UUID</dt>
-        <dd class="flex min-w-0 items-start gap-1">
-          <span class="break-all text-xs">{{ node.key }}</span
-          ><button
-            class="shrink-0 rounded p-1 text-slate-500"
-            aria-label="UUID kopieren"
-            @click="copy"
-          >
-            <AppIcon name="copy" :size="12" />
-          </button>
+        <dd class="flex min-w-0 flex-wrap items-center gap-x-2">
+          <span class="min-w-0 break-all text-xs">{{ node.key }}</span>
+          <CopyValueButton
+            :value="node.key"
+            label="UUID"
+            success-message="UUID kopiert"
+            :reset-key="node.id"
+          />
         </dd>
         <template v-if="node.subtitle"
           ><dt class="text-slate-500">Details</dt>
           <dd>{{ node.subtitle }}</dd></template
         >
       </dl>
-      <p v-if="copied" role="status" class="mt-2 text-xs text-slate-500">{{ copied }}</p>
       <div class="mt-5 flex flex-wrap gap-2">
         <NuxtLink v-if="node.admin_url" :to="node.admin_url" class="button"
           ><AppIcon name="external" :size="13" />Im Admin ansehen</NuxtLink

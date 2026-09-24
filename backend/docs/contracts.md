@@ -167,6 +167,27 @@ stillschweigenden Live-Fallback. Historische Daten werden nicht als frischer Liv
 aktuell eine Zeile pro Finding plus Run-Coverage, **kein vollständiges Ereignisjournal jeder
 Feldänderung oder jedes früheren Reviews**.
 
+SQL-Diagnosen unterstützen sowohl gespeicherte als auch Live-Befunde: Die bestehenden
+Definition-/Execute-Endpunkte akzeptieren optional `mode=live` und validieren die
+kanonische Finding-ID gegen die feste Registry. Ohne Modus bleibt der bisherige
+persistierte Lookup bestehen. Live-Definitionen liefern `last_seen_at: null`; aktuelle
+Regelauswertung und `observed_at` entstehen erst beim ausdrücklichen Ausführen der
+begrenzten Leseabfrage. Keine Persistierung oder Änderung der Review-Semantik.
+Details: [SQL-Diagnosen](sql-diagnostics.md).
+
+`Finding.image_url` ist eine optionale, aktuelle Bildvorschau und gehört nicht zur
+historischen Befund-Evidenz. Live- und gespeicherte Listen ergänzen nur die bereits
+gefilterte/paginierte Seite über die bestehende Activity-Bildzuordnung: Veranstaltung
+und Termin → Hauptbild der Veranstaltung, Organisation → Hauptlogo, Ort → Foto/Logo,
+Benutzer → Avatar, Bild → eigenes Bild. Fehlende, gelöschte, nicht unterstützte oder
+ungültige Identitäten ergeben `null`; Beziehungen werden nicht geraten. Nur die
+verifizierte öffentliche `uranus_api_url` erlaubt öffentliche Bildlinks.
+Die Identitäten werden dedupliziert und in einer einzigen gebundenen Source-Abfrage
+angereichert, ohne Netzwerk-Bildabruf im Backend oder neuen Qualitäts-Scan. Gespeicherte
+Listen benötigen für unterstützte Bildidentitäten jetzt ebenfalls diesen begrenzten
+Source-Read; Fehler bleiben API-Fehler, kein vorgetäuschter leerer Erfolg. Keine neue
+Persistenz, Migration, Berechtigung oder Änderung an Filterung, Priorität und Review.
+
 `active_only=true` schließt ausschließlich `resolved` aus. `open`, `in_progress`,
 `snoozed`, `exception`, `reviewed` und `ignored` bleiben enthalten. Standard ist
 `false`; `/findings` ohne Filter zeigt weiterhin auch historische behobene Befunde.
@@ -474,7 +495,7 @@ The 320px-wide thumbnails are displayed at 96px wide on mobile and 128px on desk
 `loading="lazy"`, `decoding="async"`, a descriptive alt label and an icon fallback on errors.
 The frontend also accepts the former 160px square and 320px/16:9 URLs during a rolling deployment;
 new Pluto URLs use width=320 without cropping. No additional JSON requests are made per row.
-Clicking a thumbnail opens the shared `AppModal` dialog, also used by finding details.
+Clicking a thumbnail opens the shared `AppModal` dialog, also used by other shared workflows. Compact finding thumbnails are non-interactive.
 Only then does the browser load a 1280px-wide, uncropped Pluto image (512px for avatars). The central frontend
 `activityImagePreviewUrl()` helper accepts only validated public thumbnail URLs and changes
 the width or permitted avatar size without exposing an arbitrary image host. Escape or the close button dismisses

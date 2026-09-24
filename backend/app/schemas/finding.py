@@ -69,6 +69,9 @@ class Finding(BaseModel):
     location_suggestion_request_id: UUID | None = None
     sql_diagnostic_available: bool = False
     action: Action | None = None
+    image_url: str | None = Field(
+        default=None, description="Current public record thumbnail, enriched only for this page."
+    )
     address: Address = Field(default_factory=Address)
     metadata: dict[str, Any] = Field(default_factory=dict)
     status: FindingStatus = FindingStatus.open

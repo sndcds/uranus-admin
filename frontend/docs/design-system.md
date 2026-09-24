@@ -100,8 +100,8 @@ Die Dashboard-Migration basiert auf `main` bei `76016593bfde39d5aada821f2e0afd9f
   Datenqualität und offene Vorgänge rechts. Darunter einspaltiger Lesefluss.
 - `FindingsList compact` verwendet eine semantische Tabelle mit vier Befunden,
   Priorität, Titel/Evidenz, Typ/Status, Quelle/Feld/Beobachtungszeit und Aktionen.
-  Unter 640px werden beschriftete Zellen gestapelt. Details bleiben direkt erreichbar;
-  SQL und Markierungen liegen in einem nativen, per Tastatur erreichbaren Aktionsmenü.
+  Unter 640px werden beschriftete Zellen gestapelt. Zeilenaktionen sind „Im Admin ansehen“
+  und bei verfügbarer Diagnose „SQL Editor“. Nur die SQL-Aktion öffnet ein Modal.
 - `QualityOverview compact` zeigt fünf Regeln nach vorhandener Anzahl absteigend;
   bei Gleichstand bleibt die bestehende Reihenfolge erhalten. Fehlende Counts bleiben
   unbekannt und folgen vorhandenen Zahlen. Die normale Qualitätsseite bleibt unverändert.
@@ -114,8 +114,96 @@ Die Dashboard-Migration basiert auf `main` bei `76016593bfde39d5aada821f2e0afd9f
 
 Die kompakte Darstellung lädt keine zusätzlichen Befunde und verändert weder Stores
 noch API-, Auth- oder Domain-Semantik. Leere Ergebnisse verwenden `EmptyState compact`;
-vorhandene Stale-/Fehlerzustände bleiben sichtbar. Alle echten Controls behalten 44px
-Mindesthöhe. [Synthetische Review-Screenshots](screenshots/operations-dashboard/README.md).
+vorhandene Stale-/Fehlerzustände bleiben sichtbar. Formularcontrols behalten 44px
+Mindesthöhe; die dichten Befundaktionen folgen der unten beschriebenen Workflow-Variante. [Synthetische Review-Screenshots](screenshots/operations-dashboard/README.md).
+
+### Operations Workflow v2.1 — Inbox, Befunde und Markierungen
+
+Regelbezeichnungen stammen zentral aus `app/utils/quality.ts`. Filter, Befundlisten,
+Qualitätsübersicht, Warteschlangen und SQL-Regelinformationen zeigen deutsche Labels.
+Slugs bleiben technische Werte in URLs und API-Anfragen; unbekannte Regeln erscheinen
+als „Unbekannte Prüfregel“, ohne den ausgewählten Filterwert zu verändern.
+
+Migration auf Basis von `b2a93f08bfeb5681782e9f2cca36ae30b0e39b0f` (main nach PR #111).
+Die vier Routen `/inbox`, `/findings`, `/marks` und `/marks/:id` verwenden die vorhandenen
+Operations-Surfaces. Die Bereiche behalten unterschiedliche Aufgaben:
+
+- **Inbox:** aktuelle Aufmerksamkeit und operative Zuständigkeit. Sechs kompakte
+  Count-Buttons vor den Filtern zeigen die globalen, serverseitig deduplizierten Counts.
+  Die Buttons ändern jeweils `scope` oder `attention`, erhalten weitere URL-Filter und
+  setzen die Seite zurück. Erneutes Betätigen hebt diese Auswahl auf. Auswahlzustand
+  kommt ausschließlich aus der URL (`aria-pressed`); die globalen Zahlen sind keine
+  Vorschau der Schnittmenge mit anderen Filtern.
+- **Arbeitsliste — Operations Workspace v2.1:** `FindingsList compact workspace`
+  zeigt **Prio → Datensatz → Befund → Status → Aktionen**. P1–P6 stehen links in dunklen
+  Badges, ohne neue Bewertungslogik. Datensatzname/Bild/Organisation und deutsche Regel/
+  zusätzliche Evidenz sind getrennt. Stärkere Divider, Hover und Focus-within führen durch
+  weiße Zeilen. Oberhalb von 1100px hält ein lokaler vertikaler Scrollbereich (max. 68dvh)
+  den Tabellenkopf bei `top: 0`; er konkurriert nicht mit dem umbrechenden App-Header.
+  Bis 1100px folgt eine Grid-Zeile, unter 640px eine gestapelte Darstellung ohne horizontales
+  Scrollen. Primäraktion ist „Befund bearbeiten“, SQL bleibt bei vorhandener Capability
+  direkt erreichbar. Controls sind mindestens 44px hoch. Weitere Werkzeuge stehen im Detail.
+  Die kompakte Filterfläche erhält alle Queryparameter; die Ergebnisübersicht steht direkt
+  an der Tabelle und benennt Severity-Zahlen ausdrücklich **auf dieser Seite**.
+  Die Dashboard-Variante bleibt unabhängig von diesem Workspace-Aufbau.
+- **Markierungen:** manuelle Anliegen, Gründe und Notizen. Dichte, responsive Listenzeilen
+  zeigen Ersteller und vorhandenen Abschluss; diese Angaben sind keine Zuständigkeit.
+  Der Datensatzkontext ist ein Operations-Panel, Anlegen standardmäßig geschlossen.
+  Reset erhält `entity_type`/`entity_key`. Das Detail ordnet Identität → Markierungsstatus
+  und Gründe → Bearbeitung → unveränderten Notizverlauf → Technik.
+
+`FilterBar compact` verwendet 12px Innenabstand und 12px Radius, weiterhin 44px Controls,
+vier Filterspalten am großen Desktop und zwei am Tablet. Der optionale `actions`-Slot
+bündelt Anwenden/Reset. `FilterForm compact` erhält alle Filter einschließlich Quelle,
+Reviewstatus, Organisations-UUID und der vorhandenen Entity-/Geo-Queryparameter.
+Kein neuer Filterstore, keine Browserpersistenz. Standardvarianten bleiben kompatibel.
+
+**Finding Detail — Workflow v2.1:** Ein breiter nativer `AppModal wide workspace` ordnet
+Identität → Evidenz → Priorisierung → fachliche Bewertung → Zuständigkeit → Werkzeuge →
+Technik. Evidenz und Priorisierung stehen auf Desktop nebeneinander. Review und operative
+Zuständigkeit bleiben getrennte Panels; `AssignmentEditor embedded` verwendet seinen
+bestehenden Vertrag einschließlich eigenständiger Wiedervorlage. Reviewstatus, Kommentar,
+Ausnahmegrund und fachliche Zurückstellung verwenden die vorhandene Review-API. Der
+Datumsinput nennt Europe/Berlin, verwirft ungültige lokale Zeiten und erhält vorhandene
+Snooze-Instants ohne erneute Interpretation. Späte Speicherantworten nach Schließen werden
+verworfen; nach erfolgreichem Review lädt die Liste beim Schließen neu.
+
+Der gelieferte **Modus** bestimmt die Bearbeitbarkeit, nicht `first_seen_at`: fehlender
+Erstfund bleibt unbekannt. Live zeigt Evidenz/Tools, aber keine Review- oder Assignment-Aktion.
+Behobene gespeicherte Befunde erhalten keine manuelle Wiedereröffnung. SQL (live/persisted),
+kanonischer Admin-Link, vorhandener Standortvorschlag, Graph und Markierungen bleiben in
+Werkzeuge erreichbar. SQL-Hashlinks erhalten ihren Modus. Die Seiten-Technikleiste verwendet
+`showTitle=false`, das Detail einen benannten technischen Abschnitt mit echten IDs/Zeitwerten.
+`AssignmentSnooze compact` verdichtet nur die Auslöser; Presets, Zeitzone, Konfliktbehandlung
+und das bestehende Modal bleiben erhalten. `RecordMarkLink variant="action"` bietet einen
+44px-Aktionslink; Default bleibt `button` samt bisherigem Außenabstand.
+
+Befunde verwenden `ActivityThumbnail compact`: 56px große, nicht interaktive Vorschauen
+mit unverändertem Seitenverhältnis, validierter öffentlicher URL, Lazy Loading und
+Typ-Platzhalter bei fehlendem oder defektem Bild. Veranstaltungsbilder, Terminbilder,
+Ortsbilder, Organisationslogos, Benutzeravatare und Bilddatensätze folgen derselben
+serverseitigen Zuordnung wie die Aktivitätsansicht. Technische/composite Datensätze
+bekommen keine erfundene Bildzuordnung. Die freigegebene Ausnahme vom Frontend-only-Scope
+ist das optionale `Finding.image_url`: eine deduplizierte Abfrage für die aktuelle Seite,
+keine zusätzlichen API-Abfragen pro Zeile, keine Änderung an Ranking oder Reviewzuständen.
+
+`MarkFields` gruppiert Gründe links und Erläuterung, Dringlichkeit und zusätzliche Formularfelder
+rechts; mobil einspaltig. Checkboxlabels bieten 44px Touchfläche. Mark-Statusänderungen behalten
+die Submitter-`value`-Semantik; ein 409 lässt den Entwurf stehen und verlangt explizites Neuladen.
+Die eigene Mark-Event-Struktur bleibt eine dichte Liste, keine EntityTimeline-Ableitung.
+
+Alle vier Routen schließen mit `TechnicalInfoBar`: Inbox mit `observed_at`, Admin-Zeitzone
+und Pagination; Befunde mit `observed_at`, Modus, Pagination und ausdrücklich benannter
+Client-Abrufzeit; Marks-Liste nur mit Pagination; Mark-Detail mit ID, Entity Key, Version und
+belegten Erstellungs-/Abschlusszeiten. Keine erfundenen Datenstände oder Bearbeiternamen.
+
+Inbox und Marks behalten beim Refresh derselben Auswahl den letzten erfolgreichen Stand
+mit Lade-/Stale-Hinweis; Querywechsel und Zugangsfehler verwerfen ihn. Request-Generationen
+verhindern verspätete Antworten nach ungültigen/neuen Filtern. Der Findings-Store bleibt
+unverändert. Fehler erzeugen keinen leeren Erfolgszustand. Native Dialogfalle, Focus Return,
+Tabellencaption, Zeitzonen und `time datetime` bleiben erhalten.
+
+[Synthetische Review-Aufnahmen und Testmatrix](screenshots/operations-workflows/README.md).
 
 ## 5. Typografie
 
@@ -226,6 +314,19 @@ Kein aus einer Anmeldung abgeleiteter Live-Systemstatus.
 `missing="omit"` lässt diese aus. 0 und false bleiben sichtbar; Boolean als Ja/Nein.
 Domain-Labels und formatierte Zeit-/Zahlenwerte liefert der Aufrufer. Semantik: dl/dt/dd.
 Keine Feldableitung oder API-Abrufe in diesem Präsentationsbaustein.
+
+### Kopieraktionen
+
+Alle Kopieraktionen verwenden `CopyValueButton`: Partneranfragen, Graph-Knotendetails,
+`TechnicalInfoBar` (einschließlich Datensatzdetails) und die gemeinsamen SQL-Panels für
+Editor, Konsole und Datenherkunft. Nur diese Komponente greift auf die Zwischenablage zu.
+`value` enthält den Originalwert, `label` benennt den zugänglichen Button. `variant="button"`
+eignet sich für Toolbars; standardmäßig erscheint ein Action-Link mit Kopiersymbol und Text.
+Optionale Texte erhalten fachliche Rückmeldungen wie „SQL kopiert“. Ein `role="status"`
+meldet Erfolg oder Fehler für 2,5 Sekunden. Wert-/Kontextwechsel, Deaktivierung und Unmount
+verwerfen veraltete Rückmeldungen und ausstehende Formatierungen. SQL übergibt `formatSql`
+als `formatValue`: Formatierung erfolgt erst beim Klick und bleibt für denselben Wert
+zwischengespeichert. Nullwerte und explizit deaktivierte Aktionen sind nicht kopierbar.
 
 ### TechnicalInfoBar
 
@@ -576,7 +677,7 @@ Screenreader-Prüfung gehören zum finalen manuellen Audit, nicht zur Screenshot
 | Record-Inhalt | RecordRelations (globale Seite), RecordWorkflowSummary (Counts), RecordLocation (Adresse/Link)                                                                                                                       |
 | Inhalt        | CompactFacts / TechnicalInfoBar (v2.1), DetailFacts (bestehend), MarkdownContent (verifiziertes Rich Text), ActivityThumbnail                                                                                        |
 | Listen        | DenseTable (v2.1), ActivityRow, EntityListPage, FindingsList, InboxRow                                                                                                                                               |
-| Workflow      | FindingDetail, AssignmentEditor/Snooze, MarkFields, GeocodeSourceSummary, LocationSuggestion, GeocodeTechnicalMetadata, NotificationPreview                                                                          |
+| Workflow      | AssignmentEditor/Snooze, MarkFields, GeocodeSourceSummary, LocationSuggestion, GeocodeTechnicalMetadata, NotificationPreview                                                                                         |
 | Workspaces    | GraphWorkspace/EntityGraph/GraphNodeDetails, SqlWorkspace/QueryPanel, Statistik-Charts, CandidateMap                                                                                                                 |
 | Interaktion   | AppModal, EntitySearch, AppIcon                                                                                                                                                                                      |
 

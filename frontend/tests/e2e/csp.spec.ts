@@ -40,14 +40,19 @@ test('production schemas work under an enforced CSP without unsafe-eval', async 
       () => (window as typeof window & { cspViolations: string[] }).cspViolations,
     ),
   ).toEqual([])
-  // Exercise a separate route and client-side filter/detail interactions too.
+  // Exercise a separate route and client-side filter/record-link interactions too.
   await page.goto('/findings')
   await expect(page.getByText('Test-Hafenbühne')).toBeVisible()
   await page.getByRole('combobox', { name: 'Schweregrad', exact: true }).selectOption('warning')
   await page.getByRole('button', { name: 'Anwenden', exact: true }).click()
   await expect(page).toHaveURL(/severity=warning/)
-  await page.getByRole('button', { name: 'Befund zu Test-Hafenbühne ansehen' }).click()
+  await page
+    .getByRole('table')
+    .getByRole('button', { name: /^Befund bearbeiten:/ })
+    .click()
   await expect(page.getByRole('dialog', { name: 'Test-Hafenbühne' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.route('**/api/admin/api/v1/graph?**', (route) => route.fulfill({ json: graphFixture }))
   await page.goto(graphPath)
   await expect(page.locator('.graph-node')).toHaveCount(12)

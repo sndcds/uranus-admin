@@ -13,6 +13,7 @@ from app.errors import APIError
 from app.repositories.query import ReadQuery
 from app.schemas.finding import FindingFilters, FindingPage
 from app.services.checks import persisted_page
+from app.services.finding_previews import enrich_images, image_identities
 from app.services.geo.scopes import request_geo_scope
 from app.services.quality.engine import get_findings
 
@@ -27,7 +28,8 @@ router = APIRouter(tags=["Findings"])
     "a full diagnostic scan. Only open findings exist in live mode; "
     "other status filters return an empty live result, not historical workflow data. "
     "active_only=true excludes resolved findings and combines with other filters. "
-    "Ordered by priority_score descending and stable finding ID.",
+    "Ordered by priority_score descending and stable finding ID. "
+    "Public record thumbnails are enriched for the current page using a bounded source read.",
 )
 async def findings(
     request: Request,
@@ -44,6 +46,11 @@ async def findings(
     if filters.mode == "persisted" and geo is None:
         async with connect_admin(request) as admin:
             page = await persisted_page(admin, filters, datetime.now(UTC))
+        if image_identities(page.items, settings):
+            async with aclosing(get_connection(request)) as connections:
+                await enrich_images(
+                    await anext(connections), settings, page.items, datetime.now(UTC)
+                )
         return await with_suggestions(request, page)
     async with aclosing(get_connection(request)) as connections:
         connection = await anext(connections)
@@ -52,11 +59,12 @@ async def findings(
                 page = await persisted_page(
                     admin, filters, datetime.now(UTC), connection, geo.ewkb if geo else None
                 )
+            await enrich_images(connection, settings, page.items, datetime.now(UTC))
             return await with_suggestions(request, page)
         page = await get_findings(
             connection, settings, filters, datetime.now(UTC), geo.ewkb if geo else None
         )
-
+        await enrich_images(connection, settings, page.items, datetime.now(UTC))
         return await with_suggestions(request, page)
 
 

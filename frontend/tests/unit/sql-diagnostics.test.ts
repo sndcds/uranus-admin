@@ -9,7 +9,11 @@ import FindingsList from '../../app/components/FindingsList.vue'
 import { diagnosticDefinition, diagnosticResult } from '../fixtures/sql-diagnostics'
 import { findings } from '../fixtures/api'
 import { AdminApiError, failure } from '../../shared/errors'
-import { findingSchema, sqlDiagnosticResultSchema } from '../../shared/contracts'
+import {
+  findingSchema,
+  sqlDiagnosticDefinitionSchema,
+  sqlDiagnosticResultSchema,
+} from '../../shared/contracts'
 import { createAdminApi } from '../../app/utils/admin-api'
 import { forwardAdminRequest } from '../../server/utils/admin-proxy'
 import { formatPostgresql } from '../../app/utils/sql-formatter'
@@ -59,6 +63,43 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 describe('SQL editor', () => {
+  it('loads and executes live diagnostics and preserves live mode in hash links', async () => {
+    api.sqlDiagnostic.mockResolvedValueOnce({ ...diagnosticDefinition, last_seen_at: null })
+    const view = setup()
+    view.vm.open(finding, 'live')
+    await flushPromises()
+    expect(api.sqlDiagnostic).toHaveBeenCalledWith(finding.id, 'live')
+    expect(api.executeSqlDiagnostic).not.toHaveBeenCalled()
+    const link = view.get('[aria-label="SQL Editor in neuem Tab öffnen"]').attributes('href')!
+    expect(new URL(link, 'https://admin.example').searchParams.get('mode')).toBe('live')
+    await click(view, 'Abfrage ausführen')
+    expect(api.executeSqlDiagnostic).toHaveBeenCalledWith(finding.id, 'live')
+    expect(
+      sqlDiagnosticDefinitionSchema.parse({ ...diagnosticDefinition, last_seen_at: null })
+        .last_seen_at,
+    ).toBeNull()
+  })
+  it('forwards live mode but rejects unknown modes and SQL overrides in the proxy', async () => {
+    const base = 'http://127.0.0.1:8000'
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(diagnosticResult)))
+    const input = {
+      path: '/api/v1/findings/sql-diagnostic/execute',
+      method: 'POST',
+      query: new URLSearchParams(),
+      authorization: 'Bearer fixture',
+      body: { finding_id: finding.id, mode: 'live' },
+    }
+    expect((await forwardAdminRequest(input, base, fetcher)).status).toBe(200)
+    expect(JSON.parse(fetcher.mock.calls[0]![1].body)).toEqual(input.body)
+    for (const body of [
+      { ...input.body, mode: 'unknown' },
+      { ...input.body, sql: 'SELECT 1' },
+    ]) {
+      expect((await forwardAdminRequest({ ...input, body }, base, fetcher)).status).toBe(422)
+    }
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
   it('defaults old finding responses to unavailable and validates the capability', () => {
     const { sql_diagnostic_available: _capability, ...legacy } = finding
     expect(findingSchema.parse(legacy).sql_diagnostic_available).toBe(false)
@@ -253,37 +294,40 @@ describe('SQL editor', () => {
       expect(view.text()).toContain(type)
     expect(view.find('script').exists()).toBe(false)
   })
-  it('shows SQL Editor only for supported findings and retains details', async () => {
+  it('finding lists retain SQL and supplied record actions without review or mark actions', async () => {
     const view = mount(FindingsList, {
       props: {
         items: [
-          finding,
           {
             ...finding,
-            id: 'unsupported',
-            entity_name: 'Unsupported',
-            sql_diagnostic_available: false,
+            action: {
+              type: 'view',
+              route: 'activity',
+              entity_key: finding.entity_key,
+              href: '/venues/test-record',
+            },
           },
+          { ...finding, id: 'unsupported', action: null, sql_diagnostic_available: false },
         ],
       },
       global: {
         stubs: {
-          FindingDetail: true,
-          RecordMarkLink: true,
-          AppIcon: true,
           SeverityBadge: true,
           EntityTypeBadge: true,
           StatusBadge: true,
+          NuxtLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
         },
       },
     })
     views.push(view)
+    expect(view.findAll('button')).toHaveLength(1)
+    expect(view.find('dialog').attributes('open')).toBeUndefined()
+    expect(view.get('button').attributes('aria-label')).toBe('SQL Editor für Test-Hafenbühne')
+    expect(view.text()).not.toContain('Markierungen & Notizen')
     const rows = view.findAll('li')
-    expect(rows[0]!.text()).toContain('SQL Editor')
-    expect(rows[0]!.text()).toContain('Details')
-    expect(rows[0]!.text()).not.toContain('Ansehen')
-    expect(rows[1]!.text()).not.toContain('SQL Editor')
-    expect(rows[1]!.text()).toContain('Ansehen')
+    expect(rows[0]!.get('a').attributes('href')).toBe('/venues/test-record')
+    expect(rows[0]!.get('a').text()).toBe('Im Admin ansehen')
+    expect(rows[1]!.findAll('a')).toHaveLength(0)
     await view.get('[aria-label="SQL Editor für Test-Hafenbühne"]').trigger('click')
     await flushPromises()
     expect(view.get('dialog').attributes('open')).toBeDefined()

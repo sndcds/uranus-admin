@@ -78,7 +78,7 @@ defineExpose({ open, close })
           <slot name="actions" />
           <button
             type="button"
-            class="shrink-0 rounded-lg p-2"
+            class="min-h-11 min-w-11 shrink-0 rounded-lg p-2"
             :aria-label="closeLabel"
             @click="close"
           >

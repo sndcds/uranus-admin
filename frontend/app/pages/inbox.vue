@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { inboxFiltersSchema, type InboxFilters, type InboxPage } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
+import { adminDateTime } from '~/utils/admin-time'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,41 +17,69 @@ const kind = ref<InboxFilters['kind']>()
 const entityType = ref('')
 let revision = 0
 
-function single(value: unknown) {
-  return typeof value === 'string' ? value : undefined
-}
-
+let dataQuery = ''
+const countShortcuts = [
+  { key: 'critical', label: 'Kritisch', filter: { attention: 'critical' }, tone: 'text-rose-700' },
+  { key: 'mine', label: 'Meine', filter: { scope: 'mine' }, tone: 'text-slate-900' },
+  {
+    key: 'unassigned',
+    label: 'Nicht zugewiesen',
+    filter: { scope: 'unassigned' },
+    tone: 'text-slate-900',
+  },
+  {
+    key: 'due_today',
+    label: 'Heute fällig',
+    filter: { attention: 'due_today' },
+    tone: 'text-amber-800',
+  },
+  { key: 'overdue', label: 'Überfällig', filter: { attention: 'overdue' }, tone: 'text-rose-700' },
+  {
+    key: 'snoozed',
+    label: 'Wiedervorlagen',
+    filter: { attention: 'snoozed' },
+    tone: 'text-slate-900',
+  },
+] as const
 function routeFilters(): InboxFilters | null {
-  const parsed = inboxFiltersSchema.safeParse({
-    scope: single(route.query.scope),
-    attention: single(route.query.attention),
-    kind: single(route.query.kind),
-    entity_type: single(route.query.entity_type),
-    page: single(route.query.page),
-    page_size: single(route.query.page_size),
-  })
+  const parsed = inboxFiltersSchema.safeParse(route.query)
   return parsed.success ? parsed.data : null
 }
-
+const appliedFilters = computed(routeFilters)
+function selected(filter: Partial<InboxFilters>) {
+  return Object.entries(filter).every(
+    ([key, value]) => appliedFilters.value?.[key as keyof InboxFilters] === value,
+  )
+}
 async function load() {
+  const current = ++revision
   const filters = routeFilters()
+  error.value = null
   invalidQuery.value = !filters
   if (!filters) {
     data.value = null
+    loading.value = false
     return
   }
   scope.value = filters.scope
   attention.value = filters.attention
   kind.value = filters.kind
   entityType.value = filters.entity_type ?? ''
-  const current = ++revision
+  const query = JSON.stringify(filters)
+  if (dataQuery !== query) data.value = null
   loading.value = true
   error.value = null
   try {
     const value = await $adminApi.inbox(filters)
-    if (current === revision) data.value = value
+    if (current === revision) {
+      data.value = value
+      dataQuery = query
+    }
   } catch (cause) {
-    if (current === revision) error.value = asFailure(cause)
+    if (current === revision) {
+      error.value = asFailure(cause)
+      if ([401, 403].includes(error.value.status)) data.value = null
+    }
   } finally {
     if (current === revision) loading.value = false
   }
@@ -100,7 +129,41 @@ onBeforeUnmount(() => revision++)
         <AppIcon name="refresh" :size="16" /> Aktualisieren
       </button>
     </PageHeader>
-    <FilterBar @apply="applyFilters">
+    <section v-if="data" aria-label="Inbox-Gesamtzahlen" :aria-busy="loading">
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        <button
+          v-for="entry in countShortcuts"
+          :key="entry.key"
+          type="button"
+          class="min-h-11 min-w-0 rounded-xl border px-3 py-2 text-left"
+          :class="
+            selected(entry.filter)
+              ? 'border-fuchsia-700 bg-fuchsia-50 ring-1 ring-fuchsia-700'
+              : 'border-slate-200 bg-white hover:bg-slate-50'
+          "
+          :aria-pressed="selected(entry.filter)"
+          :aria-label="`${data.counts[entry.key]} ${entry.label}`"
+          @click="
+            apply(
+              selected(entry.filter)
+                ? 'scope' in entry.filter
+                  ? { scope: 'all' }
+                  : { attention: 'all' }
+                : entry.filter,
+            )
+          "
+        >
+          <span class="block text-xl font-semibold tabular-nums" :class="entry.tone">{{
+            data.counts[entry.key]
+          }}</span>
+          <span class="text-xs text-slate-600">{{ entry.label }}</span>
+        </button>
+      </div>
+      <p class="operations-meta mt-1">
+        Systemweite Aufgaben · Schnellfilter kombinieren sich mit der aktuellen Auswahl.
+      </p>
+    </section>
+    <FilterBar compact @apply="applyFilters">
       <label>
         <span class="label">Zuständigkeit</span>
         <select v-model="scope" class="input">
@@ -124,7 +187,7 @@ onBeforeUnmount(() => revision++)
         <select v-model="kind" class="input">
           <option :value="undefined">Alle Aufgabenarten</option>
           <option value="assignment">Zugewiesene Aufgaben</option>
-          <option value="finding">Findings</option>
+          <option value="finding">Befunde</option>
           <option value="geocode_request">Standortvorschläge</option>
           <option value="notification_delivery">Benachrichtigungen</option>
         </select>
@@ -141,13 +204,11 @@ onBeforeUnmount(() => revision++)
           <option value="image">Bild</option>
         </select>
       </label>
-      <template #help>
-        <div class="mt-3 flex flex-wrap gap-2">
-          <button class="button-primary" :disabled="loading" type="submit">Anwenden</button>
-          <button class="button" :disabled="loading" type="button" @click="resetFilters">
-            Filter zurücksetzen
-          </button>
-        </div>
+      <template #actions>
+        <button class="button-primary" :disabled="loading" type="submit">Anwenden</button>
+        <button class="button" :disabled="loading" type="button" @click="resetFilters">
+          Filter zurücksetzen
+        </button>
       </template>
     </FilterBar>
     <InlineAlert v-if="invalidQuery" tone="error">
@@ -167,18 +228,11 @@ onBeforeUnmount(() => revision++)
         :visible="data.items.length"
         noun="Aufgaben"
         description="Serverseitig dedupliziert und priorisiert"
-        :observed-at="data.observed_at"
-      >
-        <StatusBadge :label="`${data.counts.critical} kritisch`" tone="error" />
-        <StatusBadge :label="`${data.counts.mine} meine`" />
-        <StatusBadge :label="`${data.counts.unassigned} nicht zugewiesen`" />
-        <StatusBadge :label="`${data.counts.due_today} heute fällig`" tone="warning" />
-        <StatusBadge :label="`${data.counts.overdue} überfällig`" tone="error" />
-        <StatusBadge :label="`${data.counts.snoozed} Wiedervorlagen`" />
-      </ResultSummary>
+      />
       <DataListShell
         v-if="data.items.length"
         as="ul"
+        dense
         class="divide-y divide-slate-100"
         aria-label="Inbox-Aufgaben"
         :aria-busy="loading"
@@ -192,13 +246,17 @@ onBeforeUnmount(() => revision++)
         />
       </DataListShell>
       <EmptyState
-        v-else
+        v-else-if="!error"
+        variant="compact"
         :message="
           attention === 'snoozed'
             ? 'Für diese Filter gibt es keine aktiven Wiedervorlagen.'
             : 'Für diese Filter gibt es keine aktiven Aufgaben.'
         "
-      />
+        ><NuxtLink v-if="Object.keys(route.query).length" to="/inbox" class="action-link"
+          >Filter zurücksetzen</NuxtLink
+        ></EmptyState
+      >
       <PaginationBar
         :pagination="data.pagination"
         :loading="loading"
@@ -219,6 +277,19 @@ onBeforeUnmount(() => revision++)
           </select>
         </label>
       </PaginationBar>
+      <TechnicalInfoBar
+        :items="[
+          {
+            label: 'Datenstand',
+            value: adminDateTime(data.observed_at, data.admin_timezone),
+            datetime: data.observed_at,
+          },
+          { label: 'Admin-Zeitzone', value: data.admin_timezone },
+          { label: 'Sichtbare Einträge', value: data.items.length },
+          { label: 'Gesamtzahl', value: data.pagination.total },
+          { label: 'Einträge pro Seite', value: data.pagination.page_size },
+        ]"
+      />
     </template>
   </section>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { qualityRuleLabel } from '~/utils/quality'
 import { membershipStatusSchema, queueKindSchema } from '#shared/contracts'
 import type { MembershipStatus, QueuePage, QueueQuery } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
@@ -145,12 +146,46 @@ onBeforeUnmount(() => {
           <div class="flex flex-wrap items-start justify-between gap-2">
             <h3 class="min-w-0 text-sm font-semibold">
               <template v-if="data.kind === 'partner_requests'"
-                >{{ item.from_organization_name ?? item.from_organization_id }} →
-                {{ item.to_organization_name ?? item.to_organization_id }}</template
+                >{{
+                  item.from_organization_name?.trim() || 'Anfragende Organisation nicht verfügbar'
+                }}
+                →
+                {{
+                  item.to_organization_name?.trim() || 'Zielorganisation nicht verfügbar'
+                }}</template
               ><template v-else>{{ item.user_name ?? item.user_id }}</template>
             </h3>
             <StatusBadge :label="activityStatus(item.status) ?? item.status" />
           </div>
+          <dl
+            v-if="
+              data.kind === 'partner_requests' &&
+              ((!item.from_organization_name?.trim() && item.from_organization_id) ||
+                (!item.to_organization_name?.trim() && item.to_organization_id))
+            "
+            class="space-y-1 text-xs text-slate-500"
+          >
+            <div v-if="!item.from_organization_name?.trim() && item.from_organization_id">
+              <dt class="inline">UUID der anfragenden Organisation:</dt>
+              <dd class="flex min-w-0 flex-wrap items-center gap-x-2">
+                <code class="min-w-0 break-all">{{ item.from_organization_id }}</code>
+                <CopyValueButton
+                  :value="item.from_organization_id"
+                  label="UUID der anfragenden Organisation"
+                />
+              </dd>
+            </div>
+            <div v-if="!item.to_organization_name?.trim() && item.to_organization_id">
+              <dt class="inline">UUID der Zielorganisation:</dt>
+              <dd class="flex min-w-0 flex-wrap items-center gap-x-2">
+                <code class="min-w-0 break-all">{{ item.to_organization_id }}</code>
+                <CopyValueButton
+                  :value="item.to_organization_id"
+                  label="UUID der Zielorganisation"
+                />
+              </dd>
+            </div>
+          </dl>
           <p class="text-xs text-slate-500">
             {{
               data.kind === 'partner_requests'
@@ -168,7 +203,7 @@ onBeforeUnmount(() => {
             {{ item.has_joined == null ? 'Nicht verfügbar' : item.has_joined ? 'Ja' : 'Nein' }}
           </p>
           <p v-for="check in item.checks" :key="check" class="text-xs text-amber-800">
-            {{ check }}
+            {{ qualityRuleLabel(check) }}
           </p>
           <div
             class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs [&_a]:mt-0 [&_a]:p-0 [&_a]:border-0 [&_a]:text-xs"

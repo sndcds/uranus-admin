@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
+import CopyValueButton from './CopyValueButton.vue'
 import AppIcon from './AppIcon.vue'
 import {
   hasOperationValue,
@@ -13,30 +14,14 @@ const props = withDefaults(
 )
 const id = useId()
 const visible = computed(() => props.items.filter((item) => hasOperationValue(item.value)))
-const feedback = ref('')
-let revision = 0
+const copyRevision = ref(0)
 watch(
   () => props.items,
   () => {
-    revision++
-    feedback.value = ''
+    copyRevision.value++
   },
   { deep: true, flush: 'sync' },
 )
-onBeforeUnmount(() => {
-  revision++
-})
-async function copy(item: TechnicalFact) {
-  const current = ++revision
-  feedback.value = ''
-  try {
-    await navigator.clipboard.writeText(operationValue(item.value))
-    if (current === revision) feedback.value = `${item.label} kopiert.`
-  } catch {
-    if (current === revision)
-      feedback.value = 'Kopieren nicht verfügbar. Der Wert kann als Text ausgewählt werden.'
-  }
-}
 </script>
 
 <template>
@@ -75,15 +60,13 @@ async function copy(item: TechnicalFact) {
             class="min-w-0 break-words [overflow-wrap:anywhere]"
             >{{ operationValue(item.value) }}</component
           >
-          <button
+          <CopyValueButton
             v-if="item.copyable"
-            type="button"
-            class="action-link text-xs"
-            :aria-label="`${item.label} kopieren`"
-            @click="copy(item)"
-          >
-            <AppIcon name="copy" :size="14" />Kopieren
-          </button>
+            :value="operationValue(item.value)"
+            :label="item.label"
+            :success-message="`${item.label} kopiert.`"
+            :reset-key="copyRevision"
+          />
           <span v-if="item.timezone" class="operations-meta">{{ item.timezone }}</span>
           <span v-if="item.description || item.metadata" class="operations-meta basis-full">{{
             item.description || item.metadata
@@ -91,8 +74,5 @@ async function copy(item: TechnicalFact) {
         </dd>
       </div>
     </dl>
-    <p role="status" class="operations-meta px-3" :class="feedback ? 'pb-3' : 'sr-only'">
-      {{ feedback }}
-    </p>
   </section>
 </template>

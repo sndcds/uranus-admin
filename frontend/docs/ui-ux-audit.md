@@ -11,7 +11,7 @@ Das Dashboard `/` ist im folgenden Schritt als Operations Overview v2.1 migriert
 (Basis: `76016593bfde39d5aada821f2e0afd9f14eba63a`, nach PR #109).
 
 **Visual consolidation / density migration pending:** sechs Record-Details →
-Geocoding/Workflow → Inbox/Findings/Marks → Queues/Notifications/Checks →
+Geocoding/Workflow → Queues/Notifications/Checks →
 Graph/SQL/Statistics/Quality → abschließender Responsive-/Accessibility-Audit.
 Diese Folgephasen benötigen jeweils einen eigenen Review; sie gehören nicht zu diesem PR.
 
@@ -26,6 +26,45 @@ einen benannten Actions-Slot, EmptyState die benannte compact-Variante. Die isol
 Fixture zeigt den echten PageHeader und EntityTimeline in den vier geforderten Größen.
 Alle sechs Record-v2-Migrationen und Geocoding Workflow v2 bleiben erhalten. Die gemeinsame
 Tech-Bar-Adoption ist keine vollständige Fachseitenmigration auf v2.1.
+
+## Operations Workflow v2.1: aktueller Migrationsstand
+
+Basis: `b2a93f08bfeb5681782e9f2cca36ae30b0e39b0f`, main nach PR #111.
+**Migriert:** `/inbox`, `/findings`, `/marks`, `/marks/:id`.
+
+| Route        | Ausgangszustand                                                  | Aktueller Zustand                                                                                                                                                                                                         |
+| ------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/inbox`     | Große Filterfläche, Counts als lose Badges, hohe Zeilen          | Scanbarer Count-Strip mit URL-Shortcuts, kompakte Filter, dichte Aufgaben mit Zuständigkeit/Fälligkeit, Technik am Ende                                                                                                   |
+| `/findings`  | Listenzeilen und langes schmales Detailmodal                     | Operations Workspace v2.1: Priorität zuerst, klar getrennte Datensatz-/Befundzellen, lokaler Sticky-Kopf, seitenlokale Counts; breites Finding Detail als Workflow v2.1 mit Evidenz, Review, Zuständigkeit und Werkzeugen |
+| `/marks`     | Hohe Rows, großer Kontextblock, Inhaltsverlust bei jedem Abruf   | Kompakte manuelle Arbeitsliste, Context-Panel mit Create-Disclosure, Refresh-Erhalt nur bei gleicher Query, technische Pagination                                                                                         |
+| `/marks/:id` | Freie Identitäts-/Technikangaben, großes Formular, hoher Verlauf | Record-Header, Status/Gründe, Operations-Editor, dichter Mark-Verlauf, technische Schlusssektion                                                                                                                          |
+
+Verträge und Grenzen: Inbox bleibt deduplizierte Aufmerksamkeit, Review bleibt fachliche
+Befundentscheidung im strukturierten Detail gespeicherter Befunde, Assignment
+operative Zuständigkeit, Mark manuelles Anliegen. Fachliche
+Zurückstellung ist keine operative Wiedervorlage. Freigegebene Backend-/API-Erweiterungen: optionale aktuelle Bild-URL je Befund,
+über die bestehende seitenweise Bildzuordnung. Keine Proxy-/Auth-/CSP-/DB-Änderung.
+Marks liefert weder `observed_at` noch zuständigen Bearbeiter; vorhandene Admin-Subjects
+werden als Ersteller/Abschlussautor bezeichnet. Findings liefert keinen globalen Severity-Split
+für die aktuelle Auswahl und keinen vollständigen Review-Verlauf. Diese Daten werden nicht erfunden.
+
+Die historischen Profile und ursprünglichen Auditbefunde unten bleiben erhalten.
+Zusätzlich unterstützt die bestehende SQL-Diagnose explizit `mode=live` mit kanonischen
+Finding-Identitäten, festen Recipes und typisierten Schlüsseln. Die Standardsemantik
+bleibt `persisted`; Authentifizierung und Lese-/Ressourcengrenzen bleiben erhalten.
+Gemeinsame Kopieraktionen und SQL-Zeilennummern wurden ebenfalls vereinheitlicht/korrigiert.
+
+Validierungsstand des Findings-Follow-ups: [CI für `004df82`](https://github.com/sndcds/uranus-admin/actions/runs/35922079338)
+vollständig bestanden: Backend-Lint/mypy, 1922 pytest-Tests; Frontend-Lint/Typecheck,
+654 Unit-Tests, Build und 391 Production-E2E inklusive CSP. Neun absichtliche doppelte
+Viewport-/Desktop-Fälle sind übersprungen. Aktuelle Findings-/Detailaufnahmen wurden für
+1440/1024/390/360 manuell gesichtet; automatisierte Prüfungen sichern Spaltenaufteilung,
+langen Text, Sticky-Kopf und fehlenden Seiten-/Dialogüberlauf ab. Lokale Testläufe blieben
+auf Wunsch wegen Rechnerlast aus. Die früheren Inbox-/Marks-Aufnahmen bleiben unverändert
+als Zwischenstand gekennzeichnet; die scoped Marks-Aufnahme wartet separat auf eine
+Neuerfassung nach vollständig geladener Liste.
+
+Stand ist Code-/Reviewstand, keine Behauptung eines Deployments. [Review-Aufnahmen](screenshots/operations-workflows/README.md).
 
 ## Prüfstand und Methode
 
@@ -171,7 +210,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Visuelle Referenz:** Dashboard-Panel des Operations-Center-Entwurfs. Dichte Tabelle, dezente Panelgrenzen, Fuchsia für Aktionen; Datenqualität und Vorgänge bilden eine schmale rechte Spalte.
 - **Semantik:** weiterhin vier priorisierte Befunde, aktive Filter, neun Typen, echte Nullen, Zeitraum/Gebiet gegenüber systemweitem Bestand getrennt. „3 Arbeitslisten“ ist keine fachliche Gesamtzahl.
 - **Technik:** Client-Abrufzeit präzise benannt; Zeitraum/Zeitzone, vorhandener Modus, letzte Prüfläufe und belegter Geo Scope. Keine künstlichen System- oder API-Angaben.
-- **Responsive / Accessibility:** Tablet ein Hauptbereich mit 2×2 KPIs; mobile beschriftete Tabellenzellen, Tastatur-Disclosure für Zeilenaktionen und Filter, 44px Controls, kompakte Empty States.
+- **Responsive / Accessibility:** Tablet ein Hauptbereich mit 2×2 KPIs; mobile beschriftete Tabellenzellen, direkte Zeilenaktionen und Tastatur-Disclosure für Filter, 44px Controls, kompakte Empty States.
 - **Grenzen:** Store-/Refresh-/Stale-/Auth-Verhalten unverändert. Keine weiteren Routen oder Backend-Verträge migriert. Shared Compact-Varianten sind opt-in.
 - **Review:** [Desktop, Tablet, Mobile, Small Mobile](screenshots/operations-dashboard/README.md), ausschließlich synthetische Fixtures.
 
@@ -184,7 +223,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Zeilenreferenz beibehalten; Aktionen benennen; Refresh stabilisieren. Priorität P2.
 
-### `/inbox` — WORKFLOW
+### `/inbox` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Priorisierte, deduplizierte Aufgaben bearbeiten. Header → Filter → Counts → Aufgaben.
 - **Header / Actions / Filter:** Zuständigkeit, Aufmerksamkeit, Aufgabenart, Objektart, Aktualisieren. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -193,7 +232,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Aufgabenübersicht/Befund vereinheitlichen; fachliche Zurückstellung klar benennen. Priorität P1.
 
-### `/findings` — WORKFLOW
+### `/findings` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Befunde priorisieren und bewerten. Header → Filter → Bestand → Befundliste → Detailmodal.
 - **Header / Actions / Filter:** Quelle, Regel, Status, Schwere, Objekt/Organisation; Review/SQL. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -283,7 +322,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Workflow-Kontext, Entscheidung, Zuständigkeit, Historie gliedern. Priorität P1.
 
-### `/marks` — COLLECTION
+### `/marks` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Markierte Datensätze finden bzw. kontextbezogen markieren. Header → Kontext/Create → Filter → Liste.
 - **Header / Actions / Filter:** Status, Dringlichkeit, Grund, Sortierung; neue Markierung. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -292,7 +331,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Kontext-Hero kompakt; technische ID nachrangig; leere Filter zurücksetzen. Priorität P2.
 
-### `/marks/:id` — WORKFLOW
+### `/marks/:id` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Markierung mit Notiz und Versionskonflikten bearbeiten. Header → Datensatz → Formular → append-only Historie.
 - **Header / Actions / Filter:** Speichern, Erledigen/Wieder öffnen, Konflikt neu laden. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -586,8 +625,8 @@ Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung de
 | -------------------------------- | --------------------- | ------------------------ | -------------------------------------------------------- | ---------- |
 | `/`                              | OVERVIEW              | Operations Overview v2.1 | Operations Overview v2.1                                 | migrated   |
 | `/activity`                      | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
-| `/inbox`                         | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P1) |
-| `/findings`                      | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P1) |
+| `/inbox`                         | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
+| `/findings`                      | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/checks`                        | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
 | `/quality`                       | OVERVIEW              | OVERVIEW                 | OVERVIEW                                                 | offen (P2) |
 | `/queues/partner_requests`       | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
@@ -597,8 +636,8 @@ Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung de
 | `/notifications/:id`             | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
 | `/notifications/deliveries`      | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
 | `/notifications/deliveries/:id`  | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P1) |
-| `/marks`                         | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
-| `/marks/:id`                     | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P1) |
+| `/marks`                         | COLLECTION            | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
+| `/marks/:id`                     | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/geocoding`                     | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
 | `/geocoding/:id`                 | WORKFLOW (generisch)  | WORKFLOW v2              | WORKFLOW v2                                              | migriert   |
 | `/graph`                         | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |

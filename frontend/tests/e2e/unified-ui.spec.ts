@@ -123,10 +123,11 @@ test('findings keep URL filters, page totals, badges, page size and empty/error 
   for (const label of ['0 Fehler', '1 Warnungen', '0 Hinweise', '· auf dieser Seite']) {
     await expect(results.getByText(label, { exact: true })).toBeVisible()
   }
-  const row = page.getByRole('list', { name: 'Befunde' }).getByRole('listitem')
+  const row = page.getByRole('table', { name: 'Priorisierte Befunde' }).locator('tbody tr')
   await expect(row.getByText('Warnung', { exact: true })).toBeVisible()
   await expect(row.getByText('Ort', { exact: true })).toBeVisible()
-  await expect(row.getByRole('link', { name: 'Markierungen & Notizen' })).toBeVisible()
+  await expect(row.getByRole('link', { name: 'Markierungen & Notizen' })).toHaveCount(0)
+  await expect(row.getByRole('button', { name: /^Befund bearbeiten:/ })).toHaveCount(1)
   await expect(page.getByText('Seite 1 von 12')).toBeVisible()
   await page.getByRole('button', { name: 'Weiter', exact: true }).click()
   await expect(page).toHaveURL(/page=2/)
@@ -140,7 +141,7 @@ test('findings keep URL filters, page totals, badges, page size and empty/error 
   await page.screenshot({ path: info.outputPath('unified-findings.png'), fullPage: true })
   empty = true
   await page.getByRole('button', { name: 'Aktualisieren', exact: true }).click()
-  await expect(page.getByText('Keine Befunde auf dieser Seite.', { exact: false })).toBeVisible()
+  await expect(page.getByText('Keine Befunde für diese Auswahl.', { exact: false })).toBeVisible()
   unavailable = true
   await page.getByRole('button', { name: 'Aktualisieren', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Erneut versuchen' })).toBeVisible()
@@ -230,9 +231,7 @@ test('quality has honest aggregate counts, bounded dashboard rules and a full ru
   await page.screenshot({ path: info.outputPath('quality.png'), fullPage: true })
   await list.getByRole('link').first().click()
   await expect(page).toHaveURL(/rule=venue_missing_geolocation&mode=persisted/)
-  await expect(
-    page.getByRole('button', { name: 'Befund zu Test-Hafenbühne ansehen' }),
-  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Test-Hafenbühne' })).toBeVisible()
   // The same surfaces must also fit between mobile and desktop breakpoints.
   await page.setViewportSize({ width: 820, height: 1180 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

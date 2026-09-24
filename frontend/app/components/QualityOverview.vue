@@ -2,7 +2,7 @@
 import SectionHeader from '~/components/SectionHeader.vue'
 import { computed } from 'vue'
 import type { DashboardSummary } from '#shared/contracts'
-import { qualityRules } from '~/utils/quality'
+import { qualityRuleLabel, qualityRules } from '~/utils/quality'
 import { metric } from '~/utils/presentation'
 const props = defineProps<{ data: DashboardSummary | null; limit?: number; compact?: boolean }>()
 const rules = computed(() =>
@@ -71,9 +71,7 @@ const groups = computed(() =>
               class="flex min-h-11 items-center gap-2 py-2 text-sm hover:bg-slate-50"
             >
               <span class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 break-words"
-                ><span class="block text-xs font-semibold">{{
-                  qualityRules[rule]?.label ?? rule
-                }}</span
+                ><span class="block text-xs font-semibold">{{ qualityRuleLabel(rule) }}</span
                 ><SeverityBadge v-if="qualityRules[rule]" :severity="qualityRules[rule]!.severity"
               /></span>
               <span class="shrink-0 text-xs font-semibold tabular-nums">{{
@@ -148,7 +146,7 @@ const groups = computed(() =>
             class="data-row flex items-center justify-between gap-3 text-sm font-semibold text-slate-700 hover:text-fuchsia-700"
           >
             <span class="min-w-0 space-y-1">
-              <span class="block break-words">{{ qualityRules[rule]?.label ?? rule }}</span>
+              <span class="block break-words">{{ qualityRuleLabel(rule) }}</span>
               <span v-if="qualityRules[rule]" class="flex flex-wrap items-center gap-2">
                 <SeverityBadge :severity="qualityRules[rule]!.severity" />
                 <span

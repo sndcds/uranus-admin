@@ -73,7 +73,9 @@ for (const mode of ['live', 'persisted'] as const) {
         url.searchParams.get('rule') === rule &&
         url.searchParams.get('active_only') === 'true',
     )
-    const rows = page.getByRole('list', { name: 'Befunde', exact: true }).getByRole('listitem')
+    const rows = page
+      .getByRole('table', { name: 'Priorisierte Befunde', exact: true })
+      .locator('tbody tr')
     await expect(rows).toHaveCount(2)
     for (const owner of owners) {
       const row = rows.filter({ hasText: `PLZ-Test ${owner.label}` })
@@ -81,18 +83,18 @@ for (const mode of ['live', 'persisted'] as const) {
       await expect(row.getByText('Warnung', { exact: true })).toBeVisible()
       await expect(row).toContainText('Feld: postal_code')
       await expect(row).toContainText(message)
-      await expect(row.getByRole('link', { name: 'Im Admin ansehen' })).toHaveAttribute(
+      await row.getByRole('button', { name: /^Befund bearbeiten:/ }).click()
+      const detail = page.getByRole('dialog', { name: `PLZ-Test ${owner.label}` })
+      await expect(detail.getByRole('link', { name: 'Im Admin ansehen' })).toHaveAttribute(
         'href',
         `/${owner.section}/${key}`,
       )
+      await page.keyboard.press('Escape')
+      await expect(row.getByRole('button', { name: /^Befund bearbeiten:/ })).toBeFocused()
     }
-    await rows
-      .first()
-      .getByRole('button', { name: 'Befund zu PLZ-Test Organisation ansehen' })
-      .click()
-    await expect(page.getByRole('dialog', { name: 'PLZ-Test Organisation' })).toContainText(
-      `${rule} / postal_code`,
-    )
+    await expect(rows.first()).toContainText('Postleitzahlen mit Leerzeichen')
+    await expect(rows.getByRole('button', { name: /^Befund bearbeiten:/ })).toHaveCount(2)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     expect(receivedFilters?.get('rule')).toBe(rule)
     expect(receivedFilters?.get('entity_type')).toBeNull()
     expect(receivedFilters?.get('mode')).toBe(mode)

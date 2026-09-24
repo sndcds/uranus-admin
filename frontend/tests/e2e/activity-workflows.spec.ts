@@ -97,37 +97,29 @@ test('queue shows actual invitation age and preserves unknown values', async ({ 
   await expect(page.getByLabel('Mindestalter (Tage)')).toHaveValue('')
 })
 
-test('persisted finding accepts a reasoned exception but offers no manual resolve', async ({
-  page,
-}) => {
-  const item = { ...findings.items[0]!, first_seen_at: stamp, status: 'open', action: null }
+test('persisted findings display review status and open the review workflow', async ({ page }) => {
   await page.route('**/api/admin/api/v1/findings**', (route) =>
     route.fulfill({
       json: {
         ...findings,
         mode: 'persisted',
-        items: [item],
         pagination,
+        items: [{ ...findings.items[0]!, first_seen_at: stamp, status: 'exception', action: null }],
       },
     }),
   )
-  let body: Record<string, unknown> = {}
-  await page.route('**/api/admin/api/v1/finding-reviews', (route) => {
-    body = route.request().postDataJSON()
-    return route.fulfill({
-      json: { ...item, ...body, reviewed_at: stamp, reviewed_subject: 'development-only' },
-    })
-  })
   await page.goto('/findings?mode=persisted')
-  await page.getByRole('button', { name: 'Befund zu Test-Hafenbühne ansehen' }).click()
-  const dialog = page.getByRole('dialog')
-  await expect(dialog.getByLabel('Reviewstatus').locator('option[value="resolved"]')).toHaveCount(0)
-  await dialog.getByLabel('Reviewstatus').selectOption('exception')
-  await dialog.getByLabel('Ausnahmegrund').fill('Fachlich geprüfte Ausnahme')
-  await dialog.getByRole('button', { name: 'Review speichern' }).click()
-  await expect(dialog.getByText('Review gespeichert.')).toBeVisible()
-  expect(body.status).toBe('exception')
-  expect(body.exception_reason).toBe('Fachlich geprüfte Ausnahme')
+  const table = page.getByRole('table', { name: 'Priorisierte Befunde' })
+  await expect(table).toContainText('Ausnahme')
+  await expect(table.getByRole('button', { name: /^Befund bearbeiten:/ })).toHaveCount(1)
+  await expect(table.getByRole('link')).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await table.getByRole('button', { name: /^Befund bearbeiten:/ }).click()
+  const detail = page.getByRole('dialog', { name: 'Test-Hafenbühne' })
+  await expect(detail.getByRole('combobox', { name: 'Reviewstatus' })).toHaveValue('exception')
+  await expect(detail.getByLabel('Ausnahmegrund')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(table.getByRole('button', { name: /^Befund bearbeiten:/ })).toBeFocused()
 })
 
 test('real proxy keeps new admin writes authenticated', async ({ request }) => {
@@ -152,9 +144,7 @@ test('normal finding navigation uses stored results and live diagnosis is explic
     return route.fulfill({ json: { ...findings, mode } })
   })
   await page.goto('/findings')
-  await expect(
-    page.getByRole('button', { name: 'Befund zu Test-Hafenbühne ansehen' }),
-  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Test-Hafenbühne' })).toBeVisible()
   expect(modes).toEqual(['persisted'])
   await page.getByRole('button', { name: 'Aktualisieren', exact: true }).click()
   await expect.poll(() => modes.length).toBe(2)

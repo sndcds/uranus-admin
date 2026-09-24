@@ -11,6 +11,7 @@ const props = withDefaults(
     timezone: string
     disabled?: boolean
     showTimestamp?: boolean
+    compact?: boolean
   }>(),
   { showTimestamp: true },
 )
@@ -102,13 +103,18 @@ onBeforeUnmount(() => {
       ({{ timezone }})
     </p>
     <div v-if="editable" class="flex flex-wrap gap-2">
-      <button type="button" class="button min-h-11" :disabled="saving || disabled" @click="open">
+      <button
+        type="button"
+        :class="compact ? 'action-link text-xs' : 'button min-h-11'"
+        :disabled="saving || disabled"
+        @click="open"
+      >
         {{ active ? 'Wiedervorlage ändern' : 'Wiedervorlegen' }}
       </button>
       <button
         v-if="active"
         type="button"
-        class="button min-h-11"
+        :class="compact ? 'action-link text-xs' : 'button min-h-11'"
         :disabled="saving || disabled"
         @click="save(null)"
       >
@@ -124,7 +130,8 @@ onBeforeUnmount(() => {
     <AppModal ref="modal" title="Wiedervorlegen" :close-blocked="saving" @close="opened = false">
       <div class="mt-4 space-y-4">
         <p class="text-sm text-slate-600">
-          Die Aufgabe bleibt unerledigt. Kalender-Presets gelten um 09:00 Uhr in {{ timezone }}.
+          Die operative Wiedervorlage ändert keine fachliche Befundbewertung. Die Aufgabe bleibt
+          unerledigt. Kalender-Presets gelten um 09:00 Uhr in {{ timezone }}.
         </p>
         <div class="grid gap-2 sm:grid-cols-3">
           <button

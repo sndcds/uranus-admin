@@ -282,11 +282,15 @@ export function createAdminApi(
     },
     summary: (period: Period, geo_scope_id?: string) =>
       request('/api/v1/dashboard/summary', summarySchema, { period, geo_scope_id }),
-    sqlDiagnostic: (finding_id: string) =>
-      request('/api/v1/findings/sql-diagnostic', sqlDiagnosticDefinitionSchema, { finding_id }),
-    executeSqlDiagnostic: (finding_id: string) =>
+    sqlDiagnostic: (finding_id: string, mode?: 'persisted' | 'live') =>
+      request('/api/v1/findings/sql-diagnostic', sqlDiagnosticDefinitionSchema, {
+        finding_id,
+        mode,
+      }),
+    executeSqlDiagnostic: (finding_id: string, mode?: 'persisted' | 'live') =>
       request('/api/v1/findings/sql-diagnostic/execute', sqlDiagnosticResultSchema, {}, 'POST', {
         finding_id,
+        ...(mode ? { mode } : {}),
       }),
     findings: (filters: FindingFilters) => request('/api/v1/findings', findingPageSchema, filters),
     missingGeolocation: (page = 1) =>

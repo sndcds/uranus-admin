@@ -5,6 +5,9 @@ import { eventStatusLabels } from './entities'
 import { calendarDay, dayLabel, metric } from './presentation'
 
 export type ActivityItem = ActivityPage['items'][number]
+export type ActivityIdentity = Pick<ActivityItem, 'entity_key' | 'entity_name'> & {
+  entity_type: string
+}
 export { entityTypes as activityTypes } from './entityPresentation'
 
 // Values emitted by repositories/activity.py and the verified source fixtures.
@@ -20,7 +23,7 @@ const statusLabels: Record<string, string> = {
 export function activityStatus(status: string | null): string | null {
   return status ? (Object.hasOwn(statusLabels, status) ? statusLabels[status]! : status) : null
 }
-export function activityName(item: ActivityItem): string {
+export function activityName(item: ActivityIdentity): string {
   // The backend owns Uranus user presentation, including the final UUID fallback.
   if (item.entity_type === 'user' || item.entity_type === 'team_membership') return item.entity_name
   const name = item.entity_name.trim()
@@ -28,7 +31,7 @@ export function activityName(item: ActivityItem): string {
   const partnerNames = name.split('→').map((part) => part.trim())
   const onlyPartnerIds = partnerNames.length === 2 && partnerNames.every((part) => uuid.test(part))
   return !name || name === item.entity_key || uuid.test(name) || onlyPartnerIds
-    ? `${activityTypes[item.entity_type].label} ohne Anzeigenamen`
+    ? `${entityPresentation(item.entity_type).label} ohne Anzeigenamen`
     : name
 }
 export function activityGroups(data: ActivityPage) {

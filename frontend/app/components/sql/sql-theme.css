@@ -83,11 +83,16 @@
   background: var(--sql-selection);
 }
 .sql-code .sql-lines {
-  display: flex;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-rows: repeat(var(--sql-line-count), minmax(var(--sql-line-height), auto));
   padding: var(--sql-padding-y) 20px var(--sql-padding-y) 0;
 }
 .sql-code .sql-gutter {
-  flex-shrink: 0;
+  display: grid;
+  grid-column: 1;
+  grid-row: 1 / -1;
+  grid-template-rows: subgrid;
   user-select: none;
   border-right: 1px solid var(--sql-gutter-border);
   padding: 0 var(--sql-gutter-padding);
@@ -95,12 +100,22 @@
   text-align: right;
 }
 .sql-code .sql-text {
+  display: grid;
+  grid-column: 2;
+  grid-row: 1 / -1;
+  grid-template-rows: subgrid;
   margin: 0;
   padding: 0 var(--sql-padding-x);
   font: inherit;
   white-space: pre-wrap;
   overflow-wrap: normal;
   word-break: normal;
+  min-width: 0;
+}
+.sql-code .sql-text > code {
+  display: contents;
+}
+.sql-code .sql-line {
   min-width: 0;
 }
 .sql-code .sql-error-position {

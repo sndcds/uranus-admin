@@ -1,4 +1,4 @@
-"""The browser selects a persisted finding, never a query or its parameters."""
+"""Resolve persisted or canonical live identities to fixed read-only diagnostics."""
 
 from typing import Annotated
 
@@ -13,6 +13,7 @@ from app.auth.service import AdminPrincipal
 from app.database import SettingsDep
 from app.errors import APIError, ErrorResponse
 from app.sql_diagnostics.executor import definition, execute
+from app.sql_diagnostics.identity import live_finding
 from app.sql_diagnostics.models import (
     DiagnosticRequest,
     SqlDiagnosticDefinition,
@@ -53,13 +54,19 @@ async def load_finding(request: Request, identity: str) -> StoredFinding:
     "/findings/sql-diagnostic",
     response_model=SqlDiagnosticDefinition,
     description=(
-        "Inspect the registered diagnostic for a persisted finding. Does not execute source SQL."
+        "Inspect a registered diagnostic for a persisted finding (default) or a canonical "
+        "live finding identity. Does not execute source SQL or establish current rule status."
     ),
 )
 async def get_definition(
     request: Request, filters: Annotated[DiagnosticRequest, Query()]
 ) -> SqlDiagnosticDefinition:
-    return definition(await load_finding(request, filters.finding_id))
+    context = (
+        live_finding(filters.finding_id)
+        if filters.mode == "live"
+        else await load_finding(request, filters.finding_id)
+    )
+    return definition(context)
 
 
 @router.post(
@@ -67,7 +74,8 @@ async def get_definition(
     response_model=SqlDiagnosticResult,
     description=(
         "Execute the server-registered read-only diagnostic. "
-        "Accepts only a persisted finding ID; no SQL or parameter overrides."
+        "Accepts a persisted finding ID (default) or a canonical live finding identity. "
+        "Only registered recipes and typed identity parameters; no SQL overrides."
     ),
 )
 async def run_diagnostic(
@@ -78,5 +86,9 @@ async def run_diagnostic(
 ) -> SqlDiagnosticResult:
     if request.query_params:
         raise APIError(422, "invalid_input", "Query parameters are not accepted.")
-    stored = await load_finding(request, body.finding_id)
+    stored = (
+        live_finding(body.finding_id)
+        if body.mode == "live"
+        else await load_finding(request, body.finding_id)
+    )
     return await execute(request.app.state.engine, stored, settings, principal.subject)
