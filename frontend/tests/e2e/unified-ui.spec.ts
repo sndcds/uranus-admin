@@ -177,7 +177,8 @@ test('check history shares pagination, empty states and readable result badges',
   await expect(page.getByRole('heading', { name: 'Prüfläufe' })).toBeVisible()
   await expect(page.getByText('1 Prüfläufe insgesamt')).toBeVisible()
   await expect(page.getByText('Erfolgreich', { exact: true })).toBeVisible()
-  await expect(page.getByText('22 Regeln · 298 Befunde', { exact: false })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Prüflaufhistorie' })).toContainText('22 Regeln')
+  await expect(page.getByRole('table', { name: 'Prüflaufhistorie' })).toContainText('298 Befunde')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: info.outputPath('checks.png'), fullPage: true })
   await expect(

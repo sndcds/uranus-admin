@@ -3,7 +3,7 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import type { NotificationPreview } from '#shared/contracts'
 import type { ApiFailure } from '#shared/errors'
 import { asFailure } from '#shared/errors'
-const props = defineProps<{ notificationId: string }>()
+const props = defineProps<{ notificationId: string; embedded?: boolean }>()
 const { $adminApi } = useNuxtApp()
 const locale = ref<'de' | 'da' | 'en'>('de')
 const tab = ref<'html' | 'text'>('html')
@@ -42,7 +42,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="space-y-3" aria-label="E-Mail-Vorschau">
-    <h2 class="text-lg font-semibold">E-Mail-Vorschau</h2>
+    <h2 v-if="!embedded" class="text-lg font-semibold">E-Mail-Vorschau</h2>
     <p class="muted">Vorschau des gespeicherten Hinweises. Es wird keine E-Mail gesendet.</p>
     <div class="flex flex-wrap gap-3 items-end">
       <label
@@ -56,7 +56,9 @@ onBeforeUnmount(() => {
     </div>
     <RequestState :loading="loading" :error="error" @retry="load" />
     <template v-if="preview">
-      <h3 class="font-semibold">{{ preview.subject }}</h3>
+      <component :is="embedded ? 'h4' : 'h3'" class="font-semibold">{{
+        preview.subject
+      }}</component>
       <div class="flex gap-2" role="group" aria-label="Vorschauformat">
         <button class="button" :aria-pressed="tab === 'html'" @click="tab = 'html'">HTML</button>
         <button class="button" :aria-pressed="tab === 'text'" @click="tab = 'text'">Text</button>

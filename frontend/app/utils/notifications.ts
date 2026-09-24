@@ -44,3 +44,18 @@ export function smtpErrorLabel(code: string): string {
     'Der Versand konnte nicht abgeschlossen werden. Bitte SMTP-Konfiguration und Anbieter prüfen.'
   )
 }
+
+/** Presentation only; delivery and notification lifecycles remain distinct. */
+export function deliveryTone(
+  status: NotificationDeliveryStatus,
+): 'neutral' | 'warning' | 'error' | 'success' {
+  if (status === 'permanent_failure') return 'error'
+  if (status === 'failed') return 'warning'
+  if (status === 'sent') return 'success'
+  return 'neutral'
+}
+export function notificationTone(status: NotificationStatus): 'neutral' | 'warning' | 'success' {
+  if (status === 'active') return 'warning'
+  if (status === 'resolved') return 'success'
+  return 'neutral'
+}

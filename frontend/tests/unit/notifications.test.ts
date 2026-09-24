@@ -57,7 +57,9 @@ beforeEach(() => {
   vi.stubGlobal('navigateTo', navigate)
   vi.stubGlobal('useRouter', () => ({
     push: async ({ query }: { query: Record<string, string | undefined> }) => {
-      route.query = query
+      route.query = Object.fromEntries(
+        Object.entries(query).filter(([, value]) => value !== undefined),
+      )
       route.fullPath = JSON.stringify(query)
     },
   }))
@@ -139,9 +141,11 @@ describe('notification administration', () => {
     const view = mount(Detail, { global })
     await flushPromises()
     expect(view.text()).toContain('Versandhistorie')
-    expect(view.text()).toContain('Temporär fehlgeschlagen · recipient@example.test')
+    expect(view.text()).toContain('Temporär fehlgeschlagen')
+    expect(view.text()).toContain('recipient@example.test')
     expect(view.text()).toContain('smtp_451')
-    expect(view.text()).toContain('DA · Erster Hinweis')
+    expect(view.text()).toContain('DA · Versuche: 1')
+    expect(view.text()).toContain('Erster Hinweis')
     view.unmount()
   })
   it('shows sent delivery detail and included notifications', async () => {
@@ -323,7 +327,7 @@ describe('manual delivery retries', () => {
         .find((button) => button.text() === 'Versand erneut einreihen')!
         .trigger('click')
       await flushPromises()
-      expect(view.find('[role="alert"]').text()).toBe(failure(409, code).message)
+      expect(view.find('dialog [role="alert"]').text()).toBe(failure(409, code).message)
       view.unmount()
     })
   it('shows successor and predecessor links and hides retry on an older chain member', async () => {
@@ -389,5 +393,83 @@ describe('manual delivery retries', () => {
     expect(
       (await forwardAdminRequest({ ...input, authorization: undefined }, 'http://backend')).status,
     ).toBe(401)
+  })
+})
+
+describe('delivery identity and mutation boundaries', () => {
+  it('discards a late retry result after navigation to another delivery', async () => {
+    route.params.id = notificationDeliveryDetail.id
+    api.notificationDelivery.mockResolvedValue({
+      ...notificationDeliveryDetail,
+      status: 'permanent_failure',
+    })
+    let resolve!: (value: { delivery_id: string }) => void
+    api.retryNotificationDelivery.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        }),
+    )
+    const view = mount(Delivery, { global })
+    await flushPromises()
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Erneut versuchen')!
+      .trigger('click')
+    await flushPromises()
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Versand erneut einreihen')!
+      .trigger('click')
+    const nextId = '10000000-0000-4000-8000-000000000098'
+    api.notificationDelivery.mockResolvedValue({
+      ...notificationDeliveryDetail,
+      id: nextId,
+      subject: 'Anderer Auftrag',
+    })
+    route.params.id = nextId
+    await flushPromises()
+    resolve({ delivery_id: '10000000-0000-4000-8000-000000000099' })
+    await flushPromises()
+    expect(navigate).not.toHaveBeenCalled()
+    expect(view.text()).toContain('Anderer Auftrag')
+    expect(view.find('dialog').attributes('open')).toBeUndefined()
+    view.unmount()
+  })
+  it('clears protected delivery data when retry authorization fails', async () => {
+    route.params.id = notificationDeliveryDetail.id
+    api.notificationDelivery.mockResolvedValue({
+      ...notificationDeliveryDetail,
+      status: 'permanent_failure',
+    })
+    api.retryNotificationDelivery.mockRejectedValueOnce(new AdminApiError(failure(403)))
+    const view = mount(Delivery, { global })
+    await flushPromises()
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Erneut versuchen')!
+      .trigger('click')
+    await flushPromises()
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Versand erneut einreihen')!
+      .trigger('click')
+    await flushPromises()
+    expect(view.text()).not.toContain('recipient@example.test')
+    expect(view.text()).not.toContain('Enthaltene Hinweise')
+    expect(navigate).not.toHaveBeenCalled()
+    view.unmount()
+  })
+  it('allows an explicitly confirmed retry when all successors were cancelled', async () => {
+    api.notificationDelivery.mockResolvedValue({
+      ...notificationDeliveryDetail,
+      status: 'permanent_failure',
+      retries: [{ ...notificationDeliveryDetail, status: 'cancelled' }],
+    })
+    const view = mount(Delivery, { global })
+    await flushPromises()
+    expect(view.findAll('button').some((button) => button.text() === 'Erneut versuchen')).toBe(true)
+    expect(api.retryNotificationDelivery).not.toHaveBeenCalled()
+    view.unmount()
   })
 })

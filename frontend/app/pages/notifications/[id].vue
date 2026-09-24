@@ -1,89 +1,105 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, watch, onMounted } from 'vue'
 import type { NotificationDetail } from '#shared/contracts'
-import type { ApiFailure } from '#shared/errors'
-import { asFailure } from '#shared/errors'
-import { dateTime } from '~/utils/presentation'
-import {
-  notificationStatuses,
-  notificationTypes,
-  deliveryStatuses,
-  deliveryKinds,
-} from '~/utils/notifications'
+import { useOperationsRequest } from '~/composables/useOperationsRequest'
+import { dateTime, adminTimeZone } from '~/utils/presentation'
+import { notificationStatuses, notificationTypes, notificationTone } from '~/utils/notifications'
+import { qualityRuleLabel } from '~/utils/quality'
+import RecordSection from '~/components/RecordSection.vue'
+import CompactFacts from '~/components/CompactFacts.vue'
+import TechnicalInfoBar from '~/components/TechnicalInfoBar.vue'
+import StatusBadge from '~/components/StatusBadge.vue'
+import InlineAlert from '~/components/InlineAlert.vue'
+import NotificationDeliveryTable from '~/components/NotificationDeliveryTable.vue'
 const route = useRoute()
 const { $adminApi } = useNuxtApp()
-const data = ref<NotificationDetail | null>(null)
-const error = ref<ApiFailure | null>(null)
-const loading = ref(false)
-let generation = 0
-async function load() {
-  const current = ++generation
-  loading.value = true
-  data.value = null
-  error.value = null
-  try {
-    const value = await $adminApi.notification(String(route.params.id))
-    if (current === generation) data.value = value
-  } catch (cause) {
-    if (current === generation) error.value = asFailure(cause)
-  } finally {
-    if (current === generation) loading.value = false
-  }
+const { data, error, loading, load: request } = useOperationsRequest<NotificationDetail>()
+function load() {
+  const id = String(route.params.id)
+  return request(id, () => $adminApi.notification(id))
 }
+const technical = computed(() =>
+  data.value
+    ? [
+        { label: 'Notification ID', value: data.value.id, mono: true, copyable: true },
+        { label: 'Status', value: data.value.status },
+        { label: 'E-Mail-Versand aktiviert', value: data.value.delivery_enabled },
+        ...[
+          { label: 'Erstmals erkannt', value: data.value.first_detected_at },
+          { label: 'Zuletzt erkannt', value: data.value.last_detected_at },
+          { label: 'Gelöst', value: data.value.resolved_at },
+          { label: 'Abgelaufen', value: data.value.expired_at },
+        ]
+          .filter((item) => item.value)
+          .map((item) => ({
+            label: item.label,
+            value: dateTime(item.value),
+            datetime: item.value!,
+            timezone: adminTimeZone,
+          })),
+      ]
+    : [],
+)
 onMounted(load)
-watch(() => route.params.id, load)
-onBeforeUnmount(() => {
-  generation++
-})
+watch(() => route.params.id, load, { flush: 'sync' })
 </script>
 <template>
-  <section class="space-y-5">
-    <PageHeader title="Benachrichtigung" description="Fachlicher Zustand und zugehörige E-Mails."
-      ><NuxtLink to="/notifications" class="button">Alle Benachrichtigungen</NuxtLink></PageHeader
+  <section class="operations-page [overflow-wrap:anywhere]">
+    <PageHeader
+      stack-actions
+      :title="data?.entity_name || 'Benachrichtigung'"
+      :description="data?.payload.organization_name || 'Fachlicher Zustand und zugehörige E-Mails.'"
+      record
     >
-    <RequestState :loading="loading" :error="error" @retry="load" />
-    <template v-if="data">
-      <p v-if="!data.delivery_enabled" role="status" class="rounded-xl bg-amber-50 p-4">
-        E-Mail-Versand ist deaktiviert (Dry Run).
-      </p>
-      <DataListShell class="p-4 space-y-2">
-        <h2 class="text-lg font-semibold">{{ data.entity_name }}</h2>
-        <p>
-          {{ data.payload.organization_name }} · {{ notificationTypes[data.notification_type] }} ·
-          {{ notificationStatuses[data.status] }}
-        </p>
-        <p>Erstmals erkannt: {{ dateTime(data.first_detected_at) }}</p>
-        <p>Zuletzt erkannt: {{ dateTime(data.last_detected_at) }}</p>
-        <p v-if="data.resolved_at">Gelöst: {{ dateTime(data.resolved_at) }}</p>
-        <p v-if="data.expired_at">Abgelaufen: {{ dateTime(data.expired_at) }}</p>
-        <details>
-          <summary>Gespeicherte Daten</summary>
-          <pre class="whitespace-pre-wrap break-all">{{
-            JSON.stringify(data.payload, null, 2)
-          }}</pre>
-        </details>
-      </DataListShell>
-      <NotificationPreview :notification-id="data.id" />
-      <h2 class="text-lg font-semibold">Versandhistorie</h2>
-      <DataListShell v-if="data.deliveries.length" as="ul" class="divide-y divide-slate-100">
-        <li v-for="item in data.deliveries" :key="item.id" class="data-row break-words">
-          <NuxtLink
-            :to="`/notifications/deliveries/${item.id}`"
-            class="font-semibold text-fuchsia-700"
-            >{{ deliveryStatuses[item.status] }} · {{ item.recipient }}</NuxtLink
-          >
-          <p>
-            {{ item.locale.toUpperCase() }} · {{ deliveryKinds[item.delivery_kind] }} · Versuche:
-            {{ item.attempt_count }}
-          </p>
-          <p>
-            Gesendet: {{ dateTime(item.sent_at) }} · Nächster Versuch:
-            {{ dateTime(item.next_attempt_at) }}
-          </p>
-          <p v-if="item.last_error" class="text-rose-700">{{ item.last_error }}</p>
-        </li>
-      </DataListShell>
-      <EmptyState v-else message="Noch keine Versandaufträge. Im Dry Run werden keine angelegt." />
-    </template>
+      <template v-if="data" #badge
+        ><StatusBadge :label="notificationTypes[data.notification_type]" /><StatusBadge
+          :label="notificationStatuses[data.status]"
+          :tone="notificationTone(data.status)"
+      /></template>
+      <NuxtLink to="/notifications" class="button">Alle Benachrichtigungen</NuxtLink>
+      <button class="button" :disabled="loading" @click="load">Aktualisieren</button>
+    </PageHeader>
+    <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
+    <div v-if="data" class="operations-page" :aria-busy="loading">
+      <InlineAlert v-if="!data.delivery_enabled" compact
+        >E-Mail-Versand ist deaktiviert (Dry Run).</InlineAlert
+      >
+      <RecordSection title="Fachlicher Zustand" surface="panel">
+        <CompactFacts
+          :columns="3"
+          missing="omit"
+          :items="[
+            { label: 'Status', value: notificationStatuses[data.status] },
+            { label: 'Typ', value: notificationTypes[data.notification_type] },
+            { label: 'Organisation', value: data.payload.organization_name },
+            { label: 'Erstmals erkannt', value: dateTime(data.first_detected_at) },
+            { label: 'Zuletzt erkannt', value: dateTime(data.last_detected_at) },
+            { label: 'Gelöst', value: data.resolved_at ? dateTime(data.resolved_at) : null },
+            { label: 'Abgelaufen', value: data.expired_at ? dateTime(data.expired_at) : null },
+          ]"
+        />
+        <p v-if="data.rule" class="text-sm">{{ qualityRuleLabel(data.rule) }}</p>
+      </RecordSection>
+      <RecordSection title="Vorschau" surface="panel">
+        <NotificationPreview :key="data.id" :notification-id="data.id" embedded />
+      </RecordSection>
+      <RecordSection title="Versandhistorie" surface="plain">
+        <NotificationDeliveryTable v-if="data.deliveries.length" :items="data.deliveries" />
+        <EmptyState
+          v-else
+          variant="compact"
+          message="Noch keine Versandaufträge. Im Dry Run werden keine angelegt."
+        />
+      </RecordSection>
+      <details class="operations-panel group">
+        <summary class="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold">
+          Gespeicherte Daten
+        </summary>
+        <pre
+          class="max-h-80 overflow-auto whitespace-pre-wrap break-all border-t border-slate-200 p-3 text-xs"
+          >{{ JSON.stringify(data.payload, null, 2) }}</pre>
+      </details>
+      <TechnicalInfoBar :items="technical" />
+    </div>
   </section>
 </template>

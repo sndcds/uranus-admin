@@ -11,7 +11,7 @@ Das Dashboard `/` ist im folgenden Schritt als Operations Overview v2.1 migriert
 (Basis: `76016593bfde39d5aada821f2e0afd9f14eba63a`, nach PR #109).
 
 **Visual consolidation / density migration pending:** sechs Record-Details →
-Geocoding/Workflow → Queues/Notifications/Checks →
+Geocoding/Workflow →
 Graph/SQL/Statistics/Quality → abschließender Responsive-/Accessibility-Audit.
 Diese Folgephasen benötigen jeweils einen eigenen Review; sie gehören nicht zu diesem PR.
 
@@ -65,6 +65,32 @@ als Zwischenstand gekennzeichnet; die scoped Marks-Aufnahme wartet separat auf e
 Neuerfassung nach vollständig geladener Liste.
 
 Stand ist Code-/Reviewstand, keine Behauptung eines Deployments. [Review-Aufnahmen](screenshots/operations-workflows/README.md).
+
+## Queues / Notifications / Checks: Operations Workflow v2.1
+
+Ausgangspunkt ist main nach PR #112, `44bd5c1a5fb426f0024f55b8757a0a46e279bbb4`.
+Die historischen Profile unten bleiben als Ausgangsbefunde erhalten.
+
+| Route | Aktueller Zustand |
+| --- | --- |
+| `/queues/partner_requests` | Migriert: gerichtete dichte Vorgänge, kompakte Filter, lesbare fehlende Organisationen mit Copy-UUID, Technik |
+| `/queues/team_invitations` | Migriert: Benutzer/Organisation, Status, Einladungsalter, unveränderter Direktaufruf und Filter-Bypass |
+| `/queues/user_activation` | Migriert: Benutzerstatus und Erstellungsalter, dichte Liste/Pagination, Technik |
+| `/notifications` | Migriert: systemweite Counts separat, URL-Filter, fachlicher Status, kompakter Dry Run, dichte Tabelle |
+| `/notifications/:id` | Migriert: Identität/Zustand, Vorschau, dichte Versandhistorie, nachrangige Payload, Technik |
+| `/notifications/deliveries` | Migriert: Status/Empfänger/Fehler/Wiederversuch als Operations-Tabelle |
+| `/notifications/deliveries/:id` | Migriert: Versandinformationen, Fehler/Retry, Zuständigkeit, Hinweise, Versandkette, Technik |
+| `/checks` | Migriert: aktueller Lauf, asynchroner Start, dichte Historie, belegte Dauer inklusive Wartezeit, UI-Pollingstatus |
+
+Keine API-/Backend-/Auth-/CSP-/Workeränderungen. Same-query Refresh hält den belegten Stand
+mit Stale-Hinweis; andere Identitäten/Filter und 401/403/404/422 verwerfen ihn. Check-Polling
+bleibt bei zwei Sekunden und einem Timer. Nullwerte bleiben unbekannt. Kein Beitrittsdatum,
+kein erfundener Datenstand, keine scheinbar globale Aussage aus einer paginierten Laufhistorie.
+Die Formular-/Status-/Retry-Tests bleiben erhalten und werden um Refresh-/Layoutregressionen ergänzt.
+
+Prüfstand und synthetische 1440/1024/390/360-Aufnahmen:
+[Review-Galerie](screenshots/operations-queues-notifications/README.md).
+Dies beschreibt den Branch-/Reviewstand, kein behauptetes Deployment.
 
 ## Prüfstand und Methode
 
@@ -241,7 +267,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Bewertung, Evidenz und Zuständigkeit gliedern; bekannte Status übersetzen. Priorität P1.
 
-### `/checks` — WORKFLOW
+### `/checks` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Prüfläufe starten und überwachen. Header → asynchroner Start → letzte Läufe.
 - **Header / Actions / Filter:** Prüflauf starten, Gespeicherte Befunde, Pagination. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -259,7 +285,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Regellabels vervollständigen, Sonderpanel in gemeinsamen Überblick integrieren. Priorität P2.
 
-### `/queues/partner_requests` — WORKFLOW
+### `/queues/partner_requests` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Offene Partneranfragen prüfen. Header → Filter → Vorgänge mit Richtung/Alter.
 - **Header / Actions / Filter:** Organisation, Mindestalter, Freitextstatus, Anwenden/Reset. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -268,7 +294,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Bekannte Statusauswahl und erklärende Prüfhinweise; Richtung erhalten. Priorität P2.
 
-### `/queues/team_invitations` — WORKFLOW
+### `/queues/team_invitations` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Einladungen und beigetretene Mitgliedschaften nach belegtem Alter und Zustand prüfen. Header → Filter → Benutzer/Organisation → Einladung.
 - **Header / Actions / Filter:** Organisation, Mindestalter, Statusselect Eingeladen/Beigetreten/Alle, Öffnen/Markieren. URL steuert Filter; Direktaufruf per entity_key erklärt und deaktiviert die nicht angewendeten Filter. Reset öffnet die Einladungsliste. Keine Source-Schreibaktion.
@@ -277,7 +303,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Einladung klar vom Benutzer trennen; unbekannte Zeit nicht ersetzen. Priorität P2.
 
-### `/queues/user_activation` — WORKFLOW
+### `/queues/user_activation` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Ausstehende Aktivierungen prüfen. Header → Filter → Benutzer → belegtes Alter.
 - **Header / Actions / Filter:** Organisation, Mindestalter, Status, Öffnen/Markieren. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -286,7 +312,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Bekannte Status übersetzen; technische Checks nachrangig. Priorität P2.
 
-### `/notifications` — COLLECTION
+### `/notifications` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Hinweise und Versandprobleme erkennen. Header → Filter → Versandfähigkeit → Counts → Hinweise.
 - **Header / Actions / Filter:** Status, Typ, Organisation, Zeitraum; Versände öffnen. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -295,7 +321,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Deutsch, sichere Konfigurationshinweise; Filter in URL migrieren. Priorität P1.
 
-### `/notifications/:id` — WORKFLOW
+### `/notifications/:id` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Hinweis, Vorschau und Versandhistorie prüfen. Header → Datensatz → JSON → Vorschau → Historie.
 - **Header / Actions / Filter:** Zur Sammlung, Vorschau laden, Sprache. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -304,7 +330,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Domänenkontext vor Vorschau; JSON ans Ende, echte Abschnittshierarchie. Priorität P2.
 
-### `/notifications/deliveries` — COLLECTION
+### `/notifications/deliveries` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Versandversuche untersuchen. Header → Filter → Versandstatusliste.
 - **Header / Actions / Filter:** Status, Art, Organisation, Zeitraum; Filter anwenden. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -313,7 +339,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Reset ergänzen; standardisierte Metadaten; Retry nicht mit Versand verwechseln. Priorität P2.
 
-### `/notifications/deliveries/:id` — WORKFLOW
+### `/notifications/deliveries/:id` — historischer Ausgangszustand (aktuell Operations Workflow v2.1)
 
 - **Aufgabe / Hierarchie:** Dauerhaften Fehler prüfen und ggf. neu einreihen. Header → Auftrag → Retry → Zuständigkeit → Hinweise.
 - **Header / Actions / Filter:** Erneut versuchen mit Bestätigung; Zuweisung/Snooze. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -627,15 +653,15 @@ Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung de
 | `/activity`                      | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
 | `/inbox`                         | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/findings`                      | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
-| `/checks`                        | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
+| `/checks`                        | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
 | `/quality`                       | OVERVIEW              | OVERVIEW                 | OVERVIEW                                                 | offen (P2) |
-| `/queues/partner_requests`       | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
-| `/queues/team_invitations`       | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
-| `/queues/user_activation`        | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
-| `/notifications`                 | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P1) |
-| `/notifications/:id`             | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
-| `/notifications/deliveries`      | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
-| `/notifications/deliveries/:id`  | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P1) |
+| `/queues/partner_requests`       | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/queues/team_invitations`       | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/queues/user_activation`        | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/notifications`                 | COLLECTION            | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/notifications/:id`             | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/notifications/deliveries`      | COLLECTION            | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/notifications/deliveries/:id`  | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
 | `/marks`                         | COLLECTION            | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/marks/:id`                     | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/geocoding`                     | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |

@@ -5,14 +5,20 @@ import EmptyState from './EmptyState.vue'
 withDefaults(
   defineProps<{
     caption: string
-    columns: readonly { key: keyof T & string; label: string; rowHeader?: boolean }[]
+    columns: readonly {
+      key: keyof T & string
+      label: string
+      rowHeader?: boolean
+      width?: string
+    }[]
     rows: readonly T[]
     rowKey: (row: T) => string | number
     mobile?: 'stack' | 'scroll'
+    stackAt?: 'mobile' | 'tablet'
     emptyMessage?: string
     busy?: boolean
   }>(),
-  { mobile: 'stack', emptyMessage: 'Keine Ergebnisse für diese Auswahl.' },
+  { mobile: 'stack', stackAt: 'mobile', emptyMessage: 'Keine Ergebnisse für diese Auswahl.' },
 )
 const id = useId()
 </script>
@@ -27,7 +33,11 @@ const id = useId()
     >
       <table
         class="operations-table"
-        :class="mobile === 'stack' ? 'operations-table-stack' : 'min-w-[40rem]'"
+        :class="
+          mobile === 'stack'
+            ? ['operations-table-stack', { 'operations-table-tablet': stackAt === 'tablet' }]
+            : 'min-w-[40rem]'
+        "
         role="table"
       >
         <caption class="sr-only">
@@ -35,6 +45,14 @@ const id = useId()
             caption
           }}
         </caption>
+        <colgroup>
+          <col
+            v-for="column in columns"
+            :key="column.key"
+            :style="column.width ? { width: column.width } : undefined"
+          />
+          <col v-if="$slots.actions" />
+        </colgroup>
         <thead role="rowgroup">
           <tr role="row">
             <th
@@ -86,3 +104,52 @@ const id = useId()
     <p v-if="busy" role="status" class="operations-meta p-3">Daten werden aktualisiert …</p>
   </div>
 </template>
+
+<style scoped>
+/* Opt-in for operational lists: preserve the existing mobile-only default. */
+@media (max-width: 1100px) {
+  .operations-table-tablet,
+  .operations-table-tablet tbody {
+    display: block;
+    width: 100%;
+  }
+  .operations-table-tablet colgroup {
+    display: none;
+  }
+  .operations-table-tablet thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .operations-table-tablet tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: auto;
+    padding: 8px 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .operations-table-tablet tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .operations-table-tablet tbody :is(th, td) {
+    display: block;
+    min-width: 0;
+    border: 0;
+  }
+  .operations-table-tablet .operations-cell-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    color: #475569;
+  }
+}
+@media (max-width: 639px) {
+  .operations-table-tablet tbody tr {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

@@ -30,6 +30,7 @@ function mount() {
       components: { FilterBar, StatusBadge },
       stubs: {
         FilterBar: false,
+        DenseTable: false,
         StatusBadge: false,
         DataListShell: { template: '<ul><slot /></ul>' },
       },

@@ -6,6 +6,7 @@ import DataListShell from '../../app/components/DataListShell.vue'
 import ResultSummary from '../../app/components/ResultSummary.vue'
 import PaginationBar from '../../app/components/PaginationBar.vue'
 import StatusBadge from '../../app/components/StatusBadge.vue'
+import RequestState from '../../app/components/RequestState.vue'
 import EmptyState from '../../app/components/EmptyState.vue'
 import { AdminApiError, failure } from '../../shared/errors'
 
@@ -36,8 +37,9 @@ function render() {
         PaginationBar,
         StatusBadge,
         EmptyState,
+        RequestState,
       },
-      stubs: { NuxtLink: { template: '<a><slot /></a>' }, RequestState: true, AppIcon: true },
+      stubs: { NuxtLink: { template: '<a><slot /></a>' }, AppIcon: true },
     },
   })
 }
@@ -93,7 +95,8 @@ describe('durable check status', () => {
     await flushPromises()
     await vi.advanceTimersByTimeAsync(2000)
     await flushPromises()
-    expect(wrapper.findAll('li')).toHaveLength(0)
+    expect(wrapper.find('table').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Aktueller Lauf')
     await vi.advanceTimersByTimeAsync(10000)
     expect(api.checkRuns).toHaveBeenCalledTimes(2)
     wrapper.unmount()
@@ -104,4 +107,62 @@ describe('durable check status', () => {
     await vi.advanceTimersByTimeAsync(10000)
     expect(api.checkRuns).toHaveBeenCalledTimes(3)
   })
+})
+
+it('retains same-page refresh with stale feedback, clears other pages and rejects late results', async () => {
+  const first = { ...page('success'), pagination: { page: 1, page_size: 50, total: 51, pages: 2 } }
+  api.checkRuns.mockResolvedValue(first)
+  const wrapper = render()
+  await flushPromises()
+  const refresh = () =>
+    wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Aktualisieren')!
+      .trigger('click')
+  let resolve!: (value: typeof first) => void
+  api.checkRuns.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done
+      }),
+  )
+  await refresh()
+  expect(wrapper.text()).toContain('Erfolgreich')
+  resolve(first)
+  await flushPromises()
+  api.checkRuns.mockRejectedValueOnce(new AdminApiError(failure(503)))
+  await refresh()
+  await flushPromises()
+  expect(wrapper.text()).toContain('veraltet')
+  expect(wrapper.text()).toContain('Erfolgreich')
+  api.checkRuns.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done
+      }),
+  )
+  wrapper.getComponent(PaginationBar).vm.$emit('change', 2)
+  await flushPromises()
+  expect(wrapper.find('table').exists()).toBe(false)
+  wrapper.getComponent(RequestState).vm.$emit('retry')
+  await flushPromises()
+  resolve({ ...first, items: [{ ...item, status: 'failed' }] })
+  await flushPromises()
+  expect(wrapper.text()).not.toContain('Prüfung fehlgeschlagen')
+  wrapper.unmount()
+})
+it('does not revive data or timers after an in-flight response on unmount', async () => {
+  let resolve!: (value: ReturnType<typeof page>) => void
+  api.checkRuns.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done
+      }),
+  )
+  const wrapper = render()
+  wrapper.unmount()
+  resolve(page('queued'))
+  await flushPromises()
+  await vi.advanceTimersByTimeAsync(10000)
+  expect(api.checkRuns).toHaveBeenCalledOnce()
 })

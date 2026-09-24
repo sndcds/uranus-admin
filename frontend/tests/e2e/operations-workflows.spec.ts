@@ -218,6 +218,11 @@ test('inbox count shortcuts, history, all task kinds and pagination use URL stat
     'overdue',
   )
   await page.getByRole('button', { name: 'Filter zurücksetzen', exact: true }).click()
+  // Reset navigates asynchronously; wait for URL and draft restoration before editing again.
+  await expect(page).toHaveURL('/inbox')
+  await expect(
+    page.getByRole('combobox', { name: 'Aufgabenart' }).locator('option:checked'),
+  ).toHaveText('Alle Aufgabenarten')
   for (const kind of ['assignment', 'finding', 'geocode_request', 'notification_delivery']) {
     await page.getByRole('combobox', { name: 'Aufgabenart' }).selectOption(kind)
     await page.getByRole('button', { name: 'Anwenden', exact: true }).click()
