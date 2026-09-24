@@ -92,6 +92,21 @@ Prüfstand und synthetische 1440/1024/390/360-Aufnahmen:
 [Review-Galerie](screenshots/operations-queues-notifications/README.md).
 Dies beschreibt den Branch-/Reviewstand, kein behauptetes Deployment.
 
+## Activity / Entity Collections: Operations Collection v2.1
+
+Basis: main nach PR #113, `162fe8f8de28a32c359a7586e7730920afbe0a63`.
+Migriert: `/activity`, `/events`, `/organizations`, `/venues`, `/spaces`, `/users`, `/images`.
+Vorher: Bestandslisten mit ActivityRow und beliebigen Inline-Fakten, großzügige Filter,
+Refresh mit vollständigem Inhaltsverlust. Activity zeigte noch ein Organisation-UUID-Feld.
+Jetzt: eigenständige gemeinsame Collection-Zeile mit begrenzten Domain-Fakten,
+kompakter chronologischer Activity-Feed, direkt sichtbare Aktionen und Technik am Ende.
+Activity-Counts bleiben seitenlokal; unknown bleibt ohne Chronologie. URL/Präferenzen,
+kanonische Aktionen und alle Backend-Verträge bleiben erhalten. Shared-Varianten sind opt-in.
+
+Die folgenden älteren Profile bleiben als historische Ausgangsbefunde erhalten.
+[Prüfstand und synthetische Review-Matrix](screenshots/operations-collections/README.md).
+Kein Deployment-Nachweis und kein abschließender Accessibility-Audit.
+
 ## Prüfstand und Methode
 
 Audit vor Anwendungsänderungen, 23.09.2026. Frisch geholtes `main`:
@@ -240,7 +255,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Grenzen:** Store-/Refresh-/Stale-/Auth-Verhalten unverändert. Keine weiteren Routen oder Backend-Verträge migriert. Shared Compact-Varianten sind opt-in.
 - **Review:** [Desktop, Tablet, Mobile, Small Mobile](screenshots/operations-dashboard/README.md), ausschließlich synthetische Fixtures.
 
-### `/activity` — COLLECTION
+### `/activity` — historischer Ausgangszustand (aktuell Operations Collection v2.1)
 
 - **Aufgabe / Hierarchie:** Neue Quelldatensätze chronologisch prüfen. Header → Filter → Ergebniszahl → Tagesgruppen.
 - **Header / Actions / Filter:** Objektart, Zeitraum, Organisation, Anwenden/Reset. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -429,7 +444,7 @@ wirklich verwendeten gemeinsamen Presenter geprüft, nicht nur über ihren Datei
 - **Mobile / Accessibility:** Eigener Auth-Landmark statt geschützter Shell. Native Formularlabels, Passworttyp und Submit-Reihenfolge erhalten; Fehlermeldung per Alert. Auf 360/390px darf die Login-Card keine horizontale Seite erzeugen.
 - **Terminologie / Änderung:** Bestehende Sicherheitszustände erhalten; Fokus/Fehlerzuordnung nachprüfen. Priorität P2.
 
-### `/events` — COLLECTION
+### `/events` — historischer Ausgangszustand (aktuell Operations Collection v2.1)
 
 - **Aufgabe / Hierarchie:** Veranstaltungen suchen und Termine einordnen. PageHeader → Filter → Ergebnisübersicht → ActivityRows → Pagination.
 - **Header / Actions / Filter:** Kontextsuche; nur unterstützte Status/Zeitraum/Terminlage; Anwenden/Reset. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -450,7 +465,7 @@ Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
 - **Mobile / Accessibility:** Einspaltiger Lesefluss, lange Namen/IDs umbrechen; sichtbare Fokusfolge Header → Controls → Inhalt. Gemeinsames Prüfraster plus routebezogene Screenshot-Matrix anwenden.
 - **Terminologie / Änderung:** Pilot: Hero, Beschreibung, allgemeine verknüpfte Datensätze, Qualität, Verlauf, Technik. Typisierte Fachgruppen folgen erst mit unabhängigem Vertrag. Priorität P0.
 
-### `/organizations` — COLLECTION
+### `/organizations` — historischer Ausgangszustand (aktuell Operations Collection v2.1)
 
 - **Aufgabe / Hierarchie:** Organisationen und ihren Kontext prüfen. PageHeader → Filter → Ergebnisübersicht → ActivityRows → Pagination.
 - **Header / Actions / Filter:** Kontextsuche; nur unterstützte Status/Zeitraum/Terminlage; Anwenden/Reset. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -468,7 +483,7 @@ Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
 - **Mobile / Accessibility:** Vier Größen 1440/1024/390/360px, lange Namen/Adressen, umbrechende Aktionen, 44px-Touchziele; ein h2, RecordSections h3, Relationszeilen h4. Benannte Regionen, externe Links mit neuem-Tab-Kontext, Timeline vor technischen Informationen.
 - **Terminologie / Änderung:** Teammitgliedschaften einschließlich Einladungen; keine aktiven Mitglieder behaupten. V2-Migration umgesetzt. Semantische Fachgruppen bleiben zurückgestellt bis zu einem typisierten, begrenzten Vertrag; globale Pagination bleibt ehrlich sichtbar.
 
-### `/venues` — COLLECTION
+### `/venues` — historischer Ausgangszustand (aktuell Operations Collection v2.1)
 
 - **Aufgabe / Hierarchie:** Orte und räumliche Einordnung prüfen. PageHeader → Filter → Ergebnisübersicht → ActivityRows → Pagination.
 - **Header / Actions / Filter:** Kontextsuche; nur unterstützte Status/Zeitraum/Terminlage; Anwenden/Reset. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -486,7 +501,7 @@ Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
 - **Mobile / Accessibility:** Vier Größen 1440/1024/390/360px, lange Namen/Adressen, umbrechende Aktionen, 44px-Touchziele; ein h2, RecordSections h3, Relationszeilen h4. Benannte Regionen, externe Links mit neuem-Tab-Kontext, Timeline vor technischen Informationen.
 - **Terminologie / Änderung:** Räume insgesamt; keine aus Adressen errechnete oder erfundene Location. V2-Migration umgesetzt. Semantische Fachgruppen bleiben zurückgestellt bis zu einem typisierten, begrenzten Vertrag; globale Pagination bleibt ehrlich sichtbar.
 
-### `/spaces` — COLLECTION
+### `/spaces` — historischer Ausgangszustand (aktuell Operations Collection v2.1)
 
 - **Aufgabe / Hierarchie:** Räume und vererbten Ortskontext prüfen. PageHeader → Filter → Ergebnisübersicht → ActivityRows → Pagination.
 - **Header / Actions / Filter:** Kontextsuche; nur unterstützte Status/Zeitraum/Terminlage; Anwenden/Reset. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -504,7 +519,7 @@ Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
 - **Mobile / Accessibility:** Vier Größen 1440/1024/390/360px, lange Namen/Adressen, umbrechende Aktionen, 44px-Touchziele; ein h2, RecordSections h3, Relationszeilen h4. Benannte Regionen, externe Links mit neuem-Tab-Kontext, Timeline vor technischen Informationen.
 - **Terminologie / Änderung:** Zugehöriger Ort; kanonischer Link nur aus gelieferter Ortsrelation, sonst Text. V2-Migration umgesetzt. Semantische Fachgruppen bleiben zurückgestellt bis zu einem typisierten, begrenzten Vertrag; globale Pagination bleibt ehrlich sichtbar.
 
-### `/users` — COLLECTION
+### `/users` — historischer Ausgangszustand (aktuell Operations Collection v2.1)
 
 - **Aufgabe / Hierarchie:** Uranus-Benutzer und Teamkontext prüfen. PageHeader → Filter → Ergebnisübersicht → ActivityRows → Pagination.
 - **Header / Actions / Filter:** Kontextsuche; nur unterstützte Status/Zeitraum/Terminlage; Anwenden/Reset. Gemeinsamer Header; keine Source-Schreibaktion.
@@ -521,7 +536,7 @@ Der aktuelle Zustand steht in der Migrationsmatrix und im Design Guide.
 - **Shared:** EntityDetailPage, EntityHero, RecordSection, RecordRelations, RecordWorkflowSummary, EntityTimeline und EntityTechnicalMetadata. Keine neuen Backend-Felder, Source Writes oder Markdown-Felder.
 - **Zustände / Accessibility:** Ein h2, Sections h3, Relationszeilen h4; gleiche Identität bleibt bei Refresh sichtbar, 401/403/404 und Identitätswechsel löschen alte Inhalte, späte Antworten werden verworfen. Plaintext, lange Inhalte und Vorschauverhältnisse auf 1440/1024/390/360px geprüft.
 
-### `/images` — COLLECTION
+### `/images` — historischer Ausgangszustand (aktuell Operations Collection v2.1)
 
 - **Aufgabe / Hierarchie:** Bilder und Verknüpfungen prüfen. PageHeader → Filter → Ergebnisübersicht → ActivityRows → Pagination.
 - **Header / Actions / Filter:** Kontextsuche; nur unterstützte Status/Zeitraum/Terminlage; Anwenden/Reset. Gemeinsamer Header; keine Source-Schreibaktion.

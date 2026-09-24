@@ -62,6 +62,10 @@ export function dayLabel(value: string, observedAt: string): string {
   if (day === yesterday.toISOString().slice(0, 10)) return 'Gestern'
   return longDay.format(new Date(value))
 }
+/** Time within an explicitly labelled calendar-day group. */
+export function clockTime(value: string): string {
+  return calendarDay(value) ? shortTime.format(new Date(value)) : 'Ohne Zeitstempel'
+}
 export function activityTime(value: string | null, observedAt: string): string {
   if (!calendarDay(value)) return 'Ohne Zeitstempel'
   const date = new Date(value!)

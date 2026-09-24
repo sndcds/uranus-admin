@@ -42,6 +42,7 @@ const global = {
     NuxtLink: { props: ['to'], template: '<a :data-to="JSON.stringify(to)"><slot /></a>' },
     DataListShell: { template: '<ul><slot /></ul>' },
     ActivityRow: { props: ['item'], template: '<li>{{item.entity_name}}</li>' },
+    EntityCollectionRow: { props: ['item'], template: '<li>{{item.entity_name}}</li>' },
     RequestState: {
       props: ['loading', 'error'],
       template: '<div>{{loading ? "loading" : error ? "error" : ""}}</div>',

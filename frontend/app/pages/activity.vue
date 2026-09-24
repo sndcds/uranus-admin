@@ -5,8 +5,8 @@ import { activityPeriods } from '~/utils/periods'
 import { isSpatialType } from '~/utils/geo'
 import { entityTypeSchema } from '#shared/contracts'
 import type { ActivityPage } from '#shared/contracts'
-import { asFailure } from '#shared/errors'
-import type { ApiFailure } from '#shared/errors'
+import { AdminApiError, failure } from '#shared/errors'
+import { useOperationsRequest } from '~/composables/useOperationsRequest'
 import { activityTypes, activityGroups, activityCounts } from '~/utils/activity'
 import { dateTime, adminTimeZone } from '~/utils/presentation'
 const preferences = useFilterPreferencesStore()
@@ -22,9 +22,7 @@ const query = usePreferenceQuery(
 )
 const router = useRouter()
 const { $adminApi } = useNuxtApp()
-const data = ref<ActivityPage | null>(null)
-const error = ref<ApiFailure | null>(null)
-const loading = ref(false)
+const { data, loading, error, load: request } = useOperationsRequest<ActivityPage>()
 const entityType = ref('')
 const organization = ref('')
 const period = ref('24h')
@@ -39,7 +37,11 @@ const availableTypes = computed(() =>
   entityTypeSchema.options.filter((kind) => !geoScopeId.value || isSpatialType(kind)),
 )
 const title = computed(() =>
-  selectedType.value ? `Neue ${activityTypes[selectedType.value].plural}` : 'Neue Datensätze',
+  query.value.timestamp_state === 'unknown'
+    ? 'Datensätze ohne Zeitstempel'
+    : selectedType.value
+      ? `Neue ${activityTypes[selectedType.value].plural}`
+      : 'Neue Datensätze',
 )
 const description = computed(() => {
   if (!data.value) return 'Neuanlagen nach Objektart und Erstellungszeitpunkt.'
@@ -77,25 +79,15 @@ function syncFilters() {
           : '24h'
 }
 syncFilters()
-let requestId = 0
 async function load() {
-  const id = ++requestId
-  loading.value = true
-  data.value = null
-  error.value = null
-  try {
+  await request(JSON.stringify(query.value), async () => {
     const requestQuery: Record<string, string> = {}
     for (const [key, value] of Object.entries(query.value)) {
-      if (typeof value !== 'string') throw new Error('Invalid query')
+      if (typeof value !== 'string') throw new AdminApiError(failure(422))
       requestQuery[key] = value
     }
-    const result = await $adminApi.activity(requestQuery)
-    if (id === requestId) data.value = result
-  } catch (cause) {
-    if (id === requestId) error.value = asFailure(cause)
-  } finally {
-    if (id === requestId) loading.value = false
-  }
+    return $adminApi.activity(requestQuery)
+  })
 }
 function reset() {
   preferences.activity.entityType = ''
@@ -126,15 +118,59 @@ watch(
     void load()
   },
 )
-onBeforeUnmount(() => {
-  requestId++
-})
+const technicalItems = computed(() =>
+  data.value
+    ? [
+        {
+          label: 'Datenstand',
+          value: dateTime(data.value.observed_at),
+          datetime: data.value.observed_at,
+        },
+        {
+          label: 'Von',
+          value: data.value.from_at ? dateTime(data.value.from_at) : null,
+          datetime: data.value.from_at ?? undefined,
+        },
+        {
+          label: 'Bis',
+          value: data.value.to_at ? dateTime(data.value.to_at) : null,
+          datetime: data.value.to_at ?? undefined,
+        },
+        { label: 'Anzeigezeitzone', value: adminTimeZone },
+        { label: 'Gesamtzahl', value: data.value.pagination.total },
+        { label: 'Sichtbare Einträge', value: data.value.items.length },
+        { label: 'Einträge je Seite', value: data.value.pagination.page_size },
+        {
+          label: 'Zeitstempel-Auswahl',
+          value: data.value.timestamp_state === 'known' ? 'Bekannt' : 'Unbekannt',
+        },
+        { label: 'Ohne belegten Erstellungszeitpunkt', value: data.value.unknown_timestamp_count },
+      ]
+    : [],
+)
+const hasFilters = computed(
+  () =>
+    [
+      'entity_type',
+      'organization_id',
+      'entity_key',
+      'creation_basis',
+      'from_at',
+      'to_at',
+      'timestamp_state',
+    ].some((key) => !!query.value[key]) ||
+    (query.value.period && query.value.period !== '24h'),
+)
 </script>
 
 <template>
-  <section class="space-y-5" aria-labelledby="activity-title">
-    <PageHeader :title="title" :description="description" title-id="activity-title" />
-    <FilterBar @apply="apply">
+  <section class="operations-page" aria-labelledby="activity-title">
+    <PageHeader :title="title" :description="description" title-id="activity-title">
+      <template #actions
+        ><button class="button" :disabled="loading" @click="load">Aktualisieren</button></template
+      >
+    </PageHeader>
+    <FilterBar compact :columns="3" @apply="apply">
       <label
         ><span class="label">Objektart</span>
         <select v-model="entityType" class="input">
@@ -154,26 +190,17 @@ onBeforeUnmount(() => {
           <option value="unknown">Ohne Zeitstempel</option>
         </select>
       </label>
-      <label
-        ><span class="label">Organisation (UUID)</span>
-        <input
-          v-model="organization"
-          class="input"
-          placeholder="Alle Organisationen"
-          spellcheck="false"
-        />
-      </label>
-      <div class="flex flex-wrap items-end gap-2">
+      <template #actions>
         <button class="button-primary" :disabled="loading">Anwenden</button>
         <button type="button" class="button" :disabled="loading" @click="reset">
           Filter zurücksetzen
         </button>
-      </div>
+      </template>
     </FilterBar>
     <p v-if="query.creation_basis === 'statistics'" class="muted">
       Neuanlagen der sieben Statistiktypen; Teammitgliedschaften nach Einladungszeitpunkt.
     </p>
-    <RequestState :loading="loading" :error="error" @retry="load" />
+    <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
     <template v-if="data">
       <ResultSummary
         :total="data.pagination.total"
@@ -182,6 +209,7 @@ onBeforeUnmount(() => {
         label="Zusammenfassung der Aktivität"
         :description="`${data.unknown_timestamp_count} ohne belegten Erstellungszeitpunkt${data.timestamp_state === 'known' ? ' · separate Auswahl' : ''}`"
       >
+        <span v-if="counts.length" class="font-medium">Objektarten auf dieser Seite:</span>
         <span
           v-for="entry in counts"
           :key="entry.type"
@@ -193,17 +221,10 @@ onBeforeUnmount(() => {
             entry.count === 1 ? activityTypes[entry.type].label : activityTypes[entry.type].plural
           }}
         </span>
-        <p v-if="data.timestamp_state === 'known'" class="text-xs text-slate-500">
-          Tagesgruppen auf dieser Seite · Zeiten in {{ adminTimeZone }} · Stand:
-          {{ dateTime(data.observed_at) }}
-        </p>
       </ResultSummary>
-      <p
-        v-if="data.timestamp_state === 'unknown'"
-        class="rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-600"
-      >
+      <InlineAlert v-if="data.timestamp_state === 'unknown'" tone="info">
         Nach Objektschlüssel geordnet; eine zeitliche Reihenfolge ist nicht bekannt.
-      </p>
+      </InlineAlert>
       <DataListShell v-if="data.items.length" :aria-busy="loading">
         <section
           v-for="group in groups"
@@ -220,18 +241,23 @@ onBeforeUnmount(() => {
               {{ group.items.length === 1 ? 'Eintrag' : 'Einträge' }}</span
             >
           </div>
-          <ul class="divide-y divide-slate-100">
+          <ul class="data-list-dense">
             <ActivityRow
               v-for="item in group.items"
               :key="`${item.entity_type}:${item.entity_key}`"
               :item="item"
               :observed-at="data.observed_at"
               :grouped="!!group.label"
+              dense
             />
           </ul>
         </section>
       </DataListShell>
-      <EmptyState v-else message="Keine Datensätze für diese Filter." />
+      <EmptyState v-else variant="compact" message="Keine Datensätze für diese Auswahl.">
+        <template v-if="hasFilters" #actions
+          ><button class="button" @click="reset">Filter zurücksetzen</button></template
+        >
+      </EmptyState>
       <PaginationBar
         v-if="data.pagination.pages > 0"
         :pagination="data.pagination"
@@ -239,6 +265,7 @@ onBeforeUnmount(() => {
         label="Activity-Seitennavigation"
         :to="(page) => ({ query: { ...query, page } })"
       />
+      <TechnicalInfoBar :items="technicalItems" :show-title="false" />
     </template>
   </section>
 </template>

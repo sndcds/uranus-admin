@@ -31,9 +31,10 @@ test('compact activity groups, visible-page summary, accessible targets and pagi
     .filter({ has: page.getByRole('heading', { name: 'Lesung am Hafen', exact: true }) })
   await expect(row.getByText('Termin', { exact: true })).toBeVisible()
   await expect(row.getByText('Veröffentlicht', { exact: true })).toBeVisible()
-  await expect(
-    row.getByRole('link', { name: 'Öffnen: Lesung am Hafen' }),
-  ).toHaveAttribute('href', activityFixture.items[0]!.action!.href)
+  await expect(row.getByRole('link', { name: 'Öffnen: Lesung am Hafen' })).toHaveAttribute(
+    'href',
+    activityFixture.items[0]!.action!.href,
+  )
   await expect(
     row.getByRole('link', { name: 'Markierungen & Notizen zu Lesung am Hafen' }),
   ).toHaveAttribute('href', /\/marks\?.*entity_type=event_date/)
@@ -81,7 +82,7 @@ test('unknown timestamps, filter reset and browser navigation keep URL and form 
     page.getByText('Nach Objektschlüssel geordnet; eine zeitliche Reihenfolge ist nicht bekannt.'),
   ).toBeVisible()
   await expect(page.locator('h3[id^="activity-day-"]')).toHaveCount(0)
-  await expect(page.locator('time')).toHaveCount(0)
+  await expect(page.getByRole('listitem').locator('time')).toHaveCount(0)
   await expect(page.getByText('Keine eindeutige Organisation')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Weiter', exact: true })).toBeDisabled()
   await page.getByRole('combobox', { name: 'Zeitraum', exact: true }).selectOption('7d')
@@ -94,11 +95,13 @@ test('unknown timestamps, filter reset and browser navigation keep URL and form 
   await page.getByRole('button', { name: 'Filter zurücksetzen', exact: true }).click()
   await expect(page).toHaveURL('/activity')
   await expect(page.getByRole('combobox', { name: 'Objektart', exact: true })).toHaveValue('')
-  await expect(page.getByRole('textbox', { name: 'Organisation (UUID)' })).toHaveValue('')
+  await expect(page.getByRole('textbox', { name: 'Organisation (UUID)' })).toHaveCount(0)
+  expect(new URL(page.url()).searchParams.has('organization_id')).toBe(false)
   await expect(page.getByRole('combobox', { name: 'Zeitraum', exact: true })).toHaveValue('24h')
   await page.goBack()
   await expect(page.getByRole('combobox', { name: 'Objektart', exact: true })).toHaveValue('image')
-  await expect(page.getByRole('textbox', { name: 'Organisation (UUID)' })).toHaveValue(org)
+  expect(new URL(page.url()).searchParams.get('organization_id')).toBe(org)
+  await expect.poll(() => queries.at(-1)!.get('organization_id')).toBe(org)
   await expect(page.getByRole('combobox', { name: 'Zeitraum', exact: true })).toHaveValue('7d')
 })
 
@@ -130,7 +133,7 @@ test('loading, error retry and an empty page remain usable', async ({ page }) =>
   release()
   await expect(page.getByRole('alert')).toContainText('Abruf fehlgeschlagen')
   await page.getByRole('button', { name: 'Erneut versuchen', exact: true }).click()
-  await expect(page.getByText('Keine Datensätze für diese Filter.')).toBeVisible()
+  await expect(page.getByText('Keine Datensätze für diese Auswahl.')).toBeVisible()
   await expect(page.getByText('Auf dieser Seite: 0 Einträge')).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Activity-Seitennavigation' })).toHaveCount(0)
   await expect(page.getByRole('alert')).toHaveCount(0)
