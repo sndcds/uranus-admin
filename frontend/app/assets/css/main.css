@@ -315,3 +315,34 @@
     }
   }
 }
+
+/* WORKSPACE v2.1: tools, working surface, context and technical footer. */
+@layer components {
+  .operations-workspace {
+    @apply min-w-0 rounded-xl border border-slate-200 bg-white;
+  }
+  .operations-workspace-toolbar {
+    @apply min-w-0 rounded-xl border border-slate-200 bg-white p-3;
+  }
+  .operations-workspace-sidebar {
+    @apply min-w-0 bg-slate-50;
+  }
+  .operations-workspace-main {
+    @apply min-w-0;
+  }
+  .operations-workspace-footer {
+    @apply min-w-0 border-t border-slate-200;
+  }
+  .operations-workspace-footer .operations-techbar {
+    @apply rounded-none border-0;
+  }
+  .operations-workspace-footer .operations-techbar dl {
+    @apply grid-cols-2;
+  }
+}
+/* Compact footer facts override TechnicalInfoBar's general-purpose utility width. */
+@media (min-width: 1280px) {
+  .operations-workspace-footer .operations-techbar dl > div {
+    flex-basis: 7rem;
+  }
+}

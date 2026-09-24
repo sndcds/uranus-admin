@@ -71,7 +71,7 @@ test('native fullscreen reuses the graph and survives root/history navigation', 
   await workspace.locator('.graph-node').filter({ hasText: 'Max Mustermann' }).focus()
   await page.keyboard.press('Enter')
   await expect(panel.getByRole('heading', { name: 'Max Mustermann' })).toBeVisible()
-  await panel.getByRole('button', { name: 'Als Ausgangspunkt verwenden', exact: true }).click()
+  await panel.getByRole('button', { name: 'Beziehungen', exact: true }).click()
   await expect(page).toHaveURL(/root_type=user/)
   await expect(panel.getByRole('heading', { name: 'Max Mustermann' })).toBeVisible()
   expect(

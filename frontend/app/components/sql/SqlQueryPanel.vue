@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import CopyValueButton from '../CopyValueButton.vue'
 import type { SqlDiagnosticDefinition } from '#shared/contracts'
 import type { ProvenanceSource } from '#shared/sql-provenance'
@@ -32,6 +32,18 @@ const props = defineProps<{
   status?: string
 }>()
 defineEmits<{ execute: []; cancel: []; format: []; 'update:sql': [value: string] }>()
+const statusLabel = computed(() =>
+  props.page && props.status
+    ? ({
+        Idle: 'Bereit',
+        Running: 'Wird ausgeführt',
+        Cancelling: 'Wird abgebrochen',
+        Cancelled: 'Abgebrochen',
+        Completed: 'Abgeschlossen',
+        Error: 'Fehler',
+      }[props.status] ?? props.status)
+    : props.status,
+)
 const view = ref<'table' | 'json'>('table')
 watch(
   () => [props.sql, props.copySql, props.result],
@@ -54,20 +66,31 @@ function download() {
 }
 </script>
 <template>
-  <div class="space-y-4">
-    <section aria-label="SQL-Abfrage" class="space-y-2">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+  <div class="space-y-4" :class="{ 'sql-operations-query': page }">
+    <section aria-label="SQL-Abfrage" class="sql-query-section space-y-2">
+      <div class="sql-query-heading flex flex-wrap items-center justify-between gap-3">
         <div class="min-w-0">
           <h3 class="font-semibold text-slate-950">SQL Abfrage</h3>
           <p class="mt-1 text-xs text-slate-500">{{ description }}</p>
         </div>
-        <div class="ml-auto flex flex-wrap gap-2">
+        <SqlCodeEditor
+          v-if="page"
+          :sql="sql"
+          :readonly="!editable"
+          :page="page"
+          :error-position="errorPosition"
+          @update:sql="$emit('update:sql', $event)"
+          @execute="$emit('execute')"
+          @format="$emit('format')"
+        />
+        <div class="sql-query-actions ml-auto flex flex-wrap gap-2">
           <slot name="actions" />
           <button
             v-if="editable"
             class="button"
             :disabled="running"
             aria-label="SQL formatieren"
+            :class="{ 'sql-tertiary': page }"
             @click="$emit('format')"
           >
             SQL formatieren
@@ -76,7 +99,7 @@ function download() {
             :value="copySql"
             label="SQL"
             button-text="SQL kopieren"
-            variant="button"
+            :variant="page ? 'action' : 'button'"
             :disabled="!copySql"
             :format-value="formatSql"
             :reset-key="sql"
@@ -93,7 +116,7 @@ function download() {
             <AppIcon name="play" :size="14" />Abfrage ausführen
           </button>
           <button
-            v-if="editable"
+            v-if="editable && (!page || running)"
             class="button"
             :disabled="!running || status === 'Cancelling'"
             aria-label="Abbrechen"
@@ -108,9 +131,10 @@ function download() {
           v-if="running"
           class="mr-2 inline-block size-3 animate-spin rounded-full border-2 border-slate-300 border-t-fuchsia-700"
           aria-hidden="true"
-        />{{ status }}
+        />{{ statusLabel }}
       </p>
       <SqlCodeEditor
+        v-if="!page"
         :sql="sql"
         :readonly="!editable"
         :page="page"
@@ -125,7 +149,7 @@ function download() {
       :parameters="parameters"
       :initial-only="editable"
     />
-    <section aria-label="Ergebnis" class="space-y-3 pt-1">
+    <section aria-label="Ergebnis" class="sql-result-section space-y-3 pt-1" :aria-busy="running">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 class="font-semibold text-slate-950">
@@ -173,18 +197,23 @@ function download() {
         </div>
       </div>
       <p v-if="running" role="status" class="text-slate-600">Abfrage wird ausgeführt…</p>
-      <div v-else-if="error" role="alert">
+      <div v-else-if="error" role="alert" :class="{ 'sql-query-error': page }">
         <p class="font-semibold">Abfrage konnte nicht ausgeführt werden.</p>
         <p class="mt-1">{{ error }}</p>
+        <p v-if="page && errorPosition" class="mt-2 font-mono text-xs">
+          SQL-Position: {{ errorPosition }}
+        </p>
       </div>
       <p
         v-else-if="!result"
         class="rounded-lg border border-dashed border-slate-200 p-4 text-slate-500"
       >
         {{
-          executable
-            ? 'Noch keine Abfrage ausgeführt.'
-            : 'Diese Datenherkunft ist nur dokumentarisch.'
+          status === 'Cancelled'
+            ? 'Abfrage abgebrochen.'
+            : executable
+              ? 'Noch keine Abfrage ausgeführt.'
+              : 'Diese Datenherkunft ist nur dokumentarisch.'
         }}
       </p>
       <template v-if="result">
@@ -198,3 +227,47 @@ function download() {
     <slot />
   </div>
 </template>
+
+<style scoped>
+.sql-operations-query .sql-query-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.sql-operations-query .sql-query-heading {
+  display: contents;
+}
+.sql-operations-query :deep(.sql-code) {
+  order: 1;
+}
+.sql-operations-query .sql-query-actions {
+  order: 2;
+  margin-left: 0;
+  align-items: center;
+}
+.sql-operations-query .sql-query-actions .button-primary {
+  order: -1;
+}
+.sql-operations-query .sql-query-section > [role='status'] {
+  order: 3;
+}
+.sql-operations-query .sql-tertiary {
+  border-color: transparent;
+  background: transparent;
+  color: #a21caf;
+}
+.sql-operations-query .sql-result-section {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.75rem;
+}
+.sql-query-error {
+  border-left: 3px solid #e11d48;
+  background: #fff1f2;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+}
+.sql-operations-query :deep([aria-label='Ergebnisdarstellung'] button),
+.sql-operations-query :deep(select) {
+  min-height: 44px;
+}
+</style>
