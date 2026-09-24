@@ -98,7 +98,7 @@ async def test_authoritative_scope_across_record_and_search_responses(
             assert response.status_code == 200, response.text
             return response.json()
 
-        activity = await get("activity?period=90d&page_size=100")
+        activity = await get("dashboard/activity?period=24h&page_size=100")
         assert (
             next(i for i in activity["items"] if i["entity_key"] == str(uid(20)))["venue_scope"]
             == scope

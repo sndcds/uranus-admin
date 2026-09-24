@@ -259,6 +259,10 @@ test('nine groups retain mobile geometry and large targets with long labels', as
   }
   await page.route('**/api/admin/api/v1/search?**', (route) => route.fulfill({ json: data }))
   await page.goto('/?period=24h')
+  // The document shortcut is registered during hydration, after SSR renders the shell.
+  await expect(
+    page.getByRole('button', { name: 'Globale Suche öffnen' }).filter({ visible: true }),
+  ).toBeEnabled()
   await page.keyboard.press('Control+k')
   const dialog = page.getByRole('dialog', { name: 'Kulturbytes durchsuchen' })
   const input = dialog.getByRole('combobox')
