@@ -13,3 +13,11 @@ htmlcov/
 uranus-*.sql
 backups/
 .idea/
+
+# Generated admin schema documentation (published as GitHub Actions artifacts).
+/backend/docs/database/admin-schema.sql
+/backend/docs/database/admin-migrations.sql
+/backend/docs/database/admin-schema.dbml
+/backend/docs/database/*.dot
+/backend/docs/database/*.svg
+/backend/docs/database/*.pdf
