@@ -8,6 +8,7 @@ from app.schemas.action import Action
 from app.schemas.activity import Activity
 from app.schemas.finding import Pagination
 from app.schemas.periods import PresetPeriod
+from app.schemas.venues import VenueScope
 
 EntitySection = Literal["events", "venues", "spaces", "organizations", "users", "images"]
 
@@ -86,6 +87,7 @@ class EntitySearchFilters(BaseModel):
 
 class EntitySearchItem(BaseModel):
     entity_type: EntitySearchType
+    venue_scope: VenueScope | None = None
     entity_key: str
     label: str
     subtitle: str | None

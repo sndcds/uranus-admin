@@ -434,6 +434,9 @@ export const entityTypeSchema = z.enum([
   'team_membership',
   'image',
 ])
+export const venueScopeSchema = z.enum(['organization', 'shared'])
+export type VenueScope = z.infer<typeof venueScopeSchema>
+
 export const activityLocationSchema = z
   .object({
     latitude: z.number().finite().min(-90).max(90),
@@ -446,6 +449,7 @@ export const activityPageSchema = z.object({
   items: z.array(
     z.object({
       entity_type: entityTypeSchema,
+      venue_scope: venueScopeSchema.nullable().optional(),
       entity_key: z.string(),
       entity_name: z.string(),
       organization_id: z.uuid().nullable(),
@@ -676,6 +680,7 @@ export const graphNodeSchema = z
   .object({
     id: z.string(),
     type: graphEntityTypeSchema,
+    venue_scope: venueScopeSchema.nullable().optional(),
     key: z.uuid(),
     label: z.string(),
     subtitle: z.string().nullable(),
@@ -782,6 +787,7 @@ export const entityStatisticsResponseSchema = z
       .array(
         z.object({
           entity_type: statisticsEntitySchema,
+          venue_scope: venueScopeSchema.nullable().optional(),
           entity_key: z.string(),
           entity_name: z.string(),
           organization_name: z.string().nullable(),
@@ -970,6 +976,7 @@ export type EntitySearchType = z.infer<typeof entitySearchTypeSchema>
 export const entitySearchItemSchema = z
   .object({
     entity_type: entitySearchTypeSchema,
+    venue_scope: venueScopeSchema.nullable().optional(),
     entity_key: z.uuid(),
     label: z.string(),
     subtitle: z.string().nullable(),
@@ -1029,6 +1036,7 @@ export type GlobalSearchType = z.infer<typeof globalSearchTypeSchema>
 export const globalSearchItemSchema = z
   .object({
     entity_type: globalSearchTypeSchema,
+    venue_scope: venueScopeSchema.nullable().optional(),
     entity_key: z.string().min(1).max(1024),
     label: z.string(),
     subtitle: z.string().nullable(),

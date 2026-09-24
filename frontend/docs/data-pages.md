@@ -827,3 +827,30 @@ Die Migration verändert ausschließlich Präsentation und sicheren Same-query-E
 - DashboardSummary enthält keinen `observed_at` für Quality. TechnicalInfoBar nennt
   daher keinen Beobachtungszeitpunkt; der vorhandene Stale-Hinweis bezeichnet einen
   Client-Zeitpunkt nur als letzten erfolgreichen Abruf.
+
+## Ortstyp aus `venue.scope`
+
+Der Admin übernimmt `venue_scope` ausschließlich aus der Read-Response. Die neue,
+explizite Admin-Präsentationsregel lautet:
+
+| Uranus-Wert    | Sichtbarer Ortstyp                     |
+| -------------- | -------------------------------------- |
+| `organization` | Provisorischer Ort (nicht eigener Ort) |
+| `shared`       | Eigener Ort                            |
+
+Collection, Record-Hero, Activity und verknüpfte Datensätze zeigen den Ortstyp neben
+der Datensatzidentität. EntitySearch, globale Suche, Graph-Suche/-Inspector und die
+neuesten Statistik-Datensätze verwenden denselben Presenter. Die Metadaten kommen mit
+der jeweiligen bestehenden Antwort; es gibt keine zusätzlichen Requests je Treffer.
+Suchfelder, Ranking, Tastaturbedienung und Filter bleiben unverändert.
+
+`venue.scope` ist ausschließlich eine Venue-Eigenschaft. Event und Space erhalten
+keinen eigenen Ortstyp und erben keinen vom übergeordneten Ort. Organisation/Ownership
+ist kein Ersatz für den gelieferten Scope. Fehlend/null zeigt keinen Badge; unbekannte
+Strings werden vom geschlossenen Contract abgelehnt, niemals als `shared` interpretiert.
+
+Die deutschen Labels sind eine neue Admin-Regel, keine bereits bestehende Domain-
+Formulierung in Uranus. Der dortige DDL-Default `standard` widerspricht dem CHECK
+`organization`/`shared` und bleibt ein separates Source-Follow-up mit Abgleich gegen
+das laufende Schema. Keine Source-Mutation, Korrektur oder Migration in diesem PR.
+[Source-Belege und Read-Contract](../../backend/docs/contracts.md#venue-scope-read-metadata).

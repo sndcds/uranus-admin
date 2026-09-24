@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import VenueScopeBadge from './VenueScopeBadge.vue'
 import { computed } from 'vue'
 import GraphLink from './GraphLink.vue'
 import type { ActivityItem } from '~/utils/activity'
@@ -36,6 +37,10 @@ const status = computed(() => activityStatus(props.item.status))
           {{ name }}
         </component>
         <EntityTypeBadge :type="item.entity_type" />
+        <VenueScopeBadge
+          v-if="item.entity_type === 'venue' && item.venue_scope"
+          :scope="item.venue_scope"
+        />
       </div>
       <p class="mt-0.5 break-words text-xs text-slate-500">
         {{ item.organization_name?.trim() || 'Keine eindeutige Organisation' }}

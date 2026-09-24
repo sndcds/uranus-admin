@@ -15,6 +15,7 @@ export function entityFixture(section: EntitySection): EntityPage {
       {
         ...base,
         entity_type: type,
+        venue_scope: type === 'venue' ? 'shared' : null,
         entity_name: `Fixture ${section}`,
         status: section === 'users' ? 'active' : null,
         action: {

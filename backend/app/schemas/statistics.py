@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
 from app.schemas.action import Action
+from app.schemas.venues import VenueScope
 
 StatisticsPeriod = Literal["24h", "7d", "30d", "90d", "custom"]
 StatisticsInterval = Literal["15m", "1h", "6h", "1d"]
@@ -50,6 +51,7 @@ class EntityTimeSeries(BaseModel):
 
 class RecentEntity(BaseModel):
     entity_type: StatisticsEntity
+    venue_scope: VenueScope | None = None
     entity_key: str
     entity_name: str
     organization_name: str | None

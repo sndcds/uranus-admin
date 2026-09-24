@@ -17,6 +17,7 @@ const node = (type: GraphEntityType, number: number, label: string): GraphNode =
   return {
     id: `${type}:${key}`,
     type,
+    venue_scope: type === 'venue' ? (number === 4 ? 'shared' : 'organization') : null,
     key,
     label,
     subtitle: null,

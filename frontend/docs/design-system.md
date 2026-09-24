@@ -1045,3 +1045,23 @@ Geocoding Workflow v2: `geocoding.spec.ts` prüft 1440×1000, 1024×768, 390×84
 Tile-Ausfall und Production-CSP. Review-Artefakte unter
 `docs/screenshots/geocoding-workflow-v2/` verwenden ausschließlich synthetische Daten und
 lokal abgefangene Testkacheln; keine Produktionsdaten oder externen Tile-Requests.
+
+## Venue scope: fachlicher Ortstyp
+
+`VenueScopeBadge` verwendet den zentralen Presenter `app/utils/venues.ts`:
+`organization` → **Provisorischer Ort (nicht eigener Ort)**,
+`shared` → **Eigener Ort**. Dies ist eine neue explizite Admin-Präsentationsregel.
+Der Badge ist ein neutraler Typ-Hinweis, kein Qualitätsurteil oder Warning-Alert.
+Beide Werte bleiben durch ihren vollständigen Text unterscheidbar; keine reine
+Farb- oder Tooltip-Erklärung. Der lange Text darf auf kleinen Screens umbrechen.
+
+Den Badge nahe EntityTypeBadge/Name in Collection, Record-Hero, Activity/Relations
+platzieren; in Suchtreffern und Graph-Inspector beim jeweiligen Venue-Kontext.
+Statistik-Recent zeigt ihn in der Typ-Spalte. Nicht im Facts-Block verstecken und
+nicht zusätzlich als identischen Hero-Fakt duplizieren.
+
+Nur autoritative Venue-Metadaten verwenden: keine Ableitung aus Organisation,
+keine Übertragung auf Event/Space, kein Badge bei fehlendem/null Wert. Unbekannte Werte
+werden im Read-Contract abgelehnt. Insbesondere ist Uranus' widersprüchlicher DDL-
+Default `standard` kein Alias für `shared`; dessen Klärung erfolgt separat im Source-
+Repository, nicht über UI-Fallbacks. [Semantik und Source-Follow-up](data-pages.md#ortstyp-aus-venuescope).

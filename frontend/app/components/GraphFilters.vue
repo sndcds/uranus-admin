@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import VenueScopeBadge from './VenueScopeBadge.vue'
 import { ref, onMounted } from 'vue'
 import type { GraphNode } from '#shared/contracts'
 import { nodePresentation, relationLabels } from '~/utils/graph'
@@ -73,10 +74,12 @@ defineEmits<{ select: [node: GraphNode]; apply: []; reset: []; settings: [] }>()
               />
               <span class="min-w-0"
                 ><span class="block truncate text-sm font-medium">{{ node.label }}</span
-                ><span class="text-xs text-slate-500">{{
-                  nodePresentation[node.type].label
-                }}</span></span
-              >
+                ><span class="text-xs text-slate-500">{{ nodePresentation[node.type].label }}</span>
+                <VenueScopeBadge
+                  v-if="node.type === 'venue' && node.venue_scope"
+                  :scope="node.venue_scope"
+                />
+              </span>
             </button>
           </li>
         </ul>

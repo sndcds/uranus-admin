@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.venues import VenueScope
+
 GraphEntityType = Literal["organization", "venue", "space", "event", "event_date", "user"]
 GraphRelationType = Literal[
     "organization_has_venue",
@@ -55,6 +57,7 @@ class GraphSearchFilters(BaseModel):
 class GraphNode(BaseModel):
     id: str
     type: GraphEntityType
+    venue_scope: VenueScope | None = None
     key: UUID
     label: str
     subtitle: str | None = None

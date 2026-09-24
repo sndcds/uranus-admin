@@ -95,7 +95,7 @@ def recent_query(
 ) -> ReadQuery:
     return ReadQuery(
         text(
-            "SELECT entity_type, entity_key, entity_name, organization_name, "
+            "SELECT entity_type, entity_key, entity_name, organization_name, venue_scope, "
             "created_at AT TIME ZONE :tz AS created_at "
             f"FROM ({creation_activity_sql(True)}) a "
             "WHERE created_at AT TIME ZONE :tz >= :start "

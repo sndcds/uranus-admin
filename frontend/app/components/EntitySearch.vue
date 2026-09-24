@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import VenueScopeBadge from './VenueScopeBadge.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import type {
   EntitySearchItem,
@@ -206,6 +207,10 @@ onBeforeUnmount(() => {
               <span class="block text-xs text-slate-500">{{
                 entityTypes[item.entity_type].label
               }}</span>
+              <VenueScopeBadge
+                v-if="item.entity_type === 'venue' && item.venue_scope"
+                :scope="item.venue_scope"
+              />
             </span>
           </li>
         </ul>

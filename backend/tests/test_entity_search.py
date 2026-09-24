@@ -108,7 +108,16 @@ async def test_compact_labels_subtitles_and_actions(search_client, headers):
         assert data["label"] == label
         assert data["subtitle"] == subtitle
         assert data["action"]["href"] == f"/{section}/{uid(key)}"
-        assert set(data) == {"entity_type", "entity_key", "label", "subtitle", "status", "action"}
+        assert set(data) == {
+            "entity_type",
+            "entity_key",
+            "label",
+            "subtitle",
+            "status",
+            "action",
+            "venue_scope",
+        }
+        assert data["venue_scope"] == ("organization" if kind == "venue" else None)
     for query in ("not-searchable-description", "unverified-search-text"):
         for path in ("events", "entity-search"):
             params = {"q": query, **({"entity_type": "event"} if path == "entity-search" else {})}
@@ -316,6 +325,7 @@ async def test_global_and_graph_share_canonical_fields(
         assert group["entity_type"] == kind
         item = next(item for item in group["items"] if item["entity_key"] == str(uid(key)))
         assert item["action"]["href"] == f"/{section}/{uid(key)}"
+        assert item["venue_scope"] == ("organization" if kind == "venue" else None)
         assert item["matched_fields"]
         assert set(item) == {
             "entity_type",
@@ -324,6 +334,7 @@ async def test_global_and_graph_share_canonical_fields(
             "subtitle",
             "matched_fields",
             "action",
+            "venue_scope",
         }
         if kind != "image":
             graph_response = await search_client.get(

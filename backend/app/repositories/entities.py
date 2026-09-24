@@ -44,7 +44,8 @@ SOURCES = {
     "image": """
 SELECT 'image'::text entity_type,i.uuid::text entity_key,
 COALESCE(i.alt_text,i.uuid::text) entity_name,
-NULL::uuid organization_id,NULL::text organization_name,i.created_at,NULL::text status
+NULL::uuid organization_id,NULL::text organization_name,i.created_at,NULL::text status,
+NULL::text AS venue_scope
 FROM uranus.pluto_image i
 """,
 }
@@ -166,7 +167,7 @@ def entity_page_queries(
         "count": ReadQuery(text(f"SELECT count(*) FROM ({base}) a"), params),
         "records": ReadQuery(
             text(f"""SELECT entity_type,entity_key,entity_name,
-        organization_id,organization_name,status,created_at AT TIME ZONE :tz created_at
+        organization_id,organization_name,status,venue_scope,created_at AT TIME ZONE :tz created_at
         FROM ({base}) a ORDER BY lower(entity_name) COLLATE "C",entity_key COLLATE "C"
         LIMIT :size OFFSET :offset"""),
             params,
@@ -255,14 +256,14 @@ def entity_detail_queries(
     return {
         "record": ReadQuery(
             text(f"""SELECT entity_type,entity_key,entity_name,
-        organization_id,organization_name,status,created_at AT TIME ZONE :tz created_at
+        organization_id,organization_name,status,venue_scope,created_at AT TIME ZONE :tz created_at
         FROM ({SOURCES[kind]}) a WHERE entity_key=:key"""),
             params,
         ),
         "related_count": ReadQuery(text(f"SELECT count(*) FROM ({base}) r"), params),
         "related": ReadQuery(
             text(f"""SELECT entity_type,entity_key,entity_name,
-        organization_id,organization_name,status,created_at AT TIME ZONE :tz created_at
+        organization_id,organization_name,status,venue_scope,created_at AT TIME ZONE :tz created_at
         FROM ({base}) r ORDER BY entity_type COLLATE "C",lower(entity_name) COLLATE "C",entity_key
         LIMIT 25 OFFSET :offset"""),
             params,

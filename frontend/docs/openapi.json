@@ -20599,6 +20599,21 @@
             ],
             "title": "Entity Type"
           },
+          "venue_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "shared"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Scope"
+          },
           "entity_key": {
             "type": "string",
             "title": "Entity Key"
@@ -22924,6 +22939,21 @@
             ],
             "title": "Entity Type"
           },
+          "venue_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "shared"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Scope"
+          },
           "entity_key": {
             "type": "string",
             "title": "Entity Key"
@@ -23136,6 +23166,21 @@
               "image"
             ],
             "title": "Entity Type"
+          },
+          "venue_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "shared"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Scope"
           },
           "entity_key": {
             "type": "string",
@@ -25344,6 +25389,21 @@
             ],
             "title": "Entity Type"
           },
+          "venue_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "shared"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Scope"
+          },
           "entity_key": {
             "type": "string",
             "title": "Entity Key"
@@ -25556,6 +25616,21 @@
               "user"
             ],
             "title": "Type"
+          },
+          "venue_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "shared"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Scope"
           },
           "key": {
             "type": "string",
@@ -28550,6 +28625,21 @@
               "team_invitation"
             ],
             "title": "Entity Type"
+          },
+          "venue_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "organization",
+                  "shared"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Scope"
           },
           "entity_key": {
             "type": "string",

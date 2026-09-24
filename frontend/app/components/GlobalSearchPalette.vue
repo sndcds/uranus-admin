@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import VenueScopeBadge from './VenueScopeBadge.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import AppModal from './AppModal.vue'
 import type AppIcon from './AppIcon.vue'
-import type { GlobalSearchResponse } from '#shared/contracts'
+import type { GlobalSearchResponse, VenueScope } from '#shared/contracts'
 import { adminNavigationItems } from '~/utils/navigation'
 import { globalSearchTypes } from '~/utils/entityPresentation'
 
@@ -26,6 +27,7 @@ let timer: ReturnType<typeof setTimeout> | undefined
 let controller: AbortController | undefined
 
 type PaletteItem = {
+  venueScope?: VenueScope | null
   key: string
   label: string
   subtitle: string | null
@@ -57,6 +59,7 @@ const remoteSections = computed(() =>
     items: group.items.map((item) => ({
       key: `${item.entity_type}:${item.entity_key}`,
       label: item.label,
+      venueScope: item.entity_type === 'venue' ? item.venue_scope : null,
       subtitle: item.subtitle || globalSearchTypes[item.entity_type].label,
       href: item.action.href,
       icon: globalSearchTypes[item.entity_type].icon,
@@ -304,6 +307,7 @@ defineExpose({ show })
                   class="block break-words text-xs text-slate-500 [overflow-wrap:anywhere]"
                   >{{ item.subtitle }}</span
                 >
+                <VenueScopeBadge v-if="item.venueScope" :scope="item.venueScope" />
               </span>
             </div>
           </div>
