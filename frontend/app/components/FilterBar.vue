@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ compact?: boolean }>()
+withDefaults(defineProps<{ compact?: boolean; columns?: 3 | 4 }>(), { columns: 4 })
 defineEmits<{ apply: [] }>()
 </script>
 <template>
@@ -12,7 +12,11 @@ defineEmits<{ apply: [] }>()
     <div
       class="grid items-end gap-3 sm:grid-cols-2"
       :class="
-        compact && $slots.actions ? 'xl:grid-cols-[repeat(4,minmax(0,1fr))_auto]' : 'xl:grid-cols-4'
+        compact && $slots.actions
+          ? columns === 3
+            ? 'xl:grid-cols-[repeat(3,minmax(0,1fr))_auto]'
+            : 'xl:grid-cols-[repeat(4,minmax(0,1fr))_auto]'
+          : 'xl:grid-cols-4'
       "
     >
       <slot />

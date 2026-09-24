@@ -37,8 +37,10 @@ test('list, filters, dry run, detail and delivery history', async ({ page }) => 
   await request
   await page.getByRole('link', { name: 'Kulturabend', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Versandhistorie' })).toBeVisible()
-  await page.getByRole('link', { name: 'Temporär fehlgeschlagen · recipient@example.test' }).click()
-  await expect(page.getByRole('heading', { name: 'E-Mail-Versand' })).toBeVisible()
+  await page.getByRole('link', { name: 'Versand öffnen: recipient@example.test' }).click()
+  await expect(
+    page.getByRole('heading', { name: notificationDeliveryDetail.subject! }),
+  ).toBeVisible()
   await expect(page.getByText('smtp_451')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })

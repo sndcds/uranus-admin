@@ -2,16 +2,18 @@
 import { qualityRuleLabel } from '~/utils/quality'
 import { membershipStatusSchema, queueKindSchema } from '#shared/contracts'
 import type { MembershipStatus, QueuePage, QueueQuery } from '#shared/contracts'
-import { asFailure } from '#shared/errors'
-import type { ApiFailure } from '#shared/errors'
+import { AdminApiError, failure } from '#shared/errors'
+import { useOperationsRequest } from '~/composables/useOperationsRequest'
+import { ref, computed, onMounted, watch } from 'vue'
 import { dateTime } from '~/utils/presentation'
 import { activityStatus } from '~/utils/activity'
+import DenseTable from '~/components/DenseTable.vue'
+import TechnicalInfoBar from '~/components/TechnicalInfoBar.vue'
+import OperationTime from '~/components/OperationTime.vue'
 const route = useRoute()
 const router = useRouter()
 const { $adminApi } = useNuxtApp()
-const data = ref<QueuePage | null>(null)
-const error = ref<ApiFailure | null>(null)
-const loading = ref(false)
+const { data, error, loading, load: request } = useOperationsRequest<QueuePage>()
 const organization = ref('')
 const age = ref('')
 const status = ref('')
@@ -32,35 +34,27 @@ const descriptions = {
     'Noch nicht aktivierte Benutzer; Alter seit Erstellung, keine Aussage zur letzten Aktivität.',
 }
 const kind = computed(() => queueKindSchema.safeParse(route.params.kind))
-let requestId = 0
 async function load() {
   organization.value =
     typeof route.query.organization_id === 'string' ? route.query.organization_id : ''
   age.value = typeof route.query.min_age_days === 'string' ? route.query.min_age_days : ''
   status.value = typeof route.query.status === 'string' ? route.query.status : ''
-  const id = ++requestId
-  loading.value = true
-  data.value = null
-  error.value = null
-  try {
-    if (!kind.value.success) throw new Error('Unknown queue')
+  await request(route.fullPath, async () => {
+    if (!kind.value.success) throw new AdminApiError(failure(422))
     const query: Record<string, string> = {}
     for (const [key, value] of Object.entries(route.query)) {
-      if (typeof value !== 'string') throw new Error('Invalid query')
+      if (typeof value !== 'string') throw new AdminApiError(failure(422))
       query[key] = value
     }
     const filters: QueueQuery = query
     if (kind.value.data === 'team_invitations') {
-      membershipStatus.value = membershipStatusSchema.parse(query.membership_status ?? 'invited')
-      filters.membership_status = membershipStatus.value
+      const parsed = membershipStatusSchema.safeParse(query.membership_status ?? 'invited')
+      if (!parsed.success) throw new AdminApiError(failure(422))
+      membershipStatus.value = parsed.data
+      filters.membership_status = parsed.data
     }
-    const result = await $adminApi.queue(kind.value.data, filters)
-    if (id === requestId) data.value = result
-  } catch (cause) {
-    if (id === requestId) error.value = asFailure(cause)
-  } finally {
-    if (id === requestId) loading.value = false
-  }
+    return $adminApi.queue(kind.value.data, filters)
+  })
 }
 function apply() {
   void router.push({
@@ -78,23 +72,27 @@ function apply() {
   })
 }
 onMounted(load)
-watch(() => route.fullPath, load)
-onBeforeUnmount(() => {
-  requestId++
-})
+watch(() => route.fullPath, load, { flush: 'sync' })
+const columns = [
+  { key: 'entity_key', label: 'Vorgang / Kontext', rowHeader: true, width: '38%' },
+  { key: 'status', label: 'Status', width: '15%' },
+  { key: 'age_days', label: 'Alter', width: '13%' },
+  { key: 'created_at', label: 'Zeitpunkte', width: '18%' },
+] as const
 </script>
 
 <template>
-  <section class="space-y-5">
+  <section class="operations-page">
     <PageHeader
       :title="kind.success ? titles[kind.data] : 'Unbekannte Arbeitsliste'"
       :description="kind.success ? descriptions[kind.data] : undefined"
-    />
+      ><button class="button" :disabled="loading" @click="load">Aktualisieren</button></PageHeader
+    >
     <p v-if="directMembership" class="text-sm text-slate-600" role="status">
       Direkt aufgerufene Teammitgliedschaft · Status-, Organisations- und Altersfilter werden nicht
       angewendet. „Filter zurücksetzen“ öffnet wieder die Einladungsliste.
     </p>
-    <FilterBar @apply="apply">
+    <FilterBar compact :columns="3" @apply="apply">
       <label
         ><span class="label">Organisation (UUID)</span
         ><input v-model="organization" :disabled="directMembership" class="input"
@@ -120,98 +118,107 @@ onBeforeUnmount(() => {
       <label v-else
         ><span class="label">Status</span><input v-model="status" class="input"
       /></label>
-      <div class="flex flex-wrap gap-2">
+      <template #actions>
         <button class="button-primary">Anwenden</button
         ><button type="button" class="button" @click="router.push({ query: {} })">
           Filter zurücksetzen
         </button>
-      </div>
+      </template>
     </FilterBar>
-    <RequestState :loading="loading" :error="error" @retry="load" />
+    <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
     <template v-if="data">
       <ResultSummary
         :total="data.pagination.total"
         :visible="data.items.length"
         noun="Vorgänge"
-        :observed-at="data.observed_at"
         description="Aktueller Bestand"
       />
-      <DataListShell
+      <DenseTable
         v-if="data.items.length"
-        as="ul"
-        class="divide-y divide-slate-100"
-        :aria-busy="loading"
+        caption="Vorgänge"
+        :columns="columns"
+        :rows="data.items"
+        :row-key="(item) => item.entity_key"
+        :busy="loading"
+        stack-at="tablet"
       >
-        <li v-for="item in data.items" :key="item.entity_key" class="data-row space-y-2">
-          <div class="flex flex-wrap items-start justify-between gap-2">
-            <h3 class="min-w-0 text-sm font-semibold">
-              <template v-if="data.kind === 'partner_requests'"
-                >{{
-                  item.from_organization_name?.trim() || 'Anfragende Organisation nicht verfügbar'
-                }}
-                →
-                {{
-                  item.to_organization_name?.trim() || 'Zielorganisation nicht verfügbar'
-                }}</template
-              ><template v-else>{{ item.user_name ?? item.user_id }}</template>
-            </h3>
-            <StatusBadge :label="activityStatus(item.status) ?? item.status" />
-          </div>
-          <dl
-            v-if="
-              data.kind === 'partner_requests' &&
-              ((!item.from_organization_name?.trim() && item.from_organization_id) ||
-                (!item.to_organization_name?.trim() && item.to_organization_id))
-            "
-            class="space-y-1 text-xs text-slate-500"
-          >
-            <div v-if="!item.from_organization_name?.trim() && item.from_organization_id">
-              <dt class="inline">UUID der anfragenden Organisation:</dt>
-              <dd class="flex min-w-0 flex-wrap items-center gap-x-2">
-                <code class="min-w-0 break-all">{{ item.from_organization_id }}</code>
-                <CopyValueButton
-                  :value="item.from_organization_id"
-                  label="UUID der anfragenden Organisation"
-                />
-              </dd>
-            </div>
-            <div v-if="!item.to_organization_name?.trim() && item.to_organization_id">
-              <dt class="inline">UUID der Zielorganisation:</dt>
-              <dd class="flex min-w-0 flex-wrap items-center gap-x-2">
-                <code class="min-w-0 break-all">{{ item.to_organization_id }}</code>
-                <CopyValueButton
-                  :value="item.to_organization_id"
-                  label="UUID der Zielorganisation"
-                />
-              </dd>
-            </div>
-          </dl>
-          <p class="text-xs text-slate-500">
+        <template #cell-entity_key="{ row: item }">
+          <h3 class="type-row-title">
+            <template v-if="data.kind === 'partner_requests'"
+              >{{
+                item.from_organization_name?.trim() || 'Anfragende Organisation nicht verfügbar'
+              }}
+              →
+              {{
+                item.to_organization_name?.trim() || 'Zielorganisation nicht verfügbar'
+              }}</template
+            >
+            <template v-else>{{ item.user_name ?? item.user_id }}</template>
+          </h3>
+          <p class="operations-meta font-normal">
             {{
               data.kind === 'partner_requests'
                 ? (item.user_name ?? item.user_id)
                 : (item.organization_name ?? 'Keine eindeutige Organisation')
             }}
           </p>
-          <p class="text-sm text-slate-600">
-            Alter: {{ item.age_days == null ? 'Nicht verfügbar' : `${item.age_days} Tage` }} ·
-            Basis: {{ item.age_basis === 'invited_at' ? 'Einladungsdatum' : 'Erstellungsdatum' }}
-          </p>
-          <p class="text-xs text-slate-500">Erstellt: {{ dateTime(item.created_at) }}</p>
-          <p v-if="data.kind === 'team_invitations'" class="text-xs text-slate-500">
-            Eingeladen: {{ dateTime(item.invited_at) }} · Beigetreten:
-            {{ item.has_joined == null ? 'Nicht verfügbar' : item.has_joined ? 'Ja' : 'Nein' }}
-          </p>
-          <p v-for="check in item.checks" :key="check" class="text-xs text-amber-800">
+          <dl v-if="data.kind === 'partner_requests'" class="operations-meta font-normal">
+            <div v-if="!item.from_organization_name?.trim() && item.from_organization_id">
+              <dt>UUID der anfragenden Organisation:</dt>
+              <dd class="flex flex-wrap items-center gap-x-2">
+                <code class="break-all">{{ item.from_organization_id }}</code
+                ><CopyValueButton
+                  :value="item.from_organization_id"
+                  label="UUID der anfragenden Organisation"
+                />
+              </dd>
+            </div>
+            <div v-if="!item.to_organization_name?.trim() && item.to_organization_id">
+              <dt>UUID der Zielorganisation:</dt>
+              <dd class="flex flex-wrap items-center gap-x-2">
+                <code class="break-all">{{ item.to_organization_id }}</code
+                ><CopyValueButton
+                  :value="item.to_organization_id"
+                  label="UUID der Zielorganisation"
+                />
+              </dd>
+            </div>
+          </dl>
+          <p v-for="check in item.checks" :key="check" class="text-xs font-normal text-amber-800">
             {{ qualityRuleLabel(check) }}
           </p>
-          <div
-            class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs [&_a]:mt-0 [&_a]:p-0 [&_a]:border-0 [&_a]:text-xs"
-          >
-            <NuxtLink :to="item.action.href" class="rounded text-fuchsia-700 hover:underline"
+        </template>
+        <template #cell-status="{ row: item }">
+          <StatusBadge :label="activityStatus(item.status) ?? item.status" />
+          <p v-if="data.kind === 'team_invitations'" class="operations-meta">
+            Beigetreten:
+            {{ item.has_joined == null ? 'Nicht verfügbar' : item.has_joined ? 'Ja' : 'Nein' }}
+          </p>
+        </template>
+        <template #cell-age_days="{ row: item }">
+          <span class="tabular-nums">{{
+            item.age_days == null ? 'Nicht verfügbar' : `${item.age_days} Tage`
+          }}</span>
+          <p class="operations-meta">
+            Basis: {{ item.age_basis === 'invited_at' ? 'Einladungsdatum' : 'Erstellungsdatum' }}
+          </p>
+        </template>
+        <template #cell-created_at="{ row: item }">
+          <div v-if="data.kind === 'team_invitations'" class="text-xs">
+            Eingeladen: <OperationTime :value="item.invited_at" />
+          </div>
+          <div class="operations-meta">Erstellt: <OperationTime :value="item.created_at" /></div>
+        </template>
+        <template #actions="{ row: item }">
+          <div class="flex flex-col items-start">
+            <NuxtLink
+              :to="item.action.href"
+              class="action-link"
+              :aria-label="`Vorgang ansehen: ${item.user_name ?? item.user_id}`"
               >Vorgang ansehen</NuxtLink
             >
             <RecordMarkLink
+              variant="action"
               :entity-type="
                 data.kind === 'partner_requests'
                   ? 'partner_request'
@@ -222,13 +229,47 @@ onBeforeUnmount(() => {
               :entity-key="item.entity_key"
             />
           </div>
-        </li>
-      </DataListShell>
-      <EmptyState v-else message="Keine Vorgänge für diese Filter." />
+        </template>
+      </DenseTable>
+      <EmptyState v-else-if="!error" variant="compact" message="Keine Vorgänge für diese Auswahl."
+        ><button class="action-link" @click="router.push({ query: {} })">
+          Filter zurücksetzen
+        </button></EmptyState
+      >
       <PaginationBar
         :pagination="data.pagination"
         :loading="loading"
         :to="(page) => ({ query: { ...route.query, page } })"
+      />
+      <TechnicalInfoBar
+        :show-title="false"
+        :items="[
+          {
+            label: 'Datenstand',
+            value: dateTime(data.observed_at),
+            datetime: data.observed_at,
+            timezone: 'Europe/Berlin',
+          },
+          { label: 'Gesamtzahl', value: data.pagination.total },
+          { label: 'Sichtbare Einträge', value: data.items.length },
+          { label: 'Einträge pro Seite', value: data.pagination.page_size },
+          { label: 'Queue-Typ', value: data.kind, mono: true },
+          {
+            label: 'Mitgliedschaftsauswahl',
+            value:
+              data.kind === 'team_invitations'
+                ? directMembership
+                  ? 'Direktaufruf (Filter nicht angewendet)'
+                  : route.query.membership_status === 'all'
+                    ? 'Alle'
+                    : activityStatus(
+                        typeof route.query.membership_status === 'string'
+                          ? route.query.membership_status
+                          : 'invited',
+                      )
+                : null,
+          },
+        ]"
       />
     </template>
   </section>

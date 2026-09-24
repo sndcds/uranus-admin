@@ -57,7 +57,9 @@ beforeEach(() => {
   vi.stubGlobal('navigateTo', navigate)
   vi.stubGlobal('useRouter', () => ({
     push: async ({ query }: { query: Record<string, string | undefined> }) => {
-      route.query = query
+      route.query = Object.fromEntries(
+        Object.entries(query).filter(([, value]) => value !== undefined),
+      )
       route.fullPath = JSON.stringify(query)
     },
   }))
@@ -139,9 +141,11 @@ describe('notification administration', () => {
     const view = mount(Detail, { global })
     await flushPromises()
     expect(view.text()).toContain('Versandhistorie')
-    expect(view.text()).toContain('Temporär fehlgeschlagen · recipient@example.test')
+    expect(view.text()).toContain('Temporär fehlgeschlagen')
+    expect(view.text()).toContain('recipient@example.test')
     expect(view.text()).toContain('smtp_451')
-    expect(view.text()).toContain('DA · Erster Hinweis')
+    expect(view.text()).toContain('DA · Versuche: 1')
+    expect(view.text()).toContain('Erster Hinweis')
     view.unmount()
   })
   it('shows sent delivery detail and included notifications', async () => {
@@ -323,7 +327,7 @@ describe('manual delivery retries', () => {
         .find((button) => button.text() === 'Versand erneut einreihen')!
         .trigger('click')
       await flushPromises()
-      expect(view.find('[role="alert"]').text()).toBe(failure(409, code).message)
+      expect(view.find('dialog [role="alert"]').text()).toBe(failure(409, code).message)
       view.unmount()
     })
   it('shows successor and predecessor links and hides retry on an older chain member', async () => {

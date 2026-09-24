@@ -32,9 +32,15 @@ test('durable check goes from queued to running and success independently of sta
   await page.goto('/checks')
   await expect(page.getByText('Noch keine gespeicherten Prüfläufe.')).toBeVisible()
   await page.getByRole('button', { name: 'Prüflauf starten' }).click()
-  await expect(page.getByText('Wartet auf Worker', { exact: true })).toBeVisible()
+  await expect(
+    page
+      .getByRole('table', { name: 'Prüflaufhistorie' })
+      .getByText('Wartet auf Worker', { exact: true }),
+  ).toBeVisible()
   await expect(page.getByRole('button', { name: 'Prüfung läuft …' })).toBeDisabled()
-  await expect(page.getByText('Läuft', { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('table', { name: 'Prüflaufhistorie' }).getByText('Läuft', { exact: true }),
+  ).toBeVisible()
   await expect(page.getByText('Erfolgreich', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Prüflauf starten' })).toBeEnabled()
 })

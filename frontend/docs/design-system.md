@@ -205,6 +205,57 @@ Tabellencaption, Zeitzonen und `time datetime` bleiben erhalten.
 
 [Synthetische Review-Aufnahmen und Testmatrix](screenshots/operations-workflows/README.md).
 
+### Operations Workflow v2.1 — Queues, Benachrichtigungen, Versände und Prüfläufe
+
+Basis: `44bd5c1a5fb426f0024f55b8757a0a46e279bbb4` (main nach PR #112).
+Diese Migration ist frontend-only; bestehende API-/Domain-Verträge bleiben unverändert.
+
+- **Queues:** kompakte Filter mit Actions-Slot, gerichtete Organisationsanfragen oder
+  Benutzer/Mitgliedschaft als Zeilenidentität, Status, belegtes Alter und Zeitpunkte.
+  Fehlende Organisationsnamen bleiben verständliche Fallbacks; UUIDs sind nachrangig
+  und über CopyValueButton kopierbar. `membership_status=invited|joined|all` und
+  Direktaufruf per `entity_key` bleiben erhalten. Direktaufrufe deaktivieren/ignorieren
+  Organisations-, Alters- und Statusfilter. `has_joined` ist kein Beitrittsdatum.
+- **Benachrichtigungen:** systemweite Counts sind von gefilterten Ergebnissen getrennt.
+  Fachlicher Hinweisstatus, Typ, Organisation und Erkennungszeiten führen die Tabelle.
+  Filter/Pagination werden aus der URL wiederhergestellt; keine neue Browserpersistenz.
+  Der Detailworkflow ordnet Identität → fachlichen Zustand → Vorschau → Versandhistorie
+  → geschlossenes Payload-Disclosure → Technik. Dry Run ist ein kompakter Informationshinweis.
+- **Versände:** Status, Betreff/Empfänger, Art/Sprache/Versuche und Zeitpunkte sind gruppiert.
+  Fehlerlabels verwenden smtpErrorLabel. Das Detail trennt Versandinformationen,
+  Fehler/Wiederholung, operative Zuständigkeit, enthaltene Hinweise und Versandkette.
+  Nur permanent_failure ohne nicht-abgebrochenen Nachfolger bietet bestätigten Retry.
+  Dieser erstellt weiterhin einen neuen Auftrag; er behauptet weder Versand noch Erfolg.
+- **Prüfläufe:** primärer asynchroner Start, kompakter aktiver Lauf und dichte Historie.
+  Pending deaktiviert Start. Der vorhandene einzelne Zwei-Sekunden-Pollingtimer bleibt;
+  Unmount und Fehler stoppen ihn. `started_at` wird schon beim Einreihen gesetzt:
+  eine aus Start/Ende abgeleitete Dauer ist daher ausdrücklich **inkl. Wartezeit**.
+  Fehler und laufende Prüfungen belegen keine automatische Behebung.
+
+Alle Listen schließen mit einer titellosen TechnicalInfoBar, Details mit benanntem
+technischem Abschnitt. Nur Queues liefern observed_at; Hinweise, Versände und Prüfläufe
+bekommen keinen erfundenen Datenstand. „Neuester Lauf auf dieser Seite“ und UI-Pollingzustand
+sind ausdrücklich lokal; aus einer paginierten Historie wird kein globaler letzter Erfolg abgeleitet.
+DeliveryDetail hat keinen eigenen Organisationsnamen: die UUID steht in der Technik,
+keine Zusatzabfrage oder Umdeutung eines beliebigen enthaltenen Hinweises.
+
+`DenseTable stackAt="tablet"` schaltet ausschließlich opt-in bis 1100px auf ein
+beschriftetes zweispaltiges Raster, unter 640px auf eine Spalte. Default bleibt der
+bisherige Mobile-Breakpoint. Optionale Spaltenbreiten gewichten Fachinhalt; caption,
+scope und explizite Tabellenrollen bleiben erhalten. FilterBar unterstützt optional
+`columns=3` für die Queue-Toolbar; Default bleibt vier. NotificationPreview kann
+`embedded` ohne doppelte Abschnittsüberschrift erscheinen; iframe/Sandbox/CSP/Locale
+bleiben unverändert. NotificationDeliveryTable teilt die gleiche Versanddarstellung
+zwischen Liste und fachlicher Historie. OperationTime rendert belegte Instants mit
+`time datetime`, andernfalls „Nicht verfügbar“, in der bestehenden Europe/Berlin-Konvention.
+
+`useOperationsRequest` erhält nur Antworten derselben Auswahl/Identität. Querywechsel,
+401/403/404/422 und verspätete Antworten werden sicher behandelt; temporäre Refreshfehler
+zeigen ausdrücklich veraltete Daten. Detail-Retry und Check-Polling behalten eigene
+Generationsguards. Weder neue Timer noch Requests pro Zeile oder neue Dependencies.
+
+[Synthetische Review-Aufnahmen und Prüfstand](screenshots/operations-queues-notifications/README.md).
+
 ## 5. Typografie
 
 Tailwind bleibt die einzige CSS-Basis. Benannte V2-Rollen liegen in `assets/css/main.css`;

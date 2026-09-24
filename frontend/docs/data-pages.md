@@ -249,8 +249,8 @@ Europe/Berlin angezeigt, und die Datumsauswahl wird DST-sicher auf das Ende des 
 Kalendertags abgebildet.
 
 `AssignmentEditor` ruft Admin-Auswahl und aktuelle Zuständigkeit gemeinsam ab.
-Die bisherige Einbettung im Finding-Detail entfällt mit dessen Entfernung; andere
-Workflow-Einbettungen bleiben erhalten. Create/Patch senden ausschließlich den Zod-validierten Taskzustand;
+Das Finding Detail und der Versandworkflow verwenden den eingebetteten Editor;
+fachliche Bewertung und operative Zuständigkeit bleiben getrennt. Create/Patch senden ausschließlich den Zod-validierten Taskzustand;
 Actor, Zeitstempel, Versionserhöhung und Verlauf kommen vom Server. Ein 409-Konflikt fordert zum
 Neuladen auf und überschreibt keine zwischenzeitliche Änderung. Das ältere Finding-Review-Feld
 für eine Uranus-User-ID ist keine Admin-Zuständigkeit und wird vom Editor nicht verwendet.
@@ -534,6 +534,21 @@ and offer retry. No persist plugin/browser storage, source writes or new public 
 Follow-ups: read-only Event list facet filters for drilldown, full long-tail lists, exports,
 category/genre/type matrices and individual genre timelines. These are deliberately absent
 from v1. Browser tests use API fixtures; SQL behavior is tested separately on PostgreSQL.
+
+## Queues, Benachrichtigungen und Prüfläufe: Operations Workflow v2.1
+
+Die drei Queues, Hinweise und Versände (Liste/Detail) sowie `/checks` verwenden
+kompakte Operations-Surfaces und TechnicalInfoBar. [Darstellung und Grenzen](design-system.md#operations-workflow-v21--queues-benachrichtigungen-versände-und-prüfläufe).
+Notification-Filter sind jetzt ebenso wie Delivery-Filter URL-basiert; bestehende Filterwerte,
+Pagination und Reset bleiben getrennt von nicht angewendeten Formularentwürfen.
+Systemweite Notification-/Delivery-Counts sind keine Aufschlüsselung der gefilterten Liste.
+Queue-Direktaufrufe behalten ihren Filter-Bypass. Kein joined_at wird aus invited_at erzeugt.
+Same-query Refresh hält die letzte erfolgreiche Antwort mit Stale-Hinweis; neue Identitäten,
+Querywechsel und Zugangsfehler leeren sie. Check-Polling behält seinen einzelnen Timer;
+der Start bleibt ein asynchrones Einreihen. Zeitspanne von started_at bis finished_at
+enthält die Wartezeit, da started_at beim Einreihen vergeben wird.
+Notifications/Deliveries/Checks liefern keinen observed_at und bekommen keinen erfundenen
+Datenstand. Der Versanddetailvertrag liefert keinen eigenen Organisationsnamen.
 
 ## Benachrichtigungen
 
