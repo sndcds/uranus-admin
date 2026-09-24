@@ -1130,3 +1130,41 @@ Visible desktop/mobile header triggers provide pointer access. Local navigation 
 two characters. AbortController plus request generations reject stale results. Enter
 navigates to the selected action, arrows select, Escape closes, and native dialog Tab
 and focus return remain intact. The contextual EntitySearch stays in entity lists.
+
+## Venue scope read metadata
+
+`venue_scope` is an optional nullable enum (`organization` / `shared`) on Activity,
+EntityRecord, EntitySearchItem, GlobalSearchItem, GraphNode and RecentEntity. Venue rows
+project authoritative `v.scope` in the existing SELECT/UNION branches; other entity types
+project NULL. Related records reuse Activity. No per-result query, additional join,
+search field, ranking change, filter, source write or migration is introduced.
+
+The Admin deliberately introduces these presentation labels:
+
+| Uranus raw value | Admin label                            |
+| ---------------- | -------------------------------------- |
+| `organization`   | Provisorischer Ort (nicht eigener Ort) |
+| `shared`         | Eigener Ort                            |
+
+These labels describe a venue type, not severity or a quality finding. They are not
+inferred from organization ownership. Venue scope is neither an Event nor a Space
+property; parent venue values are not copied onto those records. Omitted/null metadata
+produces no badge. Unknown strings (including `standard`) fail Pydantic validation and
+the existing safe backend error handler; malformed upstream JSON fails the frontend
+contract as `invalid_response`. No fallback interprets an unknown value as `shared`.
+
+Source review: Uranus commit `7519046a10afc6a0168c8409271086851601cc3c`.
+The [venue DDL](https://github.com/sndcds/uranus/blob/7519046a10afc6a0168c8409271086851601cc3c/ddl/venue.ddl)
+and [Go model](https://github.com/sndcds/uranus/blob/7519046a10afc6a0168c8409271086851601cc3c/model/venue.go)
+contain scope. The admin venue/org-venues/choosable handlers and their SQL, public
+choosable handler, venue/portal GeoJSON queries, and choosable/combined OpenAPI documents
+already expose it. Uranus OpenAPI describes a string; the DDL CHECK supplies the closed
+set used here. The German provisional-venue label is a new explicit Admin presentation
+rule, not a pre-existing Uranus code term.
+
+**Separate source follow-up:** that DDL still declares `DEFAULT 'standard'` while its
+CHECK accepts only `organization` and `shared`. Uranus already notes this inconsistency
+in [admin-dashboard-empfehlung.md](https://github.com/sndcds/uranus/blob/7519046a10afc6a0168c8409271086851601cc3c/docs/admin-dashboard-empfehlung.md).
+This PR does not repair it or change Uranus. Compare the DDL/default with the real
+running schema separately; repository review and synthetic tests are not live-schema
+verification.

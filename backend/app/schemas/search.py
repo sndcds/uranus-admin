@@ -5,6 +5,7 @@ from typing import Literal, get_args
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.action import Action
+from app.schemas.venues import VenueScope
 
 GlobalSearchType = Literal[
     "user",
@@ -80,6 +81,7 @@ class GlobalSearchFilters(BaseModel):
 
 class GlobalSearchItem(BaseModel):
     entity_type: GlobalSearchType
+    venue_scope: VenueScope | None = None
     entity_key: str
     label: str
     subtitle: str | None

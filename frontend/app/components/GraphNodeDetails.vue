@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import VenueScopeBadge from './VenueScopeBadge.vue'
 import { computed, ref, watch } from 'vue'
 import type { GraphNode, GraphEdge } from '#shared/contracts'
 import { nodePresentation } from '~/utils/graph'
@@ -69,8 +70,12 @@ watch(
         >
           <AppIcon :name="nodePresentation[node.type].icon" :size="25" />
         </div>
-        <div>
+        <div class="min-w-0">
           <p class="text-xs font-medium">{{ nodePresentation[node.type].label }}</p>
+          <VenueScopeBadge
+            v-if="node.type === 'venue' && node.venue_scope"
+            :scope="node.venue_scope"
+          />
           <p
             v-if="node.status"
             class="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
@@ -165,7 +170,11 @@ watch(
             ><span class="block text-xs font-semibold leading-4">{{ item.node.label }}</span
             ><span class="text-xs text-slate-500">{{
               nodePresentation[item.node.type].label
-            }}</span></span
+            }}</span>
+            <VenueScopeBadge
+              v-if="item.node.type === 'venue' && item.node.venue_scope"
+              :scope="item.node.venue_scope"
+            /> </span
           ><span
             class="max-w-24 rounded bg-slate-100 px-1.5 py-1 text-xs text-slate-500"
             :title="`${item.edge.source === node.id ? node.label : item.node.label} → ${item.edge.label} → ${item.edge.target === node.id ? node.label : item.node.label}`"

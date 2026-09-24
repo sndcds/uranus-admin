@@ -33,6 +33,7 @@ export function globalSearchFixture(query: string): GlobalSearchResponse {
         items: [
           {
             entity_type: type,
+            venue_scope: type === 'venue' ? source.venue_scope : null,
             entity_key: source.entity_key,
             label,
             subtitle,

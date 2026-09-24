@@ -166,6 +166,7 @@ def node(row: dict[str, Any]) -> GraphNode:
     return GraphNode(
         id=f"{kind}:{key}",
         type=kind,
+        venue_scope=row.get("venue_scope"),
         key=key,
         label=row["entity_name"],
         subtitle=row.get("subtitle"),
@@ -184,7 +185,8 @@ def graph_search_query(
     # same fields, labels, rank and literal matching as global/entity search.
     date_definition = SearchDefinition(
         f"({ENTITY_ACTIVITY_SQL['event_date']}) "
-        "d(entity_type,entity_key,entity_name,organization_id,organization_name,created_at,status)",
+        "d(entity_type,entity_key,entity_name,organization_id,organization_name,"
+        "created_at,status,venue_scope)",
         ("d.entity_key", "d.entity_name"),
         "d.entity_name",
         "NULL::text",
@@ -200,7 +202,8 @@ def graph_search_query(
         if geo_scope_wkb is not None and kind == "user":
             continue
         definition = date_definition if kind == "event_date" else SEARCH_DEFINITIONS[kind]
-        branches.append(f"""(SELECT entity_type,entity_key,label entity_name,subtitle,status,
+        branches.append(f"""(SELECT entity_type,entity_key,label entity_name,
+            subtitle,status,venue_scope,
             {definition.rank()} rank FROM (
                 SELECT '{kind}' entity_type,{definition.projection()[7:]}
             ) a WHERE ({definition.matches()})
@@ -211,7 +214,7 @@ def graph_search_query(
             ORDER BY rank,lower(label) COLLATE "C",entity_key COLLATE "C" LIMIT :limit)""")
     return ReadQuery(
         text(
-            "SELECT entity_type,entity_key,entity_name,subtitle,status FROM ("
+            "SELECT entity_type,entity_key,entity_name,subtitle,status,venue_scope FROM ("
             + " UNION ALL ".join(branches)
             + ') a ORDER BY rank,lower(entity_name) COLLATE "C",entity_type,'
             'entity_key COLLATE "C" LIMIT :limit'
@@ -253,7 +256,7 @@ def node_query(ids: set[str]) -> ReadQuery:
         "SELECT * FROM ("
         + " UNION ALL ".join(branches)
         + ") n(entity_type,entity_key,entity_name,organization_id,"
-        "organization_name,created_at,status) "
+        "organization_name,created_at,status,venue_scope) "
         "ORDER BY entity_type,entity_key"
     )
     return ReadQuery(text(query), grouped)

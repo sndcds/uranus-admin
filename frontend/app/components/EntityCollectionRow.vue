@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import VenueScopeBadge from './VenueScopeBadge.vue'
 import { computed } from 'vue'
 import type { EntitySection } from '#shared/contracts'
 import { activityName, activityStatus, activityMapUrl } from '~/utils/activity'
@@ -31,7 +32,13 @@ const subtitle = computed(() =>
         <p v-if="subtitle" class="text-xs text-slate-600 [overflow-wrap:anywhere]">
           {{ subtitle }}
         </p>
-        <EntityTypeBadge :type="item.entity_type" />
+        <div class="flex min-w-0 flex-wrap items-center gap-1">
+          <EntityTypeBadge :type="item.entity_type" />
+          <VenueScopeBadge
+            v-if="item.entity_type === 'venue' && item.venue_scope"
+            :scope="item.venue_scope"
+          />
+        </div>
       </div>
     </div>
     <div class="min-w-0 text-xs text-slate-600 [overflow-wrap:anywhere]">

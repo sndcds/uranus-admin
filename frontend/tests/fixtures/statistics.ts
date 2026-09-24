@@ -62,6 +62,7 @@ export function statisticsFixture(query = new URLSearchParams()): EntityStatisti
       const key = `20000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`
       return {
         entity_type: type,
+        venue_scope: type === 'venue' ? 'shared' : null,
         entity_key: key,
         entity_name: names[i]!,
         organization_name: i === 0 ? null : 'Kulturzentrum Rendsburg e.V.',
