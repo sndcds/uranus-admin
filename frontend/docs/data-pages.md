@@ -37,6 +37,17 @@ Inbox-/Marks-Refresh erhält ausschließlich Ergebnisse derselben Query und kenn
 Stale-Daten; Querywechsel, 401/403 und ungültige Inbox-Filter entfernen alte Antworten.
 Findings-Store, Geo Scope, Pagination, Ranking und sämtliche Schreibverträge bleiben bestehen.
 
+## Operations Collections v2.1
+
+Activity und alle sechs Entity-Listen verwenden kompakte Filter, fachlich getrennte
+Zeilen und eine technische Schlussleiste. [Darstellung](design-system.md#operations-collection-v21--activity-und-entity-collections).
+`organization_id` bleibt unsichtbarer URL-Kontext auch in Activity. Apply/Pagination
+behalten ihn; Reset folgt dem bestehenden Seitenvertrag. EntitySearch, Perioden-/Geo-/
+Terminlagefilter und URL > Store > Default bleiben unverändert. Seitencounts sind keine
+Gesamtverteilung. Same-query Refresh behält den letzten Stand mit Stale-Hinweis;
+Querywechsel und 401/403/404/422 leeren ihn. Keine zusätzlichen Requests pro Datensatz.
+`observed_at` steht hier nur in TechnicalInfoBar, nicht doppelt in ResultSummary.
+
 ## Informationsarchitektur
 
 Das Dashboard trennt periodengebundene Neuanlagen vom aktuellen Arbeitsbestand:

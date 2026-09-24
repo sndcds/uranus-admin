@@ -8,6 +8,7 @@ const props = defineProps<{
   item: ActivityIdentity & Pick<ActivityItem, 'image_url'>
   record?: boolean
   compact?: boolean
+  dense?: boolean
 }>()
 const failed = ref(false)
 const previewFailed = ref(false)
@@ -53,7 +54,13 @@ function openPreview() {
   </div>
   <div
     v-else
-    :class="record ? 'w-full min-w-0' : 'w-24 shrink-0 self-start md:w-32'"
+    :class="
+      record
+        ? 'w-full min-w-0'
+        : dense
+          ? 'w-14 shrink-0 self-start'
+          : 'w-24 shrink-0 self-start md:w-32'
+    "
     :data-record-preview="record ? '' : undefined"
   >
     <button
@@ -63,9 +70,14 @@ function openPreview() {
       :class="
         record
           ? 'flex h-[min(55dvh,32rem)] items-center justify-center bg-slate-50 p-3'
-          : ['organization', 'venue'].includes(item.entity_type)
-            ? 'bg-white p-3'
-            : ''
+          : dense
+            ? [
+                'flex h-14 items-center justify-center bg-white',
+                ['organization', 'venue'].includes(item.entity_type) ? 'p-3' : 'p-0',
+              ]
+            : ['organization', 'venue'].includes(item.entity_type)
+              ? 'bg-white p-3'
+              : ''
       "
       :aria-label="`Bild vergrößern: ${name}`"
       aria-haspopup="dialog"
@@ -81,7 +93,9 @@ function openPreview() {
         :class="
           record
             ? 'block h-auto w-auto max-h-full max-w-full object-contain'
-            : 'block h-auto w-full'
+            : dense
+              ? 'block h-auto w-auto max-h-full max-w-full object-contain'
+              : 'block h-auto w-full'
         "
         @error="failed = true"
       />
@@ -89,7 +103,10 @@ function openPreview() {
     <div
       v-else
       class="flex flex-col items-center justify-center gap-3 rounded-xl border border-slate-100 p-3"
-      :class="[presentation.tone, record ? 'h-[min(55dvh,32rem)]' : 'h-16 md:h-20']"
+      :class="[
+        presentation.tone,
+        record ? 'h-[min(55dvh,32rem)]' : dense ? 'h-14' : 'h-16 md:h-20',
+      ]"
     >
       <AppIcon :name="icon" :size="28" />
       <p v-if="record" role="status" class="type-body text-center">

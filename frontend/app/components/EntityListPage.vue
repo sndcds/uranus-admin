@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useFilterPreferencesStore } from '~/stores/filter-preferences'
 import { usePreferenceQuery } from '~/composables/usePreferenceQuery'
 import {
@@ -11,11 +11,13 @@ import {
 } from '#shared/contracts'
 import { supportsGeoEntity } from '~/utils/geo'
 import { entityPeriods } from '~/utils/periods'
-import { asFailure, type ApiFailure } from '#shared/errors'
+import { AdminApiError, failure } from '#shared/errors'
+import { useOperationsRequest } from '~/composables/useOperationsRequest'
+import { dateTime, adminTimeZone } from '~/utils/presentation'
+import { activityStatus } from '~/utils/activity'
 import {
   entitySections,
   eventStatusLabels,
-  entityFactLabel,
   entityFilterCapabilities,
   temporalLabels,
   temporalFromQuery,
@@ -37,9 +39,7 @@ const query = usePreferenceQuery(
 )
 const router = useRouter()
 const { $adminApi } = useNuxtApp()
-const data = ref<EntityPage | null>(null)
-const loading = ref(false)
-const error = ref<ApiFailure | null>(null)
+const { data, loading, error, load: request } = useOperationsRequest<EntityPage>()
 const q = ref(''),
   organization = ref(''),
   status = ref('')
@@ -59,6 +59,10 @@ const resultDescription = computed(() => {
   const created = sharedPeriodSchema.safeParse(query.value.period)
   return (
     [
+      typeof query.value.q === 'string' && query.value.q ? `Suche: ${query.value.q}` : '',
+      typeof query.value.status === 'string' && query.value.status
+        ? `Status: ${activityStatus(query.value.status)}`
+        : '',
       created.success ? `Erstellt: ${entityPeriods[created.data]}` : '',
       appliedGeoScopeId.value && preferences.sharedGeoScope?.id === appliedGeoScopeId.value
         ? `Gebiet: ${preferences.sharedGeoScope.name}`
@@ -69,12 +73,7 @@ const resultDescription = computed(() => {
       .join(' · ') || undefined
   )
 })
-let generation = 0
 async function load() {
-  const id = ++generation
-  loading.value = true
-  data.value = null
-  error.value = null
   q.value = typeof query.value.q === 'string' ? query.value.q : ''
   organization.value =
     typeof query.value.organization_id === 'string' ? query.value.organization_id : ''
@@ -82,20 +81,16 @@ async function load() {
   const parsedPeriod = sharedPeriodSchema.safeParse(query.value.period)
   period.value = parsedPeriod.success ? parsedPeriod.data : ''
   temporal.value = hasTemporal.value ? temporalFromQuery(query.value.temporal) : ''
-  try {
+  await request(JSON.stringify([props.section, query.value]), async () => {
     const requestQuery: Record<string, string> = {}
     for (const [key, value] of Object.entries(query.value)) {
-      if (typeof value !== 'string') throw new Error('Invalid query')
+      if (typeof value !== 'string') throw new AdminApiError(failure(422))
       requestQuery[key] = value
     }
-    const result = await $adminApi.entities(props.section, requestQuery)
-    if (id === generation) data.value = result
-  } catch (cause) {
-    if (id === generation) error.value = asFailure(cause)
-  } finally {
-    if (id === generation) loading.value = false
-  }
+    return $adminApi.entities(props.section, requestQuery)
+  })
 }
+
 function apply() {
   preferences.hydrateEntity(
     props.section,
@@ -131,23 +126,63 @@ function reset() {
 }
 onMounted(load)
 watch(() => query.value, load)
-onBeforeUnmount(() => {
-  generation++
-})
+const technicalItems = computed(() =>
+  data.value
+    ? [
+        {
+          label: 'Datenstand',
+          value: dateTime(data.value.observed_at),
+          datetime: data.value.observed_at,
+          timezone: adminTimeZone,
+        },
+        { label: 'Objektart', value: entitySections[props.section].title },
+        { label: 'Gesamtzahl', value: data.value.pagination.total },
+        { label: 'Sichtbare Einträge', value: data.value.items.length },
+        { label: 'Einträge je Seite', value: data.value.pagination.page_size },
+      ]
+    : [],
+)
+const hasFilters = computed(() =>
+  ['q', 'period', 'temporal', 'status', 'organization_id'].some((key) => !!query.value[key]),
+)
 </script>
 <template>
-  <div class="space-y-5">
+  <div class="operations-page">
     <PageHeader
       :title="entitySections[section].title"
       description="Datensätze durchsuchen, Beziehungen und Arbeitsstand prüfen."
     >
-      <template v-if="section === 'venues' || section === 'spaces'"
-        ><NuxtLink to="/venues" class="button">Orte</NuxtLink
-        ><NuxtLink to="/spaces" class="button">Räume</NuxtLink></template
-      >
+      <template #actions>
+        <template v-if="section === 'venues' || section === 'spaces'">
+          <NuxtLink
+            to="/venues"
+            class="action-link"
+            :aria-current="section === 'venues' ? 'page' : undefined"
+            >Orte</NuxtLink
+          >
+          <NuxtLink
+            to="/spaces"
+            class="action-link"
+            :aria-current="section === 'spaces' ? 'page' : undefined"
+            >Räume</NuxtLink
+          >
+        </template>
+        <button class="button" :disabled="loading" @click="load">Aktualisieren</button>
+      </template>
     </PageHeader>
-    <FilterBar @apply="apply">
+    <FilterBar
+      compact
+      :columns="
+        hasTemporal && entityFilterCapabilities[section].status
+          ? 4
+          : hasTemporal || entityFilterCapabilities[section].status
+            ? 3
+            : 2
+      "
+      @apply="apply"
+    >
       <EntitySearch
+        class="sm:col-span-1!"
         v-model="q"
         :entity-type="entitySections[section].type"
         :organization-id="organization"
@@ -190,42 +225,51 @@ onBeforeUnmount(() => {
           >
         </select></label
       >
-      <div class="flex flex-wrap items-end gap-2">
+      <template #actions>
         <button class="button-primary" type="submit">Anwenden</button
         ><button type="button" class="button" @click="reset">Filter zurücksetzen</button>
-      </div>
+      </template>
     </FilterBar>
     <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
     <template v-if="data">
       <ResultSummary
+        class="min-w-0 [overflow-wrap:anywhere]"
         :total="data.pagination.total"
         :visible="data.items.length"
         noun="Datensätze"
         :description="resultDescription"
-        :observed-at="data.observed_at"
       />
-      <DataListShell v-if="data.items.length" as="ul"
-        ><template v-for="item in data.items" :key="item.entity_key"
-          ><ActivityRow :item="item" :observed-at="data.observed_at"
-            ><template #context
-              ><div class="mt-1 flex flex-wrap gap-x-3 text-xs text-slate-500">
-                <template v-for="(value, key) in item.facts" :key="key"
-                  ><span v-if="value !== null && key !== 'description'"
-                    >{{ entityFactLabel(section, key) }}:
-                    {{ typeof value === 'boolean' ? (value ? 'Ja' : 'Nein') : value }}</span
-                  ></template
-                >
-              </div></template
-            ></ActivityRow
-          ></template
-        ></DataListShell
+      <DataListShell
+        v-if="data.items.length"
+        :aria-busy="loading"
+        :class="{ 'collection-context-only': section === 'spaces' }"
       >
-      <EmptyState v-else message="Keine Datensätze für diese Filter." />
+        <div class="collection-header" aria-hidden="true">
+          <span>Datensatz</span>
+          <span>Kontext</span>
+          <span v-if="section !== 'spaces'">Fakten</span>
+          <span>Status / Erstellt</span>
+        </div>
+        <ul class="data-list-dense" :aria-label="entitySections[section].title">
+          <EntityCollectionRow
+            v-for="item in data.items"
+            :key="item.entity_key"
+            :item="item"
+            :section="section"
+          />
+        </ul>
+      </DataListShell>
+      <EmptyState v-else variant="compact" message="Keine Datensätze für diese Auswahl.">
+        <template v-if="hasFilters" #actions
+          ><button class="button" @click="reset">Filter zurücksetzen</button></template
+        >
+      </EmptyState>
       <PaginationBar
         :pagination="data.pagination"
         :loading="loading"
         :to="(page) => ({ query: { ...query, page: String(page) } })"
       />
+      <TechnicalInfoBar :items="technicalItems" :show-title="false" />
     </template>
   </div>
 </template>

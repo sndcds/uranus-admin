@@ -3,8 +3,13 @@ import { computed } from 'vue'
 import GraphLink from './GraphLink.vue'
 import type { ActivityItem } from '~/utils/activity'
 import { activityName, activityStatus, activityMapUrl } from '~/utils/activity'
-import { activityTime, dateTime, adminTimeZone } from '~/utils/presentation'
-const props = defineProps<{ item: ActivityItem; observedAt: string; grouped?: boolean }>()
+import { activityTime, clockTime, dateTime, adminTimeZone } from '~/utils/presentation'
+const props = defineProps<{
+  item: ActivityItem
+  observedAt: string
+  grouped?: boolean
+  dense?: boolean
+}>()
 const name = computed(() => activityName(props.item))
 const mapUrl = computed(() => activityMapUrl(props.item.location))
 const status = computed(() => activityStatus(props.item.status))
@@ -12,14 +17,19 @@ const status = computed(() => activityStatus(props.item.status))
 
 <template>
   <li
-    class="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-2 data-row transition-colors md:grid-cols-[8rem_minmax(0,1fr)_auto_7rem]"
+    class="grid min-w-0 gap-x-3 gap-y-2 data-row transition-colors"
+    :class="
+      dense
+        ? 'activity-row-dense'
+        : 'grid-cols-[6rem_minmax(0,1fr)] md:grid-cols-[8rem_minmax(0,1fr)_auto_7rem]'
+    "
   >
-    <ActivityThumbnail :item="item" />
+    <ActivityThumbnail :item="item" :dense="dense" />
     <div class="min-w-0">
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
         <component
           :is="grouped ? 'h4' : 'h3'"
-          class="min-w-0 break-words text-sm font-semibold text-slate-900"
+          class="min-w-0 break-words text-sm font-semibold text-slate-900 [overflow-wrap:anywhere]"
           :title="item.entity_name"
         >
           {{ name }}
@@ -55,16 +65,18 @@ const status = computed(() => activityStatus(props.item.status))
           rel="noopener noreferrer"
           referrerpolicy="no-referrer"
           :aria-label="`${name} auf OpenStreetMap öffnen (neuer Tab)`"
-          class="inline-flex flex-wrap items-center gap-1 rounded text-fuchsia-700 hover:underline"
+          class="inline-flex min-h-11 flex-wrap items-center gap-1 rounded text-fuchsia-700 hover:underline"
         >
           <AppIcon name="pin" :size="13" />
-          {{ item.location.latitude }}, {{ item.location.longitude }} · OpenStreetMap
+          <span v-if="!dense">{{ item.location.latitude }}, {{ item.location.longitude }} · </span
+          >OpenStreetMap
           <AppIcon name="external" :size="13" />
         </a>
       </p>
       <slot name="context" />
       <div
         class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs [&_a]:mt-0 [&_a]:border-0 [&_a]:bg-transparent [&_a]:p-0 [&_a]:text-xs"
+        :class="dense ? '[&_a]:min-h-11 [&_a]:inline-flex [&_a]:items-center' : undefined"
       >
         <NuxtLink
           v-if="item.action"
@@ -85,6 +97,7 @@ const status = computed(() => activityStatus(props.item.status))
         /></a>
         <GraphLink :entity-type="item.entity_type" :entity-key="item.entity_key" />
         <RecordMarkLink
+          :variant="dense ? 'action' : 'button'"
           :entity-type="item.entity_type"
           :entity-key="item.entity_key"
           :aria-label="`Markierungen & Notizen zu ${name}`"
@@ -105,7 +118,9 @@ const status = computed(() => activityStatus(props.item.status))
         :datetime="item.created_at"
         :title="`${dateTime(item.created_at)} (${adminTimeZone})`"
         :aria-label="`Erstellt am ${dateTime(item.created_at)} (${adminTimeZone})`"
-        >{{ activityTime(item.created_at, observedAt) }}</time
+        >{{
+          dense && grouped ? clockTime(item.created_at) : activityTime(item.created_at, observedAt)
+        }}</time
       >
       <span v-else class="md:col-start-4 md:row-start-1 md:justify-self-end">Ohne Zeitstempel</span>
     </div>

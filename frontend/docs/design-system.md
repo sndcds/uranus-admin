@@ -493,6 +493,48 @@ fachlichen Zeilen. ResultSummary unterscheidet Gesamtergebnis und sichtbare Seit
 Keine Seitensumme als Gesamtzahl. Pagination erhält angewendete URL-Filter.
 Activity ist Neuanlage, keine erfundene Änderungshistorie. Kein Detail-Hero aus ActivityRow.
 
+## Operations Collection v2.1 — Activity und Entity Collections
+
+`/activity` und die sechs Bestandslisten `/events`, `/organizations`, `/venues`,
+`/spaces`, `/users`, `/images` folgen Header → kompakte Filter → ResultSummary →
+dichte Liste → Pagination → TechnicalInfoBar ohne Titelband.
+
+Activity bleibt chronologisch: Tagesgruppen, darin Uhrzeit, 56px-Vorschau mit bestehender
+Vergrößerung, Identität/Kontext, Notice und sichere Aktionen. Typzahlen sind ausdrücklich
+**auf dieser Seite**. Ohne Zeitstempel entfällt die Chronologie; die vom Server gelieferte
+Schlüsselreihenfolge bleibt erhalten. Das sichtbare Organisation-UUID-Feld entfällt;
+`organization_id` bleibt beim Anwenden und Paginieren URL-/API-Kontext.
+
+Alle Bestandslisten verwenden ausschließlich `EntityListPage` und `EntityCollectionRow`.
+Ab 1101px gliedern vier gemeinsame Spalten Datensatz, Kontext, Fakten und Status/Erstellung;
+die direkt sichtbare Aktionszeile darunter hält alle Links bei 44px ohne hohe Aktionsspalte.
+Räume benötigen nur drei Spalten: ihr belegter Ortsname steht im Kontext, eine leere
+Faktenspalte entfällt. Bild-Subtitles mit Verknüpfungskontext stehen ebenfalls dort.
+Tablet ordnet zwei Spalten, unter 640px stapeln die Inhalte. Es sind echte Listen, keine
+nachgeahmten ARIA-Tabellen. Lange Identitäten werden umgebrochen, nicht abgeschnitten.
+EntitySearch bleibt außerhalb der Listenfläche, damit das Dropdown nicht beschnitten wird.
+
+`entityCollectionFacts` begrenzt die Auswahl auf höchstens drei vorhandene Fakten:
+Termine/Standardort/Standardraum, Veranstaltungen/Orte/Teammitgliedschaften, Raumzahl,
+Teammitgliedschaften oder Bildverknüpfungen/Ohne Verknüpfung. Raum-Ortsname ist Kontext,
+kein erfundener Link. Teamzahlen schließen ausdrücklich Einladungen ein. Null fehlt, echte
+0 und false bleiben sichtbar. E-Mail/Username und eigener Organisationsname werden nur
+bei identischen Werten dedupliziert. Der kanonische Benutzername bleibt unverändert.
+Bilder besitzen keinen Graph-Root; separate Dateiname-/Creator-Felder werden nicht erfunden.
+
+`ActivityRow dense` und `ActivityThumbnail dense` sind opt-in; Detail-/Relationsansichten
+behalten ihre bisherigen Defaults. `useOperationsRequest` hält nur dieselbe Query bei
+Refresh und vorübergehenden Fehlern sichtbar, mit `aria-busy` und Stale-Hinweis. Neue Query,
+401/403/404/422 und verspätete Antworten können keine alten Ergebnisse wiederherstellen.
+`usePreferenceQuery` und der Store bleiben unverändert: URL > Store > Default, vollständige
+Pagination-Snapshots und keine Reaktivierung gelöschter Filter durch Back/Forward.
+`period` bleibt created_at; Terminlage und Geo Scope bleiben serverseitige Fachfilter.
+
+Die Schlussleiste zeigt ausschließlich observed_at, Seitenumfang und Gesamtzahl sowie
+Typ beziehungsweise vorhandene Activity-Zeitgrenzen/Unknown-Zähler. Europe/Berlin ist die
+bestehende Anzeigezeitzone; diese Antworten liefern keine eigene Admin-Zeitzonenkonfiguration.
+[Review-Aufnahmen und Prüfstand](screenshots/operations-collections/README.md).
+
 ## 14. Record Details
 
 `EntityDetailPage` besitzt Abruf, Fehler/Loading, Standard-Header, Canonical-Findings-Link,
