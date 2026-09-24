@@ -318,6 +318,24 @@
 
 /* WORKSPACE v2.1: tools, working surface, context and technical footer. */
 @layer components {
+  .analytics-view-nav {
+    @apply flex w-fit max-w-full flex-wrap gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1;
+  }
+  .analytics-toggle {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-transparent px-3 py-2 text-xs font-semibold text-slate-600;
+  }
+  .analytics-toggle[aria-pressed='true'] {
+    @apply border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800;
+  }
+  .analytics-toggle:hover {
+    @apply bg-slate-100;
+  }
+  .analytics-kpi-strip {
+    @apply grid min-w-0 grid-cols-2 overflow-hidden rounded-xl border border-slate-200 bg-white;
+  }
+  .analytics-kpi {
+    @apply min-w-0 border-b border-r border-slate-200 p-3;
+  }
   .operations-workspace {
     @apply min-w-0 rounded-xl border border-slate-200 bg-white;
   }

@@ -8,13 +8,13 @@ const percentage = (value: number) =>
   new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(value)
 </script>
 <template>
-  <section class="panel min-w-0 p-4 sm:p-5" :aria-labelledby="titleId">
-    <h3 :id="titleId" class="font-semibold">{{ title }}</h3>
+  <section class="section-panel min-w-0 p-3" :aria-labelledby="titleId">
+    <h3 :id="titleId" class="type-section-title">{{ title }}</h3>
     <p class="mt-1 text-xs text-slate-500">
       {{ metric(ranking.distinct_assignment_count) }} verschiedene Zuordnungen ·
       {{ ranking.items.length }} davon angezeigt
     </p>
-    <ol v-if="ranking.items.length" class="mt-5 space-y-4" :aria-label="title">
+    <ol v-if="ranking.items.length" class="mt-3 space-y-3" :aria-label="title">
       <li v-for="item in ranking.items" :key="item.id" class="min-w-0">
         <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
           <span class="min-w-0 break-words font-medium [overflow-wrap:anywhere]"
@@ -48,7 +48,7 @@ const percentage = (value: number) =>
         </p>
       </li>
     </ol>
-    <p v-else class="mt-5 text-sm text-slate-500">
+    <p v-else class="mt-3 text-sm text-slate-500">
       Keine Zuordnungen im gewählten Erstellungszeitraum.
     </p>
   </section>

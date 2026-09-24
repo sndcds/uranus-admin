@@ -21,8 +21,8 @@ defineEmits<{ toggle: [type: StatisticsEntity]; highlight: [type: StatisticsEnti
 const host = ref<HTMLElement | null>(null)
 const width = ref(900)
 const active = ref<number | null>(null)
-const height = 234,
-  left = 43,
+const height = computed(() => (width.value >= 700 ? 300 : 234))
+const left = 43,
   right = 14,
   top = 18,
   bottom = 34
@@ -53,7 +53,7 @@ const y = computed(() =>
   scaleLinear()
     .domain([0, Math.max(1, ...visible.value.flatMap((s) => s.points.map((p) => p.count)))])
     .nice()
-    .range([height - bottom, top]),
+    .range([height.value - bottom, top]),
 )
 const yTicks = computed(() => y.value.ticks(5).filter(Number.isInteger))
 const xTicks = computed(() => x.value.ticks(Math.max(2, Math.floor(width.value / 145))))
@@ -105,7 +105,7 @@ function keyboard(event: KeyboardEvent) {
 </script>
 <template>
   <section
-    class="statistics-panel statistics-timeline panel p-4 sm:p-5"
+    class="statistics-panel statistics-timeline section-panel p-3"
     aria-labelledby="timeline-title"
   >
     <div class="statistics-chart-heading mb-3 flex items-center gap-2">
@@ -235,7 +235,7 @@ function keyboard(event: KeyboardEvent) {
         v-for="entry in series"
         :key="entry.entity_type"
         :aria-pressed="selectedTypes.includes(entry.entity_type)"
-        class="button !px-2 !py-1 !text-xs"
+        class="analytics-toggle"
         :class="{ 'opacity-50 line-through': !selectedTypes.includes(entry.entity_type) }"
         @click="$emit('toggle', entry.entity_type)"
         @pointerenter="$emit('highlight', entry.entity_type)"

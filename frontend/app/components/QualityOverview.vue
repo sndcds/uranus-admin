@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import SectionHeader from '~/components/SectionHeader.vue'
+import CompactFacts from '~/components/CompactFacts.vue'
+import RecordSection from '~/components/RecordSection.vue'
 import { computed } from 'vue'
 import type { DashboardSummary } from '#shared/contracts'
-import { qualityRuleLabel, qualityRules } from '~/utils/quality'
+import { qualityRuleLabel, qualityRules, qualityRuleDescriptions } from '~/utils/quality'
 import { metric } from '~/utils/presentation'
 const props = defineProps<{ data: DashboardSummary | null; limit?: number; compact?: boolean }>()
 const rules = computed(() =>
   props.data
-    ? [...new Set([...(props.data.quality.rules ?? []), ...Object.keys(qualityRules)])]
+    ? [
+        ...new Set([
+          ...(props.data.quality.rules ?? []),
+          ...Object.keys(qualityRules),
+          ...(props.compact ? [] : ['venue_missing_geolocation']),
+        ]),
+      ]
     : [],
 )
 const visibleRules = computed(() => {
@@ -22,13 +29,42 @@ const visibleRules = computed(() => {
 })
 const groups = computed(() =>
   [
-    { title: 'Regeln', rules: visibleRules.value.filter((rule) => !qualityRules[rule]) },
+    {
+      title: 'Regeln',
+      rules: visibleRules.value.filter(
+        (rule) => !qualityRules[rule] && rule !== 'venue_missing_geolocation',
+      ),
+    },
     ...[...new Set(Object.values(qualityRules).map((rule) => rule.group))].map((title) => ({
       title,
-      rules: visibleRules.value.filter((rule) => qualityRules[rule]?.group === title),
+      rules: visibleRules.value.filter(
+        (rule) =>
+          qualityRules[rule]?.group === title ||
+          (title === 'Standorte' && rule === 'venue_missing_geolocation'),
+      ),
     })),
   ].filter((group) => group.rules.length),
 )
+const summaryFacts = computed(() => [
+  { label: 'Fehler', value: props.data?.quality.errors, tone: 'error' as const },
+  { label: 'Warnungen', value: props.data?.quality.warnings, tone: 'warning' as const },
+  { label: 'Hinweise', value: props.data?.quality.info, tone: 'info' as const },
+  { label: 'Befunde', value: props.data?.quality.total },
+])
+function ruleLink(rule: string) {
+  if (rule === 'venue_missing_geolocation')
+    return '/findings?rule=venue_missing_geolocation&entity_type=venue&status=open'
+  return {
+    path: '/findings',
+    query: {
+      active_only: 'true',
+      geo_scope_id: props.data?.geo_scope_id ?? undefined,
+      rule,
+      entity_type: qualityRules[rule]?.entityType,
+      mode: props.data?.quality.mode,
+    },
+  }
+}
 </script>
 
 <template>
@@ -106,70 +142,57 @@ const groups = computed(() =>
       </div>
     </div>
   </section>
-  <section v-else class="min-w-0 space-y-3" aria-label="Datenqualitätsübersicht">
-    <SectionHeader v-if="limit" title="Datenqualität" />
-    <ResultSummary
-      v-if="data"
-      :total="data.quality.total"
-      noun="Befunde"
-      label="Qualitätsbestand"
-      :description="
-        data.quality.mode === 'live'
-          ? 'Live-Diagnose'
-          : 'Gespeicherter Bestand ohne behobene Befunde'
-      "
-    >
-      <StatusBadge :label="`${data.quality.errors} Fehler`" tone="error" />
-      <StatusBadge :label="`${data.quality.warnings} Warnungen`" tone="warning" />
-      <StatusBadge :label="`${data.quality.info} Hinweise`" />
-    </ResultSummary>
-    <DataListShell v-for="group in groups" :key="group.title">
-      <div class="list-group-header">
-        <h3 class="text-xs font-semibold">{{ group.title }}</h3>
-      </div>
-      <ul
-        class="divide-y divide-slate-100"
-        :aria-label="group.title === 'Regeln' ? 'Qualitätsregeln' : group.title"
+  <section v-else class="min-w-0 space-y-4" aria-label="Datenqualitätsübersicht">
+    <RecordSection v-if="data" title="Qualitätsstatus" surface="subtle" class="quality-summary">
+      <CompactFacts :items="summaryFacts" :columns="4" />
+      <EmptyState v-if="!data.quality.total" compact message="Keine aktuellen Qualitätsbefunde." />
+    </RecordSection>
+    <div class="quality-rule-groups min-w-0">
+      <RecordSection
+        v-for="group in groups"
+        :key="group.title"
+        :title="group.title"
+        surface="table"
       >
-        <li v-for="rule in group.rules" :key="rule">
-          <NuxtLink
-            :to="{
-              path: '/findings',
-              query: {
-                active_only: 'true',
-                geo_scope_id: data?.geo_scope_id ?? undefined,
-                rule,
-                entity_type: qualityRules[rule]?.entityType,
-                mode: data?.quality.mode,
-              },
-            }"
-            class="data-row flex items-center justify-between gap-3 text-sm font-semibold text-slate-700 hover:text-fuchsia-700"
+        <ul
+          class="divide-y divide-slate-200"
+          :aria-label="group.title === 'Regeln' ? 'Qualitätsregeln' : group.title"
+        >
+          <li
+            v-for="rule in group.rules"
+            :key="rule"
+            :data-quality-rule="rule"
+            class="quality-rule p-3"
           >
-            <span class="min-w-0 space-y-1">
-              <span class="block break-words">{{ qualityRuleLabel(rule) }}</span>
-              <span v-if="qualityRules[rule]" class="flex flex-wrap items-center gap-2">
-                <SeverityBadge :severity="qualityRules[rule]!.severity" />
-                <span
-                  v-if="qualityRules[rule]!.severity === 'warning'"
-                  class="text-xs font-normal text-slate-500"
-                  >Schlechte Datenqualität</span
-                >
-              </span>
-            </span>
-            <span class="ml-auto shrink-0 tabular-nums">{{
-              metric(data?.quality.rule_counts?.[rule])
-            }}</span>
-            <AppIcon name="arrow" :size="14" class="shrink-0 text-fuchsia-700" />
-          </NuxtLink>
-        </li>
-      </ul>
-    </DataListShell>
-    <EmptyState v-if="data && !data.quality.total" message="Keine aktuellen Qualitätsbefunde." />
-    <div class="flex flex-wrap gap-4 text-sm font-semibold text-fuchsia-700">
-      <NuxtLink
-        v-if="visibleRules.length < rules.length"
-        to="/quality"
-        class="rounded hover:underline"
+            <div class="min-w-0 space-y-1">
+              <div class="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                <h4 class="min-w-0 flex-1 break-words text-sm font-semibold">
+                  {{ qualityRuleLabel(rule) }}
+                </h4>
+                <span class="text-sm font-semibold tabular-nums">{{
+                  metric(data?.quality.rule_counts?.[rule])
+                }}</span>
+              </div>
+              <p v-if="qualityRuleDescriptions[rule]" class="operations-meta">
+                {{ qualityRuleDescriptions[rule] }}
+              </p>
+              <SeverityBadge
+                v-if="qualityRules[rule] || rule === 'venue_missing_geolocation'"
+                :severity="qualityRules[rule]?.severity ?? 'warning'"
+              />
+            </div>
+            <NuxtLink
+              :to="ruleLink(rule)"
+              class="button button-compact justify-self-end"
+              :aria-label="`Befunde öffnen: ${qualityRuleLabel(rule)}`"
+              >Befunde öffnen</NuxtLink
+            >
+          </li>
+        </ul>
+      </RecordSection>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <NuxtLink v-if="visibleRules.length < rules.length" to="/quality" class="action-link text-xs"
         >Alle Regeln anzeigen →</NuxtLink
       >
       <NuxtLink
@@ -181,9 +204,38 @@ const groups = computed(() =>
             geo_scope_id: data?.geo_scope_id ?? undefined,
           },
         }"
-        class="rounded hover:underline"
-        >Qualitätsbefunde öffnen →</NuxtLink
+        class="button button-compact"
+        >Qualitätsbefunde öffnen</NuxtLink
       >
     </div>
   </section>
 </template>
+
+<style scoped>
+.quality-summary :deep(dl) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.quality-rule-groups > section {
+  break-inside: avoid;
+  margin-bottom: 0.75rem;
+}
+.quality-rule {
+  display: grid;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+@media (min-width: 640px) {
+  .quality-rule {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+@media (min-width: 1280px) {
+  .quality-summary :deep(dl) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .quality-rule-groups {
+    columns: 2;
+    column-gap: 0.75rem;
+  }
+}
+</style>

@@ -49,10 +49,9 @@ test('presets, named series, crosshair, comparison, links and responsive layout'
   await expect(link).toHaveAttribute('href', /creation_basis=statistics/)
   await expect(link).toHaveAttribute('href', /from_at=/)
   await expect(page.locator('.statistics-recent tbody tr')).toHaveCount(7)
-  await expect(page.getByRole('link', { name: 'Jazz im Hof 2027', exact: true })).toHaveAttribute(
-    'href',
-    '/events/20000000-0000-4000-8000-000000000003',
-  )
+  await expect(
+    page.getByRole('link', { name: 'Öffnen: Jazz im Hof 2027', exact: true }),
+  ).toHaveAttribute('href', '/events/20000000-0000-4000-8000-000000000003')
   await page.getByRole('heading', { name: 'Neue Entitäten im Zeitverlauf' }).click()
   await page.mouse.move(0, 0)
   await page.screenshot({ path: info.outputPath('statistics-7d.png'), fullPage: true })
@@ -129,7 +128,8 @@ test('loading, empty, error and retry are explicit without invented zero metrics
   )
   await page.getByRole('button', { name: 'Zahlen aktualisieren' }).click()
   await expect(page.getByRole('alert')).toContainText('Abruf fehlgeschlagen')
-  await expect(page.locator('.statistics-metric')).toHaveCount(0)
+  await expect(page.locator('.statistics-metric')).toHaveCount(7)
+  await expect(page.getByRole('alert')).toContainText('veraltet')
   await page.route('**/api/admin/api/v1/statistics/entities**', (route) =>
     route.fulfill({ json: statisticsFixture() }),
   )

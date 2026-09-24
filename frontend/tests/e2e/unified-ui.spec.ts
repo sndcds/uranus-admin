@@ -218,20 +218,22 @@ test('quality has honest aggregate counts, bounded dashboard rules and a full ru
   await page.screenshot({ path: info.outputPath('dashboard.png'), fullPage: true })
   await preview.getByRole('link', { name: 'Alle Regeln anzeigen' }).click()
   await expect(page).toHaveURL(/\/quality$/)
-  const aggregate = page.getByRole('region', { name: 'Qualitätsbestand' })
-  await expect(aggregate).toContainText('2 Befunde insgesamt')
-  await expect(aggregate).toContainText('2 Warnungen')
+  const aggregate = page.getByRole('region', { name: 'Qualitätsstatus' })
+  await expect(aggregate.locator('dl > div').filter({ hasText: 'Befunde' })).toContainText('2')
+  await expect(aggregate.locator('dl > div').filter({ hasText: 'Warnungen' })).toContainText('2')
   await expect(aggregate).not.toContainText('Auf dieser Seite')
   const list = page.getByRole('list', { name: 'Qualitätsregeln' })
-  await expect(list.getByRole('listitem')).toHaveCount(6)
-  await expect(list.getByRole('link').first()).toHaveAttribute(
+  await expect(list.getByRole('listitem')).toHaveCount(5)
+  const geoRule = page.locator('[data-quality-rule=venue_missing_geolocation]')
+  await expect(geoRule).toHaveCount(1)
+  await expect(geoRule.getByRole('link')).toHaveAttribute(
     'href',
-    '/findings?active_only=true&rule=venue_missing_geolocation&mode=persisted',
+    '/findings?rule=venue_missing_geolocation&entity_type=venue&status=open',
   )
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: info.outputPath('quality.png'), fullPage: true })
-  await list.getByRole('link').first().click()
-  await expect(page).toHaveURL(/rule=venue_missing_geolocation&mode=persisted/)
+  await geoRule.getByRole('link').click()
+  await expect(page).toHaveURL(/rule=venue_missing_geolocation&entity_type=venue&status=open/)
   await expect(page.getByRole('heading', { name: 'Test-Hafenbühne' })).toBeVisible()
   // The same surfaces must also fit between mobile and desktop breakpoints.
   await page.setViewportSize({ width: 820, height: 1180 })

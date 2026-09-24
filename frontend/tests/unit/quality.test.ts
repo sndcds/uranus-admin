@@ -47,7 +47,7 @@ describe('logo quality overview', () => {
     expect(badges.map((badge) => badge.props('severity'))).toEqual(['warning', 'warning', 'info'])
     expect(badges[0]!.classes()).toContain('bg-amber-50')
     expect(badges[2]!.classes()).toContain('bg-sky-50')
-    expect(group.text()).toContain('Schlechte Datenqualität')
+    expect(group.text()).toContain('Befunde öffnen')
     expect(group.text()).toContain('Hinweis')
   })
   it('links each rule to its exact filters and preserves the source mode', () => {
@@ -136,7 +136,7 @@ describe('postal code quality overview', () => {
     expect(group.findAll('li')).toHaveLength(1)
     expect(group.text()).toContain('Postleitzahlen mit Leerzeichen')
     expect(group.text()).toContain('Warnung')
-    expect(group.text()).toContain('Schlechte Datenqualität')
+    expect(group.text()).toContain('Befunde öffnen')
     expect(group.text()).toContain('2')
     expect(group.text()).not.toContain('postal_code_whitespace')
     expect(group.getComponent({ name: 'NuxtLink' }).props('to')).toEqual({
@@ -165,16 +165,27 @@ describe('postal code quality overview', () => {
 it('labels both internal missing-location rules and links authoritative owners', () => {
   const view = render()
   const group = view.get('ul[aria-label="Standorte"]')
-  expect(group.findAll('li')).toHaveLength(2)
+  expect(group.findAll('li')).toHaveLength(3)
   expect(group.text()).toContain('Organisationen ohne Geoposition')
   expect(group.text()).toContain('Orte ohne Geoposition')
   expect(group.findAllComponents(SeverityBadge).map((badge) => badge.props('severity'))).toEqual([
     'warning',
     'warning',
+    'warning',
   ])
   expect(
-    group.findAllComponents({ name: 'NuxtLink' }).map((link) => link.props('to').query.entity_type),
+    group
+      .findAllComponents({ name: 'NuxtLink' })
+      .map((link) => link.props('to'))
+      .filter((to) => typeof to === 'object')
+      .map((to) => to.query.entity_type),
   ).toEqual(['organization', 'venue'])
+  expect(
+    group
+      .get('[data-quality-rule=venue_missing_geolocation]')
+      .getComponent({ name: 'NuxtLink' })
+      .props('to'),
+  ).toBe('/findings?rule=venue_missing_geolocation&entity_type=venue&status=open')
 })
 
 describe('quality v2', () => {

@@ -777,10 +777,90 @@ TechnicalInfoBar verwendet `showTitle=false` und behält ihre benannte Region.
 
 Frontend-only: keine API-, Query-, Proxy-, Auth-, CSP- oder Datenbankänderungen.
 [Review-Aufnahmen und Prüfstand](screenshots/operations-workspaces/README.md).
-Statistik, Quality und der abschließende Accessibility-Audit bleiben separate Aufgaben.
+Die anschließende Analytics-/Quality-Migration ist unten dokumentiert. Der abschließende
+Consistency-/Accessibility-Audit bleibt eine separate Aufgabe.
 Die bisherigen Regeln für weitere Workspaces gelten weiterhin: Statistik mit Serienlegende,
 Textwerten/Datentabelle, klarer Periodenbasis und Gebiets-/Systemgrenzen; Karte mit
 clientseitigem Leaflet, konfigurierten Tiles, Attribution, Fehleroverlay und vollständiger Liste.
+
+### ANALYTICS WORKSPACE v2.1
+
+`/statistics` mit Erstellung und Event-Inhalten verwendet Analytics Workspace v2.1.
+Basis ist main `3b2d337c6f4651e5226750dde312d5d60a42c701` nach PR #116.
+**Hierarchie:** PageHeader → View Switch / Filter Toolbar → KPI Summary → Primary
+Visualization / Analysis → Secondary Analysis → Detail Table / Drilldowns → TechnicalInfoBar.
+
+- `analytics-view-nav` und `analytics-toggle`: kompakte native Buttons mit sichtbarem
+  Auswahlzustand, `aria-pressed` und mindestens 44px Zielhöhe. Keine neue Route oder
+  Tab-Tastaturkonvention; Erstellung/Event-Inhalte bleiben URL-Ansichten.
+- Toolbar mit bestehenden Presets, benutzerdefiniertem Kalenderfenster, Vergleich,
+  Intervall und Aktualisieren. Benutzerdefiniert öffnet ein kompaktes Subpanel:
+  Von, Bis einschließlich, gelieferte bekannte Zeitzone, Anwenden. Reihenfolge,
+  365-Tage-Grenze und bestehende Datums-/DST-Helfer bleiben unverändert.
+- `analytics-kpi-strip` ist eine gemeinsame Fläche mit Trennlinien. Erstellung zeigt
+  sieben kleine interaktive Kennzahlen, ab 1280px in einer Reihe, auf Tablet drei und
+  mobil zwei Spalten. Kleine Icons, echte Totals, Sparklines, Scope und neutrale Deltas
+  aus `statisticsDelta`; ein Anstieg ist keine Qualitätsbewertung. Ausgeblendete Serien
+  sind durch gestrichenes Label und `aria-pressed=false` erkennbar.
+- Die Timeline bleibt Hauptanalyse, mit 300px Höhe bei ausreichender Diagrammbreite,
+  sonst 234px. Bestehende Serienfarben, ResizeObserver, Crosshair und ArrowLeft/
+  ArrowRight/Home/End/Escape bleiben erhalten. Die kompakte Legende nennt jede Serie.
+- Die Verteilung folgt als zurückhaltende Sekundäranalyse mit Donut und Textwerten.
+  Die Recent-Tabelle verwendet DenseTable, Zeitpunkte als `time`, Typ, Name, Kontext
+  und explizite „Öffnen“-Buttonlinks. Der Activity-Link behält `creation_basis=statistics`.
+- „Daten als Tabelle“ bleibt ein sekundäres natives Disclosure mit Caption, exakten
+  Werten und tastaturfokussierbarem lokalen Scrollbereich. Keine Seiten-Scrollbar.
+- TechnicalInfoBar ohne Titelband: echte Von-/Bis-Grenzen (Bis exklusiv), Zeitzone,
+  Intervall, Intervallanzahl, `observed_at`, Vergleich und belegter Scope. Der Hinweis
+  zum zuletzt gespeicherten Einladungszeitpunkt bleibt sichtbar außerhalb der Technik.
+- Beide Ansichten verwenden `useOperationsRequest`: identische Query erhält Daten bei
+  Refresh/temporärem Fehler mit Stale-Hinweis. Query-/Viewwechsel und 401/403/404/422
+  entfernen sie; späte Antworten werden verworfen. Chart-Highlight gehört nur zur
+  aktuellen Query, die Serienpräferenz bleibt erhalten.
+
+**Event-Inhalte:** dieselbe Toolbar-/KPI-Sprache, vier Coverage-Kennzahlen mit echten
+zugeordneten/fehlenden Counts und gegebenenfalls Vorperiode. Drei Ranking-Panels ab
+1280px, zwei ab 768px, sonst eine Spalte. Mehrfachzuordnungen sind kein 100-%-Kuchen.
+Period/Status/Compare und „Alle“ ohne Vorperiode bleiben erhalten. Die Kohorte ist
+`event.created_at`, ausdrücklich nicht das Veranstaltungsdatum. TechnicalInfoBar nennt
+Periodengrenzen, Zeitzone, Status, Eventzahl, gelieferte Vergleichsgrenzen, Scope und
+`observed_at`; fehlende Grenzen bei „Alle“ werden ausgelassen.
+
+### QUALITY WORKSPACE v2.1
+
+`/quality` zeigt einen aktuellen Qualitätsbestand, keine Collection und keinen neuen Scan.
+**Hierarchie:** PageHeader → Status / Scope → Quality Summary → Rule Groups → Targeted
+Drilldowns → TechnicalInfoBar.
+
+- PageHeader mit sekundärem „Prüfläufe“-Link. Der kompakte Statusbereich benennt
+  tatsächlichen Modus, Systemweit und Unabhängigkeit vom Dashboard-Zeitraum.
+  Persistierte Counts schließen `resolved` aus, enthalten Zurückstellungen/Ausnahmen.
+- `CompactFacts` zeigt gelieferte Fehler, Warnungen, Hinweise und Gesamtbefunde, mobil
+  zwei Spalten. Fehlende Werte heißen „Nicht verfügbar“; echte Nullen bleiben 0.
+- `QualityOverview` gruppiert kompakte Regelzeilen nach der vorhandenen `quality.ts`-
+  Präsentation; unklassifizierte gelieferte Regeln bleiben „Regeln“. Überschriften h3,
+  Regelbezeichnungen h4, explizite Severity-Badges, Counts und „Befunde öffnen“.
+  Ab 1280px fließen vollständige Gruppen in zwei Spalten, innerhalb jeder Spalte
+  in DOM-/Fokusreihenfolge; darunter stehen sie untereinander. Desktop-Zeilen führen
+  die Aktion neben Label, Erklärung und Severity. Keine leeren Rasterzellen neben
+  unterschiedlich langen Gruppen.
+  Kurze Erklärungen ergänzen Logos, PLZ und Geoposition. Keine neuen Schweregrade
+  für unbekannte Regeln und keine abgeleiteten Qualitäts-Scores.
+- Die vorherige Geopositions-Sonderkarte ist in **Standorte**, die vorhandene Gruppe
+  für Geodaten, integriert. Ihr bestehender Drilldown mit `venue_missing_geolocation`,
+  `entity_type=venue` und `status=open` bleibt erhalten; die Zeile erklärt den offenen
+  Ausschnitt. Andere Regeln behalten `active_only`, Modus und vorhandene Entity-Filter.
+  `postal_code_whitespace` erhält ausdrücklich keinen Entity-Filter.
+- Einzige Datenquelle bleibt DashboardStore. Ein vorhandener Geo-Summary wird global
+  nachgeladen und nie als systemweiter Qualitätsstand angezeigt. Refresh und Stale-/
+  Zugriffsfehler folgen unverändert dem Store. Die kompakte Dashboard-Vorschau bleibt
+  separat und behält ihre vorhandenen Top-Regeln und Links.
+- TechnicalInfoBar zeigt Quelle, Systemweit und Anzahl der gelieferten Regelkennungen.
+  DashboardSummary hat keinen Qualitäts-`observed_at`: kein Client-Abrufzeitpunkt,
+  Dashboard-Zeitfenster oder Prüflaufabschluss wird als Beobachtungszeit ausgegeben.
+
+Frontend-only; keine API-, Domain-, Query-, Auth-, CSP-, Worker- oder Datenbankänderung.
+[Synthetische Aufnahmen und Prüfstand](screenshots/operations-analytics/README.md).
 
 ## 17. Rich Text / Markdown
 
