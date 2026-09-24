@@ -4,7 +4,7 @@ import AppModal from './AppModal.vue'
 import type AppIcon from './AppIcon.vue'
 import type { GlobalSearchResponse } from '#shared/contracts'
 import { adminNavigationItems } from '~/utils/navigation'
-import { entityTypes } from '~/utils/entityPresentation'
+import { globalSearchTypes } from '~/utils/entityPresentation'
 
 const { $adminApi } = useNuxtApp()
 const auth = useAuthStore()
@@ -53,13 +53,13 @@ const navigationResults = computed(() => {
 const remoteSections = computed(() =>
   groups.value.map((group) => ({
     key: group.entity_type,
-    label: entityTypes[group.entity_type].plural,
+    label: globalSearchTypes[group.entity_type].plural,
     items: group.items.map((item) => ({
       key: `${item.entity_type}:${item.entity_key}`,
       label: item.label,
-      subtitle: item.subtitle || entityTypes[item.entity_type].label,
+      subtitle: item.subtitle || globalSearchTypes[item.entity_type].label,
       href: item.action.href,
-      icon: entityTypes[item.entity_type].icon,
+      icon: globalSearchTypes[item.entity_type].icon,
     })),
   })),
 )
@@ -234,7 +234,7 @@ defineExpose({ show })
             v-model="query"
             type="search"
             class="input min-h-11 w-full pr-10"
-            placeholder="Name, E-Mail oder UUID …"
+            placeholder="Name, E-Mail, Titel oder UUID …"
             maxlength="120"
             autocomplete="off"
             autocapitalize="off"

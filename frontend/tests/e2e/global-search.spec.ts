@@ -249,3 +249,41 @@ test('palette geometry, focus and internal scroll stay stable through debounce, 
   await assertStable()
   expect(errors).toEqual([])
 })
+
+test('nine groups retain mobile geometry and large targets with long labels', async ({ page }) => {
+  const { allGlobalSearchFixture } = await import('../fixtures/search')
+  const data = allGlobalSearchFixture()
+  for (const group of data.groups) {
+    group.items[0]!.label += ' SehrLangerAnzeigename'.repeat(20)
+    group.items[0]!.subtitle += ' LangerKontext'.repeat(20)
+  }
+  await page.route('**/api/admin/api/v1/search?**', (route) => route.fulfill({ json: data }))
+  await page.goto('/?period=24h')
+  await page.keyboard.press('Control+k')
+  const dialog = page.getByRole('dialog', { name: 'Kulturbytes durchsuchen' })
+  const input = dialog.getByRole('combobox')
+  await input.fill(data.query)
+  await expect(dialog.getByRole('group')).toHaveCount(9)
+  for (const label of [
+    'Benutzer',
+    'Organisationen',
+    'Orte',
+    'Räume',
+    'Veranstaltungen',
+    'Termine',
+    'Bilder',
+    'Partneranfragen',
+    'Teameinladungen',
+  ]) {
+    await expect(dialog.getByRole('group', { name: label, exact: true })).toHaveCount(1)
+  }
+  for (const option of await dialog.getByRole('option').all()) {
+    expect((await option.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  }
+  expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  for (let index = 0; index < 8; index++) await input.press('ArrowDown')
+  await expect(dialog.getByRole('option', { selected: true })).toContainText('Beigetreten')
+  await input.press('Enter')
+  await expect(page).toHaveURL(data.groups[8]!.items[0]!.action.href)
+})

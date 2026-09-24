@@ -736,7 +736,7 @@ Quelle für Sidebar und lokale Palette-Ziele, einschließlich Datenqualität und
 Standortvorschlägen. „Dashboard“ ist auch als Suchbegriff für „Übersicht“ verfügbar.
 Leere Suche zeigt ausschließlich Navigation; passende lokale Ziele stehen vor den
 Entity-Gruppen. Ab zwei Zeichen folgt `/api/v1/search` nach 250ms Debounce, maximal
-fünf Ergebnisse je Typ standardmäßig (API maximal zehn, 60 insgesamt).
+fünf Ergebnisse je Typ standardmäßig (45 Remote-Treffer insgesamt; API maximal zehn je Typ, 90 insgesamt).
 
 Eingabe (`query`), gestartete Remote-Suche (`debouncedQuery`) und sichtbarer erfolgreicher
 Stand (`groups` mit `resultQuery`) sind getrennt. Navigation reagiert sofort auf Eingaben;
@@ -748,12 +748,17 @@ Die Auswahl folgt beim lokalen Filtern der Identität des sichtbaren Eintrags, s
 jedem Zeichen zurückzuspringen; eine neue erfolgreiche Antwort wählt den ersten Eintrag.
 Nur Pfeiltasten scrollen zur Auswahl; Antwortwechsel setzen den Ergebnisbereich nach oben.
 
-Die Suche ist ausdrücklich systemweit und ignoriert Gebiet/Zeitraum. `EntitySearch`
+Die Suche durchsucht Benutzer, Organisationen, Orte, Räume, Veranstaltungen, Termine,
+Bilder, Partneranfragen und Teameinladungen/Mitgliedschaften. Sie ist ausdrücklich
+systemweit: Geo Scope und Zeitraum beeinflussen Global Search nicht. Termine öffnen
+das belegte übergeordnete Event (sonst die bestehende Activity-Action); Partneranfragen
+und Mitgliedschaften öffnen den exakten Queue-Datensatz. „Teameinladungen“ enthält auch
+beigetretene Mitglieder; der Untertitel unterscheidet den aktuellen Zustand. `EntitySearch`
 bleibt die kontextbezogene Suchoberfläche mit ihren Listenfiltern und Enter zum Anwenden.
 Beide sowie Graph-Root-Suche teilen Backend-Felder, Literal-ILIKE, Presentation und
 Ranking: exakte UUID → exaktes Feld → Präfix → Teilstring → Label → Schlüssel.
 Die paginierte Liste behält ihre alphabetische Ordnung. Graph behält Organisations-/
-Geo-Filter, seine eigenen Knoten und die zusätzliche graph-only Terminsuche.
+Geo-Filter, seine eigenen Knoten und die eigene Terminsuche.
 
 [Canonical Search Fields und API-Contract](../../backend/docs/contracts.md#contextual-entity-search)
 listen alle User-/Organisations-/Adress-/Raum-/Event-/Bildfelder. User sind über volle

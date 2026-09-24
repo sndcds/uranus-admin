@@ -82,9 +82,12 @@ MUST NOT be enabled by a browser capability flag.
   last_name; organization uuid/name/contact_email/city/postal_code; venue uuid/name/
   contact_email/street/house_number/postal_code/city; space uuid/name/venue.name/space_type;
   event uuid/title/subtitle/external_id; image uuid/file_name/alt_text/creator_name/mime_type.
+  GlobalSearchType additionally covers event_date (date/event UUID, event title, start date/time),
+  partner_request (from/to organization UUID/name), team_membership (organization UUID/name,
+  user UUID/username/display_name/email). EntitySearchType retains the six collection types.
   Rank exact UUID, exact field, prefix, substring, lower(label) and entity_key (C collation).
   Global `/api/v1/search` is authenticated and systemwide: q 2–120, default 5/max 10 per
-  type, at most 60 rows, each UNION branch limited in SQL. No source indexes/extensions.
+  type, at most 90 rows, each UNION branch limited in SQL. No source indexes/extensions.
   Future pg_trgm indexes belong to Uranus migrations. Keep q/results out of logs/history.
   Ctrl/Cmd+K palette state is component-memory-only; clear on close/navigation/auth loss.
   Sidebar and palette use `app/utils/navigation.ts`; do not duplicate navigation labels.

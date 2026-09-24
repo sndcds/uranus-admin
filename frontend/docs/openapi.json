@@ -6058,16 +6058,16 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "maxLength": 48
+                  "maxLength": 96
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "Comma-separated unique types: user,organization,venue,space,event,image",
+              "description": "Comma-separated unique types: user,organization,venue,space,event,event_date,image,partner_request,team_membership",
               "title": "Types"
             },
-            "description": "Comma-separated unique types: user,organization,venue,space,event,image"
+            "description": "Comma-separated unique types: user,organization,venue,space,event,event_date,image,partner_request,team_membership"
           }
         ],
         "responses": {
@@ -14154,16 +14154,16 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "maxLength": 48
+                  "maxLength": 96
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "Comma-separated unique types: user,organization,venue,space,event,image",
+              "description": "Comma-separated unique types: user,organization,venue,space,event,event_date,image,partner_request,team_membership",
               "title": "Types"
             },
-            "description": "Comma-separated unique types: user,organization,venue,space,event,image"
+            "description": "Comma-separated unique types: user,organization,venue,space,event,event_date,image,partner_request,team_membership"
           }
         ],
         "responses": {
@@ -25303,7 +25303,10 @@
               "venue",
               "space",
               "event",
-              "image"
+              "event_date",
+              "image",
+              "partner_request",
+              "team_membership"
             ],
             "title": "Entity Type"
           },
@@ -25334,7 +25337,10 @@
               "venue",
               "space",
               "event",
-              "image"
+              "event_date",
+              "image",
+              "partner_request",
+              "team_membership"
             ],
             "title": "Entity Type"
           },
@@ -25381,7 +25387,9 @@
                 "file_name",
                 "alt_text",
                 "creator_name",
-                "mime_type"
+                "mime_type",
+                "start_date",
+                "start_time"
               ]
             },
             "type": "array",
@@ -25434,14 +25442,14 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 48
+                "maxLength": 96
               },
               {
                 "type": "null"
               }
             ],
             "title": "Types",
-            "description": "Comma-separated unique types: user,organization,venue,space,event,image"
+            "description": "Comma-separated unique types: user,organization,venue,space,event,event_date,image,partner_request,team_membership"
           }
         },
         "additionalProperties": false,
@@ -25464,7 +25472,7 @@
               "$ref": "#/components/schemas/GlobalSearchGroup"
             },
             "type": "array",
-            "maxItems": 6,
+            "maxItems": 9,
             "title": "Groups"
           }
         },
