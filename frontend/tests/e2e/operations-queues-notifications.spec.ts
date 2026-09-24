@@ -68,6 +68,13 @@ for (const viewport of [
         .all()) {
         expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44)
       }
+      // Preview loading scrolls its trigger into view. Capture the page from its
+      // actual top so fixed shell controls are not painted halfway down the image.
+      await page.evaluate(() => {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+        window.scrollTo({ top: 0, behavior: 'instant' })
+      })
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
       await page.screenshot({
         path: info.outputPath(`${name}-${viewport.name}.png`),
         fullPage: true,
