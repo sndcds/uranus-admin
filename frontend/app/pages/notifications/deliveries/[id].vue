@@ -116,7 +116,7 @@ const technical = computed(() =>
 )
 </script>
 <template>
-  <section class="operations-page">
+  <section class="operations-page [overflow-wrap:anywhere]">
     <PageHeader
       :title="data?.subject || 'E-Mail-Versand'"
       :description="data?.recipient || 'Ein Versandauftrag mit unveränderlicher Historie.'"

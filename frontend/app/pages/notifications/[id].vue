@@ -44,7 +44,7 @@ onMounted(load)
 watch(() => route.params.id, load, { flush: 'sync' })
 </script>
 <template>
-  <section class="operations-page">
+  <section class="operations-page [overflow-wrap:anywhere]">
     <PageHeader
       :title="data?.entity_name || 'Benachrichtigung'"
       :description="data?.payload.organization_name || 'Fachlicher Zustand und zugehörige E-Mails.'"

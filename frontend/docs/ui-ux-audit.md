@@ -653,15 +653,15 @@ Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung de
 | `/activity`                      | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
 | `/inbox`                         | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/findings`                      | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
-| `/checks`                        | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
+| `/checks`                        | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
 | `/quality`                       | OVERVIEW              | OVERVIEW                 | OVERVIEW                                                 | offen (P2) |
-| `/queues/partner_requests`       | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
-| `/queues/team_invitations`       | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
-| `/queues/user_activation`        | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
-| `/notifications`                 | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P1) |
-| `/notifications/:id`             | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
-| `/notifications/deliveries`      | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
-| `/notifications/deliveries/:id`  | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P1) |
+| `/queues/partner_requests`       | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/queues/team_invitations`       | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/queues/user_activation`        | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/notifications`                 | COLLECTION            | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/notifications/:id`             | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/notifications/deliveries`      | COLLECTION            | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
+| `/notifications/deliveries/:id`  | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
 | `/marks`                         | COLLECTION            | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/marks/:id`                     | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/geocoding`                     | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |

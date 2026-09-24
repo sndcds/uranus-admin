@@ -395,3 +395,81 @@ describe('manual delivery retries', () => {
     ).toBe(401)
   })
 })
+
+describe('delivery identity and mutation boundaries', () => {
+  it('discards a late retry result after navigation to another delivery', async () => {
+    route.params.id = notificationDeliveryDetail.id
+    api.notificationDelivery.mockResolvedValue({
+      ...notificationDeliveryDetail,
+      status: 'permanent_failure',
+    })
+    let resolve!: (value: { delivery_id: string }) => void
+    api.retryNotificationDelivery.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        }),
+    )
+    const view = mount(Delivery, { global })
+    await flushPromises()
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Erneut versuchen')!
+      .trigger('click')
+    await flushPromises()
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Versand erneut einreihen')!
+      .trigger('click')
+    const nextId = '10000000-0000-4000-8000-000000000098'
+    api.notificationDelivery.mockResolvedValue({
+      ...notificationDeliveryDetail,
+      id: nextId,
+      subject: 'Anderer Auftrag',
+    })
+    route.params.id = nextId
+    await flushPromises()
+    resolve({ delivery_id: '10000000-0000-4000-8000-000000000099' })
+    await flushPromises()
+    expect(navigate).not.toHaveBeenCalled()
+    expect(view.text()).toContain('Anderer Auftrag')
+    expect(view.find('dialog').attributes('open')).toBeUndefined()
+    view.unmount()
+  })
+  it('clears protected delivery data when retry authorization fails', async () => {
+    route.params.id = notificationDeliveryDetail.id
+    api.notificationDelivery.mockResolvedValue({
+      ...notificationDeliveryDetail,
+      status: 'permanent_failure',
+    })
+    api.retryNotificationDelivery.mockRejectedValueOnce(new AdminApiError(failure(403)))
+    const view = mount(Delivery, { global })
+    await flushPromises()
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Erneut versuchen')!
+      .trigger('click')
+    await flushPromises()
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Versand erneut einreihen')!
+      .trigger('click')
+    await flushPromises()
+    expect(view.text()).not.toContain('recipient@example.test')
+    expect(view.text()).not.toContain('Enthaltene Hinweise')
+    expect(navigate).not.toHaveBeenCalled()
+    view.unmount()
+  })
+  it('allows an explicitly confirmed retry when all successors were cancelled', async () => {
+    api.notificationDelivery.mockResolvedValue({
+      ...notificationDeliveryDetail,
+      status: 'permanent_failure',
+      retries: [{ ...notificationDeliveryDetail, status: 'cancelled' }],
+    })
+    const view = mount(Delivery, { global })
+    await flushPromises()
+    expect(view.findAll('button').some((button) => button.text() === 'Erneut versuchen')).toBe(true)
+    expect(api.retryNotificationDelivery).not.toHaveBeenCalled()
+    view.unmount()
+  })
+})

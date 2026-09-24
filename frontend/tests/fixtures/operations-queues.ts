@@ -23,7 +23,12 @@ export function queueOperations(kind: QueuePage['kind']): QueuePage {
     items: ['Kulturhaus am Hafen', 'Atelier Nord', 'Musikverein West'].map((name, i) => {
       const key = `10000000-0000-4000-8000-00000000010${i}`
       const user = `10000000-0000-4000-8000-00000000011${i}`
-      const entity_key = kind === 'team_invitations' ? `membership:${key}:${user}` : user
+      const entity_key =
+        kind === 'team_invitations'
+          ? `membership:${key}:${user}`
+          : kind === 'partner_requests'
+            ? `partner-request:${key}:${user}`
+            : user
       return {
         ...base,
         entity_key,
@@ -46,21 +51,12 @@ export function queueOperations(kind: QueuePage['kind']): QueuePage {
         invited_at: kind === 'team_invitations' ? '2026-09-12T08:00:00Z' : null,
         age_days: i === 2 ? null : 12 + i,
         age_basis: kind === 'team_invitations' ? 'invited_at' : 'created_at',
-        action:
-          kind === 'team_invitations'
-            ? {
-                type: 'view',
-                route: kind,
-                entity_key,
-                href: `/queues/${kind}?entity_key=${encodeURIComponent(entity_key)}`,
-              }
-            : {
-                type: 'view',
-                route: 'activity',
-                entity_type: 'user',
-                entity_key: user,
-                href: `/users/${user}`,
-              },
+        action: {
+          type: 'view',
+          route: kind,
+          entity_key,
+          href: `/queues/${kind}?entity_key=${encodeURIComponent(entity_key)}`,
+        },
         checks:
           i === 2
             ? [

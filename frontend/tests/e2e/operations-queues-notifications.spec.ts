@@ -302,3 +302,37 @@ test('delivery filters keep exact kind, organization, period and status in the U
   await expect(page).toHaveURL('/notifications/deliveries')
   await expect(page.getByRole('combobox', { name: 'Status', exact: true })).toHaveValue('')
 })
+
+test('long detail identities and stored payload stay contained at 360px', async ({ page }) => {
+  await mockQueueOperations(page)
+  await page.setViewportSize({ width: 360, height: 800 })
+  const longName = 'SehrLangerDatensatzname'.repeat(12)
+  await page.route(`**/api/admin/api/v1/notifications/${notification.id}`, (route) =>
+    route.fulfill({
+      json: {
+        ...operationNotifications.items[0],
+        entity_name: longName,
+        deliveries: [],
+        delivery_enabled: false,
+        payload: { ...notification.payload, organization_name: longName, entity_name: longName },
+      },
+    }),
+  )
+  await page.goto(`/notifications/${notification.id}`)
+  await expect(page.getByRole('heading', { name: longName, exact: true })).toBeVisible()
+  await page.getByText('Gespeicherte Daten', { exact: true }).click()
+  await expect(page.locator('details pre')).toContainText(longName)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.route(`**/api/admin/api/v1/notification-deliveries/${operationDelivery.id}`, (route) =>
+    route.fulfill({
+      json: {
+        ...operationDelivery,
+        subject: longName,
+        recipient: `${'recipient'.repeat(30)}@example.test`,
+      },
+    }),
+  )
+  await page.goto(`/notifications/deliveries/${operationDelivery.id}`)
+  await expect(page.getByRole('heading', { name: longName, exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
