@@ -1010,22 +1010,62 @@ export const searchFieldSchema = z.enum([
   'alt_text',
   'creator_name',
   'mime_type',
+  'start_date',
+  'start_time',
 ])
+export const globalSearchTypeSchema = z.enum([
+  'user',
+  'organization',
+  'venue',
+  'space',
+  'event',
+  'event_date',
+  'image',
+  'partner_request',
+  'team_membership',
+])
+export type GlobalSearchType = z.infer<typeof globalSearchTypeSchema>
+
 export const globalSearchItemSchema = z
   .object({
-    entity_type: entitySearchTypeSchema,
-    entity_key: z.uuid(),
+    entity_type: globalSearchTypeSchema,
+    entity_key: z.string().min(1).max(1024),
     label: z.string(),
     subtitle: z.string().nullable(),
     action: actionSchema,
     matched_fields: z.array(searchFieldSchema).max(7),
   })
-  .refine(
-    (item) =>
-      item.action.route === 'activity' &&
-      item.action.entity_type === item.entity_type &&
-      item.action.entity_key === item.entity_key,
-  )
+  .refine((item) => {
+    const action = item.action
+    if (item.entity_type === 'event_date') {
+      return (
+        z.uuid().safeParse(item.entity_key).success &&
+        action.route === 'activity' &&
+        ((action.entity_type === 'event' && z.uuid().safeParse(action.entity_key).success) ||
+          (action.entity_type === 'event_date' && action.entity_key === item.entity_key))
+      )
+    }
+    const workflow =
+      item.entity_type === 'partner_request'
+        ? { prefix: 'partner-request', route: 'partner_requests' }
+        : item.entity_type === 'team_membership'
+          ? { prefix: 'membership', route: 'team_invitations' }
+          : null
+    const parts = item.entity_key.split(':')
+    const validKey = workflow
+      ? parts.length === 3 &&
+        parts[0] === workflow.prefix &&
+        z.uuid().safeParse(parts[1]).success &&
+        z.uuid().safeParse(parts[2]).success
+      : z.uuid().safeParse(item.entity_key).success
+    return (
+      validKey &&
+      action.route === (workflow?.route ?? 'activity') &&
+      action.entity_type === item.entity_type &&
+      action.entity_key === item.entity_key
+    )
+  }, 'Mismatched global search action')
+
 export const globalSearchResponseSchema = z
   .object({
     query: z.string().min(2).max(120),
@@ -1033,12 +1073,12 @@ export const globalSearchResponseSchema = z
       .array(
         z
           .object({
-            entity_type: entitySearchTypeSchema,
+            entity_type: globalSearchTypeSchema,
             items: z.array(globalSearchItemSchema).min(1).max(10),
           })
           .refine((group) => group.items.every((item) => item.entity_type === group.entity_type)),
       )
-      .max(6),
+      .max(9),
   })
   .refine((response) => {
     const types = response.groups.map((group) => group.entity_type)
@@ -1047,8 +1087,8 @@ export const globalSearchResponseSchema = z
       types.every(
         (type, index) =>
           index === 0 ||
-          entitySearchTypeSchema.options.indexOf(types[index - 1]!) <
-            entitySearchTypeSchema.options.indexOf(type),
+          globalSearchTypeSchema.options.indexOf(types[index - 1]!) <
+            globalSearchTypeSchema.options.indexOf(type),
       )
     )
   })

@@ -79,7 +79,7 @@ Der Bearer-Token ist kein Uranus-Benutzer. Development-Override ist in Productio
 | POST `/auth/login`, `/auth/logout` | Eigene Admin-Anmeldung bzw. Sitzungswiderruf; exakte Origin/CSRF |
 | GET `/auth/session` | Aktive Identität und getrennt geprüfte globale Berechtigung |
 | GET `/health`, `/ready` | Liveness / DB-Readiness; ohne Datenpreisgabe |
-| GET `/api/v1/search` | Authentifizierte globale Suche; q 2–120, maximal 10 je Typ / 60 insgesamt |
+| GET `/api/v1/search` | Authentifizierte globale Suche; q 2–120, maximal 10 je Typ / 90 insgesamt |
 | GET `/api/v1/dashboard/summary` | Neuanlagen today/24h/7d; Qualität aller implementierten Regeln |
 | GET `/api/v1/dashboard/activity` | Neuanlagenliste für neun Typen, Org-/Zeitfilter und Pagination; undatierte Bilder separat |
 | GET `/api/v1/findings` | Standard `mode=persisted`; explizite Diagnose `mode=live`, Severity/Typ/Regel/Org/Status/Pagination |
@@ -193,14 +193,15 @@ Registered Diagnostics und SQL Provenance behalten ihre bisherigen begrenzten Pf
 
 **Ctrl+K / Cmd+K** oder der Suchtrigger im Desktop-/Mobile-Header öffnet die globale
 Palette auf geschützten Seiten. Sie durchsucht lokale Admin-Navigation sowie Benutzer,
-Organisationen, Orte, Räume, Veranstaltungen und Bilder. Benutzer sind auch über E-Mail
+Organisationen, Orte, Räume, Veranstaltungen, Termine, Bilder, Partneranfragen und
+Teameinladungen/Mitgliedschaften. Benutzer sind auch über E-Mail
 auffindbar; fehlende Anzeigenamen fallen auf Username, E-Mail und zuletzt UUID zurück.
 Entity-Autocomplete, globale Suche und Graph-Root-Suche teilen kanonische Suchfelder,
 Labels und Ranking (exakte UUID, exaktes Feld, Präfix, Teilstring, Label, Schlüssel).
 
 `GET /api/v1/search`: q 2–120 Zeichen, standardmäßig fünf und maximal zehn Treffer pro
-Typ, insgesamt maximal 60; optional `types=user,venue`. Die Palette sucht systemweit,
-unabhängig von Zeitraum/Gebiet, und öffnet serverseitig erzeugte Detail-Actions.
+Typ, insgesamt maximal 90; optional `types=user,venue`. Die Palette sucht systemweit,
+unabhängig von Zeitraum/Gebiet, und öffnet serverseitig erzeugte Detail- oder Queue-Actions.
 Keine Suchhistorie, Browser-Persistenz, Analytics oder Query-Logs. Source bleibt read-only;
 keine Migrationen/Grants/Worker-Änderungen. Backend und Frontend gemeinsam ausrollen.
 

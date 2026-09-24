@@ -30,33 +30,46 @@ def escape_search(value: str) -> str:
 @dataclass(frozen=True)
 class SearchDefinition:
     source: str
-    fields: tuple[str, ...]  # First field is always the UUID cast to text.
+    fields: tuple[str, ...]  # UUID fields are identified by field_names, including related UUIDs.
     label: str
     subtitle: str
     field_names: tuple[str, ...] = field(kw_only=True)
     created_at: str = field(kw_only=True)
     organization: str = "NULL::uuid"
     status: str = "NULL::text"
+    entity_key: str | None = field(default=None, kw_only=True)
+    # Only event dates need a distinct, joined parent target; never a database href.
+    action_key: str = field(default="NULL::text", kw_only=True)
 
     def projection(self) -> str:
         fields = ",".join(f"{field} search_{i}" for i, field in enumerate(self.fields))
         return (
-            f"SELECT {self.fields[0]} entity_key,{self.label} label,{self.subtitle} subtitle,"
+            f"SELECT {self.entity_key or self.fields[0]} entity_key,"
+            f"{self.label} label,{self.subtitle} subtitle,{self.action_key} action_key,"
             f"{self.created_at} created_at,{self.organization} organization_id,"
             f"{self.status} status,{fields} FROM {self.source}"
         )
 
     def rank(self) -> str:
+        uuid_matches = " OR ".join(
+            f"search_{i} ILIKE :exact" for i, name in enumerate(self.field_names) if name == "uuid"
+        )
         return (
-            f"CASE WHEN search_0 ILIKE :exact THEN 0 "
+            f"CASE WHEN {uuid_matches} THEN 0 "
             f"WHEN {self.matches('exact')} THEN 1 "
             f"WHEN {self.matches('prefix')} THEN 2 ELSE 3 END"
         )
 
     def matched_fields(self) -> str:
         fields = ",".join(
-            f"CASE WHEN search_{i} ILIKE :q THEN '{name}' END"
-            for i, name in enumerate(self.field_names)
+            "CASE WHEN "
+            + " OR ".join(
+                f"search_{i} ILIKE :q"
+                for i, field_name in enumerate(self.field_names)
+                if field_name == name
+            )
+            + f" THEN '{name}' END"
+            for name in dict.fromkeys(self.field_names)
         )
         return f"array_remove(ARRAY[{fields}],NULL)"
 
@@ -142,6 +155,60 @@ SEARCH_DEFINITIONS = {
         "NULLIF(i.mime_type,'')",
         field_names=("uuid", "file_name", "alt_text", "creator_name", "mime_type"),
         created_at="i.created_at",
+    ),
+    "event_date": SearchDefinition(
+        "uranus.event_date d LEFT JOIN uranus.event e ON e.uuid=d.event_uuid",
+        (
+            "d.uuid::text",
+            "d.event_uuid::text",
+            "e.title",
+            "to_char(d.start_date,'YYYY-MM-DD')",
+            "to_char(d.start_date,'DD.MM.YYYY')",
+            "to_char(d.start_time,'HH24:MI')",
+        ),
+        "COALESCE(NULLIF(btrim(e.title),''),'Termin ohne Veranstaltungstitel')",
+        "concat_ws(' · ',to_char(d.start_date,'DD.MM.YYYY'),"
+        "CASE WHEN d.all_day THEN 'Ganztägig' ELSE to_char(d.start_time,'HH24:MI') END)",
+        field_names=("uuid", "uuid", "title", "start_date", "start_date", "start_time"),
+        created_at="d.created_at",
+        organization="e.org_uuid",
+        action_key="e.uuid::text",
+    ),
+    "partner_request": SearchDefinition(
+        "uranus.organization_partner_request p "
+        "LEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid "
+        "LEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid",
+        ("p.from_org_uuid::text", "p.to_org_uuid::text", "f.name", "t.name"),
+        "COALESCE(NULLIF(btrim(f.name),''),'Organisation ohne Namen')||' → '||"
+        "COALESCE(NULLIF(btrim(t.name),''),'Organisation ohne Namen')",
+        "CASE p.status WHEN 'pending' THEN 'Ausstehend' "
+        "WHEN 'accepted' THEN 'Angenommen' ELSE NULLIF(p.status,'') END",
+        field_names=("uuid", "uuid", "name", "name"),
+        created_at="p.created_at",
+        organization="p.from_org_uuid",
+        status="p.status",
+        entity_key="'partner-request:'||p.from_org_uuid||':'||p.to_org_uuid",
+    ),
+    "team_membership": SearchDefinition(
+        "uranus.organization_member_link m "
+        "LEFT JOIN uranus.organization o ON o.uuid=m.org_uuid "
+        'LEFT JOIN uranus."user" u ON u.uuid=m.user_uuid',
+        (
+            "m.org_uuid::text",
+            "m.user_uuid::text",
+            "o.name",
+            "u.username",
+            "u.display_name",
+            "u.email",
+        ),
+        f"COALESCE({USER_DISPLAY_LABEL_SQL},m.user_uuid::text)",
+        "COALESCE(NULLIF(btrim(o.name),''),'Organisation ohne Namen')||' · '||"
+        "CASE WHEN m.has_joined THEN 'Beigetreten' ELSE 'Eingeladen' END",
+        field_names=("uuid", "uuid", "name", "username", "display_name", "email"),
+        created_at="m.created_at",
+        organization="m.org_uuid",
+        status="CASE WHEN m.has_joined THEN 'joined' ELSE 'invited' END",
+        entity_key="'membership:'||m.org_uuid||':'||m.user_uuid",
     ),
 }
 
@@ -230,18 +297,18 @@ def search_parameters(q: str) -> dict[str, str]:
 
 
 def global_search_query(filters: GlobalSearchFilters) -> ReadQuery:
-    # Each branch sorts/limits in PostgreSQL before UNION; at most 60 compact rows.
+    # Each branch sorts/limits in PostgreSQL before UNION; at most 90 compact rows.
     branches = []
     for kind in filters.selected_types:
         definition = SEARCH_DEFINITIONS[kind]
-        branches.append(f"""(SELECT '{kind}' entity_type,entity_key,label,subtitle,
+        branches.append(f"""(SELECT '{kind}' entity_type,entity_key,label,subtitle,action_key,
             {definition.matched_fields()} matched_fields,{definition.rank()} rank
             FROM ({definition.projection()}) a WHERE ({definition.matches()})
             ORDER BY rank,lower(label) COLLATE "C",entity_key COLLATE "C"
             LIMIT :limit)""")
     return ReadQuery(
         text(
-            "SELECT entity_type,entity_key,label,subtitle,matched_fields FROM ("
+            "SELECT entity_type,entity_key,label,subtitle,action_key,matched_fields FROM ("
             + " UNION ALL ".join(branches)
             + ') a ORDER BY entity_type COLLATE "C",rank,lower(label) COLLATE "C",'
             'entity_key COLLATE "C"'
@@ -257,12 +324,22 @@ async def global_search(
     rows = (await connection.execute(query.statement, query.parameters)).mappings()
     groups: dict[str, list[GlobalSearchItem]] = {}
     for row in rows:
-        item = GlobalSearchItem(
-            **row,
-            action=Action(
-                route="activity", entity_type=row["entity_type"], entity_key=row["entity_key"]
-            ),
-        )
+        data = dict(row)
+        parent_key = data.pop("action_key")
+        kind = data["entity_type"]
+        if kind == "event_date" and parent_key is not None:
+            action = Action(route="activity", entity_type="event", entity_key=parent_key)
+        elif kind == "partner_request":
+            action = Action(
+                route="partner_requests", entity_type=kind, entity_key=data["entity_key"]
+            )
+        elif kind == "team_membership":
+            action = Action(
+                route="team_invitations", entity_type=kind, entity_key=data["entity_key"]
+            )
+        else:
+            action = Action(route="activity", entity_type=kind, entity_key=data["entity_key"])
+        item = GlobalSearchItem(**data, action=action)
         groups.setdefault(item.entity_type, []).append(item)
     return GlobalSearchResponse(
         query=filters.q,

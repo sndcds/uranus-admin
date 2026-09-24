@@ -5,9 +5,19 @@ from typing import Literal, get_args
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.action import Action
-from app.schemas.entities import EntitySearchType
 
-SEARCH_TYPES: tuple[EntitySearchType, ...] = get_args(EntitySearchType)
+GlobalSearchType = Literal[
+    "user",
+    "organization",
+    "venue",
+    "space",
+    "event",
+    "event_date",
+    "image",
+    "partner_request",
+    "team_membership",
+]
+SEARCH_TYPES: tuple[GlobalSearchType, ...] = get_args(GlobalSearchType)
 
 
 SearchFieldName = Literal[
@@ -32,6 +42,8 @@ SearchFieldName = Literal[
     "alt_text",
     "creator_name",
     "mime_type",
+    "start_date",
+    "start_time",
 ]
 
 
@@ -41,8 +53,8 @@ class GlobalSearchFilters(BaseModel):
     limit_per_type: int = Field(default=5, ge=1, le=10)
     types: str | None = Field(
         default=None,
-        max_length=48,
-        description="Comma-separated unique types: user,organization,venue,space,event,image",
+        max_length=96,
+        description="Comma-separated unique types: " + ",".join(SEARCH_TYPES),
     )
 
     @field_validator("q", mode="before")
@@ -60,14 +72,14 @@ class GlobalSearchFilters(BaseModel):
         return value
 
     @property
-    def selected_types(self) -> tuple[EntitySearchType, ...]:
+    def selected_types(self) -> tuple[GlobalSearchType, ...]:
         return tuple(
             kind for kind in SEARCH_TYPES if self.types is None or kind in self.types.split(",")
         )
 
 
 class GlobalSearchItem(BaseModel):
-    entity_type: EntitySearchType
+    entity_type: GlobalSearchType
     entity_key: str
     label: str
     subtitle: str | None
@@ -76,10 +88,10 @@ class GlobalSearchItem(BaseModel):
 
 
 class GlobalSearchGroup(BaseModel):
-    entity_type: EntitySearchType
+    entity_type: GlobalSearchType
     items: list[GlobalSearchItem] = Field(min_length=1, max_length=10)
 
 
 class GlobalSearchResponse(BaseModel):
     query: str = Field(min_length=2, max_length=120)
-    groups: list[GlobalSearchGroup] = Field(max_length=6)
+    groups: list[GlobalSearchGroup] = Field(max_length=9)

@@ -478,6 +478,15 @@ keine neuen Persistenzsysteme. Bei Konflikt aktuelle Version explizit laden, kei
 
 ## 12. Suche
 
+Die globale Palette durchsucht systemweit Benutzer, Organisationen, Orte, Räume,
+Veranstaltungen, Termine, Bilder, Partneranfragen und Teameinladungen/Mitgliedschaften.
+Geo Scope beeinflusst Global Search nicht. Nur Gruppen mit Treffern erscheinen;
+Navigation steht davor. Vorhandene Typ-Icons bleiben kanonisch. „Teameinladungen“
+ist das Queue-Gruppenlabel; Untertitel zeigen „Eingeladen“ oder „Beigetreten“.
+Termine öffnen vorhandene Event-Details beziehungsweise Activity; Workflow-Treffer
+öffnen validierte Queue-Deep-Links. Standard maximal 45, API maximal 90 Remote-Treffer.
+Placeholder: „Name, E-Mail, Titel oder UUID …“.
+
 Globale Suche: synchroner Input/Navigation, debounced Remote-Query, resultQuery und letzte
 Ergebnisse getrennt. Bestehende Ergebnisse während Revalidation, feste responsive Höhe,
 Loading im Input, Status ohne Layout-Shift. Arrow-Navigation scrollt, Tippen nicht.

@@ -202,6 +202,8 @@ async def test_ranking_bounds_stability_and_single_select(db_connection, setting
         {"limit": 0},
         {"organization_id": "invalid"},
         {"entity_type": "event_date"},
+        {"entity_type": "partner_request"},
+        {"entity_type": "team_membership"},
         {"entity_type": "user;DROP TABLE"},
     ],
 )
@@ -443,7 +445,7 @@ async def test_global_ranking_limits_single_query_and_explain(db_connection):
             str(uid(n)) for n in (102, 104, 101, 103)
         ]
         assert len(statements) == 1
-        assert statements[0].count("LIMIT") == 6
+        assert statements[0].count("LIMIT") == 9
         assert "SELECT *" not in statements[0]
     finally:
         event.remove(db_connection.sync_connection, "before_cursor_execute", capture)
@@ -469,7 +471,7 @@ async def test_global_ranking_limits_single_query_and_explain(db_connection):
         for child in node.get("Plans", []):
             yield from nodes(child)
 
-    assert sum(n["Node Type"] == "Limit" for n in nodes(plan[0]["Plan"])) == 6
+    assert sum(n["Node Type"] == "Limit" for n in nodes(plan[0]["Plan"])) == 9
 
 
 def test_global_bound_parameters_and_definition_fields():
@@ -522,3 +524,236 @@ async def test_global_default_and_max_group_limit(search_client, db_connection, 
         assert len(groups) == 1
         assert groups[0]["entity_type"] == "image"
         assert len(groups[0]["items"]) == count
+
+
+@pytest.mark.integration
+async def test_global_event_dates(search_client, db_connection, headers):
+    await db_connection.execute(
+        text(
+            "UPDATE uranus.event_date SET start_date='2026-10-12',start_time='19:00' WHERE uuid=:id"
+        ),
+        {"id": uid(40)},
+    )
+    for query, matched in (
+        ("hacks on the BEACH", "title"),
+        (str(uid(40)), "uuid"),
+        (str(uid(30)), "uuid"),
+        ("2026-10-12", "start_date"),
+        ("12.10.2026", "start_date"),
+        ("19:00", "start_time"),
+    ):
+        response = await search_client.get(
+            "/api/v1/search",
+            params={"q": query, "types": "event_date", "limit_per_type": 10},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        item = next(
+            i for i in response.json()["groups"][0]["items"] if i["entity_key"] == str(uid(40))
+        )
+        assert item["label"] == "hacks on the BEACH"
+        assert item["subtitle"] == "12.10.2026 · 19:00"
+        assert item["matched_fields"] == [matched]
+        assert item["action"]["entity_type"] == "event"
+        assert item["action"]["href"] == f"/events/{uid(30)}"
+    await db_connection.execute(
+        text("UPDATE uranus.event_date SET event_uuid=NULL,all_day=true WHERE uuid=:id"),
+        {"id": uid(40)},
+    )
+    data = (
+        await search_client.get(
+            "/api/v1/search",
+            params={"q": str(uid(40)), "types": "event_date"},
+            headers=headers,
+        )
+    ).json()["groups"][0]["items"][0]
+    assert data["label"] == "Termin ohne Veranstaltungstitel"
+    assert data["subtitle"] == "12.10.2026 · Ganztägig"
+    assert data["action"]["href"] == f"/activity?entity_key={uid(40)}&entity_type=event_date"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("joined", [False, True])
+async def test_global_memberships_search_and_queue_action(
+    search_client, db_connection, headers, joined
+):
+    from urllib.parse import urlsplit
+
+    await db_connection.execute(
+        text("UPDATE uranus.organization_member_link SET has_joined=:joined,invited_at=NULL"),
+        {"joined": joined},
+    )
+    key = f"membership:{uid(10)}:{uid(1)}"
+    for query, field in (
+        ("Max Mustermann", "display_name"),
+        ("max@example.org", "email"),
+        ("OK Lab", "name"),
+        (str(uid(10)), "uuid"),
+        (str(uid(1)), "uuid"),
+        ("max", "username"),
+    ):
+        response = await search_client.get(
+            "/api/v1/search",
+            params={"q": query, "types": "team_membership"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        item = response.json()["groups"][0]["items"][0]
+        assert item["entity_key"] == key
+        assert item["label"] == "Max Mustermann"
+        assert item["subtitle"] == f"OK Lab Flensburg · {'Beigetreten' if joined else 'Eingeladen'}"
+        assert field in item["matched_fields"]
+        assert "joined_at" not in response.text
+        action = item["action"]
+        assert action["route"] == "team_invitations"
+        queue = await search_client.get(
+            "/api/v1/work-queues/team_invitations?" + urlsplit(action["href"]).query,
+            headers=headers,
+        )
+        assert queue.status_code == 200
+        assert queue.json()["items"][0]["entity_key"] == key
+        assert queue.json()["items"][0]["has_joined"] is joined
+        assert queue.json()["items"][0]["invited_at"] is None
+
+
+@pytest.mark.integration
+async def test_global_partner_search_fallback_and_queue_action(
+    search_client, db_connection, headers
+):
+    from urllib.parse import urlsplit
+
+    for query in ("OK Lab", "Organization 11", str(uid(10)), str(uid(11))):
+        response = await search_client.get(
+            "/api/v1/search",
+            params={"q": query, "types": "partner_request"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        item = response.json()["groups"][0]["items"][0]
+        assert item["entity_key"] == f"partner-request:{uid(10)}:{uid(11)}"
+        assert item["label"] == "OK Lab Flensburg → Organization 11"
+        assert item["subtitle"] == "Ausstehend"
+        assert item["matched_fields"] == ["uuid" if query.startswith("0000") else "name"]
+        queue = await search_client.get(
+            "/api/v1/work-queues/partner_requests?" + urlsplit(item["action"]["href"]).query,
+            headers=headers,
+        )
+        assert queue.status_code == 200
+        assert queue.json()["items"][0]["entity_key"] == item["entity_key"]
+    await db_connection.execute(
+        text("UPDATE uranus.organization SET name='  ' WHERE uuid=:id"), {"id": uid(10)}
+    )
+    await db_connection.execute(
+        text("UPDATE uranus.organization_partner_request SET to_org_uuid=:id,status='accepted'"),
+        {"id": uid(999)},
+    )
+    item = (
+        await search_client.get(
+            "/api/v1/search",
+            params={"q": str(uid(999)), "types": "partner_request"},
+            headers=headers,
+        )
+    ).json()["groups"][0]["items"][0]
+    assert item["label"] == "Organisation ohne Namen → Organisation ohne Namen"
+    assert item["subtitle"] == "Angenommen"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("kind", ["event_date", "partner_request", "team_membership"])
+async def test_new_global_literal_metacharacters(search_client, db_connection, headers, kind):
+    value = r"100% max_ back\slash"
+    if kind == "event_date":
+        statement = "UPDATE uranus.event SET title=:value"
+    elif kind == "partner_request":
+        statement = "UPDATE uranus.organization SET name=:value"
+    else:
+        statement = 'UPDATE uranus."user" SET display_name=:value'
+    await db_connection.execute(text(statement), {"value": value})
+    for query in ("100%", "max_", "back\\", "%%", "__", r"\\"):
+        response = await search_client.get(
+            "/api/v1/search",
+            params={"q": query, "types": kind},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert bool(response.json()["groups"]) == (query in value)
+
+
+@pytest.fixture
+async def all_search_types(db_connection):
+    # One common identity across nine independent synthetic types, with enough rows
+    # to exercise real per-branch limits. These are not deployed schema evidence.
+    for n, label in enumerate(
+        ["zzneedle", "Needlework", "needle", "aneedle", "needle", str(uid(102))]
+        + ["needlezz bounded"] * 12,
+        100,
+    ):
+        params = {
+            "id": uid(n),
+            "label": label,
+            "email": f"{n}@fixture.invalid",
+            "org": uid(10),
+            "target": uid(11),
+            "venue": uid(20),
+        }
+        for sql in (
+            'INSERT INTO uranus."user" (uuid,email,password_hash,display_name) '
+            "VALUES (:id,:email,'unused',:label)",
+            "INSERT INTO uranus.organization (uuid,name) VALUES (:id,:label)",
+            "INSERT INTO uranus.venue (uuid,org_uuid,name,scope) "
+            "VALUES (:id,:org,:label,'organization')",
+            "INSERT INTO uranus.space (uuid,venue_uuid,name) VALUES (:id,:venue,:label)",
+            "INSERT INTO uranus.event (uuid,org_uuid,title) VALUES (:id,:org,:label)",
+            "INSERT INTO uranus.event_date (uuid,event_uuid,start_date) "
+            "VALUES (:id,:id,'2026-10-12')",
+            "INSERT INTO uranus.pluto_image (uuid,file_name) VALUES (:id,:label)",
+            "INSERT INTO uranus.organization_member_link (org_uuid,user_uuid) VALUES (:org,:id)",
+            "INSERT INTO uranus.organization_partner_request "
+            "(from_org_uuid,to_org_uuid,from_user_uuid) "
+            "VALUES (:id,:target,:id)",
+        ):
+            await db_connection.execute(text(sql), params)
+
+
+@pytest.mark.integration
+async def test_all_nine_ranking_grouping_and_full_bounds(all_search_types, db_connection):
+    from app.repositories.entity_search import global_search
+    from app.schemas.search import SEARCH_TYPES, GlobalSearchFilters
+
+    def key(kind, n):
+        if kind == "partner_request":
+            return f"partner-request:{uid(n)}:{uid(11)}"
+        if kind == "team_membership":
+            return f"membership:{uid(10)}:{uid(n)}"
+        return str(uid(n))
+
+    result = await global_search(db_connection, GlobalSearchFilters(q="needle", limit_per_type=3))
+    assert tuple(g.entity_type for g in result.groups) == SEARCH_TYPES
+    for group in result.groups:
+        assert [i.entity_key for i in group.items] == [
+            key(group.entity_type, n) for n in (102, 104, 101)
+        ]
+    result = await global_search(db_connection, GlobalSearchFilters(q="needle", limit_per_type=10))
+    for group in result.groups:
+        assert [i.entity_key for i in group.items][-1] == key(group.entity_type, 112)
+    # Isolate the substring tier after all prefixes by selecting an exact suffix.
+    result = await global_search(db_connection, GlobalSearchFilters(q="dle", limit_per_type=10))
+    for group in result.groups:
+        assert group.items[0].entity_key == key(group.entity_type, 103)
+
+    result = await global_search(db_connection, GlobalSearchFilters(q=str(uid(102))))
+    for group in result.groups:
+        assert [i.entity_key for i in group.items] == [
+            key(group.entity_type, n) for n in (102, 105)
+        ]
+    for limit in (None, 10):
+        filters = GlobalSearchFilters(q="needle", **({"limit_per_type": limit} if limit else {}))
+        result = await global_search(db_connection, filters)
+        assert len(result.groups) == 9
+        assert all(len(g.items) == (limit or 5) for g in result.groups)
+        assert sum(len(g.items) for g in result.groups) == (90 if limit else 45)
+    filters = GlobalSearchFilters(q="needle", types=",".join(reversed(SEARCH_TYPES)))
+    assert (
+        tuple(g.entity_type for g in (await global_search(db_connection, filters)).groups)
+        == SEARCH_TYPES
+    )

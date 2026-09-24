@@ -435,3 +435,80 @@ it('closing clears the successful snapshot and pending state, even after a late 
   expect(wrapper.get('[role="listbox"]').attributes('aria-busy')).toBe('false')
   expect(wrapper.get('[role="status"]').text()).toBe('')
 })
+
+it('renders nine groups with existing icons and navigates across every group boundary', async () => {
+  const { allGlobalSearchFixture } = await import('../fixtures/search')
+  const data = allGlobalSearchFixture()
+  api.globalSearch.mockResolvedValue(data)
+  const wrapper = setup()
+  await open()
+  await wrapper.get('input').setValue(data.query)
+  await vi.advanceTimersByTimeAsync(250)
+  expect(wrapper.findAll('[role="group"]').map((group) => group.text())).toEqual([
+    expect.stringContaining('Benutzer'),
+    expect.stringContaining('Organisationen'),
+    expect.stringContaining('Orte'),
+    expect.stringContaining('Räume'),
+    expect.stringContaining('Veranstaltungen'),
+    expect.stringContaining('Termine'),
+    expect.stringContaining('Bilder'),
+    expect.stringContaining('Partneranfragen'),
+    expect.stringContaining('Teameinladungen'),
+  ])
+  expect(
+    wrapper.findAll('[role="option"] app-icon-stub').map((icon) => icon.attributes('name')),
+  ).toEqual([
+    'user',
+    'organization',
+    'pin',
+    'space',
+    'calendar',
+    'clock',
+    'image',
+    'partner',
+    'users',
+  ])
+  for (let index = 0; index < data.groups.length; index++) {
+    expect(wrapper.get('[aria-selected="true"]').text()).toContain(
+      data.groups[index]!.items[0]!.label,
+    )
+    await wrapper.get('input').trigger('keydown', { key: 'ArrowDown' })
+  }
+  await wrapper.get('input').trigger('keydown', { key: 'ArrowUp' })
+  await wrapper.get('input').trigger('keydown', { key: 'Enter' })
+  expect(navigate).toHaveBeenLastCalledWith(data.groups[8]!.items[0]!.action.href)
+})
+
+it.each([5, 7, 8])('validates and follows the canonical new action at group %i', async (index) => {
+  const { allGlobalSearchFixture } = await import('../fixtures/search')
+  const data = allGlobalSearchFixture()
+  expect(globalSearchResponseSchema.safeParse(data).success).toBe(true)
+  api.globalSearch.mockResolvedValue(data)
+  const wrapper = setup()
+  await open()
+  await wrapper.get('input').setValue(data.query)
+  await vi.advanceTimersByTimeAsync(250)
+  for (let step = 0; step < index; step++)
+    await wrapper.get('input').trigger('keydown', { key: 'ArrowDown' })
+  await wrapper.get('input').trigger('keydown', { key: 'Enter' })
+  expect(navigate).toHaveBeenCalledWith(data.groups[index]!.items[0]!.action.href)
+  const item = data.groups[index]!.items[0]!
+  for (const href of ['https://evil.invalid', '/event_dates/' + item.entity_key, '/queues/other']) {
+    const bad = structuredClone(data)
+    bad.groups[index]!.items[0]!.action.href = href
+    expect(globalSearchResponseSchema.safeParse(bad).success).toBe(false)
+  }
+})
+
+it('keeps collection types restricted and rejects mismatched workflow keys and targets', async () => {
+  const { allGlobalSearchFixture } = await import('../fixtures/search')
+  const { entitySearchTypeSchema } = await import('../../shared/contracts')
+  for (const type of ['event_date', 'partner_request', 'team_membership'])
+    expect(entitySearchTypeSchema.safeParse(type).success).toBe(false)
+  for (const index of [7, 8]) {
+    const data = allGlobalSearchFixture()
+    const item = data.groups[index]!.items[0]!
+    item.entity_key = 'invalid-key'
+    expect(globalSearchResponseSchema.safeParse(data).success).toBe(false)
+  }
+})

@@ -75,3 +75,9 @@ export const invitationPresentation = {
   tone: 'bg-blue-50 text-blue-700',
   color: '#2563eb',
 } as const
+
+// Palette groups follow the existing queue label; items include invited and joined members.
+export const globalSearchTypes = {
+  ...entityTypes,
+  team_membership: { ...entityTypes.team_membership, plural: invitationPresentation.plural },
+} as const

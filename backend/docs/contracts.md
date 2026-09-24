@@ -1060,9 +1060,30 @@ Authenticated `GET /api/v1/search` accepts trimmed `q` (2–120 characters),
 `limit_per_type` (default 5, range 1–10), and optional `types`, a comma-separated,
 nonempty set of unique singular entity types. Example: `types=user,organization`.
 Unknown/duplicate types and extra parameters are rejected. The canonical group order
-is user, organization, venue, space, event, image, independent of the requested order.
-Empty groups are omitted. Event dates remain graph-only: no canonical standalone detail
-page exists. Global search is systemwide; it accepts no Geo Scope or period filter.
+is user, organization, venue, space, event, event_date, image, partner_request,
+team_membership, independent of the requested order. Empty groups are omitted.
+The separate GlobalSearchType covers these nine types; EntitySearchType and the six
+collection endpoints stay unchanged. Global search is systemwide; Geo Scope and
+period filters do not affect it. Default responses contain at most 45 remote results.
+
+Additional fields use the existing SearchDefinition structure:
+
+| Type | Search fields | Label / subtitle | Canonical Action |
+| --- | --- | --- | --- |
+| event_date | Date UUID, event UUID, event title, start_date (YYYY-MM-DD and DD.MM.YYYY), start_time (HH:MM) | Event title; date and evidenced time or all-day state | Parent /events/:uuid when the joined event exists; otherwise existing typed /activity target |
+| partner_request | From/to organization UUID and name | From → To, “Organisation ohne Namen” for missing/blank names; current status | /queues/partner_requests?entity_key=partner-request:<from>:<to> |
+| team_membership | Organization UUID/name, user UUID/username/display_name/email | Canonical user label; organization and invited/joined state | /queues/team_invitations?entity_key=membership:<org>:<user> |
+
+Composite keys and queue targets follow Queue/Activity semantics; keys are URL-encoded
+by Action. Both invited and joined memberships are searchable, without invented join
+timestamps. No new detail routes exist. Repeated matched-field categories are deduplicated:
+related identifiers use uuid, organization names use name, titles use title; only
+start_date and start_time extend the safe field-name vocabulary.
+
+Source evidence: existing Activity/Queue/preview queries and the local Uranus DDL at
+commit 7519046a10afc6a0168c8409271086851601cc3c (event_date,
+organization_member_link, organization_partner_request). This is repository evidence,
+not live database verification. No additional sensitive user columns are selected.
 
 Response: `{ query, groups: [{ entity_type, items: [{ entity_type, entity_key,
 label, subtitle, matched_fields, action }] }] }`. `matched_fields` contains only safe
@@ -1075,7 +1096,7 @@ missing, and subtitles omit an identity already used as the label. Email and par
 email matching are allowed only inside authenticated admin responses.
 
 One read-only SELECT uses UNION ALL with a separate SQL ranking and LIMIT in each
-branch before the outer union. At most 60 compact rows leave PostgreSQL, with no
+branch before the outer union. At most 90 compact rows leave PostgreSQL, with no
 per-result queries, Python ranking or full-table hydration. The shared rank is exact
 UUID → exact field → prefix → substring → `lower(label) COLLATE "C"` →
 `entity_key COLLATE "C"`. Fields participate equally within each tier. Paginated entity
@@ -1084,7 +1105,7 @@ Graph preserves its own total limit of 20, organization/membership and Geo Scope
 semantics, graph nodes and graph-only event-date name/UUID search. There are no changes
 to traversal, effective locations or authorization.
 
-Fixture-backed `EXPLAIN (ANALYZE, FORMAT JSON)` verifies six branch Limit nodes;
+Fixture-backed `EXPLAIN (ANALYZE, FORMAT JSON)` verifies nine branch Limit nodes;
 matching, ranking and bounded results are exercised on disposable PostgreSQL/PostGIS.
 This is sufficient for small datasets, not a production-volume latency guarantee.
 Literal ILIKE substring matching can still scan/sort many rows before LIMIT; the existing
