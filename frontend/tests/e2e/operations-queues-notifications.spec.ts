@@ -39,7 +39,11 @@ for (const viewport of [
       if (name === 'notification-detail') {
         await page.getByRole('button', { name: 'Vorschau laden' }).click()
         await expect(page.frameLocator('iframe').locator('h1')).toBeVisible()
-        await page.frameLocator('iframe').locator('h1').scrollIntoViewIfNeeded()
+        // Scroll the iframe element, not an element in its opaque sandbox frame.
+        await page
+          .locator('iframe')
+          .evaluate((frame) => frame.scrollIntoView({ block: 'center', behavior: 'instant' }))
+        await expect(page.locator('iframe')).toBeInViewport()
         await expect(page.locator('details')).not.toHaveAttribute('open', '')
       }
       if (name === 'delivery-detail')
