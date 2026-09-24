@@ -69,6 +69,11 @@ for (const size of sizes) {
       if (section !== 'spaces')
         await expect(rows.first().getByRole('img')).toHaveJSProperty('naturalWidth', 1280)
       await expect(page.locator('.collection-header')).toBeVisible({ visible: size.width > 1100 })
+      await expect(page.locator('.collection-header > span')).toHaveText(
+        section === 'spaces'
+          ? ['Datensatz', 'Kontext', 'Status / Erstellt']
+          : ['Datensatz', 'Kontext', 'Fakten', 'Status / Erstellt'],
+      )
       const controls = await rows
         .first()
         .locator('a, button')

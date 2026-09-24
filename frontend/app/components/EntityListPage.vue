@@ -245,8 +245,10 @@ const hasFilters = computed(() =>
         :class="{ 'collection-context-only': section === 'spaces' }"
       >
         <div class="collection-header" aria-hidden="true">
-          <span>Datensatz</span><span>Kontext</span><span>Fakten</span
-          ><span>Status / Erstellt</span>
+          <span>Datensatz</span>
+          <span>Kontext</span>
+          <span v-if="section !== 'spaces'">Fakten</span>
+          <span>Status / Erstellt</span>
         </div>
         <ul class="data-list-dense" :aria-label="entitySections[section].title">
           <EntityCollectionRow
