@@ -39,10 +39,17 @@ for (const viewport of [
       if (name === 'notification-detail') {
         await page.getByRole('button', { name: 'Vorschau laden' }).click()
         await expect(page.frameLocator('iframe').locator('h1')).toBeVisible()
+        await page.frameLocator('iframe').locator('h1').scrollIntoViewIfNeeded()
         await expect(page.locator('details')).not.toHaveAttribute('open', '')
       }
       if (name === 'delivery-detail')
         await expect(page.getByRole('combobox', { name: 'Zuständig', exact: true })).toBeVisible()
+      if (viewport.width === 1024) {
+        const header = page.locator('main header').first()
+        const title = await header.getByRole('heading').boundingBox()
+        const actions = await header.locator('[data-page-header-actions]').boundingBox()
+        expect(actions!.y).toBeGreaterThanOrEqual(title!.y + title!.height)
+      }
       for (const table of await page.locator('main table').all()) {
         await expect(table.locator('caption')).not.toBeEmpty()
         const display = await table

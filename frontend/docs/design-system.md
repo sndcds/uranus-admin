@@ -243,7 +243,9 @@ keine Zusatzabfrage oder Umdeutung eines beliebigen enthaltenen Hinweises.
 beschriftetes zweispaltiges Raster, unter 640px auf eine Spalte. Default bleibt der
 bisherige Mobile-Breakpoint. Optionale Spaltenbreiten gewichten Fachinhalt; caption,
 scope und explizite Tabellenrollen bleiben erhalten. FilterBar unterstützt optional
-`columns=3` für die Queue-Toolbar; Default bleibt vier. NotificationPreview kann
+`columns=3` für die Queue-Toolbar; Default bleibt vier. PageHeader setzt mit
+`stackActions` seine Aktionen auf Tablet unter die Identität, damit lange Toolbars
+den Titel nicht zusammendrücken; andere Seiten behalten das bisherige Verhalten. NotificationPreview kann
 `embedded` ohne doppelte Abschnittsüberschrift erscheinen; iframe/Sandbox/CSP/Locale
 bleiben unverändert. NotificationDeliveryTable teilt die gleiche Versanddarstellung
 zwischen Liste und fachlicher Historie. OperationTime rendert belegte Instants mit

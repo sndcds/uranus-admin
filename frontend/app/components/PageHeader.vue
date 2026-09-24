@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import SqlProvenanceButton from './sql/SqlProvenanceButton.vue'
-defineProps<{ title: string; description?: string; titleId?: string; record?: boolean }>()
+defineProps<{
+  title: string
+  description?: string
+  titleId?: string
+  record?: boolean
+  stackActions?: boolean
+}>()
 </script>
 <template>
-  <header class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+  <header
+    class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
+    :class="{ 'operations-header': stackActions }"
+  >
     <div class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row">
       <slot name="leading" />
       <div class="min-w-0">
@@ -35,3 +44,16 @@ defineProps<{ title: string; description?: string; titleId?: string; record?: bo
     </div>
   </header>
 </template>
+
+<style scoped>
+/* Opt-in: keep the record identity readable beside a full operations toolbar. */
+@media (min-width: 640px) and (max-width: 1100px) {
+  .operations-header {
+    flex-direction: column;
+  }
+  .operations-header > [data-page-header-actions] {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+</style>

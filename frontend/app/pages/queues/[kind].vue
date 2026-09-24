@@ -84,6 +84,7 @@ const columns = [
 <template>
   <section class="operations-page">
     <PageHeader
+      stack-actions
       :title="kind.success ? titles[kind.data] : 'Unbekannte Arbeitsliste'"
       :description="kind.success ? descriptions[kind.data] : undefined"
       ><button class="button" :disabled="loading" @click="load">Aktualisieren</button></PageHeader

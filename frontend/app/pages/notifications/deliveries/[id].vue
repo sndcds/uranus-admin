@@ -118,6 +118,7 @@ const technical = computed(() =>
 <template>
   <section class="operations-page [overflow-wrap:anywhere]">
     <PageHeader
+      stack-actions
       :title="data?.subject || 'E-Mail-Versand'"
       :description="data?.recipient || 'Ein Versandauftrag mit unveränderlicher Historie.'"
       record

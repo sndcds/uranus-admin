@@ -46,6 +46,7 @@ watch(() => route.params.id, load, { flush: 'sync' })
 <template>
   <section class="operations-page [overflow-wrap:anywhere]">
     <PageHeader
+      stack-actions
       :title="data?.entity_name || 'Benachrichtigung'"
       :description="data?.payload.organization_name || 'Fachlicher Zustand und zugehörige E-Mails.'"
       record

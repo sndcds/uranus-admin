@@ -68,6 +68,7 @@ const columns = [
 <template>
   <section class="operations-page">
     <PageHeader
+      stack-actions
       title="Benachrichtigungen"
       description="Fachliche Hinweise, ihr Zustand und zugehörige E-Mail-Versände."
     >

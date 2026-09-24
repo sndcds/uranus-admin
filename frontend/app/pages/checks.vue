@@ -92,7 +92,11 @@ const columns = [
 
 <template>
   <section class="operations-page">
-    <PageHeader title="Prüfläufe" description="Gespeicherte Prüfungen und Regelabdeckung.">
+    <PageHeader
+      stack-actions
+      title="Prüfläufe"
+      description="Gespeicherte Prüfungen und Regelabdeckung."
+    >
       <button class="button-primary" :disabled="running || loading || pending" @click="run">
         {{ running || pending ? 'Prüfung läuft …' : 'Prüflauf starten' }}
       </button>

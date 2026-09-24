@@ -53,6 +53,7 @@ watch(() => route.fullPath, load, { flush: 'sync' })
 <template>
   <section class="operations-page">
     <PageHeader
+      stack-actions
       title="E-Mail-Versände"
       description="Versandstatus, Fehler und erneute Zustellversuche prüfen."
     >
