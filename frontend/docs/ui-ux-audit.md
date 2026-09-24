@@ -665,7 +665,7 @@ Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung de
 | Route                            | Ausgangszustand       | Aktueller Zustand        | Zielzustand                                              | Status     |
 | -------------------------------- | --------------------- | ------------------------ | -------------------------------------------------------- | ---------- |
 | `/`                              | OVERVIEW              | Operations Overview v2.1 | Operations Overview v2.1                                 | migrated   |
-| `/activity`                      | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/activity`                      | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
 | `/inbox`                         | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/findings`                      | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1                                 | migriert   |
 | `/checks`                        | WORKFLOW              | Operations Workflow v2.1 | Operations Workflow v2.1 | migriert |
@@ -686,17 +686,17 @@ Optionale typisierte Relationsverträge sind Folgearbeit, keine Voraussetzung de
 | `/statistics?view=event-content` | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
 | `/sql`                           | WORKSPACE             | WORKSPACE                | WORKSPACE                                                | offen (P2) |
 | `/login`                         | WORKFLOW              | WORKFLOW                 | WORKFLOW                                                 | offen (P2) |
-| `/events`                        | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/events`                        | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
 | `/events/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
-| `/organizations`                 | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/organizations`                 | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
 | `/organizations/:id`             | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
-| `/venues`                        | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/venues`                        | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
 | `/venues/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
-| `/spaces`                        | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/spaces`                        | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
 | `/spaces/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
-| `/users`                         | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/users`                         | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
 | `/users/:id`                     | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
-| `/images`                        | COLLECTION            | COLLECTION               | COLLECTION                                               | offen (P2) |
+| `/images`                        | COLLECTION            | Operations Collection v2.1 | Operations Collection v2.1 | migriert |
 | `/images/:id`                    | Generic Entity Detail | RECORD DETAIL v2         | RECORD DETAIL v2 + optional typisierter Relationsvertrag | migriert   |
 
 ## Ursprüngliche Lieferfolge mit aktuellem Abschlussstand

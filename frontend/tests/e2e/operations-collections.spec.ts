@@ -14,6 +14,7 @@ for (const size of sizes) {
   test(`collections and chronological activity at ${size.name}`, async ({ page }, info) => {
     test.skip(info.project.name !== 'desktop', 'Explicit four-viewport matrix')
     await page.setViewportSize(size)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     await mockLayoutApi(page)
     for (const section of entitySectionSchema.options) {
       const fixture = collectionFixture(section)
@@ -76,6 +77,7 @@ for (const size of sizes) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       )
+      await page.evaluate(() => window.scrollTo(0, 0))
       await page.screenshot({
         path: info.outputPath(`${section}-${size.name}.png`),
         fullPage: true,
@@ -91,6 +93,7 @@ for (const size of sizes) {
     )
     await expect(page.getByRole('textbox', { name: 'Organisation (UUID)' })).toHaveCount(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.evaluate(() => window.scrollTo(0, 0))
     await page.screenshot({ path: info.outputPath(`activity-${size.name}.png`), fullPage: true })
   })
 }

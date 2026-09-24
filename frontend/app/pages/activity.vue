@@ -170,7 +170,7 @@ const hasFilters = computed(
         ><button class="button" :disabled="loading" @click="load">Aktualisieren</button></template
       >
     </PageHeader>
-    <FilterBar compact :columns="3" @apply="apply">
+    <FilterBar compact :columns="2" @apply="apply">
       <label
         ><span class="label">Objektart</span>
         <select v-model="entityType" class="input">

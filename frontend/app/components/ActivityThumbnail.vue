@@ -72,7 +72,7 @@ function openPreview() {
           ? 'flex h-[min(55dvh,32rem)] items-center justify-center bg-slate-50 p-3'
           : dense
             ? [
-                'h-14 bg-white',
+                'flex h-14 items-center justify-center bg-white',
                 ['organization', 'venue'].includes(item.entity_type) ? 'p-3' : 'p-0',
               ]
             : ['organization', 'venue'].includes(item.entity_type)
@@ -94,7 +94,7 @@ function openPreview() {
           record
             ? 'block h-auto w-auto max-h-full max-w-full object-contain'
             : dense
-              ? 'block h-full w-full object-contain'
+              ? 'block h-auto w-auto max-h-full max-w-full object-contain'
               : 'block h-auto w-full'
         "
         @error="failed = true"

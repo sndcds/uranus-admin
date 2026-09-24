@@ -15,7 +15,8 @@ const facts = computed(() => entityCollectionFacts(props.section, props.item))
 const status = computed(() => activityStatus(props.item.status))
 const mapUrl = computed(() => activityMapUrl(props.item.location))
 const subtitle = computed(() =>
-  props.section !== 'spaces' && props.item.subtitle?.trim() !== props.item.entity_name.trim()
+  props.item.subtitle?.trim() !== props.item.entity_name.trim() &&
+  !context.value.includes(props.item.subtitle?.trim() ?? '')
     ? props.item.subtitle
     : null,
 )
@@ -64,7 +65,7 @@ const subtitle = computed(() =>
       <NuxtLink
         v-if="item.action"
         :to="item.action.href"
-        class="action-link font-semibold"
+        class="button text-xs"
         :aria-label="`Öffnen: ${name}`"
         >Öffnen</NuxtLink
       >

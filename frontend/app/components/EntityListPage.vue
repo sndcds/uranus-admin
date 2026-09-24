@@ -170,7 +170,17 @@ const hasFilters = computed(() =>
         <button class="button" :disabled="loading" @click="load">Aktualisieren</button>
       </template>
     </PageHeader>
-    <FilterBar compact @apply="apply">
+    <FilterBar
+      compact
+      :columns="
+        hasTemporal && entityFilterCapabilities[section].status
+          ? 4
+          : hasTemporal || entityFilterCapabilities[section].status
+            ? 3
+            : 2
+      "
+      @apply="apply"
+    >
       <EntitySearch
         v-model="q"
         :entity-type="entitySections[section].type"
