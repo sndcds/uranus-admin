@@ -1,0 +1,89 @@
+name: Database docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/migrations/**"
+      - "backend/alembic.ini"
+      - "backend/app/admin_tables.py"
+      - "backend/app/geo_types.py"
+      - "backend/scripts/generate_database_docs.py"
+      - "backend/pyproject.toml"
+      - "backend/uv.lock"
+      - "backend/tests/test_database_docs.py"
+      - ".github/workflows/database-docs.yml"
+  pull_request:
+    paths:
+      - "backend/migrations/**"
+      - "backend/alembic.ini"
+      - "backend/app/admin_tables.py"
+      - "backend/app/geo_types.py"
+      - "backend/scripts/generate_database_docs.py"
+      - "backend/pyproject.toml"
+      - "backend/uv.lock"
+      - "backend/tests/test_database_docs.py"
+      - ".github/workflows/database-docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-docs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13.15"
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked
+      - name: Install Graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y graphviz fonts-dejavu-core
+      - name: Test documentation generator
+        run: uv run pytest -q tests/test_database_docs.py
+      - name: Generate offline DDL and ER diagrams
+        run: uv run python scripts/generate_database_docs.py
+      - name: Verify every expected artifact
+        run: |
+          test -s docs/database/admin-migrations.sql
+          test -s docs/database/admin-schema.sql
+          test -s docs/database/admin-schema.dbml
+          for diagram in full auth quality workflow notifications geocoding; do
+            for extension in dot svg pdf; do
+              file="docs/database/admin-er-${diagram}.${extension}"
+              if [ ! -s "$file" ]; then
+                echo "Missing or empty artifact: $file" >&2
+                exit 1
+              fi
+            done
+          done
+      - name: Upload database documentation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: uranus-admin-database-docs
+          path: |
+            backend/docs/database/*.sql
+            backend/docs/database/*.dbml
+            backend/docs/database/*.dot
+            backend/docs/database/*.svg
+            backend/docs/database/*.pdf
+          if-no-files-found: error
+          retention-days: 30

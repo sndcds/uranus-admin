@@ -25,6 +25,10 @@ fachliche Uranus-Schreiblogik wird nicht dupliziert.
 Zur Gesamtübersicht siehe [Repository-README](../README.md), für die Oberfläche
 [Frontend-README](../frontend/README.md) und für den Betrieb [Ansible-Deployment](../ansible/README.md).
 
+Die [automatische Admin-Datenbankdokumentation](docs/database/README.md) erzeugt
+Migrationshistorie, finales PostgreSQL-Schema, DBML für dbdiagram.io sowie vollständige
+und thematische ER-Diagramme als SVG/PDF – ohne Datenbankverbindung.
+
 ## Start
 
 ```bash
