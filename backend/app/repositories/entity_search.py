@@ -40,6 +40,7 @@ class SearchDefinition:
     entity_key: str | None = field(default=None, kw_only=True)
     # Only event dates need a distinct, joined parent target; never a database href.
     action_key: str = field(default="NULL::text", kw_only=True)
+    venue_scope: str = field(default="NULL::text", kw_only=True)
 
     def projection(self) -> str:
         fields = ",".join(f"{field} search_{i}" for i, field in enumerate(self.fields))
@@ -47,7 +48,7 @@ class SearchDefinition:
             f"SELECT {self.entity_key or self.fields[0]} entity_key,"
             f"{self.label} label,{self.subtitle} subtitle,{self.action_key} action_key,"
             f"{self.created_at} created_at,{self.organization} organization_id,"
-            f"{self.status} status,{fields} FROM {self.source}"
+            f"{self.status} status,{self.venue_scope} venue_scope,{fields} FROM {self.source}"
         )
 
     def rank(self) -> str:
@@ -128,6 +129,7 @@ SEARCH_DEFINITIONS = {
             "city",
         ),
         created_at="v.created_at",
+        venue_scope="v.scope",
     ),
     "space": SearchDefinition(
         "uranus.space s LEFT JOIN uranus.venue v ON v.uuid=s.venue_uuid",
@@ -244,7 +246,8 @@ def entity_search_query(
     definition = SEARCH_DEFINITIONS[filters.entity_type]
     query = escape_search(filters.q)
     return ReadQuery(
-        text(f"""SELECT entity_key,label,subtitle,status FROM ({definition.projection()}) a
+        text(f"""SELECT entity_key,label,subtitle,status,venue_scope
+        FROM ({definition.projection()}) a
         WHERE ({definition.matches()}) AND {ORGANIZATION_FILTER}
         AND (CAST(:status AS text) IS NULL OR status=:status)
         AND {temporal} AND {period_sql} AND {spatial}
@@ -301,14 +304,16 @@ def global_search_query(filters: GlobalSearchFilters) -> ReadQuery:
     branches = []
     for kind in filters.selected_types:
         definition = SEARCH_DEFINITIONS[kind]
-        branches.append(f"""(SELECT '{kind}' entity_type,entity_key,label,subtitle,action_key,
+        branches.append(f"""(SELECT '{kind}' entity_type,entity_key,label,subtitle,
+            action_key,venue_scope,
             {definition.matched_fields()} matched_fields,{definition.rank()} rank
             FROM ({definition.projection()}) a WHERE ({definition.matches()})
             ORDER BY rank,lower(label) COLLATE "C",entity_key COLLATE "C"
             LIMIT :limit)""")
     return ReadQuery(
         text(
-            "SELECT entity_type,entity_key,label,subtitle,action_key,matched_fields FROM ("
+            "SELECT entity_type,entity_key,label,subtitle,action_key,venue_scope,matched_fields "
+            "FROM ("
             + " UNION ALL ".join(branches)
             + ') a ORDER BY entity_type COLLATE "C",rank,lower(label) COLLATE "C",'
             'entity_key COLLATE "C"'

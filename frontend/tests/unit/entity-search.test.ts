@@ -301,3 +301,37 @@ it('renders an email label without duplicating it or substituting a UUID', async
   ).toHaveLength(1)
   expect(wrapper.get('[role="option"]').text()).not.toContain(item.entity_key)
 })
+
+it.each([
+  ['shared', 'Eigener Ort'],
+  ['organization', 'Provisorischer Ort (nicht eigener Ort)'],
+] as const)(
+  'shows authoritative %s metadata without another request or changing selection',
+  async (scope, label) => {
+    const venue = entityFixture('venues').items[0]!
+    const result = {
+      entity_type: 'venue',
+      entity_key: venue.entity_key,
+      label: 'Venue',
+      subtitle: 'Flensburg',
+      status: null,
+      action: venue.action!,
+      venue_scope: scope,
+    }
+    api.entitySearch.mockResolvedValue({ items: [result] })
+    const wrapper = setup()
+    await wrapper.setProps({ entityType: 'venue' })
+    const input = wrapper.get('input')
+    await input.trigger('focus')
+    await input.setValue('Venue')
+    await vi.advanceTimersByTimeAsync(275)
+    expect(wrapper.get('[role="option"] [data-venue-scope]').text()).toBe(label)
+    expect(api.entitySearch).toHaveBeenCalledTimes(1)
+    expect(api.entitySearch).toHaveBeenCalledWith(
+      expect.objectContaining({ q: 'Venue', entity_type: 'venue' }),
+    )
+    await input.trigger('keydown', { key: 'ArrowDown' })
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(wrapper.emitted('select')).toEqual([[result]])
+  },
+)

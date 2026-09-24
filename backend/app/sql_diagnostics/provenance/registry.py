@@ -51,6 +51,7 @@ ENTITY_COLUMNS = (
     "organization_id",
     "organization_name",
     "status",
+    "venue_scope",
     "created_at",
 )
 PREVIEW_COLUMNS = (
@@ -516,6 +517,7 @@ def build(view: str, params: Any, settings: Settings, now: datetime) -> list[Sou
                 "organization_name",
                 "created_at",
                 "status",
+                "venue_scope",
             ),
         )
         bound: dict[str, list[str]] = {kind: [] for kind in graph.TYPES}
@@ -545,6 +547,7 @@ def build(view: str, params: Any, settings: Settings, now: datetime) -> list[Sou
                 "organization_name",
                 "created_at",
                 "status",
+                "venue_scope",
             ),
             (
                 (

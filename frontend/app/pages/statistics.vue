@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import VenueScopeBadge from '~/components/VenueScopeBadge.vue'
 import { useFilterPreferencesStore } from '~/stores/filter-preferences'
 import EventContentStatistics from '~/components/statistics/EventContentStatistics.vue'
 import { statisticsPeriods, supportsPeriod } from '~/utils/periods'
@@ -432,6 +433,11 @@ watch(() => query.value, load)
                   statisticsTypes[row.entity_type].singular
                 }}</span
               >
+              <VenueScopeBadge
+                v-if="row.entity_type === 'venue' && row.venue_scope"
+                :scope="row.venue_scope"
+                class="mt-1"
+              />
             </template>
             <template #actions="{ row }"
               ><NuxtLink

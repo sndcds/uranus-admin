@@ -20,31 +20,37 @@ from app.services.periods import period_window
 ENTITY_ACTIVITY_SQL = {
     "organization": """
 SELECT 'organization'::text entity_type, o.uuid::text entity_key, o.name entity_name,
-       o.uuid organization_id, o.name organization_name, o.created_at, NULL::text status
+       o.uuid organization_id, o.name organization_name, o.created_at, NULL::text status,
+       NULL::text AS venue_scope
 FROM uranus.organization o
 """,
     "venue": """
-SELECT 'venue', v.uuid::text, v.name, o.uuid, o.name, v.created_at, NULL
+SELECT 'venue', v.uuid::text, v.name, o.uuid, o.name, v.created_at, NULL,
+       v.scope AS venue_scope
 FROM uranus.venue v LEFT JOIN uranus.organization o ON o.uuid=v.org_uuid
 """,
     "space": """
-SELECT 'space', s.uuid::text, s.name, o.uuid, o.name, s.created_at, NULL
+SELECT 'space', s.uuid::text, s.name, o.uuid, o.name, s.created_at, NULL,
+       NULL::text AS venue_scope
 FROM uranus.space s LEFT JOIN uranus.venue v ON v.uuid=s.venue_uuid
 LEFT JOIN uranus.organization o ON o.uuid=v.org_uuid
 """,
     "event": """
-SELECT 'event', e.uuid::text, e.title, o.uuid, o.name, e.created_at, e.release_status::text
+SELECT 'event', e.uuid::text, e.title, o.uuid, o.name, e.created_at, e.release_status::text,
+       NULL::text AS venue_scope
 FROM uranus.event e LEFT JOIN uranus.organization o ON o.uuid=e.org_uuid
 """,
     "event_date": """
 SELECT 'event_date', d.uuid::text, COALESCE(e.title,d.uuid::text), o.uuid, o.name,
-       d.created_at, COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text)
+       d.created_at, COALESCE(NULLIF(d.release_status::text,'inherited'),e.release_status::text),
+       NULL::text AS venue_scope
 FROM uranus.event_date d LEFT JOIN uranus.event e ON e.uuid=d.event_uuid
 LEFT JOIN uranus.organization o ON o.uuid=e.org_uuid
 """,
     "user": f"""
 SELECT 'user', u.uuid::text, {USER_DISPLAY_LABEL_SQL}, NULL, NULL,
-       u.created_at, CASE WHEN u.is_active THEN 'active' ELSE 'inactive' END
+       u.created_at, CASE WHEN u.is_active THEN 'active' ELSE 'inactive' END,
+       NULL::text AS venue_scope
 FROM uranus."user" u
 """,
 }
@@ -54,18 +60,19 @@ ACTIVITY_SQL = (
 UNION ALL
 SELECT 'partner_request', 'partner-request:'||p.from_org_uuid||':'||p.to_org_uuid,
        COALESCE(f.name,p.from_org_uuid::text)||' → '||COALESCE(t.name,p.to_org_uuid::text),
-       p.from_org_uuid, f.name, p.created_at, p.status
+       p.from_org_uuid, f.name, p.created_at, p.status, NULL::text AS venue_scope
 FROM uranus.organization_partner_request p
 LEFT JOIN uranus.organization f ON f.uuid=p.from_org_uuid
 LEFT JOIN uranus.organization t ON t.uuid=p.to_org_uuid
 UNION ALL
 SELECT 'team_membership', 'membership:'||m.org_uuid||':'||m.user_uuid,
        COALESCE({USER_DISPLAY_LABEL_SQL},m.user_uuid::text), m.org_uuid, o.name, m.created_at,
-       CASE WHEN m.has_joined THEN 'joined' ELSE 'invited' END
+       CASE WHEN m.has_joined THEN 'joined' ELSE 'invited' END, NULL::text AS venue_scope
 FROM uranus.organization_member_link m LEFT JOIN uranus.organization o ON o.uuid=m.org_uuid
 LEFT JOIN uranus."user" u ON u.uuid=m.user_uuid
 UNION ALL
-SELECT 'image', i.uuid::text, COALESCE(i.alt_text,i.uuid::text), NULL,NULL,i.created_at,NULL
+SELECT 'image', i.uuid::text, COALESCE(i.alt_text,i.uuid::text), NULL,NULL,i.created_at,NULL,
+       NULL::text AS venue_scope
 FROM uranus.pluto_image i
 """
 )
@@ -179,7 +186,7 @@ def activity_queries(
             "records": ReadQuery(
                 text(
                     "SELECT * FROM (SELECT entity_type, entity_key, entity_name, "
-                    "organization_id, organization_name, "
+                    "organization_id, organization_name, venue_scope, "
                     f"status, created_at AT TIME ZONE :tz AS created_at FROM ({base}) q) projected "
                     f"{cursor_where} "
                     f"ORDER BY {order} LIMIT :limit OFFSET :offset"

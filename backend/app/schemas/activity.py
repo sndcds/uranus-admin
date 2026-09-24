@@ -8,6 +8,7 @@ from app.schemas.action import Action
 from app.schemas.cursor import CursorPagination
 from app.schemas.dashboard import Period
 from app.schemas.finding import Pagination
+from app.schemas.venues import VenueScope
 
 EntityType = Literal[
     "organization",
@@ -54,6 +55,7 @@ class ActivityLocation(BaseModel):
 
 class Activity(BaseModel):
     entity_type: EntityType
+    venue_scope: VenueScope | None = None
     entity_key: str
     entity_name: str
     organization_id: UUID | None

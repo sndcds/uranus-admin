@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import VenueScopeBadge from './VenueScopeBadge.vue'
 import { computed } from 'vue'
 import type { EntityDetail, EntitySection } from '#shared/contracts'
 import { activityName, activityStatus } from '~/utils/activity'
@@ -20,6 +21,10 @@ const relationships = computed(() => graphHref(props.item.entity_type, props.ite
       ></template>
       <template #badge>
         <EntityTypeBadge :type="item.entity_type" />
+        <VenueScopeBadge
+          v-if="item.entity_type === 'venue' && item.venue_scope"
+          :scope="item.venue_scope"
+        />
         <StatusBadge v-if="status" :label="status" />
       </template>
       <template #context>

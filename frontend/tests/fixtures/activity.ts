@@ -46,6 +46,7 @@ export const activityFixture: ActivityPage = {
               : null
     return {
       entity_type: kind,
+      venue_scope: kind === 'venue' ? (index < types.length ? 'shared' : 'organization') : null,
       entity_key: key,
       entity_name: `${names[index % names.length]}${index >= types.length ? ` ${index + 1}` : ''}`,
       organization_id:
