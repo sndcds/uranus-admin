@@ -397,3 +397,16 @@ async def test_optional_configuration_is_not_executable_without_capability(setti
         assert error.value.status == 409
         assert error.value.code == "provenance_dependency"
         reader.assert_not_called()
+
+
+def test_venue_scope_provenance_uses_bound_filter_on_count_and_records(settings):
+    for scope in ("organization", "shared"):
+        result = definition("venues", parameters("venues", scope=scope), settings)
+        sources = {source.id: source for source in result.sources}
+        for key in ("venues.count", "venues.records"):
+            assert sources[key].parameters["scope"] == scope
+            assert "a.venue_scope=:scope" in sources[key].sql
+        assert result.parameters["scope"] == scope
+        assert f"scope={scope}" in result.endpoint
+    spaces = definition("spaces", parameters("spaces", scope="shared"), settings)
+    assert all("scope" not in source.parameters for source in spaces.sources)

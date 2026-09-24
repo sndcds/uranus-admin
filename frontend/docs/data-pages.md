@@ -854,3 +854,21 @@ Formulierung in Uranus. Der dortige DDL-Default `standard` widerspricht dem CHEC
 `organization`/`shared` und bleibt ein separates Source-Follow-up mit Abgleich gegen
 das laufende Schema. Keine Source-Mutation, Korrektur oder Migration in diesem PR.
 [Source-Belege und Read-Contract](../../backend/docs/contracts.md#venue-scope-read-metadata).
+
+### Ortstyp-Filter auf `/venues`
+
+Der Filter „Ortstyp“ verwendet das gemeinsame Mapping `app/utils/venues.ts`, ebenso wie
+Badges und Ergebnisübersicht. „Alle“ lässt `scope` weg; die beiden anderen Optionen
+schreiben `scope=organization` oder `scope=shared` beim Anwenden in die URL. Anwenden
+setzt die Seite auf 1. Pagination, Refresh, Reload und Browser-Historie erhalten den
+angewendeten Filter. URL-Werte haben Vorrang vor den ausschließlich für Venues gemerkten
+Session-Präferenzen; ein expliziter `page`-Snapshot wird vollständig übernommen.
+Reset entfernt den Scope auch bei leeren Ergebnissen, erhält aber den Geo-Kontext.
+Auf `/spaces` gibt es keinen Ortstyp-Filter und keinen Scope im Listenrequest.
+
+Auf dem Desktop stehen Suche, Erstellt, Terminlage und Ortstyp in vier Spalten; die
+Filteraktionen folgen in einer eigenen Zeile. Der Header von Orten/Räumen zeigt
+SQL/Datenherkunft vor den kompakten Buttons Orte, Räume und Aktualisieren. `aria-current`
+markiert die aktive Navigation mit dem zentralen Fuchsia-Button-Stil. Touchziele bleiben
+mindestens 44px hoch, kleinere Ansichten umbrechen. `FilterBar stackActions` und
+`PageHeader compactActions` sind optionale Erweiterungen der bestehenden Komponenten.

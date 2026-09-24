@@ -9,6 +9,7 @@ import {
   statisticsEntitySchema,
   statisticsIntervalSchema,
   temporalFilterSchema,
+  venueScopeSchema,
   type EntitySection,
 } from '#shared/contracts'
 import {
@@ -33,7 +34,7 @@ const entitySchemas = {
   }),
   users: z.object({ q, period, status: z.enum(['', 'active', 'inactive']).default('') }),
   organizations: z.object({ q, temporal, period }),
-  venues: z.object({ q, temporal, period }),
+  venues: z.object({ q, temporal, period, scope: venueScopeSchema.or(z.literal('')).default('') }),
   spaces: z.object({ q, temporal, period }),
   images: z.object({ q, period }),
 }

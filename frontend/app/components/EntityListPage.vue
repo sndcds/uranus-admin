@@ -4,6 +4,8 @@ import { useFilterPreferencesStore } from '~/stores/filter-preferences'
 import { usePreferenceQuery } from '~/composables/usePreferenceQuery'
 import {
   sharedPeriodSchema,
+  venueScopeSchema,
+  type VenueScope,
   type EntitySection,
   type EntityPage,
   type TemporalFilter,
@@ -11,6 +13,7 @@ import {
 } from '#shared/contracts'
 import { supportsGeoEntity } from '~/utils/geo'
 import { entityPeriods } from '~/utils/periods'
+import { venueScopeLabels } from '~/utils/venues'
 import { AdminApiError, failure } from '#shared/errors'
 import { useOperationsRequest } from '~/composables/useOperationsRequest'
 import { dateTime, adminTimeZone } from '~/utils/presentation'
@@ -45,6 +48,12 @@ const q = ref(''),
   status = ref('')
 const temporal = ref<TemporalFilter | ''>('')
 const period = ref<SharedPeriod | ''>('')
+const scope = ref<VenueScope | ''>('')
+const hasScope = computed(() => props.section === 'venues')
+const appliedScope = computed(() => {
+  const parsed = venueScopeSchema.safeParse(query.value.scope)
+  return hasScope.value && parsed.success ? parsed.data : ''
+})
 const hasTemporal = computed(() => entityFilterCapabilities[props.section].temporal)
 const hasGeo = computed(() => supportsGeoEntity(entitySections[props.section].type))
 const appliedGeoScopeId = computed(() =>
@@ -68,6 +77,7 @@ const resultDescription = computed(() => {
         ? `Gebiet: ${preferences.sharedGeoScope.name}`
         : '',
       appliedTemporal.value ? `Terminlage: ${temporalLabels[appliedTemporal.value]}` : '',
+      appliedScope.value ? `Ortstyp: ${venueScopeLabels[appliedScope.value]}` : '',
     ]
       .filter(Boolean)
       .join(' · ') || undefined
@@ -81,9 +91,11 @@ async function load() {
   const parsedPeriod = sharedPeriodSchema.safeParse(query.value.period)
   period.value = parsedPeriod.success ? parsedPeriod.data : ''
   temporal.value = hasTemporal.value ? temporalFromQuery(query.value.temporal) : ''
+  scope.value = appliedScope.value
   await request(JSON.stringify([props.section, query.value]), async () => {
     const requestQuery: Record<string, string> = {}
     for (const [key, value] of Object.entries(query.value)) {
+      if (key === 'scope' && (!hasScope.value || value === '')) continue
       if (typeof value !== 'string') throw new AdminApiError(failure(422))
       requestQuery[key] = value
     }
@@ -99,6 +111,7 @@ function apply() {
       status: status.value,
       temporal: temporal.value,
       period: period.value,
+      ...(hasScope.value ? { scope: scope.value } : {}),
     },
     period.value !== (query.value.period ?? ''),
   )
@@ -110,6 +123,7 @@ function apply() {
       organization_id: organization.value || undefined,
       status: status.value || undefined,
       temporal: hasTemporal.value ? temporal.value || undefined : undefined,
+      scope: hasScope.value ? scope.value || undefined : undefined,
       page: '1',
     },
   })
@@ -117,6 +131,7 @@ function apply() {
 function reset() {
   preferences.resetEntity(props.section)
   q.value = status.value = organization.value = temporal.value = period.value = ''
+  scope.value = ''
   void router.push({
     query: {
       page: '1',
@@ -142,8 +157,10 @@ const technicalItems = computed(() =>
       ]
     : [],
 )
-const hasFilters = computed(() =>
-  ['q', 'period', 'temporal', 'status', 'organization_id'].some((key) => !!query.value[key]),
+const hasFilters = computed(
+  () =>
+    ['q', 'period', 'temporal', 'status', 'organization_id'].some((key) => !!query.value[key]) ||
+    (hasScope.value && !!query.value.scope),
 )
 </script>
 <template>
@@ -151,29 +168,35 @@ const hasFilters = computed(() =>
     <PageHeader
       :title="entitySections[section].title"
       description="Datensätze durchsuchen, Beziehungen und Arbeitsstand prüfen."
+      :compact-actions="section === 'venues' || section === 'spaces'"
+      :stack-actions="section === 'venues' || section === 'spaces'"
     >
       <template #actions>
         <template v-if="section === 'venues' || section === 'spaces'">
           <NuxtLink
             to="/venues"
-            class="action-link"
+            class="button button-compact"
             :aria-current="section === 'venues' ? 'page' : undefined"
             >Orte</NuxtLink
           >
           <NuxtLink
             to="/spaces"
-            class="action-link"
+            class="button button-compact"
             :aria-current="section === 'spaces' ? 'page' : undefined"
             >Räume</NuxtLink
           >
         </template>
-        <button class="button" :disabled="loading" @click="load">Aktualisieren</button>
+        <button class="button button-compact" :disabled="loading" @click="load">
+          Aktualisieren
+        </button>
       </template>
     </PageHeader>
     <FilterBar
       compact
+      :class="{ 'venue-filters': hasScope }"
+      :stack-actions="hasScope"
       :columns="
-        hasTemporal && entityFilterCapabilities[section].status
+        hasTemporal && (entityFilterCapabilities[section].status || hasScope)
           ? 4
           : hasTemporal || entityFilterCapabilities[section].status
             ? 3
@@ -225,6 +248,15 @@ const hasFilters = computed(() =>
           >
         </select></label
       >
+      <label v-if="hasScope">
+        <span class="label">Ortstyp</span>
+        <select v-model="scope" class="input">
+          <option value="">Alle</option>
+          <option v-for="(label, value) in venueScopeLabels" :key="value" :value="value">
+            {{ label }}
+          </option>
+        </select>
+      </label>
       <template #actions>
         <button class="button-primary" type="submit">Anwenden</button
         ><button type="button" class="button" @click="reset">Filter zurücksetzen</button>
@@ -273,3 +305,12 @@ const hasFilters = computed(() =>
     </template>
   </div>
 </template>
+
+<style scoped>
+@media (min-width: 1280px) {
+  /* Keep the full provisional-venue label readable beside the other filters. */
+  .venue-filters :deep(> div) {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(19rem, 1.2fr);
+  }
+}
+</style>

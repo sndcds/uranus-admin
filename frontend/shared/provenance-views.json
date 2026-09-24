@@ -93,6 +93,7 @@
     "temporal",
     "period",
     "status",
+    "scope",
     "page",
     "page_size"
   ],
@@ -105,6 +106,7 @@
     "temporal",
     "period",
     "status",
+    "scope",
     "page",
     "page_size"
   ],
@@ -117,6 +119,7 @@
     "temporal",
     "period",
     "status",
+    "scope",
     "page",
     "page_size"
   ],
@@ -129,6 +132,7 @@
     "temporal",
     "period",
     "status",
+    "scope",
     "page",
     "page_size"
   ],
@@ -141,6 +145,7 @@
     "temporal",
     "period",
     "status",
+    "scope",
     "page",
     "page_size"
   ],
@@ -153,6 +158,7 @@
     "temporal",
     "period",
     "status",
+    "scope",
     "page",
     "page_size"
   ],
