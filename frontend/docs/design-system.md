@@ -508,6 +508,8 @@ Schlüsselreihenfolge bleibt erhalten. Das sichtbare Organisation-UUID-Feld entf
 Alle Bestandslisten verwenden ausschließlich `EntityListPage` und `EntityCollectionRow`.
 Ab 1101px gliedern vier gemeinsame Spalten Datensatz, Kontext, Fakten und Status/Erstellung;
 die direkt sichtbare Aktionszeile darunter hält alle Links bei 44px ohne hohe Aktionsspalte.
+Räume benötigen nur drei Spalten: ihr belegter Ortsname steht im Kontext, eine leere
+Faktenspalte entfällt. Bild-Subtitles mit Verknüpfungskontext stehen ebenfalls dort.
 Tablet ordnet zwei Spalten, unter 640px stapeln die Inhalte. Es sind echte Listen, keine
 nachgeahmten ARIA-Tabellen. Lange Identitäten werden umgebrochen, nicht abgeschnitten.
 EntitySearch bleibt außerhalb der Listenfläche, damit das Dropdown nicht beschnitten wird.

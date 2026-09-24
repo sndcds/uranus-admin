@@ -48,10 +48,10 @@ const subtitle = computed(() =>
       /></a>
       <span v-if="!context.length && !mapUrl" class="operations-meta">Kein weiterer Kontext</span>
     </div>
-    <dl class="min-w-0 space-y-1 text-xs [overflow-wrap:anywhere]">
-      <div v-for="fact in facts" :key="fact.label">
-        <dt class="operations-meta">{{ fact.label }}</dt>
-        <dd class="font-medium text-slate-800">{{ operationValue(fact.value) }}</dd>
+    <dl v-if="section !== 'spaces'" class="min-w-0 space-y-1 text-xs [overflow-wrap:anywhere]">
+      <div v-for="fact in facts" :key="fact.label" class="flex flex-wrap items-baseline gap-x-1">
+        <dt class="operations-meta">{{ fact.label }}:</dt>
+        <dd class="font-medium text-slate-800">{{ ' ' }}{{ operationValue(fact.value) }}</dd>
       </div>
     </dl>
     <div class="min-w-0 space-y-2 text-xs text-slate-600">

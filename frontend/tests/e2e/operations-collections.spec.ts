@@ -83,6 +83,21 @@ for (const size of sizes) {
         fullPage: true,
       })
     }
+    await page.route('**/api/admin/api/v1/dashboard/activity**', (route) =>
+      route.fulfill({
+        json: {
+          ...activityFixture,
+          items: activityFixture.items.map((item) => ({
+            ...item,
+            image_url: ['event', 'event_date', 'organization', 'venue', 'image'].includes(
+              item.entity_type,
+            )
+              ? `https://api.kulturbytes.de/api/image/${item.entity_key}?width=320`
+              : null,
+          })),
+        },
+      }),
+    )
     await page.goto('/activity?period=7d')
     await expect(page.getByRole('heading', { name: 'Heute', exact: true })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Zusammenfassung der Aktivität' })).toContainText(
@@ -93,6 +108,10 @@ for (const size of sizes) {
     )
     await expect(page.getByRole('textbox', { name: 'Organisation (UUID)' })).toHaveCount(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    for (const thumbnail of await page.locator('.activity-row-dense img').all()) {
+      await thumbnail.scrollIntoViewIfNeeded()
+      await expect(thumbnail).toHaveJSProperty('naturalWidth', 1280)
+    }
     await page.evaluate(() => window.scrollTo(0, 0))
     await page.screenshot({ path: info.outputPath(`activity-${size.name}.png`), fullPage: true })
   })

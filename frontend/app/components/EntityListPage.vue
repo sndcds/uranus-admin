@@ -182,6 +182,7 @@ const hasFilters = computed(() =>
       @apply="apply"
     >
       <EntitySearch
+        class="sm:col-span-1!"
         v-model="q"
         :entity-type="entitySections[section].type"
         :organization-id="organization"
@@ -232,12 +233,17 @@ const hasFilters = computed(() =>
     <RequestState :loading="loading" :error="error" :has-data="!!data" @retry="load" />
     <template v-if="data">
       <ResultSummary
+        class="min-w-0 [overflow-wrap:anywhere]"
         :total="data.pagination.total"
         :visible="data.items.length"
         noun="Datensätze"
         :description="resultDescription"
       />
-      <DataListShell v-if="data.items.length" :aria-busy="loading">
+      <DataListShell
+        v-if="data.items.length"
+        :aria-busy="loading"
+        :class="{ 'collection-context-only': section === 'spaces' }"
+      >
         <div class="collection-header" aria-hidden="true">
           <span>Datensatz</span><span>Kontext</span><span>Fakten</span
           ><span>Status / Erstellt</span>

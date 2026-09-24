@@ -27,7 +27,9 @@ export function collectionContext(section: EntitySection, item: CollectionRecord
       ? [item.email, item.facts.username, item.organization_name]
       : section === 'spaces'
         ? [item.facts.venue_name, item.organization_name, item.address]
-        : [item.organization_name, item.address]
+        : section === 'images'
+          ? [item.subtitle, item.organization_name]
+          : [item.organization_name, item.address]
   const seen = new Set([item.entity_name.trim()])
   return values.flatMap((value) => {
     const text = value?.trim()
