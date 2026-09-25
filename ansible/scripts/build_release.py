@@ -59,6 +59,7 @@ def smoke_output(output, environment):
             "NODE_ENV": "production",
             "NITRO_HOST": "127.0.0.1",
             "NITRO_PORT": str(port),
+            "NUXT_ADMIN_API_BASE": "http://127.0.0.1:1",
             "NUXT_PUBLIC_MAP_TILE_ATTRIBUTION": "release-runtime-probe",
         }
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -89,6 +90,20 @@ def smoke_output(output, environment):
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
+
+
+def materialize_output(output):
+    if output.is_symlink() or not output.is_dir():
+        raise ValueError("Frontend production build missing or redirected")
+    # Nitro traces a small runtime node_modules tree with internal package links.
+    # Materialize ONLY links contained in .output; never copy developer dependencies.
+    for path in output.rglob("*"):
+        if path.is_symlink() and not path.resolve(strict=True).is_relative_to(output.resolve()):
+            raise ValueError("Nitro emitted a link outside its standalone output")
+    materialized = output.with_name(".output-materialized")
+    shutil.copytree(output, materialized, symlinks=False)
+    shutil.rmtree(output)
+    materialized.rename(output)
 
 
 def build_frontend(commit, workspace, verify=False, production_e2e=False):
@@ -154,15 +169,7 @@ def build_frontend(commit, workspace, verify=False, production_e2e=False):
         },
     )
     output = frontend / ".output"
-    # Nitro traces a small runtime node_modules tree with internal package links.
-    # Materialize ONLY links contained in .output; never copy developer dependencies.
-    for path in output.rglob("*"):
-        if path.is_symlink() and not path.resolve(strict=True).is_relative_to(output.resolve()):
-            raise ValueError("Nitro emitted a link outside its standalone output")
-    materialized = frontend / ".output-materialized"
-    shutil.copytree(output, materialized, symlinks=False)
-    shutil.rmtree(output)
-    materialized.rename(output)
+    materialize_output(output)
     # Some traced third-party runtime packages ship their own maps even with Nuxt
     # sourcemaps disabled. Maps are diagnostics, not runtime dependencies.
     for path in output.rglob("*.map"):
@@ -180,6 +187,10 @@ def build_frontend(commit, workspace, verify=False, production_e2e=False):
                 "--rm",
                 "--init",
                 "--ipc=host",
+                "--user",
+                f"{os.getuid()}:{os.getgid()}",
+                "--env",
+                "HOME=/tmp",
                 "--volume",
                 f"{frontend}:/work",
                 "--workdir",

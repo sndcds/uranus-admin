@@ -1062,7 +1062,9 @@ Operator-Schritte (dieser Umbau führt keinen davon auf Production aus):
    Auch bisherige Ansible-Releases haben bereits eine eigene `.output`, obwohl ihr
    ursprüngliches Archiv nur Quellen enthielt. Ihr altes Manifest braucht für Recovery
    keine Änderung. Den neuen Build niemals in einen alten Release-Pfad kopieren.
-4. Fehlt beim vorherigen Release `.output`, ist er kein lauffähiges Recovery-Ziel.
+4. Fehlt beim vorherigen Release `.output`, ist er kein lauffähiges Recovery-Ziel;
+   Ansible verweigert die Vorbereitung, wenn für einen vorhandenen Frontend-Service
+   Entrypoint/public im bisherigen `current`-Release (oder Legacy-Checkout) fehlen.
    Nicht deployen, bevor ein vollständiger vorheriger Build/Backup wiederhergestellt
    und der bestehende Startbefehl geprüft ist. Alt-Units mit Build-/Install-Schritten
    vor diesem Übergang durch einen separat geprüften direkten Node-Start ersetzen;
@@ -1148,12 +1150,14 @@ Neben dem Archiv entsteht `<archiv>.sha256`. Eine vorhandene Archivdatei wird ni
 überschrieben. Beim nächsten Release einen neuen Pfad wählen.
 
 Der Workflow [Release artifact](../.github/workflows/release-artifact.yml) baut `main`
-auf Ubuntu 24.04 mit gepinnten Actions/Tools, denselben Prüfungen und ohne Production-Secrets. Mit `--production-e2e` laufen
+auf Ubuntu 24.04 mit gepinnten Actions/Tools, denselben Prüfungen und ohne
+Production-Secrets. Mit `--production-e2e` laufen
 zusätzlich die Production-E2E einschließlich CSP im identisch gepinnten Playwright-Container.
 Diese Option kann lokal mit Docker ebenfalls verwendet werden.
 Er lädt `uranus-admin-release-<12-stelliger SHA>` hoch, darin
 `uranus-release-<vollständiger SHA>.tar.gz` und `.tar.gz.sha256`.
-Die CI-Ergebnisse bleiben verpflichtende Review-Evidenz; ein hochgeladenes Artefakt allein ist keine Deployment-Freigabe.
+Die CI-Ergebnisse bleiben verpflichtende Review-Evidenz; ein hochgeladenes Artefakt
+allein ist keine Deployment-Freigabe.
 
 Mit `--update-local-inventories` werden nach erfolgreicher Archiverstellung alle drei
 technischen Release-Pins gemeinsam in die lokalen YAML-Dateien übernommen:
@@ -1218,13 +1222,13 @@ des Inventories überschreiben und erhält deshalb exakt dieselben drei neuen We
 So führt die Paketierung nicht mehr durch veraltete Approval-Pins zu
 `Archive checksum mismatch`.
 
-„Latest main“ gilt zum Zeitpunkt der Paketierung. Danach bleiben Commit und Archiv für
+„Latest main“ gilt zum Beginn des Build-/Packaging-Aufrufs. Danach bleiben Commit und Archiv für
 Dry Run und ausdrückliche Apply-Freigabe unveränderlich. Neue Commits auf `main` erfordern
 ein neues Archiv und eine neue Prüfung/Freigabe; der Echtlauf lädt keinen anderen Stand
 nach. Paketierung allein führt kein Deployment aus.
 
-Der Packager verwendet ausschließlich committed Sources, gibt Commit, Archivpfad
-und SHA256 aus und erstellt byteidentische Archive für denselben Stand. Diese drei
+Der Packager verwendet committed Backend-Quellen und den verifizierten Frontend-Build,
+gibt Commit, Archivpfad und SHA256 aus und erstellt byteidentische Archive für dieselben Inputs. Diese drei
 Werte in eine lokale Kopie von `inventory.example.yml` übernehmen. Lokales Inventory
 ist gitignored. Keine Credentials in Inventory oder CLI-Argumenten. Bestehenden,
 verifizierten SSH-Hostkey verwenden; niemals StrictHostKeyChecking deaktivieren.

@@ -423,7 +423,7 @@ def package(revision, output, frontend_output=None):
         "admin_indexes": admin_indexes(files["backend/app/admin_tables.py"]),
         "admin_columns": admin_columns(files["backend/app/admin_tables.py"]),
         "python": "3.13",
-        "node": "22.22.3",
+        "node": NODE_VERSION,
         "uv": "0.12.5",
         "pnpm": pnpm,
     }
@@ -469,7 +469,10 @@ def package(revision, output, frontend_output=None):
             info.size, info.mode, info.mtime = len(data), 0o644, 0
             archive.addfile(info, io.BytesIO(data))
     digest = hashlib.sha256(Path(output).read_bytes()).hexdigest()
-    Path(str(output) + ".sha256").write_text(digest + "  " + Path(output).name + "\n")
+    with Path(str(output) + ".sha256").open("x") as checksum:
+        name = Path(output).name
+        escaped = name.replace("\\", "\\\\").replace("\n", "\\n")
+        checksum.write(("\\" if escaped != name else "") + digest + "  " + escaped + "\n")
     release_values = {
         "ua_release_sha": commit,
         "ua_artifact": str(Path(output).resolve()),
@@ -517,8 +520,8 @@ def main(argv=None, build=False):
     if args.dry_run and not args.update_local_inventories:
         parser.error("--dry-run requires --update-local-inventories")
     output = Path(args.output).expanduser().resolve()
-    if output.exists():
-        parser.error("Output already exists; choose a new artifact path")
+    if any(p.exists() or p.is_symlink() for p in (output, Path(str(output) + ".sha256"))):
+        parser.error("Output or checksum already exists; choose a new artifact path")
     if args.update_local_inventories:
         try:
             yaml_parser()

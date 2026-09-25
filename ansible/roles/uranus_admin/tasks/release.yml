@@ -1,3 +1,15 @@
+- name: Inspect the previous release pointer before preparing a replacement
+  ansible.builtin.stat:
+    path: "{{ ua_root }}/current"
+    follow: false
+  register: ua_preparation_current
+
+- name: Require an installed predecessor to retain its own frontend for recovery
+  uranus_frontend_output:
+    path: "{{ (ua_preparation_current.stat.lnk_source if ua_preparation_current.stat.islnk | default(false) else ua_legacy_root) }}/frontend/.output"
+    require_build_metadata: false
+  when: ua_previous_services['uranus-admin-frontend.service'].exists
+
 - name: Inspect an existing release completion marker
   ansible.builtin.stat:
     path: "{{ ua_release_dir }}/.complete"

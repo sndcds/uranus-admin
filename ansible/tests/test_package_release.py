@@ -580,6 +580,21 @@ class BuildHostTests(unittest.TestCase):
             self.assertNotIn(name, environment)
         self.assertEqual(environment["NPM_CONFIG_USERCONFIG"], "/dev/null")
 
+    def test_materialization_keeps_internal_runtime_dependencies_and_refuses_external_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = frontend_build(root)
+            (output / "server/internal.mjs").symlink_to("index.mjs")
+            self.builder.materialize_output(output)
+            self.assertFalse((output / "server/internal.mjs").is_symlink())
+            self.assertEqual(
+                (output / "server/internal.mjs").read_bytes(),
+                (output / "server/index.mjs").read_bytes(),
+            )
+            (output / "external").symlink_to(root, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, "outside"):
+                self.builder.materialize_output(output)
+
     def test_fresh_sources_ignore_dirty_worktree_and_require_exact_tool_versions(self):
         commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
         original = self.builder.subprocess.check_output

@@ -245,6 +245,16 @@ class BuildPublicationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "differs"):
                 frontend_output.verify_output(output)
 
+    def test_legacy_predecessor_requires_own_output_but_not_format_two_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = frontend_build(directory)
+            (output / "uranus-admin-build.json").unlink()
+            (output / "server/old.map").write_text("legacy source map")
+            frontend_output.verify_output(output, require_build_metadata=False)
+            (output / "server/index.mjs").unlink()
+            with self.assertRaisesRegex(ValueError, "entrypoint is missing"):
+                frontend_output.verify_output(output, require_build_metadata=False)
+
     @unittest.skipUnless(shutil.which("uv"), "uv absent")
     def test_final_python_environment_survives_removing_build_workspace(self):
         with tempfile.TemporaryDirectory() as directory:
