@@ -63,9 +63,22 @@ export function filterGraph(
     ),
   }
 }
-export function graphHref(type: string, key: string) {
-  return graphEntityTypeSchema.safeParse(type).success &&
-    /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(key)
+function isUuid(key: string) {
+  return key.length === 36 && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(key)
+}
+export function parseMembershipKey(key: string) {
+  const parts = key.split(':')
+  if (parts.length !== 3 || parts[0] !== 'membership') return null
+  const organizationUuid = parts[1]!
+  const userUuid = parts[2]!
+  return isUuid(organizationUuid) && isUuid(userUuid) ? { organizationUuid, userUuid } : null
+}
+export function graphHref(type: string, key: string): string | null {
+  if (type === 'team_membership') {
+    const membership = parseMembershipKey(key)
+    return membership ? graphHref('user', membership.userUuid) : null
+  }
+  return graphEntityTypeSchema.safeParse(type).success && isUuid(key)
     ? `/graph?root_type=${type}&root_key=${key}&depth=2`
     : null
 }

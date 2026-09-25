@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { graphFixture } from '../fixtures/graph'
-import { graphDataToSimulation, filterGraph, graphHref } from '../../app/utils/graph'
+import {
+  graphDataToSimulation,
+  filterGraph,
+  graphHref,
+  parseMembershipKey,
+} from '../../app/utils/graph'
 import {
   graphResponseSchema,
   graphNodeSchema,
@@ -13,6 +18,58 @@ import GraphNodeDetails from '../../app/components/GraphNodeDetails.vue'
 import GraphFilters from '../../app/components/GraphFilters.vue'
 import { forwardAdminRequest } from '../../server/utils/admin-proxy'
 const root = graphFixture.nodes[0]!
+const organizationUuid = '01a0d80d-8dcd-7849-a223-c065aee4e7aa'
+const userUuid = '01a0d80b-d4fd-7178-aeb9-e4ff6e690a35'
+
+describe('graph navigation', () => {
+  it.each(['organization', 'venue', 'space', 'event', 'event_date', 'user'])(
+    'preserves UUID graph links for %s',
+    (type) => {
+      expect(graphHref(type, userUuid)).toBe(
+        `/graph?root_type=${type}&root_key=${userUuid}&depth=2`,
+      )
+    },
+  )
+  it.each([userUuid, userUuid.toUpperCase()])(
+    'parses a membership and uses its user %s as the graph root',
+    (userUuid) => {
+      const key = `membership:${organizationUuid}:${userUuid}`
+      expect(parseMembershipKey(key)).toEqual({ organizationUuid, userUuid })
+      expect(graphHref('team_membership', key)).toBe(
+        `/graph?root_type=user&root_key=${userUuid}&depth=2`,
+      )
+    },
+  )
+  it.each([
+    `membership:not-a-uuid:${userUuid}`,
+    `membership:${organizationUuid}:not-a-uuid`,
+    `membership:${organizationUuid}`,
+    `membership:${organizationUuid}:${userUuid}:extra`,
+    `foo:${organizationUuid}:${userUuid}`,
+    `Membership:${organizationUuid}:${userUuid}`,
+    `membership::${userUuid}`,
+    `membership:${organizationUuid}:`,
+    `membership:${organizationUuid}\n:${userUuid}`,
+    `membership:${organizationUuid}:${userUuid}\n`,
+    `membership:${organizationUuid}:${userUuid}&depth=3`,
+    `membership:${organizationUuid}:${userUuid}#fragment`,
+    ` membership:${organizationUuid}:${userUuid}`,
+    userUuid,
+    '',
+  ])('rejects invalid membership key %j', (key) => {
+    expect(parseMembershipKey(key)).toBeNull()
+    expect(graphHref('team_membership', key)).toBeNull()
+  })
+  it('rejects unsupported types and mismatched or manipulated keys', () => {
+    const membership = `membership:${organizationUuid}:${userUuid}`
+    for (const type of ['image', 'partner_request', 'unknown', 'user&depth=3']) {
+      expect(graphHref(type, userUuid)).toBeNull()
+      expect(graphHref(type, membership)).toBeNull()
+    }
+    for (const key of [membership, `${userUuid}\n`, `${userUuid}&depth=3`, 'bad'])
+      expect(graphHref('user', key)).toBeNull()
+  })
+})
 
 describe('relationship explorer', () => {
   it('isolates mutable D3 data and keeps only valid filtered endpoints', () => {

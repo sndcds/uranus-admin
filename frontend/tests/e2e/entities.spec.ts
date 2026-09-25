@@ -47,7 +47,7 @@ for (const section of entitySectionSchema.options) {
     }
     if (section !== 'images')
       await expect(
-        page.getByRole('link', {
+        page.getByRole('group', { name: 'Datensatzaktionen' }).getByRole('link', {
           name: 'Beziehungen',
         }),
       ).toHaveAttribute('href', /root_key=/)

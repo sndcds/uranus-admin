@@ -81,6 +81,14 @@ identities, unique IDs, edge endpoints and link targets.
 
 ## Interaction and rendering
 
+The shared “Beziehungen” link maps a `team_membership` key to its user root at depth 2.
+`parseMembershipKey` in `app/utils/graph.ts` accepts only exactly
+`membership:<organization_uuid>:<user_uuid>` with both UUIDs validated; malformed keys
+produce no link. Memberships remain edges, not a new graph node type. The organization
+is reachable by selecting its existing related node and using “Öffnen” in the details.
+A direct organization link in the Activity row is a possible follow-up; its organization
+name is currently plain text.
+
 The graph route loads modular `d3-force`, `d3-selection`, `d3-zoom` and `d3-drag`, without a CDN.
 Vue owns the SVG markup and accessible labels; D3 owns simulation coordinates, dragging and
 zoom transforms. `graphDataToSimulation` copies records so D3 never mutates the API response.
