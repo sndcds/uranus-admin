@@ -20,7 +20,6 @@ SOURCES = {
     "python": "https://github.com/astral-sh/python-build-standalone/releases/download/",
     "uv": "https://github.com/astral-sh/uv/releases/download/",
     "node": "https://nodejs.org/dist/",
-    "pnpm": "https://github.com/pnpm/pnpm/releases/download/",
 }
 
 
@@ -44,6 +43,9 @@ def select_packages(catalog, manifest, architecture):
     selected, directories = {}, set()
     for pin in catalog["packages"]:
         tool, version = pin["tool"], pin["version"]
+        # Retain historical pins/installations for recovery, never provision build tools.
+        if tool == "pnpm":
+            continue
         require(tool in SOURCES and re.fullmatch(r"\d+\.\d+\.\d+", version), "Invalid version pin")
         require(
             re.fullmatch(r"[0-9a-f]{64}", pin["sha256"]) and len(set(pin["sha256"])) > 1,

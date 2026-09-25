@@ -18,7 +18,8 @@ export default defineNuxtConfig({
       ],
     },
   },
-  nitro: { experimental: { websocket: true } },
+  sourcemap: { server: false, client: false },
+  nitro: { preset: 'node-server', sourceMap: false, experimental: { websocket: true } },
   devtools: { enabled: false },
   typescript: { strict: true },
   runtimeConfig: {

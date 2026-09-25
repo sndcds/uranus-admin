@@ -22,6 +22,7 @@ from urllib.parse import urlsplit
 import yaml
 from ansible.errors import AnsibleFilterError
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from release_fixture import frontend_build
 
 ROOT = Path(__file__).resolve().parents[2]
 ANSIBLE = ROOT / "ansible"
@@ -241,7 +242,7 @@ class ArtifactTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
             root = Path(directory)
             artifact = root / "release.tar.gz"
-            packager.package("HEAD", artifact)
+            packager.package("HEAD", artifact, frontend_build(root))
             commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
             digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
             preflight = yaml.safe_load((ROLE / "tasks/preflight.yml").read_text())
@@ -405,7 +406,7 @@ class ArtifactTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
             paths = [Path(directory) / name for name in ("one.tar.gz", "two.tar.gz")]
             for path in paths:
-                packager.package(commit, path)
+                packager.package(commit, path, frontend_build(directory, commit))
             self.assertEqual(paths[0].read_bytes(), paths[1].read_bytes())
             digest = hashlib.sha256(paths[0].read_bytes()).hexdigest()
             manifest = filters.artifact_manifest(paths[0], digest, commit)
