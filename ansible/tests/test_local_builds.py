@@ -232,6 +232,108 @@ class BuildRetentionTests(unittest.TestCase):
 
 
 class BuildPublicationTests(unittest.TestCase):
+    def test_predecessor_guard_runs_before_activation_snapshot_with_real_ansible(self):
+        tasks = yaml.safe_load((ROLE / "tasks/release.yml").read_text())
+        marker_index = next(
+            i
+            for i, task in enumerate(tasks)
+            if task["name"] == "Inspect an existing release completion marker"
+        )
+        # Execute the actual preparation guard with only facts available from
+        # preflight. No ua_previous_services exists until prepare_activation.yml.
+        guard = tasks[:marker_index]
+        for case, installed, current, complete in (
+            ("installed current", True, True, True),
+            ("installed legacy", True, False, True),
+            ("incomplete current", True, True, False),
+            ("incomplete legacy", True, False, False),
+            ("first bootstrap", False, False, False),
+        ):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                runtime, legacy = root / "runtime", root / "legacy"
+                runtime.mkdir()
+                if current:
+                    predecessor = root / "old-release"
+                    predecessor.mkdir()
+                    (runtime / "current").symlink_to(predecessor, target_is_directory=True)
+                    # A valid legacy tree must not hide a broken current release.
+                    frontend_build(legacy)
+                else:
+                    predecessor = legacy
+                output = frontend_build(predecessor)
+                (output / "uranus-admin-build.json").unlink()
+                if not complete:
+                    (output / "server/index.mjs").unlink()
+                playbook = root / "play.yml"
+                playbook.write_text(
+                    yaml.safe_dump(
+                        [
+                            {
+                                "hosts": "localhost",
+                                "connection": "local",
+                                "gather_facts": False,
+                                "vars": {
+                                    "ansible_python_interpreter": sys.executable,
+                                    "ansible_remote_tmp": str(root / "remote-tmp"),
+                                    "ansible_facts": {
+                                        "services": {
+                                            "uranus-admin-frontend.service": {"state": "stopped"}
+                                        }
+                                        if installed
+                                        else {}
+                                    },
+                                    "ua_root": str(runtime),
+                                    "ua_legacy_root": str(legacy),
+                                },
+                                "tasks": [
+                                    {
+                                        "ansible.builtin.assert": {
+                                            "that": "ua_previous_services is undefined"
+                                        }
+                                    },
+                                    *guard,
+                                    {
+                                        "name": "Predecessor accepted",
+                                        "ansible.builtin.debug": {"msg": "Preparation may proceed"},
+                                    },
+                                ],
+                            }
+                        ]
+                    )
+                )
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "ansible.cli.playbook",
+                        "-i",
+                        "localhost,",
+                        str(playbook),
+                    ],
+                    env={
+                        **os.environ,
+                        "ANSIBLE_CONFIG": str(ROLE.parents[1] / "ansible.cfg"),
+                        "ANSIBLE_LIBRARY": str(ROLE / "library"),
+                        "ANSIBLE_LOCAL_TEMP": str(root / "local-tmp"),
+                        "ANSIBLE_NOCOLOR": "1",
+                    },
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                log = result.stdout + result.stderr
+                if installed and not complete:
+                    self.assertNotEqual(result.returncode, 0, log)
+                    self.assertIn("Nitro output is incomplete", log)
+                    self.assertNotIn("TASK [Predecessor accepted]", log)
+                else:
+                    self.assertEqual(result.returncode, 0, log)
+                    self.assertIn("TASK [Predecessor accepted]", log)
+                    if not installed:
+                        self.assertIn("skipping: [localhost]", log)
+                self.assertIn("changed=0", log)
+
     def test_nitro_output_rejects_external_build_links(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
