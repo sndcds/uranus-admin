@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
 import psycopg2
 import yaml
 from psycopg2 import sql
+from release_fixture import frontend_build
 from test_deployment import ROLE, ROOT, filters, load, packager
 
 admin_db = load("admin_bootstrap", ROLE / "library/uranus_admin_database.py")
@@ -438,7 +439,7 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
         cls.temporary = tempfile.TemporaryDirectory()
         cls.root = Path(cls.temporary.name)
         archive = cls.root / "release.tar.gz"
-        packager.package("HEAD", archive)
+        packager.package("HEAD", archive, frontend_build(cls.root))
         cls.archive_hash = hashlib.sha256(archive.read_bytes()).hexdigest()
         with tarfile.open(archive) as source:
             cls.manifest = json.load(source.extractfile("release.json"))
