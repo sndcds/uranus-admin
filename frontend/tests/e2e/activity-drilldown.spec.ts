@@ -99,8 +99,13 @@ test('image activity loads public thumbnails under a targeted CSP without metada
     })
   })
   page.on('request', (request) => {
-    if (request.url().startsWith('https://api.kulturbytes.de'))
-      externalRequests.push(request.resourceType())
+    try {
+      const url = new URL(request.url())
+      if (url.protocol === 'https:' && url.hostname === 'api.kulturbytes.de')
+        externalRequests.push(request.resourceType())
+    } catch {
+      // Ignore malformed URLs in request observation.
+    }
   })
   await page.route('**/*', async (route) => {
     if (route.request().resourceType() !== 'document') return route.continue()
