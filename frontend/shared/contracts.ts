@@ -114,12 +114,12 @@ export const actionSchema = z
     return action.href === `${path}?entity_key=${key}${suffix}`
   }, 'Invalid internal action target')
 
-// Accept earlier thumbnail formats during deployment; new URLs omit cropping ratios.
+// Accept earlier thumbnails during deployment; new URLs request PNG without cropping.
 export const activityImageUrlSchema = z.union([
   z
     .string()
     .regex(
-      /^https:\/\/api\.kulturbytes\.de\/api\/image\/[0-9a-f-]{36}\?(?:width=320(?:&ratio=16%3A9)?|width=160&ratio=1%3A1)$/i,
+      /^https:\/\/api\.kulturbytes\.de\/api\/image\/[0-9a-f-]{36}\?(?:width=320(?:&ratio=16%3A9)?|width=160&ratio=1%3A1)(?:&type=png)?$/i,
     ),
   z.string().regex(/^https:\/\/api\.kulturbytes\.de\/api\/user\/[0-9a-f-]{36}\/avatar\/128$/i),
 ])

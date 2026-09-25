@@ -4,7 +4,7 @@ import { activityFixture } from '../fixtures/activity'
 import { activityTypes } from '../../app/utils/activity'
 
 const imageUrl =
-  'https://api.kulturbytes.de/api/image/20000000-0000-7000-8000-000000000001?width=320'
+  'https://api.kulturbytes.de/api/image/20000000-0000-7000-8000-000000000001?width=320&type=png'
 
 test('all nine metric links preserve periods and support keyboard drill-down', async ({
   page,
@@ -116,7 +116,7 @@ test('image activity loads public thumbnails under a targeted CSP without metada
     })
   })
   const item = activityFixture.items.find((item) => item.entity_type === 'image')!
-  const thumbnail = `https://api.kulturbytes.de/api/image/${item.entity_key}?width=320`
+  const thumbnail = `https://api.kulturbytes.de/api/image/${item.entity_key}?width=320&type=png`
   await page.route('**/api/admin/auth/session', (route) =>
     route.fulfill({ json: { subject: 'admin:test-only-operator', system_admin: true } }),
   )
@@ -146,10 +146,7 @@ test('image activity loads public thumbnails under a targeted CSP without metada
   await expect(image).toHaveJSProperty('naturalWidth', 320)
   await expect(image).toHaveAttribute('loading', 'lazy')
   await expect(image).toHaveAttribute('decoding', 'async')
-  await expect(row.getByRole('link', { name: /Öffnen/ })).toHaveAttribute(
-    'href',
-    item.action!.href,
-  )
+  await expect(row.getByRole('link', { name: /Öffnen/ })).toHaveAttribute('href', item.action!.href)
   await expect(row.getByRole('link', { name: /Markierungen & Notizen/ })).toBeVisible()
   await expect(row.getByRole('link', { name: /auf kulturbytes.de öffnen/ })).toHaveCount(0)
   expect(externalRequests).toEqual(['image'])

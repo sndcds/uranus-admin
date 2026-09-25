@@ -81,13 +81,16 @@ export function recordRows(data: DashboardSummary | null) {
   }))
 }
 
-/** Enlarge only a validated public thumbnail, preserving the image's native ratio. */
+/** Enlarge only a validated public thumbnail, preserving permitted query parameters. */
 export function activityImagePreviewUrl(value: string | null | undefined): string | null {
   const validated = activityImageUrlSchema.safeParse(value)
   if (!validated.success) return null
   const url = new URL(validated.data)
   if (url.pathname.endsWith('/avatar/128')) url.pathname = url.pathname.replace(/128$/, '512')
-  else url.search = new URLSearchParams({ width: '1280' }).toString()
+  else if (/^\/api\/image\//i.test(url.pathname)) {
+    url.searchParams.set('width', '1280')
+    url.searchParams.set('type', 'png')
+  }
   return url.toString()
 }
 

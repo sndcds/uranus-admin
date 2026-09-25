@@ -28,7 +28,7 @@ export function entityFixture(section: EntitySection): EntityPage {
         public_url: null,
         image_url:
           section === 'images'
-            ? `https://api.kulturbytes.de/api/image/${base.entity_key}?width=320`
+            ? `https://api.kulturbytes.de/api/image/${base.entity_key}?width=320&type=png`
             : null,
         finding_count: 2,
         mark_count: 1,
@@ -131,7 +131,7 @@ export function placeDetailFixture(section: PlaceSection, page = 1): EntityDetai
   data.item.image_url =
     section === 'spaces'
       ? null
-      : `https://api.kulturbytes.de/api/image/${data.item.entity_key}?width=320`
+      : `https://api.kulturbytes.de/api/image/${data.item.entity_key}?width=320&type=png`
   data.item.public_url =
     section === 'venues' ? 'https://kulturbytes.de/de/ort/kulturhaus-hafen' : null
   if (section === 'organizations') {

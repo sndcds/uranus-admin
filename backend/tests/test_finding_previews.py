@@ -43,7 +43,7 @@ async def test_batch_deduplicates_only_valid_supported_identities(monkeypatch, s
         finding("organization", str(uid(10))),
     ]
     original = [item.model_dump(exclude={"image_url"}) for item in items]
-    url = f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320"
+    url = f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320&type=png"
     previews = AsyncMock(
         return_value={
             ("event_date", str(uid(40))): {"image_url": url, "email": "not-copied@example.invalid"},
@@ -114,7 +114,7 @@ async def test_shared_source_mapping_in_one_query(db_connection, settings):
         event.remove(db_connection.sync_connection, "before_cursor_execute", capture)
     assert len(statements) == 1
     assert [item.image_url for item in items] == [
-        *[f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320"] * 5,
+        *[f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320&type=png"] * 5,
         f"https://api.kulturbytes.de/api/user/{uid(1)}/avatar/128",
         None,
         None,
@@ -153,7 +153,7 @@ async def test_api_enriches_both_modes_without_changing_pagination(
     preview = AsyncMock(
         return_value={
             ("event_date", str(uid(40))): {
-                "image_url": f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320"
+                "image_url": f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320&type=png"
             }
         }
     )
@@ -165,7 +165,7 @@ async def test_api_enriches_both_modes_without_changing_pagination(
     response = await client.get(f"/api/v1/findings?mode={mode}&page=2&page_size=1", headers=headers)
     assert response.status_code == 200
     payload = response.json()
-    assert payload["items"][0]["image_url"].endswith(f"{uid(60)}?width=320")
+    assert payload["items"][0]["image_url"].endswith(f"{uid(60)}?width=320&type=png")
     assert payload["mode"] == mode
     assert payload["pagination"] == {"page": 2, "page_size": 1, "total": 9, "pages": 9}
     assert opened == [source]
@@ -183,7 +183,7 @@ async def test_image_is_not_stored_as_finding_evidence(admin_store):
     from app.services.checks import persist_results
     from app.services.quality.core import RuleResult
 
-    item = finding(image_url=f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320")
+    item = finding(image_url=f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320&type=png")
     result = RuleResult(item.rule, [item], {(item.entity_type, item.entity_key)})
     async with admin_store.begin():
         await persist_results(admin_store, [result], NOW)

@@ -73,7 +73,7 @@ export function collectionFixture(section: EntitySection) {
           ? null
           : section === 'users'
             ? `https://api.kulturbytes.de/api/user/${entity_key}/avatar/128`
-            : `https://api.kulturbytes.de/api/image/${entity_key}?width=320`,
+            : `https://api.kulturbytes.de/api/image/${entity_key}?width=320&type=png`,
       public_url:
         section === 'events'
           ? `https://kulturbytes.de/de/veranstaltung/${entity_key}/${entity_key}`

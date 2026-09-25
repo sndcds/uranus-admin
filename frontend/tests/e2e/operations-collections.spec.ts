@@ -97,7 +97,7 @@ for (const size of sizes) {
             image_url: ['event', 'event_date', 'organization', 'venue', 'image'].includes(
               item.entity_type,
             )
-              ? `https://api.kulturbytes.de/api/image/${item.entity_key}?width=320`
+              ? `https://api.kulturbytes.de/api/image/${item.entity_key}?width=320&type=png`
               : null,
           })),
         },

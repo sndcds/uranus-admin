@@ -11,7 +11,7 @@ export const workflowFindings: FindingPage = {
     first_seen_at: '2026-09-21T08:00:00Z',
     image_url:
       index === 0 || index === 2
-        ? `https://api.kulturbytes.de/api/image/00000000-0000-4000-8000-00000000006${index}?width=320`
+        ? `https://api.kulturbytes.de/api/image/00000000-0000-4000-8000-00000000006${index}?width=320&type=png`
         : null,
     status: index === 1 ? 'in_progress' : index === 3 ? 'exception' : 'open',
     exception_reason: index === 3 ? 'Adresse wird durch den Veranstalter geprüft.' : null,
