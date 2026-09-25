@@ -29,6 +29,7 @@
       - ua_service_user == 'oklab' and ua_service_group == 'oklab'
       - ua_services == ['uranus-admin-backend.service', 'uranus-admin-check-worker.service', 'uranus-admin-frontend.service']
       - ua_notification_units == ['uranus-admin-notification-worker.service', 'uranus-admin-notification-worker.timer']
+      - ua_geocode_units == ['uranus-admin-geocode-worker.service', 'uranus-admin-geocode-worker.timer']
       - ua_pg_port | int == 5432
       - ua_pg_socket == '/var/run/postgresql'
       - ansible_run_tags | list | unique | sort == ['all']

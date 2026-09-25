@@ -15,6 +15,10 @@ PRIVILEGED = {
     "ADMIN_AUTH_MANAGEMENT_DATABASE_URL",
     "DEV_ADMIN_TOKEN",
 }
+GEOCODE_UNITS = {
+    "uranus-admin-geocode-worker.service",
+    "uranus-admin-geocode-worker.timer",
+}
 OVERRIDES = {
     "DB_POOL_SIZE",
     "DB_MAX_OVERFLOW",
@@ -275,6 +279,8 @@ def activation_plan(changed_paths, service_states, config_dir):
     ]
     return {
         "runtime_changed": runtime_changed,
+        "geocode_changed": runtime_changed
+        or any("/etc/systemd/system/" + name in changed_paths for name in GEOCODE_UNITS),
         "units_changed": any(p.startswith("/etc/systemd/") for p in changed_paths),
         "nginx_changed": any(p.startswith("/etc/nginx/") for p in changed_paths),
         "restart_services": [
@@ -315,15 +321,20 @@ def service_snapshot(results, environment="production"):
         name = result["item"]
         fields = dict(line.split("=", 1) for line in result["stdout"].splitlines() if "=" in line)
         if (
-            environment in {"staging", "test"}
-            and name
-            in {
-                "uranus-admin-backend.service",
-                "uranus-admin-check-worker.service",
-                "uranus-admin-frontend.service",
-                "uranus-admin-notification-worker.service",
-                "uranus-admin-notification-worker.timer",
-            }
+            (
+                name in GEOCODE_UNITS
+                or (
+                    environment in {"staging", "test"}
+                    and name
+                    in {
+                        "uranus-admin-backend.service",
+                        "uranus-admin-check-worker.service",
+                        "uranus-admin-frontend.service",
+                        "uranus-admin-notification-worker.service",
+                        "uranus-admin-notification-worker.timer",
+                    }
+                )
+            )
             and fields.get("LoadState") == "not-found"
             and fields.get("ActiveState") == "inactive"
             and fields.get("UnitFileState", "") == ""
@@ -338,7 +349,10 @@ def service_snapshot(results, environment="production"):
             continue
         allowed = {"enabled", "disabled"}
         active_states = {"active"}
-        if name == "uranus-admin-notification-worker.service":
+        if name in {
+            "uranus-admin-notification-worker.service",
+            "uranus-admin-geocode-worker.service",
+        }:
             allowed.add("static")
             # A running Type=oneshot remains activating until its bounded command exits.
             active_states.add("activating")

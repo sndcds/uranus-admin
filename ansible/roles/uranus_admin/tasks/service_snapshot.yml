@@ -5,10 +5,10 @@
       - show
       - "{{ item }}"
       - --property=LoadState,ActiveState,UnitFileState
-  loop: "{{ ua_services + ['nginx.service'] + (['uranus-admin-notification-worker.timer', 'uranus-admin-notification-worker.service'] if ua_manage_notification_timer | bool else []) }}"
+  loop: "{{ ua_services + ua_geocode_units + ['nginx.service'] + (['uranus-admin-notification-worker.timer', 'uranus-admin-notification-worker.service'] if ua_manage_notification_timer | bool else []) }}"
   changed_when: false
   register: ua_service_status
-  failed_when: ua_service_status.rc != 0 and not (ua_target_environment in ['staging', 'test'] and ua_service_status.rc == 4 and 'LoadState=not-found' in ua_service_status.stdout)
+  failed_when: ua_service_status.rc != 0 and not ((ua_target_environment in ['staging', 'test'] or item in ua_geocode_units) and ua_service_status.rc == 4 and 'LoadState=not-found' in ua_service_status.stdout)
 
 - name: Keep exact active and enablement states for system recovery
   ansible.builtin.set_fact:
@@ -17,3 +17,9 @@
 - name: Refresh the restart set from actual service states
   ansible.builtin.set_fact:
     ua_restart_services: "{{ (ua_changed_paths | ua_activation_plan(ua_previous_services, ua_config_dir)).restart_services }}"
+    ua_geocode_stop_required: "{{ (ua_changed_paths | ua_activation_plan(ua_previous_services, ua_config_dir)).geocode_changed or ua_admin_database_plan.admin_database.state | default('READY') == 'UPGRADEABLE' }}"
+
+- name: Preserve the full service stop set for a reviewed schema upgrade
+  ansible.builtin.set_fact:
+    ua_restart_services: "{{ (ua_restart_services + ua_services) | unique | list }}"
+  when: ua_admin_database_plan.admin_database.state | default('READY') == 'UPGRADEABLE'

@@ -33,6 +33,28 @@ class ActionModule(ActionBase):
         if kind == "command" and args.get("argv", [""])[0] == "systemctl":
             unit = args["argv"][2]
             previous = state["services"].get(unit)
+            if name in state["fail_tasks"]:
+                result.update(rc=1, stdout="", failed=True, msg="Injected local fixture failure")
+                state["events"].append(event)
+                path.write_text(json.dumps(state))
+                return result
+            if args["argv"][1] in {"is-enabled", "is-active"}:
+                value = (
+                    (
+                        previous["unit_file_state"]
+                        if args["argv"][1] == "is-enabled"
+                        else "active"
+                        if previous["active"]
+                        else "inactive"
+                    )
+                    if previous
+                    else "not-found"
+                )
+                result.update(rc=0 if value in {"enabled", "active"} else 1, stdout=value)
+                event.update(unit=unit, operation=args["argv"][1])
+                state["events"].append(event)
+                path.write_text(json.dumps(state))
+                return result
             if previous is None:
                 result.update(
                     rc=4, stdout="LoadState=not-found\nActiveState=inactive\nUnitFileState="
@@ -79,7 +101,11 @@ class ActionModule(ActionBase):
                             {
                                 "active": False,
                                 "unit_file_state": "static"
-                                if unit == "uranus-admin-notification-worker.service"
+                                if unit
+                                in {
+                                    "uranus-admin-notification-worker.service",
+                                    "uranus-admin-geocode-worker.service",
+                                }
                                 else "disabled",
                             },
                         )

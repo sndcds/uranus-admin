@@ -9,6 +9,25 @@
     mode: "0644"
   when: ua_maintenance_attempted | bool
 
+- name: Inspect loaded geocode units before recovery
+  ansible.builtin.command:
+    argv: [systemctl, show, "{{ item }}", --property=LoadState, --value]
+  loop: "{{ ua_geocode_units | reverse | list }}"
+  register: ua_recovery_geocode_units
+  changed_when: false
+  failed_when: >-
+    not ((ua_recovery_geocode_units.rc == 0 and ua_recovery_geocode_units.stdout | trim == 'loaded') or
+         (ua_recovery_geocode_units.rc in [0, 4] and ua_recovery_geocode_units.stdout | trim == 'not-found'))
+  when: ua_geocode_touched | bool
+
+- name: Stop geocode scheduling and invocation before restoring files
+  ansible.builtin.systemd_service:
+    name: "{{ item.item }}"
+    state: stopped
+    enabled: "{{ false if item.item.endswith('.timer') else omit }}"
+  loop: "{{ ua_recovery_geocode_units.results | default([]) }}"
+  when: ua_geocode_touched | bool and item.stdout | default('') | trim == 'loaded'
+
 - name: Inspect services installed during bootstrap before recovery
   ansible.builtin.service_facts:
   register: ua_recovery_service_facts
@@ -128,6 +147,14 @@
     enabled: "{{ ua_previous_services[item].enabled }}"
   loop: "{{ ua_restart_services }}"
   when: ua_services_stop_attempted | bool and ua_previous_services[item].exists
+
+- name: Restore the previous geocode invocation and timer states
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: "{{ 'started' if ua_previous_services[item].active else 'stopped' }}"
+    enabled: "{{ omit if ua_previous_services[item].unit_file_state == 'static' else ua_previous_services[item].enabled }}"
+  loop: "{{ ua_geocode_units }}"
+  when: ua_geocode_touched | bool and ua_previous_services[item].exists
 
 - name: Restore the managed notification service and timer to their previous states
   ansible.builtin.systemd_service:

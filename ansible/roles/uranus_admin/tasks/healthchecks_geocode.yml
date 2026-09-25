@@ -1,0 +1,10 @@
+# Scheduling state only: no provider request and no assertion of successful job processing.
+- name: Check geocode timer enablement and activity
+  ansible.builtin.command:
+    argv: [systemctl, "{{ item }}", uranus-admin-geocode-worker.timer]
+  loop: [is-enabled, is-active]
+  register: ua_geocode_timer_health
+  changed_when: false
+  failed_when: >-
+    ua_geocode_timer_health.rc != 0 or
+    ua_geocode_timer_health.stdout | trim != ('enabled' if item == 'is-enabled' else 'active')

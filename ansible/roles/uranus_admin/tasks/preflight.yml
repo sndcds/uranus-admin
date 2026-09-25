@@ -177,25 +177,25 @@
 - name: Reject unknown service drop-ins before taking over unit files
   ansible.builtin.command:
     argv: [systemctl, show, "{{ item }}", --property=DropInPaths, --value]
-  loop: "{{ ua_services + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else []) }}"
+  loop: "{{ ua_services + ua_geocode_units + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else []) }}"
   changed_when: false
   check_mode: false
   register: ua_dropins
   failed_when: >-
     ua_dropins.stdout | trim | length > 0 or
-    (ua_dropins.rc != 0 and not (ua_dropins.rc == 4 and ua_target_environment in ['staging', 'test'] and item not in ansible_facts.services))
+    (ua_dropins.rc != 0 and not (ua_dropins.rc == 4 and (ua_target_environment in ['staging', 'test'] or item in ua_geocode_units) and item not in ansible_facts.services))
 
-- name: Reject alternate loaded unit locations on bootstrap targets
+- name: Reject alternate loaded unit locations on bootstrap targets and geocode units
   ansible.builtin.command:
     argv: [systemctl, show, "{{ item }}", --property=FragmentPath, --value]
-  loop: "{{ ua_services + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else []) }}"
+  loop: "{{ ua_services + ua_geocode_units + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else []) }}"
   changed_when: false
   check_mode: false
   register: ua_unit_fragment
   failed_when: >-
     not ((ua_unit_fragment.rc == 0 and ua_unit_fragment.stdout | trim == '/etc/systemd/system/' + item) or
          (ua_unit_fragment.rc in [0, 4] and ua_unit_fragment.stdout | trim == '' and item not in ansible_facts.services))
-  when: ua_target_environment in ['staging', 'test']
+  when: ua_target_environment in ['staging', 'test'] or item in ua_geocode_units
 
 - name: Require a stopped or reviewed existing notification timer
   ansible.builtin.command:

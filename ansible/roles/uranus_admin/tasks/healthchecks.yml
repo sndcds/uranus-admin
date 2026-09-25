@@ -3,3 +3,6 @@
 
 - name: Verify expected public state
   ansible.builtin.import_tasks: healthchecks_public.yml
+
+- name: Verify geocode timer scheduling independently of application readiness
+  ansible.builtin.import_tasks: healthchecks_geocode.yml

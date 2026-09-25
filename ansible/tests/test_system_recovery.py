@@ -20,6 +20,10 @@ APP_SERVICES = [
     "uranus-admin-check-worker.service",
     "uranus-admin-frontend.service",
 ]
+GEOCODE = [
+    "uranus-admin-geocode-worker.service",
+    "uranus-admin-geocode-worker.timer",
+]
 NOTIFICATION = [
     "uranus-admin-notification-worker.service",
     "uranus-admin-notification-worker.timer",
@@ -27,6 +31,38 @@ NOTIFICATION = [
 
 
 class StaticRecoveryBoundaries(unittest.TestCase):
+    def test_production_allows_missing_geocode_units_and_running_oneshot(self):
+        base = [
+            {
+                "item": "nginx.service",
+                "stdout": "LoadState=loaded\nActiveState=active\nUnitFileState=enabled",
+            }
+        ]
+        for environment in ("production", "staging", "test"):
+            missing = [
+                {
+                    "item": name,
+                    "stdout": "LoadState=not-found\nActiveState=inactive\nUnitFileState=",
+                }
+                for name in GEOCODE
+            ]
+            snapshot = filters.service_snapshot(base + missing, environment)
+            self.assertTrue(all(not snapshot[name]["exists"] for name in GEOCODE))
+        running = {
+            "item": GEOCODE[0],
+            "stdout": "LoadState=loaded\nActiveState=activating\nUnitFileState=static",
+        }
+        self.assertTrue(filters.service_snapshot(base + [running])[GEOCODE[0]]["active"])
+
+    def test_candidate_and_installed_verification_include_geocode_units(self):
+        release = (ROLE / "tasks/release.yml").read_text()
+        activation = (ROLE / "tasks/activate.yml").read_text()
+        for text in (release, activation):
+            verify = next(
+                line for line in text.splitlines() if "['systemd-analyze', 'verify']" in line
+            )
+            self.assertIn("ua_geocode_units", verify)
+
     def test_notification_management_requires_its_own_apply_approval(self):
         defaults = yaml.safe_load((ROLE / "defaults/main.yml").read_text())
         gates = yaml.safe_load((ROLE / "tasks/inputs.yml").read_text())[:2]
@@ -148,8 +184,12 @@ class StaticRecoveryBoundaries(unittest.TestCase):
                                 ),
                             )
                             if isinstance(args, dict):
-                                self.assertEqual(
-                                    task["loop"], "{{ ua_notification_units | reverse | list }}"
+                                self.assertIn(
+                                    task["loop"],
+                                    (
+                                        "{{ ua_notification_units | reverse | list }}",
+                                        "{{ ua_geocode_units | reverse | list }}",
+                                    ),
                                 )
                                 self.assertFalse(task["changed_when"])
                         if key == "ansible.builtin.import_tasks":
@@ -202,6 +242,32 @@ class StaticRecoveryBoundaries(unittest.TestCase):
 
 
 class ActivationIntegrationTests(unittest.TestCase):
+    def test_geocode_production_timer_is_enabled_and_idempotent(self):
+        self.run_activation(repeat_without_activation=True)
+
+    def test_geocode_unit_change_reloads_without_restarting_other_services(self):
+        self.run_activation(geocode_reapply="unit")
+
+    def test_geocode_disabled_timer_is_repaired_without_other_restarts(self):
+        self.run_activation(geocode_reapply="disabled")
+
+    def test_geocode_production_check_mode_creates_nothing(self):
+        self.run_activation(check=True)
+
+    def test_geocode_first_install_recovers_after_timer_activation(self):
+        self.run_activation("After geocode timer activation")
+
+    def test_geocode_existing_active_states_and_files_recover(self):
+        self.run_activation("After geocode timer activation", geocode_existing=True)
+
+    def test_geocode_existing_inactive_states_and_files_recover(self):
+        self.run_activation(
+            "After geocode timer activation", geocode_existing=True, geocode_active=False
+        )
+
+    def test_geocode_timer_health_failure_recovers(self):
+        self.run_activation("Check geocode timer enablement and activity")
+
     def run_activation(
         self,
         fail_task=None,
@@ -209,6 +275,9 @@ class ActivationIntegrationTests(unittest.TestCase):
         approved=False,
         first_adoption=False,
         notification_active=True,
+        geocode_existing=False,
+        geocode_active=True,
+        geocode_reapply=None,
         originally_on=False,
         recovery_fail_task=None,
         check=False,
@@ -297,7 +366,9 @@ class ActivationIntegrationTests(unittest.TestCase):
                 legacy / "backend/.env",
                 legacy / "frontend/.env",
             ]
-            originals = {}
+            geocode_files = [root / "etc/systemd/system" / name for name in GEOCODE]
+            files.extend(geocode_files if geocode_existing else [])
+            originals = {str(path): None for path in geocode_files} if not geocode_existing else {}
             for path in files:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 original = "original " + path.name + "\n"
@@ -352,6 +423,12 @@ class ActivationIntegrationTests(unittest.TestCase):
             }
             services[APP_SERVICES[1]] = {"active": False, "unit_file_state": "disabled"}
             services[NOTIFICATION[0]]["unit_file_state"] = "static"
+            if geocode_existing:
+                services[GEOCODE[0]] = {"active": geocode_active, "unit_file_state": "static"}
+                services[GEOCODE[1]] = {
+                    "active": geocode_active,
+                    "unit_file_state": "enabled" if geocode_active else "disabled",
+                }
             if not notification_active:
                 for name in NOTIFICATION:
                     services[name]["active"] = False
@@ -372,7 +449,9 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "config_dir": str(config),
                 "current": str(release_root / "current"),
                 "unit_dir": str(root / "etc/systemd/system"),
-                "app_units": APP_SERVICES + (NOTIFICATION if bootstrap and manage else []),
+                "app_units": APP_SERVICES
+                + GEOCODE
+                + (NOTIFICATION if bootstrap and manage else []),
             }
             initial_services = copy.deepcopy(services)
             state_path = root / "state.json"
@@ -471,6 +550,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                     self.assertEqual(config.stat().st_mode & 0o777, 0o700, output)
                 managed = [
                     *files[:5],
+                    *geocode_files,
                     *(
                         root / "etc/systemd/system" / unit
                         for unit in (NOTIFICATION if manage else [])
@@ -550,6 +630,13 @@ class ActivationIntegrationTests(unittest.TestCase):
                 )
             if check:
                 self.assertEqual(result.returncode, 0, output)
+                for name, original in originals.items():
+                    path = Path(name)
+                    if original is None:
+                        self.assertFalse(path.exists(), output)
+                    else:
+                        self.assertEqual(path.read_text(), original[0], output)
+                        self.assertEqual(path.stat().st_mode & 0o777, original[1], output)
                 self.assertFalse(marker.exists())
                 self.assertFalse(maintenance.exists())
                 self.assertFalse(any(e["kind"] == "systemd" for e in observed["events"]))
@@ -585,6 +672,8 @@ class ActivationIntegrationTests(unittest.TestCase):
                         self.assertEqual(path.stat().st_mode & 0o777, original[1], output)
             else:
                 self.assertEqual(result.returncode, 0, output)
+                self.assertTrue(observed["services"][GEOCODE[1]]["active"])
+                self.assertEqual(observed["services"][GEOCODE[1]]["unit_file_state"], "enabled")
                 self.assertEqual((release_root / "current").resolve(), release)
                 health_events = [event for event in observed["events"] if event["kind"] == "uri"]
                 self.assertEqual(
@@ -671,8 +760,21 @@ class ActivationIntegrationTests(unittest.TestCase):
                         observed["events"].index(reload),
                         observed["events"].index(recovery_starts[-1]),
                     )
-            if repeat_without_activation:
+            if repeat_without_activation or geocode_reapply:
                 count = len(observed["events"])
+                if geocode_reapply == "unit":
+                    with geocode_files[0].open("a") as stream:
+                        stream.write("\n# Synthetic previous unit version\n")
+                elif geocode_reapply == "disabled":
+                    observed["services"][GEOCODE[1]] = {
+                        "active": False,
+                        "unit_file_state": "disabled",
+                    }
+                if geocode_reapply:
+                    observed["originals"] = {
+                        str(p): p.read_text() for p in files + geocode_files if p.is_file()
+                    }
+                    state_path.write_text(json.dumps(observed))
                 variables["ua_maintenance_public_title"] = "Aktualisiertes öffentliches Zeitfenster"
                 (root / "play.yml").write_text(yaml.safe_dump(play))
                 repeated = subprocess.run(
@@ -688,7 +790,17 @@ class ActivationIntegrationTests(unittest.TestCase):
                 )
                 self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
                 after = json.loads(state_path.read_text())
-                self.assertFalse(any(e["kind"] == "systemd" for e in after["events"][count:]))
+                mutations = [e for e in after["events"][count:] if e["kind"] == "systemd"]
+                if geocode_reapply:
+                    self.assertFalse(any(e.get("unit") in APP_SERVICES for e in mutations))
+                    self.assertEqual(
+                        any(e["task"] == "Reload changed systemd units" for e in mutations),
+                        geocode_reapply == "unit",
+                    )
+                    self.assertTrue(after["services"][GEOCODE[1]]["active"])
+                    self.assertEqual(after["services"][GEOCODE[1]]["unit_file_state"], "enabled")
+                else:
+                    self.assertFalse(mutations)
                 self.assertEqual(marker.exists(), originally_on)
                 self.assertIn(
                     variables["ua_maintenance_public_title"],
@@ -704,12 +816,15 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "Install reviewed configuration",
                 "Stop only affected application services",
                 "Enable managed test and staging notifications after successful healthchecks",
+                "Enable geocoding in every environment after successful healthchecks",
             ):
                 tasks.insert(
                     index + 1,
                     {
                         "name": (
-                            "After notification timer activation"
+                            "After geocode timer activation"
+                            if task["name"].startswith("Enable geocoding")
+                            else "After notification timer activation"
                             if task["name"].startswith("Enable managed test")
                             else "After pointer publication"
                             if task["name"].startswith("Publish")

@@ -12,6 +12,11 @@ from ansible.module_utils.basic import AnsibleModule
 UNITS = tuple(
     f"uranus-admin-{component}.service" for component in ("backend", "check-worker", "frontend")
 )
+GEOCODE_UNITS = (
+    "uranus-admin-geocode-worker.service",
+    "uranus-admin-geocode-worker.timer",
+)
+UNITS += GEOCODE_UNITS
 NOTIFICATION_UNITS = (
     "uranus-admin-notification-worker.service",
     "uranus-admin-notification-worker.timer",
@@ -104,6 +109,11 @@ def inventory(environment, candidates, services, manage_notifications=False):
                 "uranus-.service",
                 "uranus-admin-.service",
                 *units,
+                "timer",
+                "uranus-.timer",
+                "uranus-admin-.timer",
+                "uranus-admin-geocode-.service",
+                "uranus-admin-geocode-.timer",
                 *(
                     (
                         "timer",
@@ -127,6 +137,8 @@ def inventory(environment, candidates, services, manage_notifications=False):
             raise ValueError("Invalid managed infrastructure receipt")
         previous = json.loads(Path(RECEIPT).read_text())
         if not isinstance(previous, dict) or set(previous) not in (
+            set(PATHS) - {f"{UNIT_ROOT}/{unit}" for unit in GEOCODE_UNITS},
+            (set(PATHS) - {f"{UNIT_ROOT}/{unit}" for unit in GEOCODE_UNITS}) | set(optional_paths),
             set(PATHS),
             set(PATHS) | set(optional_paths),
         ):
