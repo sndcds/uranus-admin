@@ -270,6 +270,7 @@ class TargetContractTests(unittest.TestCase):
             "ua_service_user": "root",
             "ua_service_group": "root",
             "ua_services": [],
+            "ua_geocode_units": ["unrelated.service"],
             "ua_pg_port": 5433,
             "ua_pg_socket": "/tmp",
             "ua_maintenance_page_enabled": "yes",

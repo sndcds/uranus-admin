@@ -16,6 +16,24 @@ infrastructure = load("bootstrap_infrastructure", ROLE / "library/uranus_infrast
 
 
 class InfrastructureContractTests(unittest.TestCase):
+    def test_geocode_upgrade_accepts_previous_receipt_and_repeats_idempotently(self):
+        receipt = Path(infrastructure.RECEIPT)
+        previous = json.loads(self.plan()["receipt"])
+        for unit in infrastructure.GEOCODE_UNITS:
+            path = infrastructure.UNIT_ROOT + "/" + unit
+            previous.pop(path)
+            Path(path).unlink()
+        receipt.write_text(json.dumps(previous))
+        receipt.chmod(0o600)
+        plan = self.plan()
+        self.assertEqual(plan["missing_units"], list(infrastructure.GEOCODE_UNITS))
+        for item in self.candidates:
+            if item["path"] in plan["would_create"]:
+                Path(item["path"]).write_text(item["content"])
+                Path(item["path"]).chmod(0o644)
+        receipt.write_text(plan["receipt"])
+        self.assertEqual(self.plan()["would_create"], [])
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

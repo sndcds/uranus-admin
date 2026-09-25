@@ -85,13 +85,15 @@ SSH-Ziel und Hostschlüssel müssen für das tatsächliche Ziel eingerichtet wer
 
 **Production: adopt existing installation.** Die vorhandene Nginx-Site, ihr korrekter
 Symlink, die exakten Rate-Zonen und die drei App-Services sind Voraussetzungen.
-Fehlende Baseline-Objekte bleiben Blocker; Production erhält keinen Bootstrap-Pfad.
+Fehlende Baseline-Objekte bleiben Blocker; Production erhält keinen allgemeinen Bootstrap-Pfad.
+Die beiden neuen Geocoding-Units werden auch dort regulär installiert und aktiviert.
 Ein vorhandener, exakt fingerprint-verifizierter älterer Head darf mit separater
 Freigabe während der Maintenance migriert werden. Der bestehende Ablauf inklusive
 Maintenance vor Service-Unterbrechung bleibt erhalten.
 
 **Staging/Test: bootstrap managed Uranus Admin application infrastructure.** Fehlende
-App-Units (`backend`, `check-worker`, `frontend`), die eigene Nginx-Site samt Symlink,
+App-Units (`backend`, `check-worker`, `frontend`), Geocoding-Service und -Timer,
+die eigene Nginx-Site samt Symlink,
 Rate-Zonen und benötigte verwaltete Verzeichnisse dürfen nach erfolgreichen Prüfungen
 angelegt werden. Alle DB-Guards und Apply-Freigaben gelten weiterhin. Das ist kein
 allgemeines Server-Provisioning. Eine fremde Default-Site wird weder entfernt noch
@@ -253,7 +255,8 @@ geschützten Migrator-Zugangsdaten und den PostgreSQL-Login abgleichen. Ansible
 setzt keine Passwörter zurück und gibt keine DSNs oder rohen Treiberfehler aus.
 
 Beim Upgrade werden Maintenance aktiviert und alle drei verwalteten App-Services
-gestoppt, bevor der Release-Launcher startet. Der vorhandene Head muss in
+gestoppt; Geocoding-Timer und laufender Geocode-Worker werden ebenfalls vor dem
+Release-Launcher gestoppt. Der vorhandene Head muss in
 `admin_upgrade_contracts` stehen; der kanonische SHA256-Fingerprint aus Tabellen,
 Spalten und Indizes sowie der vollständige alte Rollen-/Grant-Vertrag müssen passen.
 Alembic-DDL und die exakte neue Runtime-/Operator-Grant-Matrix laufen in derselben
@@ -307,9 +310,9 @@ für einen späteren Lauf. Grundlage des Anwendungsstands:
 | Reader besitzt SELECT auf 72 Quellobjekten, keine Sequenzrechte                       | Mindestens die 19 benötigten Quellobjekte werden geprüft. Bestehende weitere Leserechte bleiben erhalten; kein pauschales SELECT auf Sequenzen.                                                                                                                 |
 | Vier getrennte App-Rollen, keine Memberships, keine privilegierten Attribute          | Attribute, Memberships in beide Richtungen, Ownership, Tabellen-/Spaltenrechte und indirekte Schreibmöglichkeiten werden erneut geprüft.                                                                                                                        |
 | App-Rollen haben CONNECT/TEMP, kein Datenbank-CREATE                                  | PUBLIC TEMP wird ausschließlich nach Prüfung des versionierten Vertrags der Erhaltungsrollen atomar auf explizite TEMP-Grants umgestellt; unbekannte Verbraucher blockieren.                                                                                    |
-| Backend, Frontend, Check-Worker existieren und laufen                                 | Nur diese drei bekannten Services werden übernommen. Keine zusätzlichen Service-Namen.                                                                                                                                                                          |
+| Backend, Frontend, Check-Worker existieren und laufen                                 | Diese drei bestehenden Services bleiben Voraussetzung. Geocoding-Service und -Timer werden zusätzlich verwaltet.                                                                                                                                                                          |
 | Notification-Timer ist aktiv, Notification-Service ist ein stündlicher Oneshot        | Standard: unverändert. Nur explizites Notification-Management mit zweiter Zustimmung stoppt/deaktiviert ihn; Recovery stellt dann seinen vorherigen Zustand wieder her.                                                                                         |
-| Kein URL-/Geocode-Service gefunden                                                    | Keine Installation oder Aktivierung dieser Worker.                                                                                                                                                                                                              |
+| Kein URL-/Geocode-Service gefunden                                                    | Geocode-Service und -Timer werden nun installiert und aktiviert; der URL-Worker bleibt unverändert.                                                                                                                                                                                                              |
 | Bisherige `.env`-Dateien sind 0664, Backend enthält auch privilegierte Variablennamen | Werte wurden beim Audit nicht veröffentlicht. Übernahme liest sie geschützt, erhält Passwörter und trennt neue Runtime/Operator; Legacy-Backend-Env nur bei Notification-Management bereinigen; keine Behauptung, dass alle gefundenen Variablen befüllt waren. |
 | Check-Worker startet bisher über `uv run`, ohne EnvironmentFile                       | `uv run --no-cache --no-sync --offline --no-python-downloads --no-env-file` aus dem fertigen Release, explizites Runtime-EnvironmentFile; kein Dependency-Sync beim Service-Start.                                                                              |
 | Frontend-Dev-Token-Flag true, vertrauenswürdiger Ingress nicht konfiguriert           | Flag explizit false; Nitro vertraut ausschließlich dem lokalen Nginx-Peer `127.0.0.1`. Das alte Flag allein bewies keinen Production-Auth-Bypass.                                                                                                               |
@@ -1435,7 +1438,8 @@ oder Unreachable-Fehler können nicht zuverlässig durch `rescue` aufgefangen we
 Dafür bleiben Snapshot und Manifest verfügbar. Kein `force_handlers`, keine parallelen
 Deployments oder manuellen Konfigurationsänderungen während der Aktivierung.
 
-Nach erfolgreichem Deployment zusätzlich read-only prüfen: drei erwartete Units aktiv,
+Nach erfolgreichem Deployment zusätzlich read-only prüfen: drei erwartete dauerhafte Services aktiv,
+Geocoding-Timer active/enabled,
 Notification-Zustand unverändert; bei explizitem Management ist der Timer auf
 Test/Staging aktiv/enabled und auf Production inaktiv/disabled. Außerdem prüfen:
 Ports ausschließlich loopback, `/health` und `/ready` erfolgreich, HTTPS-/Cookie-/Header-
@@ -1555,3 +1559,80 @@ Der Browser lädt nur normale XYZ-Kachelkoordinaten, mit Admin-Origin als Referr
 Entity-Name, E-Mail oder API-Credential wird eingebaut. IP und angefragte Region sind beim Provider
 sichtbar. OSM- und Provider-Attribution bleiben angezeigt. Ladefehler/Timeout führen zum Hinweis,
 ohne Retry-Loop. Produktions-CSP-Tests verwenden ausschließlich lokale synthetische Tile-Fixtures.
+
+## Geocoding Worker
+
+Bisher wurde `app.geocode_worker` durch keine Deployment-Unit gestartet. Daher konnten
+vorgemerkte `geocode_request`-Einträge dauerhaft `pending` mit null Prüfversuchen bleiben.
+Die Rolle installiert jetzt in **allen Umgebungen einschließlich Production**:
+
+- `uranus-admin-geocode-worker.service`: begrenzter `Type=oneshot`-Lauf von
+  `python -m app.geocode_worker --once` über die bestehende uv-Runtime, als `oklab:oklab`,
+  im Backend des ausgewählten Releases und mit `/etc/uranus-admin/runtime.env`.
+- `uranus-admin-geocode-worker.timer`: ein Kalendertermin alle fünf Minuten
+  (`OnCalendar=*-*-* *:0/5:00`), `Persistent=true`. Verpasste
+  Kalendertermine können beim Aktivieren einmal nachgeholt werden; keine Nachholschleife.
+
+Der Kalender-Takt ist die Alternative zum Boot-/Intervall-Timer: Nach Boot oder Installation
+liegt der nächste reguläre Termin höchstens fünf Minuten entfernt. Es gibt keinen zusätzlichen
+Boot-Trigger, der unmittelbar neben einem Kalendertermin einen zweiten Lauf auslösen könnte.
+
+Nach erfolgreicher Aktivierung wird der Timer automatisch enabled/active. systemd startet
+keine zweite Instanz derselben laufenden Service-Unit; der vorhandene Advisory Lock
+schützt zusätzlich vor konkurrierenden Worker-Aufrufen. Der Service verwendet dasselbe
+Hardening wie die anderen Python-Services und hat eine Start-/Laufzeitgrenze von 15 Minuten
+sowie 60 Sekunden Stop-Timeout. Es gibt keinen automatischen Service-Restart und kein
+`RemainAfterExit`: Nach einem Lauf ist ein inaktiver Service normal, der Timer bleibt aktiv.
+Der Kalender-Timer versucht auch nach einem fehlgeschlagenen Lauf den nächsten Termin.
+
+Vor geänderten Geocode-Units, einer geänderten Runtime-Environment oder einem freigegebenen
+Schema-Upgrade stoppt die Rolle zuerst den Timer und danach einen laufenden Worker.
+Unit-Änderungen lösen `daemon-reload` aus. Eine reine Geocode-Unit-Änderung startet Backend,
+Frontend und Check-Worker nicht neu; ein unveränderter zweiter Apply verändert den Timer
+nicht. Recovery stellt vorherige Dateien, Service-Aktivität und Timer-Aktivität/Enablement
+wieder her; bei Erstinstallation werden die zuvor fehlenden Units wieder entfernt.
+Ein vorher statischer Service bleibt statisch. Die Wiederaufnahme eines unterbrochenen
+Laufs kann normale Admin-Arbeit auslösen; Recovery setzt weder Requests noch Daten zurück.
+Notification-Timer und deren separate Freigaben bleiben unverändert.
+
+Die bestehenden `Settings` liefern folgende Defaults, wenn die jeweilige Variable in der
+übernommenen Runtime-Environment fehlt. Bereits konfigurierte Werte werden über den
+Release-Vertrag übernommen; zusätzliche `ua_runtime_overrides` sind hierfür nicht nötig.
+
+| Runtime-Variable               | Default |
+| ------------------------------ | ------: |
+| `GEOCODE_BATCH_SIZE`           |      50 |
+| `GEOCODE_REQUEST_INTERVAL_MS`  |     250 |
+| `GEOCODE_LEASE_SECONDS`        |     300 |
+| `GEOCODE_FAILED_RETRY_MINUTES` |      60 |
+| `GEOCODE_NOT_FOUND_RETRY_DAYS` |      30 |
+
+Batch-Limit, Provider-Pacing, Lease-Fencing und Retry-Semantik bleiben unverändert. Der
+Worker liest Uranus und schreibt ausschließlich Admin-Zustand und Standortvorschläge.
+Es gibt keine automatische Kandidatenübernahme, keine Änderung von Venue-/Organization-
+Koordinaten, keine neue Migration und keine zusätzlichen Grants.
+
+Die Deployment-Prüfung validiert Kandidaten und installierte Units mit
+`systemd-analyze verify` und prüft den Timer separat mit `systemctl is-enabled` und
+`systemctl is-active`. Das belegt die Planung der Ausführung, **keine erfolgreiche
+Geocodierung**. Auch `/ready` beweist keine Worker-Liveness. Queue-Fortschritt, Prüfversuche
+und die vorhandenen Journal-Ereignisse `geocode_request_claimed`, `geocode_<status>` und
+`geocode_run` getrennt beobachten. Es wird kein Geocode-Request als Smoke-Test erzeugt.
+
+Nach dem Deployment kontrollieren:
+
+```sh
+systemctl is-enabled uranus-admin-geocode-worker.timer
+systemctl is-active uranus-admin-geocode-worker.timer
+systemctl status uranus-admin-geocode-worker.timer
+systemctl status uranus-admin-geocode-worker.service
+journalctl -u uranus-admin-geocode-worker.service
+systemctl list-timers | grep geocode
+```
+
+Ausschließlich zur Diagnose kann ein Operator einen einzelnen Lauf starten. Dieser kann
+bereits vorhandene fällige Requests bearbeiten und Nominatim kontaktieren:
+
+```sh
+systemctl start uranus-admin-geocode-worker.service
+```

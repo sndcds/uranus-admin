@@ -1,0 +1,10 @@
+[Unit]
+Description=Uranus Admin periodic geocoding checks
+
+[Timer]
+OnCalendar=*-*-* *:0/5:00
+Persistent=true
+Unit=uranus-admin-geocode-worker.service
+
+[Install]
+WantedBy=timers.target

@@ -5,6 +5,7 @@
     ua_install_attempted: false
     ua_services_stop_attempted: false
     ua_maintenance_attempted: false
+    ua_geocode_touched: false
 
 - name: Activate validated system configuration with bounded recovery
   when: not ansible_check_mode
@@ -71,6 +72,18 @@
       loop: "{{ ua_restart_services }}"
       when: ua_previous_services[item].exists
 
+    - name: Record geocoding interruption before configuration or schema changes
+      ansible.builtin.set_fact:
+        ua_geocode_touched: true
+      when: ua_geocode_stop_required | bool
+
+    - name: Stop the geocode timer before its bounded worker invocation
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+      loop: "{{ ua_geocode_units | reverse | list }}"
+      when: ua_geocode_stop_required | bool and ua_previous_services[item].exists
+
     - name: Upgrade the exact reviewed admin database contract while services are stopped
       ansible.builtin.include_tasks: admin_database_upgrade.yml
       when: ua_admin_database_plan.admin_database.state | default('READY') == 'UPGRADEABLE'
@@ -94,11 +107,10 @@
     - name: Link the new managed site after installing its files
       ansible.builtin.import_tasks: bootstrap_link.yml
 
-    - name: Verify installed bootstrap units before loading or starting them
+    - name: Verify installed units before loading or starting them
       ansible.builtin.command:
-        argv: "{{ ['systemd-analyze', 'verify'] + ((ua_services + (ua_notification_units if ua_manage_notification_timer | bool else [])) | map('regex_replace', '^', '/etc/systemd/system/') | list) }}"
+        argv: "{{ ['systemd-analyze', 'verify'] + ((ua_services + ua_geocode_units + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else [])) | map('regex_replace', '^', '/etc/systemd/system/') | list) }}"
       changed_when: false
-      when: ua_target_environment in ['staging', 'test']
 
     - name: Validate bootstrap Nginx before loading units
       ansible.builtin.command: /usr/sbin/nginx -t
@@ -176,6 +188,19 @@
         - ua_target_environment in ['staging', 'test']
         - ua_manage_notification_timer | bool
         - ua_disable_notification_timer_approved | bool
+
+    - name: Record geocode timer activation for recovery
+      ansible.builtin.set_fact:
+        ua_geocode_touched: true
+
+    - name: Enable geocoding in every environment after successful healthchecks
+      ansible.builtin.systemd_service:
+        name: uranus-admin-geocode-worker.timer
+        state: started
+        enabled: true
+
+    - name: Verify geocode timer scheduling independently of application readiness
+      ansible.builtin.import_tasks: healthchecks_geocode.yml
 
     - name: Mark activation successful
       ansible.builtin.set_fact:

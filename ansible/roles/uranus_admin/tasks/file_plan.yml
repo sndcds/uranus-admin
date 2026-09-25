@@ -10,6 +10,12 @@
       - path: /etc/systemd/system/uranus-admin-frontend.service
         content: "{{ lookup('template', 'frontend.service.j2') }}"
         mode: "0644"
+      - path: /etc/systemd/system/uranus-admin-geocode-worker.service
+        content: "{{ lookup('template', 'geocode-worker.service.j2') }}"
+        mode: "0644"
+      - path: /etc/systemd/system/uranus-admin-geocode-worker.timer
+        content: "{{ lookup('template', 'geocode-worker.timer.j2') }}"
+        mode: "0644"
       - path: /etc/nginx/sites-available/uranus-admin
         content: "{{ lookup('template', 'nginx-site.conf.j2') }}"
         mode: "0644"
@@ -130,6 +136,8 @@
       changed_files: "{{ ua_changed_paths }}"
       restart_services: "{{ ua_restart_services | default([]) }}"
       nginx_reload: "{{ ua_nginx_changed }}"
+      geocode_timer: "Enable and start after successful activation in every environment; persistent five-minute calendar schedule."
+      geocode_stop_for_activation: "{{ ua_activation.geocode_changed or ua_admin_database_plan.admin_database.state | default('READY') == 'UPGRADEABLE' }}"
       notification_timer: "{{ ('Install and enable hourly timer after successful activation' if ua_target_environment in ['staging', 'test'] else 'Disable only under the separate approval; recover original state on failure') if ua_manage_notification_timer | bool else 'UNCHANGED (including shared legacy environment)' }}"
       secret_diffs: "Suppressed, including old unit contents. No password rotation."
       legacy_frontend_env: "Existing file will be restricted to root:root 0600 without content changes."

@@ -52,6 +52,32 @@ def nginx_defaults():
 
 
 class EnvironmentTests(unittest.TestCase):
+    def test_existing_geocode_settings_are_adopted_without_changing_defaults(self):
+        tree = ast.parse((ROOT / "backend/app/config.py").read_text())
+        settings = next(
+            n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Settings"
+        )
+        fields = {n.target.id: n.value for n in settings.body if isinstance(n, ast.AnnAssign)}
+        expected = {
+            "geocode_batch_size": 50,
+            "geocode_request_interval_ms": 250,
+            "geocode_lease_seconds": 300,
+            "geocode_failed_retry_minutes": 60,
+            "geocode_not_found_retry_days": 30,
+        }
+        for name, default in expected.items():
+            self.assertEqual(
+                next(k.value.value for k in fields[name].keywords if k.arg == "default"), default
+            )
+        values = {
+            **self.values,
+            "SQL_CONSOLE_DATABASE_URL": "postgresql+asyncpg://uranus_console_reader:synthetic-fixture-password@localhost:5432/oklab",
+            **{k.upper(): str(v) for k, v in expected.items()},
+        }
+        runtime = filters.runtime_environment(values, [k.upper() for k in fields])
+        for name, default in expected.items():
+            self.assertEqual(runtime[name.upper()], str(default))
+
     def setUp(self):
         self.values = {
             "DATABASE_URL": "postgresql+asyncpg://uranus_reader:fake%23%24@localhost:5432/oklab",
@@ -398,6 +424,26 @@ class ArtifactTests(unittest.TestCase):
 
 
 class DeploymentBoundaryTests(unittest.TestCase):
+    def test_geocode_changes_only_reload_units_and_quiesce_geocoding(self):
+        states = {
+            name: {"state": "running"}
+            for name in (
+                "uranus-admin-backend.service",
+                "uranus-admin-check-worker.service",
+                "uranus-admin-frontend.service",
+            )
+        }
+        for unit in filters.GEOCODE_UNITS:
+            plan = filters.activation_plan(
+                ["/etc/systemd/system/" + unit], states, "/etc/uranus-admin"
+            )
+            self.assertEqual(plan["restart_services"], [])
+            self.assertTrue(plan["units_changed"])
+            self.assertTrue(plan["geocode_changed"])
+        self.assertFalse(
+            filters.activation_plan([], states, "/etc/uranus-admin")["geocode_changed"]
+        )
+
     def test_idempotent_and_service_specific_activation(self):
         backend, worker, frontend = (
             "uranus-admin-backend.service",
@@ -660,7 +706,13 @@ class DeploymentBoundaryTests(unittest.TestCase):
             "ua_node": "/usr/bin/node",
             "ua_uv": "/usr/local/bin/uv",
         }
-        for name in ("backend", "check-worker", "frontend", "notification-worker"):
+        for name in (
+            "backend",
+            "check-worker",
+            "frontend",
+            "notification-worker",
+            "geocode-worker",
+        ):
             unit = env.get_template(name + ".service.j2").render(values)
             self.assertIn("User=oklab", unit)
             if name != "frontend":
@@ -681,6 +733,33 @@ class DeploymentBoundaryTests(unittest.TestCase):
         self.assertIn("EnvironmentFile=/etc/uranus-admin/runtime.env", notification)
         self.assertNotIn("[Install]", notification)
         self.assertNotIn("Restart=", notification)
+        geocode = env.get_template("geocode-worker.service.j2").render(values)
+        for setting in (
+            "Type=oneshot",
+            "python -m app.geocode_worker --once",
+            "EnvironmentFile=/etc/uranus-admin/runtime.env",
+            "Group=oklab",
+            "WorkingDirectory=" + values["ua_release_dir"] + "/backend",
+            "TimeoutStartSec=15min",
+            "StandardOutput=journal",
+            "StandardError=journal",
+        ):
+            self.assertIn(setting, geocode)
+        for setting in ("[Install]", "Restart=", "RemainAfterExit=true"):
+            self.assertNotIn(setting, geocode)
+        timer = env.get_template("geocode-worker.timer.j2").render(values)
+        for setting in (
+            "OnCalendar=*-*-* *:0/5:00",
+            "Persistent=true",
+            "Unit=uranus-admin-geocode-worker.service",
+            "WantedBy=timers.target",
+        ):
+            self.assertIn(setting, timer)
+        self.assertNotIn("OnBootSec", timer)
+        notification_timer = env.get_template("notification-worker.timer.j2").render(values)
+        self.assertIn("OnCalendar=hourly", notification_timer)
+        self.assertIn("Persistent=true", notification_timer)
+        self.assertNotIn("OnBootSec", notification_timer)
         frontend = env.get_template("frontend.service.j2").render(values)
         self.assertNotIn("EnvironmentFile=", frontend)
         self.assertIn("NUXT_TRUSTED_INGRESS_IPS=127.0.0.1", frontend)
@@ -725,13 +804,20 @@ class DeploymentBoundaryTests(unittest.TestCase):
                 "ua_uv": "/usr/bin/true",
             }
             paths = []
-            for name in ("backend", "check-worker", "frontend", "notification-worker"):
+            for name in (
+                "backend",
+                "check-worker",
+                "frontend",
+                "notification-worker",
+                "geocode-worker",
+            ):
                 path = root / ("uranus-admin-" + name + ".service")
                 path.write_text(env.get_template(name + ".service.j2").render(values))
                 paths.append(str(path))
-            timer = root / "uranus-admin-notification-worker.timer"
-            timer.write_text(env.get_template("notification-worker.timer.j2").render(values))
-            paths.append(str(timer))
+            for name in ("notification-worker", "geocode-worker"):
+                timer = root / ("uranus-admin-" + name + ".timer")
+                timer.write_text(env.get_template(name + ".timer.j2").render(values))
+                paths.append(str(timer))
             result = subprocess.run(
                 ["systemd-analyze", "verify", "--man=no", *paths],
                 capture_output=True,

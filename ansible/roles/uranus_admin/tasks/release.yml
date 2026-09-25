@@ -248,7 +248,7 @@
 
 - name: Validate prepared units against installed release executables
   ansible.builtin.command:
-    argv: "{{ ['systemd-analyze', 'verify'] + ((ua_services + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else [])) | map('regex_replace', '^', ua_release_dir + '/deployment/') | list) }}"
+    argv: "{{ ['systemd-analyze', 'verify'] + ((ua_services + ua_geocode_units + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else [])) | map('regex_replace', '^', ua_release_dir + '/deployment/') | list) }}"
   changed_when: false
 
 - name: Validate the candidate Nginx vhost before installation
