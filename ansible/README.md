@@ -147,7 +147,7 @@ all:
 Secret-Diffs auszugeben. Fehlende Production-Baseline-Objekte brechen weiterhin ab.
 
 Beim ersten Bootstrap ohne vorhandene App-Services wird der Maintenance-Marker
-vor der öffentlichen Aktivierung vorbereitet. Nach Build und Recovery-Snapshot
+vor der öffentlichen Aktivierung vorbereitet. Nach Release-Vorbereitung und Recovery-Snapshot
 werden Units, Rate-Zonen, Site und Symlink installiert, Units und die vollständige
 Nginx-Konfiguration validiert, Systemd neu geladen und die Apps gestartet.
 Erst nach Nginx-Reload und erfolgreichen Healthchecks wird `current` veröffentlicht.
@@ -247,7 +247,7 @@ lesend den verbleibenden Zustand. Runtime-/Operator-Grants aus den Release-Regis
 zusammen mit der vollständigen Boundary-Verifikation in einer Transaktion angewendet.
 Ein Session-Lock verhindert parallele Bootstrap-/Upgrade-Läufe dieser Rolle.
 
-Bei `UPGRADEABLE` prüft Ansible bereits vor Build und Maintenance die übernommene
+Bei `UPGRADEABLE` prüft Ansible bereits vor Release-Vorbereitung und Maintenance die übernommene
 `ADMIN_MIGRATION_DATABASE_URL` durch eine echte Anmeldung als `admin_migrator`
 und eine read-only Identitätsabfrage. Diese Prüfung läuft auch im Check Mode.
 Ein abgelehnter Login wird mit `check=migrator_connection` gemeldet; dafür die
@@ -381,7 +381,7 @@ Die ausführbaren SQL-Texte stehen vollständig in
    Abhängigkeiten und Release-Head. Kein DDL/DML.
 3. **READ ONLY**, optional `ua_counts: true` — vier feste `SELECT COUNT(*)` auf
    den genannten Uranus-Kerntabellen. Nur Orientierung, kein Gleichheits-/Mindestwert-Guard.
-4. **READ ONLY**, nach Build vor Umschaltung — echte Runtime-DSNs als
+4. **READ ONLY**, nach Release-Vorbereitung vor Umschaltung — echte Runtime-DSNs als
    `uranus_reader` bzw. `admin_user`; `SET TRANSACTION ... READ ONLY`,
    `SELECT current_database(), current_user`, vorhandene lesende
    [Source-Verifikation](../backend/app/source_schema_verify.py),
@@ -427,7 +427,7 @@ bleiben für User-SQL gesperrt; Schreiben und Phase 4 bleiben ausgeschlossen.
    plus bestehende Apply-Gates; idempotente Rollen/Schema/Views/Minimal-Grants und
    datenbankbezogener Reader-Search-Path. Wiederholte Prüfung und atomarer DB-Commit.
 3. `sql_console_verify.yml`: neue READ-ONLY-Verbindung, exakter Sollzustand ohne Drift.
-4. Erst dann Release-Build und echte Console-DSN-Verifikation, anschließend Maintenance
+4. Erst dann Release-Vorbereitung und echte Console-DSN-Verifikation, anschließend Maintenance
    und App-Aktivierung. Recovery bleibt ausschließlich systembezogen.
 
 Die Phase-3-Runtime ist in diesen Ablauf eingebunden: Das Release enthält die
@@ -807,7 +807,7 @@ ist erforderlich.
 Reihenfolge: Input-/Apply-Gates → Host-/OS-/lokale Speicher-/Nginx-Prüfung → Toolchain-Inspektion →
 bei freigegebenem Echtlauf Provisionierung und Verifikation → unveränderter READ-ONLY-
 DB-Preflight → Environment-Plan → Console-Plan/Provisionierung/READ-ONLY-Verifikation
-→ lokaler Build/Runtime-Prüfung → Aktivierung/Recovery
+→ lokale Python-Vorbereitung/Runtime-Prüfung → Aktivierung/Recovery
 → nur bei Erfolg begrenzte Build-Aufbewahrung.
 Ein Toolchain-Fehler erreicht weder DB-Prüfung noch Secret-Übernahme, Nginx-Mutation
 oder Service-Stop. Die Activation-Recovery bleibt unverändert und greift auf keine DB zu.
@@ -1380,7 +1380,7 @@ Die unveränderten Freigaben und READ-ONLY-Preflights gelten weiterhin.
 
 Reihenfolge bei einer erforderlichen Aktivierung:
 
-1. Release bauen, Runtime und Konfigurationskandidaten prüfen.
+1. Artefakt entpacken, Python-Umgebung vorbereiten, Runtime und Konfigurationskandidaten prüfen.
 2. Frischen Recovery-Snapshot einschließlich ursprünglichem Markerzustand erstellen.
 3. Statische Wartungsdateien vollständig installieren, noch ohne Aktivierung.
 4. Marker atomar anlegen (vorhandenen Inhalt erhalten). Den bereits geprüften,

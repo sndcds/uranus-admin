@@ -20,6 +20,9 @@ def verify_output(value, require_build_metadata=True):
     # Installed predecessors can predate format 2 and contain source maps.
     # They need their own existing runtime, never a rebuild during recovery.
     if not require_build_metadata:
+        for path in root.rglob("*"):
+            if path.is_symlink() and not path.resolve(strict=True).is_relative_to(root):
+                raise ValueError("Previous Nitro runtime references a path outside its release")
         return
     files = {}
     for path in root.rglob("*"):

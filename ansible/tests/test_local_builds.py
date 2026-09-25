@@ -250,7 +250,12 @@ class BuildPublicationTests(unittest.TestCase):
             output = frontend_build(directory)
             (output / "uranus-admin-build.json").unlink()
             (output / "server/old.map").write_text("legacy source map")
+            (output / "internal.mjs").symlink_to("server/index.mjs")
             frontend_output.verify_output(output, require_build_metadata=False)
+            (output / "external").symlink_to(Path(directory))
+            with self.assertRaisesRegex(ValueError, "outside"):
+                frontend_output.verify_output(output, require_build_metadata=False)
+            (output / "external").unlink()
             (output / "server/index.mjs").unlink()
             with self.assertRaisesRegex(ValueError, "entrypoint is missing"):
                 frontend_output.verify_output(output, require_build_metadata=False)
