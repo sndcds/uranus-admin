@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch and package latest origin/main; no working-tree files or secrets."""
+"""Package latest origin/main with a verified prebuilt frontend; never run a build."""
 
 import argparse
 import ast
@@ -290,7 +290,65 @@ def admin_columns(source):
     return columns
 
 
-def package(revision, output):
+NODE_VERSION = "22.22.3"
+BUILD_METADATA = "uranus-admin-build.json"
+ENTRYPOINT = "frontend/.output/server/index.mjs"
+
+
+def frontend_files(output):
+    """Read only the standalone runtime tree; never follow links or package source deps."""
+    root = Path(output)
+    if (
+        root.is_symlink()
+        or not (root / "server/index.mjs").is_file()
+        or not (root / "public").is_dir()
+    ):
+        raise ValueError(
+            "Frontend production build missing. "
+            "Run build_release.py on the build host before packaging."
+        )
+    files = {}
+    for path in sorted(root.rglob("*")):
+        parts = path.relative_to(root).parts
+        if (
+            path.is_symlink()
+            or any(
+                part in {".git", ".env", ".npmrc", ".pnpmrc"} or part.startswith(".env.")
+                for part in parts
+            )
+            or path.suffix in {".map", ".pem", ".key"}
+        ):
+            raise ValueError("Unsafe frontend build member (links, secrets or source maps)")
+        if path.is_dir():
+            continue
+        if not path.is_file():
+            raise ValueError("Frontend build contains a special file")
+        files[path.relative_to(root).as_posix()] = path.read_bytes()
+    return files
+
+
+def verified_frontend(output, commit, pnpm):
+    files = frontend_files(output)
+    try:
+        metadata = json.loads(files.pop(BUILD_METADATA))
+    except (KeyError, ValueError):
+        raise ValueError("Frontend build metadata missing; run the release build first") from None
+    expected = {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}
+    if (
+        metadata.get("commit") != commit
+        or metadata.get("node") != NODE_VERSION
+        or metadata.get("pnpm") != pnpm
+        or metadata.get("platform") != "linux-x64"
+        or metadata.get("files") != expected
+    ):
+        raise ValueError(
+            "Stale or modified frontend build: commit, toolchain or file hashes do not match"
+        )
+    files[BUILD_METADATA] = json.dumps(metadata, sort_keys=True, indent=2).encode()
+    return {"frontend/.output/" + name: data for name, data in files.items()}
+
+
+def package(revision, output, frontend_output=None):
     commit = subprocess.check_output(
         ["git", "rev-parse", "--verify", revision + "^{commit}"], text=True
     ).strip()
@@ -309,18 +367,12 @@ def package(revision, output):
             backend = member.name.startswith(
                 ("backend/app/", "backend/migrations/")
             ) or member.name in {"backend/alembic.ini", "backend/pyproject.toml", "backend/uv.lock"}
-            frontend = member.name.startswith(
-                ("frontend/app/", "frontend/server/", "frontend/shared/", "frontend/public/")
-            ) or member.name in {
-                "frontend/package.json",
-                "frontend/pnpm-lock.yaml",
-                "frontend/pnpm-workspace.yaml",
-                "frontend/nuxt.config.ts",
-                "frontend/tsconfig.json",
-                "frontend/eslint.config.mjs",
-            }
-            if backend or frontend:
+            if backend:
                 files[member.name] = source.extractfile(member).read()
+    pnpm = json.loads(subprocess.check_output(["git", "show", commit + ":frontend/package.json"]))[
+        "packageManager"
+    ].removeprefix("pnpm@")
+    files.update(verified_frontend(frontend_output or "frontend/.output", commit, pnpm))
     required_release_sources = {
         "backend/app/admin_upgrade_contracts.py",
         "backend/app/admin_tables.py",
@@ -350,6 +402,15 @@ def package(revision, output):
         if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)
     ]
     manifest = {
+        "format_version": 2,
+        "frontend_build": {
+            "kind": "nuxt-nitro",
+            "entrypoint": ENTRYPOINT,
+            "commit": commit,
+            "node": NODE_VERSION,
+            "pnpm": pnpm,
+            "platform": "linux-x64",
+        },
         "commit": commit,
         "head": heads.pop(),
         "environment_keys": keys,
@@ -362,9 +423,9 @@ def package(revision, output):
         "admin_indexes": admin_indexes(files["backend/app/admin_tables.py"]),
         "admin_columns": admin_columns(files["backend/app/admin_tables.py"]),
         "python": "3.13",
-        "node": "22.22.3",
+        "node": NODE_VERSION,
         "uv": "0.12.5",
-        "pnpm": json.loads(files["frontend/package.json"])["packageManager"].split("@")[-1],
+        "pnpm": pnpm,
     }
     upgrade_target = literal_assignment(
         files["backend/app/admin_upgrade_contracts.py"], "ADMIN_UPGRADE_TARGET"
@@ -400,11 +461,18 @@ def package(revision, output):
         gzip.GzipFile(fileobj=target, mode="wb", filename="", mtime=0) as compressed,
         tarfile.open(fileobj=compressed, mode="w") as archive,
     ):
+        public = tarfile.TarInfo("frontend/.output/public")
+        public.type, public.mode, public.mtime = tarfile.DIRTYPE, 0o755, 0
+        archive.addfile(public)
         for name, data in sorted(files.items()):
             info = tarfile.TarInfo(name)
             info.size, info.mode, info.mtime = len(data), 0o644, 0
             archive.addfile(info, io.BytesIO(data))
     digest = hashlib.sha256(Path(output).read_bytes()).hexdigest()
+    with Path(str(output) + ".sha256").open("x") as checksum:
+        name = Path(output).name
+        escaped = name.replace("\\", "\\\\").replace("\n", "\\n")
+        checksum.write(("\\" if escaped != name else "") + digest + "  " + escaped + "\n")
     release_values = {
         "ua_release_sha": commit,
         "ua_artifact": str(Path(output).resolve()),
@@ -414,7 +482,7 @@ def package(revision, output):
     return release_values
 
 
-def main(argv=None):
+def main(argv=None, build=False):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--output", required=True, help="New archive path (~ and relative paths supported)"
@@ -432,19 +500,50 @@ def main(argv=None):
         help="Show local configuration changes without writing them (requires "
         "--update-local-inventories). The release archive is still created.",
     )
+    parser.add_argument(
+        "--frontend-output",
+        help="Verified .output from build_release.py (never built by packaging)",
+    )
+    parser.add_argument("--expected-commit", help="Abort if fetched main moved since CI checkout")
+    if build:
+        parser.add_argument(
+            "--production-e2e",
+            action="store_true",
+            help="Run production E2E using the CI-pinned Playwright Docker image",
+        )
+        parser.add_argument(
+            "--verify",
+            action="store_true",
+            help="Run frontend lint, typecheck and unit tests in the clean build checkout",
+        )
     args = parser.parse_args(argv)
     if args.dry_run and not args.update_local_inventories:
         parser.error("--dry-run requires --update-local-inventories")
     output = Path(args.output).expanduser().resolve()
-    if output.exists():
-        parser.error("Output already exists; choose a new artifact path")
+    if any(p.exists() or p.is_symlink() for p in (output, Path(str(output) + ".sha256"))):
+        parser.error("Output or checksum already exists; choose a new artifact path")
     if args.update_local_inventories:
         try:
             yaml_parser()
         except ConfigurationError as error:
             parser.error(str(error))
     commit = latest_main()
-    release_values = package(commit, str(output))
+    if args.expected_commit and args.expected_commit != commit:
+        parser.error("Latest main moved since checkout; restart with the new main commit")
+    if build:
+        if args.frontend_output:
+            parser.error("build_release.py always creates its own clean frontend build")
+        from build_release import build_frontend
+
+        with tempfile.TemporaryDirectory(prefix="uranus-release-") as directory:
+            frontend = build_frontend(
+                commit, Path(directory), verify=args.verify, production_e2e=args.production_e2e
+            )
+            release_values = package(commit, str(output), frontend)
+    elif args.frontend_output:
+        release_values = package(commit, str(output), args.frontend_output)
+    else:
+        release_values = package(commit, str(output))
     print(f"Release package created:\n  {output}", file=sys.stderr)
     if args.update_local_inventories:
         if not output.is_file() or output.stat().st_size == 0:

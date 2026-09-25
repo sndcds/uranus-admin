@@ -17,6 +17,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import yaml
+from release_fixture import frontend_build
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
@@ -74,6 +75,7 @@ class LocalReleaseTests(unittest.TestCase):
         self.ansible = self.root / "ansible"
         self.ansible.mkdir()
         self.output = self.root / "release.tar.gz"
+        self.frontend = frontend_build(self.root, self.commit)
         self.paths = [self.ansible / name for name in packager.LOCAL_RELEASE_PATHS]
         for path, text in zip(
             self.paths,
@@ -95,7 +97,15 @@ class LocalReleaseTests(unittest.TestCase):
         self.enterContext(contextlib.redirect_stderr(self.stderr))
 
     def run_cli(self, *options, output=None):
-        packager.main(["--output", str(output or self.output), *options])
+        packager.main(
+            [
+                "--output",
+                str(output or self.output),
+                "--frontend-output",
+                str(self.frontend),
+                *options,
+            ]
+        )
 
     def snapshot(self):
         return [
@@ -117,7 +127,7 @@ class LocalReleaseTests(unittest.TestCase):
 
     def generated_pins(self):
         with contextlib.redirect_stdout(io.StringIO()):
-            values = packager.package(self.commit, self.root / "reference.tar.gz")
+            values = packager.package(self.commit, self.root / "reference.tar.gz", self.frontend)
         return {**values, "ua_artifact": str(self.output)}
 
     def assert_pins_updated(self):
@@ -440,8 +450,176 @@ class LocalReleaseTests(unittest.TestCase):
         with patch.object(packager, "package", wraps=original_package) as package:
             with patch.object(packager, "update_local_inventories") as update:
                 self.run_cli("--update-local-inventories")
-        package.assert_called_once_with(self.commit, str(self.output))
+        package.assert_called_once_with(self.commit, str(self.output), str(self.frontend))
         update.assert_called_once_with(json.loads(self.stdout.getvalue()), False)
+
+
+class PrebuiltReleaseTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.frontend = frontend_build(self.root)
+        self.commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        self.archive = self.root / "release.tar.gz"
+
+    def package(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            return packager.package(self.commit, self.archive, self.frontend)
+
+    def test_runtime_archive_contains_traced_dependencies_and_no_sources(self):
+        self.package()
+        with tarfile.open(self.archive) as archive:
+            names = archive.getnames()
+            self.assertIn("frontend/.output/server/index.mjs", names)
+            self.assertIn("frontend/.output/public", names)
+            self.assertIn("frontend/.output/server/node_modules/fixture/index.mjs", names)
+            self.assertNotIn("frontend/package.json", names)
+            self.assertFalse(any(name.startswith("frontend/node_modules/") for name in names))
+            self.assertFalse(any("/.env" in name or "/.git/" in name for name in names))
+            manifest = json.load(archive.extractfile("release.json"))
+            self.assertEqual(manifest["format_version"], 2)
+            self.assertEqual(manifest["frontend_build"]["commit"], self.commit)
+        checksum = Path(str(self.archive) + ".sha256").read_text().split()[0]
+        self.assertEqual(checksum, hashlib.sha256(self.archive.read_bytes()).hexdigest())
+
+    def test_missing_build_fails_without_building(self):
+        (self.frontend / "server/index.mjs").unlink()
+        with self.assertRaisesRegex(ValueError, "Frontend production build missing"):
+            self.package()
+        self.assertFalse(self.archive.exists())
+
+    def test_wrong_commit_toolchain_or_hash_is_rejected(self):
+        path = self.frontend / packager.BUILD_METADATA
+        original = json.loads(path.read_text())
+        for key, value in [("commit", "0" * 40), ("node", "v0"), ("pnpm", "0"), ("files", {})]:
+            with self.subTest(key=key):
+                path.write_text(json.dumps({**original, key: value}))
+                with self.assertRaisesRegex(ValueError, "Stale or modified"):
+                    self.package()
+        path.write_text(json.dumps(original))
+        (self.frontend / "server/index.mjs").write_text("// changed after build")
+        with self.assertRaisesRegex(ValueError, "Stale or modified"):
+            self.package()
+
+    def test_secret_files_sourcemaps_and_links_fail_closed(self):
+        for name in (".env", ".env.production", ".git/config", "server/code.mjs.map", "key.pem"):
+            path = self.frontend / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_text("synthetic forbidden file")
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "Unsafe frontend"):
+                self.package()
+            path.unlink()
+            if name.startswith(".git/"):
+                path.parent.rmdir()
+        (self.frontend / "link").symlink_to(self.root)
+        with self.assertRaisesRegex(ValueError, "Unsafe frontend"):
+            self.package()
+
+    def test_target_rejects_incomplete_old_or_tampered_build_even_with_new_checksum(self):
+        from ansible.errors import AnsibleFilterError
+        from test_deployment import filters
+
+        self.package()
+        for variant in ("old", "entrypoint", "public", "content", "commit"):
+            target = self.root / (variant + ".tar.gz")
+            with tarfile.open(self.archive) as source, tarfile.open(target, "w:gz") as archive:
+                for member in source:
+                    if variant == "entrypoint" and member.name == packager.ENTRYPOINT:
+                        continue
+                    if variant == "public" and member.name == "frontend/.output/public":
+                        continue
+                    data = source.extractfile(member).read() if member.isfile() else None
+                    if member.name == "release.json" and variant in {"old", "commit"}:
+                        manifest = json.loads(data)
+                        if variant == "old":
+                            manifest.pop("format_version")
+                        else:
+                            manifest["frontend_build"]["commit"] = "0" * 40
+                        data = json.dumps(manifest).encode()
+                    if variant == "content" and member.name == packager.ENTRYPOINT:
+                        data = b"// changed after packaging"
+                    if data is not None:
+                        member.size = len(data)
+                    archive.addfile(member, io.BytesIO(data) if data is not None else None)
+            with self.subTest(variant=variant), self.assertRaises(AnsibleFilterError):
+                filters.artifact_manifest(
+                    target, hashlib.sha256(target.read_bytes()).hexdigest(), self.commit
+                )
+
+    def test_main_race_aborts_before_build_or_packaging(self):
+        with (
+            patch.object(packager, "latest_main", return_value="a" * 40),
+            patch.object(packager, "package") as package,
+        ):
+            with self.assertRaises(SystemExit):
+                packager.main(["--output", str(self.archive), "--expected-commit", "b" * 40])
+            package.assert_not_called()
+
+
+class BuildHostTests(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, str(ROOT / "ansible/scripts"))
+        self.addCleanup(lambda: sys.path.remove(str(ROOT / "ansible/scripts")))
+        import build_release
+
+        self.builder = build_release
+
+    def test_build_environment_excludes_inherited_secrets_and_config(self):
+        with patch.dict(
+            os.environ,
+            {
+                "NUXT_PUBLIC_TEST_SECRET": "synthetic-secret",
+                "DATABASE_URL": "synthetic-dsn",
+                "NODE_OPTIONS": "--inspect",
+                "NPM_TOKEN": "synthetic-token",
+            },
+        ):
+            environment = self.builder.build_environment(Path("/tmp/synthetic-home"))
+        for name in ("NUXT_PUBLIC_TEST_SECRET", "DATABASE_URL", "NODE_OPTIONS", "NPM_TOKEN"):
+            self.assertNotIn(name, environment)
+        self.assertEqual(environment["NPM_CONFIG_USERCONFIG"], "/dev/null")
+
+    def test_materialization_keeps_internal_runtime_dependencies_and_refuses_external_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = frontend_build(root)
+            (output / "server/internal.mjs").symlink_to("index.mjs")
+            self.builder.materialize_output(output)
+            self.assertFalse((output / "server/internal.mjs").is_symlink())
+            self.assertEqual(
+                (output / "server/internal.mjs").read_bytes(),
+                (output / "server/index.mjs").read_bytes(),
+            )
+            (output / "external").symlink_to(root, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, "outside"):
+                self.builder.materialize_output(output)
+
+    def test_fresh_sources_ignore_dirty_worktree_and_require_exact_tool_versions(self):
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        original = self.builder.subprocess.check_output
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def wrong_node(argv, **kwargs):
+                if argv == ["node", "--version"]:
+                    frontend = root / "frontend"
+                    expected = original(["git", "show", commit + ":frontend/nuxt.config.ts"])
+                    self.assertEqual((frontend / "nuxt.config.ts").read_bytes(), expected)
+                    self.assertFalse((frontend / ".output").exists())
+                    self.assertFalse((frontend / ".env").exists())
+                    return "v0\n"
+                return original(argv, **kwargs)
+
+            with (
+                patch.object(self.builder.subprocess, "check_output", side_effect=wrong_node),
+                patch.object(
+                    self.builder.subprocess, "run", wraps=self.builder.subprocess.run
+                ) as run,
+            ):
+                with self.assertRaisesRegex(ValueError, "requires node v22.22.3"):
+                    self.builder.build_frontend(commit, root)
+                self.assertTrue(all(call.args[0][0] == "git" for call in run.call_args_list))
 
 
 if __name__ == "__main__":

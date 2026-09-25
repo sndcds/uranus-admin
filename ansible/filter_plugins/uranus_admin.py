@@ -196,7 +196,7 @@ def artifact_manifest(path, expected_hash, expected_sha):
             for member in archive:
                 total += member.size
                 if total > 256 * 1024 * 1024 or len(names) > 20000:
-                    raise AnsibleFilterError("Release archive exceeds source limits")
+                    raise AnsibleFilterError("Release archive exceeds runtime limits")
                 name = member.name.rstrip("/")
                 parts = name.split("/")
                 if (
@@ -207,7 +207,17 @@ def artifact_manifest(path, expected_hash, expected_sha):
                     or not (member.isfile() or member.isdir())
                     or any(p == ".env" or p.startswith(".env.") for p in parts)
                     or parts[0] not in {"backend", "frontend", "release.json"}
-                    or any(p in {"tests", ".git", ".venv", "node_modules"} for p in parts)
+                    or any(p in {"tests", ".git", ".venv", ".npmrc", ".pnpmrc"} for p in parts)
+                    or name.endswith((".map", ".pem", ".key"))
+                    or (
+                        "node_modules" in parts
+                        and not name.startswith("frontend/.output/server/node_modules/")
+                    )
+                    or (
+                        parts[0] == "frontend"
+                        and name not in {"frontend", "frontend/.output"}
+                        and not name.startswith("frontend/.output/")
+                    )
                 ):
                     raise AnsibleFilterError("Unsafe archive member")
                 names.add(name)
@@ -264,6 +274,47 @@ def artifact_manifest(path, expected_hash, expected_sha):
                 or not set(contract["runtime_grants"]) <= set(manifest["runtime_grants"])
             ):
                 raise AnsibleFilterError("Invalid admin upgrade contract")
+        build = manifest.get("frontend_build", {})
+        if manifest.get("format_version") != 2:
+            raise AnsibleFilterError(
+                "Release format 2 with prebuilt Nitro output required; "
+                "build on CI/controller, never on target"
+            )
+        if (
+            build.get("kind") != "nuxt-nitro"
+            or build.get("entrypoint") != "frontend/.output/server/index.mjs"
+            or build.get("commit") != expected_sha
+            or build.get("node") != manifest.get("node")
+            or build.get("pnpm") != manifest.get("pnpm")
+            or build.get("platform") != "linux-x64"
+            or build["entrypoint"] not in names
+            or "frontend/.output/public" not in names
+        ):
+            raise AnsibleFilterError("Incomplete or mismatched frontend production build")
+        with tarfile.open(path, "r:gz") as archive:
+            if (
+                not archive.getmember(build["entrypoint"]).isfile()
+                or not archive.getmember("frontend/.output/public").isdir()
+            ):
+                raise AnsibleFilterError("Invalid Nitro entrypoint/public directory")
+            metadata_member = archive.getmember("frontend/.output/uranus-admin-build.json")
+            if metadata_member.size > 4 * 1024 * 1024:
+                raise AnsibleFilterError("Frontend metadata too large")
+            metadata = json.load(archive.extractfile(metadata_member))
+            for key in ("commit", "node", "pnpm", "platform"):
+                if metadata.get(key) != build[key]:
+                    raise AnsibleFilterError("Frontend provenance mismatch")
+            files = {
+                member.name.removeprefix("frontend/.output/"): hashlib.sha256(
+                    archive.extractfile(member).read()
+                ).hexdigest()
+                for member in archive
+                if member.isfile()
+                and member.name.startswith("frontend/.output/")
+                and member.name != metadata_member.name
+            }
+            if metadata.get("files") != files:
+                raise AnsibleFilterError("Frontend build content mismatch")
         return manifest
     except (OSError, ValueError, KeyError, TypeError, AttributeError, tarfile.TarError):
         raise AnsibleFilterError("Release archive or manifest unavailable/invalid") from None

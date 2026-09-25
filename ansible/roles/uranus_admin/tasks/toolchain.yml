@@ -11,14 +11,13 @@
 
 - name: Report missing isolated tools and verified existing tools
   ansible.builtin.debug:
-    msg: "{{ ua_toolchain_inspection.plan if ua_toolchain_inspection.missing | length else ['Python, uv, Node and pnpm: pinned archives, installed files and versions OK; no changes'] }}"
+    msg: "{{ ua_toolchain_inspection.plan if ua_toolchain_inspection.missing | length else ['Python, uv and Node: pinned archives, installed files and versions OK; no changes'] }}"
 
 - name: Use only the managed version-specific toolchain paths
   ansible.builtin.set_fact:
     ua_python: "{{ ua_toolchain_inspection.paths.python }}"
     ua_uv: "{{ ua_toolchain_inspection.paths.uv }}"
     ua_node: "{{ ua_toolchain_inspection.paths.node }}"
-    ua_pnpm: "{{ ua_toolchain_inspection.paths.pnpm }}"
     ua_build_path: "{{ ua_toolchain_inspection.paths.node | dirname }}:{{ ua_toolchain_inspection.paths.python | dirname }}:{{ ua_toolchain_inspection.paths.uv | dirname }}:/usr/bin:/bin"
 
 - name: Refuse manual toolchain path overrides
@@ -27,7 +26,6 @@
       - ua_python == ua_toolchain_inspection.paths.python
       - ua_uv == ua_toolchain_inspection.paths.uv
       - ua_node == ua_toolchain_inspection.paths.node
-      - ua_pnpm == ua_toolchain_inspection.paths.pnpm
       - ua_build_path == (ua_toolchain_inspection.paths.node | dirname) + ':' + (ua_toolchain_inspection.paths.python | dirname) + ':' + (ua_toolchain_inspection.paths.uv | dirname) + ':/usr/bin:/bin'
 
 - name: Provision only during an approved real deployment before database inspection or activation

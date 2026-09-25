@@ -12,6 +12,7 @@ import unittest
 from pathlib import Path
 
 import yaml
+from release_fixture import frontend_build
 
 ANSIBLE = Path(__file__).resolve().parents[1]
 ROLE = ANSIBLE / "roles/uranus_admin"
@@ -61,7 +62,32 @@ class TargetContractTests(unittest.TestCase):
                     },
                 }
             ).encode()
+            output = frontend_build(root)
+            metadata = json.loads((output / "uranus-admin-build.json").read_text())
+            metadata["commit"] = "a" * 40
+            (output / "uranus-admin-build.json").write_text(json.dumps(metadata))
+            values = json.loads(manifest)
+            values.update(
+                format_version=2,
+                node=metadata["node"],
+                pnpm=metadata["pnpm"],
+                frontend_build={
+                    "kind": "nuxt-nitro",
+                    "entrypoint": "frontend/.output/server/index.mjs",
+                    **{k: metadata[k] for k in ("commit", "node", "pnpm", "platform")},
+                },
+            )
+            manifest = json.dumps(values).encode()
             with tarfile.open(artifact, "w:gz") as archive:
+                public = tarfile.TarInfo("frontend/.output/public")
+                public.mode, public.type = 0o755, tarfile.DIRTYPE
+                archive.addfile(public)
+                for path in output.rglob("*"):
+                    if path.is_file():
+                        data = path.read_bytes()
+                        entry = tarfile.TarInfo(path.relative_to(root).as_posix())
+                        entry.size, entry.mode = len(data), 0o644
+                        archive.addfile(entry, io.BytesIO(data))
                 member = tarfile.TarInfo("release.json")
                 member.mode, member.size = 0o644, len(manifest)
                 archive.addfile(member, io.BytesIO(manifest))

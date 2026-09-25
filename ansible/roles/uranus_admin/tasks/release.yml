@@ -1,3 +1,15 @@
+- name: Inspect the previous release pointer before preparing a replacement
+  ansible.builtin.stat:
+    path: "{{ ua_root }}/current"
+    follow: false
+  register: ua_preparation_current
+
+- name: Require an installed predecessor to retain its own frontend for recovery
+  uranus_frontend_output:
+    path: "{{ (ua_preparation_current.stat.lnk_source if ua_preparation_current.stat.islnk | default(false) else ua_legacy_root) }}/frontend/.output"
+    require_build_metadata: false
+  when: ua_previous_services['uranus-admin-frontend.service'].exists
+
 - name: Inspect an existing release completion marker
   ansible.builtin.stat:
     path: "{{ ua_release_dir }}/.complete"
@@ -21,7 +33,7 @@
     that: ua_complete_content.content | b64decode | trim == ua_artifact_sha256
   when: ua_complete.stat.exists
 
-- name: Build a new isolated release without touching the running checkout
+- name: Prepare a new isolated release without touching the running checkout
   when: not ua_complete.stat.exists
   block:
     - name: Create the release parent and build cache
@@ -47,7 +59,7 @@
         - "{{ ua_build_root }}"
         - "{{ ua_build_dir }}"
 
-    - name: Extract only the previously validated source archive
+    - name: Extract only the previously validated runtime archive
       ansible.builtin.unarchive:
         src: "{{ ua_artifact }}"
         dest: "{{ item }}"
@@ -80,71 +92,6 @@
         UV_PROJECT_ENVIRONMENT: "{{ ua_release_dir }}/backend/.venv"
       changed_when: true
 
-    - name: Install locked frontend dependencies into the new release
-      ansible.builtin.command:
-        argv:
-          [
-            "{{ ua_pnpm }}",
-            install,
-            --pm-on-fail=error,
-            --runtime-on-fail=error,
-            --userconfig=/dev/null,
-            --frozen-lockfile,
-            --store-dir,
-            /var/cache/uranus-admin-build/pnpm,
-          ]
-        chdir: "{{ ua_build_dir }}/frontend"
-      become_user: oklab
-      changed_when: true
-
-      environment:
-        PATH: "{{ ua_build_path }}"
-        HOME: /var/cache/uranus-admin-build
-        PNPM_CONFIG_DIR: /nonexistent
-        XDG_CONFIG_HOME: /nonexistent
-        XDG_CACHE_HOME: /var/cache/uranus-admin-build/cache
-        XDG_STATE_HOME: /var/cache/uranus-admin-build/state
-
-    - name: Build the production Nitro server without runtime secrets
-      ansible.builtin.command:
-        argv:
-          [
-            "{{ ua_pnpm }}",
-            --pm-on-fail=error,
-            --runtime-on-fail=error,
-            --userconfig=/dev/null,
-            build,
-          ]
-        chdir: "{{ ua_build_dir }}/frontend"
-      become_user: oklab
-      environment:
-        PATH: "{{ ua_build_path }}"
-        HOME: /var/cache/uranus-admin-build
-        PNPM_CONFIG_DIR: /nonexistent
-        XDG_CONFIG_HOME: /nonexistent
-        XDG_CACHE_HOME: /var/cache/uranus-admin-build/cache
-        XDG_STATE_HOME: /var/cache/uranus-admin-build/state
-        NODE_ENV: production
-        NITRO_PRESET: node-server
-      changed_when: true
-
-    - name: Copy only the standalone Nitro output into the local runtime release
-      ansible.builtin.command:
-        argv:
-          - /usr/bin/cp
-          - --archive
-          - --no-preserve=ownership
-          - --
-          - "{{ ua_build_dir }}/frontend/.output"
-          - "{{ ua_release_dir }}/frontend/"
-      become_user: oklab
-      changed_when: true
-
-    - name: Verify Nitro output is standalone before allowing build retention
-      uranus_frontend_output:
-        path: "{{ ua_release_dir }}/frontend/.output"
-      become_user: oklab
-
     - name: Make the completed application tree owned by root
       ansible.builtin.file:
         path: "{{ ua_release_dir }}"
@@ -155,7 +102,15 @@
         recurse: true
         follow: false
 
-    - name: Write the successful build marker without rewriting it later
+- name: Verify the packaged Nitro output on every apply before activation
+  uranus_frontend_output:
+    path: "{{ ua_release_dir }}/frontend/.output"
+  become_user: oklab
+
+- name: Record completed preparation only after validating the installed runtime
+  when: not ua_complete.stat.exists
+  block:
+    - name: Write the successful preparation marker without rewriting it later
       ansible.builtin.copy:
         content: "{{ ua_artifact_sha256 }}\n"
         dest: "{{ ua_release_dir }}/.complete"

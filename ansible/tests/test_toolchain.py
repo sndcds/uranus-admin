@@ -21,6 +21,7 @@ from test_deployment import ANSIBLE, ROLE, load
 MODULE = ROLE / "library/uranus_toolchain.py"
 toolchain = load("managed_toolchain", MODULE)
 CATALOG = json.loads((ROLE / "files/toolchain-pins.json").read_text())
+CATALOG["packages"] = [pin for pin in CATALOG["packages"] if pin["tool"] != "pnpm"]
 MANIFEST = {p["tool"]: p["selector"] for p in CATALOG["packages"]}
 
 
@@ -75,6 +76,11 @@ class ToolchainTests(unittest.TestCase):
             str(p.relative_to(self.anchor)): (p.lstat().st_mode, p.lstat().st_mtime_ns)
             for p in self.anchor.rglob("*")
         }
+
+    def test_historical_pnpm_pin_is_not_a_runtime_requirement(self):
+        historical = json.loads((ROLE / "files/toolchain-pins.json").read_text())
+        selected = toolchain.select_packages(historical, {**MANIFEST, "pnpm": "unused"}, "x86_64")
+        self.assertEqual(set(selected), {"python", "uv", "node"})
 
     def test_missing_plan_is_read_only(self):
         before = self.snapshot()
@@ -286,7 +292,7 @@ class ToolchainTests(unittest.TestCase):
             if task.get("ansible.builtin.command", {}).get("argv", [None])[0]
             in ("{{ ua_uv }}", "{{ ua_pnpm }}")
         ]
-        self.assertEqual(len(commands), 3)
+        self.assertEqual(len(commands), 1)
         for task in commands:
             argv = task["ansible.builtin.command"]["argv"]
             self.assertTrue(
@@ -294,17 +300,13 @@ class ToolchainTests(unittest.TestCase):
             )
             self.assertIn(argv[0], ("{{ ua_uv }}", "{{ ua_pnpm }}"))
             self.assertEqual(task["environment"]["PATH"], "{{ ua_build_path }}")
-            if argv[0] == "{{ ua_pnpm }}":
-                self.assertIn("--pm-on-fail=error", argv)
-                self.assertIn("--runtime-on-fail=error", argv)
-                self.assertEqual(task["environment"]["HOME"], "/var/cache/uranus-admin-build")
-            else:
-                self.assertIn("{{ ua_python }}", argv)
-                self.assertEqual(task["environment"]["UV_PYTHON_DOWNLOADS"], "never")
-                self.assertEqual(
-                    task["environment"]["UV_PROJECT_ENVIRONMENT"],
-                    "{{ ua_release_dir }}/backend/.venv",
-                )
+            self.assertEqual(argv[0], "{{ ua_uv }}")
+            self.assertIn("{{ ua_python }}", argv)
+            self.assertEqual(task["environment"]["UV_PYTHON_DOWNLOADS"], "never")
+            self.assertEqual(
+                task["environment"]["UV_PROJECT_ENVIRONMENT"],
+                "{{ ua_release_dir }}/backend/.venv",
+            )
         self.assertIn(
             "ExecStart={{ ua_uv }} run --no-cache --no-sync --offline --no-python-downloads",
             (ROLE / "templates/python.service.j2").read_text(),

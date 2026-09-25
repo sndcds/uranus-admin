@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 import yaml
 from jinja2 import Environment
+from release_fixture import frontend_build
 from test_deployment import ROLE, load
 
 storage = load("local_storage", ROLE / "library/uranus_local_storage.py")
@@ -234,15 +235,30 @@ class BuildPublicationTests(unittest.TestCase):
     def test_nitro_output_rejects_external_build_links(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            output = root / "runtime/.output"
-            (output / "server").mkdir(parents=True)
-            (output / "server/index.mjs").write_text("// fixture")
-            (output / "inside.mjs").symlink_to("server/index.mjs")
+            output = frontend_build(root)
             frontend_output.verify_output(output)
-            (root / "build").mkdir()
-            (output / "outside").symlink_to(root / "build", target_is_directory=True)
+            (output / "outside").symlink_to(root, target_is_directory=True)
             with self.assertRaisesRegex(ValueError, "outside"):
                 frontend_output.verify_output(output)
+            (output / "outside").unlink()
+            (output / "server/index.mjs").write_text("// tampered")
+            with self.assertRaisesRegex(ValueError, "differs"):
+                frontend_output.verify_output(output)
+
+    def test_legacy_predecessor_requires_own_output_but_not_format_two_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = frontend_build(directory)
+            (output / "uranus-admin-build.json").unlink()
+            (output / "server/old.map").write_text("legacy source map")
+            (output / "internal.mjs").symlink_to("server/index.mjs")
+            frontend_output.verify_output(output, require_build_metadata=False)
+            (output / "external").symlink_to(Path(directory))
+            with self.assertRaisesRegex(ValueError, "outside"):
+                frontend_output.verify_output(output, require_build_metadata=False)
+            (output / "external").unlink()
+            (output / "server/index.mjs").unlink()
+            with self.assertRaisesRegex(ValueError, "entrypoint is missing"):
+                frontend_output.verify_output(output, require_build_metadata=False)
 
     @unittest.skipUnless(shutil.which("uv"), "uv absent")
     def test_final_python_environment_survives_removing_build_workspace(self):
@@ -310,3 +326,63 @@ class BuildPublicationTests(unittest.TestCase):
                 text=True,
             )
             self.assertEqual(result.stdout.strip(), str(runtime / ".venv"))
+
+
+class NoTargetFrontendBuildTests(unittest.TestCase):
+    def test_all_target_tasks_and_services_exclude_frontend_tooling(self):
+        # Deliberately stronger than checking literal 'pnpm build': catches split
+        # argv lists, templated ua_pnpm and new package-manager wrapper commands.
+        import re
+
+        for directory in ("tasks", "templates"):
+            for path in (ROLE / directory).iterdir():
+                if path.is_file():
+                    with self.subTest(path=path):
+                        self.assertIsNone(
+                            re.search(r"\b(pnpm|npm|npx|nuxi|vite|tsc)\b|ua_pnpm", path.read_text())
+                        )
+        unit = (ROLE / "templates/frontend.service.j2").read_text()
+        self.assertIn(
+            "ExecStart={{ ua_node }} {{ ua_release_dir }}/frontend/.output/server/index.mjs", unit
+        )
+        for setting in (
+            "User=oklab",
+            "NITRO_HOST=127.0.0.1",
+            "ProtectSystem=strict",
+            "Restart=on-failure",
+        ):
+            self.assertIn(setting, unit)
+
+    def test_check_mode_skips_release_preparation(self):
+        tasks = yaml.safe_load((ROLE / "tasks/deploy.yml").read_text())
+        release = next(t for t in tasks if t.get("ansible.builtin.import_tasks") == "release.yml")
+        self.assertEqual(release["when"], "not ansible_check_mode")
+
+    def test_recovery_restores_units_and_release_pointer_without_building(self):
+        tasks = yaml.safe_load((ROLE / "tasks/system_recovery.yml").read_text())
+        restore = next(
+            t
+            for t in tasks
+            if t["name"] == "Restore previous managed file contents and permissions"
+        )
+        self.assertTrue(restore["ansible.builtin.copy"]["remote_src"])
+        pointer = next(t for t in tasks if "previous release pointer if" in t["name"])
+        self.assertEqual(
+            pointer["ansible.builtin.file"]["src"], "{{ ua_previous_current.stat.lnk_target }}"
+        )
+
+    def test_release_workflow_builds_main_and_uploads_pinned_artifact(self):
+        from test_deployment import ROOT
+
+        workflow = yaml.safe_load((ROOT / ".github/workflows/release-artifact.yml").read_text())
+        steps = workflow["jobs"]["release"]["steps"]
+        checkout = next(s for s in steps if s.get("uses", "").startswith("actions/checkout@"))
+        self.assertEqual(checkout["with"]["ref"], "main")
+        node = next(s for s in steps if s.get("uses", "").startswith("actions/setup-node@"))
+        self.assertEqual(node["with"]["node-version"], "22.22.3")
+        build = next(s for s in steps if s.get("id") == "release")["run"]
+        for required in ("build_release.py", "--expected-commit", "--verify", "--production-e2e"):
+            self.assertIn(required, build)
+        upload = next(s for s in steps if s.get("uses", "").startswith("actions/upload-artifact@"))
+        self.assertIn(".tar.gz.sha256", upload["with"]["path"])
+        self.assertNotIn("secrets.", json.dumps(workflow))

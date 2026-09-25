@@ -147,7 +147,7 @@ all:
 Secret-Diffs auszugeben. Fehlende Production-Baseline-Objekte brechen weiterhin ab.
 
 Beim ersten Bootstrap ohne vorhandene App-Services wird der Maintenance-Marker
-vor der öffentlichen Aktivierung vorbereitet. Nach Build und Recovery-Snapshot
+vor der öffentlichen Aktivierung vorbereitet. Nach Release-Vorbereitung und Recovery-Snapshot
 werden Units, Rate-Zonen, Site und Symlink installiert, Units und die vollständige
 Nginx-Konfiguration validiert, Systemd neu geladen und die Apps gestartet.
 Erst nach Nginx-Reload und erfolgreichen Healthchecks wird `current` veröffentlicht.
@@ -247,7 +247,7 @@ lesend den verbleibenden Zustand. Runtime-/Operator-Grants aus den Release-Regis
 zusammen mit der vollständigen Boundary-Verifikation in einer Transaktion angewendet.
 Ein Session-Lock verhindert parallele Bootstrap-/Upgrade-Läufe dieser Rolle.
 
-Bei `UPGRADEABLE` prüft Ansible bereits vor Build und Maintenance die übernommene
+Bei `UPGRADEABLE` prüft Ansible bereits vor Release-Vorbereitung und Maintenance die übernommene
 `ADMIN_MIGRATION_DATABASE_URL` durch eine echte Anmeldung als `admin_migrator`
 und eine read-only Identitätsabfrage. Diese Prüfung läuft auch im Check Mode.
 Ein abgelehnter Login wird mit `check=migrator_connection` gemeldet; dafür die
@@ -381,7 +381,7 @@ Die ausführbaren SQL-Texte stehen vollständig in
    Abhängigkeiten und Release-Head. Kein DDL/DML.
 3. **READ ONLY**, optional `ua_counts: true` — vier feste `SELECT COUNT(*)` auf
    den genannten Uranus-Kerntabellen. Nur Orientierung, kein Gleichheits-/Mindestwert-Guard.
-4. **READ ONLY**, nach Build vor Umschaltung — echte Runtime-DSNs als
+4. **READ ONLY**, nach Release-Vorbereitung vor Umschaltung — echte Runtime-DSNs als
    `uranus_reader` bzw. `admin_user`; `SET TRANSACTION ... READ ONLY`,
    `SELECT current_database(), current_user`, vorhandene lesende
    [Source-Verifikation](../backend/app/source_schema_verify.py),
@@ -427,7 +427,7 @@ bleiben für User-SQL gesperrt; Schreiben und Phase 4 bleiben ausgeschlossen.
    plus bestehende Apply-Gates; idempotente Rollen/Schema/Views/Minimal-Grants und
    datenbankbezogener Reader-Search-Path. Wiederholte Prüfung und atomarer DB-Commit.
 3. `sql_console_verify.yml`: neue READ-ONLY-Verbindung, exakter Sollzustand ohne Drift.
-4. Erst dann Release-Build und echte Console-DSN-Verifikation, anschließend Maintenance
+4. Erst dann Release-Vorbereitung und echte Console-DSN-Verifikation, anschließend Maintenance
    und App-Aktivierung. Recovery bleibt ausschließlich systembezogen.
 
 Die Phase-3-Runtime ist in diesen Ablauf eingebunden: Das Release enthält die
@@ -675,12 +675,12 @@ Produktionsumfang; temporäre Ansible-/Validierungsdateien kommen technisch hinz
 
 | Pfad                                                                       | Aktion                                                                                                                                                                                                             |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/home/oklab/build/uranus-admin/.deployment-builds/<commit>/`              | Lokaler Arbeitsbereich als `oklab` für uv/pnpm-Befehle. Der laufende Checkout daneben bleibt erhalten. `.build-complete` markiert einen abgeschlossenen Build für die begrenzte Aufbewahrung.                      |
+| `/home/oklab/build/uranus-admin/.deployment-builds/<commit>/`              | Lokaler Arbeitsbereich als `oklab` ausschließlich für die Python-Vorbereitung. Der laufende Checkout daneben bleibt erhalten. `.build-complete` markiert einen abgeschlossenen Build für die begrenzte Aufbewahrung.                      |
 | `/var/lib/uranus-admin/releases/<commit>/`                                 | Neues getrenntes Release mit Backend-venv und gebautem Nitro-Server; nach Build root-owned. Vorheriges Checkout wird nicht überschrieben.                                                                          |
 | `/var/lib/uranus-admin/releases/<commit>/.complete`                        | SHA256 des fertig gebauten Archivs; vorhandene abweichende Marker führen zum Abbruch.                                                                                                                              |
 | `/var/lib/uranus-admin/releases/<commit>/deployment/`                      | Prüfprogramme und nichtgeheime Konfigurationskandidaten.                                                                                                                                                           |
 | `/var/lib/uranus-admin/current`                                            | Verweis auf zuletzt erfolgreich aktiviertes Release, erst nach Healthchecks geändert. Units verwenden feste Release-Pfade.                                                                                         |
-| `/var/cache/uranus-admin-build/`                                           | Build-Cache von uv/pnpm, Benutzer `oklab`. Kein Laufzeit-Schreibpfad des Services.                                                                                                                                 |
+| `/var/cache/uranus-admin-build/`                                           | Cache von uv, Benutzer `oklab`. Kein Laufzeit-Schreibpfad des Services.                                                                                                                                 |
 | `/var/lib/uranus-admin/maintenance/`                                       | Root-owned statische Wartungsseite, lokale Assets und Marker `enabled`; Details unter [Wartungsmodus](#wartungsmodus).                                                                                             |
 | `/etc/uranus-admin/`                                                       | root:root, 0700.                                                                                                                                                                                                   |
 | `/etc/uranus-admin/runtime.env`                                            | root:root, 0600; systemd liest und übergibt ausschließlich Runtime-Konfiguration.                                                                                                                                  |
@@ -697,7 +697,7 @@ Zusätzlich schreibt Nginx `/var/log/nginx/uranus-admin-error.log` mit Level `wa
 für HTTP und HTTPS. Die Rolle verändert keine globale Logrotate-Konfiguration.
 
 Der laufende Checkout unter `/home/oklab/build/uranus-admin` wird beim Build nicht
-überschrieben. uv/pnpm arbeiten in `.deployment-builds/<commit>` darunter. Nur die
+überschrieben. uv arbeitet in `.deployment-builds/<commit>` darunter. Das Frontend wird bereits fertig entpackt. Nur die
 fertige Runtime liegt unter `/var/lib/uranus-admin/releases/<commit>`: Backend-Quellen,
 die direkt am endgültigen Pfad angelegte Python-Umgebung und die standalone Nitro-Ausgabe.
 `UV_PROJECT_ENVIRONMENT` legt die Python-Umgebung direkt am späteren Runtime-Pfad an.
@@ -721,8 +721,9 @@ verschoben, übernommen oder gelöscht. Alte `ua_root`-Overrides müssen entfern
 es gibt keinen NFS-Fallback. Keine automatische Release-/Cache-/Backup-Bereinigung.
 Ansible installiert und prüft die benötigte
 isolierte Toolchain selbst; globale Runtime-Versionen werden nicht ersetzt oder verwendet.
-Der Build lädt gesperrte Dependencies, kann also Paketregistry-Zugriff benötigen.
-Das Artefakt enthält `pnpm-workspace.yaml` einschließlich der erlaubten Build-Scripts.
+Nur die Python-Vorbereitung lädt auf dem Zielhost gesperrte Dependencies.
+Frontend-Registry-Zugriff und Frontend-Builds sind dort nicht erforderlich und verboten.
+Frontend-Quellen, Lockfile und Entwickler-Dependencies sind nicht Teil des Runtime-Archivs.
 Keine Secrets, Tests oder Test-Fixtures gelangen in das Release-Archiv.
 
 ### Drei abgeschlossene Build-Arbeitsverzeichnisse behalten
@@ -751,18 +752,21 @@ ist kein SQL-Cleanup und behebt keine volle Platte durch ungeprüftes Löschen.
 ## Isolierte, von Ansible verwaltete Toolchain
 
 **CHANGES SYSTEM CONFIGURATION**, ausschließlich unter `/var/lib/uranus-admin/toolchain`.
-Auf dem Zielhost ist keine manuelle Python-/uv-/Node-/pnpm-Installation mehr erforderlich.
+Auf dem Zielhost ist keine manuelle Python-/uv-/Node-Installation mehr erforderlich.
 `/usr/bin/python3`, `/usr/bin/node`, `/usr/bin/pnpm`, `/usr/local/bin/uv` und globale
 Package-Manager-Zustände bleiben unverändert. Der vorhandene Ubuntu-Systeminterpreter
 führt weiterhin Ansible-Module aus; er ist kein Python-Interpreter für das Release.
 Die Controller-Aufrufe mit `uv run` bleiben wie unten beschrieben.
 
-Quelle der angeforderten Versionen ist `release.json`: `python`, `uv`, `node`, `pnpm`.
+Quelle der Runtime-Versionen ist `release.json`: `python`, `uv`, `node`.
+`pnpm` dokumentiert nur die Build-Host-Version und wird auf dem Zielhost weder
+installiert noch ausgeführt. Historische pnpm-Pins und Installationen bleiben für
+Bestandskompatibilität erhalten; die Toolchain-Auswahl ignoriert sie.
 Die geprüften Artefakte stehen in
 [`toolchain-pins.json`](roles/uranus_admin/files/toolchain-pins.json), nicht nochmals in
 Role-Defaults. Nur Ubuntu 24.04 auf `x86_64` wird unterstützt. Unbekannte Manifest-Versionen,
 Architekturen, fehlende/ungültige Pins oder nicht passende Downloadquellen brechen ab.
-`ua_python`, `ua_uv`, `ua_node`, `ua_pnpm` und der Build-PATH werden intern abgeleitet;
+`ua_python`, `ua_uv`, `ua_node` und der Python-Vorbereitungs-PATH werden intern abgeleitet;
 alte manuelle Inventory-/Extra-Var-Overrides entfernen. Abweichende Overrides werden verweigert.
 
 | Tool                                                           | Offizielle versionierte Quelle                                                                                                                                                                              | SHA256 des Archivs                                                 |
@@ -770,7 +774,6 @@ alte manuelle Inventory-/Extra-Var-Overrides entfernen. Abweichende Overrides we
 | CPython 3.13.15, Astral python-build-standalone Build 20260807 | [install_only_stripped, GNU/Linux x86_64](https://github.com/astral-sh/python-build-standalone/releases/download/20260807/cpython-3.13.15%2B20260807-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz) | `faae10a9faa9bec06da009ac69326cc1d9691dc138fec6a1b69159dff1781f35` |
 | uv 0.12.5                                                      | [Astral GitHub Release](https://github.com/astral-sh/uv/releases/download/0.12.5/uv-x86_64-unknown-linux-gnu.tar.gz)                                                                                        | `68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2` |
 | Node 22.22.3                                                   | [Node.js Releasearchiv](https://nodejs.org/dist/v22.22.3/node-v22.22.3-linux-x64.tar.xz)                                                                                                                    | `2e5d13569282d016861fae7c8f935e741693c269101a5bebcf761a5376d1f99f` |
-| pnpm 12.3.4                                                    | [pnpm GitHub Release, natives Linux-x64-Artefakt](https://github.com/pnpm/pnpm/releases/download/v12.3.4/pnpm-linux-x64.tar.gz)                                                                             | `9705e5704b4679fb503c963a18d1ac4f105e39aafafca8a2ed346facdf820cd0` |
 
 Die GitHub-Hashes wurden gegen die veröffentlichten Release-Asset-Digests und lokal
 gegen die heruntergeladenen Archive geprüft. Node wurde zusätzlich gegen das offizielle
@@ -787,20 +790,13 @@ Finale ausführbare Pfade:
 /var/lib/uranus-admin/toolchain/python-3.13.15-20260807/bin/python3.13
 /var/lib/uranus-admin/toolchain/uv-0.12.5/uv
 /var/lib/uranus-admin/toolchain/node-22.22.3/bin/node
-/var/lib/uranus-admin/toolchain/pnpm-12.3.4/pnpm
 ```
 
-pnpm 12.3.4 ist ein natives Binary. Sein npm-Launcher würde ein weiteres Binary
-nachladen. Deshalb installiert Ansible direkt das offizielle vollständige native
-Release samt mitgelieferten Dateien, ohne npm-Install-Script oder Corepack-Bootstrap.
-Build-Scripts erhalten den isolierten Node-Pfad an erster Stelle des PATH.
-Das vorhandene pnpm-Lockfile enthält auch `packageManagerDependencies` mit Integritätswerten;
-diese müssen erhalten bleiben. Ein frisches Testprojekt ohne diesen Lockfile-Teil würde
-bereits zur Konfigurationsauflösung Registry-Zugriff benötigen.
-`--pm-on-fail=error` und `--runtime-on-fail=error` verhindern alternative Runtime- oder
-Package-Manager-Downloads. HOME/Cache/State liegen explizit unter
-`/var/cache/uranus-admin-build`; Benutzer-Konfiguration wird nicht aus dem Operator-HOME
-gelesen. Backend/Worker verwenden das verwaltete uv, das Frontend den verwalteten Node.
+Auf dem Build-Host werden Node 22.22.3 und die exakte `packageManager`-Version aus
+`frontend/package.json` vor dem Installieren verifiziert. `--frozen-lockfile`,
+`--pm-on-fail=error` und `--runtime-on-fail=error` verhindern ungepinnte Auflösungen
+und alternative Toolchain-Downloads. Kein Corepack-Bootstrap auf dem Zielhost.
+Backend/Worker verwenden das verwaltete uv, das Frontend ausschließlich Node.
 Die systemd-Units enthalten unveränderliche Versionspfade; ältere Releases bleiben lauffähig.
 Vor der Runtime-DB-Verifikation wird auch der tatsächliche Basisinterpreter der Release-
 Umgebung gegen den verwalteten Python-Pfad geprüft. Ein vorhandener `.complete`-Marker
@@ -811,7 +807,7 @@ ist erforderlich.
 Reihenfolge: Input-/Apply-Gates → Host-/OS-/lokale Speicher-/Nginx-Prüfung → Toolchain-Inspektion →
 bei freigegebenem Echtlauf Provisionierung und Verifikation → unveränderter READ-ONLY-
 DB-Preflight → Environment-Plan → Console-Plan/Provisionierung/READ-ONLY-Verifikation
-→ lokaler Build/Runtime-Prüfung → Aktivierung/Recovery
+→ lokale Python-Vorbereitung/Runtime-Prüfung → Aktivierung/Recovery
 → nur bei Erfolg begrenzte Build-Aufbewahrung.
 Ein Toolchain-Fehler erreicht weder DB-Prüfung noch Secret-Übernahme, Nginx-Mutation
 oder Service-Stop. Die Activation-Recovery bleibt unverändert und greift auf keine DB zu.
@@ -1029,6 +1025,68 @@ verwenden dieselbe Cache-Option. Der lokale Regressionstest startet beide gerend
 Python-Service-Befehle gegen harmlose Fixtures mit einem unbenutzbaren Home-Cache;
 er ist kein vollständiger Test der systemd-Sandbox.
 
+## Formatwechsel: erster Production-Deploy
+
+Der bisherige Packager lieferte Frontend-Quellen samt Paketmanifest, Lockfile und
+Konfiguration. `tasks/release.yml` installierte auf dem Zielhost mit pnpm, baute
+Nuxt und kopierte `.output` ins Release. Der Frontend-Service startete bereits Node.
+Neu gilt:
+
+| Ort | Ablauf |
+| --- | --- |
+| Build-Host / CI | Frisches `main` → Frozen Install → Tests → Nuxt-Build → isolierter Runtime-Test → Packaging + SHA256 |
+| Production | Archiv/Manifest prüfen → entpacken → Python-Umgebung vorbereiten → Nitro-Dateihashes prüfen → aktivieren → Node starten |
+
+Der Frontend-Service bleibt bei
+`node /var/lib/uranus-admin/releases/<commit>/frontend/.output/server/index.mjs`,
+Benutzer `oklab`, Loopback `127.0.0.1:3011`, bisherigen Hardening- und Restart-Regeln.
+**Bestehende Konfiguration präzisiert:** Nur die Python-Services lesen
+`EnvironmentFile=/etc/uranus-admin/runtime.env`. Das Frontend erhält seine
+`NUXT_ADMIN_API_BASE`, `NUXT_TRUSTED_INGRESS_IPS` und `NUXT_PUBLIC_*` gezielt aus
+den systemd-Environment-Zeilen; es erhält weiterhin keine Backend-/SMTP-Credentials.
+[`runtimeConfig`](../frontend/nuxt.config.ts) verwendet unkritische Defaults und
+passende Runtime-Overrides, wie von [Nuxt dokumentiert](https://nuxt.com/docs/4.x/guide/going-further/runtime-config).
+Kein Neubau bei einer Änderung der freigegebenen Runtime-Werte.
+
+Operator-Schritte (dieser Umbau führt keinen davon auf Production aus):
+
+1. Änderung reviewen/mergen, Controller auf aktuelles `main` bringen. CI einschließlich
+   Deployment checks und Production-E2E prüfen. Dann auf dem separaten Build-Host den
+   untenstehenden `build_release.py --verify`-Befehl ausführen oder das passende
+   GitHub-Actions-Artefakt herunterladen. Archiv und Sidecar zusammen aufbewahren.
+2. Auf dem Controller im Artefaktverzeichnis `sha256sum -c <archiv>.sha256` ausführen.
+   Commit und Format 2 in `release.json` prüfen und `ua_release_sha`, `ua_artifact`,
+   `ua_artifact_sha256` gemeinsam setzen; optional `--update-local-inventories` verwenden.
+3. Vor dem Wartungsfenster den bisherigen Runtime-Release und dessen **eigene vollständige
+   `.output`**, Python-Umgebung, Toolchain und Service-Units für Recovery erhalten.
+   Auch bisherige Ansible-Releases haben bereits eine eigene `.output`, obwohl ihr
+   ursprüngliches Archiv nur Quellen enthielt. Ihr altes Manifest braucht für Recovery
+   keine Änderung. Den neuen Build niemals in einen alten Release-Pfad kopieren.
+4. Fehlt beim vorherigen Release `.output`, ist er kein lauffähiges Recovery-Ziel;
+   Ansible verweigert die Vorbereitung, wenn für einen vorhandenen Frontend-Service
+   Entrypoint/public im bisherigen `current`-Release (oder Legacy-Checkout) fehlen.
+   Nicht deployen, bevor ein vollständiger vorheriger Build/Backup wiederhergestellt
+   und der bestehende Startbefehl geprüft ist. Alt-Units mit Build-/Install-Schritten
+   vor diesem Übergang durch einen separat geprüften direkten Node-Start ersetzen;
+   Recovery stellt exakte Alt-Units wieder her, führt selbst keinen Build aus.
+5. Die unten dokumentierten unveränderten Preflight-/Dry-Run- und Apply-Gates nutzen:
+   Maintenance-Fenster, Backup, DB-/Grant-Plan, Secret-Adoption und Freigaben prüfen.
+   Check Mode installiert/baut kein Frontend. Einen neuen Commit verwenden: ein
+   vorhandener `.complete`-Marker erlaubt kein anderes Archiv unter derselben SHA.
+6. Erst nach expliziter Produktionsfreigabe den dokumentierten Apply auf dem Controller
+   ausführen. Node wird weiterhin provisioniert; pnpm wird nicht mehr benötigt.
+   Backend-Dependency-Installation und bestehende Migration-/Grant-Gates bleiben erhalten.
+7. Healthchecks, Loopback-/öffentlichen Login und Worker separat prüfen. Bei Fehlern
+   stellt der bestehende Recovery-Pfad alte Units, Service-Zustände, Nginx und `current`
+   wieder her; damit startet er den Build des vorherigen Releases. Keine automatischen
+   Datenbank-Downgrades. Unmittelbaren Vorgänger und Recovery-Snapshot behalten.
+
+Alte **Quellcode-Archive** ohne Format 2 werden schon auf dem Controller abgelehnt;
+kein stiller Build-Fallback. Bereits installierte alte Releases werden für Recovery
+nicht erneut durch den neuen Artefakt-Packager geschickt. Retention entfernt weiterhin
+nur abgeschlossene Vorbereitungs-Workspaces, niemals Runtime-Releases oder Snapshots.
+Jeder Release-Ordner behält seine eigene `.output`; kein geteilter Build-Pfad.
+
 ## Lokale Vorbereitung und freizugebender Dry Run
 
 Alle Controller-Aufrufe laufen mit `uv run` aus dem Repository-Root. Es gibt keinen
@@ -1040,15 +1098,66 @@ Die Ansible-Collection wird weiterhin separat über `ansible-galaxy` installiert
 
 ```sh
 uv run --no-project --python 3.13 --with-requirements ansible/requirements-controller.txt ansible-galaxy collection install -r ansible/requirements.yml
-uv run --no-project --python 3.13 python ansible/scripts/package_release.py --output /tmp/uranus-release.tar.gz
+uv run --no-project --python 3.13 python ansible/scripts/build_release.py --verify --output /tmp/uranus-release.tar.gz
 ```
 
-Der Packager ruft bei jedem Aufruf `main` frisch von `origin` ab und paketiert dessen
-neuesten Commit. Der lokale Branch, ein veralteter lokaler `main` und uncommitted
-Änderungen bestimmen das Release nicht. Schlägt der Fetch fehl, bricht der Packager
-ab; es gibt keinen Fallback auf einen alten Stand. Der Checkout wird nicht gewechselt.
-Eine bereits vorhandene Ausgabedatei wird weiterhin nicht überschrieben; beim nächsten
-Release einen neuen Archivpfad wählen.
+**Nur auf einem separaten Linux-x86_64-Build-Host/Controller ausführen**, mit
+Node **22.22.3** und pnpm exakt gemäß `frontend/package.json#packageManager` auf PATH.
+`pnpm build` darf nicht auf dem Produktions-Webserver ausgeführt werden.
+Auch `pnpm install`, `npm install`, Nuxt/Vite- und TypeScript-Builds sind dort verboten.
+`build_release.py` verweigert zusätzlich Hosts mit `/etc/uranus-admin/runtime.env`
+(nur Existenzprüfung, kein Lesen der Datei). Dies ersetzt nicht die Wahl des richtigen Hosts.
+
+`build_release.py` holt `main` frisch von `origin` und bestimmt `FETCH_HEAD`.
+Es extrahiert nur die versionierten Frontend-Dateien dieses Commits in einen neuen
+temporären Arbeitsbereich, unabhängig vom lokalen Branch, Änderungen und `.output`.
+Es installiert mit `pnpm install --frozen-lockfile`, führt mit `--verify` Lint,
+Typecheck und Unit-Tests aus und baut mit `pnpm build`/Nitro `node-server`.
+Anschließend wird eine isolierte Kopie der Ausgabe ohne Entwickler-`node_modules`
+mit Node gestartet: `/login` muss funktionieren und einen erst beim Start gesetzten
+öffentlichen Runtime-Testwert ausgeben. Der temporäre Bereich wird auch bei Fehlern entfernt.
+
+Der separate `package_release.py` **führt niemals einen Build aus**. Mit
+`--frontend-output /pfad/zur/frontend/.output` übernimmt er nur ein bereits durch
+den Build-Schritt erzeugtes Ergebnis. Ohne Option prüft er `frontend/.output`.
+Er holt ebenfalls den neuesten `main`; fehlender Entrypoint, Build-Metadaten,
+abweichender Commit, Node-/pnpm-Version oder veränderte Dateihashes führen zum Abbruch.
+Wenn `main` seit dem Build weitergelaufen ist, ist ein neuer Build erforderlich.
+`--expected-commit <vollständiger SHA>` schützt CI zusätzlich vor einem Wechsel
+zwischen Checkout und Fetch. Kein Fallback auf alte Refs und kein Wechsel des lokalen Checkouts.
+
+Das Format-2-Archiv enthält Backend-Runtime-Quellen (`app`, `migrations`, `alembic.ini`,
+`pyproject.toml`, `uv.lock`), **`frontend/.output` vollständig** sowie `release.json`.
+Dazu gehören `server/index.mjs`, `public`, Nitro-Metadaten und die von Nitro gezielt
+getraceten Runtime-Pakete unter `.output/server/node_modules`; das ist kein Entwickler-
+`node_modules`. Interne Nitro-Links werden auf dem Build-Host materialisiert, externe
+Links verweigert. `.env*`, `.git`, Schlüsseldateien, Source Maps und Frontend-Quellen
+werden nicht ausgeliefert. Die Build-Umgebung übernimmt nur explizit erlaubte Variablen;
+keine Production-Secrets, Benutzer-npm-Konfiguration oder `NUXT_*`-Werte werden übernommen.
+Geheimnisse im versionierten Anwendungscode kann eine Dateinamenprüfung nicht erkennen;
+Code-Review und die bestehende Secret-Policy bleiben erforderlich.
+
+`release.json` enthält `format_version: 2` und `frontend_build` mit Typ, Entrypoint,
+Commit, Node-/pnpm-Version und Zielplattform. `.output/uranus-admin-build.json`
+enthält zusätzlich SHA256 jedes Runtime-Files. Packaging und Ansible prüfen diese
+Bindung; die äußere SHA256 bleibt die zwingende Vertrauensgrenze des Artefakts.
+Tar-Reihenfolge, Dateirechte, Besitzer und gzip-/Tar-Zeitstempel sind normalisiert;
+erneutes Packaging desselben verifizierten Builds erzeugt identische Bytes.
+Eine bitidentische Neuausführung des Framework-Builds über verschiedene Build-Hosts
+wird damit nicht behauptet (Nuxt erzeugt eigene Build-IDs und Zeitstempel).
+
+Neben dem Archiv entsteht `<archiv>.sha256`. Eine vorhandene Archivdatei wird nicht
+überschrieben. Beim nächsten Release einen neuen Pfad wählen.
+
+Der Workflow [Release artifact](../.github/workflows/release-artifact.yml) baut `main`
+auf Ubuntu 24.04 mit gepinnten Actions/Tools, denselben Prüfungen und ohne
+Production-Secrets. Mit `--production-e2e` laufen
+zusätzlich die Production-E2E einschließlich CSP im identisch gepinnten Playwright-Container.
+Diese Option kann lokal mit Docker ebenfalls verwendet werden.
+Er lädt `uranus-admin-release-<12-stelliger SHA>` hoch, darin
+`uranus-release-<vollständiger SHA>.tar.gz` und `.tar.gz.sha256`.
+Die CI-Ergebnisse bleiben verpflichtende Review-Evidenz; ein hochgeladenes Artefakt
+allein ist keine Deployment-Freigabe.
 
 Mit `--update-local-inventories` werden nach erfolgreicher Archiverstellung alle drei
 technischen Release-Pins gemeinsam in die lokalen YAML-Dateien übernommen:
@@ -1066,7 +1175,7 @@ uv run \
   --no-project \
   --python 3.13 \
   --with-requirements ansible/requirements-controller.txt \
-  python ansible/scripts/package_release.py \
+  python ansible/scripts/build_release.py --verify \
   --output "/tmp/uranus-release-$(date +%Y%m%d-%H%M%S).tar.gz" \
   --update-local-inventories
 ```
@@ -1113,13 +1222,13 @@ des Inventories überschreiben und erhält deshalb exakt dieselben drei neuen We
 So führt die Paketierung nicht mehr durch veraltete Approval-Pins zu
 `Archive checksum mismatch`.
 
-„Latest main“ gilt zum Zeitpunkt der Paketierung. Danach bleiben Commit und Archiv für
+„Latest main“ gilt zum Beginn des Build-/Packaging-Aufrufs. Danach bleiben Commit und Archiv für
 Dry Run und ausdrückliche Apply-Freigabe unveränderlich. Neue Commits auf `main` erfordern
 ein neues Archiv und eine neue Prüfung/Freigabe; der Echtlauf lädt keinen anderen Stand
 nach. Paketierung allein führt kein Deployment aus.
 
-Der Packager verwendet ausschließlich committed Sources, gibt Commit, Archivpfad
-und SHA256 aus und erstellt byteidentische Archive für denselben Stand. Diese drei
+Der Packager verwendet committed Backend-Quellen und den verifizierten Frontend-Build,
+gibt Commit, Archivpfad und SHA256 aus und erstellt byteidentische Archive für dieselben Inputs. Diese drei
 Werte in eine lokale Kopie von `inventory.example.yml` übernehmen. Lokales Inventory
 ist gitignored. Keine Credentials in Inventory oder CLI-Argumenten. Bestehenden,
 verifizierten SSH-Hostkey verwenden; niemals StrictHostKeyChecking deaktivieren.
@@ -1271,7 +1380,7 @@ Die unveränderten Freigaben und READ-ONLY-Preflights gelten weiterhin.
 
 Reihenfolge bei einer erforderlichen Aktivierung:
 
-1. Release bauen, Runtime und Konfigurationskandidaten prüfen.
+1. Artefakt entpacken, Python-Umgebung vorbereiten, Runtime und Konfigurationskandidaten prüfen.
 2. Frischen Recovery-Snapshot einschließlich ursprünglichem Markerzustand erstellen.
 3. Statische Wartungsdateien vollständig installieren, noch ohne Aktivierung.
 4. Marker atomar anlegen (vorhandenen Inhalt erhalten). Den bereits geprüften,

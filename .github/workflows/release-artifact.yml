@@ -1,0 +1,52 @@
+name: Release artifact
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-artifact-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.22.3"
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.12.5"
+          python-version: "3.13.15"
+      - name: Build clean main, test and package without production secrets
+        id: release
+        run: |
+          commit=$(git rev-parse HEAD)
+          mkdir -p artifacts
+          uv run --no-project --python 3.13 python ansible/scripts/build_release.py \
+            --expected-commit "$commit" --verify --production-e2e \
+            --output "$PWD/artifacts/uranus-release-$commit.tar.gz"
+          echo "short_sha=${commit:0:12}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: uranus-admin-release-${{ steps.release.outputs.short_sha }}
+          path: |
+            artifacts/uranus-release-*.tar.gz
+            artifacts/uranus-release-*.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 30

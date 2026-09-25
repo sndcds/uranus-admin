@@ -35,7 +35,8 @@ ua_runtime_overrides: {}
 ua_root: /var/lib/uranus-admin
 ua_legacy_root: /home/oklab/build/uranus-admin
 ua_build_root: /home/oklab/build/uranus-admin/.deployment-builds
-# Free-space floor for build, release/toolchain and cache filesystems (not a size guarantee).
+# Target workspaces are for Python preparation only; frontend arrives prebuilt.
+# Free-space floor for preparation, release/toolchain and cache filesystems.
 ua_min_free_bytes: 6442450944
 ua_cleanup_builds: true
 ua_config_dir: /etc/uranus-admin

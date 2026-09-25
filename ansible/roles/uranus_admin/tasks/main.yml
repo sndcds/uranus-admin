@@ -51,12 +51,12 @@
     msg:
       - "Database: oklab. Expected admin head: {{ ua_manifest.head }}. Uranus source DDL/data changes: NONE. Admin state: {{ ua_admin_database_plan.admin_database.state }}; admin changes planned: {{ ua_admin_database_plan.admin_database.changes_planned }}. Console infrastructure: {{ ua_sql_console_required }}."
       - "Release: {{ ua_release_dir }}. Artifact: {{ ua_artifact_sha256 }}."
-      - "Local build: {{ ua_build_dir }}. Runtime/toolchain: {{ ua_root }}. Network storage is refused."
+      - "Python preparation workspace: {{ ua_build_dir }}. Runtime/toolchain: {{ ua_root }}. Network storage is refused."
       - "Build retention: {{ 'keep three newest completed workspaces plus current build; only after successful deployment' if ua_cleanup_builds | bool else 'disabled' }}. Runtime releases and backups are never removed."
       - "Secrets: preserve passwords; archive privileged entries root-only; legacy backend .env changes only with notification management."
       - "Notifications: {{ 'explicitly managed with separate approval' if ua_manage_notification_timer | bool else 'timer, service and shared legacy environment unchanged' }}."
       - "New runtime has SMTP delivery disabled. Existing unmanaged notifications retain their configuration. No URL/geocode worker activation."
-      - "Check mode cannot build the new release, validate its runtime DB logins or prove service startup."
+      - "Check mode cannot prepare the new Python environment, validate its runtime DB logins or prove service startup."
       - "PUBLIC TEMP is reconciled only under the versioned approved TEMP contract; unknown consumers block. Other shared privileges and existing source grants remain unchanged."
 
 - name: Prepare and activate only the explicitly approved release

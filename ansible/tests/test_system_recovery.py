@@ -347,6 +347,11 @@ class ActivationIntegrationTests(unittest.TestCase):
             old_release = release_root / "releases/old"
             for path in (config, legacy / "backend", legacy / "frontend", release, old_release):
                 path.mkdir(parents=True)
+            # The previous deployment may predate release format 2. Its already
+            # built output and exact old unit must survive every recovery path.
+            old_output = old_release / "frontend/.output/server/index.mjs"
+            old_output.parent.mkdir(parents=True)
+            old_output.write_text("// previous complete Nitro runtime")
             (release_root / "current").symlink_to(old_release)
             if first_adoption:
                 (release_root / "current").unlink()
@@ -372,6 +377,8 @@ class ActivationIntegrationTests(unittest.TestCase):
             for path in files:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 original = "original " + path.name + "\n"
+                if path.name == "uranus-admin-frontend.service":
+                    original += f"ExecStart=/retained/node {old_output}\n"
                 if originally_on and path == root / "etc/nginx/sites-available/uranus-admin":
                     original += "error_page 503 =503 /__maintenance.html;\n"
                 path.write_text(original)
@@ -630,6 +637,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                 )
             if check:
                 self.assertEqual(result.returncode, 0, output)
+                self.assertEqual(old_output.read_text(), "// previous complete Nitro runtime")
                 for name, original in originals.items():
                     path = Path(name)
                     if original is None:
@@ -663,6 +671,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                     self.assertFalse((release_root / "current").is_symlink(), output)
                 else:
                     self.assertEqual((release_root / "current").resolve(), old_release, output)
+                self.assertEqual(old_output.read_text(), "// previous complete Nitro runtime")
                 for name, original in originals.items():
                     path = Path(name)
                     if original is None:
