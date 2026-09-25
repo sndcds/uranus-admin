@@ -57,6 +57,37 @@ function row(item = first) {
 }
 afterEach(() => vi.unstubAllGlobals())
 
+it('shows membership relationships at the user root alongside existing actions', () => {
+  const item = activityFixture.items.find((item) => item.entity_type === 'team_membership')!
+  const wrapper = row(item)
+  const link = wrapper.get('a[href^="/graph"]')
+  expect(link.isVisible()).toBe(true)
+  expect(link.text()).toBe('Beziehungen')
+  expect(link.attributes('href')).toBe(
+    '/graph?root_type=user&root_key=20000000-0000-4000-8000-000000000009&depth=2',
+  )
+  expect(wrapper.get('a[aria-label^="Öffnen:"]').attributes('href')).toBe(item.action!.href)
+  expect(wrapper.get('a[href^="/marks"]').text()).toBe('Markierungen & Notizen')
+})
+
+it('omits the relationships link for malformed membership keys', () => {
+  const item = activityFixture.items.find((item) => item.entity_type === 'team_membership')!
+  const wrapper = row({ ...item, entity_key: `${item.entity_key}:extra` })
+  expect(wrapper.find('a[href^="/graph"]').exists()).toBe(false)
+})
+
+it.each(['organization', 'venue', 'space', 'event', 'event_date', 'user'] as const)(
+  'preserves the relationships link for activity type %s',
+  (entity_type) => {
+    const item = activityFixture.items.find((item) => item.entity_type === entity_type)!
+    const link = row(item).get('a[href^="/graph"]')
+    expect(link.text()).toBe('Beziehungen')
+    expect(link.attributes('href')).toBe(
+      `/graph?root_type=${entity_type}&root_key=${item.entity_key}&depth=2`,
+    )
+  },
+)
+
 it.each(Object.entries(activityTypes))(
   'presents %s with a German badge and decorative icon',
   (type, presentation) => {

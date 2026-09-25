@@ -1,6 +1,60 @@
 import { test, expect } from '../fixtures/authenticated'
 import { activityFixture } from '../fixtures/activity'
+import { graphFixture } from '../fixtures/graph'
 const org = '10000000-0000-4000-8000-000000000010'
+
+test('team membership activity opens relationships at the user root', async ({ page }) => {
+  const user = graphFixture.nodes[1]!
+  const organization = graphFixture.nodes[0]!
+  const entityKey = `membership:${organization.key}:${user.key}`
+  const activityPath = `/activity?entity_key=${encodeURIComponent(entityKey)}&entity_type=team_membership`
+  const membership = activityFixture.items.find((item) => item.entity_type === 'team_membership')!
+  await page.route('**/api/admin/api/v1/dashboard/activity**', (route) =>
+    route.fulfill({
+      json: {
+        ...activityFixture,
+        items: [
+          {
+            ...membership,
+            entity_key: entityKey,
+            entity_name: user.label,
+            organization_id: organization.key,
+            organization_name: organization.label,
+            status: 'joined',
+            action: { ...membership.action!, entity_key: entityKey, href: activityPath },
+          },
+        ],
+        pagination: { page: 1, page_size: 20, total: 1, pages: 1 },
+      },
+    }),
+  )
+  await page.route('**/api/admin/api/v1/graph?**', (route) => {
+    const query = new URL(route.request().url()).searchParams
+    expect(query.get('root_type')).toBe('user')
+    expect(query.get('root_key')).toBe(user.key)
+    expect(query.get('depth')).toBe('2')
+    return route.fulfill({ json: { ...graphFixture, root: { type: 'user', key: user.key } } })
+  })
+  await page.goto(activityPath)
+  const row = page.getByRole('listitem').filter({
+    has: page.getByRole('heading', { name: user.label, exact: true }),
+  })
+  await expect(row.getByRole('link', { name: `Öffnen: ${user.label}` })).toBeVisible()
+  await expect(row.getByRole('link', { name: /Markierungen & Notizen/ })).toBeVisible()
+  const relationships = row.getByRole('link', { name: 'Beziehungen', exact: true })
+  const graphPath = `/graph?root_type=user&root_key=${user.key}&depth=2`
+  await expect(relationships).toBeVisible()
+  await expect(relationships).toHaveAttribute('href', graphPath)
+  await relationships.click()
+  await expect(page).toHaveURL(graphPath)
+  const panel = page.getByRole('complementary', { name: 'Knotendetails' })
+  await expect(panel.getByRole('heading', { name: user.label, exact: true })).toBeVisible()
+  await panel.getByRole('button', { name: new RegExp(organization.label) }).click()
+  await expect(panel.getByRole('link', { name: 'Öffnen', exact: true })).toHaveAttribute(
+    'href',
+    `/organizations/${organization.key}`,
+  )
+})
 
 test('compact activity groups, visible-page summary, accessible targets and pagination', async ({
   page,
