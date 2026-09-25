@@ -96,6 +96,7 @@ export function createAdminApi(
     method = 'GET',
     requestBody?: unknown,
     signal?: AbortSignal,
+    timeoutMs = 12_000,
   ) {
     const generation = accessGeneration
     const inspectable =
@@ -108,6 +109,16 @@ export function createAdminApi(
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(query))
       if (value !== undefined) params.set(key, String(value))
+    const timeoutSignal = AbortSignal.timeout(timeoutMs)
+    const requestSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal
+    const timedOut = () => timeoutSignal.aborted && requestSignal.reason === timeoutSignal.reason
+    const timeoutFailure = () =>
+      failure(
+        504,
+        path === '/api/v1/findings' && query.mode === 'live'
+          ? 'live_findings_timeout'
+          : 'request_timeout',
+      )
     let response: Response
     try {
       response = await fetcher(`/api/admin${path}${params.size ? `?${params}` : ''}`, {
@@ -120,20 +131,31 @@ export function createAdminApi(
         },
         cache: 'no-store',
         credentials: credential ? 'omit' : 'same-origin',
-        signal: signal
-          ? AbortSignal.any([signal, AbortSignal.timeout(12000)])
-          : AbortSignal.timeout(12000),
+        signal: requestSignal,
       })
     } catch {
-      throw new AdminApiError(failure(502))
+      if (timedOut()) throw new AdminApiError(timeoutFailure())
+      if (requestSignal.aborted) throw requestSignal.reason
+      throw new AdminApiError(failure(502, 'network_error'))
     }
     if (generation === accessGeneration && response.status === 401 && path.startsWith('/api/'))
       accessLost?.(response.status)
     let body: unknown
     try {
       body = await response.json()
-    } catch {
-      throw new AdminApiError(failure(response.ok ? 502 : response.status))
+    } catch (error) {
+      if (timedOut()) throw new AdminApiError(timeoutFailure())
+      if (requestSignal.aborted) throw requestSignal.reason
+      throw new AdminApiError(
+        failure(
+          response.ok ? 502 : response.status,
+          response.ok
+            ? error instanceof SyntaxError
+              ? 'invalid_response'
+              : 'network_error'
+            : undefined,
+        ),
+      )
     }
     if (!response.ok) {
       const detail = errorSchema.safeParse(body)
@@ -294,7 +316,16 @@ export function createAdminApi(
         finding_id,
         ...(mode ? { mode } : {}),
       }),
-    findings: (filters: FindingFilters) => request('/api/v1/findings', findingPageSchema, filters),
+    findings: (filters: FindingFilters, signal?: AbortSignal) =>
+      request(
+        '/api/v1/findings',
+        findingPageSchema,
+        filters,
+        'GET',
+        undefined,
+        signal,
+        filters.mode === 'live' ? 60_000 : undefined,
+      ),
     missingGeolocation: (page = 1) =>
       request('/api/v1/quality/venues/missing-geolocation', findingPageSchema, { page }),
     activity: (query: Record<string, string | number | undefined>) =>

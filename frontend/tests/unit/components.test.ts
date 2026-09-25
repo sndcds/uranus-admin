@@ -27,3 +27,17 @@ describe('dashboard display states', () => {
     expect(wrapper.emitted('retry')).toHaveLength(1)
   })
 })
+
+it.each([
+  [504, 'live_findings_timeout', 'Abruf dauert zu lange'],
+  [504, 'request_timeout', 'Abruf dauert zu lange'],
+  [502, 'invalid_response', 'Abruf fehlgeschlagen'],
+  [502, 'network_error', 'Abruf fehlgeschlagen'],
+  [401, 'request_failed', 'Zugang erforderlich'],
+  [403, 'request_failed', 'Zugriff gesperrt'],
+] as const)('RequestState renders %s/%s distinctly', (status, code, title) => {
+  const detail = failure(status, code)
+  const view = mount(RequestState, { props: { loading: false, error: detail } })
+  expect(view.text()).toContain(title)
+  expect(view.text()).toContain(detail.message)
+})

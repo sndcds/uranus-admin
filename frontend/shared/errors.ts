@@ -6,6 +6,11 @@ export interface ApiFailure {
 
 export function failure(status: number, code = 'request_failed'): ApiFailure {
   const retryMessages: Record<string, string> = {
+    request_timeout: 'Zeitüberschreitung beim Abruf. Bitte erneut versuchen.',
+    live_findings_timeout:
+      'Die Live-Diagnose konnte innerhalb des vorgesehenen Zeitfensters nicht abgeschlossen werden. Bitte erneut versuchen.',
+    network_error: 'Die Admin-API ist nicht erreichbar. Bitte erneut versuchen.',
+    invalid_response: 'Die Antwort der Admin-API hat ein ungültiges Format.',
     provenance_dependency: 'Dieser Query-Schritt benötigt Ergebnisse vorheriger Abfragen.',
     diagnostic_unavailable: 'Keine SQL-Diagnose verfügbar.',
     diagnostic_invalid_finding: 'Für diesen Befund ist keine passende SQL-Diagnose verfügbar.',
@@ -29,7 +34,8 @@ export function failure(status: number, code = 'request_failed'): ApiFailure {
     assignment_conflict:
       'Die Zuständigkeit wurde zwischenzeitlich geändert. Bitte neu laden und erneut versuchen.',
     assignment_assignee_invalid: 'Der gewählte Administrator ist nicht mehr verfügbar.',
-    assignment_task_closed: 'Diese Aufgabe kann in ihrem aktuellen Zustand nicht zugewiesen werden.',
+    assignment_task_closed:
+      'Diese Aufgabe kann in ihrem aktuellen Zustand nicht zugewiesen werden.',
   }
   const messages: Record<number, string> = {
     401: 'Anmeldung erforderlich. Für diesen Zugriff fehlen gültige Zugangsdaten.',
@@ -39,7 +45,7 @@ export function failure(status: number, code = 'request_failed'): ApiFailure {
     413: 'Die Anfrage ist zu groß.',
     429: 'Zu viele Anmeldeversuche. Bitte in fünf Minuten erneut versuchen.',
     422: 'Bitte prüfe deine Eingaben und Filter.',
-    502: 'Die Admin-API ist nicht erreichbar oder hat eine ungültige Antwort geliefert.',
+    502: 'Die Admin-API konnte die Anfrage nicht erfolgreich beantworten.',
     503: 'Die Admin-API ist derzeit nicht bereit. Bitte später erneut versuchen.',
     504: 'Die Admin-API hat nicht rechtzeitig geantwortet.',
   }

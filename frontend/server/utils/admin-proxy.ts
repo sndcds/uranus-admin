@@ -397,6 +397,13 @@ export async function forwardAdminRequest(
   } catch {
     return rejected(503, 'invalid_upstream_configuration')
   }
+  const liveFindings =
+    input.method === 'GET' &&
+    input.path === '/api/v1/findings' &&
+    input.query.get('mode') === 'live'
+  // Leave two seconds for transport/error rendering within the client's 60s budget.
+  // All other routes retain the existing 10s upstream bound.
+  const timeoutSignal = AbortSignal.timeout(liveFindings ? 58_000 : 10_000)
   try {
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (requestBody) headers['Content-Type'] = 'application/json'
@@ -413,7 +420,7 @@ export async function forwardAdminRequest(
       redirect: 'error',
       cache: 'no-store',
       credentials: 'omit',
-      signal: AbortSignal.timeout(10000),
+      signal: timeoutSignal,
     })
     if (!response.ok) {
       if (response.headers.get('content-type')?.split(';')[0]?.trim() === 'application/json') {
@@ -428,7 +435,13 @@ export async function forwardAdminRequest(
       }
       return rejected(response.status, 'upstream_error')
     }
-    const body: unknown = await response.json()
+    let body: unknown
+    try {
+      body = await response.json()
+    } catch (error) {
+      if (error instanceof SyntaxError) return rejected(502, 'invalid_response')
+      throw error
+    }
     if (input.path.startsWith('/auth/')) {
       const parsed = (input.path === '/auth/logout' ? logoutSchema : sessionSchema).safeParse(body)
       if (!parsed.success) return rejected(503, 'auth_storage_unavailable')
@@ -441,9 +454,8 @@ export async function forwardAdminRequest(
     }
     return { status: response.status, body }
   } catch (error) {
-    return rejected(
-      error instanceof Error && error.name === 'TimeoutError' ? 504 : 502,
-      'upstream_unavailable',
-    )
+    if (timeoutSignal.aborted || (error instanceof Error && error.name === 'TimeoutError'))
+      return rejected(504, liveFindings ? 'live_findings_timeout' : 'request_timeout')
+    return rejected(502, 'network_error')
   }
 }

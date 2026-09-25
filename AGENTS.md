@@ -295,7 +295,8 @@ route, method and query allowlists, not a generic forwarding capability. New rou
 MUST be allowlisted explicitly, with validated identifiers and typed write bodies.
 NEVER add wildcard forwarding, arbitrary paths/hosts/methods/SQL identifiers, duplicate
 query parameters or arbitrary query passthrough. Preserve fixed upstream origin,
-10-second proxy timeout, redirect rejection, selective credential/header forwarding,
+10-second default proxy timeout (58 seconds only for explicit live findings),
+redirect rejection, selective credential/header forwarding,
 safe errors and `private, no-store` responses.
 
 ## Testing, CI and generated files

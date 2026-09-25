@@ -281,6 +281,7 @@ anhängen und anschließend ohne `--update-snapshots` prüfen. Die Testserver im
 Produktionslauf starten direkt mit Node; pnpm ist im Browser-Container nicht erforderlich.
 
 Ergebnisse und Grenzen: [Verifikation](docs/verification.md).
+Live-Findings: [Fehlernachweis, Laufzeitmessung und Request-Timeouts](docs/live-findings-diagnosis.md).
 Verbindliche Fach-/Sicherheitsverträge: [Backend-Verträge](../backend/docs/contracts.md).
 
 ## Bewusst offen
