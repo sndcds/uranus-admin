@@ -261,3 +261,53 @@ test('long record names and evidence wrap at 360px, including inside the workflo
   await expect(dialog.getByRole('heading', { name, exact: true })).toBeVisible()
   expect(await dialog.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true)
 })
+
+test('live findings show loading, a distinct timeout and successful retry with all 50 rows', async ({
+  page,
+}) => {
+  const { liveFindings } = await import('../fixtures/live-findings')
+  await enforceProductionCsp(page)
+  await mockLayoutApi(page)
+  let release: (() => void) | undefined
+  let attempt = 0
+  await page.route('**/api/admin/api/v1/findings?*', async (route) => {
+    const query = new URL(route.request().url()).searchParams
+    expect(query.get('mode')).toBe('live')
+    expect(query.get('page_size')).toBe('50')
+    attempt++
+    if (attempt === 1) {
+      // Timer boundaries are exercised with fake clocks in unit tests. Hold this
+      // response until the pending UI is visible, without a wall-clock sleep.
+      await new Promise<void>((resolve) => {
+        release = resolve
+      })
+      await route.fulfill({
+        status: 504,
+        json: { error: { code: 'live_findings_timeout', message: 'private upstream detail' } },
+      })
+      return
+    }
+    await route.fulfill({ json: liveFindings })
+  })
+  await page.goto('/findings?mode=live&active_only=false&page=1&page_size=50')
+  await expect(page.getByRole('status').filter({ hasText: 'Daten werden geladen' })).toBeVisible()
+  await expect.poll(() => !!release).toBe(true)
+  release!()
+  const alert = page.getByRole('alert').filter({ hasText: 'Abruf dauert zu lange' })
+  await expect(alert).toContainText(
+    'Die Live-Diagnose konnte innerhalb des vorgesehenen Zeitfensters nicht abgeschlossen werden.',
+  )
+  await expect(alert).not.toContainText('ungültig')
+  await expect(alert).not.toContainText('private upstream detail')
+  await alert.getByRole('button', { name: 'Erneut versuchen' }).click()
+  await expect(
+    page.getByRole('table', { name: 'Priorisierte Befunde' }).locator('tbody tr'),
+  ).toHaveCount(50)
+  await expect(page.getByRole('region', { name: 'Ergebnisübersicht' })).toContainText(
+    '932 Befunde insgesamt',
+  )
+  await expect(page.getByRole('region', { name: 'Ergebnisübersicht' })).toContainText(
+    'Live-Auswertung',
+  )
+  await expect(alert).toHaveCount(0)
+})

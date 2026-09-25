@@ -141,6 +141,9 @@ export const findingSchema = z.object({
   organization_name: z.string().nullable(),
   field: z.string(),
   message: z.string(),
+  // Rule-dependent evidence already sanitized by the backend. Preserve JSON only;
+  // no required keys and no raw source fields inferred from the rule name.
+  metadata: z.record(z.string(), z.json()).optional(),
   action: actionSchema.nullable().optional(),
   image_url: activityImageUrlSchema.nullable().optional(),
   address: z.object({

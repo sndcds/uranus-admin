@@ -19,7 +19,9 @@ defineEmits<{ retry: [] }>()
           ? 'Zugang erforderlich'
           : error.status === 403
             ? 'Zugriff gesperrt'
-            : 'Abruf fehlgeschlagen'
+            : ['request_timeout', 'live_findings_timeout'].includes(error.code)
+              ? 'Abruf dauert zu lange'
+              : 'Abruf fehlgeschlagen'
       }}
     </p>
     <p class="mt-1">{{ error.message }}</p>
