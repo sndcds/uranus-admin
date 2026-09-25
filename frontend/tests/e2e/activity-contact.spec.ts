@@ -39,7 +39,7 @@ test('user contacts and avatars, organization logo spacing and map coordinates',
             email: user ? 'operator@example.invalid' : null,
             image_url: user
               ? `https://api.kulturbytes.de/api/user/${userId}/avatar/128`
-              : `https://api.kulturbytes.de/api/image/${orgId}?width=320`,
+              : `https://api.kulturbytes.de/api/image/${orgId}?width=320&type=png`,
             address: user ? null : 'Hafenstraße 3, 24937 Flensburg',
             location: user || venue ? null : { latitude: 54.79, longitude: 9.43 },
           },
@@ -98,7 +98,7 @@ test('user contacts and avatars, organization logo spacing and map coordinates',
   await expect(page.getByText('E-Mail:', { exact: false })).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   expect(
-    requests.every((url) => /\/avatar\/(128|512)$|\/api\/image\/.+\?width=320$/.test(url)),
+    requests.every((url) => /\/avatar\/(128|512)$|\/api\/image\/.+\?width=320&type=png$/.test(url)),
   ).toBe(true)
   await page.screenshot({ path: info.outputPath('activity-organization.png'), fullPage: true })
   await page.goto('/activity?period=7d&entity_type=venue')

@@ -129,7 +129,7 @@ def image_url(image_uuid: UUID | str | None, api_url: str) -> str | None:
         identifier = UUID(str(image_uuid))
     except ValueError:
         return None
-    query = urlencode({"width": 320})
+    query = urlencode({"width": 320, "type": "png"})
     return f"{PUBLIC_API}/api/image/{identifier}?{query}"
 
 

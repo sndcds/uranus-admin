@@ -4,7 +4,8 @@ import ActivityThumbnail from '../../app/components/ActivityThumbnail.vue'
 import { findingSchema } from '../../shared/contracts'
 import { findings } from '../fixtures/api'
 
-const image = 'https://api.kulturbytes.de/api/image/00000000-0000-4000-8000-000000000060?width=320'
+const image =
+  'https://api.kulturbytes.de/api/image/00000000-0000-4000-8000-000000000060?width=320&type=png'
 const item = { ...findings.items[0]!, entity_type: 'event_date', image_url: image }
 const global = { stubs: { AppIcon: true } }
 
@@ -37,7 +38,7 @@ describe('compact finding images', () => {
   it.each([
     'https://evil.invalid/image.png',
     'javascript:alert(1)',
-    'https://user:pass@api.kulturbytes.de/api/image/00000000-0000-4000-8000-000000000060?width=320',
+    'https://user:pass@api.kulturbytes.de/api/image/00000000-0000-4000-8000-000000000060?width=320&type=png',
   ])('rejects unsafe image URL %s', (image_url) => {
     expect(findingSchema.safeParse({ ...item, image_url }).success).toBe(false)
     const view = mount(ActivityThumbnail, {

@@ -10,7 +10,7 @@ export function eventDetailFixture(): EntityDetail {
   data.item.subtitle =
     'Musik, Lesungen und offene Ateliers · Nächster öffentlicher Termin: 25.09.2026 · 19:00 (Europe/Berlin)'
   data.item.public_url = `https://kulturbytes.de/de/veranstaltung/${data.item.entity_key}/20000000-0000-4000-8000-000000000002`
-  data.item.image_url = `https://api.kulturbytes.de/api/image/20000000-0000-4000-8000-000000000002?width=320`
+  data.item.image_url = `https://api.kulturbytes.de/api/image/20000000-0000-4000-8000-000000000002?width=320&type=png`
   data.item.facts.description =
     'Ein Abend für **Kultur und Begegnung** am Hafen. Gemeinsam mit lokalen Künstlerinnen und Künstlern öffnen wir die Türen für ein vielfältiges Programm.\n\n## Das erwartet dich\n\n- Musik auf der Hafenbühne\n- Lesungen und Gespräche\n- Offene Ateliers für alle Generationen\n\n> Der Eintritt ist frei. Bitte beachte die Hinweise am Veranstaltungsort.\n\nWeitere Informationen im [Programm](https://example.org/programm).'
   data.item.facts.event_dates = 1

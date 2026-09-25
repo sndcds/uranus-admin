@@ -156,7 +156,7 @@ it('shows public previews, secured external links and image failure fallback', a
   const item = {
     ...first,
     image_url:
-      'https://api.kulturbytes.de/api/image/20000000-0000-7000-8000-000000000001?width=320',
+      'https://api.kulturbytes.de/api/image/20000000-0000-7000-8000-000000000001?width=320&type=png',
     public_url: 'https://kulturbytes.de/de/ort/hafenbuehne',
     subtitle: 'Termin: 15.09.2026 · 19:00 · Hafenbühne',
     address: 'Hafenstraße 3, Flensburg',
@@ -212,7 +212,7 @@ it('keeps image metadata and actions without a preview or public page', () => {
 
 it('retries a changed image source after an image error', async () => {
   const item = activityFixture.items.find((item) => item.entity_type === 'image')!
-  const imageUrl = `https://api.kulturbytes.de/api/image/${item.entity_key}?width=320`
+  const imageUrl = `https://api.kulturbytes.de/api/image/${item.entity_key}?width=320&type=png`
   const wrapper = row({ ...item, image_url: imageUrl })
   await wrapper.get('img').trigger('error')
   expect(wrapper.find('img').exists()).toBe(false)
@@ -223,14 +223,27 @@ it('retries a changed image source after an image error', async () => {
 })
 
 it('validates new thumbnail URLs and supports existing square URLs during rollout', () => {
-  for (const query of ['width=320', 'width=320&ratio=16%3A9', 'width=160&ratio=1%3A1']) {
+  for (const query of [
+    'width=320&type=png',
+    'width=320&ratio=16%3A9&type=png',
+    'width=320',
+    'width=320&ratio=16%3A9',
+    'width=160&ratio=1%3A1',
+  ]) {
     const image_url = `https://api.kulturbytes.de/api/image/${first.entity_key}?${query}`
     expect(
       activityPageSchema.safeParse({ ...activityFixture, items: [{ ...first, image_url }] })
         .success,
     ).toBe(true)
   }
-  for (const query of ['width=960&ratio=16%3A9', 'width=320&token=secret']) {
+  for (const query of [
+    'width=960&ratio=16%3A9',
+    'width=320&token=secret',
+    'width=320&type=png&token=secret',
+    'width=320&type=jpeg',
+    'width=320&type=png&type=png',
+    'width=320&type=png&width=160',
+  ]) {
     const image_url = `https://api.kulturbytes.de/api/image/${first.entity_key}?${query}`
     expect(
       activityPageSchema.safeParse({ ...activityFixture, items: [{ ...first, image_url }] })
@@ -239,16 +252,35 @@ it('validates new thumbnail URLs and supports existing square URLs during rollou
   }
 })
 
-it('only derives uncropped modal previews from validated public thumbnails', () => {
+it.each([
+  ['width=320&type=png', 'width=1280&type=png'],
+  ['width=320', 'width=1280&type=png'],
+  ['width=320&ratio=16%3A9&type=png', 'width=1280&ratio=16%3A9&type=png'],
+  ['width=320&ratio=16%3A9', 'width=1280&ratio=16%3A9&type=png'],
+  ['width=160&ratio=1%3A1', 'width=1280&ratio=1%3A1&type=png'],
+])(
+  'enlarges validated Pluto %s as PNG while preserving permitted parameters',
+  (query, expected) => {
+    const base = `https://api.kulturbytes.de/api/image/${first.entity_key}`
+    expect(activityImagePreviewUrl(`${base}?${query}`)).toBe(`${base}?${expected}`)
+  },
+)
+
+it('rejects unsafe or external modal preview URLs before changing parameters', () => {
   const base = `https://api.kulturbytes.de/api/image/${first.entity_key}`
-  for (const query of ['width=320', 'width=320&ratio=16%3A9', 'width=160&ratio=1%3A1']) {
-    expect(activityImagePreviewUrl(`${base}?${query}`)).toBe(`${base}?width=1280`)
-  }
   for (const source of [
     undefined,
     null,
+    'not a URL',
     'https://evil.test/image',
+    `https://evil.test/api/image/${first.entity_key}?width=320&type=png`,
+    `${base.replace('https:', 'http:')}?width=320&type=png`,
+    `${base.replace('api.kulturbytes.de', 'api.kulturbytes.de.evil.test')}?width=320&type=png`,
+    `${base.replace('https://', 'https://user:pass@')}?width=320&type=png`,
+    `${base}/extra?width=320&type=png`,
     `${base}?width=320&token=secret`,
+    `${base}?width=320&type=png&token=secret`,
+    `${base}?width=320&type=png#fragment`,
   ]) {
     expect(activityImagePreviewUrl(source)).toBeNull()
   }
@@ -278,7 +310,7 @@ it('adds organization logo padding, source address and a safe OSM coordinate lin
   const item = {
     ...first,
     entity_type: 'organization' as const,
-    image_url: `https://api.kulturbytes.de/api/image/${first.entity_key}?width=320`,
+    image_url: `https://api.kulturbytes.de/api/image/${first.entity_key}?width=320&type=png`,
     address: 'Hafenstraße 3, 24937 Flensburg',
     location: { latitude: 54.79, longitude: 9.43 },
   }
@@ -313,6 +345,7 @@ it('adds organization logo padding, source address and a safe OSM coordinate lin
 it('rejects unsafe avatar endpoints and invalid map coordinates', () => {
   for (const image_url of [
     `https://api.kulturbytes.de/api/user/${first.entity_key}/avatar/128?token=secret`,
+    `https://api.kulturbytes.de/api/user/${first.entity_key}/avatar/128?type=png`,
     `https://evil.test/api/user/${first.entity_key}/avatar/128`,
     `https://api.kulturbytes.de/api/user/${first.entity_key}/avatar/999`,
   ]) {

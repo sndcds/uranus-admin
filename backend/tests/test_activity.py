@@ -72,7 +72,10 @@ async def test_activity_filters(db_connection, settings, now):
     assert result.items[0].entity_type == "event"  # Old event remains directly navigable.
 
 
-async def test_activity_rich_previews_are_batched_and_safe(db_connection, settings, now):
+@pytest.mark.parametrize("venue_identifier", ["main_photo", "main_logo"])
+async def test_activity_rich_previews_are_batched_and_safe(
+    db_connection, settings, now, venue_identifier
+):
     from sqlalchemy import event, text
 
     settings.uranus_api_url = "https://api.kulturbytes.de"
@@ -91,9 +94,15 @@ async def test_activity_rich_previews_are_batched_and_safe(db_connection, settin
             "INSERT INTO uranus.pluto_image_link"
             "(context,context_uuid,identifier,pluto_image_uuid) VALUES "
             "('event',:event,'main',:image),('organization',:org,'main_logo',:image),"
-            "('venue',:venue,'main_photo',:image)"
+            "('venue',:venue,:venue_identifier,:image)"
         ),
-        {"event": uid(30), "org": uid(10), "venue": uid(20), "image": uid(60)},
+        {
+            "event": uid(30),
+            "org": uid(10),
+            "venue": uid(20),
+            "image": uid(60),
+            "venue_identifier": venue_identifier,
+        },
     )
     calls = []
 
@@ -113,7 +122,7 @@ async def test_activity_rich_previews_are_batched_and_safe(db_connection, settin
     finally:
         event.remove(db_connection.sync_connection, "before_cursor_execute", capture)
     rows = {(x.entity_type, x.entity_key): x for x in result.items}
-    image_url = f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320"
+    image_url = f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320&type=png"
     assert rows["organization", str(uid(10))].subtitle == "Flensburg"
     assert rows["organization", str(uid(10))].image_url == image_url
     assert rows["organization", str(uid(10))].public_url is None
@@ -213,7 +222,7 @@ async def test_activity_unknown_image_with_unique_target_and_invitation_time(
     item = page.items[0]
     assert page.pagination.total == 1
     assert item.subtitle == "Organization 10"
-    assert item.image_url == f"https://api.kulturbytes.de/api/image/{uid(61)}?width=320"
+    assert item.image_url == f"https://api.kulturbytes.de/api/image/{uid(61)}?width=320&type=png"
     assert item.created_at is None and item.public_url is None
     invited = await activity_page(
         db_connection, settings, ActivityFilters(entity_type="team_membership"), now
@@ -240,8 +249,8 @@ def test_public_image_url_validates_identifier(identifier):
 
     result = image_url(identifier, "https://api.kulturbytes.de/")
     if identifier in (uid(60), str(uid(60))):
-        assert result == f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320"
-        assert parse_qs(urlsplit(result).query) == {"width": ["320"]}
+        assert result == f"https://api.kulturbytes.de/api/image/{uid(60)}?width=320&type=png"
+        assert parse_qs(urlsplit(result).query) == {"width": ["320"], "type": ["png"]}
     else:
         assert result is None
 
