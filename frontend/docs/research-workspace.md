@@ -99,7 +99,8 @@ relations, CSV, client privacy and proxy allowlists. `tests/e2e/research.spec.ts
 covers authenticated journalist navigation, Operations denial, filters/reload,
 map/table/list, dossiers, graph/list, timeline limits, export, clipboard, errors,
 mobile dialogs and screenshots. The existing auth and geocoding regressions remain.
-Review screenshots use synthetic records and intercepted local test tiles only.
+Review [screenshots](screenshots/research-workspace/README.md) use synthetic records
+and intercepted local test tiles only.
 
 Source gaps and future features: [research-backend-gaps.md](../../docs/research-backend-gaps.md).
 Deployment/account setup: [authentication.md](../../backend/docs/authentication.md#research-authorization).
