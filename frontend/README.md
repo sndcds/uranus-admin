@@ -418,3 +418,9 @@ keine Migrationen/Grants/Worker-Änderungen. Backend und Frontend gemeinsam ausr
 
 Kanonische Felder, Privacy, Queryplan und spätere Uranus-eigene pg_trgm-Indizes:
 [Suchvertrag](../backend/docs/contracts.md#global-search-and-command-palette).
+
+## Operations Workspace
+
+[Inspector, Dashboard und Navigation](docs/admin-operations-workspace.md) verbinden
+die vorhandenen Ansichten. [Backend-Lücken](docs/backend-gaps.md) dokumentieren
+fehlende Social-Publishing-Daten und historische Änderungswerte.
