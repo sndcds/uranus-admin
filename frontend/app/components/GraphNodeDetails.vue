@@ -121,6 +121,7 @@ watch(
         >
           <AppIcon name="graph" :size="14" />Beziehungen
         </button>
+        <EntityInspectorLink :entity-type="node.type" :entity-key="node.key" />
         <RecordMarkLink :entity-type="node.type" :entity-key="node.key" variant="compact" />
       </div>
     </div>

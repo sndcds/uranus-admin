@@ -82,6 +82,11 @@ watch(
     >
       {{ geocodeMessages[suggestion.status] }}
     </p>
+    <EmptyState
+      v-if="!showCandidates && !['pending', 'checking'].includes(suggestion.status)"
+      compact
+      message="Keine aktuellen Kartenpositionen verfügbar."
+    />
     <div
       v-if="showCandidates"
       class="panel overflow-hidden"

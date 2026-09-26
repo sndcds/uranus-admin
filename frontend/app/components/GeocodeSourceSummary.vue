@@ -1,15 +1,12 @@
 <script setup lang="ts">
+import GraphLink from './GraphLink.vue'
 import { computed } from 'vue'
 import type { GeocodeRequestDetail } from '#shared/contracts'
 import { geocodeStatuses } from '~/utils/geocoding'
-import { graphHref } from '~/utils/graph'
 const props = defineProps<{ suggestion: GeocodeRequestDetail }>()
 const entityHref = computed(
   () =>
     `/${props.suggestion.entity_type === 'organization' ? 'organizations' : 'venues'}/${props.suggestion.entity_key}`,
-)
-const relationships = computed(() =>
-  graphHref(props.suggestion.entity_type, props.suggestion.entity_key),
 )
 </script>
 
@@ -31,7 +28,11 @@ const relationships = computed(() =>
       <NuxtLink :to="entityHref" class="action-link">{{
         suggestion.entity_type === 'organization' ? 'Organisation öffnen' : 'Ort öffnen'
       }}</NuxtLink>
-      <NuxtLink v-if="relationships" :to="relationships" class="action-link">Beziehungen</NuxtLink>
+      <GraphLink :entity-type="suggestion.entity_type" :entity-key="suggestion.entity_key" />
+      <EntityInspectorLink
+        :entity-type="suggestion.entity_type"
+        :entity-key="suggestion.entity_key"
+      />
       <NuxtLink
         :to="{
           path: '/marks',

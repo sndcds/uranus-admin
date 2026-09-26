@@ -1,16 +1,20 @@
 <script setup lang="ts">
+import GraphLink from './GraphLink.vue'
 import VenueScopeBadge from './VenueScopeBadge.vue'
 import { computed } from 'vue'
 import type { EntityDetail, EntitySection } from '#shared/contracts'
 import { activityName, activityStatus } from '~/utils/activity'
-import { graphHref } from '~/utils/graph'
 const props = withDefaults(
-  defineProps<{ item: EntityDetail['item']; section: EntitySection; organizationLabel?: string }>(),
+  defineProps<{
+    item: EntityDetail['item']
+    section: EntitySection
+    organizationLabel?: string
+    inspector?: boolean
+  }>(),
   { organizationLabel: 'Organisation' },
 )
 const name = computed(() => activityName(props.item))
 const status = computed(() => activityStatus(props.item.status))
-const relationships = computed(() => graphHref(props.item.entity_type, props.item.entity_key))
 </script>
 
 <template>
@@ -48,9 +52,12 @@ const relationships = computed(() => graphHref(props.item.entity_type, props.ite
         :aria-label="`${name} auf kulturbytes.de öffnen (neuer Tab)`"
         >Auf kulturbytes.de öffnen <AppIcon name="external" :size="16"
       /></a>
-      <NuxtLink v-if="relationships" :to="relationships" class="button button-compact">
-        <AppIcon name="graph" :size="16" />Beziehungen
-      </NuxtLink>
+      <GraphLink :entity-type="item.entity_type" :entity-key="item.entity_key" variant="compact" />
+      <EntityInspectorLink
+        v-if="!inspector"
+        :entity-type="item.entity_type"
+        :entity-key="item.entity_key"
+      />
       <NuxtLink
         :to="{
           path: '/marks',

@@ -66,7 +66,9 @@ onBeforeUnmount(() => {
     <PageHeader
       title="Standortvorschläge"
       description="Fehlende Geopositionen prüfen und automatisch ermittelte Vorschläge vergleichen."
-    />
+    >
+      <button class="button" :disabled="loading" @click="load">Aktualisieren</button>
+    </PageHeader>
     <p class="muted">
       Diese Ansicht ist systemweit. Fehlende Positionen sind keinem Gebiet sicher zuordenbar und
       werden systemweit angezeigt.
@@ -97,8 +99,14 @@ onBeforeUnmount(() => {
     <RequestState :loading="loading" :error="error" @retry="load" />
     <template v-if="data">
       <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div v-for="(label, value) in geocodeStatuses" :key="value" class="panel p-3">
-          <dt class="muted">{{ label }}</dt>
+        <div v-for="(label, value) in geocodeStatuses" :key="value" class="operations-panel p-3">
+          <dt>
+            <NuxtLink
+              :to="{ query: { ...route.query, status: value, page: '1' } }"
+              class="action-link text-xs"
+              >{{ label }}</NuxtLink
+            >
+          </dt>
           <dd class="text-xl font-semibold">{{ data.counts[value] ?? 0 }}</dd>
         </div>
       </dl>
@@ -127,6 +135,10 @@ onBeforeUnmount(() => {
           <p class="muted">
             {{ item.candidate_count }} Kandidaten · Letzte Prüfung: {{ dateTime(item.checked_at) }}
           </p>
+          <div class="flex flex-wrap gap-x-4">
+            <EntityInspectorLink :entity-type="item.entity_type" :entity-key="item.entity_key" />
+            <GraphLink :entity-type="item.entity_type" :entity-key="item.entity_key" />
+          </div>
         </li>
       </DataListShell>
       <EmptyState v-else message="Keine Standortprüfungen für diese Auswahl." />

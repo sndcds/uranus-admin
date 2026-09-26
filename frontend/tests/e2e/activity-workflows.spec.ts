@@ -119,7 +119,11 @@ test('persisted findings display review status and open the review workflow', as
   const table = page.getByRole('table', { name: 'Priorisierte Befunde' })
   await expect(table).toContainText('Ausnahme')
   await expect(table.getByRole('button', { name: /^Befund bearbeiten:/ })).toHaveCount(1)
-  await expect(table.getByRole('link')).toHaveCount(0)
+  await expect(table.getByRole('link')).toHaveCount(1)
+  await expect(table.getByRole('link', { name: 'Datensatz untersuchen' })).toHaveAttribute(
+    'href',
+    `/inspect/${findings.items[0]!.entity_type}/${findings.items[0]!.entity_key}`,
+  )
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await table.getByRole('button', { name: /^Befund bearbeiten:/ }).click()
   const detail = page.getByRole('dialog', { name: 'Test-Hafenbühne' })

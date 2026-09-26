@@ -1,4 +1,5 @@
 import { test, expect, logout } from '../fixtures/authenticated'
+import { timelineFixture } from '../fixtures/entities'
 import { findings } from '../fixtures/api'
 import { geocodeMessages } from '../../app/utils/geocoding'
 import { geocodeDetail, geocodePage, geocodeWorkflowDetail } from '../fixtures/geocoding'
@@ -287,6 +288,10 @@ for (const viewport of [
         })
       if (path.endsWith('/assignments')) return route.fulfill({ json: null })
       if (path.includes('/geocode/requests/')) return route.fulfill({ json: geocodeWorkflowDetail })
+      if (path.endsWith('/timeline'))
+        return route.fulfill({
+          json: { ...timelineFixture('venue'), entity_key: geocodeWorkflowDetail.entity_key },
+        })
       return route.continue()
     })
     await page.goto(`/geocoding/${geocodeWorkflowDetail.id}`)
@@ -337,6 +342,7 @@ for (const viewport of [
       'Standortprüfung',
       'Bearbeitung',
       'Weitere Aktionen',
+      'Verlauf',
       'Technische Informationen',
     ])
     const comparisonBox = await comparison.boundingBox()

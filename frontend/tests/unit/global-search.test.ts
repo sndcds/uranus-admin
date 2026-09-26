@@ -1,3 +1,4 @@
+import { inspectorHref } from '../../app/utils/inspector'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { reactive } from 'vue'
@@ -72,7 +73,7 @@ it.each(['ctrlKey', 'metaKey'])(
     expect(trigger.value).toBe('keep this text')
   },
 )
-it('debounces, groups results and follows server Action.href using keyboard or pointer', async () => {
+it('debounces, groups results and opens the inspector using keyboard or pointer', async () => {
   const wrapper = setup()
   await open()
   const input = wrapper.get('input')
@@ -96,7 +97,10 @@ it('debounces, groups results and follows server Action.href using keyboard or p
   expect(input.attributes('aria-activedescendant')).toBe(option.attributes('id'))
   await input.trigger('keydown', { key: 'Enter' })
   expect(navigate).toHaveBeenCalledWith(
-    globalSearchFixture('person@example.org').groups[0]!.items[0]!.action.href,
+    inspectorHref(
+      globalSearchFixture('person@example.org').groups[0]!.items[0]!.entity_type,
+      globalSearchFixture('person@example.org').groups[0]!.items[0]!.entity_key,
+    )!,
   )
   expect(wrapper.find('input').exists()).toBe(false)
   await open()
@@ -111,7 +115,10 @@ it('debounces, groups results and follows server Action.href using keyboard or p
   expect(wrapper.findAll('[role="option"]')[0]!.attributes('aria-selected')).toBe('true')
   await wrapper.findAll('[role="option"]')[1]!.trigger('click')
   expect(navigate).toHaveBeenLastCalledWith(
-    globalSearchFixture('Kühlhaus').groups[1]!.items[0]!.action.href,
+    inspectorHref(
+      globalSearchFixture('Kühlhaus').groups[1]!.items[0]!.entity_type,
+      globalSearchFixture('Kühlhaus').groups[1]!.items[0]!.entity_key,
+    )!,
   )
 })
 it('finds local navigation, preserves Tab and reports empty/error states', async () => {
@@ -476,10 +483,12 @@ it('renders nine groups with existing icons and navigates across every group bou
   }
   await wrapper.get('input').trigger('keydown', { key: 'ArrowUp' })
   await wrapper.get('input').trigger('keydown', { key: 'Enter' })
-  expect(navigate).toHaveBeenLastCalledWith(data.groups[8]!.items[0]!.action.href)
+  expect(navigate).toHaveBeenLastCalledWith(
+    inspectorHref(data.groups[8]!.items[0]!.entity_type, data.groups[8]!.items[0]!.entity_key)!,
+  )
 })
 
-it.each([5, 7, 8])('validates and follows the canonical new action at group %i', async (index) => {
+it.each([5, 7, 8])('validates API actions and opens the inspector at group %i', async (index) => {
   const { allGlobalSearchFixture } = await import('../fixtures/search')
   const data = allGlobalSearchFixture()
   expect(globalSearchResponseSchema.safeParse(data).success).toBe(true)
@@ -491,7 +500,12 @@ it.each([5, 7, 8])('validates and follows the canonical new action at group %i',
   for (let step = 0; step < index; step++)
     await wrapper.get('input').trigger('keydown', { key: 'ArrowDown' })
   await wrapper.get('input').trigger('keydown', { key: 'Enter' })
-  expect(navigate).toHaveBeenCalledWith(data.groups[index]!.items[0]!.action.href)
+  expect(navigate).toHaveBeenCalledWith(
+    inspectorHref(
+      data.groups[index]!.items[0]!.entity_type,
+      data.groups[index]!.items[0]!.entity_key,
+    )!,
+  )
   const item = data.groups[index]!.items[0]!
   for (const href of ['https://evil.invalid', '/event_dates/' + item.entity_key, '/queues/other']) {
     const bad = structuredClone(data)
