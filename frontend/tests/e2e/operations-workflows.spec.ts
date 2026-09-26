@@ -80,7 +80,15 @@ for (const [name, width, height] of [
     expect(positions[1]!.top).toBeGreaterThanOrEqual(positions[0]!.bottom)
     expect(positions[1]!.left).toBe(positions[0]!.left)
     expect(positions[0]!.height).toBeGreaterThanOrEqual(44)
-    await expect(table.getByRole('link')).toHaveCount(0)
+    await expect(table.getByRole('link')).toHaveCount(workflowFindings.items.length)
+    for (const [index, finding] of workflowFindings.items.entries()) {
+      await expect(
+        table.locator('tbody tr').nth(index).getByRole('link', { name: 'Datensatz untersuchen' }),
+      ).toHaveAttribute(
+        'href',
+        `/inspect/${finding.entity_type}/${encodeURIComponent(finding.entity_key)}`,
+      )
+    }
     await expect(page.getByRole('dialog')).toHaveCount(0)
     const summary = page.getByRole('region', { name: 'Ergebnisübersicht' })
     await expect(summary).toContainText('929 Befunde insgesamt')
