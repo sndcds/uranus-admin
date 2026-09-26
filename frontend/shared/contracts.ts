@@ -652,6 +652,7 @@ export const sessionSchema = z
   .object({
     subject: z.string().min(1).max(128),
     system_admin: z.boolean(),
+    journalist: z.boolean().default(false),
   })
   .strict()
 export const logoutSchema = z.object({ status: z.literal('ok') }).strict()
@@ -1651,3 +1652,5 @@ export type SqlDiagnosticDefinition = z.infer<typeof sqlDiagnosticDefinitionSche
 export type SqlDiagnosticResult = z.infer<typeof sqlDiagnosticResultSchema>
 
 export { provenanceDefinitionSchema, provenanceResultSchema } from './sql-provenance'
+
+export * from './research'
