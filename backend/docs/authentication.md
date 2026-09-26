@@ -258,3 +258,14 @@ explicit public response models; original admin responses are not serialized int
 Research. The source database remains read-only. See the
 [workspace contract](../../frontend/docs/research-workspace.md) and
 [source gaps](../../docs/research-backend-gaps.md).
+
+### Missing grants after migration
+
+`operator privileges incomplete` from `app.auth.manage` refers to the database
+operator role, not the account named in the command. Run `doctor` and provision
+the explicit operator grants above through the table owner. A successful operator
+check does not verify the separate runtime role: after migration 0015, a missing
+runtime SELECT on `admin.auth_journalist` produces the safe
+`auth_storage_unavailable` response during login/session checks. Provision that
+SELECT separately and verify `/ready`. Neither case calls for broader runtime
+write permissions or bypassing the boundary checks.

@@ -1,10 +1,13 @@
 # Research source boundaries and follow-ups
 
 Baseline: `dev` at `8b63e011c71de0b8ef377965005a537d58710f69` (Operations PR #129).
-Only `sndcds/uranus-admin` was inspected and changed. No live source catalog or
-other repository was accessed. Checked-in source contracts, existing projections
-and tests provide the implementation evidence; synthetic fixtures are not proof
-of a deployed Uranus schema.
+Only `sndcds/uranus-admin` was inspected and changed. No other repository was
+accessed. Checked-in source contracts, existing projections and tests provided the
+implementation evidence. Before the authorized LXD test rollout on 2026-09-26, the
+existing source catalog verifier confirmed the test database contract, with no
+missing tables/columns or type mismatches and a read-only transaction. This is
+evidence for that test database only; synthetic fixtures are not proof of a
+production Uranus schema.
 
 | Desired feature                                            | Required data                                                | Available research API / evidence                                                                           | Missing field or capability                                                                      | Possible later extension                                                                                        |
 | ---------------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
