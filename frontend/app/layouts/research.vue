@@ -177,9 +177,6 @@ onBeforeUnmount(() => {
 .research-workspace .research-type {
   @apply bg-blue-50 text-blue-700;
 }
-.research-workspace .research-category {
-  @apply bg-violet-50 text-violet-800;
-}
 .research-workspace .research-toggle {
   @apply inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5;
 }

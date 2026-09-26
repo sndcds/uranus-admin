@@ -10,6 +10,7 @@ import {
   researchUrlQuery,
 } from '~/utils/research'
 import { sqlCsv } from '~/utils/sql-csv'
+import { researchCategoryColor } from '~/utils/research-categories'
 const props = defineProps<{ kind?: ResearchType; map?: boolean }>()
 const route = useRoute()
 const { $adminApi } = useNuxtApp()
@@ -246,7 +247,14 @@ const columns = [
         :aria-label="`${chip.label} entfernen`"
         @click="remove(chip.key)"
       >
-        <span>{{ chip.label }}<AppIcon name="close" :size="14" /></span></button
+        <span>
+          <i
+            v-if="chip.key === 'category'"
+            aria-hidden="true"
+            class="size-2.5 shrink-0 rounded-full"
+            :style="{ backgroundColor: researchCategoryColor(query.category ?? -1) }" />
+          {{ chip.label }}<AppIcon name="close" :size="14"
+        /></span></button
       ><button class="action-link text-xs font-normal" @click="setQuery({})">
         Alle Filter zurücksetzen
       </button>

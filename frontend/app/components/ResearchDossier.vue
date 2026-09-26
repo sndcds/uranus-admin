@@ -434,8 +434,10 @@ const monthColumns = [
                     :to="researchHref(entry.kind, entry.key)"
                     class="action-link"
                     >{{ entry.name }}</NuxtLink
-                  ><span v-else>{{ entry.name }}</span
-                  ><span>{{ entry.event_count }}</span>
+                  ><ResearchCategoryBadge
+                    v-else
+                    :category="{ id: Number(entry.key), name: entry.name }"
+                  /><span>{{ entry.event_count }}</span>
                 </li>
               </ul>
               <p v-if="!data.usage.some((item) => item.kind === group.kind)" class="type-metadata">

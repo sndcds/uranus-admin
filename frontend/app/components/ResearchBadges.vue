@@ -5,11 +5,10 @@ defineProps<{ item: Pick<ResearchRecord, 'entity_type' | 'categories' | 'status'
 </script>
 <template>
   <StatusBadge class="research-type" :label="researchLabels[item.entity_type]" />
-  <StatusBadge
+  <ResearchCategoryBadge
     v-for="category in item.categories"
     :key="category.id"
-    class="research-category"
-    :label="category.name"
+    :category="category"
   />
   <StatusBadge
     v-if="item.status"
