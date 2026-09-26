@@ -32,3 +32,8 @@ export function returnTarget(value: unknown, hash = ''): string {
   const target = internalRedirect(value)
   return internalRedirect(target.includes('#') ? target : `${target}${hash}`)
 }
+
+export function workspaceTarget(value: unknown, hash: string, isAdmin: boolean): string {
+  const target = returnTarget(value, hash)
+  return isAdmin || /^\/research(?:[/?#]|$)/.test(target) ? target : '/research'
+}

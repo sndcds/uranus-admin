@@ -102,6 +102,7 @@ function closeMenu() {
           <div class="flex min-w-0 flex-wrap items-center gap-2">
             <span class="text-xs text-slate-600">{{ dateTime(now) }} · Berlin</span>
             <GeoScopeSelector />
+            <NuxtLink to="/research" class="button">Recherche</NuxtLink>
             <span class="text-xs text-slate-600">Systemadministrator</span>
             <button
               class="button"
