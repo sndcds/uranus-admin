@@ -362,6 +362,11 @@ class AdminDatabase:
                 == upgrade_contract["schema_fingerprint"]
             )
             if not problems or upgradeable:
+                operator_tables = (
+                    upgrade_contract["runtime_grants"]
+                    if upgradeable
+                    else self.manifest["runtime_grants"]
+                )
                 self.mark("boundary_contract")
                 violations = self.rows(
                     self.boundary,
@@ -381,6 +386,9 @@ class AdminDatabase:
                     problems.extend(violations)
                 self.mark("operator_privileges")
                 for name, grants in OPERATOR_GRANTS.items():
+                    # A fingerprint-verified origin cannot grant a target-only table yet.
+                    if name not in operator_tables:
+                        continue
                     for privilege in grants:
                         if not self.rows(
                             "SELECT has_table_privilege('admin_auth_operator',%s,%s)",

@@ -97,6 +97,9 @@ async def test_effective_venue_override_stops_space_inheritance(db_connection, s
 @pytest.mark.parametrize(
     "value",
     [
+        None,
+        "",
+        "   ",
         "javascript:alert(1)",
         "https://user:secret@example.test",
         "https://example.test?token=secret",

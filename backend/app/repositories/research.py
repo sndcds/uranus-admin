@@ -165,7 +165,7 @@ ORDER = {
 
 
 def source_url(value: str | None) -> str | None:
-    if not value or len(value) > 2048 or url_problem(value) is not None:
+    if not value or not value.strip() or len(value) > 2048 or url_problem(value) is not None:
         return None
     parsed = urlsplit(value)
     # Source links are optional public references, never credential-bearing URLs.
