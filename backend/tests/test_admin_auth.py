@@ -10,8 +10,8 @@ from sqlalchemy import delete, insert, select, text, update
 from sqlalchemy.exc import DBAPIError
 
 from app.admin_database import assert_admin_boundary
-from app.admin_tables import auth_account, auth_session, auth_system_admin
-from app.auth.dependencies import get_current_admin
+from app.admin_tables import auth_account, auth_journalist, auth_session, auth_system_admin
+from app.auth.dependencies import get_current_admin, get_current_research_user
 from app.auth.manage import manage_account
 from app.auth.service import AdminPrincipal, digest, hasher
 from app.main import create_app
@@ -41,6 +41,9 @@ async def auth_client(admin_store, database, settings):
         await conn.execute(
             insert(auth_system_admin).values(account_id=uid(810), granted_by="test-operator")
         )
+    from pydantic import SecretStr
+
+    settings.database_url = SecretStr(database[0])
     settings.app_env = "production"
     settings.app_debug = False
     settings.dev_auth_enabled = False
@@ -72,11 +75,15 @@ async def test_production_identity_and_separate_authorization(auth_client):
     assert (await client.get("/auth/session")).status_code == 401
     response = await sign_in(client)
     assert response.status_code == 200
-    assert response.json() == {"subject": f"admin:{uid(810)}", "system_admin": True}
+    assert response.json() == {
+        "subject": f"admin:{uid(810)}",
+        "system_admin": True,
+        "journalist": False,
+    }
     session = await client.get("/auth/session")
     assert session.status_code == 200
     assert session.json() == response.json()
-    assert set(session.json()) == {"subject", "system_admin"}
+    assert set(session.json()) == {"subject", "system_admin", "journalist"}
     assert "no-store" in session.headers["cache-control"]
     cookie = response.headers["set-cookie"]
     assert "HttpOnly" in cookie and "Secure" in cookie and "SameSite=strict" in cookie
@@ -227,7 +234,7 @@ async def test_runtime_cannot_create_accounts_or_grant_permissions(admin_store):
                 await admin_store.execute(text(sql))
 
 
-@pytest.mark.parametrize("table", ["auth_account", "auth_system_admin"])
+@pytest.mark.parametrize("table", ["auth_account", "auth_system_admin", "auth_journalist"])
 async def test_boundary_rejects_runtime_identity_writes(admin_store, db_connection, table):
     from app.errors import APIError
 
@@ -290,7 +297,11 @@ async def test_development_identity_is_explicitly_local(settings, environment):
             headers={"Authorization": f"Bearer {settings.dev_admin_token.get_secret_value()}"},
         )
         assert response.status_code == 200
-        assert response.json() == {"subject": "development-only", "system_admin": True}
+        assert response.json() == {
+            "subject": "development-only",
+            "system_admin": True,
+            "journalist": False,
+        }
 
 
 @pytest.mark.parametrize("environment", ["staging", "production"])
@@ -317,7 +328,10 @@ async def test_operator_works_with_only_documented_management_grants(admin_store
         text("GRANT SELECT, INSERT, UPDATE ON admin.auth_account TO admin_auth_operator_test")
     )
     await db_connection.execute(
-        text("GRANT SELECT, INSERT, DELETE ON admin.auth_system_admin TO admin_auth_operator_test")
+        text(
+            "GRANT SELECT, INSERT, DELETE ON admin.auth_system_admin, admin.auth_journalist "
+            "TO admin_auth_operator_test"
+        )
     )
     await db_connection.execute(
         text("GRANT SELECT, UPDATE ON admin.auth_session TO admin_auth_operator_test")
@@ -335,6 +349,12 @@ async def test_operator_works_with_only_documented_management_grants(admin_store
         assert (
             await db_connection.execute(select(auth_system_admin.c.account_id))
         ).scalar_one_or_none() is None
+        await manage_account(db_connection, "grant-journalist", "limited-operator-account")
+        assert (await db_connection.execute(select(auth_journalist.c.account_id))).scalar_one()
+        await manage_account(db_connection, "revoke-journalist", "limited-operator-account")
+        assert (
+            await db_connection.execute(select(auth_journalist.c.account_id))
+        ).scalar_one_or_none() is None
         await manage_account(db_connection, "disable", "limited-operator-account")
         assert (await db_connection.execute(select(auth_account.c.is_active))).scalar_one() is False
     finally:
@@ -350,7 +370,13 @@ def test_every_administrative_route_uses_the_same_authorization_dependency():
     for route in app.routes:
         if isinstance(route, APIRoute) and route.path.startswith("/api/v1/"):
             assert any(
-                dependency.call is get_current_admin for dependency in route.dependant.dependencies
+                dependency.call
+                is (
+                    get_current_research_user
+                    if route.path.startswith("/api/v1/research/")
+                    else get_current_admin
+                )
+                for dependency in route.dependant.dependencies
             ), route.path
 
 
@@ -569,3 +595,70 @@ async def test_geo_import_requires_systemadmin_origin_and_csrf(auth_client):
         assert response.json()["error"]["code"] == "csrf_rejected"
     response = await client.post("/api/v1/geo/areas", headers=CSRF, json=IDENTITY.model_dump())
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize("grant", ["journalist", "system_admin", "both", "none"])
+async def test_research_and_operations_authorization(auth_client, grant):
+    client, owner, settings = auth_client
+    async with owner.begin() as conn:
+        if grant in {"journalist", "both"}:
+            await conn.execute(
+                insert(auth_journalist).values(account_id=uid(811), granted_by="test")
+            )
+        if grant in {"system_admin", "both"}:
+            await conn.execute(
+                insert(auth_system_admin).values(account_id=uid(811), granted_by="test")
+            )
+    response = await sign_in(client, "ordinary")
+    assert response.status_code == 200
+    assert response.json()["journalist"] == (grant in {"journalist", "both"})
+    assert (await client.get("/auth/session")).status_code == (403 if grant == "none" else 200)
+    assert (await client.get("/api/v1/research/search")).status_code == (
+        403 if grant == "none" else 200
+    )
+    assert (await client.get("/api/v1/auth-probe")).status_code == (
+        200 if grant in {"system_admin", "both"} else 403
+    )
+    for path in (
+        "/api/v1/findings",
+        "/api/v1/assignments",
+        "/api/v1/graph",
+        "/api/v1/search?q=ab",
+        "/api/v1/geocode/requests",
+    ):
+        if grant in {"journalist", "none"}:
+            assert (await client.get(path)).status_code == 403
+    if grant == "journalist":
+        token = client.cookies.get(settings.session_cookie)
+        async with owner.begin() as conn:
+            await conn.execute(
+                delete(auth_journalist).where(auth_journalist.c.account_id == uid(811))
+            )
+        assert (await client.get("/api/v1/research/search")).status_code == 403
+        assert client.cookies.get(settings.session_cookie) == token
+
+
+async def test_journalist_operator_grants_and_session_revocation(auth_client):
+    client, owner, settings = auth_client
+    async with owner.begin() as conn:
+        await manage_account(conn, "create", "reporter", PASSWORD, active=True, journalist=True)
+    assert (await sign_in(client, "reporter")).json()["journalist"] is True
+    async with owner.begin() as conn:
+        await manage_account(conn, "grant", "reporter")
+    assert (await client.get("/auth/session")).status_code == 401
+    assert (await sign_in(client, "reporter")).json() == {
+        "subject": (await client.get("/auth/session")).json()["subject"],
+        "system_admin": True,
+        "journalist": True,
+    }
+    async with owner.begin() as conn:
+        await manage_account(conn, "revoke-journalist", "reporter")
+    assert (await client.get("/auth/session")).status_code == 401
+    assert (await sign_in(client, "reporter")).json()["system_admin"] is True
+    async with owner.begin() as conn:
+        await manage_account(conn, "revoke", "reporter")
+        await manage_account(conn, "grant-journalist", "reporter")
+        await manage_account(conn, "grant-journalist", "reporter")
+        assert (await conn.execute(select(auth_journalist.c.account_id))).scalar_one()
+        await manage_account(conn, "disable", "reporter")
+    assert (await sign_in(client, "reporter")).status_code == 401

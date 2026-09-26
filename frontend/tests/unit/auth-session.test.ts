@@ -10,7 +10,7 @@ import { AdminApiError, failure } from '../../shared/errors'
 import { geoArea } from '../fixtures/geo'
 import { findings, summary } from '../fixtures/api'
 
-const principal = { subject: 'admin:fixture', system_admin: true }
+const principal = { subject: 'admin:fixture', system_admin: true, journalist: false }
 let api: ReturnType<typeof createAdminApi>
 const navigate = vi.fn()
 beforeEach(() => {
@@ -146,7 +146,7 @@ it.each([
   ['unknown', false, '/future-route', false, '/login'],
 ])('middleware: %s, %s, %s', async (status, isAdmin, fullPath, publicRoute, redirect) => {
   vi.stubGlobal('defineNuxtRouteMiddleware', (fn: unknown) => fn)
-  const auth = { status, isAdmin, checkSession: vi.fn() }
+  const auth = { status, isAdmin, canResearch: isAdmin, checkSession: vi.fn() }
   vi.stubGlobal('useAuthStore', () => auth)
   const { default: middleware } = await import('../../app/middleware/auth.global')
   await middleware(
