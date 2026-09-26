@@ -46,8 +46,9 @@ function primaryChange() {
     @apply="apply"
   >
     <fieldset class="research-period min-w-0">
-      <legend class="label">Zeitraum</legend>
-      <div class="flex items-center rounded-lg border border-slate-200 bg-white">
+      <legend class="sr-only">Zeitraum</legend>
+      <span class="label" aria-hidden="true">Zeitraum</span>
+      <div class="mt-1 flex items-center rounded-lg border border-slate-200 bg-white">
         <label class="min-w-0 flex-1"
           ><span class="sr-only">Von</span
           ><input
@@ -184,14 +185,6 @@ function primaryChange() {
 .research-filters-compact :deep(> div > .label),
 .research-filters-compact .research-period {
   @apply rounded-lg border border-slate-200 px-3 py-2;
-}
-.research-filters-compact .research-period {
-  position: relative;
-  padding-top: 1.75rem;
-}
-.research-filters-compact legend {
-  position: absolute;
-  top: 0.5rem;
 }
 @media (max-width: 1279px) {
   .research-filters-compact :deep(> div) {
