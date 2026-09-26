@@ -52,6 +52,9 @@ function logout() {
       </NuxtLink>
     </template>
   </nav>
+  <NuxtLink v-if="mobile" to="/research" class="button mx-3 mb-3" @click="$emit('navigate')"
+    >Recherche</NuxtLink
+  >
   <div v-if="mobile" class="shrink-0 space-y-2 border-t border-slate-700 p-3">
     <div class="flex items-center gap-3 rounded-lg bg-slate-800 p-3">
       <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-900 text-white">

@@ -22,7 +22,10 @@ async def test_operator_preflight(admin_store, db_connection, damage):
         text("GRANT SELECT,INSERT,UPDATE ON admin.auth_account TO doctor_test")
     )
     await db_connection.execute(
-        text("GRANT SELECT,INSERT,DELETE ON admin.auth_system_admin TO doctor_test")
+        text(
+            "GRANT SELECT,INSERT,DELETE ON admin.auth_system_admin,admin.auth_journalist "
+            "TO doctor_test"
+        )
     )
     await db_connection.execute(text("GRANT SELECT,UPDATE ON admin.auth_session TO doctor_test"))
     damage_sql = {
@@ -88,7 +91,10 @@ async def test_doctor_and_normal_commands_use_preflight_before_password(
             text("GRANT SELECT,INSERT,UPDATE ON admin.auth_account TO admin_doctor_test")
         )
         await conn.execute(
-            text("GRANT SELECT,INSERT,DELETE ON admin.auth_system_admin TO admin_doctor_test")
+            text(
+                "GRANT SELECT,INSERT,DELETE ON admin.auth_system_admin,admin.auth_journalist "
+                "TO admin_doctor_test"
+            )
         )
         await conn.execute(text("GRANT SELECT,UPDATE ON admin.auth_session TO admin_doctor_test"))
     settings.admin_auth_management_database_url = SecretStr(

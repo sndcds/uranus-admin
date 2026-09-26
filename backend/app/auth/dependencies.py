@@ -33,3 +33,11 @@ async def get_current_admin(
     if not principal.system_admin:
         raise APIError(403, "admin_access_denied", "System administrator permission is required.")
     return principal
+
+
+async def get_current_research_user(
+    principal: Annotated[AdminPrincipal, Depends(get_identity)],
+) -> AdminPrincipal:
+    if not (principal.system_admin or principal.journalist):
+        raise APIError(403, "research_access_denied", "Research permission is required.")
+    return principal

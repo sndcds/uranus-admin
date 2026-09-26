@@ -5,6 +5,10 @@ import {
   type ProvenanceParams,
 } from '#shared/sql-provenance'
 import {
+  researchPageSchema,
+  researchDetailSchema,
+  researchOptionsSchema,
+  researchExportSchema,
   sqlDiagnosticDefinitionSchema,
   sqlDiagnosticResultSchema,
   geocodePageSchema,
@@ -64,6 +68,7 @@ import type {
   AssignmentUpdate,
   AssignmentWorkflowType,
   InboxFilters,
+  ResearchQuery,
 } from '#shared/contracts'
 import { AdminApiError, failure } from '#shared/errors'
 
@@ -103,7 +108,8 @@ export function createAdminApi(
       method === 'GET' &&
       path.startsWith('/api/v1/') &&
       !path.includes('sql-') &&
-      path !== '/api/v1/search'
+      path !== '/api/v1/search' &&
+      !path.startsWith('/api/v1/research/')
     const readId = ++readRevision
     if (inspectable) publishRead(path, { query: { ...query }, pending: true, revision: readId })
     const params = new URLSearchParams()
@@ -192,6 +198,26 @@ export function createAdminApi(
     return parsed.data
   }
   return {
+    researchSearch: (query: ResearchQuery, signal?: AbortSignal) =>
+      request(
+        '/api/v1/research/search',
+        researchPageSchema,
+        { ...query },
+        'GET',
+        undefined,
+        signal,
+      ),
+    researchDetail: (
+      section: 'events' | 'venues' | 'organizations',
+      id: string,
+      query: ResearchQuery,
+    ) =>
+      request(`/api/v1/research/${section}/${encodeURIComponent(id)}`, researchDetailSchema, {
+        ...query,
+      }),
+    researchOptions: () => request('/api/v1/research/options', researchOptionsSchema),
+    researchExport: (query: ResearchQuery) =>
+      request('/api/v1/research/export', researchExportSchema, { ...query }),
     viewRead: (path: string) => viewReads.get(path),
     subscribeViewReads: (listener: () => void) => {
       readListeners.add(listener)

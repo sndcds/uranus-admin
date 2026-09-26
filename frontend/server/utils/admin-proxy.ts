@@ -1,9 +1,5 @@
 import {
-  provenanceViews,
-  validProvenanceParams,
-  type ProvenanceView,
-} from '../../shared/sql-provenance'
-import {
+  researchQuerySchema,
   diagnosticRequestSchema,
   geoAreaImportSchema,
   loginSchema,
@@ -18,6 +14,11 @@ import {
   assignmentLookupSchema,
   assignmentUpdateSchema,
 } from '#shared/contracts'
+import {
+  provenanceViews,
+  validProvenanceParams,
+  type ProvenanceView,
+} from '../../shared/sql-provenance'
 import { isIP } from 'node:net'
 import { failure } from '#shared/errors'
 
@@ -226,35 +227,66 @@ export async function forwardAdminRequest(
       (provenanceExecute && !provenanceMatch[2]!.startsWith(provenanceView + '.')))
   )
     return rejected(404, 'route_not_allowed')
-  const allowed = provenanceView
-    ? provenanceExecute
-      ? []
-      : (provenanceViews[provenanceView as ProvenanceView] as readonly string[])
-    : notificationDetail || notificationRetry || geoDetail || geocodeDetail || geocodeRetry
-      ? []
-      : entityTimeline
-        ? ['cursor', 'page_size']
-        : notificationPreview
-          ? ['locale']
-          : entityList
-            ? [
-                'q',
-                'organization_id',
-                'status',
-                'period',
-                'temporal',
-                'page',
-                'page_size',
-                ...(input.path === '/api/v1/venues' ? ['scope'] : []),
-                ...(spatialList ? ['geo_scope_id'] : []),
-              ]
-            : entityDetail
-              ? ['related_page']
-              : markDetail || assignmentDetail || checkDetail
-                ? []
-                : Object.hasOwn(routes, input.path)
-                  ? routes[input.path]
-                  : undefined
+  const researchList = /^\/api\/v1\/research\/(search|export|events|venues|organizations)$/.test(
+    input.path,
+  )
+  const researchDetail =
+    /^\/api\/v1\/research\/(events|venues|organizations)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      input.path,
+    )
+  const researchOptions = input.path === '/api/v1/research/options'
+  if (
+    (researchList || researchDetail) &&
+    !researchQuerySchema.safeParse(Object.fromEntries(input.query)).success
+  )
+    return rejected(422, 'invalid_query')
+  const allowed =
+    researchList || researchDetail
+      ? [
+          'q',
+          'entity_type',
+          'from_date',
+          'to_date',
+          'city',
+          'category',
+          'status',
+          'organization_id',
+          'venue_id',
+          'sort',
+          'page',
+          'page_size',
+        ]
+      : researchOptions
+        ? []
+        : provenanceView
+          ? provenanceExecute
+            ? []
+            : (provenanceViews[provenanceView as ProvenanceView] as readonly string[])
+          : notificationDetail || notificationRetry || geoDetail || geocodeDetail || geocodeRetry
+            ? []
+            : entityTimeline
+              ? ['cursor', 'page_size']
+              : notificationPreview
+                ? ['locale']
+                : entityList
+                  ? [
+                      'q',
+                      'organization_id',
+                      'status',
+                      'period',
+                      'temporal',
+                      'page',
+                      'page_size',
+                      ...(input.path === '/api/v1/venues' ? ['scope'] : []),
+                      ...(spatialList ? ['geo_scope_id'] : []),
+                    ]
+                  : entityDetail
+                    ? ['related_page']
+                    : markDetail || assignmentDetail || checkDetail
+                      ? []
+                      : Object.hasOwn(routes, input.path)
+                        ? routes[input.path]
+                        : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
   const diagnosticExecute = input.path === '/api/v1/findings/sql-diagnostic/execute'
   const authWrite = input.method === 'POST' && ['/auth/login', '/auth/logout'].includes(input.path)

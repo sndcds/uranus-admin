@@ -43,7 +43,7 @@ Start with [README.md](README.md), [backend/README.md](backend/README.md) and
 [frontend/README.md](frontend/README.md). Detailed contracts and operations live in
 [backend/docs/contracts.md](backend/docs/contracts.md),
 [backend/docs/development.md](backend/docs/development.md) and `frontend/docs/`.
-There is no root `docs/` directory.
+Cross-workspace source gaps are documented in `docs/research-backend-gaps.md`.
 
 ## Database boundaries
 
@@ -122,7 +122,7 @@ The authoritative table definitions are in `backend/app/admin_tables.py`.
   not runtime self-repair or blanket default privileges.
 - Use `RUNTIME_GRANTS` in `backend/app/storage_preflight.py` as the current required
   grant set, including SELECT on `admin.alembic_version`.
-- Runtime has SELECT-only access to `auth_account` and `auth_system_admin`. Account/grant changes
+- Runtime has SELECT-only access to `auth_account`, `auth_system_admin` and `auth_journalist`. Account/grant changes
   belong to `app.auth.manage`; operator cleanup uses `app.auth.maintenance`.
 - No runtime DELETE grants are currently required. Operator retention deletes only
   explicitly authorized auth data. Preserve append-only `finding_event`, `assignment_event`,
@@ -163,7 +163,9 @@ Browser session values are transmitted only through the intended HttpOnly cookie
 Production/staging use `__Host-admin_session`, Secure, SameSite=Strict, Path=/,
 without Domain; development/test use the local `admin_session` cookie.
 
-All `/api/v1` routes and `/auth/session` require `get_current_admin`. State-changing
+Operations `/api/v1` routes require `get_current_admin`. Research routes under
+`/api/v1/research` and `/auth/session` require `get_current_research_user`
+(system_admin OR journalist); Research never uses admin workflow projections. State-changing
 admin routes MUST preserve this authorization and typed, bounded request contracts.
 Login and cookie-authenticated writes require exact `AUTH_PUBLIC_ORIGIN` validation
 and `X-Admin-CSRF: 1`; preserve logout's equivalent cookie/no-credential checks.

@@ -39,38 +39,40 @@ standardmäßig inaktiv. Es gibt keine öffentliche Registrierung, keine Passwor
 keine Kontoverwaltungs-API. Passwörter werden nur beim Login transient verarbeitet; keine Kopien
 von Uranus-Hashes und keine Speicherung von Klartextpasswörtern.
 
-**Authorization:** Ein Eintrag in `admin.auth_system_admin` erteilt dem referenzierten Konto
-systemweiten Admin-Zugriff. Die Tabelle speichert Vergabezeit und DB-Operator. Ohne Eintrag
-besteht kein globales Recht, auch bei korrektem Passwort. Die Runtime darf beide Tabellen nur
-lesen. Ausschließlich der getrennte Betreiberzugang verwaltet Konten und Vergaben.
+**Authorization:** `admin.auth_system_admin` erlaubt Operations und Recherche;
+`admin.auth_journalist` erlaubt ausschließlich Recherche. Beide Grants speichern Vergabezeit
+und DB-Operator und können unabhängig nebeneinander bestehen. Ohne Grant besteht trotz
+korrektem Passwort kein Workspace-Zugriff. Die Runtime darf Konto und Grants nur lesen;
+ausschließlich der getrennte Betreiberzugang verwaltet sie.
 
-`get_identity()` authentifiziert eine Sitzung. `get_current_admin()` verlangt anschließend das
-separat geprüfte Recht. Sämtliche `/api/v1`-Routen verwenden diese zentrale Dependency.
-`/auth/session` verwendet ebenfalls `get_current_admin()`: aktive normale Konten erhalten
-403, gültige Systemadmin-Sitzungen 200. Der Login darf weiterhin eine normale Identität
-mit `system_admin=false` bestätigen; dies gewährt keinen Zugang zur Admin-Oberfläche.
+`get_identity()` authentifiziert eine Sitzung. `get_current_admin()` verlangt den
+Systemadmin-Grant für Operations. `/api/v1/research/*` und `/auth/session` verwenden
+`get_current_research_user()` und erlauben Systemadmin oder Journalist. Aktive Konten ohne
+Grant erhalten dort 403. Der Login darf weiterhin eine normale Identität bestätigen;
+dies gewährt allein keinen Workspace-Zugriff.
 
 ## Production-Flow und HTTP-Vertrag
 
 ```text
 Browser → gleiche Origin /api/admin/auth/login → Nuxt/Nitro → FastAPI /auth/login
-Browser ← HttpOnly-Sitzungscookie + {subject, system_admin}
+Browser ← HttpOnly-Sitzungscookie + {subject, system_admin, journalist}
 Browser → /api/admin/api/v1/... → Nitro → FastAPI
                                       → Sitzung und aktives Admin-Konto prüfen
-                                      → explizite System-Admin-Vergabe prüfen
+                                      → passenden Workspace-Grant prüfen
 ```
 
 - `POST /auth/login`: JSON `{login, password}`. Erfolg 200; Antwort enthält ausschließlich
-  `subject` und `system_admin`. Ein neuer zufälliger Sitzungswert kommt ausschließlich als
+  `subject`, `system_admin` und `journalist`. Ein neuer zufälliger Sitzungswert kommt ausschließlich als
   HttpOnly-Cookie, niemals im JSON, HTML, SSR-State oder einem Browser-Speicherobjekt an.
-- `GET /auth/session`: servervalidierte Systemadmin-Identität, 200 mit `subject` und
-  `system_admin`; 401 ohne gültige Sitzung, 403 ohne Systemadmin-Vergabe.
+- `GET /auth/session`: servervalidierte Workspace-Identität, 200 mit `subject`, `system_admin`
+  und `journalist`; 401 ohne gültige Sitzung, 403 ohne Workspace-Grant.
   `Cache-Control: private, no-store`; keine Passworthashes oder Sitzungswerte.
 - `POST /auth/logout`: widerruft die aktuelle Sitzung in der Datenbank und löscht das Cookie.
   Ohne Credential (mit Origin/CSRF) idempotent 200; DB-Fehler melden keinen erfolgreichen Widerruf.
 - Ohne Credential: 401 `authentication_required`. Ungültig/manipuliert/abgelaufen oder inaktives/
   gelöschtes Konto: 401 `invalid_credentials`. 401 behält `WWW-Authenticate: Bearer`.
-- Aktives Konto ohne Vergabe: 403 `admin_access_denied`. Fehlerhafte Browser-Provenienz:
+- Aktives Konto ohne passenden Grant: 403 `admin_access_denied` für Operations,
+  `research_access_denied` für Recherche und `/auth/session`. Fehlerhafte Browser-Provenienz:
   403 `csrf_rejected`. Zu viele Loginversuche: 429 `login_rate_limited`.
 - Fehlende Login-Origin/Admin-Ablage: 503 `admin_auth_unconfigured`. Nicht erreichbare oder
   unzureichend provisionierte Auth-Ablage: 503 `auth_storage_unavailable`. Ein vom Boundary-Check
@@ -200,3 +202,70 @@ gegen die alte Schwelle. Parallel eintreffende Requests erzeugen höchstens ein 
 Absolute expiry bleibt unverändert; Idle-Aktivität wird konservativ in Intervallen erfasst.
 Maintenance: `python -m app.auth.maintenance cleanup`, siehe [Betrieb](development.md#bereinigung).
 Keine impliziten Deletes durch API-Requests und keine DELETE-Rechte für die Runtime.
+
+## Research authorization
+
+Independent accounts now have two explicit, independent grants:
+`admin.auth_system_admin` permits Operations and Research;
+`admin.auth_journalist` permits Research only. `AdminPrincipal` adds `journalist`.
+`get_identity` retains the existing credential/CSRF/session checks,
+`get_current_admin` remains the Operations dependency, and
+`get_current_research_user` requires either grant. `/auth/session` permits either
+grant; an active account with neither remains denied. Password verification and
+login semantics are unchanged; inactive accounts cannot log in.
+
+Migration `0015` adds only `admin.auth_journalist`, after verified head `0014`.
+Deploy backend and frontend together, with API/workers stopped during the schema
+and grant transition. Select the authorized migration target explicitly, migrate
+using `ADMIN_MIGRATION_DATABASE_URL` and apply operator-provisioned grants before
+starting the new runtime. Runtime startup never creates this table or repairs grants.
+A missing table or SELECT grant prevents authentication and readiness; do not hot-reload
+the new session query against the old schema.
+
+```sql
+GRANT SELECT ON admin.auth_journalist TO admin_user;
+GRANT SELECT, INSERT, DELETE ON admin.auth_journalist TO admin_auth_operator;
+```
+
+The migrator owns the table. Runtime may not own it, inherit its owner, create in
+admin, or modify grants. The existing boundary check rejects effective INSERT,
+UPDATE, DELETE, TRUNCATE and TRIGGER privileges on all three auth identity tables.
+Ansible's explicit operator/runtime contracts include the new table.
+
+Run account commands from `backend/`, using only the separate operator connection:
+
+```sh
+uv run python -m app.auth.manage doctor
+uv run python -m app.auth.manage create reporter-example --active --journalist
+uv run python -m app.auth.manage grant-journalist existing-account-example
+uv run python -m app.auth.manage revoke-journalist existing-account-example
+```
+
+Create prompts for the password without echoing it. `--journalist` is valid only
+with create. Existing `grant`, `revoke` and `--system-admin` retain their meaning;
+accounts can hold both grants. There is no public account/grant mutation endpoint.
+As with existing operator changes, grant/revoke increments the credential version
+and revokes prior sessions, including when the other grant remains. A fresh login
+is required. Direct grant removal is also observed on the next authorization check.
+
+After rollout, journalists use the existing `/login` and are directed to `/research`.
+System administrators retain Operations as their default and can switch workspaces.
+No actual account, password or deployed grant is created by the code change.
+
+Research API GET routes: `/api/v1/research/search`, `/options`, `/export`,
+`/events`, `/venues`, `/organizations` and the three `/:key` dossiers. All use
+explicit public response models; original admin responses are not serialized into
+Research. The source database remains read-only. See the
+[workspace contract](../../frontend/docs/research-workspace.md) and
+[source gaps](../../docs/research-backend-gaps.md).
+
+### Missing grants after migration
+
+`operator privileges incomplete` from `app.auth.manage` refers to the database
+operator role, not the account named in the command. Run `doctor` and provision
+the explicit operator grants above through the table owner. A successful operator
+check does not verify the separate runtime role: after migration 0015, a missing
+runtime SELECT on `admin.auth_journalist` produces the safe
+`auth_storage_unavailable` response during login/session checks. Provision that
+SELECT separately and verify `/ready`. Neither case calls for broader runtime
+write permissions or bypassing the boundary checks.

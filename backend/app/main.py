@@ -28,6 +28,7 @@ from app.api import (
     notifications,
     quality,
     queues,
+    research,
     sql_console,
     sql_diagnostics,
     sql_provenance,
@@ -147,6 +148,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ):
         admin.include_router(router)
     application.include_router(admin)
+    application.include_router(research.router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.origins,

@@ -84,7 +84,8 @@ class DatabaseBoundaryTests(unittest.TestCase):
             cur.execute("GRANT SELECT ON admin.alembic_version TO admin_auth_operator")
             cur.execute("GRANT SELECT,INSERT,UPDATE ON admin.auth_account TO admin_auth_operator")
             cur.execute(
-                "GRANT SELECT,INSERT,DELETE ON admin.auth_system_admin TO admin_auth_operator"
+                "GRANT SELECT,INSERT,DELETE ON admin.auth_system_admin,admin.auth_journalist "
+                "TO admin_auth_operator"
             )
             cur.execute("GRANT SELECT,UPDATE ON admin.auth_session TO admin_auth_operator")
         cls.conn.autocommit = False

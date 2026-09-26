@@ -11,6 +11,7 @@ WITH roles AS (
   VALUES ('alembic_version','["SELECT"]'::jsonb),
          ('auth_account','["SELECT","INSERT","UPDATE"]'::jsonb),
          ('auth_system_admin','["SELECT","INSERT","DELETE"]'::jsonb),
+         ('auth_journalist','["SELECT","INSERT","DELETE"]'::jsonb),
          ('auth_session','["SELECT","UPDATE"]'::jsonb)
 ), objects AS (
   SELECT c.oid,c.relname,c.relowner,c.relkind,n.nspname

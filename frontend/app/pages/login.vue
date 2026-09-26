@@ -10,9 +10,9 @@ onMounted(() => {
 
 <template>
   <div>
-    <template v-if="auth.status === 'authenticated' && !auth.isAdmin">
+    <template v-if="auth.status === 'authenticated' && !auth.canResearch">
       <h1 class="text-xl font-semibold">Zugriff gesperrt</h1>
-      <p class="my-4" role="alert">Dein Konto hat keine System-Admin-Berechtigung.</p>
+      <p class="my-4" role="alert">Dein Konto hat keine Zugangsberechtigung.</p>
       <button class="button" :disabled="!interactive" @click="auth.logout()">Abmelden</button>
     </template>
     <LoginPanel v-else />

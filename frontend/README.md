@@ -424,3 +424,8 @@ Kanonische Felder, Privacy, Queryplan und spätere Uranus-eigene pg_trgm-Indizes
 [Inspector, Dashboard und Navigation](docs/admin-operations-workspace.md) verbinden
 die vorhandenen Ansichten. [Backend-Lücken](docs/backend-gaps.md) dokumentieren
 fehlende Social-Publishing-Daten und historische Änderungswerte.
+
+## Kulturbytes Recherche
+
+Der eigenständige [Recherche-Workspace](docs/research-workspace.md) liegt unter `/research`.
+Journalist-Grants erlauben ausschließlich lesende Recherche; Operations bleibt Systemadministratoren vorbehalten.

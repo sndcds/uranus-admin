@@ -697,6 +697,39 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
             [(True, False, False)],
         )
 
+    def test_exact_0014_upgrade_preserves_accounts_and_separates_journalist_grants(self):
+        self.bootstrap()
+        self.alembic("downgrade", "0014")
+        source_before = self.snapshot_source()
+        self.execute("""INSERT INTO admin.auth_account(id,login,password_hash,is_active)
+            VALUES ('00000000-0000-4000-8000-000000000800','research-migration','fixture',true)""")
+        self.execute("""INSERT INTO admin.auth_system_admin(account_id,granted_by)
+            VALUES ('00000000-0000-4000-8000-000000000800','fixture-operator')""")
+        before = self.execute("SELECT to_jsonb(a) FROM admin.auth_account a")
+        grants_before = self.execute("SELECT to_jsonb(g) FROM admin.auth_system_admin g")
+        self.conn.commit()
+        plan = self.boundary.inspect("production", upgrade_approved=True)
+        self.assertEqual(plan["state"], "UPGRADEABLE")
+        self.assertEqual(plan["current_head"], "0014")
+        self.assertEqual(plan["blockers"], [])
+        self.assertTrue(self.boundary.upgrade("production", True, self.values, self.migrate))
+        self.assertEqual(self.boundary.inspect("production")["state"], "READY")
+        self.assertEqual(self.snapshot_source(), source_before)
+        self.assertEqual(self.execute("SELECT to_jsonb(a) FROM admin.auth_account a"), before)
+        self.assertEqual(
+            self.execute("SELECT to_jsonb(g) FROM admin.auth_system_admin g"), grants_before
+        )
+        self.assertEqual(self.execute("SELECT count(*) FROM admin.auth_journalist"), [(0,)])
+        self.assertEqual(
+            self.execute(
+                "SELECT has_table_privilege('admin_user','admin.auth_journalist','SELECT'), "
+                "has_table_privilege('admin_user','admin.auth_journalist','INSERT,UPDATE,DELETE'), "
+                "has_table_privilege('admin_auth_operator','admin.auth_journalist','INSERT'), "
+                "has_table_privilege('admin_auth_operator','admin.auth_journalist','DELETE')"
+            ),
+            [(True, False, True, True)],
+        )
+
     def test_existing_upgrade_login_is_checked_without_changing_schema(self):
         self.bootstrap()
         self.alembic("downgrade", "0011")

@@ -410,12 +410,14 @@ class ArtifactTests(unittest.TestCase):
             self.assertEqual(paths[0].read_bytes(), paths[1].read_bytes())
             digest = hashlib.sha256(paths[0].read_bytes()).hexdigest()
             manifest = filters.artifact_manifest(paths[0], digest, commit)
-            self.assertEqual(manifest["head"], "0014")
-            self.assertEqual(len(manifest["runtime_grants"]), 19)
-            self.assertEqual(set(manifest["admin_upgrade_contracts"]), {"0011", "0012", "0013"})
+            self.assertEqual(manifest["head"], "0015")
+            self.assertEqual(len(manifest["runtime_grants"]), 20)
+            self.assertEqual(
+                set(manifest["admin_upgrade_contracts"]), {"0011", "0012", "0013", "0014"}
+            )
             self.assertEqual(
                 manifest["admin_upgrade_contracts"]["0013"]["runtime_grants"],
-                manifest["runtime_grants"],
+                {k: v for k, v in manifest["runtime_grants"].items() if k != "auth_journalist"},
             )
             for table in ("assignment", "assignment_event"):
                 self.assertIn("snoozed_until", manifest["admin_columns"][table])

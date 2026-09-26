@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick, onMounted } from 'vue'
 import { asFailure } from '#shared/errors'
-import { returnTarget } from '~/utils/auth-redirect'
+import { workspaceTarget } from '~/utils/auth-redirect'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -20,8 +20,10 @@ async function signIn() {
   message.value = ''
   try {
     await auth.login(username.value, password.value)
-    if (auth.isAdmin)
-      await navigateTo(returnTarget(route.query.redirect, route.hash), { replace: true })
+    if (auth.canResearch)
+      await navigateTo(workspaceTarget(route.query.redirect, route.hash, auth.isAdmin), {
+        replace: true,
+      })
   } catch (cause) {
     const detail = asFailure(cause)
     message.value = detail.status === 401 ? 'Anmeldung fehlgeschlagen.' : detail.message
@@ -39,7 +41,7 @@ async function signIn() {
 <template>
   <section :aria-busy="busy" aria-labelledby="admin-login-title">
     <h1 id="admin-login-title" class="text-xl font-semibold">Anmeldung</h1>
-    <p class="mt-2 text-sm text-slate-600">Bitte mit deinem Admin-Konto anmelden.</p>
+    <p class="mt-2 text-sm text-slate-600">Bitte mit deinem Recherche- oder Admin-Konto anmelden.</p>
     <form class="mt-6 space-y-4" @submit.prevent="signIn">
       <div>
         <label for="admin-login" class="label">Benutzername</label>

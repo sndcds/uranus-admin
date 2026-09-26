@@ -20,6 +20,11 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(
     () => status.value === 'authenticated' && session.value?.system_admin === true,
   )
+  const canResearch = computed(
+    () =>
+      status.value === 'authenticated' &&
+      (session.value?.system_admin === true || session.value?.journalist === true),
+  )
   // Request coordination stays private to this SSR/app instance, never in the payload.
   let pending: Promise<void> | undefined
   function resetData() {
@@ -69,7 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (current !== revision.value) return
     session.value = identity
     await checkSession(true)
-    if (!isAdmin.value)
+    if (!canResearch.value)
       throw new AdminApiError(error.value ?? failure(status.value === 'authenticated' ? 403 : 401))
   }
   async function logout() {
@@ -98,6 +103,7 @@ export const useAuthStore = defineStore('auth', () => {
     loggingOut,
     revision,
     isAdmin,
+    canResearch,
     checkSession,
     login,
     logout,

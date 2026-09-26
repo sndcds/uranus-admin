@@ -2,7 +2,11 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { createAdminApi } from '../../app/utils/admin-api'
 import { forwardAdminRequest } from '../../server/utils/admin-proxy'
 
-const principal = { subject: 'admin:00000000-0000-4000-8000-000000000810', system_admin: true }
+const principal = {
+  subject: 'admin:00000000-0000-4000-8000-000000000810',
+  system_admin: true,
+  journalist: false,
+}
 const sessionToken = 'S'.repeat(43)
 afterEach(() => vi.unstubAllGlobals())
 

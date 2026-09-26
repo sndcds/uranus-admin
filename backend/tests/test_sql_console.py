@@ -308,14 +308,19 @@ def configured():
         (True, "http://testserver", True, 101),
     ],
 )
-def test_websocket_auth_origin(cookie, origin, identity, code):
+@pytest.mark.parametrize("journalist", [False, True])
+def test_websocket_auth_origin(cookie, origin, identity, code, journalist):
     app = create_app(configured())
     headers = {"Origin": origin} if origin else {}
     if cookie:
         headers["Cookie"] = "admin_session=" + "a" * 43
     with patch(
         "app.api.sql_console.session_identity",
-        AsyncMock(return_value=AdminPrincipal(subject="admin:fixture", system_admin=identity)),
+        AsyncMock(
+            return_value=AdminPrincipal(
+                subject="admin:fixture", system_admin=identity, journalist=journalist
+            )
+        ),
     ):
         with TestClient(app) as client:
             if code == 101:
