@@ -9,6 +9,19 @@ import { inspectorHref } from '../../app/utils/inspector'
 const id = activityFixture.items[0]!.entity_key
 test.beforeEach(async ({ page }) => {
   await mockLayoutApi(page)
+  // Match the server's requested page size, so overview screenshots show the bounded preview.
+  await page.route('**/api/admin/api/v1/dashboard/activity?*', (route) => {
+    const query = new URL(route.request().url()).searchParams
+    const pageSize = Number(query.get('page_size') ?? 50)
+    const items = activityFixture.items.filter(
+      (item) => !query.get('entity_key') || item.entity_key === query.get('entity_key'),
+    )
+    return route.fulfill({ json: { ...activityFixture, items: items.slice(0, pageSize) } })
+  })
+  // Compact review record; larger relation pagination stays covered by existing record tests.
+  await page.route(`**/api/admin/api/v1/users/${id}?*`, (route) =>
+    route.fulfill({ json: detailFixture('users') }),
+  )
 })
 
 for (const [section, entry] of Object.entries(entitySections)) {
@@ -199,7 +212,7 @@ test('findings tools and geocoding share inspector and relationship navigation',
     .getByRole('button', { name: /^Befund bearbeiten:/ })
     .first()
     .click()
-  const dialog = page.getByRole('dialog', { name: 'Befund bearbeiten' })
+  const dialog = page.getByRole('dialog', { name: 'Test-Hafenbühne', exact: true })
   await expect(dialog.getByRole('link', { name: 'Datensatz untersuchen' })).toHaveAttribute(
     'href',
     /^\/inspect\//,

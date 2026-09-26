@@ -89,6 +89,15 @@ watch(relatedPage, loadRecord)
       v-else-if="record.data.value && !record.loading.value"
       message="Für diesen Datensatz sind keine Grunddaten verfügbar."
     />
+    <CompactFacts
+      v-if="item"
+      missing="omit"
+      :items="[
+        { label: 'Erstellt', value: item.created_at ? dateTime(item.created_at) : null },
+        { label: 'E-Mail', value: item.email },
+        { label: 'Adresse', value: item.address },
+      ]"
+    />
     <nav class="flex flex-wrap gap-x-4" aria-label="Inspector-Bereiche">
       <a href="#relations" class="action-link">Beziehungen</a>
       <a href="#findings" class="action-link">Befunde</a>
