@@ -5,11 +5,20 @@ import { mapAttributionUrl, mapTileUrl } from '~/utils/map-tiles'
 import 'leaflet/dist/leaflet.css'
 
 const props = defineProps<{
-  points: { id: string; rank: number; display_name: string; latitude: number; longitude: number }[]
+  points: {
+    id: string
+    rank: number
+    display_name: string
+    latitude: number
+    longitude: number
+    tone?: 'blue' | 'teal' | 'violet'
+  }[]
   noun: string
   plural: string
   title: string
   popup?: boolean
+  research?: boolean
+  popupContent?: (id: string) => HTMLElement
   emptyMessage?: string
   selectedId: string
   embedded?: boolean
@@ -54,6 +63,7 @@ function highlight() {
     const selected = id === props.selectedId
     button.setAttribute('aria-pressed', String(selected))
     marker.setZIndexOffset(selected ? 1000 : 0)
+    if (props.research && selected) marker.openPopup()
   }
 }
 function focusPoint(id: string, reveal = false) {
@@ -73,6 +83,7 @@ function renderCandidates() {
     const button = document.createElement('button')
     button.type = 'button'
     button.className = 'candidate-map-marker'
+    if (props.research) button.dataset.tone = candidate.tone || 'blue'
     button.textContent = String(candidate.rank)
     button.setAttribute(
       'aria-label',
@@ -100,12 +111,15 @@ function renderCandidates() {
       select.textContent = 'Treffer auswählen'
       select.addEventListener('click', () => emit('select', candidate.id))
       content.append(title, select)
-      marker.bindPopup(content)
+      marker.bindPopup(
+        props.popupContent?.(candidate.id) ?? content,
+        props.research ? { maxWidth: 250, className: 'research-map-popup' } : {},
+      )
     }
     markers.set(candidate.id, { marker, button })
   }
-  highlight()
   fitAll()
+  highlight()
 }
 watch(() => props.points, renderCandidates, { deep: true })
 watch(
@@ -162,11 +176,17 @@ defineExpose({ focusPoint })
 <template>
   <section
     class="candidate-map min-w-0 overflow-hidden"
-    :class="embedded ? '' : 'panel'"
+    :class="[embedded ? '' : 'panel', { 'point-map-research relative': research }]"
     :aria-label="title"
   >
-    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3">
-      <span class="text-sm text-slate-600"
+    <div
+      :class="
+        research
+          ? 'absolute bottom-12 right-2 z-10'
+          : 'flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3'
+      "
+    >
+      <span v-if="!research" class="text-sm text-slate-600"
         >{{ points.length }} {{ points.length === 1 ? noun : plural }} · Norden oben</span
       >
       <button v-if="!unavailable && points.length" type="button" class="button" @click="fitAll">

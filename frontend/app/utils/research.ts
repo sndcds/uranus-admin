@@ -19,7 +19,7 @@ export const researchStatuses = {
 } as const
 export const researchNavigation = [
   { to: '/research/search', label: 'Suche', icon: 'search' },
-  { to: '/research/map', label: 'Karte', icon: 'pin' },
+  { to: '/research/map', label: 'Karte', icon: 'map' },
   { to: '/research/events', label: 'Veranstaltungen', icon: 'calendar' },
   { to: '/research/venues', label: 'Orte', icon: 'pin' },
   { to: '/research/organizations', label: 'Organisationen', icon: 'organization' },

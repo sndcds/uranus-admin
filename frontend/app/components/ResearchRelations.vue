@@ -16,14 +16,15 @@ function href(node: GraphNode) {
 <template>
   <RecordSection
     title="Beziehungen"
-    surface="panel"
+    surface="plain"
     description="Belegte Verbindungen der sichtbaren Termin- oder Veranstaltungsseite. Weitere Verbindungen sind über die Seitennavigation erreichbar."
   >
+    <template #icon><AppIcon name="graph" class="text-blue-800" /></template>
     <template #actions
-      ><button class="button" :aria-pressed="mode === 'list'" @click="mode = 'list'">Liste</button
-      ><button class="button" :aria-pressed="mode === 'graph'" @click="mode = 'graph'">
-        Graph
-      </button></template
+      ><div class="research-toggle">
+        <button :aria-pressed="mode === 'list'" @click="mode = 'list'">Liste</button
+        ><button :aria-pressed="mode === 'graph'" @click="mode = 'graph'">Graph</button>
+      </div></template
     >
     <EmptyState
       v-if="!graph.relations.length"
@@ -34,7 +35,7 @@ function href(node: GraphNode) {
       <li
         v-for="relation in graph.relations"
         :key="relation.id"
-        class="flex flex-wrap items-center gap-2 py-2 text-sm"
+        class="grid items-center gap-x-3 gap-y-1 border-t border-slate-100 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_10rem_minmax(0,1fr)]"
       >
         <NuxtLink
           v-if="href(relation.sourceNode)"

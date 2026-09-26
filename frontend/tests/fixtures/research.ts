@@ -4,6 +4,14 @@ import type {
   ResearchRecord,
   ResearchType,
 } from '../../shared/contracts'
+export const researchCategories = [
+  { id: 1, name: 'Kultur' },
+  { id: 2, name: 'Bildung' },
+  { id: 3, name: 'Sport' },
+  { id: 4, name: 'Freizeit' },
+  { id: 5, name: 'Familie' },
+  { id: 6, name: 'Gesellschaft' },
+]
 export const researchEvent: ResearchRecord = {
   entity_type: 'event',
   entity_key: '20000000-0000-4000-8000-000000000001',
@@ -11,7 +19,7 @@ export const researchEvent: ResearchRecord = {
   description:
     'Ein besonderer **Jazzabend** mit regionalen Künstlerinnen und Künstlern.\n\nKultur gemeinsam entdecken.',
   status: 'released',
-  categories: [{ id: 2, name: 'Konzert' }],
+  categories: researchCategories.slice(0, 2),
   language: 'de',
   start_date: '2026-01-12',
   start_time: '20:00:00',
@@ -64,6 +72,7 @@ export const researchItems = [
     ...researchEvent,
     entity_key: '20000000-0000-4000-8000-000000000002',
     name: 'Flensburger Klassiktage',
+    categories: researchCategories.slice(2, 4),
     start_date: '2026-01-23',
     location: { latitude: 54.786, longitude: 9.437 },
   },
@@ -71,6 +80,7 @@ export const researchItems = [
     ...researchEvent,
     entity_key: '20000000-0000-4000-8000-000000000003',
     name: 'Indie Night',
+    categories: researchCategories.slice(4, 6),
     status: 'cancelled' as const,
     start_date: '2026-02-14',
     location: { latitude: 54.791, longitude: 9.439 },
@@ -134,7 +144,7 @@ export function researchDetail(kind: ResearchType = 'event'): ResearchDetail {
               name: researchOrganization.name,
               event_count: 3,
             },
-            { kind: 'category', key: '2', name: 'Konzert', event_count: 3 },
+            { kind: 'category', key: '1', name: 'Kultur', event_count: 1 },
           ],
     months:
       kind === 'event'
