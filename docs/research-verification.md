@@ -78,8 +78,8 @@ operator/source checks used Python `-B`.
 
 PR #131 was merged while the refinement was in progress. The existing
 `feat/research-workspace` branch was fast-forwarded to `dev` at `1c012a9`; the
-visual changes are subsequent commits on the same branch. Per the latest request,
-no new PR is created; these commits are not part of the already merged PR.
+visual changes are subsequent commits on the same branch and are submitted as a
+follow-up PR against `dev`. They are not part of the already merged PR.
 No backend, auth, SQL, API contract, proxy, dependency or deployment changes are included.
 
 The revised mockups guide search, map, event/venue/organization collections,
