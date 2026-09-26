@@ -108,6 +108,7 @@ test('search, URL filters, map, table, selected detail, export and permalink', a
   await expect(page.getByText('Kopiert.', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(page.url())
   await page.reload()
+  await expect(page.getByText('3 Ergebnisse insgesamt')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Stadt: Flensburg entfernen' })).toBeVisible()
   await page.getByRole('button', { name: 'Stadt: Flensburg entfernen' }).click()
   await expect(page).not.toHaveURL(/city=/)
@@ -156,6 +157,7 @@ test('safe error and retry, invalid URL and mobile filter dialog', async ({ page
   await page.goto('/research/search?status=draft')
   await expect(page.getByText(/Die Filter-URL ist ungültig/)).toBeVisible()
   if (info.project.name === 'mobile') {
+    await expect(page.getByRole('button', { name: 'Recherche-Link kopieren' })).toBeEnabled()
     await page.getByRole('button', { name: 'Filter öffnen' }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByLabel('Stadt', { exact: true }).fill('Husum')
