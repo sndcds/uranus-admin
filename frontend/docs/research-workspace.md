@@ -77,12 +77,31 @@ Credential-bearing URLs and URLs with query/fragment values are omitted.
 
 ## Design and provenance
 
-The pasted mockup guided hierarchy, search/filter chips, list/map split, compact
-rows, status text, selected detail preview, quick links, CSV and permalink actions.
-The existing Slate surfaces, Navy/Fuchsia accents, typography, spacing, focus and
-44px control conventions take priority over copying the mockup's blue palette.
-Mobile uses a navigation dialog, filter dialog and separate list/map selection.
-There are no dead saved-research, help or feedback placeholders.
+A second visual refinement pass follows the supplied search, collection, landing
+and dossier mockups as the primary visual specification. The Research layout
+contains the presentation variants: flat navigation, blue selection/actions, soft
+badges, a single header search on collection pages, compact primary filters and
+secondary filters in the existing modal. The date range is one removable chip;
+underlying inclusive date and URL semantics are unchanged. Header search retains
+applied filters and clears pagination. The landing hero uses a decorative local
+SVG city illustration, existing icons and its own prominent search.
+
+Desktop search pairs dense result rows with the existing Leaflet map, a compact
+entity legend, actual public popup facts, selected-record preview and quick links.
+The table view reuses DenseTable's action slot for keyboard-accessible preview
+selection and a soft blue selected row. Mobile retains the stacked table layout.
+Dossiers pair overview/context, events/map and timeline/sources; monthly bars use
+only delivered months and retain an accessible exact-value table. Missing months
+are not invented as zero. The original tables, safe Markdown, map, graph, controls,
+fonts, tokens and 44px touch targets remain. Operations styles and map defaults
+are unchanged. Mobile stacks the dossier and uses the existing navigation/filter
+dialogs and separate list/map views.
+
+Mockup-only data is not copied: names, images, counts and links depend on actual
+safe response fields. Missing images leave compact text content. The account area
+uses the available subject because the session has no display-name field. There
+are no dead saved-research, help, feedback, similarity or route-planning controls;
+no fictitious clustering or historical field diffs are shown.
 
 Reviewed project patterns include auth/service/dependencies/manage, explicit source
 projections, source location/temporal helpers, canonical entity search, errors,
@@ -91,6 +110,32 @@ request-generation guards, Pinia, API/Zod/Nitro, existing map/D3 and Playwright 
 Roald's directly attributable non-merge reference is `0d98bf7` in quality/core.py;
 the wider style is the repository's convention, not claimed personal authorship.
 PR #129 references include `d15e3c1`, `a1ec2bb`, `30c5437`.
+
+## Category colors
+
+`app/utils/research-categories.ts` owns the exact Kulturbytes colors. Stable source
+IDs, verified against [CategorySelector.vue](https://github.com/sndcds/kulturbytes-client/blob/main/app/components/event/ui/CategorySelector.vue),
+map to semantic keys independently of translated labels. The canonical values come
+from [event.scss](https://github.com/sndcds/kulturbytes-client/blob/main/app/assets/css/event.scss).
+
+| ID  | Key       | Label        | Color     |
+| --- | --------- | ------------ | --------- |
+| 1   | culture   | Kultur       | `#F20D5E` |
+| 2   | education | Bildung      | `#FF7A53` |
+| 3   | sports    | Sport        | `#F3B52A` |
+| 4   | leisure   | Freizeit     | `#04C18D` |
+| 5   | family    | Familie      | `#09BAEC` |
+| 6   | society   | Gesellschaft | `#1A71E4` |
+
+`ResearchCategoryBadge` uses the original color as a dot and existing slate text
+on a light surface (approximately 14:1 contrast). White text on the six original
+colors would yield 4.20, 2.57, 1.83, 2.33, 2.27 and 4.64:1 respectively, so solid
+chips with white text are not used. Unknown IDs remain slate, even when their label
+matches a known category. Active filter chips use the same mapping. The native
+select remains native. Results, selected preview, dossier headers and category
+usage lists share the badge. Tables/popups currently have no category field;
+monthly activity bars, entity types and status badges retain their own semantics.
+No second CSS token palette or category request is introduced.
 
 ## Verification
 
