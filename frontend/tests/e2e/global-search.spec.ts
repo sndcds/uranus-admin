@@ -1,3 +1,4 @@
+import { inspectorHref } from '../../app/utils/inspector'
 import { test, expect } from '../fixtures/authenticated'
 import { summary, findings } from '../fixtures/api'
 import { detailFixture, entityFixture, timelineFixture } from '../fixtures/entities'
@@ -46,7 +47,10 @@ test('global keyboard navigation from Dashboard to an email user and local Arbei
   await expect(option).toHaveAttribute('aria-selected', 'true')
   await input.press('Enter')
   await expect(page).toHaveURL(
-    globalSearchFixture('person@example.org').groups[0]!.items[0]!.action.href,
+    inspectorHref(
+      globalSearchFixture('person@example.org').groups[0]!.items[0]!.entity_type,
+      globalSearchFixture('person@example.org').groups[0]!.items[0]!.entity_key,
+    )!,
   )
   await expect(dialog).not.toBeVisible()
   await page.keyboard.press('Control+k')
@@ -75,7 +79,12 @@ test('visible trigger, grouped places, pointer selection and mobile geometry', a
   expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
   await page.screenshot({ path: info.outputPath('global-search.png') })
   await venue.click()
-  await expect(page).toHaveURL(globalSearchFixture('Kühlhaus').groups[1]!.items[0]!.action.href)
+  await expect(page).toHaveURL(
+    inspectorHref(
+      globalSearchFixture('Kühlhaus').groups[1]!.items[0]!.entity_type,
+      globalSearchFixture('Kühlhaus').groups[1]!.items[0]!.entity_key,
+    )!,
+  )
   await expect(dialog).not.toBeVisible()
 })
 
@@ -289,5 +298,9 @@ test('nine groups retain mobile geometry and large targets with long labels', as
   for (let index = 0; index < 8; index++) await input.press('ArrowDown')
   await expect(dialog.getByRole('option', { selected: true })).toContainText('Beigetreten')
   await input.press('Enter')
-  await expect(page).toHaveURL(data.groups[8]!.items[0]!.action.href)
+  await expect(page).toHaveURL(
+    decodeURIComponent(
+      inspectorHref(data.groups[8]!.items[0]!.entity_type, data.groups[8]!.items[0]!.entity_key)!,
+    ),
+  )
 })

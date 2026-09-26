@@ -121,6 +121,7 @@ onBeforeUnmount(() => {
         <InlineAlert v-if="queued" tone="success">Neue Prüfung wurde eingeplant.</InlineAlert>
         <RequestState :loading="false" :error="retryError" @retry="retry" />
       </RecordSection>
+      <EntityTimeline :entity-type="data.entity_type" :entity-key="data.entity_key" compact />
       <GeocodeTechnicalMetadata :suggestion="data" />
     </div>
   </section>

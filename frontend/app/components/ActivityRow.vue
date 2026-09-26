@@ -98,6 +98,7 @@ const status = computed(() => activityStatus(props.item.status))
           class="action-link text-xs"
           >Auf kulturbytes.de öffnen<AppIcon name="external" :size="13"
         /></a>
+        <EntityInspectorLink :entity-type="item.entity_type" :entity-key="item.entity_key" />
         <GraphLink
           :entity-type="item.entity_type"
           :entity-key="item.entity_key"

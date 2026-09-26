@@ -277,6 +277,17 @@ defineExpose({ open })
             @click="dialog?.close()"
             >Standortvorschlag prüfen</NuxtLink
           >
+          <EntityInspectorLink
+            :entity-type="finding.entity_type"
+            :entity-key="finding.entity_key"
+            @click="dialog?.close()"
+          />
+          <EntityInspectorLink
+            :entity-type="finding.entity_type"
+            :entity-key="finding.entity_key"
+            timeline
+            @click="dialog?.close()"
+          />
           <GraphLink
             :entity-type="finding.entity_type"
             :entity-key="finding.entity_key"

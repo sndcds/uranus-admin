@@ -95,6 +95,6 @@ for (const [scope, label] of [
     await noOverflow()
     await input.press('Enter')
     await expect(dialog).not.toBeVisible()
-    await expect(page).toHaveURL(`/venues/${venue.entity_key}`)
+    await expect(page).toHaveURL(`/inspect/venue/${venue.entity_key}`)
   })
 }

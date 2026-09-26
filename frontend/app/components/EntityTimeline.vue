@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { TimelineEntityType, TimelineItem } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
+import { qualityRuleLabel } from '~/utils/quality'
 import { adminTimeZone, dateTime } from '~/utils/presentation'
 
 const props = defineProps<{
@@ -93,6 +94,10 @@ onBeforeUnmount(() => {
       title="Verlauf"
       description="Belegte Quell- und Admin-Ereignisse, neueste zuerst."
     />
+    <p v-if="items.some((item) => item.kind === 'source_updated')" class="operations-meta">
+      Quelländerungen belegen den letzten Änderungszeitpunkt. Frühere Feldwerte und ein
+      Vorher-/Nachher-Vergleich sind nicht verfügbar.
+    </p>
     <RequestState
       :loading="loading"
       :error="error"
@@ -125,6 +130,31 @@ onBeforeUnmount(() => {
           >
             {{ item.summary }}
           </p>
+          <CompactFacts
+            v-if="
+              item.metadata.field ||
+              item.metadata.rule ||
+              item.metadata.http_status ||
+              item.metadata.generation ||
+              item.metadata.score != null
+            "
+            class="mt-2"
+            missing="omit"
+            :items="[
+              { label: 'Betroffenes Feld', value: item.metadata.field },
+              {
+                label: 'Prüfregel',
+                value: item.metadata.rule ? qualityRuleLabel(item.metadata.rule) : null,
+              },
+              { label: 'HTTP-Status', value: item.metadata.http_status },
+              { label: 'Prüfgeneration', value: item.metadata.generation },
+              {
+                label: 'Übereinstimmung',
+                value:
+                  item.metadata.score == null ? null : `${Math.round(item.metadata.score * 100)} %`,
+              },
+            ]"
+          />
           <div
             v-if="item.metadata.severity || item.actor || item.href"
             class="timeline-meta flex flex-wrap items-center gap-2 text-xs text-slate-500"

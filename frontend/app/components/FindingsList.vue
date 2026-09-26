@@ -144,6 +144,11 @@ const detail = useTemplateRef('detail')
                 class="action-link text-xs"
                 >Öffnen</NuxtLink
               >
+              <EntityInspectorLink
+                v-if="workspace"
+                :entity-type="finding.entity_type"
+                :entity-key="finding.entity_key"
+              />
               <button
                 v-if="finding.sql_diagnostic_available"
                 class="action-link text-xs"

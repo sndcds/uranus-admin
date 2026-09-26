@@ -218,6 +218,26 @@ const columns = [
               :aria-label="`Vorgang ansehen: ${item.user_name ?? item.user_id}`"
               >Vorgang ansehen</NuxtLink
             >
+            <GraphLink
+              :entity-type="
+                data.kind === 'team_invitations'
+                  ? 'team_membership'
+                  : data.kind === 'user_activation'
+                    ? 'user'
+                    : 'partner_request'
+              "
+              :entity-key="item.entity_key"
+            />
+            <EntityInspectorLink
+              :entity-type="
+                data.kind === 'team_invitations'
+                  ? 'team_membership'
+                  : data.kind === 'user_activation'
+                    ? 'user'
+                    : 'partner_request'
+              "
+              :entity-key="item.entity_key"
+            />
             <RecordMarkLink
               variant="action"
               :entity-type="
