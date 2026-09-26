@@ -3,7 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import LoginPanel from '../../app/components/LoginPanel.vue'
 import { AdminApiError, failure } from '../../shared/errors'
 const navigate = vi.fn()
-const auth = { login: vi.fn(), isAdmin: true, error: null }
+const auth = { login: vi.fn(), isAdmin: true, canResearch: true, error: null }
 beforeEach(() => {
   auth.login.mockReset().mockResolvedValue(undefined)
   vi.stubGlobal('useAuthStore', () => auth)

@@ -20,7 +20,13 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from starlette.requests import HTTPConnection
 
 from app.admin_database import assert_admin_boundary
-from app.admin_tables import auth_account, auth_login_bucket, auth_session, auth_system_admin
+from app.admin_tables import (
+    auth_account,
+    auth_journalist,
+    auth_login_bucket,
+    auth_session,
+    auth_system_admin,
+)
 from app.config import Settings
 from app.errors import APIError
 
@@ -31,6 +37,7 @@ DUMMY_HASH = hasher.hash(secrets.token_urlsafe(32))
 class AdminPrincipal(BaseModel):
     subject: str
     system_admin: bool = False
+    journalist: bool = False
 
 
 def digest(value: str) -> str:
@@ -200,7 +207,14 @@ async def login(
                     select(exists().where(auth_system_admin.c.account_id == row["id"]))
                 )
             ).scalar_one()
-        return token, AdminPrincipal(subject=f"admin:{row['id']}", system_admin=granted)
+            journalist = (
+                await connection.execute(
+                    select(exists().where(auth_journalist.c.account_id == row["id"]))
+                )
+            ).scalar_one()
+        return token, AdminPrincipal(
+            subject=f"admin:{row['id']}", system_admin=granted, journalist=journalist
+        )
 
 
 async def session_identity(
@@ -219,6 +233,9 @@ async def session_identity(
                         exists()
                         .where(auth_system_admin.c.account_id == auth_account.c.id)
                         .label("system_admin"),
+                        exists()
+                        .where(auth_journalist.c.account_id == auth_account.c.id)
+                        .label("journalist"),
                     )
                     .select_from(
                         auth_session.join(
@@ -255,7 +272,11 @@ async def session_identity(
                 )
                 .values(last_seen_at=now)
             )
-        return AdminPrincipal(subject=f"admin:{row['id']}", system_admin=row["system_admin"])
+        return AdminPrincipal(
+            subject=f"admin:{row['id']}",
+            system_admin=row["system_admin"],
+            journalist=row["journalist"],
+        )
 
 
 async def revoke(request: Request, token: str | None) -> None:

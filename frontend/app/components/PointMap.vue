@@ -1,0 +1,280 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { Map as LeafletMap, Marker, TileLayer } from 'leaflet'
+import { mapAttributionUrl, mapTileUrl } from '~/utils/map-tiles'
+import 'leaflet/dist/leaflet.css'
+
+const props = defineProps<{
+  points: {
+    id: string
+    rank: number
+    display_name: string
+    latitude: number
+    longitude: number
+    tone?: 'blue' | 'teal' | 'violet'
+  }[]
+  noun: string
+  plural: string
+  title: string
+  popup?: boolean
+  research?: boolean
+  popupContent?: (id: string) => HTMLElement
+  emptyMessage?: string
+  selectedId: string
+  embedded?: boolean
+}>()
+const emit = defineEmits<{ select: [id: string] }>()
+const config = useRuntimeConfig().public
+const tileUrl = mapTileUrl(config.mapTileUrl)
+const attributionUrl = mapAttributionUrl(config.mapTileAttributionUrl)
+const container = ref<HTMLElement>()
+const failed = ref(false)
+const ready = ref(false)
+const unavailable = computed(() => !tileUrl || failed.value)
+let leaflet: typeof import('leaflet') | undefined
+let map: LeafletMap | undefined
+let tiles: TileLayer | undefined
+let observer: ResizeObserver | undefined
+let disposed = false
+let timeout: ReturnType<typeof setTimeout> | undefined
+const markers = new Map<string, { marker: Marker; button: HTMLButtonElement }>()
+
+function clearDeadline() {
+  clearTimeout(timeout)
+}
+function fail() {
+  if (disposed) return
+  failed.value = true
+  clearDeadline()
+  // Stop loading more tiles after failure. No automatic retry or provider fallback.
+  tiles?.remove()
+}
+function loading() {
+  clearDeadline()
+  timeout = setTimeout(fail, 12000)
+}
+function fitAll() {
+  if (!map || !leaflet || !props.points.length) return
+  const positions = props.points.map((c): [number, number] => [c.latitude, c.longitude])
+  map.fitBounds(leaflet.latLngBounds(positions), { padding: [48, 48], maxZoom: 16, animate: false })
+}
+function highlight() {
+  for (const [id, { marker, button }] of markers) {
+    const selected = id === props.selectedId
+    button.setAttribute('aria-pressed', String(selected))
+    marker.setZIndexOffset(selected ? 1000 : 0)
+    if (props.research && selected) marker.openPopup()
+  }
+}
+function focusPoint(id: string, reveal = false) {
+  const candidate = props.points.find((c) => c.id === id)
+  if (!map || !candidate || unavailable.value) return
+  map.setView([candidate.latitude, candidate.longitude], 16, { animate: false })
+  if (reveal) {
+    container.value?.focus({ preventScroll: true })
+    container.value?.scrollIntoView({ block: 'nearest' })
+  }
+}
+function renderCandidates() {
+  if (!map || !leaflet) return
+  for (const { marker } of markers.values()) marker.remove()
+  markers.clear()
+  for (const candidate of props.points) {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'candidate-map-marker'
+    if (props.research) button.dataset.tone = candidate.tone || 'blue'
+    button.textContent = String(candidate.rank)
+    button.setAttribute(
+      'aria-label',
+      `${props.noun} ${candidate.rank} auf der Karte: ${candidate.display_name}`,
+    )
+    button.addEventListener('click', () => emit('select', candidate.id))
+    const marker = leaflet
+      .marker([candidate.latitude, candidate.longitude], {
+        icon: leaflet.divIcon({
+          html: button,
+          className: 'candidate-map-icon',
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+        }),
+        keyboard: false,
+      })
+      .addTo(map)
+    if (props.popup) {
+      const content = document.createElement('div')
+      const title = document.createElement('p')
+      title.textContent = candidate.display_name
+      const select = document.createElement('button')
+      select.type = 'button'
+      select.className = 'button'
+      select.textContent = 'Treffer auswählen'
+      select.addEventListener('click', () => emit('select', candidate.id))
+      content.append(title, select)
+      marker.bindPopup(
+        props.popupContent?.(candidate.id) ?? content,
+        props.research ? { maxWidth: 250, className: 'research-map-popup' } : {},
+      )
+    }
+    markers.set(candidate.id, { marker, button })
+  }
+  fitAll()
+  highlight()
+}
+watch(() => props.points, renderCandidates, { deep: true })
+watch(
+  () => props.selectedId,
+  (id) => {
+    highlight()
+    focusPoint(id)
+  },
+)
+onMounted(async () => {
+  if (!tileUrl || !props.points.length) return
+  loading()
+  try {
+    leaflet = await import('leaflet')
+    if (disposed || failed.value || !container.value) return
+    map = leaflet.map(container.value, {
+      attributionControl: false, // Escaped Vue attribution remains visible below the map.
+      zoomControl: false,
+      scrollWheelZoom: false,
+      minZoom: 1,
+      maxZoom: 19,
+    })
+    leaflet.control.zoom({ zoomInTitle: 'Vergrößern', zoomOutTitle: 'Verkleinern' }).addTo(map)
+    tiles = leaflet.tileLayer(tileUrl, {
+      maxZoom: 19,
+      referrerPolicy: 'origin',
+      keepBuffer: 0,
+    })
+    tiles.on('loading', loading)
+    tiles.on('load', () => {
+      clearDeadline()
+      ready.value = true
+    })
+    tiles.on('tileerror', fail)
+    renderCandidates()
+    tiles.addTo(map)
+    observer = new ResizeObserver(() => map?.invalidateSize({ pan: false }))
+    observer.observe(container.value)
+  } catch {
+    fail()
+  }
+})
+onBeforeUnmount(() => {
+  disposed = true
+  clearDeadline()
+  observer?.disconnect()
+  tiles?.off()
+  map?.remove()
+  markers.clear()
+})
+defineExpose({ focusPoint })
+</script>
+
+<template>
+  <section
+    class="candidate-map min-w-0 overflow-hidden"
+    :class="[embedded ? '' : 'panel', { 'point-map-research relative': research }]"
+    :aria-label="title"
+  >
+    <div
+      :class="
+        research
+          ? 'absolute bottom-12 right-2 z-10'
+          : 'flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3'
+      "
+    >
+      <span v-if="!research" class="text-sm text-slate-600"
+        >{{ points.length }} {{ points.length === 1 ? noun : plural }} · Norden oben</span
+      >
+      <button v-if="!unavailable && points.length" type="button" class="button" @click="fitAll">
+        {{ points.length === 1 ? 'Zentrieren' : `Alle ${plural} zeigen` }}
+      </button>
+    </div>
+    <div v-if="!points.length" class="p-4 text-sm text-slate-600">
+      {{ emptyMessage || `Keine ${plural} vorhanden.` }}
+    </div>
+    <div v-else-if="unavailable" class="p-4">
+      <InlineAlert tone="warning"
+        >Karte konnte nicht geladen werden. Die {{ plural }} können weiterhin in der Liste geprüft
+        werden.</InlineAlert
+      >
+    </div>
+    <div v-show="points.length && !unavailable" class="relative">
+      <div
+        ref="container"
+        class="candidate-map-canvas"
+        aria-label="Interaktive Karte; Pfeiltasten zum Verschieben, Plus und Minus zum Zoomen"
+      />
+      <p
+        v-if="!ready"
+        role="status"
+        class="pointer-events-none absolute bottom-3 left-3 z-[1000] rounded bg-white px-3 py-2 text-sm"
+      >
+        Karte wird geladen…
+      </p>
+    </div>
+    <div
+      class="flex flex-wrap gap-x-2 gap-y-1 border-t border-slate-200 px-3 py-2 text-xs text-slate-600"
+    >
+      <OsmAttribution />
+      <template v-if="config.mapTileAttribution">
+        <a
+          v-if="attributionUrl"
+          :href="attributionUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          referrerpolicy="no-referrer"
+          >{{ config.mapTileAttribution }}</a
+        >
+        <span v-else>{{ config.mapTileAttribution }}</span>
+      </template>
+    </div>
+  </section>
+</template>
+
+<style>
+.candidate-map-canvas {
+  height: 320px;
+  width: 100%;
+  z-index: 0;
+  background: #e2e8f0;
+}
+@media (min-width: 640px) {
+  .candidate-map-canvas {
+    height: 420px;
+  }
+}
+.candidate-map-marker {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid #475569;
+  background: white;
+  color: #1e293b;
+  font: bold 16px/1 system-ui;
+  cursor: pointer;
+  box-shadow: 0 2px 5px #0004;
+}
+.candidate-map-marker[aria-pressed='true'] {
+  background: #a21caf;
+  border-color: #701a75;
+  color: white;
+  box-shadow:
+    0 0 0 4px #fff,
+    0 2px 8px #0006;
+}
+.candidate-map-marker:focus-visible {
+  outline: 3px solid #a21caf;
+  outline-offset: 5px;
+}
+.candidate-map .leaflet-control-zoom a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+}
+</style>

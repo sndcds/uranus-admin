@@ -15,6 +15,7 @@ OPERATOR_GRANTS = {
     "alembic_version": ("SELECT",),
     "auth_account": ("SELECT", "INSERT", "UPDATE"),
     "auth_system_admin": ("SELECT", "INSERT", "DELETE"),
+    "auth_journalist": ("SELECT", "INSERT", "DELETE"),
     "auth_session": ("SELECT", "UPDATE"),
 }
 

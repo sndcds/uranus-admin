@@ -83,6 +83,7 @@ RUNTIME_GRANTS = {
     "record_mark_event": ("SELECT", "INSERT"),
     "auth_account": ("SELECT",),
     "auth_system_admin": ("SELECT",),
+    "auth_journalist": ("SELECT",),
     "auth_session": ("SELECT", "INSERT", "UPDATE"),
     "auth_login_bucket": ("SELECT", "INSERT", "UPDATE"),
 }

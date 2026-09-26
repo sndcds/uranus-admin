@@ -188,6 +188,20 @@ auth_system_admin = sa.Table(
     ),
     sa.Column("granted_by", sa.Text, nullable=False),
 )
+auth_journalist = sa.Table(
+    "auth_journalist",
+    metadata,
+    sa.Column(
+        "account_id",
+        UUID,
+        sa.ForeignKey("admin.auth_account.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    sa.Column(
+        "granted_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+    ),
+    sa.Column("granted_by", sa.Text, nullable=False),
+)
 
 # Admin ownership is independent of Uranus users. Task identity is either one
 # persisted finding or one explicitly typed workflow record.

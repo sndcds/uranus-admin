@@ -41,7 +41,7 @@ const server = http
         for await (const chunk of request) body += chunk
         const credentials = JSON.parse(body)
         if (
-          !['operator', 'ordinary'].includes(credentials.login) ||
+          !['operator', 'ordinary', 'journalist'].includes(credentials.login) ||
           credentials.password !== 'test-only-password'
         )
           return deny(401, 'invalid_credentials')
@@ -52,6 +52,7 @@ const server = http
               ? 'admin:00000000-0000-4000-8000-000000000800'
               : 'admin:00000000-0000-4000-8000-000000000801',
           system_admin: credentials.login === 'operator',
+          journalist: credentials.login === 'journalist',
         }
         sessions.delete(token)
         sessions.set(next, principal)
@@ -61,6 +62,10 @@ const server = http
     }
     const principal = sessions.get(token)
     if (!principal) return deny(401, token ? 'invalid_credentials' : 'authentication_required')
+    if (path === '/auth/session' && (principal.system_admin || principal.journalist))
+      return send(200, principal)
+    if (path.startsWith('/api/v1/research/') && principal.journalist)
+      return deny(404, 'record_not_found')
     if (!principal.system_admin) return deny(403, 'admin_access_denied')
     if (
       /^\/api\/v1\/(?:notification-deliveries|geocode\/requests)\/[0-9a-f-]+\/retry$/.test(path) &&

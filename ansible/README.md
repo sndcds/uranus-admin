@@ -345,7 +345,7 @@ Die bestehende `uranus_reader`-Rolle wird nicht für freie SQL-Abfragen wiederve
 | `uranus_reader`       | CONNECT; USAGE `uranus`; SELECT auf benötigten Quelltabellen. Keine Ownership, Membership, DML/DDL, Sequenz-USAGE/UPDATE oder Grant Options. Kein Zugriff auf `admin`.                                                                                 |
 | `admin_user`          | CONNECT; USAGE `admin`; folgende explizite Runtime-Matrix. Kein CREATE, Ownership, DELETE, TRUNCATE, REFERENCES, TRIGGER oder Grant Options. Kein Zugriff auf `uranus`.                                                                                |
 | `admin_migrator`      | Owner von `admin` und dessen Tabellen. Kein Datenbank-CREATE, kein Quellzugriff, keine Membership. In dieser Rolle nicht benutzt.                                                                                                                      |
-| `admin_auth_operator` | CONNECT; USAGE `admin`; SELECT Versionstabelle, SELECT/INSERT/UPDATE `auth_account`, SELECT/INSERT/DELETE `auth_system_admin`, SELECT/UPDATE `auth_session`. Nicht im Service-Environment. Zusätzliche Retention-Rechte brauchen eine eigene Freigabe. |
+| `admin_auth_operator` | CONNECT; USAGE `admin`; SELECT Versionstabelle, SELECT/INSERT/UPDATE `auth_account`, SELECT/INSERT/DELETE `auth_system_admin`, `auth_journalist`, SELECT/UPDATE `auth_session`. Nicht im Service-Environment. Zusätzliche Retention-Rechte brauchen eine eigene Freigabe. |
 
 Alle vier Rollen müssen LOGIN ohne SUPERUSER/CREATEDB/CREATEROLE/REPLICATION/BYPASSRLS
 sein und dürfen weder andere Rollen erben noch selbst Mitgliedschaften vergeben haben.
@@ -357,7 +357,7 @@ Aktuelle Runtime-Matrix, autoritativ aus
 
 | Tabellen in `admin`                                                                                                                                             | Rechte für `admin_user` |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `alembic_version`, `auth_account`, `auth_system_admin`                                                                                                          | SELECT                  |
+| `alembic_version`, `auth_account`, `auth_system_admin`, `auth_journalist`                                                                                                          | SELECT                  |
 | `finding_event`, `assignment_event`, `record_mark_event`, `notification_delivery_item`, `geocode_candidate`                                                     | SELECT, INSERT          |
 | `check_run`, `finding`, `assignment`, `record_mark`, `auth_session`, `auth_login_bucket`, `url_check`, `notification`, `notification_delivery`, `geo_area`, `geocode_request` | SELECT, INSERT, UPDATE  |
 
@@ -658,6 +658,7 @@ Details und Phase-3-Kriterien: [Console-Infrastruktur](../backend/docs/sql-conso
 | 0012     | `finding_event`, Backfill belegbarer Finding-Zeitpunkte, Notification-Entity-Index            |
 | 0013     | `assignment`, append-only `assignment_event`, aktive Eindeutigkeits- und Due-Indizes           |
 | 0014     | Nullable `snoozed_until` auf `assignment` und `assignment_event`; unveränderte Grants |
+| 0015     | Separater Journalist-Grant `auth_journalist`; Runtime SELECT, Operator SELECT/INSERT/DELETE |
 
 [`migrations/env.py`](../backend/migrations/env.py) setzt Metadatenfilter und
 Versionstabelle auf `admin`, verlangt `ADMIN_MIGRATION_DATABASE_URL` und besitzt
@@ -1745,3 +1746,15 @@ bereits vorhandene fällige Requests bearbeiten und Nominatim kontaktieren:
 ```sh
 systemctl start uranus-admin-geocode-worker.service
 ```
+
+
+### Recherche-Upgrade 0014 → 0015
+
+Der Upgradevertrag umfasst die verifizierten Ursprünge 0011–0014. Der Fingerprint
+für 0014 wurde aus dessen eingefrorenen Alembic-Migrationen in einer wegwerfbaren
+PostgreSQL-Datenbank ermittelt. `auth_journalist` ist für alle älteren Ursprünge
+eine erst im Ziel vorhandene Tabelle. Der Operator-Preflight prüft vor dem Upgrade
+die Tabellen des verifizierten Ursprungs, danach die vollständige Zielmatrix.
+Bestandskonten, Systemadmin-Grants und Sessions bleiben erhalten; Journalisten
+werden anschließend ausdrücklich per CLI freigeschaltet. Die bestehenden
+Dry-Run-/Apply-Freigaben und Drift-Prüfungen bleiben erforderlich.

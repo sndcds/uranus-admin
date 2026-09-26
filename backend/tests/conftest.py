@@ -255,7 +255,9 @@ async def admin_store(database, settings):
         )
         await connection.execute(
             text(
-                "GRANT SELECT ON admin.auth_account, admin.auth_system_admin TO admin_history_test"
+                "GRANT SELECT ON admin.auth_account, admin.auth_system_admin, "
+                "admin.auth_journalist "
+                "TO admin_history_test"
             )
         )
         await connection.execute(
