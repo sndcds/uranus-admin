@@ -299,6 +299,8 @@ test('nine groups retain mobile geometry and large targets with long labels', as
   await expect(dialog.getByRole('option', { selected: true })).toContainText('Beigetreten')
   await input.press('Enter')
   await expect(page).toHaveURL(
-    inspectorHref(data.groups[8]!.items[0]!.entity_type, data.groups[8]!.items[0]!.entity_key)!,
+    decodeURIComponent(
+      inspectorHref(data.groups[8]!.items[0]!.entity_type, data.groups[8]!.items[0]!.entity_key)!,
+    ),
   )
 })
