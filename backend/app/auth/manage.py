@@ -10,7 +10,7 @@ from uuid import uuid4
 from sqlalchemy import delete, insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from app.admin_tables import auth_account, auth_session, auth_system_admin
+from app.admin_tables import auth_account, auth_journalist, auth_session, auth_system_admin
 from app.auth.diagnostics import operator_engine, preflight, safe_error
 from app.auth.service import hasher, normalize_login
 from app.config import Settings
@@ -23,6 +23,7 @@ async def manage_account(
     password: str | None = None,
     active: bool = False,
     system_admin: bool = False,
+    journalist: bool = False,
 ) -> str:
     login = normalize_login(login)
     if not login or len(login) > 254:
@@ -83,6 +84,23 @@ async def manage_account(
         await connection.execute(
             delete(auth_system_admin).where(auth_system_admin.c.account_id == identifier)
         )
+    if action == "grant-journalist" or (action == "create" and journalist):
+        existing = (
+            await connection.execute(
+                select(auth_journalist.c.account_id).where(
+                    auth_journalist.c.account_id == identifier
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is None:
+            operator = (await connection.execute(text("SELECT current_user"))).scalar_one()
+            await connection.execute(
+                insert(auth_journalist).values(account_id=identifier, granted_by=operator)
+            )
+    if action == "revoke-journalist":
+        await connection.execute(
+            delete(auth_journalist).where(auth_journalist.c.account_id == identifier)
+        )
     return str(identifier)
 
 
@@ -92,6 +110,7 @@ async def run_command(
     login: str | None = None,
     active: bool = False,
     system_admin: bool = False,
+    journalist: bool = False,
 ) -> None:
     engine = operator_engine(settings)
     try:
@@ -112,7 +131,7 @@ async def run_command(
                 raise ValueError("Passwords do not match")
         async with engine.begin() as connection:
             identifier = await manage_account(
-                connection, action, login or "", password, active, system_admin
+                connection, action, login or "", password, active, system_admin, journalist
             )
         print(f"{action}: admin:{identifier}")
     finally:
@@ -122,21 +141,37 @@ async def run_command(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "action", choices=["doctor", "create", "password", "activate", "disable", "grant", "revoke"]
+        "action",
+        choices=[
+            "doctor",
+            "create",
+            "password",
+            "activate",
+            "disable",
+            "grant",
+            "revoke",
+            "grant-journalist",
+            "revoke-journalist",
+        ],
     )
     parser.add_argument("login", nargs="?")
     parser.add_argument("--active", action="store_true", help="Activate a new account explicitly")
     parser.add_argument(
         "--system-admin", action="store_true", help="Grant a new account global access explicitly"
     )
+    parser.add_argument(
+        "--journalist", action="store_true", help="Grant research access explicitly"
+    )
     args = parser.parse_args()
-    if args.action != "create" and (args.active or args.system_admin):
+    if args.action != "create" and (args.active or args.system_admin or args.journalist):
         parser.error("Creation flags are only valid with create")
     if (args.action == "doctor") != (args.login is None):
         parser.error("Doctor takes no login; account operations require a login")
     try:
         asyncio.run(
-            run_command(Settings(), args.action, args.login, args.active, args.system_admin)
+            run_command(
+                Settings(), args.action, args.login, args.active, args.system_admin, args.journalist
+            )
         )
     except Exception as error:
         raise SystemExit(safe_error(error)) from None
