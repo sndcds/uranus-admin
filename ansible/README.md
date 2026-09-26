@@ -345,7 +345,7 @@ Die bestehende `uranus_reader`-Rolle wird nicht für freie SQL-Abfragen wiederve
 | `uranus_reader`       | CONNECT; USAGE `uranus`; SELECT auf benötigten Quelltabellen. Keine Ownership, Membership, DML/DDL, Sequenz-USAGE/UPDATE oder Grant Options. Kein Zugriff auf `admin`.                                                                                 |
 | `admin_user`          | CONNECT; USAGE `admin`; folgende explizite Runtime-Matrix. Kein CREATE, Ownership, DELETE, TRUNCATE, REFERENCES, TRIGGER oder Grant Options. Kein Zugriff auf `uranus`.                                                                                |
 | `admin_migrator`      | Owner von `admin` und dessen Tabellen. Kein Datenbank-CREATE, kein Quellzugriff, keine Membership. In dieser Rolle nicht benutzt.                                                                                                                      |
-| `admin_auth_operator` | CONNECT; USAGE `admin`; SELECT Versionstabelle, SELECT/INSERT/UPDATE `auth_account`, SELECT/INSERT/DELETE `auth_system_admin`, SELECT/UPDATE `auth_session`. Nicht im Service-Environment. Zusätzliche Retention-Rechte brauchen eine eigene Freigabe. |
+| `admin_auth_operator` | CONNECT; USAGE `admin`; SELECT Versionstabelle, SELECT/INSERT/UPDATE `auth_account`, SELECT/INSERT/DELETE `auth_system_admin`, `auth_journalist`, SELECT/UPDATE `auth_session`. Nicht im Service-Environment. Zusätzliche Retention-Rechte brauchen eine eigene Freigabe. |
 
 Alle vier Rollen müssen LOGIN ohne SUPERUSER/CREATEDB/CREATEROLE/REPLICATION/BYPASSRLS
 sein und dürfen weder andere Rollen erben noch selbst Mitgliedschaften vergeben haben.
@@ -357,7 +357,7 @@ Aktuelle Runtime-Matrix, autoritativ aus
 
 | Tabellen in `admin`                                                                                                                                             | Rechte für `admin_user` |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `alembic_version`, `auth_account`, `auth_system_admin`                                                                                                          | SELECT                  |
+| `alembic_version`, `auth_account`, `auth_system_admin`, `auth_journalist`                                                                                                          | SELECT                  |
 | `finding_event`, `assignment_event`, `record_mark_event`, `notification_delivery_item`, `geocode_candidate`                                                     | SELECT, INSERT          |
 | `check_run`, `finding`, `assignment`, `record_mark`, `auth_session`, `auth_login_bucket`, `url_check`, `notification`, `notification_delivery`, `geo_area`, `geocode_request` | SELECT, INSERT, UPDATE  |
 

@@ -24,7 +24,13 @@ from sqlalchemy.sql.ddl import sort_tables_and_constraints
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DUMMY_URL = "postgresql+asyncpg://dummy:dummy@localhost/dummy"
 DIAGRAM_GROUPS: dict[str, tuple[str, ...]] = {
-    "auth": ("auth_account", "auth_session", "auth_system_admin", "auth_login_bucket"),
+    "auth": (
+        "auth_account",
+        "auth_session",
+        "auth_system_admin",
+        "auth_journalist",
+        "auth_login_bucket",
+    ),
     "quality": (
         "check_run",
         "finding",

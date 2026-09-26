@@ -211,3 +211,8 @@ keine Migrationen/Grants/Worker-Änderungen. Backend und Frontend gemeinsam ausr
 
 Kanonische Felder, Privacy, Queryplan und spätere Uranus-eigene pg_trgm-Indizes:
 [Suchvertrag](docs/contracts.md#global-search-and-command-palette).
+
+## Research workspace
+
+The dedicated `/api/v1/research` API uses an explicit journalist-or-system-admin
+authorization dependency and public projections. See [account setup and rollout](docs/authentication.md#research-authorization).
