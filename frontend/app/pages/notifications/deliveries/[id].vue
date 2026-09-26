@@ -130,6 +130,17 @@ const technical = computed(() =>
           :label="deliveryKinds[data.delivery_kind]" /><StatusBadge
           :label="data.locale.toUpperCase()"
       /></template>
+      <GraphLink
+        v-if="data"
+        entity-type="organization"
+        :entity-key="data.organization_id"
+        variant="compact"
+      />
+      <EntityInspectorLink
+        v-if="data"
+        entity-type="organization"
+        :entity-key="data.organization_id"
+      />
       <NuxtLink to="/notifications/deliveries" class="button">E-Mail-Versände</NuxtLink>
       <button class="button" :disabled="loading || retrying" @click="load">Aktualisieren</button>
     </PageHeader>

@@ -11,6 +11,12 @@ export const adminNavigationItems = [
   { label: 'Partneranfragen', icon: 'organization', to: '/queues/partner_requests' },
   { label: 'Einladungen', icon: 'users', to: '/queues/team_invitations' },
   { label: 'Aktivierungen', icon: 'users', to: '/queues/user_activation' },
+  {
+    label: 'Social Publishing',
+    keywords: 'Posts Targets Publications Scheduling',
+    icon: 'calendar',
+    to: '/social-publishing',
+  },
   { label: 'Benachrichtigungen', icon: 'list', to: '/notifications' },
   { label: 'Prüfläufe', icon: 'history', to: '/checks' },
   { label: 'Aktivität', icon: 'history', to: '/activity' },

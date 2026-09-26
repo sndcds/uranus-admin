@@ -104,6 +104,8 @@ const icon = computed<'pin' | 'mail' | 'quality' | 'list'>(() => {
           class="action-link text-xs"
           >Öffnen</NuxtLink
         >
+        <EntityInspectorLink :entity-type="item.entity_type" :entity-key="item.entity_key" />
+        <GraphLink :entity-type="item.entity_type" :entity-key="item.entity_key" />
       </div>
     </div>
     <div class="col-start-2 min-w-0 pb-1 xl:col-start-3 xl:row-start-1 xl:py-1">

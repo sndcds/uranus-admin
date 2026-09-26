@@ -11,6 +11,11 @@ import type { TechnicalFact } from '~/utils/operations'
 import { isSpatialType } from '~/utils/geo'
 import { recordRows } from '~/utils/activity'
 import { filterQuery } from '~/utils/filters'
+const operations = ref<{ refresh: () => Promise<unknown> } | null>(null)
+function refreshAll() {
+  loadDashboard()
+  void operations.value?.refresh()
+}
 const dashboard = useDashboardStore()
 const preferences = useFilterPreferencesStore()
 const router = useRouter()
@@ -139,7 +144,7 @@ const technicalItems = computed<TechnicalFact[]>(() => {
         class="button-primary shrink-0"
         aria-label="Zahlen aktualisieren"
         :disabled="dashboard.loading"
-        @click="dashboard.load($adminApi, period, geoScopeId)"
+        @click="refreshAll"
       >
         <AppIcon name="refresh" :size="16" /><span class="hidden min-[375px]:inline"
           >Aktualisieren</span
@@ -377,6 +382,7 @@ const technicalItems = computed<TechnicalFact[]>(() => {
         </RecordSection>
       </div>
     </div>
+    <DashboardOperations ref="operations" :period="period" :geo-scope-id="geoScopeId" />
     <details class="operations-panel">
       <summary class="min-h-11 cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold">
         Erweiterte Filter

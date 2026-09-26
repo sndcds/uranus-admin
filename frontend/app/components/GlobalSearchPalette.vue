@@ -5,6 +5,7 @@ import AppModal from './AppModal.vue'
 import type AppIcon from './AppIcon.vue'
 import type { GlobalSearchResponse, VenueScope } from '#shared/contracts'
 import { adminNavigationItems } from '~/utils/navigation'
+import { inspectorHref } from '~/utils/inspector'
 import { globalSearchTypes } from '~/utils/entityPresentation'
 
 const { $adminApi } = useNuxtApp()
@@ -27,6 +28,7 @@ let timer: ReturnType<typeof setTimeout> | undefined
 let controller: AbortController | undefined
 
 type PaletteItem = {
+  identifier?: string
   venueScope?: VenueScope | null
   key: string
   label: string
@@ -59,9 +61,10 @@ const remoteSections = computed(() =>
     items: group.items.map((item) => ({
       key: `${item.entity_type}:${item.entity_key}`,
       label: item.label,
+      identifier: item.entity_key,
       venueScope: item.entity_type === 'venue' ? item.venue_scope : null,
       subtitle: item.subtitle || globalSearchTypes[item.entity_type].label,
-      href: item.action.href,
+      href: inspectorHref(item.entity_type, item.entity_key) ?? item.action.href,
       icon: globalSearchTypes[item.entity_type].icon,
     })),
   })),
@@ -306,6 +309,12 @@ defineExpose({ show })
                   v-if="item.subtitle"
                   class="block break-words text-xs text-slate-500 [overflow-wrap:anywhere]"
                   >{{ item.subtitle }}</span
+                >
+                <span
+                  v-if="item.identifier"
+                  class="block truncate font-mono text-xs text-slate-500"
+                  :title="item.identifier"
+                  >{{ item.identifier }}</span
                 >
                 <VenueScopeBadge v-if="item.venueScope" :scope="item.venueScope" />
               </span>

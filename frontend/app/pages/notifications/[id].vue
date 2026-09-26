@@ -56,6 +56,17 @@ watch(() => route.params.id, load, { flush: 'sync' })
           :label="notificationStatuses[data.status]"
           :tone="notificationTone(data.status)"
       /></template>
+      <GraphLink
+        v-if="data?.entity_type && data.entity_key"
+        :entity-type="data.entity_type"
+        :entity-key="data.entity_key"
+        variant="compact"
+      />
+      <EntityInspectorLink
+        v-if="data?.entity_type && data.entity_key"
+        :entity-type="data.entity_type"
+        :entity-key="data.entity_key"
+      />
       <NuxtLink to="/notifications" class="button">Alle Benachrichtigungen</NuxtLink>
       <button class="button" :disabled="loading" @click="load">Aktualisieren</button>
     </PageHeader>
