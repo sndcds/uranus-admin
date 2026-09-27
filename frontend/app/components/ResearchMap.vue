@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import type { ResearchRecord } from '#shared/contracts'
+import type { ResearchRecord, ResearchAreaBoundary } from '#shared/contracts'
 import { researchKey, researchLabels, researchHref } from '~/utils/research'
-const props = defineProps<{ items: ResearchRecord[]; selected: string }>()
+const props = defineProps<{
+  items: ResearchRecord[]
+  selected: string
+  areaId?: string
+  boundary?: ResearchAreaBoundary
+  bbox?: [number, number, number, number]
+}>()
 const emit = defineEmits<{ select: [id: string] }>()
 const panel = ref<HTMLElement | null>(null)
 const fullscreen = useFullscreen(panel)
@@ -70,7 +76,9 @@ function popupContent(id: string) {
     body.append(count)
   }
   const link = document.createElement('a')
-  link.href = researchHref(item.entity_type, item.entity_key)
+  link.href =
+    researchHref(item.entity_type, item.entity_key) +
+    (props.areaId ? `?area_id=${encodeURIComponent(props.areaId)}` : '')
   link.textContent = 'Details anzeigen →'
   body.append(link)
   content.append(body)
@@ -96,6 +104,8 @@ function popupContent(id: string) {
       ><PointMap
         ref="map"
         :points="points"
+        :boundary="boundary"
+        :bbox="bbox"
         :selected-id="selected"
         noun="Treffer"
         plural="Treffer"

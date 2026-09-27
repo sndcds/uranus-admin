@@ -88,7 +88,9 @@ test('search, URL filters, map, table, selected detail, export and permalink', a
   )
   await expect(page.getByText('3 Ergebnisse insgesamt')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Stadt: Flensburg entfernen' })).toBeVisible()
-  await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(1)
+  await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(
+    info.project.name === 'mobile' ? 1 : 2,
+  )
   await expect(
     page.getByRole('button', {
       name: info.project.name === 'mobile' ? 'Liste' : 'Karte',
@@ -252,7 +254,9 @@ test('header search preserves filters and history; secondary filters remain in t
   await page.goBack()
   await expect(search).toHaveValue('')
   await expect(page).not.toHaveURL(/q=/)
-  await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(1)
+  await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(
+    info.project.name === 'mobile' ? 1 : 2,
+  )
   if (info.project.name === 'desktop') {
     await page.getByLabel('Status', { exact: true }).selectOption('cancelled')
     await expect(page).toHaveURL(/status=cancelled/)
@@ -292,7 +296,9 @@ for (const [section, title, count] of [
     await page.goto(`/research/${section}`)
     await expect(page.getByRole('heading', { name: title, exact: true, level: 2 })).toBeVisible()
     await expect(page.getByText(`${count} Ergebnisse insgesamt`)).toBeVisible()
-    await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(1)
+    await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(
+      info.project.name === 'mobile' ? 1 : 2,
+    )
     if (info.project.name === 'desktop' || section === 'map')
       await expect(page.locator('.research-map-popup')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -455,4 +461,47 @@ test('canonical category accents in results, preview, filters and dossiers', asy
       .last()
       .locator('[aria-hidden="true"]'),
   ).toHaveCSS('background-color', 'rgb(242, 13, 94)')
+})
+
+test('municipality selection, URL, boundary dossier and mobile layout', async ({ page }, info) => {
+  const { researchArea, researchAreaDossier } = await import('../fixtures/research')
+  await page.route('**/api/admin/api/v1/research/areas**', async (route) => {
+    const url = new URL(route.request().url())
+    return route.fulfill({
+      json: url.pathname.endsWith('/areas')
+        ? { items: [researchArea], pagination: { page: 1, page_size: 10, pages: 1, total: 1 } }
+        : researchAreaDossier(),
+    })
+  })
+  await page.goto('/research/search')
+  await expect(page.getByText('3 Ergebnisse insgesamt')).toBeVisible()
+  if (info.project.name === 'mobile')
+    await page.getByRole('button', { name: 'Filter öffnen', exact: true }).click()
+  await page
+    .getByLabel('Gemeinde / Kommune', { exact: true })
+    .filter({ visible: true })
+    .fill('Flens')
+  await page.getByRole('button', { name: /Flensburg.*Deutschland · Schleswig-Holstein/ }).click()
+  if (info.project.name === 'mobile')
+    await page.getByRole('button', { name: 'Filter anwenden', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`area_id=${researchArea.id}`))
+  if (info.project.name === 'mobile')
+    await page.getByRole('button', { name: 'Filter öffnen', exact: true }).click()
+  await page.getByRole('link', { name: 'Flensburg', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/research/areas/${researchArea.id}`))
+  await expect(page.getByRole('heading', { name: 'Flensburg', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Aktivität nach Monat' })).toBeVisible()
+  await expect(
+    page.getByRole('link', { name: '© OpenStreetMap-Mitwirkende · ODbL', exact: true }),
+  ).toBeVisible()
+  await expect(page.getByText('12.345 Einwohner', { exact: true })).toBeVisible()
+  await expect(page.getByText('Stand 31.12.2024 · Flensburg', { exact: true })).toBeVisible()
+  await page.screenshot({ path: info.outputPath('municipality-dossier.png'), fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
+  await expect(
+    page.getByRole('link', { name: 'Alle Veranstaltungen und CSV-Export →' }),
+  ).toHaveAttribute('href', new RegExp(`area_id=${researchArea.id}`))
 })

@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { Map as LeafletMap, Marker, TileLayer } from 'leaflet'
+import type { Map as LeafletMap, Marker, TileLayer, GeoJSON } from 'leaflet'
+import type { ResearchAreaBoundary } from '#shared/contracts'
 import { mapAttributionUrl, mapTileUrl } from '~/utils/map-tiles'
 import 'leaflet/dist/leaflet.css'
 
 const props = defineProps<{
+  boundary?: ResearchAreaBoundary
+  bbox?: [number, number, number, number]
   points: {
     id: string
     rank: number
@@ -34,6 +37,7 @@ const unavailable = computed(() => !tileUrl || failed.value)
 let leaflet: typeof import('leaflet') | undefined
 let map: LeafletMap | undefined
 let tiles: TileLayer | undefined
+let boundaryLayer: GeoJSON | undefined
 let observer: ResizeObserver | undefined
 let disposed = false
 let timeout: ReturnType<typeof setTimeout> | undefined
@@ -54,7 +58,19 @@ function loading() {
   timeout = setTimeout(fail, 12000)
 }
 function fitAll() {
-  if (!map || !leaflet || !props.points.length) return
+  if (!map || !leaflet) return
+  if (props.bbox) {
+    const [west, south, east, north] = props.bbox
+    map.fitBounds(
+      [
+        [south, west],
+        [north, east],
+      ],
+      { padding: [24, 24], maxZoom: 16, animate: false },
+    )
+    return
+  }
+  if (!props.points.length) return
   const positions = props.points.map((c): [number, number] => [c.latitude, c.longitude])
   map.fitBounds(leaflet.latLngBounds(positions), { padding: [48, 48], maxZoom: 16, animate: false })
 }
@@ -77,6 +93,14 @@ function focusPoint(id: string, reveal = false) {
 }
 function renderCandidates() {
   if (!map || !leaflet) return
+  boundaryLayer?.remove()
+  if (props.boundary)
+    boundaryLayer = leaflet
+      .geoJSON(props.boundary, {
+        style: { color: '#334155', weight: 2, fillOpacity: 0.06 },
+        interactive: false,
+      })
+      .addTo(map)
   for (const { marker } of markers.values()) marker.remove()
   markers.clear()
   for (const candidate of props.points) {
@@ -121,7 +145,7 @@ function renderCandidates() {
   fitAll()
   highlight()
 }
-watch(() => props.points, renderCandidates, { deep: true })
+watch(() => [props.points, props.boundary, props.bbox], renderCandidates, { deep: true })
 watch(
   () => props.selectedId,
   (id) => {
@@ -130,7 +154,7 @@ watch(
   },
 )
 onMounted(async () => {
-  if (!tileUrl || !props.points.length) return
+  if (!tileUrl || (!props.points.length && !props.boundary)) return
   loading()
   try {
     leaflet = await import('leaflet')
@@ -189,11 +213,16 @@ defineExpose({ focusPoint })
       <span v-if="!research" class="text-sm text-slate-600"
         >{{ points.length }} {{ points.length === 1 ? noun : plural }} · Norden oben</span
       >
-      <button v-if="!unavailable && points.length" type="button" class="button" @click="fitAll">
+      <button
+        v-if="!unavailable && (points.length || boundary)"
+        type="button"
+        class="button"
+        @click="fitAll"
+      >
         {{ points.length === 1 ? 'Zentrieren' : `Alle ${plural} zeigen` }}
       </button>
     </div>
-    <div v-if="!points.length" class="p-4 text-sm text-slate-600">
+    <div v-if="!points.length && !boundary" class="p-4 text-sm text-slate-600">
       {{ emptyMessage || `Keine ${plural} vorhanden.` }}
     </div>
     <div v-else-if="unavailable" class="p-4">
@@ -202,7 +231,7 @@ defineExpose({ focusPoint })
         werden.</InlineAlert
       >
     </div>
-    <div v-show="points.length && !unavailable" class="relative">
+    <div v-show="(points.length || boundary) && !unavailable" class="relative">
       <div
         ref="container"
         class="candidate-map-canvas"

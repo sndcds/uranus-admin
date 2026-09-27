@@ -6,6 +6,8 @@ import {
 } from '#shared/sql-provenance'
 import {
   researchPageSchema,
+  researchAreasSchema,
+  researchAreaDossierSchema,
   researchDetailSchema,
   researchOptionsSchema,
   researchExportSchema,
@@ -69,6 +71,7 @@ import type {
   AssignmentWorkflowType,
   InboxFilters,
   ResearchQuery,
+  ResearchAreaQuery,
 } from '#shared/contracts'
 import { AdminApiError, failure } from '#shared/errors'
 
@@ -198,6 +201,19 @@ export function createAdminApi(
     return parsed.data
   }
   return {
+    researchAreas: (query: ResearchAreaQuery, signal?: AbortSignal) =>
+      request(
+        '/api/v1/research/areas',
+        researchAreasSchema,
+        { ...query },
+        'GET',
+        undefined,
+        signal,
+      ),
+    researchArea: (id: string, query: ResearchQuery = {}) =>
+      request(`/api/v1/research/areas/${encodeURIComponent(id)}`, researchAreaDossierSchema, {
+        ...query,
+      }),
     researchSearch: (query: ResearchQuery, signal?: AbortSignal) =>
       request(
         '/api/v1/research/search',
