@@ -7,6 +7,7 @@ import {
 import {
   researchPageSchema,
   researchAreasSchema,
+  researchAreaSchema,
   researchAreaDossierSchema,
   researchDetailSchema,
   researchOptionsSchema,
@@ -206,6 +207,15 @@ export function createAdminApi(
         '/api/v1/research/areas',
         researchAreasSchema,
         { ...query },
+        'GET',
+        undefined,
+        signal,
+      ),
+    researchAreaMetadata: (id: string, signal?: AbortSignal) =>
+      request(
+        `/api/v1/research/areas/${encodeURIComponent(id)}/metadata`,
+        researchAreaSchema,
+        {},
         'GET',
         undefined,
         signal,

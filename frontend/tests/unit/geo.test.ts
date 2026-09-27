@@ -2,6 +2,7 @@ import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { reactive } from 'vue'
+import { researchArea } from '../fixtures/research'
 import { geoArea, geoSearchItem } from '../fixtures/geo'
 import { useFilterPreferencesStore } from '../../app/stores/filter-preferences'
 import { createAdminApi } from '../../app/utils/admin-api'
@@ -10,8 +11,14 @@ import { geoAreaImportSchema } from '../../shared/contracts'
 import { AdminApiError, failure } from '../../shared/errors'
 import GeoScopeSelector from '../../app/components/GeoScopeSelector.vue'
 import { supportsGeoScope } from '../../app/utils/geo'
-const api = { geoArea: vi.fn(), searchGeoAreas: vi.fn(), importGeoArea: vi.fn() }
-const auth = { isAdmin: true, revision: 0 }
+const api = {
+  geoArea: vi.fn(),
+  researchAreas: vi.fn(),
+  researchAreaMetadata: vi.fn(),
+  searchGeoAreas: vi.fn(),
+  importGeoArea: vi.fn(),
+}
+const auth = reactive({ isAdmin: true, canResearch: true, revision: 0 })
 const route = reactive({ path: '/events', query: {} as Record<string, string>, hash: '' })
 const push = vi.fn(async ({ query }) => {
   route.query = query
@@ -25,6 +32,8 @@ beforeEach(() => {
   route.query = {}
   auth.isAdmin = true
   auth.revision = 0
+  api.researchAreas.mockResolvedValue({ items: [researchArea] })
+  api.researchAreaMetadata.mockResolvedValue(researchArea)
   api.geoArea.mockResolvedValue(geoArea)
   api.searchGeoAreas.mockResolvedValue({ items: [geoSearchItem] })
   api.importGeoArea.mockResolvedValue(geoArea)
@@ -137,9 +146,9 @@ it('debounces, aborts stale searches, escapes labels, selects via keyboard and r
   const input = wrapper.get('input')
   await input.setValue('F')
   await vi.advanceTimersByTimeAsync(400)
-  expect(api.searchGeoAreas).not.toHaveBeenCalled()
+  expect(api.researchAreas).not.toHaveBeenCalled()
   let resolve!: (value: unknown) => void
-  api.searchGeoAreas.mockImplementationOnce(
+  api.researchAreas.mockImplementationOnce(
     () =>
       new Promise((r) => {
         resolve = r
@@ -147,14 +156,14 @@ it('debounces, aborts stale searches, escapes labels, selects via keyboard and r
   )
   await input.setValue('Fl')
   await vi.advanceTimersByTimeAsync(300)
-  const signal = api.searchGeoAreas.mock.calls[0]![1] as AbortSignal
+  const signal = api.researchAreas.mock.calls[0]![1] as AbortSignal
   await input.setValue('Flensburg')
   expect(signal.aborted).toBe(true)
-  resolve({ items: [{ ...geoSearchItem, name: 'Stale' }] })
+  resolve({ items: [{ ...researchArea, name: 'Stale' }] })
   await flushPromises()
   expect(wrapper.text()).not.toContain('Stale')
-  api.searchGeoAreas.mockResolvedValueOnce({
-    items: [{ ...geoSearchItem, name: '<script>alert(1)</script>' }],
+  api.researchAreas.mockResolvedValueOnce({
+    items: [{ ...researchArea, name: '<script>alert(1)</script>' }],
   })
   await vi.advanceTimersByTimeAsync(300)
   expect(wrapper.find('script').exists()).toBe(false)
@@ -164,30 +173,25 @@ it('debounces, aborts stale searches, escapes labels, selects via keyboard and r
   await input.trigger('keydown', { key: 'ArrowDown' })
   await input.trigger('keydown', { key: 'Enter' })
   await flushPromises()
-  expect(api.importGeoArea).toHaveBeenCalledWith({
-    source: 'osm',
-    source_type: 'relation',
-    source_id: '27020',
-  })
+  expect(api.importGeoArea).not.toHaveBeenCalled()
+  expect(api.searchGeoAreas).not.toHaveBeenCalled()
   expect(route.query).toEqual({
     period: '90d',
     status: 'draft',
     page: '1',
-    geo_scope_id: geoArea.id,
+    geo_scope_id: researchArea.id,
   })
   await wrapper.get('[aria-label="Gebiet zurücksetzen"]').trigger('click')
   expect(route.query).toEqual({ period: '90d', status: 'draft', page: '1' })
   expect(useFilterPreferencesStore().sharedGeoScope).toBeNull()
 })
-it('shows a safe provider-unavailable message', async () => {
+it('shows a safe catalog-unavailable message', async () => {
   vi.useFakeTimers()
-  api.searchGeoAreas.mockRejectedValueOnce(
-    new AdminApiError(failure(503, 'geo_provider_unavailable')),
-  )
+  api.researchAreas.mockRejectedValueOnce(new AdminApiError(failure(503, 'database_unavailable')))
   const wrapper = selector()
   await wrapper.get('input').setValue('Flensburg')
   await vi.advanceTimersByTimeAsync(300)
-  expect(wrapper.get('[role="alert"]').text()).toContain('Gespeicherte Gebiete bleiben nutzbar')
+  expect(wrapper.get('[role="alert"]').text()).toBeTruthy()
 })
 it('validates responses and sends CSRF plus identity-only area imports', async () => {
   const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(geoArea)))

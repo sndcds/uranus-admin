@@ -235,6 +235,10 @@ export async function forwardAdminRequest(
     /^\/api\/v1\/research\/(events|venues|organizations|areas)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
     )
+  const researchAreaMetadata =
+    /^\/api\/v1\/research\/areas\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/metadata$/i.test(
+      input.path,
+    )
   const researchAreas = input.path === '/api/v1/research/areas'
   if (researchAreas && !researchAreaQuerySchema.safeParse(Object.fromEntries(input.query)).success)
     return rejected(422, 'invalid_query')
@@ -263,7 +267,7 @@ export async function forwardAdminRequest(
         ]
       : researchAreas
         ? ['q', 'country_code', 'area_type', 'page', 'page_size']
-        : researchOptions
+        : researchOptions || researchAreaMetadata
           ? []
           : provenanceView
             ? provenanceExecute

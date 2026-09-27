@@ -85,6 +85,23 @@ async def resolve_area(
     )
 
 
+async def area_metadata(admin: AsyncConnection, identifier: UUID) -> ResearchArea:
+    """Selected-value hydration reads neither polygons nor Uranus dossier records."""
+    row = (
+        (
+            await admin.execute(
+                text(f"SELECT {AREA_COLUMNS} FROM admin.research_area WHERE id=:id"),
+                {"id": identifier},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise APIError(404, "research_area_not_found", "Research area was not found.")
+    return ResearchArea.model_validate(row)
+
+
 async def request_area(
     request: Request, identifier: UUID | None, *, boundary: bool = False
 ) -> ResolvedResearchArea | None:

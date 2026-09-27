@@ -1398,6 +1398,7 @@ const geoAreaMetadata = {
   hierarchy: z.record(z.string().max(80), z.string().max(240)),
 }
 export const geoAreaSchema = z.object({
+  area_id: z.uuid().nullable().optional(),
   id: geoScopeIdSchema,
   source: z.string().min(1).max(80),
   source_type: z.string().min(1).max(80),

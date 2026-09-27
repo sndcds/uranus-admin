@@ -1,5 +1,6 @@
 import { test, expect, expectLogoutAvailable, logout } from '../fixtures/authenticated'
 import type { Page } from '@playwright/test'
+import { researchArea } from '../fixtures/research'
 import { geoArea } from '../fixtures/geo'
 import { entityFixture } from '../fixtures/entities'
 import { entitySectionSchema } from '../../shared/contracts'
@@ -43,23 +44,34 @@ test('global selection, scoped search, local reset, period, navigation, reload a
   page,
 }) => {
   const errors: string[] = []
+  const providerRequests: string[] = []
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname
+    if (
+      path.endsWith('/geo/areas/search') ||
+      (path.endsWith('/geo/areas') && request.method() === 'POST')
+    )
+      providerRequests.push(path)
+  })
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('/events?period=90d')
   await expect(page.getByText('Alle Gebiete', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: /Gebiet: Alle/ }).click()
   const dialog = page.getByRole('dialog', { name: 'Gebiet auswählen', exact: true })
   await dialog.getByRole('combobox', { name: 'Administratives Gebiet suchen' }).fill('Flensburg')
-  await dialog.getByRole('option').getByRole('button').click()
+  await expect(dialog.getByRole('option')).toContainText('Deutschland · Schleswig-Holstein')
+  await dialog.getByRole('combobox').press('ArrowDown')
+  await dialog.getByRole('combobox').press('Enter')
   await expect(page).toHaveURL(
     (url) =>
-      url.searchParams.get('geo_scope_id') === geoArea.id &&
+      url.searchParams.get('geo_scope_id') === researchArea.id &&
       url.searchParams.get('period') === '90d',
   )
   await expect(page.getByText('Im Gebiet Flensburg', { exact: true })).toBeVisible()
   const search = page.waitForRequest(
     (request) =>
       request.url().includes('/entity-search') &&
-      new URL(request.url()).searchParams.get('geo_scope_id') === geoArea.id,
+      new URL(request.url()).searchParams.get('geo_scope_id') === researchArea.id,
   )
   await page.getByRole('combobox', { name: 'Suche', exact: true }).fill('Konzert')
   await search
@@ -68,13 +80,13 @@ test('global selection, scoped search, local reset, period, navigation, reload a
   await page.getByRole('combobox', { name: 'Suche', exact: true }).press('Escape')
   await page.getByRole('button', { name: 'Filter zurücksetzen', exact: true }).click()
   await expect(page).toHaveURL(
-    (url) => url.searchParams.get('geo_scope_id') === geoArea.id && !url.searchParams.has('q'),
+    (url) => url.searchParams.get('geo_scope_id') === researchArea.id && !url.searchParams.has('q'),
   )
   await page.getByRole('combobox', { name: 'Erstellt', exact: true }).selectOption('90d')
   await navigate(page, 'Orte & Räume', '/venues')
   await expect(page).toHaveURL(
     (url) =>
-      url.searchParams.get('geo_scope_id') === geoArea.id &&
+      url.searchParams.get('geo_scope_id') === researchArea.id &&
       url.searchParams.get('period') === '90d',
   )
   await expect(page.getByText('Im Gebiet Flensburg', { exact: true })).toBeVisible()
@@ -96,6 +108,7 @@ test('global selection, scoped search, local reset, period, navigation, reload a
     true,
   )
   expect(errors).toEqual([])
+  expect(providerRequests).toEqual([])
 })
 
 test('logout resets scope, direct URL login restores only the explicit URL', async ({ page }) => {
@@ -136,9 +149,23 @@ test('unknown scope is removed with a safe warning and provider failure preserve
   )
   await page.getByRole('button', { name: /Gebiet: Flensburg/ }).click()
   const dialog = page.getByRole('dialog', { name: 'Gebiet auswählen', exact: true })
-  await dialog.getByRole('combobox').fill('Aarhus')
-  await expect(dialog.getByRole('alert')).toContainText('Gespeicherte Gebiete bleiben nutzbar')
+  await dialog.getByRole('combobox').fill('Flensburg')
+  await expect(dialog.getByRole('option')).toContainText('Deutschland · Schleswig-Holstein')
+  await expect(dialog.getByRole('alert')).toHaveCount(0)
   await dialog.getByRole('combobox').press('Escape')
   await expect(dialog).not.toBeVisible()
+  await expect(page.getByText('Im Gebiet Flensburg', { exact: true })).toBeVisible()
+})
+
+test('legacy municipality bookmark resolves to the canonical research UUID', async ({ page }) => {
+  await page.goto('/venues?geo_scope_id=10000000-0000-4000-8000-000000000088&period=90d')
+  await expect(page).toHaveURL(
+    (url) =>
+      url.searchParams.get('geo_scope_id') === researchArea.id &&
+      url.searchParams.get('period') === '90d',
+  )
+  await expect(page.getByRole('button', { name: /Gebiet: Flensburg/ })).toBeVisible()
+  await page.reload()
+  await expect(page).toHaveURL(new RegExp(`geo_scope_id=${researchArea.id}`))
   await expect(page.getByText('Im Gebiet Flensburg', { exact: true })).toBeVisible()
 })

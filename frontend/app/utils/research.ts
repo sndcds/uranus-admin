@@ -60,3 +60,11 @@ export const researchRegionLabels: Record<string, string> = {
   'DE-HB': 'Bremen',
   'DK-83': 'Region Syddanmark',
 }
+
+export const researchCountryLabels = { DE: 'Deutschland', DK: 'Dänemark' } as const
+export function researchAreaLabel(area: {
+  country_code: 'DE' | 'DK'
+  region_code: string
+}): string {
+  return `${researchCountryLabels[area.country_code]} · ${researchRegionLabels[area.region_code] ?? area.region_code}`
+}

@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/authenticated'
 import type { Page } from '@playwright/test'
-import { geoArea } from '../fixtures/geo'
+import { researchArea as geoArea } from '../fixtures/research'
 import { activityFixture } from '../fixtures/activity'
 import { findings, summary } from '../fixtures/api'
 import { statisticsFixture } from '../fixtures/statistics'

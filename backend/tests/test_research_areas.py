@@ -657,3 +657,116 @@ async def test_catalog_ignores_district_with_same_ags_but_rejects_two_municipali
         area_store, provider(settings, [municipality, district]), "DE-SH", [], [], catalog=catalog
     )
     assert counts["new"] == 0 and counts["rejected"] == 1
+
+
+async def test_operations_reuses_identity_geometry_and_legacy_import(
+    area_store, admin_store, settings
+):
+    from app.repositories.geo import import_area
+    from app.services.geo.scopes import resolve_geo_scope
+    from tests.test_geo import IDENTITY, provider_row
+    from tests.test_geo import provider as geo_provider
+
+    old_polygon = {
+        "type": "Polygon",
+        "coordinates": [[[11, 54], [12, 54], [12, 55], [11, 55], [11, 54]]],
+    }
+    old = await import_area(
+        admin_store, IDENTITY, geo_provider(settings, [provider_row(geojson=old_polygon)])
+    )
+    await import_boundaries(
+        area_store, provider(settings, [row(osm_id=27020)]), "DE-SH", [], [27020], apply=True
+    )
+    identifier = (await area_store.execute(text("SELECT id FROM admin.research_area"))).scalar_one()
+    for key in (identifier, old.id):
+        resolved = await resolve_geo_scope(admin_store, key)
+        assert resolved.area.id == resolved.area.area_id == identifier
+        assert (
+            await area_store.execute(
+                text("SELECT ST_Covers(ST_GeomFromEWKB(:g),ST_SetSRID(ST_Point(9,54),4326))"),
+                {"g": resolved.ewkb},
+            )
+        ).scalar_one()
+    await admin_store.rollback()
+
+    def forbidden(_):
+        pytest.fail("Canonical municipalities must never call Nominatim")
+
+    reused = await import_area(admin_store, IDENTITY, geo_provider(settings, handler=forbidden))
+    assert reused.id == identifier
+    assert (
+        await admin_store.execute(text("SELECT count(*) FROM admin.geo_area"))
+    ).scalar_one() == 1
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "events",
+        "venues",
+        "spaces",
+        "organizations",
+        "dashboard/activity",
+        "findings",
+        "dashboard/summary",
+        "statistics/entities",
+        "statistics/events/content",
+        "graph/search?q=Venue",
+    ],
+)
+async def test_operations_canonical_area_during_provider_outage(
+    area_store, settings, db_client, headers, endpoint
+):
+    area = await prepared(area_store, settings)
+    await area_store.rollback()
+    settings.nominatim_base_url = None
+    path = (
+        "/api/v1/"
+        + endpoint
+        + ("&" if "?" in endpoint else "?")
+        + "geo_scope_id="
+        + str(area.area.id)
+    )
+    response = await db_client.get(path, headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "private, no-store"
+    assert (await db_client.get(path)).status_code == 401
+    assert (await area_store.execute(text("SELECT count(*) FROM admin.geo_area"))).scalar_one() == 0
+
+
+async def test_selected_area_metadata_is_small_read_only_and_provider_independent(
+    area_store, settings, db_client, headers
+):
+    area = await prepared(area_store, settings)
+    await area_store.rollback()
+    settings.nominatim_base_url = None
+    path = f"/api/v1/research/areas/{area.area.id}/metadata"
+    response = await db_client.get(path, headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["id"] == str(area.area.id)
+    assert not {"geometry", "ewkb", "events", "venues", "organizations"} & response.json().keys()
+    assert (await db_client.get(path)).status_code == 401
+    assert (await db_client.post(path, headers=headers)).status_code == 405
+    assert (
+        await db_client.get(f"/api/v1/research/areas/{uuid4()}/metadata", headers=headers)
+    ).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "point, expected", [("POINT(9.5 54.5)", True), ("POINT(9 54)", True), ("POINT(11 54)", False)]
+)
+async def test_operations_venue_membership_uses_canonical_polygon(
+    area_store, db_connection, settings, now, point, expected
+):
+    from app.repositories.entities import entity_page
+    from app.schemas.entities import EntityFilters
+    from app.services.geo.scopes import resolve_geo_scope
+
+    area = await prepared(area_store, settings)
+    scope = await resolve_geo_scope(area_store, area.area.id)
+    await db_connection.execute(
+        text("UPDATE uranus.venue SET point=ST_GeomFromText(:point,4326) WHERE uuid=:id"),
+        {"point": point, "id": uid(20)},
+    )
+    page = await entity_page(db_connection, settings, "venues", EntityFilters(), now, scope.ewkb)
+    assert any(item.entity_key == str(uid(20)) for item in page.items) is expected

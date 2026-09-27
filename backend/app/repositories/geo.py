@@ -19,6 +19,17 @@ async def import_area(
     admin: AsyncConnection, identity: GeoAreaImport, provider: NominatimClient
 ) -> GeoArea:
     params = identity.model_dump()
+    # Explicit legacy imports must also reuse an already imported municipality.
+    # Never create another polygon or call the provider for the same OSM identity.
+    if int(identity.source_id) < 2**63:
+        canonical = (
+            await admin.execute(
+                text("SELECT id FROM admin.research_area WHERE osm_type='R' AND osm_id=:osm_id"),
+                {"osm_id": int(identity.source_id)},
+            )
+        ).scalar_one_or_none()
+        if canonical:
+            return (await resolve_geo_scope(admin, canonical)).area
     existing = (
         await admin.execute(
             text(
