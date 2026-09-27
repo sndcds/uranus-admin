@@ -66,7 +66,8 @@ class Settings(BaseSettings):
     nominatim_timeout_seconds: int = Field(default=8, ge=1, le=30)
     nominatim_max_response_bytes: int = Field(default=16_777_216, ge=1024, le=33_554_432)
     nominatim_max_geometry_points: int = Field(default=250_000, ge=4, le=500_000)
-    # Operator-only retrieval pilot; never serialized into browser configuration.
+    semantic_search_noncommercial_jina: bool = False
+    # Internal retrieval pilot; never serialized into browser configuration.
     qdrant_url: str | None = None
     qdrant_api_key: SecretStr | None = None
     qdrant_timeout_seconds: int = Field(default=30, ge=1, le=120)

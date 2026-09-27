@@ -1,7 +1,8 @@
 # Operating the event retrieval pilot
 
-No production chat/search endpoint is enabled. All commands are explicit operator
-jobs. Never run source fixtures, migrations or reconciliation against an arbitrary
+The [experimental Research UI search](semantic-search-pilot.md) is disabled until
+its noncommercial acknowledgment and vector settings are configured in the API
+runtime. There is no chat endpoint. Indexing commands remain explicit operator jobs. Never run source fixtures, migrations or reconciliation against an arbitrary
 collection. Do not install model weights on Server A or send its DB credentials to B.
 
 ## Server B installation

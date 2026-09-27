@@ -20,7 +20,15 @@ const parsed = computed(() => researchQuery(route.query))
 const query = computed<ResearchQuery>(() => ({
   ...(parsed.value.success ? parsed.value.data : {}),
   ...(props.kind ? { entity_type: props.kind } : {}),
+  ...(parsed.value.success && parsed.value.data.search_mode === 'semantic'
+    ? { entity_type: 'event' as const }
+    : {}),
 }))
+const semantic = computed(() => query.value.search_mode === 'semantic')
+const semanticLoading = useState('research-semantic-loading', () => false)
+watch(loading, (value) => {
+  semanticLoading.value = semantic.value && value
+})
 const title = computed(() =>
   props.map
     ? 'Karte'
@@ -73,7 +81,12 @@ async function load() {
   selected.value = ''
   exportMessage.value = ''
   if (!parsed.value.success) return
-  await request.load(JSON.stringify(query.value), () => $adminApi.researchSearch(query.value))
+  if (semantic.value) data.value = null
+  await request.load(JSON.stringify(query.value), () => {
+    if (semantic.value) return $adminApi.researchSemanticSearch(query.value)
+    const { search_mode: _mode, ...classic } = query.value
+    return $adminApi.researchSearch(classic)
+  })
   if (data.value) selected.value = data.value.items[0] ? researchKey(data.value.items[0]) : ''
 }
 function setQuery(next: ResearchQuery) {
@@ -119,7 +132,15 @@ const chips = computed(() => [
       ([key, value]) =>
         value !== undefined &&
         value !== '' &&
-        !['page', 'page_size', 'sort', 'entity_type', 'from_date', 'to_date'].includes(key),
+        ![
+          'page',
+          'page_size',
+          'sort',
+          'entity_type',
+          'from_date',
+          'to_date',
+          'search_mode',
+        ].includes(key),
     )
     .map(([key, value]) => {
       const labels: Record<string, string> = {
@@ -159,7 +180,8 @@ async function exportCsv() {
   exportMessage.value = ''
   const selection = JSON.stringify(query.value)
   try {
-    const result = await $adminApi.researchExport(query.value)
+    const { search_mode: _mode, ...filters } = query.value
+    const result = await $adminApi.researchExport(filters)
     if (!mounted || selection !== JSON.stringify(query.value)) return
     const blob = new Blob(['\ufeff' + sqlCsv(result.columns, result.rows)], {
       type: 'text/csv;charset=utf-8',
@@ -193,6 +215,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   mounted = false
+  semanticLoading.value = false
 })
 const columns = [
   { key: 'name', label: 'Treffer', rowHeader: true },
@@ -212,6 +235,7 @@ const columns = [
     >
       <template #actions
         ><button
+          v-if="!semantic"
           class="button"
           :disabled="loading || exportBusy || !parsed.success"
           @click="exportCsv"
@@ -228,12 +252,16 @@ const columns = [
     <p v-if="!parsed.success" role="alert" class="text-sm text-rose-700">
       Die Filter-URL ist ungültig. Bitte setze die Filter zurück.
     </p>
+    <p v-if="semantic" class="research-info">
+      Semantische Suche durchsucht derzeit Veranstaltungen. Experimentell · bis zu 20 Treffer, nach
+      inhaltlicher Nähe sortiert. Die Filter grenzen diese Auswahl ein.
+    </p>
     <div class="hidden lg:block">
       <ResearchFilters
         compact
         :query="query"
         :categories="categories"
-        :types="!kind"
+        :types="!kind && !semantic"
         @apply="apply"
       />
     </div>
@@ -241,7 +269,11 @@ const columns = [
       <AppIcon name="filter" />Filter öffnen
     </button>
     <AppModal ref="filterModal" title="Recherche filtern"
-      ><ResearchFilters :query="query" :categories="categories" :types="!kind" @apply="apply"
+      ><ResearchFilters
+        :query="query"
+        :categories="categories"
+        :types="!kind && !semantic"
+        @apply="apply"
     /></AppModal>
     <p v-if="optionError" role="alert" class="type-metadata">{{ optionError }}</p>
     <div class="flex flex-wrap items-center gap-2" aria-label="Aktive Filter">
@@ -266,6 +298,7 @@ const columns = [
     </div>
     <RequestState
       :loading="loading"
+      :loading-message="semantic ? 'Semantische Suche läuft …' : undefined"
       :error="error"
       :has-data="!!data"
       :last-success="data?.observed_at"
@@ -279,8 +312,9 @@ const columns = [
           noun="Ergebnisse"
         />
         <div class="flex flex-wrap gap-2">
-          <label class="sr-only" for="research-sort">Sortierung</label
+          <label v-if="!semantic" class="sr-only" for="research-sort">Sortierung</label
           ><select
+            v-if="!semantic"
             id="research-sort"
             class="input w-auto"
             :value="query.sort || 'date'"
@@ -322,7 +356,11 @@ const columns = [
       </div>
       <EmptyState
         v-if="!data.items.length"
-        message="Keine Treffer für diese Filter. Ändere den Zeitraum oder entferne einzelne Filter."
+        :message="
+          semantic
+            ? 'Keine passenden Veranstaltungen gefunden.'
+            : 'Keine Treffer für diese Filter. Ändere den Zeitraum oder entferne einzelne Filter.'
+        "
       />
       <template v-else>
         <DenseTable
@@ -393,6 +431,7 @@ const columns = [
           />
         </div>
         <PaginationBar
+          v-if="!semantic"
           :pagination="data.pagination"
           :loading="loading"
           @change="setQuery({ ...query, page: $event })"

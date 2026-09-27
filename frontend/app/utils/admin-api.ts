@@ -224,6 +224,14 @@ export function createAdminApi(
       request(`/api/v1/research/areas/${encodeURIComponent(id)}`, researchAreaDossierSchema, {
         ...query,
       }),
+    researchSemanticSearch: (query: ResearchQuery) => {
+      const { search_mode: _mode, sort: _sort, page: _page, page_size: _size, ...filters } = query
+      return request('/api/v1/research/semantic-search', researchPageSchema, {
+        ...filters,
+        entity_type: 'event',
+        page_size: 20,
+      })
+    },
     researchSearch: (query: ResearchQuery, signal?: AbortSignal) =>
       request(
         '/api/v1/research/search',

@@ -25,8 +25,10 @@ from app.schemas.research import (
     ResearchOptions,
     ResearchPage,
     ResearchType,
+    SemanticResearchFilters,
 )
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
+from app.services.semantic_search import semantic_search
 
 router = APIRouter(
     prefix="/api/v1/research",
@@ -50,6 +52,16 @@ async def search(
         datetime.now(UTC),
         await request_area(request, filters.area_id),
     )
+
+
+@router.get("/semantic-search", response_model=ResearchPage)
+async def semantic(
+    request: Request,
+    settings: SettingsDep,
+    filters: Annotated[SemanticResearchFilters, Query()],
+) -> ResearchPage:
+    """Experimental event-only retrieval with current public source rehydration."""
+    return await semantic_search(request, settings, filters)
 
 
 @router.get("/export", response_model=ResearchExport)

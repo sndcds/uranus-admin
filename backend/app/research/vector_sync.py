@@ -124,8 +124,10 @@ async def apply_changes(qdrant: Qdrant, encoder: Encoder, plan: Plan) -> dict[st
 
 
 def deduplicate(
-    hits: list[dict[str, Any]], allowed: set[str], model: Model
+    hits: list[dict[str, Any]], allowed: set[str], model: Model, *, limit: int = 10
 ) -> list[dict[str, Any]]:
+    if not 1 <= limit <= 50:
+        raise ValueError("invalid_deduplication_limit")
     events: dict[str, dict[str, Any]] = {}
     for hit in hits:
         if not isinstance(hit.get("score"), (int, float)) or not math.isfinite(hit["score"]):
@@ -140,4 +142,4 @@ def deduplicate(
             continue
         if key not in events or hit["score"] > events[key]["score"]:
             events[key] = hit
-    return sorted(events.values(), key=lambda h: (-h["score"], h["payload"]["entity_id"]))[:10]
+    return sorted(events.values(), key=lambda h: (-h["score"], h["payload"]["entity_id"]))[:limit]
