@@ -1758,3 +1758,15 @@ die Tabellen des verifizierten Ursprungs, danach die vollständige Zielmatrix.
 Bestandskonten, Systemadmin-Grants und Sessions bleiben erhalten; Journalisten
 werden anschließend ausdrücklich per CLI freigeschaltet. Die bestehenden
 Dry-Run-/Apply-Freigaben und Drift-Prüfungen bleiben erforderlich.
+
+## Research-Gebiete (Migration 0016)
+
+`admin.research_area` ist persistierter Research-Metadatenbestand. Nach Migration
+erhält Runtime ausschließlich SELECT; der vorhandene Auth-Operator erhält zusätzlich
+SELECT/INSERT/UPDATE auf dieser Tabelle. Boundary-/Bootstrap-Verträge prüfen diese
+Rechte explizit. Kein Uranus-Schreibrecht und kein automatischer Gebietsimport.
+
+Nominatim-Grenzen und optionale BKG-Einwohnerzahlen werden mit separaten Operator-
+CLIs geplant und importiert. Siehe [Research areas](../docs/research-areas.md) für
+Scope, BKG-Dateien, Plan/Apply, Quellen und Grenzen. Production-Deploy und reale
+Importe sind eigene Betreiberaktionen.
