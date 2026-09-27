@@ -16,7 +16,7 @@ existing classic header debounce and classic endpoint remain unchanged.
 `GET /api/v1/research/semantic-search` follows the existing Research GET convention.
 The router requires `get_current_research_user`: an authenticated independent account
 with journalist **or** system administrator permission. Anonymous requests receive
-401; accounts with neither grant receive 403. There is no public retrieval API.
+401; accounts with neither grant receive 403. The admin Research API is not public.
 
 1. Validate a required 2–120 character query containing at least two non-whitespace
    characters. Unknown parameters, model/provider selection and non-event types are
@@ -71,6 +71,59 @@ index publication. There is no relevance threshold or quality/SLA promise.
 
 ## Configuration, license and operations
 
+### Combined search service
+
+The operator confirmed on 2026-09-27 that `https://search.kulturbytes.de/search`
+uses fixed **Jina v3 and events**. To use that existing service instead of the direct
+Encoder/Qdrant transport, set these server-only values:
+
+```dotenv
+SEMANTIC_SEARCH_URL=https://search.kulturbytes.de/search
+SEMANTIC_SEARCH_NONCOMMERCIAL_JINA=true
+```
+
+For local development, add these values to the ignored `backend/.env` and restart
+the backend process: settings are loaded at application startup. An already running
+process does not automatically reread `.env`. Missing configuration or the absent
+noncommercial acknowledgment produces the safe `research_semantic_unavailable`
+(HTTP 503) response. Never commit the local `.env` or print its other values.
+
+The backend sends `POST {"query": "…", "limit": 10}` over verified HTTPS.
+The service accepted ten candidates in live verification; limits 20 and 50 returned
+HTTP 422. Therefore this path has **at most ten candidates before filtering**, and
+may return fewer after PostgreSQL eligibility/structured filters. It cannot provide
+the direct path's 50-chunk overfetch. No extra requests attempt to fill the result
+set. The gateway does not expose its internal chunk limit or index/version metadata;
+those properties depend on its operator-managed implementation, not this adapter.
+
+Responses must contain a bounded `results` array of UUID `entity_id` and finite
+numeric `score`, with a matching `count`. Defensive best-score deduplication and a
+UUID tie-break preserve deterministic ranking. The returned `status` is ignored:
+all candidates go through exactly the same current PostgreSQL eligibility checks,
+filters and record projections as the direct path. No provider fields reach the UI.
+
+The configured endpoint must be an exact HTTPS `/search` URL without credentials,
+query parameters or fragments. Admin authorization remains mandatory. No admin
+credentials, vector keys, cookies or CSRF headers are forwarded to this externally
+reachable service, which currently accepts requests without authentication. The
+query text leaves the admin backend for that explicitly configured service; operators
+must keep query/body logging disabled there as well. Browser traffic still uses the
+same-origin Research proxy. Response bodies are limited to 64 KiB, the network
+timeout is six seconds, and the existing eight-second overall deadline still applies.
+Redirects and environment proxies are disabled. Failures use the same safe error;
+there is no automatic fallback or additional direct-vector request.
+Live verification also observed HTTP 429 for a series of rapid requests. Upstream
+rate limiting uses the same safe unavailable state, without automatic retries or
+polling. Since requests originate from the admin backend, limits may be shared by
+multiple journalists; no upstream quota or capacity guarantee has been established.
+
+The license acknowledgment remains required. Direct vector credentials are not
+needed when this URL is configured; when absent, the original Encoder/Qdrant path
+below remains available. No production runtime configuration or deployment is changed by
+adding this option.
+
+### Direct Encoder/Qdrant transport
+
 Reuse server-only `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_TIMEOUT_SECONDS`,
 `QDRANT_COLLECTION_PREFIX` (default `uranus_bench`), `EMBEDDING_URL`,
 `EMBEDDING_API_KEY`, `EMBEDDING_TIMEOUT_SECONDS`. Additionally, the API runtime
@@ -102,7 +155,7 @@ is requested; no runtime schema repair is attempted.
 No LLM, Pydantic AI, agent, tool calling, chat, intent interpretation or SQL generation
 is involved. There are no Uranus writes or browser secrets. Fixed SQL uses the existing
 reader boundary; vector queries never upsert/delete points. Search text necessarily
-travels to the configured private encoder and appears in the user's explicit search
+travels to the configured encoder or search gateway and appears in the user's explicit search
 URL/permalink, as classic Research queries do. Application/proxy logging must continue
 to omit raw URLs/query strings. No query text, vectors, event descriptions, provider
 response text or credentials enter normal structured logs. No persistent query cache
@@ -111,11 +164,15 @@ or browser storage is added.
 ## Measurements and validation
 
 Structured `research_semantic_search` events contain `embedding_ms`, `qdrant_ms`,
-`postgres_rehydrate_ms`, `total_ms`, `candidate_count`, `returned_count` and a fixed
+`retrieval_ms`, `postgres_rehydrate_ms`, `total_ms`, `candidate_count`, `returned_count` and a fixed
 failure category. Durations include application transport/connection setup; the
 PostgreSQL stage includes reader acquisition, area resolution if requested, projection
 and images. Failure events retain elapsed time for the failing stage. Unstarted
 stages remain zero. No sensitive diagnostics are included in API responses.
+For the combined service, embedding and Qdrant durations are **null**, because the
+upstream API supplies neither measurement; `retrieval_ms` measures their combined
+request. Do not interpret missing stage measurements as zero or compare them with
+the individually measured direct-path durations below.
 
 On **2026-09-27**, an isolated temporary copy of the new service ran on Server A,
 using the existing Server B pilot and verified least-privilege source reader. One
@@ -135,3 +192,19 @@ pilot, with this sample's p95 slightly over one second. It excludes browser, Nit
 HTTP authentication overhead; it is not an endpoint SLA or a commercial-readiness
 claim. Live area filtering was not measured. Automated tests use fake internal HTTP
 and isolated PostgreSQL/PostGIS; normal frontend CI needs neither Jina nor Qdrant.
+
+The combined service was also measured on **2026-09-27** from the local backend,
+using its configured source reader after verifying effective read-only privileges.
+One warm-up was excluded. Ten varied German queries completed sequentially with
+seven seconds between requests after the earlier rapid sequence encountered HTTP 429. Those idle gaps are excluded from timings. PostgreSQL returned 8–10 eligible
+events per query from the ten supplied candidates.
+
+| Stage                   |    Median | p95 (nearest rank, 10 samples) |
+| ----------------------- | --------: | -----------------------------: |
+| Combined search service | 784.67 ms |                    1,311.56 ms |
+| PostgreSQL rehydration  |  13.12 ms |                       21.25 ms |
+| Total service           | 796.19 ms |                    1,329.67 ms |
+
+Separate embedding/Qdrant durations are unavailable for this API. These measurements
+again exclude browser/Nitro/auth overhead and establish neither upstream quota nor
+an SLA. No source writes, index changes or production deployment were performed.

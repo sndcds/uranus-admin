@@ -33,6 +33,7 @@ class JsonFormatter(logging.Formatter):
             "returned_count",
             "embedding_ms",
             "qdrant_ms",
+            "retrieval_ms",
             "postgres_rehydrate_ms",
             "total_ms",
             "entities_scanned",
