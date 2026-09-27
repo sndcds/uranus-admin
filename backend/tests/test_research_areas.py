@@ -582,3 +582,55 @@ async def test_population_plan_idempotence_and_boundary_identity(area_store, set
     )
     assert (await resolve_area(area_store, identifier)).area.population is None
     await area_store.rollback()
+
+
+async def test_catalog_city_uses_verified_relation_and_rechecks_ags(settings, area_store):
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        assert request.url.params["osm_ids"] == "R62782"
+        return httpx.Response(
+            200,
+            json=[
+                row(
+                    osm_id=62782,
+                    address={"country_code": "de", "ISO3166-2-lvl4": "DE-HH"},
+                    extratags={"admin_level": "4", "de:amtlicher_gemeindeschluessel": "02000001"},
+                )
+            ],
+        )
+
+    counts = await import_boundaries(
+        area_store,
+        provider(settings, handler=handler),
+        "DE-HH",
+        [],
+        [],
+        catalog=[CatalogEntry("DE-HH", "02000000", "Hamburg")],
+        apply=True,
+    )
+    assert counts["rejected"] == 1 and counts["new"] == 0
+    assert calls == ["/lookup"]
+
+
+async def test_catalog_search_retry_requires_exact_ags(settings, area_store):
+    calls = []
+    record = row(extratags={"admin_level": "8", "de:amtlicher_gemeindeschluessel": "01999000"})
+
+    def handler(request):
+        calls.append(dict(request.url.params))
+        return httpx.Response(200, json=[] if len(calls) == 1 else [record])
+
+    counts = await import_boundaries(
+        area_store,
+        provider(settings, handler=handler),
+        "DE-SH",
+        [],
+        [],
+        catalog=[CatalogEntry("DE-SH", "01999000", "Test Municipality")],
+    )
+    assert counts["new"] == 1
+    assert len(calls) == 3
+    assert calls[1]["q"] == "Test Municipality"
+    assert calls[1]["countrycodes"] == "de"

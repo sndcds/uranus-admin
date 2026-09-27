@@ -163,13 +163,58 @@ Die Datei enthält im Scope **2770 Gemeinden**: SH 1104, HH 1, NI 939, HB 2,
 MV 724. Zusätzlich vorhandene 25 gemeindefreie Gebiete in Niedersachsen werden
 nicht importiert. Dies sind **Katalogzahlen, keine Nominatim-Import-Ergebnisse**.
 
-Je Eintrag sucht Nominatim nach Name/Region und muss exakt denselben
+Je Eintrag sucht Nominatim nach Name/Region (bei fehlendem Treffer einmal nur nach
+dem Namen, weiterhin mit Länderfilter) und muss exakt denselben
 `de:amtlicher_gemeindeschluessel` liefern. Genau eine administrative Relation
-muss passen; Lookup prüft den AGS erneut zusammen mit Land, Scope, Ebene und
+muss passen; bereits einzeln verifizierte Stadt-Ausnahmen werden direkt per Relation
+nachgeschlagen und müssen ebenfalls den AGS des Katalogeintrags bestätigen; Lookup prüft den AGS erneut zusammen mit Land, Scope, Ebene und
 Geometrie. Namensähnlichkeit genügt nie. `--offset`/`--limit` beziehen sich auf die
 nach AGS sortierten Einträge der ausgewählten Region. Fehlende, umgeschlüsselte,
 mehrdeutige oder noch nicht freigegebene Stadt-Ausnahmen werden abgewiesen.
 Katalog und Original-Workbook werden nicht ins Repository kopiert.
+
+## Gesamten Scope importieren
+
+Der Sammelbefehl verarbeitet den deutschen BKG-Katalog und die **22 Kommunen in
+Region Syddanmark** sequenziell. Die dänische Liste folgt dem amtlichen
+[Regionen-/Kommunenverzeichnis von Danmarks Statistik](https://www.dst.dk/da/Statistik/dokumentation/nomenklaturer/nuts).
+Die Codes sind mit [SOP_KOMKOD](https://www.dst.dk/da/Statistik/dokumentation/Times/sociale-pensioner/sop-komkod)
+abgeglichen. Dessen zusätzliche Verwaltungswerte (etwa Ausland, Danmark und
+Christiansø) sind keine Gemeinden und werden nicht übernommen. Die OSM-Relationen
+sind im kleinen expliziten Katalog `app/research/scope.py` festgehalten; die
+normalen Lookup-Prüfungen für Land, Ebene, Region und Geometrie gelten weiterhin.
+Es gibt keinen öffentlichen Geocoder-Fallback.
+
+```sh
+# backend/, mit Operator-Konfiguration. Zuerst den obigen BKG-Konverter ausführen.
+uv run python -m app.research.scope plan --german-catalog /path/to/gemeinden.csv > /path/to/areas-plan.jsonl
+# Erst nach Prüfung der Zählwerte und Ablehnungen:
+uv run python -m app.research.scope apply --german-catalog /path/to/gemeinden.csv > /path/to/areas-apply.jsonl
+# Optional nur eine Region:
+uv run python -m app.research.scope plan --region DK-83
+```
+
+Jede Gemeinde verwendet dieselben Rollen-, Identitäts-, Geometrie- und
+Überlappungsprüfungen wie der Einzelimport. Pro Gemeinde gibt es eine begrenzte
+Transaktion; ein gesamter Scope-Lauf ist **nicht atomar**. Bei einem Providerfehler
+stoppt der Lauf, bereits erfolgreich übernommene Gemeinden bleiben bestehen.
+Ein erneuter Apply ist idempotent. Alternativ erlauben `--offset` und `--limit`
+eine gezielte Fortsetzung, mit unverändertem Katalog und derselben Regionsauswahl.
+Die Reihenfolge ist `(region_code, municipality_code)`; der ausgegebene Offset
+ist nullbasiert. Den letzten gemeldeten Offset beim Wiederanlauf zu wiederholen
+ist sicher. stdout enthält JSONL mit einzelnen Ergebnissen und regionalen Summen,
+stderr die sicheren Betriebslogs. Keine Geometrien oder Zugangsdaten im Report.
+Exit 0: alle ausgewählten Einträge geprüft; Exit 2: Lauf beendet, aber Ablehnungen;
+Exit 1: Konfigurations-/Infrastrukturfehler. Ablehnungen sind niemals ein Nachweis
+vollständiger geografischer Abdeckung. Spätere Einträge können im Apply zusätzliche
+Überlappungen mit zuvor importierten Grenzen zeigen; der Apply-Report ist maßgeblich.
+
+Am 27.09.2026 waren 21 dänische Kommunen über die eigene Instanz verifizierbar.
+Aabenraa (amtlicher Code 580, OSM R1928466) fehlte auch im direkten Lookup und bleibt
+im Katalog als sichtbare Ablehnung. Die Relation ist zusätzlich in
+[Wikidata Q21152](https://www.wikidata.org/wiki/Q21152) referenziert; Geometrie wird
+auch dafür ausschließlich über die eigene Nominatim-Instanz bezogen. Das ist eine
+Provider-Datenlücke, keine Erlaubnis zum Import einer Stadt-/POI-Geometrie.
 
 ## Amtliche Einwohnerzahlen
 

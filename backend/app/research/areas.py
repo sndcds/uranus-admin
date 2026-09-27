@@ -243,23 +243,32 @@ async def import_boundaries(
     for entry in catalog or []:
         if entry.region_code != region:
             raise APIError(422, "invalid_input", "Catalog region does not match.")
-        rows = await provider.discover_boundaries(
-            f"{entry.name}, {REGIONS[region]}, Deutschland", "de"
-        )
+        # These identities were individually verified; lookup still checks the
+        # AGS, hierarchy and geometry. Repeating city/state names can confuse search.
         candidates = {
-            int(candidate.osm_id)
-            for row in rows
-            if (candidate := area_item(row)) is not None
-            and isinstance(row.get("extratags"), dict)
-            and row["extratags"].get("de:amtlicher_gemeindeschluessel") == entry.ags
+            identity
+            for identity, (scope, _, ags) in CITY_EXCEPTIONS.items()
+            if scope == region and ags == entry.ags
         }
+        if not candidates:
+            for query in (f"{entry.name}, {REGIONS[region]}, Deutschland", entry.name):
+                rows = await provider.discover_boundaries(query, "de")
+                candidates = {
+                    int(candidate.osm_id)
+                    for row in rows
+                    if (candidate := area_item(row)) is not None
+                    and isinstance(row.get("extratags"), dict)
+                    and row["extratags"].get("de:amtlicher_gemeindeschluessel") == entry.ags
+                }
+                await asyncio.sleep(provider.settings.geocode_request_interval_ms / 1000)
+                if candidates:
+                    break
         if len(candidates) != 1:
             counts["rejected"] += 1
         else:
             identity = candidates.pop()
             found.append(identity)
             expected[identity] = entry.ags
-        await asyncio.sleep(provider.settings.geocode_request_interval_ms / 1000)
     found = sorted(set(found))
     if len(found) > 100:
         raise APIError(422, "research_area_import_limit", "Use at most 100 relations per import.")

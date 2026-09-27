@@ -93,9 +93,9 @@ def workbook_entries(path: Path) -> list[CatalogEntry]:
     return sorted(result, key=lambda entry: entry.ags)
 
 
-def load_catalog(path: Path, region: str, offset: int, limit: int) -> list[CatalogEntry]:
-    if path.stat().st_size > 2 * 1024 * 1024 or not 0 <= offset <= 20000 or not 1 <= limit <= 100:
-        raise ValueError("Invalid catalog size or batch bounds")
+def catalog_entries(path: Path) -> list[CatalogEntry]:
+    if path.stat().st_size > 2 * 1024 * 1024:
+        raise ValueError("Invalid catalog size")
     with path.open(newline="", encoding="utf-8") as stream:
         reader = csv.DictReader(stream)
         if reader.fieldnames != ["region_code", "ags", "name"]:
@@ -112,9 +112,18 @@ def load_catalog(path: Path, region: str, offset: int, limit: int) -> list[Catal
             ):
                 raise ValueError("Invalid catalog identity")
             seen.add(ags)
-            if row["region_code"] == region:
-                entries.append(CatalogEntry(row["region_code"], ags, row["name"]))
-    return sorted(entries, key=lambda entry: entry.ags)[offset : offset + limit]
+            entries.append(CatalogEntry(REGION_PREFIX[ags[:2]], ags, row["name"]))
+            if len(entries) > 20000:
+                raise ValueError("Too many catalog entries")
+    return sorted(entries, key=lambda entry: entry.ags)
+
+
+def load_catalog(path: Path, region: str, offset: int, limit: int) -> list[CatalogEntry]:
+    if not 0 <= offset <= 20000 or not 1 <= limit <= 100:
+        raise ValueError("Invalid catalog batch bounds")
+    return [entry for entry in catalog_entries(path) if entry.region_code == region][
+        offset : offset + limit
+    ]
 
 
 def main() -> None:
