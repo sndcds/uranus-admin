@@ -1,0 +1,182 @@
+[
+  {
+    "id": "q01",
+    "query": "kostenlose Veranstaltungen für Familien",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q02",
+    "query": "Angebote zur kulturellen Bildung",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q03",
+    "query": "barrierefreie Veranstaltungen",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q04",
+    "query": "Veranstaltungen mit Anmeldung",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q05",
+    "query": "Sprachkurse",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q06",
+    "query": "Veranstaltungen zum Thema Nachhaltigkeit",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q07",
+    "query": "Angebote für Kinder",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q08",
+    "query": "Veranstaltungen für Seniorinnen und Senioren",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q09",
+    "query": "Veranstaltungen mit Treffpunkt",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q10",
+    "query": "Veranstaltungen mit ermäßigtem Eintritt",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q11",
+    "query": "Veranstaltungen im Freien",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q12",
+    "query": "Integration und Migration",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q13",
+    "query": "queere Kultur",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q14",
+    "query": "lokale Geschichte",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q15",
+    "query": "Kunst zum Mitmachen",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q16",
+    "query": "soziale Teilhabe",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q17",
+    "query": "Musikveranstaltungen draußen",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q18",
+    "query": "Veranstaltungen für Jugendliche",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q19",
+    "query": "Dänische Kultur und Begegnungen in Dänemark",
+    "language": "de",
+    "notes": "Unjudged retrieval probe. Cross-language relevance must be checked against actual source language; no assumed Danish inventory."
+  },
+  {
+    "id": "q20",
+    "query": "Workshops für gemeinsames kreatives Arbeiten",
+    "language": "de",
+    "notes": "Unjudged retrieval probe; no assumed relevant events."
+  },
+  {
+    "id": "q21",
+    "query": "Gratis arrangementer for familier",
+    "language": "da",
+    "notes": "Unjudged retrieval probe. Cross-language relevance must be checked against actual source language; no assumed Danish inventory."
+  },
+  {
+    "id": "q22",
+    "query": "Sprogkurser i Tyskland",
+    "language": "da",
+    "notes": "Unjudged retrieval probe. Cross-language relevance must be checked against actual source language; no assumed Danish inventory."
+  },
+  {
+    "id": "q23",
+    "query": "Tilgængelige kulturarrangementer",
+    "language": "da",
+    "notes": "Unjudged retrieval probe. Cross-language relevance must be checked against actual source language; no assumed Danish inventory."
+  },
+  {
+    "id": "q24",
+    "query": "Arrangementer om bæredygtighed",
+    "language": "da",
+    "notes": "Unjudged retrieval probe. Cross-language relevance must be checked against actual source language; no assumed Danish inventory."
+  },
+  {
+    "id": "q25",
+    "query": "Musik under åben himmel",
+    "language": "da",
+    "notes": "Unjudged retrieval probe. Cross-language relevance must be checked against actual source language; no assumed Danish inventory."
+  },
+  {
+    "id": "q26",
+    "query": "Free family activities in Germany and Denmark",
+    "language": "en",
+    "notes": "Unjudged retrieval probe. Cross-language relevance must be checked against actual source language; no assumed Danish inventory."
+  },
+  {
+    "id": "q27",
+    "query": "Accessible events requiring registration",
+    "language": "en",
+    "notes": "Unjudged retrieval probe. Cross-language relevance must be checked against actual source language; no assumed Danish inventory."
+  },
+  {
+    "id": "q28",
+    "query": "Language classes and cultural education",
+    "language": "en",
+    "notes": "Unjudged retrieval probe. Cross-language relevance must be checked against actual source language; no assumed Danish inventory."
+  },
+  {
+    "id": "q29",
+    "query": "Participatory art workshops for young people",
+    "language": "en",
+    "notes": "Unjudged retrieval probe. Cross-language relevance must be checked against actual source language; no assumed Danish inventory."
+  },
+  {
+    "id": "q30",
+    "query": "Local history and social inclusion",
+    "language": "en",
+    "notes": "Unjudged retrieval probe. Cross-language relevance must be checked against actual source language; no assumed Danish inventory."
+  }
+]

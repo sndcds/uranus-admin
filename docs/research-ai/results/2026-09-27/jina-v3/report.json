@@ -1,0 +1,75 @@
+{
+  "snapshot_at": "2026-09-27T10:55:20.136992+00:00",
+  "events_total": 576,
+  "events_selected": 576,
+  "complete_snapshot": true,
+  "model": "jinaai/jina-embeddings-v3",
+  "embedding_version": "d18862d9a48706220815554fac3ebb4dfa46fc28:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+  "document_schema_version": "event-public-v1",
+  "collection_name": "uranus_bench_events_jina_v3",
+  "license": "CC-BY-NC-4.0",
+  "area_assignment_available": false,
+  "normalized_document_hash": "ad1906cf45628018934f911f627a835d48fd36c8ff39960563520968f22e67da",
+  "corpus_hash": "3234084e9218fefca5c72900db59700624d0dd10ec7c3e03b0140825691697f5",
+  "chunks": 1124,
+  "new": 0,
+  "updated": 0,
+  "metadata_updated": 0,
+  "unchanged": 1124,
+  "deleted": 0,
+  "query_set_hash": "6920b26a49a52e52495cedd5b517fd5817882b32e793e94ea96e39fe4bd1eb4b",
+  "query_count": 30,
+  "results_count": 300,
+  "latency_mean_seconds": 0.46063936506980097,
+  "latency_p95_seconds": 0.5287935160158668,
+  "quality_metrics": null,
+  "quality_note": "Manual relevance is not yet judged.",
+  "collection": {
+    "status": "green",
+    "optimizer_status": "ok",
+    "indexed_vectors_count": 0,
+    "points_count": 1124,
+    "segments_count": 2,
+    "config": {
+      "params": {
+        "vectors": {
+          "size": 1024,
+          "distance": "Cosine",
+          "on_disk": true
+        },
+        "shard_number": 1,
+        "replication_factor": 1,
+        "write_consistency_factor": 1,
+        "on_disk_payload": true
+      },
+      "hnsw_config": {
+        "m": 16,
+        "ef_construct": 100,
+        "full_scan_threshold": 10000,
+        "max_indexing_threads": 1,
+        "on_disk": false
+      },
+      "optimizer_config": {
+        "deleted_threshold": 0.2,
+        "vacuum_min_vector_number": 1000,
+        "default_segment_number": 0,
+        "max_segment_size": null,
+        "memmap_threshold": null,
+        "indexing_threshold": 10000,
+        "flush_interval_sec": 5,
+        "max_optimization_threads": 1,
+        "prevent_unoptimized": null
+      },
+      "wal_config": {
+        "wal_capacity_mb": 32,
+        "wal_segments_ahead": 0,
+        "wal_retain_closed": 1
+      },
+      "quantization_config": null
+    },
+    "payload_schema": {},
+    "update_queue": {
+      "length": 0
+    }
+  }
+}

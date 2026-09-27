@@ -1,0 +1,374 @@
+{
+  "plan-10": {
+    "snapshot_at": "2026-09-27T10:00:32.216724+00:00",
+    "events_total": 576,
+    "events_selected": 10,
+    "complete_snapshot": false,
+    "model": "jinaai/jina-embeddings-v3",
+    "embedding_version": "d18862d9a48706220815554fac3ebb4dfa46fc28:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_jina_v3",
+    "license": "CC-BY-NC-4.0",
+    "area_assignment_available": false,
+    "normalized_document_hash": "515d40df854c1afe3d04c9fb44560790440d0c4b76a33597d6dee3da29f14b26",
+    "corpus_hash": "7fc03f8a37de2a17013633270006d03a3fe6e6472f075ae034075ea33c5b2bd9",
+    "chunks": 22,
+    "new": 22,
+    "updated": 0,
+    "metadata_updated": 0,
+    "unchanged": 0,
+    "deleted": 0
+  },
+  "plan-100": {
+    "snapshot_at": "2026-09-27T10:02:03.874526+00:00",
+    "events_total": 576,
+    "events_selected": 100,
+    "complete_snapshot": false,
+    "model": "jinaai/jina-embeddings-v3",
+    "embedding_version": "d18862d9a48706220815554fac3ebb4dfa46fc28:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_jina_v3",
+    "license": "CC-BY-NC-4.0",
+    "area_assignment_available": false,
+    "normalized_document_hash": "6da6d6fc31f7c66e3d9409c1d4a17f038bdaacc54bccac55b65e4d696cb5f0ed",
+    "corpus_hash": "3571201835df51fd4c6267ca0b34a7f01534b956b216f75a48392ad78565e53e",
+    "chunks": 186,
+    "new": 164,
+    "updated": 0,
+    "metadata_updated": 0,
+    "unchanged": 22,
+    "deleted": 0
+  },
+  "plan-full": {
+    "snapshot_at": "2026-09-27T10:10:51.168997+00:00",
+    "events_total": 576,
+    "events_selected": 576,
+    "complete_snapshot": true,
+    "model": "jinaai/jina-embeddings-v3",
+    "embedding_version": "d18862d9a48706220815554fac3ebb4dfa46fc28:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_jina_v3",
+    "license": "CC-BY-NC-4.0",
+    "area_assignment_available": false,
+    "normalized_document_hash": "ad1906cf45628018934f911f627a835d48fd36c8ff39960563520968f22e67da",
+    "corpus_hash": "3234084e9218fefca5c72900db59700624d0dd10ec7c3e03b0140825691697f5",
+    "chunks": 1124,
+    "new": 938,
+    "updated": 0,
+    "metadata_updated": 0,
+    "unchanged": 186,
+    "deleted": 0
+  },
+  "reconcile-repeat": {
+    "snapshot_at": "2026-09-27T10:55:44.379918+00:00",
+    "events_total": 576,
+    "events_selected": 576,
+    "complete_snapshot": true,
+    "model": "jinaai/jina-embeddings-v3",
+    "embedding_version": "d18862d9a48706220815554fac3ebb4dfa46fc28:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_jina_v3",
+    "license": "CC-BY-NC-4.0",
+    "area_assignment_available": false,
+    "normalized_document_hash": "ad1906cf45628018934f911f627a835d48fd36c8ff39960563520968f22e67da",
+    "corpus_hash": "3234084e9218fefca5c72900db59700624d0dd10ec7c3e03b0140825691697f5",
+    "chunks": 1124,
+    "new": 0,
+    "updated": 0,
+    "metadata_updated": 0,
+    "unchanged": 1124,
+    "deleted": 0,
+    "metrics": {
+      "wall_seconds": 0.004198326001642272,
+      "embedding_seconds": 0.0,
+      "embedded_chunks": 0,
+      "embedded_events": 0,
+      "chunks_per_second": 0.0,
+      "events_per_second": 0.0,
+      "encoder_cpu_seconds": 0,
+      "encoder_peak_rss_bytes": 0
+    },
+    "collection": {
+      "status": "green",
+      "optimizer_status": "ok",
+      "indexed_vectors_count": 0,
+      "points_count": 1124,
+      "segments_count": 2,
+      "config": {
+        "params": {
+          "vectors": {
+            "size": 1024,
+            "distance": "Cosine",
+            "on_disk": true
+          },
+          "shard_number": 1,
+          "replication_factor": 1,
+          "write_consistency_factor": 1,
+          "on_disk_payload": true
+        },
+        "hnsw_config": {
+          "m": 16,
+          "ef_construct": 100,
+          "full_scan_threshold": 10000,
+          "max_indexing_threads": 1,
+          "on_disk": false
+        },
+        "optimizer_config": {
+          "deleted_threshold": 0.2,
+          "vacuum_min_vector_number": 1000,
+          "default_segment_number": 0,
+          "max_segment_size": null,
+          "memmap_threshold": null,
+          "indexing_threshold": 10000,
+          "flush_interval_sec": 5,
+          "max_optimization_threads": 1,
+          "prevent_unoptimized": null
+        },
+        "wal_config": {
+          "wal_capacity_mb": 32,
+          "wal_segments_ahead": 0,
+          "wal_retain_closed": 1
+        },
+        "quantization_config": null
+      },
+      "payload_schema": {},
+      "update_queue": {
+        "length": 0
+      }
+    }
+  },
+  "sync-10": {
+    "snapshot_at": "2026-09-27T10:00:46.041584+00:00",
+    "events_total": 576,
+    "events_selected": 10,
+    "complete_snapshot": false,
+    "model": "jinaai/jina-embeddings-v3",
+    "embedding_version": "d18862d9a48706220815554fac3ebb4dfa46fc28:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_jina_v3",
+    "license": "CC-BY-NC-4.0",
+    "area_assignment_available": false,
+    "normalized_document_hash": "515d40df854c1afe3d04c9fb44560790440d0c4b76a33597d6dee3da29f14b26",
+    "corpus_hash": "7fc03f8a37de2a17013633270006d03a3fe6e6472f075ae034075ea33c5b2bd9",
+    "chunks": 22,
+    "new": 22,
+    "updated": 0,
+    "metadata_updated": 0,
+    "unchanged": 0,
+    "deleted": 0,
+    "metrics": {
+      "wall_seconds": 60.663720810989616,
+      "embedding_seconds": 58.711480728001334,
+      "embedded_chunks": 22,
+      "embedded_events": 10,
+      "chunks_per_second": 0.3626549724594961,
+      "events_per_second": 0.16484316929977097,
+      "encoder_cpu_seconds": 114.95345813600001,
+      "encoder_peak_rss_bytes": 4131774464
+    },
+    "collection": {
+      "status": "green",
+      "optimizer_status": "ok",
+      "indexed_vectors_count": 0,
+      "points_count": 22,
+      "segments_count": 2,
+      "config": {
+        "params": {
+          "vectors": {
+            "size": 1024,
+            "distance": "Cosine",
+            "on_disk": true
+          },
+          "shard_number": 1,
+          "replication_factor": 1,
+          "write_consistency_factor": 1,
+          "on_disk_payload": true
+        },
+        "hnsw_config": {
+          "m": 16,
+          "ef_construct": 100,
+          "full_scan_threshold": 10000,
+          "max_indexing_threads": 1,
+          "on_disk": false
+        },
+        "optimizer_config": {
+          "deleted_threshold": 0.2,
+          "vacuum_min_vector_number": 1000,
+          "default_segment_number": 0,
+          "max_segment_size": null,
+          "memmap_threshold": null,
+          "indexing_threshold": 10000,
+          "flush_interval_sec": 5,
+          "max_optimization_threads": 1,
+          "prevent_unoptimized": null
+        },
+        "wal_config": {
+          "wal_capacity_mb": 32,
+          "wal_segments_ahead": 0,
+          "wal_retain_closed": 1
+        },
+        "quantization_config": null
+      },
+      "payload_schema": {},
+      "update_queue": {
+        "length": 0
+      }
+    }
+  },
+  "sync-100": {
+    "snapshot_at": "2026-09-27T10:02:06.794560+00:00",
+    "events_total": 576,
+    "events_selected": 100,
+    "complete_snapshot": false,
+    "model": "jinaai/jina-embeddings-v3",
+    "embedding_version": "d18862d9a48706220815554fac3ebb4dfa46fc28:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_jina_v3",
+    "license": "CC-BY-NC-4.0",
+    "area_assignment_available": false,
+    "normalized_document_hash": "6da6d6fc31f7c66e3d9409c1d4a17f038bdaacc54bccac55b65e4d696cb5f0ed",
+    "corpus_hash": "3571201835df51fd4c6267ca0b34a7f01534b956b216f75a48392ad78565e53e",
+    "chunks": 186,
+    "new": 164,
+    "updated": 0,
+    "metadata_updated": 0,
+    "unchanged": 22,
+    "deleted": 0,
+    "metrics": {
+      "wall_seconds": 504.6749975179846,
+      "embedding_seconds": 488.9338730929885,
+      "embedded_chunks": 164,
+      "embedded_events": 90,
+      "chunks_per_second": 0.32496161055443545,
+      "events_per_second": 0.1783325911579219,
+      "encoder_cpu_seconds": 962.8059281699996,
+      "encoder_peak_rss_bytes": 4131774464
+    },
+    "collection": {
+      "status": "green",
+      "optimizer_status": "ok",
+      "indexed_vectors_count": 0,
+      "points_count": 186,
+      "segments_count": 2,
+      "config": {
+        "params": {
+          "vectors": {
+            "size": 1024,
+            "distance": "Cosine",
+            "on_disk": true
+          },
+          "shard_number": 1,
+          "replication_factor": 1,
+          "write_consistency_factor": 1,
+          "on_disk_payload": true
+        },
+        "hnsw_config": {
+          "m": 16,
+          "ef_construct": 100,
+          "full_scan_threshold": 10000,
+          "max_indexing_threads": 1,
+          "on_disk": false
+        },
+        "optimizer_config": {
+          "deleted_threshold": 0.2,
+          "vacuum_min_vector_number": 1000,
+          "default_segment_number": 0,
+          "max_segment_size": null,
+          "memmap_threshold": null,
+          "indexing_threshold": 10000,
+          "flush_interval_sec": 5,
+          "max_optimization_threads": 1,
+          "prevent_unoptimized": null
+        },
+        "wal_config": {
+          "wal_capacity_mb": 32,
+          "wal_segments_ahead": 0,
+          "wal_retain_closed": 1
+        },
+        "quantization_config": null
+      },
+      "payload_schema": {},
+      "update_queue": {
+        "length": 0
+      }
+    }
+  },
+  "sync-full": {
+    "snapshot_at": "2026-09-27T10:11:01.484899+00:00",
+    "events_total": 576,
+    "events_selected": 576,
+    "complete_snapshot": true,
+    "model": "jinaai/jina-embeddings-v3",
+    "embedding_version": "d18862d9a48706220815554fac3ebb4dfa46fc28:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_jina_v3",
+    "license": "CC-BY-NC-4.0",
+    "area_assignment_available": false,
+    "normalized_document_hash": "ad1906cf45628018934f911f627a835d48fd36c8ff39960563520968f22e67da",
+    "corpus_hash": "3234084e9218fefca5c72900db59700624d0dd10ec7c3e03b0140825691697f5",
+    "chunks": 1124,
+    "new": 938,
+    "updated": 0,
+    "metadata_updated": 0,
+    "unchanged": 186,
+    "deleted": 0,
+    "metrics": {
+      "wall_seconds": 2648.5526261900086,
+      "embedding_seconds": 2570.9386254191922,
+      "embedded_chunks": 938,
+      "embedded_events": 476,
+      "chunks_per_second": 0.354155696482924,
+      "events_per_second": 0.1797208012002898,
+      "encoder_cpu_seconds": 5060.022500241003,
+      "encoder_peak_rss_bytes": 4131774464
+    },
+    "collection": {
+      "status": "green",
+      "optimizer_status": "ok",
+      "indexed_vectors_count": 0,
+      "points_count": 1124,
+      "segments_count": 2,
+      "config": {
+        "params": {
+          "vectors": {
+            "size": 1024,
+            "distance": "Cosine",
+            "on_disk": true
+          },
+          "shard_number": 1,
+          "replication_factor": 1,
+          "write_consistency_factor": 1,
+          "on_disk_payload": true
+        },
+        "hnsw_config": {
+          "m": 16,
+          "ef_construct": 100,
+          "full_scan_threshold": 10000,
+          "max_indexing_threads": 1,
+          "on_disk": false
+        },
+        "optimizer_config": {
+          "deleted_threshold": 0.2,
+          "vacuum_min_vector_number": 1000,
+          "default_segment_number": 0,
+          "max_segment_size": null,
+          "memmap_threshold": null,
+          "indexing_threshold": 10000,
+          "flush_interval_sec": 5,
+          "max_optimization_threads": 1,
+          "prevent_unoptimized": null
+        },
+        "wal_config": {
+          "wal_capacity_mb": 32,
+          "wal_segments_ahead": 0,
+          "wal_retain_closed": 1
+        },
+        "quantization_config": null
+      },
+      "payload_schema": {},
+      "update_queue": {
+        "length": 0
+      }
+    }
+  }
+}
