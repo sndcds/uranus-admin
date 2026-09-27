@@ -459,3 +459,19 @@ async def test_vector_area_covers_context(admin_store, db_connection, longitude,
     assert bool(areas.get(str(venue_id))) is expected
     if expected:
         assert areas[str(venue_id)] == [{"id": str(identifier), "name": "Fixture"}]
+
+
+@pytest.mark.parametrize("grade", [True, 1.5, -1, "2.1"])
+def test_relevance_grades_are_not_coerced(grade):
+    with pytest.raises(ValueError, match="grade"):
+        quality_metrics(
+            [
+                {
+                    "query_id": "q",
+                    "model": "m",
+                    "entity_id": "e",
+                    "rank": 1,
+                    "manual_relevance": grade,
+                }
+            ]
+        )

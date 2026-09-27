@@ -137,7 +137,14 @@ def quality_metrics(rows: list[dict[str, Any]]) -> dict[str, float] | None:
     qrels: dict[str, dict[str, int]] = {}
     runs: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for row in rows:
-        grade = int(row["manual_relevance"])
+        raw = row["manual_relevance"]
+        if (
+            isinstance(raw, bool)
+            or not isinstance(raw, (str, int))
+            or str(raw) not in {"0", "1", "2"}
+        ):
+            raise ValueError("invalid_relevance_grade")
+        grade = int(raw)
         if grade not in {0, 1, 2}:
             raise ValueError("invalid_relevance_grade")
         previous = qrels.setdefault(row["query_id"], {}).setdefault(row["entity_id"], grade)

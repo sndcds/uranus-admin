@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.concurrency import run_in_threadpool
 
+from app.logging import configure_logging
 from app.research.vector_documents import Section, chunk_sections
 from app.research.vector_models import MODELS
 
@@ -148,6 +149,7 @@ class Runtime:
 
 
 def create_app(runtime=None, key=None):
+    configure_logging("INFO")
     runtime = runtime or Runtime()
     key = key or Path(os.environ["EMBEDDING_KEY_FILE"]).read_text().strip()
     if len(key) < 32:
