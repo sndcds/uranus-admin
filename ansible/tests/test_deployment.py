@@ -417,7 +417,11 @@ class ArtifactTests(unittest.TestCase):
             )
             self.assertEqual(
                 manifest["admin_upgrade_contracts"]["0013"]["runtime_grants"],
-                {k: v for k, v in manifest["runtime_grants"].items() if k not in {"auth_journalist", "research_area"}},
+                {
+                    k: v
+                    for k, v in manifest["runtime_grants"].items()
+                    if k not in {"auth_journalist", "research_area"}
+                },
             )
             for table in ("assignment", "assignment_event"):
                 self.assertIn("snoozed_until", manifest["admin_columns"][table])
