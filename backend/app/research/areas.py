@@ -42,6 +42,18 @@ CITY_EXCEPTIONS = {
     62782: ("DE-HH", 4, "02000000"),  # Hamburg, both Land and municipality
     62559: ("DE-HB", 6, "04011000"),  # Bremen city, never the two-city Land R62718
     62658: ("DE-HB", 6, "04012000"),  # Bremerhaven
+    27027: ("DE-SH", 6, "01003000"),  # Lübeck
+    62528: ("DE-SH", 6, "01004000"),  # Neumünster
+    62531: ("DE-NI", 6, "03101000"),  # Braunschweig
+    62659: ("DE-NI", 6, "03102000"),  # Salzgitter
+    62418: ("DE-NI", 6, "03103000"),  # Wolfsburg
+    62414: ("DE-NI", 6, "03401000"),  # Delmenhorst
+    62562: ("DE-NI", 6, "03402000"),  # Emden
+    62409: ("DE-NI", 6, "03403000"),  # Oldenburg (Oldb)
+    62631: ("DE-NI", 6, "03404000"),  # Osnabrück
+    62444: ("DE-NI", 6, "03405000"),  # Wilhelmshaven
+    62405: ("DE-MV", 6, "13003000"),  # Rostock
+    62685: ("DE-MV", 6, "13004000"),  # Schwerin
 }
 IMPORT_GRANTS = {"alembic_version": ("SELECT",), "research_area": ("SELECT", "INSERT", "UPDATE")}
 IMPORT_LOCK = 72619334016

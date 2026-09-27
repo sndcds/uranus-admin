@@ -47,15 +47,27 @@ Fehlt die administrative ISO-Hierarchie, wird die Relation abgewiesen. Diese
 Hierarchie wurde an der eigenen Instanz überprüft; Übersetzungen von Ortsnamen
 beeinflussen die Entscheidung nicht. Es gibt keinen unscharfen Ersatz bei fehlenden Tags.
 
-Nach ausdrücklicher fachlicher Freigabe bestehen fünf identitätsgebundene Ausnahmen:
+Nach ausdrücklicher fachlicher Freigabe bestehen 17 identitätsgebundene Ausnahmen:
 
-| Kommune        | Relation | Ebene | Amtlicher Gemeindeschlüssel | Region |
-| -------------- | -------: | ----: | --------------------------- | ------ |
-| Flensburg      |    27020 |     6 | 01001000                    | DE-SH  |
-| Kiel           |    27021 |     6 | 01002000                    | DE-SH  |
-| Hamburg        |    62782 |     4 | 02000000                    | DE-HH  |
-| Bremen (Stadt) |    62559 |     6 | 04011000                    | DE-HB  |
-| Bremerhaven    |    62658 |     6 | 04012000                    | DE-HB  |
+| Kommune          | Relation | Ebene | Amtlicher Gemeindeschlüssel | Region |
+| ---------------- | -------: | ----: | --------------------------- | ------ |
+| Flensburg        |    27020 |     6 | 01001000                    | DE-SH  |
+| Kiel             |    27021 |     6 | 01002000                    | DE-SH  |
+| Hamburg          |    62782 |     4 | 02000000                    | DE-HH  |
+| Bremen (Stadt)   |    62559 |     6 | 04011000                    | DE-HB  |
+| Bremerhaven      |    62658 |     6 | 04012000                    | DE-HB  |
+| Lübeck           |    27027 |     6 | 01003000                    | DE-SH  |
+| Neumünster       |    62528 |     6 | 01004000                    | DE-SH  |
+| Braunschweig     |    62531 |     6 | 03101000                    | DE-NI  |
+| Salzgitter       |    62659 |     6 | 03102000                    | DE-NI  |
+| Wolfsburg        |    62418 |     6 | 03103000                    | DE-NI  |
+| Delmenhorst      |    62414 |     6 | 03401000                    | DE-NI  |
+| Emden            |    62562 |     6 | 03402000                    | DE-NI  |
+| Oldenburg (Oldb) |    62409 |     6 | 03403000                    | DE-NI  |
+| Osnabrück        |    62631 |     6 | 03404000                    | DE-NI  |
+| Wilhelmshaven    |    62444 |     6 | 03405000                    | DE-NI  |
+| Rostock          |    62405 |     6 | 13003000                    | DE-MV  |
+| Schwerin         |    62685 |     6 | 13004000                    | DE-MV  |
 
 Relation, Land, Region, Ebene und `de:amtlicher_gemeindeschluessel` müssen gemeinsam
 passen. Das Bundesland Bremen (R62718, Level 4) ist **keine** Gemeinde. Andere

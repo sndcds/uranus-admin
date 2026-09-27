@@ -495,7 +495,7 @@ test('municipality selection, URL, boundary dossier and mobile layout', async ({
     page.getByRole('link', { name: '© OpenStreetMap-Mitwirkende · ODbL', exact: true }),
   ).toBeVisible()
   await expect(page.getByText('12.345 Einwohner', { exact: true })).toBeVisible()
-  await expect(page.getByText('Stand 31.12.2024 · Flensburg', { exact: true })).toBeVisible()
+  await expect(page.getByText('Stand 31. Dez. 2024 · Flensburg', { exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath('municipality-dossier.png'), fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
