@@ -19,7 +19,7 @@ async def test_operator_preflight(admin_store, db_connection, damage):
     await db_connection.execute(text("GRANT USAGE ON SCHEMA admin TO doctor_test"))
     await db_connection.execute(text("GRANT SELECT ON admin.alembic_version TO doctor_test"))
     await db_connection.execute(
-        text("GRANT SELECT,INSERT,UPDATE ON admin.auth_account TO doctor_test")
+        text("GRANT SELECT,INSERT,UPDATE ON admin.auth_account,admin.research_area TO doctor_test")
     )
     await db_connection.execute(
         text(
@@ -88,7 +88,10 @@ async def test_doctor_and_normal_commands_use_preflight_before_password(
         await conn.execute(text("GRANT USAGE ON SCHEMA admin TO admin_doctor_test"))
         await conn.execute(text("GRANT SELECT ON admin.alembic_version TO admin_doctor_test"))
         await conn.execute(
-            text("GRANT SELECT,INSERT,UPDATE ON admin.auth_account TO admin_doctor_test")
+            text(
+                "GRANT SELECT,INSERT,UPDATE ON admin.auth_account,admin.research_area "
+                "TO admin_doctor_test"
+            )
         )
         await conn.execute(
             text(

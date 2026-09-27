@@ -616,6 +616,13 @@ async def test_research_and_operations_authorization(auth_client, grant):
     assert (await client.get("/api/v1/research/search")).status_code == (
         403 if grant == "none" else 200
     )
+    assert (await client.get("/api/v1/research/areas")).status_code == (
+        403 if grant == "none" else 200
+    )
+    assert (await client.get(f"/api/v1/research/areas/{uid(999)}")).status_code == (
+        403 if grant == "none" else 404
+    )
+    assert (await client.post("/api/v1/research/areas")).status_code == 405
     assert (await client.get("/api/v1/auth-probe")).status_code == (
         200 if grant in {"system_admin", "both"} else 403
     )
