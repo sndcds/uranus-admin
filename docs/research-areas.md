@@ -343,3 +343,90 @@ Quelle. Keine geschätzten Flächen oder journalistischen Bewertungen.
   Request einmal aufgelöste Grenze bleibt für alle Source-Abfragen konstant.
 - Gespeicherte Suchen, Preferences, Watches, Push und Notifications sind nicht
   enthalten. Sie können später stabile Area-UUIDs referenzieren, ohne Uranus zu ändern.
+
+## Shared admin usage
+
+`admin.research_area` ist die kanonische persistierte Gebietsquelle für Research
+und Operations-Gemeindefilter. Beide Workspaces suchen mit derselben
+`AdministrativeAreaSelect`-Combobox über `GET /api/v1/research/areas`: mindestens
+zwei Zeichen, 300 ms Debounce, maximal zehn Ergebnisse, AbortController und
+Generationsschutz für Suche und Auswahl-Hydration. Länder-/Regionslabels stammen
+aus denselben zentralen Definitionen. Tastaturbedienung, Lade-/Leer-/Fehlerzustand
+und Combobox-ARIA sind gemeinsam; Research verwendet Blau, Operations den bisherigen
+Admin-Akzent. Auth-Revisionswechsel und Unmount verwerfen laufende Antworten.
+
+`GET /api/v1/research/areas/{id}/metadata` lädt eine Auswahl direkt per UUID.
+Dieser zusätzliche kleine Read-Endpunkt benötigt weder Source-Verbindung noch
+Polygon, Event-/Venue-/Organisationslisten oder Statistikabfragen des Dossiers.
+Die Projektion entspricht dem Area-Listenobjekt. Er verwendet dieselbe
+Systemadmin-oder-Journalist-Autorisierung; Operations-Routen bleiben ausschließlich
+Systemadmins vorbehalten. POST/PATCH/Import sind hier nicht möglich.
+
+### URL-Kompatibilität und alte Gebiete
+
+**Entscheidung A:** Operations behält `geo_scope_id` als kompatiblen Parameter.
+Der Wert ist bei einer neuen Gemeindeauswahl exakt `research_area.id`, identisch
+mit dem `area_id` im Research-Workspace. Damit bleiben alle Operations-API-,
+Cursor-, Diagnose-/SQL-Provenance- und Link-Verträge erhalten. Ein zweiter
+Operations-Parameter mit konkurrierender Priorität wird nicht eingeführt.
+
+Der gemeinsame Resolver lädt in einer begrenzten Admin-Abfrage zunächst die
+Research-Area. Eine alte `geo_area`-UUID wird über deren OSM-Relationsidentität auf
+eine vorhandene Research-Area aufgelöst. Dabei wird **deren aktuelle Geometrie**
+verwendet, niemals die alte Polygonkopie. Die kompatible Geo-Metadatenantwort
+kennzeichnet dies durch `area_id` und liefert die kanonische `id`. Das Frontend
+lädt die Research-Metadaten und ersetzt einen solchen alten URL-Wert einmal durch
+die stabile UUID; übrige Filter und Hash bleiben erhalten. Direkte API-Aufrufe
+mit der alten UUID funktionieren weiterhin. Unbekannte IDs führen weiterhin zu
+einem sichtbaren Fehler, niemals unbemerkt zu einem systemweiten Resultat.
+
+`admin.geo_area` bleibt für andere bereits gespeicherte administrative Grenzen
+bestehen. Ohne passendes Research-Objekt funktionieren alte Links unverändert.
+Die expliziten alten Discovery-/Import-Endpunkte bleiben systemadmin-geschützt;
+selbst ein expliziter Import verwendet bei bereits bekannter OSM-Relation die
+Research-Area ohne Provider-Aufruf und ohne neue Geo-Zeile. Die normale
+Operations-Auswahl verwendet diese Endpunkte überhaupt nicht mehr.
+
+Keine Migration, keine zusätzlichen Grants und keine Datenbereinigung sind nötig.
+Vorhandene alte Polygonkopien werden nicht automatisch gelöscht oder umgeschrieben.
+Die In-Memory-Preferences speichern validierte Metadaten, keine Grenzpolygone,
+und werden weiterhin bei Sessionverlust gelöscht. URL > Store > Default bleibt
+maßgeblich.
+
+### Geprüfte Operations-Ansichten
+
+| Ansicht                        | Räumlicher Filter        | Zuordnung / Verhalten                                                         |
+| ------------------------------ | ------------------------ | ----------------------------------------------------------------------------- |
+| `/` Dashboard                  | ja                       | gemeinsame räumliche Teilmengen; systemweite Zahlen bleiben gekennzeichnet    |
+| `/activity`                    | ja                       | Organization, Venue, Space, Event, Event-Date; andere Typen ausgeschlossen    |
+| `/graph`                       | Startsuche               | dieselben räumlichen Typen; direkte Roots und Beziehungen bleiben vollständig |
+| `/statistics`                  | ja                       | räumliche Serien vor Aggregation gefiltert; andere Serien systemweit          |
+| `/statistics`, Event-Inhalte   | ja                       | Event-Menge vor Kategorien, Rankings und Nennern gefiltert                    |
+| `/events`                      | ja                       | realer Termin mit effektivem Venue; bestehende zeitliche Semantik             |
+| `/venues`                      | ja                       | autoritativer `venue.point`                                                   |
+| `/spaces`                      | ja                       | Point des zugehörigen Venue                                                   |
+| `/organizations`               | ja                       | autoritativer `organization.point`                                            |
+| `/findings`                    | ja                       | räumlich zuordenbare Source-Entity; fehlende Punkte bleiben unzugeordnet      |
+| Entity-Autocomplete            | ja, vier räumliche Typen | identische Entity-Prädikate                                                   |
+| `/quality`, `/inbox`, Queues   | nein                     | vorhandene systemweite Semantik und Kennzeichnung bleiben erhalten            |
+| `/geocoding`, `/geocoding/:id` | nein                     | systemweite Standortvorschläge; keine neue Gebietsauswahl                     |
+| Users, Images, Entity-Details  | nein                     | bestehende systemweite bzw. direkte Detailsemantik                            |
+
+Die Abfragen verwenden die bereits vorhandenen `ST_Covers`-Prädikate mit
+Bounding-Box-Vorprüfung und gebundener EWKB über die getrennte Source-Verbindung.
+Grenzpunkte bleiben enthalten; Venue-/Space-Vererbung kommt aus `location.py`.
+Operations ordnet Organisationen über ihren autoritativen Standort zu; Research
+fragt ihre Event-Aktivität ab. Die gemeinsame Gebietsidentität ändert diese
+unterschiedlichen fachlichen Fragen nicht.
+
+Die Namenssuche verwendet weiterhin parametriertes, literal escaptes `ILIKE`,
+Land-/Area-Type-Filter, deterministische Sortierung und begrenzte Pagination.
+Bei rund 2800 Katalogeinträgen ist ein begrenzter Scan für Teilstrings vertretbar;
+ein B-Tree wird nicht als Teilstringindex ausgegeben. ID-Hydration verwendet den
+UUID-Primary-Key. Listen/Metadaten senden keine Polygone; die räumliche Auflösung
+lädt eine Grenze je Request, nicht je Source-Ergebnis. Kein N+1 und kein neuer Cache.
+
+Nominatim bleibt Provider für Area-Import-CLI, Adress-Geocoding und explizite
+Discovery-Workflows. Normale Gemeindeauswahl und räumliche Operations-Abfragen
+benötigen ausschließlich gespeicherte PostGIS-Daten. Ein Nominatim-Ausfall
+beeinträchtigt diese Pfade nicht. `geocode_address()` bleibt unverändert.

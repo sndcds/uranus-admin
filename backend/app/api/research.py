@@ -17,7 +17,7 @@ from app.repositories.research import (
     research_options,
     research_page,
 )
-from app.repositories.research_areas import area_page, request_area
+from app.repositories.research_areas import area_metadata, area_page, request_area
 from app.schemas.research import (
     ResearchDetail,
     ResearchExport,
@@ -26,7 +26,7 @@ from app.schemas.research import (
     ResearchPage,
     ResearchType,
 )
-from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage
+from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
 
 router = APIRouter(
     prefix="/api/v1/research",
@@ -169,3 +169,8 @@ async def area_detail(
         usage=usage,
         observed_at=now,
     )
+
+
+@router.get("/areas/{identifier}/metadata", response_model=ResearchArea)
+async def selected_area(identifier: UUID, admin: AdminConnectionDep) -> ResearchArea:
+    return await area_metadata(admin, identifier)

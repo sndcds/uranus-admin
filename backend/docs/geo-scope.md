@@ -7,6 +7,17 @@ events/event dates have venue/space references, no independent points. EMPTY poi
 are possible (no excluding source constraint, and already present in the synthetic fixture).
 This is repository evidence, not an assertion about the deployed database schema.
 
+## Shared municipality catalog
+
+Municipality selection now uses the persisted `admin.research_area` catalog in
+both workspaces. Operations retains `geo_scope_id` as a compatibility parameter
+carrying the exact Research UUID. Legacy Geo UUIDs with the same OSM relation
+resolve to the canonical geometry; unmatched arbitrary boundaries remain usable.
+The ordinary selector no longer calls provider discovery or POST import. No
+migration or grant changes are required. See [shared admin usage](../../docs/research-areas.md#shared-admin-usage)
+for the current endpoint, compatibility and per-page contracts. The phase notes
+below describe the earlier Geo cache and its still-supported explicit workflows.
+
 ## Delivery status
 
 Phase 1 was merged in **PR #55**. Phase 2 builds on verified main

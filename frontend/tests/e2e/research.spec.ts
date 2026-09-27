@@ -88,9 +88,10 @@ test('search, URL filters, map, table, selected detail, export and permalink', a
   )
   await expect(page.getByText('3 Ergebnisse insgesamt')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Stadt: Flensburg entfernen' })).toBeVisible()
-  await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(
-    info.project.name === 'mobile' ? 1 : 2,
-  )
+  await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(1)
+  await expect(
+    page.getByRole('combobox', { name: 'Gemeinde / Kommune' }).filter({ visible: true }),
+  ).toHaveCount(info.project.name === 'mobile' ? 0 : 1)
   await expect(
     page.getByRole('button', {
       name: info.project.name === 'mobile' ? 'Liste' : 'Karte',
@@ -254,9 +255,10 @@ test('header search preserves filters and history; secondary filters remain in t
   await page.goBack()
   await expect(search).toHaveValue('')
   await expect(page).not.toHaveURL(/q=/)
-  await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(
-    info.project.name === 'mobile' ? 1 : 2,
-  )
+  await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(1)
+  await expect(
+    page.getByRole('combobox', { name: 'Gemeinde / Kommune' }).filter({ visible: true }),
+  ).toHaveCount(info.project.name === 'mobile' ? 0 : 1)
   if (info.project.name === 'desktop') {
     await page.getByLabel('Status', { exact: true }).selectOption('cancelled')
     await expect(page).toHaveURL(/status=cancelled/)
@@ -296,9 +298,10 @@ for (const [section, title, count] of [
     await page.goto(`/research/${section}`)
     await expect(page.getByRole('heading', { name: title, exact: true, level: 2 })).toBeVisible()
     await expect(page.getByText(`${count} Ergebnisse insgesamt`)).toBeVisible()
-    await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(
-      info.project.name === 'mobile' ? 1 : 2,
-    )
+    await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(1)
+    await expect(
+      page.getByRole('combobox', { name: 'Gemeinde / Kommune' }).filter({ visible: true }),
+    ).toHaveCount(info.project.name === 'mobile' ? 0 : 1)
     if (info.project.name === 'desktop' || section === 'map')
       await expect(page.locator('.research-map-popup')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -470,7 +473,9 @@ test('municipality selection, URL, boundary dossier and mobile layout', async ({
     return route.fulfill({
       json: url.pathname.endsWith('/areas')
         ? { items: [researchArea], pagination: { page: 1, page_size: 10, pages: 1, total: 1 } }
-        : researchAreaDossier(),
+        : url.pathname.endsWith('/metadata')
+          ? researchArea
+          : researchAreaDossier(),
     })
   })
   await page.goto('/research/search')
