@@ -1,0 +1,301 @@
+query_id,query,language,model,rank,entity_id,event_title,score,chunk_kind,manual_relevance,query_latency_seconds
+q01,kostenlose Veranstaltungen für Familien,de,intfloat/multilingual-e5-small,1,01a019aa-f4b6-7b40-9d5a-093185d77609,Zwergentreff,0.8704604,content,,0.05059747098130174
+q01,kostenlose Veranstaltungen für Familien,de,intfloat/multilingual-e5-small,2,01a0197b-12ee-7456-b766-02f354834af2,Themenabend: Familienleben in der Autonomiephase,0.8678993,content,,0.05059747098130174
+q01,kostenlose Veranstaltungen für Familien,de,intfloat/multilingual-e5-small,3,019eb683-7f8b-79bc-b8da-aa956ed6b03c,Zwergentreff,0.8670503,content,,0.05059747098130174
+q01,kostenlose Veranstaltungen für Familien,de,intfloat/multilingual-e5-small,4,019ed164-56e8-7e64-96d5-b38d9e9a912c,Spielplatztreff Wetterfrösche,0.86313957,content,,0.05059747098130174
+q01,kostenlose Veranstaltungen für Familien,de,intfloat/multilingual-e5-small,5,01a01964-403b-7845-a873-dbdb2ba3b8b1,Familienküche,0.86309505,content,,0.05059747098130174
+q01,kostenlose Veranstaltungen für Familien,de,intfloat/multilingual-e5-small,6,01a0201f-5f06-7983-9497-62b4745a36a4,Faire Woche 2026 Flensburg,0.8605791,content,,0.05059747098130174
+q01,kostenlose Veranstaltungen für Familien,de,intfloat/multilingual-e5-small,7,019f17e8-61d1-7cc6-b5a0-b79013a7c6b6,Deniz & Ove,0.8587117,content,,0.05059747098130174
+q01,kostenlose Veranstaltungen für Familien,de,intfloat/multilingual-e5-small,8,01a014cb-6efb-776a-b6b0-97ca03ecf986,Frühstücksschnack,0.8585402,content,,0.05059747098130174
+q01,kostenlose Veranstaltungen für Familien,de,intfloat/multilingual-e5-small,9,019e5590-85ea-7912-b1bc-294a2950d78e,"Du, ich, wir!",0.85824096,content,,0.05059747098130174
+q01,kostenlose Veranstaltungen für Familien,de,intfloat/multilingual-e5-small,10,01a06706-305c-7c57-8dbf-3cd8f132a2e2,Kinder Disco,0.8577088,content,,0.05059747098130174
+q02,Angebote zur kulturellen Bildung,de,intfloat/multilingual-e5-small,1,01a042a6-7817-7f0e-acaa-671052605969,Kultur_Seminar: Digitale und Analoge Sichtbarkeit,0.88465476,content,,0.05232967998017557
+q02,Angebote zur kulturellen Bildung,de,intfloat/multilingual-e5-small,2,01a00ef9-aa7e-7d6e-b7d6-ca7fb23d0b1e,Schule trifft Kultur: Kulturelle Bildung in der Region Rendsburg stärken,0.88370925,content,,0.05232967998017557
+q02,Angebote zur kulturellen Bildung,de,intfloat/multilingual-e5-small,3,019dd89e-f434-7cbd-bc59-60d3c7bda536,KuRD 2026,0.8540274,additional,,0.05232967998017557
+q02,Angebote zur kulturellen Bildung,de,intfloat/multilingual-e5-small,4,019eb719-75cb-749e-be9c-fab9c5b5636f,Speed-Dating - Kultur trifft Politik,0.85181296,content,,0.05232967998017557
+q02,Angebote zur kulturellen Bildung,de,intfloat/multilingual-e5-small,5,01a042f7-fcc2-7a64-9fe2-705a951a5cec,Kulturtag: Interkulturelle Architektur mit Lehm & Co. von den Nuba-Bergen bis zum Bremsberg,0.848594,content,,0.05232967998017557
+q02,Angebote zur kulturellen Bildung,de,intfloat/multilingual-e5-small,6,019f6e88-ed03-743b-9166-a4de613a09f4,Jahresausstellung Einblick / Ausblick,0.8478939,content,,0.05232967998017557
+q02,Angebote zur kulturellen Bildung,de,intfloat/multilingual-e5-small,7,019db01b-f059-743c-8a3e-802545d8ed5b,Kulturnacht Flensburg 27,0.84785235,content,,0.05232967998017557
+q02,Angebote zur kulturellen Bildung,de,intfloat/multilingual-e5-small,8,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.84781253,content,,0.05232967998017557
+q02,Angebote zur kulturellen Bildung,de,intfloat/multilingual-e5-small,9,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.84776145,content,,0.05232967998017557
+q02,Angebote zur kulturellen Bildung,de,intfloat/multilingual-e5-small,10,019dce5e-3d70-7e44-9f1e-d59ab4013fd6,K26 Kulturtræf,0.8460233,content,,0.05232967998017557
+q03,barrierefreie Veranstaltungen,de,intfloat/multilingual-e5-small,1,01a05c60-d7d5-7197-84da-a18469bce542,Disco für alle,0.8882456,content,,0.05445081999641843
+q03,barrierefreie Veranstaltungen,de,intfloat/multilingual-e5-small,2,019daf9b-da9a-7524-9b5c-0f77457ab198,Deich ohne Schafe?,0.8631354,accessibility,,0.05445081999641843
+q03,barrierefreie Veranstaltungen,de,intfloat/multilingual-e5-small,3,019dafca-d731-7476-8e4c-49231d67e882,Katzen-Kratz-Traum,0.8631354,accessibility,,0.05445081999641843
+q03,barrierefreie Veranstaltungen,de,intfloat/multilingual-e5-small,4,019df20e-4efc-7c01-8c4a-8880af01f14a,triaden tiraden,0.8631354,accessibility,,0.05445081999641843
+q03,barrierefreie Veranstaltungen,de,intfloat/multilingual-e5-small,5,019e2bbb-892a-7482-a463-bb1da6b27ee5,SHOWER,0.8631354,accessibility,,0.05445081999641843
+q03,barrierefreie Veranstaltungen,de,intfloat/multilingual-e5-small,6,019e84a4-d625-79fa-99f6-ca653015e6e1,Liquid Bodies,0.8631354,accessibility,,0.05445081999641843
+q03,barrierefreie Veranstaltungen,de,intfloat/multilingual-e5-small,7,019eac66-4cca-7934-aeae-1dfcf2b5990d,Take Care & Stay Safe,0.8631354,accessibility,,0.05445081999641843
+q03,barrierefreie Veranstaltungen,de,intfloat/multilingual-e5-small,8,01a05c86-8cf0-7d1c-9446-75b5997dec6d,Passt das Gefühl? - Pilkentafel.dasEnsemble,0.8631354,accessibility,,0.05445081999641843
+q03,barrierefreie Veranstaltungen,de,intfloat/multilingual-e5-small,9,01a05ca5-c01f-7946-ab28-e8da21c39172,"Spucken wir auf Hegel! - Barletti, Waas",0.8631354,accessibility,,0.05445081999641843
+q03,barrierefreie Veranstaltungen,de,intfloat/multilingual-e5-small,10,01a05cc3-f200-72ad-99cf-db5ad55a3a56,"GRIND / ANDERS - Wennerberg, Burgess / Franzke",0.8631354,accessibility,,0.05445081999641843
+q04,Veranstaltungen mit Anmeldung,de,intfloat/multilingual-e5-small,1,019e00e2-c2d9-7717-8d5f-f79f870e81cb,Circus Ubuntu,0.853446,participation,,0.05646688200067729
+q04,Veranstaltungen mit Anmeldung,de,intfloat/multilingual-e5-small,2,019f1ce8-55d2-70fd-af88-b9916c78e8bf,Alte Post Weihnachtsbrunch,0.85268605,tickets,,0.05646688200067729
+q04,Veranstaltungen mit Anmeldung,de,intfloat/multilingual-e5-small,3,019f1cf2-d00e-7015-b339-3a9f8ef1a6f8,Alte Post Silvester Buffet & Party,0.85173833,tickets,,0.05646688200067729
+q04,Veranstaltungen mit Anmeldung,de,intfloat/multilingual-e5-small,4,019f1cf8-a328-7a27-ac4b-dc857a710943,Alte Post Silvester Party,0.8515691,tickets,,0.05646688200067729
+q04,Veranstaltungen mit Anmeldung,de,intfloat/multilingual-e5-small,5,01a0201f-5f06-7983-9497-62b4745a36a4,Faire Woche 2026 Flensburg,0.85154366,content,,0.05646688200067729
+q04,Veranstaltungen mit Anmeldung,de,intfloat/multilingual-e5-small,6,019eb5e3-5e29-72dc-8cac-3fcbceb3307b,Filmvorführung: Verwundene Fäden,0.8498309,content,,0.05646688200067729
+q04,Veranstaltungen mit Anmeldung,de,intfloat/multilingual-e5-small,7,019f1ce1-38ae-7507-856d-2747bf2b92d1,Alte Post Heiligabendmenü,0.8488449,tickets,,0.05646688200067729
+q04,Veranstaltungen mit Anmeldung,de,intfloat/multilingual-e5-small,8,019e6df1-b798-7db1-bd65-ca7bd04e91bc,La.tina,0.8481836,content,,0.05646688200067729
+q04,Veranstaltungen mit Anmeldung,de,intfloat/multilingual-e5-small,9,019fa788-c906-72f0-88b0-73fc0a83ff11,Offene Bühne,0.84642303,content,,0.05646688200067729
+q04,Veranstaltungen mit Anmeldung,de,intfloat/multilingual-e5-small,10,019daaf4-ec73-785c-9b93-fdef83ecc9f2,Gemeinsam Schach,0.84447116,content,,0.05646688200067729
+q05,Sprachkurse,de,intfloat/multilingual-e5-small,1,01a06ade-f5ed-7571-9630-854d88fec839,Schnupperkurs Plattdeutsch,0.8626695,content,,0.05171459598932415
+q05,Sprachkurse,de,intfloat/multilingual-e5-small,2,01a05c86-8ce5-72a9-8298-af9ec0859a12,Let`s talk - have fun!,0.8555339,content,,0.05171459598932415
+q05,Sprachkurse,de,intfloat/multilingual-e5-small,3,019fe1dc-d55d-7fb4-96ff-5bd5c1441978,Russisch lernen,0.8511485,content,,0.05171459598932415
+q05,Sprachkurse,de,intfloat/multilingual-e5-small,4,019fe206-af8d-7f3a-acf8-f8d4650642c6,Dänisch für leicht Fortgeschrittene,0.8500775,content,,0.05171459598932415
+q05,Sprachkurse,de,intfloat/multilingual-e5-small,5,019fe1f8-79fa-7ccf-af26-935c68985969,Dänisch für Anfänger,0.8489382,content,,0.05171459598932415
+q05,Sprachkurse,de,intfloat/multilingual-e5-small,6,01a01992-35de-7772-a160-c9ced10ad334,Atempause,0.84408176,content,,0.05171459598932415
+q05,Sprachkurse,de,intfloat/multilingual-e5-small,7,01a076d4-bb19-7207-9a7b-11d9e2e1092c,Dänisch für Anfänger,0.84343636,content,,0.05171459598932415
+q05,Sprachkurse,de,intfloat/multilingual-e5-small,8,019e6df1-b798-7db1-bd65-ca7bd04e91bc,La.tina,0.8420347,content,,0.05171459598932415
+q05,Sprachkurse,de,intfloat/multilingual-e5-small,9,019fe605-f6a8-7a49-80cd-f4a529892f9c,Kompaktkurs: Dänisch für Anfänger,0.8398446,content,,0.05171459598932415
+q05,Sprachkurse,de,intfloat/multilingual-e5-small,10,01a01e38-c6e7-755c-96fc-4dd2a0e07cfb,MOSAIK Meet & Talk,0.8391789,content,,0.05171459598932415
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,intfloat/multilingual-e5-small,1,019ed93e-2d76-7731-b228-371aa3b00009,Nachhaltigkeitsmarkt,0.8830224,content,,0.06020889198407531
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,intfloat/multilingual-e5-small,2,01a0201f-5f06-7983-9497-62b4745a36a4,Faire Woche 2026 Flensburg,0.8584794,content,,0.06020889198407531
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,intfloat/multilingual-e5-small,3,01a0613a-cef5-74ba-a509-7888bdf2ede5,Lebensraum Ostsee,0.8529137,content,,0.06020889198407531
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,intfloat/multilingual-e5-small,4,01a05c25-eda0-7271-a363-bd05c959f5ef,Veredeln statt Verschwenden,0.8493782,content,,0.06020889198407531
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,intfloat/multilingual-e5-small,5,01a08b8a-4ef6-7a9d-906f-1c04bee729ba,Kleines Faires Fest,0.8460179,content,,0.06020889198407531
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,intfloat/multilingual-e5-small,6,01a042e9-cf5a-7252-aff4-043771488e9c,Kulturtag: Glücksburger Tiny House – Kurzführung & Besichtigung,0.8441371,content,,0.06020889198407531
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,intfloat/multilingual-e5-small,7,01a0c997-26d8-72e7-985f-dc4318bb8b7a,"Faires Frühstück: ""Ausgezeichnet"" essen in netter Runde",0.84060013,content,,0.06020889198407531
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,intfloat/multilingual-e5-small,8,019ed180-c4b5-7e7c-8bb2-04fc477659a5,Klimapark,0.8387729,content,,0.06020889198407531
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,intfloat/multilingual-e5-small,9,019dc61d-7b39-789e-a72b-60233be76b85,Wo soll das alles hin?,0.8378233,content,,0.06020889198407531
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,intfloat/multilingual-e5-small,10,019eba56-fe7d-79dc-9683-d2eac4ebb2f1,Parkfest im Christiansenpark,0.83551747,content,,0.06020889198407531
+q07,Angebote für Kinder,de,intfloat/multilingual-e5-small,1,01a06706-305c-7c57-8dbf-3cd8f132a2e2,Kinder Disco,0.86511725,content,,0.0520531419897452
+q07,Angebote für Kinder,de,intfloat/multilingual-e5-small,2,01a0a4ad-661d-78f8-8433-929d5642e2f4,Babysitter Führerschein,0.8595979,content,,0.0520531419897452
+q07,Angebote für Kinder,de,intfloat/multilingual-e5-small,3,019ed933-b377-7a8e-aa05-2ecf6ef5acc0,Bauen mit Lehm,0.8570847,content,,0.0520531419897452
+q07,Angebote für Kinder,de,intfloat/multilingual-e5-small,4,01a0a8e7-94ad-7c44-9fcc-d782a8c28ede,Kinderatelier,0.8558307,content,,0.0520531419897452
+q07,Angebote für Kinder,de,intfloat/multilingual-e5-small,5,01a019aa-f4b6-7b40-9d5a-093185d77609,Zwergentreff,0.8548982,content,,0.0520531419897452
+q07,Angebote für Kinder,de,intfloat/multilingual-e5-small,6,019ed14a-2c7d-793d-b633-edff2e3c3320,Walk `n`Talk,0.8540219,content,,0.0520531419897452
+q07,Angebote für Kinder,de,intfloat/multilingual-e5-small,7,019daafb-5a19-7560-8dea-c1104a05fc2b,Spieletreff,0.85175127,content,,0.0520531419897452
+q07,Angebote für Kinder,de,intfloat/multilingual-e5-small,8,01a01964-403b-7845-a873-dbdb2ba3b8b1,Familienküche,0.85069716,content,,0.0520531419897452
+q07,Angebote für Kinder,de,intfloat/multilingual-e5-small,9,019eb683-7f8b-79bc-b8da-aa956ed6b03c,Zwergentreff,0.8505575,content,,0.0520531419897452
+q07,Angebote für Kinder,de,intfloat/multilingual-e5-small,10,019e1574-ab7e-70a9-804b-28c513a1b141,Jonglierworkshop,0.8498854,content,,0.0520531419897452
+q08,Veranstaltungen für Seniorinnen und Senioren,de,intfloat/multilingual-e5-small,1,019fefdb-e8a2-781a-af3a-9e7a5a44674e,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.8689314,content,,0.06027434498537332
+q08,Veranstaltungen für Seniorinnen und Senioren,de,intfloat/multilingual-e5-small,2,019ff005-bbca-76a5-be56-08b216efaf38,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.8686085,content,,0.06027434498537332
+q08,Veranstaltungen für Seniorinnen und Senioren,de,intfloat/multilingual-e5-small,3,019feffb-1e38-7aac-8b56-d5bb841bd67f,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.8678725,content,,0.06027434498537332
+q08,Veranstaltungen für Seniorinnen und Senioren,de,intfloat/multilingual-e5-small,4,019feff6-d7b3-74d1-af77-0358d6808104,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.8667639,content,,0.06027434498537332
+q08,Veranstaltungen für Seniorinnen und Senioren,de,intfloat/multilingual-e5-small,5,019feff3-23c3-7f80-902d-4793d56d6934,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.86592793,content,,0.06027434498537332
+q08,Veranstaltungen für Seniorinnen und Senioren,de,intfloat/multilingual-e5-small,6,019fefcb-f888-7db1-94c7-4a8780f67e8f,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.86575294,content,,0.06027434498537332
+q08,Veranstaltungen für Seniorinnen und Senioren,de,intfloat/multilingual-e5-small,7,019ff003-6c95-750a-ab07-93ec40632936,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.8643528,content,,0.06027434498537332
+q08,Veranstaltungen für Seniorinnen und Senioren,de,intfloat/multilingual-e5-small,8,019fefd9-0306-7639-ae29-c9cc196e1720,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.8635895,content,,0.06027434498537332
+q08,Veranstaltungen für Seniorinnen und Senioren,de,intfloat/multilingual-e5-small,9,01a0189b-1103-714a-b36a-71412c1291f5,Tanzabend mit „2 Beat’s“ in der Schloßsee Senioren Residenz,0.86347723,content,,0.06027434498537332
+q08,Veranstaltungen für Seniorinnen und Senioren,de,intfloat/multilingual-e5-small,10,019ff008-e35c-7be2-8a32-eda589b67810,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.8628222,content,,0.06027434498537332
+q09,Veranstaltungen mit Treffpunkt,de,intfloat/multilingual-e5-small,1,019dd805-5eef-7120-afba-14e688b30b50,Tag der Städtebauförderung,0.8821094,participation,,0.059556497988523915
+q09,Veranstaltungen mit Treffpunkt,de,intfloat/multilingual-e5-small,2,019feff6-d7b3-74d1-af77-0358d6808104,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.8599815,content,,0.059556497988523915
+q09,Veranstaltungen mit Treffpunkt,de,intfloat/multilingual-e5-small,3,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.85802066,participation,,0.059556497988523915
+q09,Veranstaltungen mit Treffpunkt,de,intfloat/multilingual-e5-small,4,01a019aa-f4b6-7b40-9d5a-093185d77609,Zwergentreff,0.8527807,content,,0.059556497988523915
+q09,Veranstaltungen mit Treffpunkt,de,intfloat/multilingual-e5-small,5,01a0b3a8-2867-7bde-91b6-a751f405e8a9,Volkstrauertag Kranzniederlegung,0.85028446,participation,,0.059556497988523915
+q09,Veranstaltungen mit Treffpunkt,de,intfloat/multilingual-e5-small,6,01a02334-8068-7851-9a0b-dcb70f7407d0,Interreligiöser Dialog,0.8495074,content,,0.059556497988523915
+q09,Veranstaltungen mit Treffpunkt,de,intfloat/multilingual-e5-small,7,019fefd5-329c-7251-9bd9-2f491ac6918c,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.84879756,content,,0.059556497988523915
+q09,Veranstaltungen mit Treffpunkt,de,intfloat/multilingual-e5-small,8,01a0ce07-298c-7dd9-aaa4-962bf123b43f,Drachenfest,0.8485837,participation,,0.059556497988523915
+q09,Veranstaltungen mit Treffpunkt,de,intfloat/multilingual-e5-small,9,019fefdb-e8a2-781a-af3a-9e7a5a44674e,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.8477534,content,,0.059556497988523915
+q09,Veranstaltungen mit Treffpunkt,de,intfloat/multilingual-e5-small,10,019ff005-bbca-76a5-be56-08b216efaf38,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.8477389,content,,0.059556497988523915
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,intfloat/multilingual-e5-small,1,019ee559-db27-77c5-8b2f-1c81bc937b9b,scheitern.dreitausend & Das Aus Der Jugend,0.8752836,tickets,,0.05542402499122545
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,intfloat/multilingual-e5-small,2,01a03fb8-b834-7e84-91c9-e6a3e039fd90,Vorhang auf!,0.8752117,tickets,,0.05542402499122545
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,intfloat/multilingual-e5-small,3,01a067af-dddf-733c-aaf7-833c05c7c126,Zeichnen im Museum,0.87516034,tickets,,0.05542402499122545
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,intfloat/multilingual-e5-small,4,019eef69-f640-7f17-957a-f94420c03048,Albino Brothers,0.87492085,tickets,,0.05542402499122545
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,intfloat/multilingual-e5-small,5,019e98ca-c4a6-7a4e-b2d1-dc59db1fcea3,Sego,0.87419486,tickets,,0.05542402499122545
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,intfloat/multilingual-e5-small,6,019db542-ea38-7270-8561-9315abdf2307,Angora Club & Knietenbrink & Cosmo Thunder,0.87203056,tickets,,0.05542402499122545
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,intfloat/multilingual-e5-small,7,019dcb28-a464-74bd-bd67-0fdfdfdb03a6,SVIN,0.8707809,tickets,,0.05542402499122545
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,intfloat/multilingual-e5-small,8,019ec6aa-3d5d-77e3-89d7-093c9166445d,Warmbluetig,0.8700105,tickets,,0.05542402499122545
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,intfloat/multilingual-e5-small,9,019f1767-6e7e-7183-b14c-14f2f635eafc,Silent Disco,0.8699442,tickets,,0.05542402499122545
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,intfloat/multilingual-e5-small,10,01a06beb-e3a3-7e9a-bc62-bf794be8e297,Antike Mythen,0.86927783,tickets,,0.05542402499122545
+q11,Veranstaltungen im Freien,de,intfloat/multilingual-e5-small,1,01a0201f-5f06-7983-9497-62b4745a36a4,Faire Woche 2026 Flensburg,0.85236704,content,,0.05875203901086934
+q11,Veranstaltungen im Freien,de,intfloat/multilingual-e5-small,2,01a01927-b48f-72c9-bda2-d49e1e77d2ff,Konzert 'The Big Guns',0.8493756,content,,0.05875203901086934
+q11,Veranstaltungen im Freien,de,intfloat/multilingual-e5-small,3,01a0ce07-298c-7dd9-aaa4-962bf123b43f,Drachenfest,0.8460382,participation,,0.05875203901086934
+q11,Veranstaltungen im Freien,de,intfloat/multilingual-e5-small,4,01a03065-d6d2-7137-9c94-ce354ad17cb4,Radio Fratz Soli Party,0.845785,content,,0.05875203901086934
+q11,Veranstaltungen im Freien,de,intfloat/multilingual-e5-small,5,01a08b8a-4ef6-7a9d-906f-1c04bee729ba,Kleines Faires Fest,0.84562075,content,,0.05875203901086934
+q11,Veranstaltungen im Freien,de,intfloat/multilingual-e5-small,6,019fad3e-baec-74ad-844a-a475316c55ee,Husum Ahoi! Nr. 5,0.8435584,content,,0.05875203901086934
+q11,Veranstaltungen im Freien,de,intfloat/multilingual-e5-small,7,019eb5e3-5e29-72dc-8cac-3fcbceb3307b,Filmvorführung: Verwundene Fäden,0.84206605,content,,0.05875203901086934
+q11,Veranstaltungen im Freien,de,intfloat/multilingual-e5-small,8,019e6382-ca19-7f89-90e4-13b5ba2c4cd2,Sommer im Garten,0.84119755,content,,0.05875203901086934
+q11,Veranstaltungen im Freien,de,intfloat/multilingual-e5-small,9,019e00e2-c2d9-7717-8d5f-f79f870e81cb,Circus Ubuntu,0.84038925,participation,,0.05875203901086934
+q11,Veranstaltungen im Freien,de,intfloat/multilingual-e5-small,10,01a03fc9-338d-74d8-a24c-124adeb6e8e5,Tag der offenen Tür,0.83993834,content,,0.05875203901086934
+q12,Integration und Migration,de,intfloat/multilingual-e5-small,1,01a02334-8068-7851-9a0b-dcb70f7407d0,Interreligiöser Dialog,0.8449532,content,,0.05123084899969399
+q12,Integration und Migration,de,intfloat/multilingual-e5-small,2,019db91a-89d5-7c5a-90ae-7596e488a1eb,Digitale Teilhabe – gemeinsam vernetzt,0.83721125,content,,0.05123084899969399
+q12,Integration und Migration,de,intfloat/multilingual-e5-small,3,01a057d9-f610-750f-93ec-e2ddfac534c6,Hamza Howidy/Judith Poppe: Muscheln am Strand von Gaza,0.8371694,content,,0.05123084899969399
+q12,Integration und Migration,de,intfloat/multilingual-e5-small,4,01a05cdc-aaf1-741c-8f01-0b8b1dbe2c82,Memokratie. Soziale Medien und autoritäre Bildpolitik - Wolfgang Ullrich,0.83655953,content,,0.05123084899969399
+q12,Integration und Migration,de,intfloat/multilingual-e5-small,5,019fd167-b370-71f5-9e3b-53cc95f5262a,Flensburg fühlt die Mobilitätswende,0.83138704,content,,0.05123084899969399
+q12,Integration und Migration,de,intfloat/multilingual-e5-small,6,01a042a6-7817-7f0e-acaa-671052605969,Kultur_Seminar: Digitale und Analoge Sichtbarkeit,0.8303509,content,,0.05123084899969399
+q12,Integration und Migration,de,intfloat/multilingual-e5-small,7,019f54ef-75df-7aee-851b-d3cd83db4a02,Wohin mit mir?,0.82891345,content,,0.05123084899969399
+q12,Integration und Migration,de,intfloat/multilingual-e5-small,8,01a01444-7520-7624-839c-046df141eeae,"""Weg sein"" - Ein Literatur- und Theaterprojekt für Jugendliche ab 12 Jahren",0.82845473,content,,0.05123084899969399
+q12,Integration und Migration,de,intfloat/multilingual-e5-small,9,01a05c25-eda0-7271-a363-bd05c959f5ef,Veredeln statt Verschwenden,0.82809085,content,,0.05123084899969399
+q12,Integration und Migration,de,intfloat/multilingual-e5-small,10,01a06740-e026-7b1c-bee7-8a7cd4f861b7,Viel wichtiger ist jetzt die Gegenwart - Marie-Louise Monrad Møller,0.8248524,content,,0.05123084899969399
+q13,queere Kultur,de,intfloat/multilingual-e5-small,1,01a05e11-54dd-7132-9fa1-93b61b7d86db,Electronic Movement,0.8523121,content,,0.05342237002332695
+q13,queere Kultur,de,intfloat/multilingual-e5-small,2,01a042a6-7817-7f0e-acaa-671052605969,Kultur_Seminar: Digitale und Analoge Sichtbarkeit,0.8501035,content,,0.05342237002332695
+q13,queere Kultur,de,intfloat/multilingual-e5-small,3,01a07c1e-9327-7b85-8773-94000ec92317,Jonas Kjeldgaard Sørensen,0.8500103,content,,0.05342237002332695
+q13,queere Kultur,de,intfloat/multilingual-e5-small,4,019f5a6c-2703-7fdd-b09f-87f4572de163,Simon & Jan,0.8479743,content,,0.05342237002332695
+q13,queere Kultur,de,intfloat/multilingual-e5-small,5,01a05e1a-4877-73d2-97b1-3984ff3c58bb,Hells Kitchen Wrestling,0.845258,content,,0.05342237002332695
+q13,queere Kultur,de,intfloat/multilingual-e5-small,6,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.84394526,additional,,0.05342237002332695
+q13,queere Kultur,de,intfloat/multilingual-e5-small,7,019df20e-4efc-7c01-8c4a-8880af01f14a,triaden tiraden,0.84383434,content,,0.05342237002332695
+q13,queere Kultur,de,intfloat/multilingual-e5-small,8,019e262e-5660-76c8-93cc-c7736848b4d3,KulturRotation 143,0.84209514,content,,0.05342237002332695
+q13,queere Kultur,de,intfloat/multilingual-e5-small,9,019fefa1-5f68-7833-a6f2-c65db96a81aa,"Cultural-Pearl-Kulturtag: Ein gedeckter Tisch für Geschichten, Kaffee und Gespräche in der Auferstehungskirche Glücksburg",0.8420195,content,,0.05342237002332695
+q13,queere Kultur,de,intfloat/multilingual-e5-small,10,019dd89e-f434-7cbd-bc59-60d3c7bda536,KuRD 2026,0.84160733,additional,,0.05342237002332695
+q14,lokale Geschichte,de,intfloat/multilingual-e5-small,1,01a03ef6-e8ea-77d6-8504-552e1fa5ac9e,Postkolonialer Stadtrundgang,0.8229106,content,,0.05473388099926524
+q14,lokale Geschichte,de,intfloat/multilingual-e5-small,2,019f51e6-0f87-7ca2-80df-2b87533dcebd,"Kein Freund, Kein Helfer - Lorenz und die Einzelfälle",0.8228316,content,,0.05473388099926524
+q14,lokale Geschichte,de,intfloat/multilingual-e5-small,3,01a05ca5-c01f-7946-ab28-e8da21c39172,"Spucken wir auf Hegel! - Barletti, Waas",0.82126755,content,,0.05473388099926524
+q14,lokale Geschichte,de,intfloat/multilingual-e5-small,4,019e897f-3791-7ae7-baa4-0c239e013031,Steps in Time,0.81976604,content,,0.05473388099926524
+q14,lokale Geschichte,de,intfloat/multilingual-e5-small,5,01a0b372-036f-70e8-a59e-e6ff2fc9a0c8,Demokratie zum Mitlachen!,0.81812024,content,,0.05473388099926524
+q14,lokale Geschichte,de,intfloat/multilingual-e5-small,6,019f1cf8-a328-7a27-ac4b-dc857a710943,Alte Post Silvester Party,0.81790674,additional,,0.05473388099926524
+q14,lokale Geschichte,de,intfloat/multilingual-e5-small,7,019e6df1-b798-7db1-bd65-ca7bd04e91bc,La.tina,0.8173605,content,,0.05473388099926524
+q14,lokale Geschichte,de,intfloat/multilingual-e5-small,8,01a0201f-5f06-7983-9497-62b4745a36a4,Faire Woche 2026 Flensburg,0.8163769,content,,0.05473388099926524
+q14,lokale Geschichte,de,intfloat/multilingual-e5-small,9,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.81522256,additional,,0.05473388099926524
+q14,lokale Geschichte,de,intfloat/multilingual-e5-small,10,019df20e-4efc-7c01-8c4a-8880af01f14a,triaden tiraden,0.8149886,content,,0.05473388099926524
+q15,Kunst zum Mitmachen,de,intfloat/multilingual-e5-small,1,01a056e5-98c0-7203-8a1b-39c78dd18f52,Kunst im Norden,0.86451876,content,,0.06314880700665526
+q15,Kunst zum Mitmachen,de,intfloat/multilingual-e5-small,2,01a0bad2-8447-79e3-bca8-108384330135,kunstkur.park,0.86105597,content,,0.06314880700665526
+q15,Kunst zum Mitmachen,de,intfloat/multilingual-e5-small,3,019e74ab-6059-7266-808f-03fb6ac4ed93,Kunsthandwerk Markt,0.86054325,content,,0.06314880700665526
+q15,Kunst zum Mitmachen,de,intfloat/multilingual-e5-small,4,01a08aea-d3d8-7113-b313-3c8f7b6609d9,Kulturtag im Atelier Kreativecke,0.8599467,participation,,0.06314880700665526
+q15,Kunst zum Mitmachen,de,intfloat/multilingual-e5-small,5,019fe6e6-b3ef-7fa1-8cdc-e40a58503f26,Abstraktes malen im Schrebergarten,0.85086,content,,0.06314880700665526
+q15,Kunst zum Mitmachen,de,intfloat/multilingual-e5-small,6,01a0a3a8-40fb-7528-8371-bc0431487b2a,Lav jeres eget våbenskjold,0.8505277,participation,,0.06314880700665526
+q15,Kunst zum Mitmachen,de,intfloat/multilingual-e5-small,7,01a02334-8068-7851-9a0b-dcb70f7407d0,Interreligiöser Dialog,0.8503022,content,,0.06314880700665526
+q15,Kunst zum Mitmachen,de,intfloat/multilingual-e5-small,8,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.849712,content,,0.06314880700665526
+q15,Kunst zum Mitmachen,de,intfloat/multilingual-e5-small,9,019e03bb-3970-748f-a12d-ece11bf1d52a,Muss durch die Tür passen,0.84961164,content,,0.06314880700665526
+q15,Kunst zum Mitmachen,de,intfloat/multilingual-e5-small,10,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.8483486,content,,0.06314880700665526
+q16,soziale Teilhabe,de,intfloat/multilingual-e5-small,1,019db91a-89d5-7c5a-90ae-7596e488a1eb,Digitale Teilhabe – gemeinsam vernetzt,0.8523093,content,,0.053220821981085464
+q16,soziale Teilhabe,de,intfloat/multilingual-e5-small,2,019f4599-ab08-7868-9f97-8e84eb84aea2,Digitaltag 2027,0.84004927,content,,0.053220821981085464
+q16,soziale Teilhabe,de,intfloat/multilingual-e5-small,3,019f4608-8996-72e3-9d34-0544db82c659,Arne Semsrott: Gegenmacht,0.83856463,content,,0.053220821981085464
+q16,soziale Teilhabe,de,intfloat/multilingual-e5-small,4,01a05c60-d7d5-7197-84da-a18469bce542,Disco für alle,0.83175015,content,,0.053220821981085464
+q16,soziale Teilhabe,de,intfloat/multilingual-e5-small,5,01a0201f-5f06-7983-9497-62b4745a36a4,Faire Woche 2026 Flensburg,0.83079034,content,,0.053220821981085464
+q16,soziale Teilhabe,de,intfloat/multilingual-e5-small,6,019f1ce8-55d2-70fd-af88-b9916c78e8bf,Alte Post Weihnachtsbrunch,0.82915664,additional,,0.053220821981085464
+q16,soziale Teilhabe,de,intfloat/multilingual-e5-small,7,01a01ec7-237d-70b6-8065-0d7355b9a151,MOSAIK Kompetenztauschbörse,0.8290935,content,,0.053220821981085464
+q16,soziale Teilhabe,de,intfloat/multilingual-e5-small,8,019e4012-88b5-7213-904a-654dd9f1bb42,Mittwochsdisco,0.82858306,content,,0.053220821981085464
+q16,soziale Teilhabe,de,intfloat/multilingual-e5-small,9,019f1cf2-d00e-7015-b339-3a9f8ef1a6f8,Alte Post Silvester Buffet & Party,0.8281531,additional,,0.053220821981085464
+q16,soziale Teilhabe,de,intfloat/multilingual-e5-small,10,019f54ef-75df-7aee-851b-d3cd83db4a02,Wohin mit mir?,0.82739484,content,,0.053220821981085464
+q17,Musikveranstaltungen draußen,de,intfloat/multilingual-e5-small,1,019e1d20-4160-770d-aacc-0427d867f8cb,Midsommar Splash!,0.867098,content,,0.054378714004997164
+q17,Musikveranstaltungen draußen,de,intfloat/multilingual-e5-small,2,01a07758-c058-778a-9dc1-0a06d0512382,Scheersberg Music Night,0.86572844,content,,0.054378714004997164
+q17,Musikveranstaltungen draußen,de,intfloat/multilingual-e5-small,3,01a02f3b-b84e-753e-be5d-855b3a67bab3,"2. Flensburger Stummelum mit Smobar, flimr, Neurodiverdänce uvm.",0.85930717,content,,0.054378714004997164
+q17,Musikveranstaltungen draußen,de,intfloat/multilingual-e5-small,4,019e6382-ca19-7f89-90e4-13b5ba2c4cd2,Sommer im Garten,0.8579623,content,,0.054378714004997164
+q17,Musikveranstaltungen draußen,de,intfloat/multilingual-e5-small,5,019f1767-6e7e-7183-b14c-14f2f635eafc,Silent Disco,0.8537034,content,,0.054378714004997164
+q17,Musikveranstaltungen draußen,de,intfloat/multilingual-e5-small,6,01a0c8fb-4bbe-75e8-9d61-0c380229b121,NORDEN – The Nordic Arts Festival,0.84915954,content,,0.054378714004997164
+q17,Musikveranstaltungen draußen,de,intfloat/multilingual-e5-small,7,01a0679b-6b3a-7451-bfd4-b6af84d9cbf3,Vinyl Stories,0.8459266,content,,0.054378714004997164
+q17,Musikveranstaltungen draußen,de,intfloat/multilingual-e5-small,8,019eb0af-94d0-728f-8f11-1e6d7d17c835,Pink & White Sunset BBQ,0.8453201,content,,0.054378714004997164
+q17,Musikveranstaltungen draußen,de,intfloat/multilingual-e5-small,9,019f170c-b283-77f0-8d06-6213cc7bb327,AYOM,0.84504277,content,,0.054378714004997164
+q17,Musikveranstaltungen draußen,de,intfloat/multilingual-e5-small,10,019f1cc7-18f1-778d-89c5-5d6bd29717f4,Hautnah,0.8439159,content,,0.054378714004997164
+q18,Veranstaltungen für Jugendliche,de,intfloat/multilingual-e5-small,1,01a0a921-f23e-7e72-be8f-bdf44719f914,Jugendatelier,0.85964394,content,,0.04895218400633894
+q18,Veranstaltungen für Jugendliche,de,intfloat/multilingual-e5-small,2,01a08b8a-4ef6-7a9d-906f-1c04bee729ba,Kleines Faires Fest,0.85795414,content,,0.04895218400633894
+q18,Veranstaltungen für Jugendliche,de,intfloat/multilingual-e5-small,3,01a0201f-5f06-7983-9497-62b4745a36a4,Faire Woche 2026 Flensburg,0.8548403,content,,0.04895218400633894
+q18,Veranstaltungen für Jugendliche,de,intfloat/multilingual-e5-small,4,01a06706-305c-7c57-8dbf-3cd8f132a2e2,Kinder Disco,0.84704834,content,,0.04895218400633894
+q18,Veranstaltungen für Jugendliche,de,intfloat/multilingual-e5-small,5,019e54c7-070d-7702-a60a-259ae56633cc,Förde Vibes mit Yourdaughters,0.84402066,content,,0.04895218400633894
+q18,Veranstaltungen für Jugendliche,de,intfloat/multilingual-e5-small,6,019e1574-ab7e-70a9-804b-28c513a1b141,Jonglierworkshop,0.843428,content,,0.04895218400633894
+q18,Veranstaltungen für Jugendliche,de,intfloat/multilingual-e5-small,7,019e6df1-b798-7db1-bd65-ca7bd04e91bc,La.tina,0.84180725,content,,0.04895218400633894
+q18,Veranstaltungen für Jugendliche,de,intfloat/multilingual-e5-small,8,019daafb-5a19-7560-8dea-c1104a05fc2b,Spieletreff,0.83982027,content,,0.04895218400633894
+q18,Veranstaltungen für Jugendliche,de,intfloat/multilingual-e5-small,9,019ee559-db27-77c5-8b2f-1c81bc937b9b,scheitern.dreitausend & Das Aus Der Jugend,0.8395601,content,,0.04895218400633894
+q18,Veranstaltungen für Jugendliche,de,intfloat/multilingual-e5-small,10,01a02334-8068-7851-9a0b-dcb70f7407d0,Interreligiöser Dialog,0.8388371,content,,0.04895218400633894
+q19,Dänische Kultur und Begegnungen in Dänemark,de,intfloat/multilingual-e5-small,1,019dce5e-3d70-7e44-9f1e-d59ab4013fd6,K26 Kulturtræf,0.8747747,content,,0.05796037398977205
+q19,Dänische Kultur und Begegnungen in Dänemark,de,intfloat/multilingual-e5-small,2,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.86091137,content,,0.05796037398977205
+q19,Dänische Kultur und Begegnungen in Dänemark,de,intfloat/multilingual-e5-small,3,01a02334-8068-7851-9a0b-dcb70f7407d0,Interreligiöser Dialog,0.84912246,content,,0.05796037398977205
+q19,Dänische Kultur und Begegnungen in Dänemark,de,intfloat/multilingual-e5-small,4,01a06740-e026-7b1c-bee7-8a7cd4f861b7,Viel wichtiger ist jetzt die Gegenwart - Marie-Louise Monrad Møller,0.84829843,content,,0.05796037398977205
+q19,Dänische Kultur und Begegnungen in Dänemark,de,intfloat/multilingual-e5-small,5,01a042a6-7817-7f0e-acaa-671052605969,Kultur_Seminar: Digitale und Analoge Sichtbarkeit,0.84751356,content,,0.05796037398977205
+q19,Dänische Kultur und Begegnungen in Dänemark,de,intfloat/multilingual-e5-small,6,019fd175-d107-7127-90eb-f50049e7d64a,Finissage des Skulpturenprojekts „BLICKWEIT – Skulpturen für den Norden“ von Robert Schad,0.84682035,content,,0.05796037398977205
+q19,Dänische Kultur und Begegnungen in Dänemark,de,intfloat/multilingual-e5-small,7,01a05e11-54dd-7132-9fa1-93b61b7d86db,Electronic Movement,0.8458762,content,,0.05796037398977205
+q19,Dänische Kultur und Begegnungen in Dänemark,de,intfloat/multilingual-e5-small,8,019e5584-a0b8-7c8d-be46-4a364449c464,Die Riesin und ihr Topf,0.84363306,content,,0.05796037398977205
+q19,Dänische Kultur und Begegnungen in Dänemark,de,intfloat/multilingual-e5-small,9,019f1759-de58-7d02-9da4-3bb3d0efe427,Søren Bebe Trio,0.8432555,content,,0.05796037398977205
+q19,Dänische Kultur und Begegnungen in Dänemark,de,intfloat/multilingual-e5-small,10,01a06712-22d6-784f-b6c8-8dd5953d76c5,Männer rollen - Merle | Mischke | Klee,0.84142447,content,,0.05796037398977205
+q20,Workshops für gemeinsames kreatives Arbeiten,de,intfloat/multilingual-e5-small,1,019ea6dd-bfe7-730a-97ec-9ff343cb6ce9,Malkreis Glücksburg,0.85538375,content,,0.05433925098623149
+q20,Workshops für gemeinsames kreatives Arbeiten,de,intfloat/multilingual-e5-small,2,01a01eb4-ee40-7bcd-b0d4-85a510474cae,MOSAIK Themen-Treffen,0.8533785,content,,0.05433925098623149
+q20,Workshops für gemeinsames kreatives Arbeiten,de,intfloat/multilingual-e5-small,3,01a08aea-d3d8-7113-b313-3c8f7b6609d9,Kulturtag im Atelier Kreativecke,0.8516758,content,,0.05433925098623149
+q20,Workshops für gemeinsames kreatives Arbeiten,de,intfloat/multilingual-e5-small,4,01a01964-a134-71de-92af-419fdb24348a,Kreativ im Skizzenbuch - Collagen kleben,0.8510567,content,,0.05433925098623149
+q20,Workshops für gemeinsames kreatives Arbeiten,de,intfloat/multilingual-e5-small,5,01a019af-9251-780c-9c4a-b1e7d40b88eb,Kreativ im Skizzenbuch - Malen zur Entspannung,0.8507694,content,,0.05433925098623149
+q20,Workshops für gemeinsames kreatives Arbeiten,de,intfloat/multilingual-e5-small,6,019dab00-b596-705a-85cf-53889c2f643d,kreativ:treff,0.8507209,content,,0.05433925098623149
+q20,Workshops für gemeinsames kreatives Arbeiten,de,intfloat/multilingual-e5-small,7,01a01952-9d9c-762e-afd0-86a2c38c40af,Kreativ im Skizzenbuch - Achtsames Zeichnen,0.8506409,content,,0.05433925098623149
+q20,Workshops für gemeinsames kreatives Arbeiten,de,intfloat/multilingual-e5-small,8,01a056e5-98c0-7203-8a1b-39c78dd18f52,Kunst im Norden,0.8493829,content,,0.05433925098623149
+q20,Workshops für gemeinsames kreatives Arbeiten,de,intfloat/multilingual-e5-small,9,019d5f3a-de7e-780a-9fa0-dc24e5545e2e,Communitytreffen,0.8485043,content,,0.05433925098623149
+q20,Workshops für gemeinsames kreatives Arbeiten,de,intfloat/multilingual-e5-small,10,019f19b5-7503-754a-980c-5feafc43e2af,Pflegende Naturkosmetika und Heikräuter,0.8483219,content,,0.05433925098623149
+q21,Gratis arrangementer for familier,da,intfloat/multilingual-e5-small,1,01a0a3a8-40fb-7528-8371-bc0431487b2a,Lav jeres eget våbenskjold,0.85897464,participation,,0.04928434800240211
+q21,Gratis arrangementer for familier,da,intfloat/multilingual-e5-small,2,019db61e-a230-7e9b-a02a-8d59e4662280,Gården Festival,0.8518218,content,,0.04928434800240211
+q21,Gratis arrangementer for familier,da,intfloat/multilingual-e5-small,3,019db3f7-2e4c-7582-a8d2-bfe0cc44eac9,Sommerfest på biblioteket,0.82974637,content,,0.04928434800240211
+q21,Gratis arrangementer for familier,da,intfloat/multilingual-e5-small,4,01a07c26-8f40-70bc-ac84-7347d066867f,IZHAV (S),0.829715,content,,0.04928434800240211
+q21,Gratis arrangementer for familier,da,intfloat/multilingual-e5-small,5,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.8276385,content,,0.04928434800240211
+q21,Gratis arrangementer for familier,da,intfloat/multilingual-e5-small,6,019e5e75-be89-78b2-b574-cf5f9fa4b090,ORDRIG,0.8274659,content,,0.04928434800240211
+q21,Gratis arrangementer for familier,da,intfloat/multilingual-e5-small,7,019daa4c-cdfc-7895-8c03-855852da0ed5,Rumregatta,0.8250735,tickets,,0.04928434800240211
+q21,Gratis arrangementer for familier,da,intfloat/multilingual-e5-small,8,019dbded-ece7-783d-8d5f-562cd9680deb,Innere Gefährten,0.8250735,tickets,,0.04928434800240211
+q21,Gratis arrangementer for familier,da,intfloat/multilingual-e5-small,9,019dc9c4-0c91-7d53-932d-1a1a3cda1d4d,European Future Talks,0.8250735,tickets,,0.04928434800240211
+q21,Gratis arrangementer for familier,da,intfloat/multilingual-e5-small,10,019dd805-5eef-7120-afba-14e688b30b50,Tag der Städtebauförderung,0.8250735,tickets,,0.04928434800240211
+q22,Sprogkurser i Tyskland,da,intfloat/multilingual-e5-small,1,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.8529138,content,,0.05069111700868234
+q22,Sprogkurser i Tyskland,da,intfloat/multilingual-e5-small,2,019f6f71-4e72-7e7e-ae19-4af80ce85e75,Girls in Airports,0.84117985,content,,0.05069111700868234
+q22,Sprogkurser i Tyskland,da,intfloat/multilingual-e5-small,3,01a07c1e-9327-7b85-8773-94000ec92317,Jonas Kjeldgaard Sørensen,0.8380407,content,,0.05069111700868234
+q22,Sprogkurser i Tyskland,da,intfloat/multilingual-e5-small,4,019fe206-af8d-7f3a-acf8-f8d4650642c6,Dänisch für leicht Fortgeschrittene,0.8378428,content,,0.05069111700868234
+q22,Sprogkurser i Tyskland,da,intfloat/multilingual-e5-small,5,019e98f8-d046-7cb0-b050-949f1b8f8a65,Thorbjørn Risager & The Black Tornado,0.8360121,content,,0.05069111700868234
+q22,Sprogkurser i Tyskland,da,intfloat/multilingual-e5-small,6,019e96cd-c324-70bc-8027-f9ebd3ee27d4,Sange fra Livet med Anders Agger (Udsolgt!),0.8357483,content,,0.05069111700868234
+q22,Sprogkurser i Tyskland,da,intfloat/multilingual-e5-small,7,019fe1f8-79fa-7ccf-af26-935c68985969,Dänisch für Anfänger,0.83324945,content,,0.05069111700868234
+q22,Sprogkurser i Tyskland,da,intfloat/multilingual-e5-small,8,019dcefa-5fd1-703e-b3a1-7d05e5f62298,Julekoncert med Árstíðir,0.8326786,content,,0.05069111700868234
+q22,Sprogkurser i Tyskland,da,intfloat/multilingual-e5-small,9,019e5e75-be89-78b2-b574-cf5f9fa4b090,ORDRIG,0.83149534,content,,0.05069111700868234
+q22,Sprogkurser i Tyskland,da,intfloat/multilingual-e5-small,10,01a0a3c7-7953-7d51-b367-c54178cb6484,Cinéclub - Fransk filmklub,0.83128,content,,0.05069111700868234
+q23,Tilgængelige kulturarrangementer,da,intfloat/multilingual-e5-small,1,01a07c26-8f40-70bc-ac84-7347d066867f,IZHAV (S),0.8484361,content,,0.05278936299146153
+q23,Tilgængelige kulturarrangementer,da,intfloat/multilingual-e5-small,2,019e96cd-c324-70bc-8027-f9ebd3ee27d4,Sange fra Livet med Anders Agger (Udsolgt!),0.84488404,content,,0.05278936299146153
+q23,Tilgængelige kulturarrangementer,da,intfloat/multilingual-e5-small,3,019dbea3-5ef3-7993-8d67-e71dcdfc138f,"Peter Sommer, Katrine Muff, Palle Hjorth",0.84361255,content,,0.05278936299146153
+q23,Tilgængelige kulturarrangementer,da,intfloat/multilingual-e5-small,4,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.8422047,content,,0.05278936299146153
+q23,Tilgængelige kulturarrangementer,da,intfloat/multilingual-e5-small,5,019e697c-73c5-736f-a39d-336168669e5a,Moskitto Bar (CAN),0.84043616,content,,0.05278936299146153
+q23,Tilgængelige kulturarrangementer,da,intfloat/multilingual-e5-small,6,019dcefa-5fd1-703e-b3a1-7d05e5f62298,Julekoncert med Árstíðir,0.8398081,content,,0.05278936299146153
+q23,Tilgængelige kulturarrangementer,da,intfloat/multilingual-e5-small,7,019e5e75-be89-78b2-b574-cf5f9fa4b090,ORDRIG,0.8397025,content,,0.05278936299146153
+q23,Tilgængelige kulturarrangementer,da,intfloat/multilingual-e5-small,8,019e6980-4faa-7cdd-a84c-e4322581fc1f,Dinesen & Sanz Quarte,0.8368486,content,,0.05278936299146153
+q23,Tilgængelige kulturarrangementer,da,intfloat/multilingual-e5-small,9,01a07c1e-9327-7b85-8773-94000ec92317,Jonas Kjeldgaard Sørensen,0.8361745,content,,0.05278936299146153
+q23,Tilgængelige kulturarrangementer,da,intfloat/multilingual-e5-small,10,019e1fc9-166f-73bd-92f7-8e9343d9eaf4,Anja Jacobsen,0.83562243,content,,0.05278936299146153
+q24,Arrangementer om bæredygtighed,da,intfloat/multilingual-e5-small,1,019f5b8b-fdab-7bb9-b567-2119e7f30d8e,Sunbörn,0.84174144,content,,0.04954736100626178
+q24,Arrangementer om bæredygtighed,da,intfloat/multilingual-e5-small,2,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.8345825,content,,0.04954736100626178
+q24,Arrangementer om bæredygtighed,da,intfloat/multilingual-e5-small,3,019f02f3-a079-7e64-b317-362f9ee1c378,Sange fra Livet med Søren Ryge Petersen,0.83419186,content,,0.04954736100626178
+q24,Arrangementer om bæredygtighed,da,intfloat/multilingual-e5-small,4,019e5e75-be89-78b2-b574-cf5f9fa4b090,ORDRIG,0.83412963,content,,0.04954736100626178
+q24,Arrangementer om bæredygtighed,da,intfloat/multilingual-e5-small,5,019e1fc9-166f-73bd-92f7-8e9343d9eaf4,Anja Jacobsen,0.83406234,content,,0.04954736100626178
+q24,Arrangementer om bæredygtighed,da,intfloat/multilingual-e5-small,6,019e96cd-c324-70bc-8027-f9ebd3ee27d4,Sange fra Livet med Anders Agger (Udsolgt!),0.83310246,content,,0.04954736100626178
+q24,Arrangementer om bæredygtighed,da,intfloat/multilingual-e5-small,7,01a07c1e-9327-7b85-8773-94000ec92317,Jonas Kjeldgaard Sørensen,0.8328378,content,,0.04954736100626178
+q24,Arrangementer om bæredygtighed,da,intfloat/multilingual-e5-small,8,019e4ed2-da33-7492-a83d-81fac1e6282e,Carl Emil Carlsen,0.83145034,content,,0.04954736100626178
+q24,Arrangementer om bæredygtighed,da,intfloat/multilingual-e5-small,9,019dbea3-5ef3-7993-8d67-e71dcdfc138f,"Peter Sommer, Katrine Muff, Palle Hjorth",0.8306446,content,,0.04954736100626178
+q24,Arrangementer om bæredygtighed,da,intfloat/multilingual-e5-small,10,01a0b3a8-2867-7bde-91b6-a751f405e8a9,Volkstrauertag Kranzniederlegung,0.82777214,participation,,0.04954736100626178
+q25,Musik under åben himmel,da,intfloat/multilingual-e5-small,1,019dbea3-5ef3-7993-8d67-e71dcdfc138f,"Peter Sommer, Katrine Muff, Palle Hjorth",0.8568145,content,,0.051071339985355735
+q25,Musik under åben himmel,da,intfloat/multilingual-e5-small,2,019e1fc9-166f-73bd-92f7-8e9343d9eaf4,Anja Jacobsen,0.85068583,content,,0.051071339985355735
+q25,Musik under åben himmel,da,intfloat/multilingual-e5-small,3,019f6f71-4e72-7e7e-ae19-4af80ce85e75,Girls in Airports,0.8489597,content,,0.051071339985355735
+q25,Musik under åben himmel,da,intfloat/multilingual-e5-small,4,01a07c26-8f40-70bc-ac84-7347d066867f,IZHAV (S),0.8456181,content,,0.051071339985355735
+q25,Musik under åben himmel,da,intfloat/multilingual-e5-small,5,019e697c-73c5-736f-a39d-336168669e5a,Moskitto Bar (CAN),0.84350544,content,,0.051071339985355735
+q25,Musik under åben himmel,da,intfloat/multilingual-e5-small,6,019e6977-7a5c-7584-922d-4baf3ec3ac9a,Nymalet,0.8430494,content,,0.051071339985355735
+q25,Musik under åben himmel,da,intfloat/multilingual-e5-small,7,019f5b8b-fdab-7bb9-b567-2119e7f30d8e,Sunbörn,0.8406841,content,,0.051071339985355735
+q25,Musik under åben himmel,da,intfloat/multilingual-e5-small,8,019f02f3-a079-7e64-b317-362f9ee1c378,Sange fra Livet med Søren Ryge Petersen,0.8405083,content,,0.051071339985355735
+q25,Musik under åben himmel,da,intfloat/multilingual-e5-small,9,019dcefa-5fd1-703e-b3a1-7d05e5f62298,Julekoncert med Árstíðir,0.84035575,content,,0.051071339985355735
+q25,Musik under åben himmel,da,intfloat/multilingual-e5-small,10,019e4eca-5346-7956-8365-e8d68f56068e,Alawari,0.83924365,content,,0.051071339985355735
+q26,Free family activities in Germany and Denmark,en,intfloat/multilingual-e5-small,1,019dc9c4-0c91-7d53-932d-1a1a3cda1d4d,European Future Talks,0.8339519,content,,0.05207841002265923
+q26,Free family activities in Germany and Denmark,en,intfloat/multilingual-e5-small,2,019f17e8-61d1-7cc6-b5a0-b79013a7c6b6,Deniz & Ove,0.8228004,content,,0.05207841002265923
+q26,Free family activities in Germany and Denmark,en,intfloat/multilingual-e5-small,3,019eb5e3-5e29-72dc-8cac-3fcbceb3307b,Filmvorführung: Verwundene Fäden,0.8185061,content,,0.05207841002265923
+q26,Free family activities in Germany and Denmark,en,intfloat/multilingual-e5-small,4,019eb719-75cb-749e-be9c-fab9c5b5636f,Speed-Dating - Kultur trifft Politik,0.8183241,tickets,,0.05207841002265923
+q26,Free family activities in Germany and Denmark,en,intfloat/multilingual-e5-small,5,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.8178431,tickets,,0.05207841002265923
+q26,Free family activities in Germany and Denmark,en,intfloat/multilingual-e5-small,6,019daa4c-cdfc-7895-8c03-855852da0ed5,Rumregatta,0.8178431,tickets,,0.05207841002265923
+q26,Free family activities in Germany and Denmark,en,intfloat/multilingual-e5-small,7,019dbded-ece7-783d-8d5f-562cd9680deb,Innere Gefährten,0.8178431,tickets,,0.05207841002265923
+q26,Free family activities in Germany and Denmark,en,intfloat/multilingual-e5-small,8,019dd805-5eef-7120-afba-14e688b30b50,Tag der Städtebauförderung,0.8178431,tickets,,0.05207841002265923
+q26,Free family activities in Germany and Denmark,en,intfloat/multilingual-e5-small,9,019dd89e-f434-7cbd-bc59-60d3c7bda536,KuRD 2026,0.8178431,tickets,,0.05207841002265923
+q26,Free family activities in Germany and Denmark,en,intfloat/multilingual-e5-small,10,019e3c6b-3288-7065-b3d7-c8ef60bff177,OstseeMan,0.8178431,tickets,,0.05207841002265923
+q27,Accessible events requiring registration,en,intfloat/multilingual-e5-small,1,019dce5e-3d70-7e44-9f1e-d59ab4013fd6,K26 Kulturtræf,0.83856726,tickets,,0.05372943700058386
+q27,Accessible events requiring registration,en,intfloat/multilingual-e5-small,2,019db91a-89d5-7c5a-90ae-7596e488a1eb,Digitale Teilhabe – gemeinsam vernetzt,0.8354912,tickets,,0.05372943700058386
+q27,Accessible events requiring registration,en,intfloat/multilingual-e5-small,3,019e5599-9ac3-7c7d-98b5-7cc6388a1ece,Eins zwei drei vier Eckstein,0.8308313,tickets,,0.05372943700058386
+q27,Accessible events requiring registration,en,intfloat/multilingual-e5-small,4,01a08aea-d3d8-7113-b313-3c8f7b6609d9,Kulturtag im Atelier Kreativecke,0.8277841,accessibility,,0.05372943700058386
+q27,Accessible events requiring registration,en,intfloat/multilingual-e5-small,5,01a08d89-d6b6-789f-a175-65ff2d2a8268,Porzellan bemalen,0.8277841,accessibility,,0.05372943700058386
+q27,Accessible events requiring registration,en,intfloat/multilingual-e5-small,6,019e6977-7a5c-7584-922d-4baf3ec3ac9a,Nymalet,0.8262892,participation,,0.05372943700058386
+q27,Accessible events requiring registration,en,intfloat/multilingual-e5-small,7,019e6e14-3709-7c21-acfc-74e3ee09bff8,Konzert vom JugO und dem Miniorchester,0.8209884,participation,,0.05372943700058386
+q27,Accessible events requiring registration,en,intfloat/multilingual-e5-small,8,019e5584-a0b8-7c8d-be46-4a364449c464,Die Riesin und ihr Topf,0.8191388,tickets,,0.05372943700058386
+q27,Accessible events requiring registration,en,intfloat/multilingual-e5-small,9,019e5590-85ea-7912-b1bc-294a2950d78e,"Du, ich, wir!",0.8191388,tickets,,0.05372943700058386
+q27,Accessible events requiring registration,en,intfloat/multilingual-e5-small,10,019e55b1-f420-790b-8390-3c563cce6612,Maskenball der Tiere,0.8191388,tickets,,0.05372943700058386
+q28,Language classes and cultural education,en,intfloat/multilingual-e5-small,1,019dd89e-f434-7cbd-bc59-60d3c7bda536,KuRD 2026,0.8259343,additional,,0.05026327399536967
+q28,Language classes and cultural education,en,intfloat/multilingual-e5-small,2,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.8159696,content,,0.05026327399536967
+q28,Language classes and cultural education,en,intfloat/multilingual-e5-small,3,01a00ef9-aa7e-7d6e-b7d6-ca7fb23d0b1e,Schule trifft Kultur: Kulturelle Bildung in der Region Rendsburg stärken,0.81593055,content,,0.05026327399536967
+q28,Language classes and cultural education,en,intfloat/multilingual-e5-small,4,01a042a6-7817-7f0e-acaa-671052605969,Kultur_Seminar: Digitale und Analoge Sichtbarkeit,0.80764216,content,,0.05026327399536967
+q28,Language classes and cultural education,en,intfloat/multilingual-e5-small,5,01a0b3a8-2867-7bde-91b6-a751f405e8a9,Volkstrauertag Kranzniederlegung,0.80537975,participation,,0.05026327399536967
+q28,Language classes and cultural education,en,intfloat/multilingual-e5-small,6,019eb719-75cb-749e-be9c-fab9c5b5636f,Speed-Dating - Kultur trifft Politik,0.8052674,tickets,,0.05026327399536967
+q28,Language classes and cultural education,en,intfloat/multilingual-e5-small,7,019dce5e-3d70-7e44-9f1e-d59ab4013fd6,K26 Kulturtræf,0.8016183,tickets,,0.05026327399536967
+q28,Language classes and cultural education,en,intfloat/multilingual-e5-small,8,019db91a-89d5-7c5a-90ae-7596e488a1eb,Digitale Teilhabe – gemeinsam vernetzt,0.7990247,content,,0.05026327399536967
+q28,Language classes and cultural education,en,intfloat/multilingual-e5-small,9,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.7967156,participation,,0.05026327399536967
+q28,Language classes and cultural education,en,intfloat/multilingual-e5-small,10,019eb5e3-5e29-72dc-8cac-3fcbceb3307b,Filmvorführung: Verwundene Fäden,0.79618084,content,,0.05026327399536967
+q29,Participatory art workshops for young people,en,intfloat/multilingual-e5-small,1,01a0b3a8-2867-7bde-91b6-a751f405e8a9,Volkstrauertag Kranzniederlegung,0.8188094,participation,,0.05725500002154149
+q29,Participatory art workshops for young people,en,intfloat/multilingual-e5-small,2,01a0a921-f23e-7e72-be8f-bdf44719f914,Jugendatelier,0.81875753,content,,0.05725500002154149
+q29,Participatory art workshops for young people,en,intfloat/multilingual-e5-small,3,01a0a3a8-40fb-7528-8371-bc0431487b2a,Lav jeres eget våbenskjold,0.81474215,participation,,0.05725500002154149
+q29,Participatory art workshops for young people,en,intfloat/multilingual-e5-small,4,019e6977-7a5c-7584-922d-4baf3ec3ac9a,Nymalet,0.813713,participation,,0.05725500002154149
+q29,Participatory art workshops for young people,en,intfloat/multilingual-e5-small,5,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.81220996,participation,,0.05725500002154149
+q29,Participatory art workshops for young people,en,intfloat/multilingual-e5-small,6,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.8114288,content,,0.05725500002154149
+q29,Participatory art workshops for young people,en,intfloat/multilingual-e5-small,7,019ddf0a-df3f-7ec6-a866-b639b90b8710,Lia L. Shoshann,0.8108405,tickets,,0.05725500002154149
+q29,Participatory art workshops for young people,en,intfloat/multilingual-e5-small,8,019eb5e3-5e29-72dc-8cac-3fcbceb3307b,Filmvorführung: Verwundene Fäden,0.8108405,tickets,,0.05725500002154149
+q29,Participatory art workshops for young people,en,intfloat/multilingual-e5-small,9,019eb5f2-356f-72b2-9bf0-5967d0fd97e6,Ginevra Lamberti: Das Wasser wiegt schwerer als die Zeit,0.8108405,tickets,,0.05725500002154149
+q29,Participatory art workshops for young people,en,intfloat/multilingual-e5-small,10,01a03065-d6d2-7137-9c94-ce354ad17cb4,Radio Fratz Soli Party,0.8108405,tickets,,0.05725500002154149
+q30,Local history and social inclusion,en,intfloat/multilingual-e5-small,1,01a0b3a8-2867-7bde-91b6-a751f405e8a9,Volkstrauertag Kranzniederlegung,0.8262106,participation,,0.04814411798724905
+q30,Local history and social inclusion,en,intfloat/multilingual-e5-small,2,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.80611634,participation,,0.04814411798724905
+q30,Local history and social inclusion,en,intfloat/multilingual-e5-small,3,019eb719-75cb-749e-be9c-fab9c5b5636f,Speed-Dating - Kultur trifft Politik,0.80510235,tickets,,0.04814411798724905
+q30,Local history and social inclusion,en,intfloat/multilingual-e5-small,4,019dd89e-f434-7cbd-bc59-60d3c7bda536,KuRD 2026,0.8015685,additional,,0.04814411798724905
+q30,Local history and social inclusion,en,intfloat/multilingual-e5-small,5,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.8012157,additional,,0.04814411798724905
+q30,Local history and social inclusion,en,intfloat/multilingual-e5-small,6,019db91a-89d5-7c5a-90ae-7596e488a1eb,Digitale Teilhabe – gemeinsam vernetzt,0.80090755,tickets,,0.04814411798724905
+q30,Local history and social inclusion,en,intfloat/multilingual-e5-small,7,019ddf0a-df3f-7ec6-a866-b639b90b8710,Lia L. Shoshann,0.8006064,tickets,,0.04814411798724905
+q30,Local history and social inclusion,en,intfloat/multilingual-e5-small,8,019e6e14-3709-7c21-acfc-74e3ee09bff8,Konzert vom JugO und dem Miniorchester,0.8006064,tickets,,0.04814411798724905
+q30,Local history and social inclusion,en,intfloat/multilingual-e5-small,9,019eb5e3-5e29-72dc-8cac-3fcbceb3307b,Filmvorführung: Verwundene Fäden,0.8006064,tickets,,0.04814411798724905
+q30,Local history and social inclusion,en,intfloat/multilingual-e5-small,10,019eb5f2-356f-72b2-9bf0-5967d0fd97e6,Ginevra Lamberti: Das Wasser wiegt schwerer als die Zeit,0.8006064,tickets,,0.04814411798724905

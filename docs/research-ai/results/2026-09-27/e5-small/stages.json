@@ -1,0 +1,367 @@
+{
+  "plan-10": {
+    "snapshot_at": "2026-09-27T09:25:49.573446+00:00",
+    "events_total": 576,
+    "events_selected": 10,
+    "complete_snapshot": false,
+    "model": "intfloat/multilingual-e5-small",
+    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_e5_small",
+    "license": "MIT",
+    "area_assignment_available": false,
+    "corpus_hash": "05af488be575db8d103953d089e5ffd8c6e398f1e29b45d52bcd0d89076565eb",
+    "chunks": 22,
+    "new": 6,
+    "updated": 16,
+    "metadata_updated": 0,
+    "unchanged": 0,
+    "deleted": 6
+  },
+  "plan-100": {
+    "snapshot_at": "2026-09-27T09:26:13.915315+00:00",
+    "events_total": 576,
+    "events_selected": 100,
+    "complete_snapshot": false,
+    "model": "intfloat/multilingual-e5-small",
+    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_e5_small",
+    "license": "MIT",
+    "area_assignment_available": false,
+    "corpus_hash": "037e1a523a06ecc495f418f64734e8c748dacc5efb78ae78b84f9f9644224f72",
+    "chunks": 186,
+    "new": 31,
+    "updated": 133,
+    "metadata_updated": 0,
+    "unchanged": 22,
+    "deleted": 31
+  },
+  "plan-full": {
+    "snapshot_at": "2026-09-27T09:27:09.910945+00:00",
+    "events_total": 576,
+    "events_selected": 576,
+    "complete_snapshot": true,
+    "model": "intfloat/multilingual-e5-small",
+    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_e5_small",
+    "license": "MIT",
+    "area_assignment_available": false,
+    "corpus_hash": "1f612dfc4058ef28ae92b16f338f9f1ab09e9d788b0e8adff7d1f62b11cf33a6",
+    "chunks": 1126,
+    "new": 940,
+    "updated": 0,
+    "metadata_updated": 0,
+    "unchanged": 186,
+    "deleted": 0
+  },
+  "reconcile-repeat": {
+    "snapshot_at": "2026-09-27T09:31:44.086597+00:00",
+    "events_total": 576,
+    "events_selected": 576,
+    "complete_snapshot": true,
+    "model": "intfloat/multilingual-e5-small",
+    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_e5_small",
+    "license": "MIT",
+    "area_assignment_available": false,
+    "corpus_hash": "1f612dfc4058ef28ae92b16f338f9f1ab09e9d788b0e8adff7d1f62b11cf33a6",
+    "chunks": 1126,
+    "new": 0,
+    "updated": 0,
+    "metadata_updated": 0,
+    "unchanged": 1126,
+    "deleted": 0,
+    "metrics": {
+      "wall_seconds": 0.004563521011732519,
+      "embedding_seconds": 0.0,
+      "embedded_chunks": 0,
+      "embedded_events": 0,
+      "chunks_per_second": 0.0,
+      "events_per_second": 0.0,
+      "encoder_cpu_seconds": 0,
+      "encoder_peak_rss_bytes": 0
+    },
+    "collection": {
+      "status": "green",
+      "optimizer_status": "ok",
+      "indexed_vectors_count": 0,
+      "points_count": 1126,
+      "segments_count": 2,
+      "config": {
+        "params": {
+          "vectors": {
+            "size": 384,
+            "distance": "Cosine",
+            "on_disk": true
+          },
+          "shard_number": 1,
+          "replication_factor": 1,
+          "write_consistency_factor": 1,
+          "on_disk_payload": true
+        },
+        "hnsw_config": {
+          "m": 16,
+          "ef_construct": 100,
+          "full_scan_threshold": 10000,
+          "max_indexing_threads": 1,
+          "on_disk": false
+        },
+        "optimizer_config": {
+          "deleted_threshold": 0.2,
+          "vacuum_min_vector_number": 1000,
+          "default_segment_number": 0,
+          "max_segment_size": null,
+          "memmap_threshold": null,
+          "indexing_threshold": 10000,
+          "flush_interval_sec": 5,
+          "max_optimization_threads": 1,
+          "prevent_unoptimized": null
+        },
+        "wal_config": {
+          "wal_capacity_mb": 32,
+          "wal_segments_ahead": 0,
+          "wal_retain_closed": 1
+        },
+        "quantization_config": null
+      },
+      "payload_schema": {},
+      "update_queue": {
+        "length": 0
+      }
+    }
+  },
+  "sync-10": {
+    "snapshot_at": "2026-09-27T09:26:02.296012+00:00",
+    "events_total": 576,
+    "events_selected": 10,
+    "complete_snapshot": false,
+    "model": "intfloat/multilingual-e5-small",
+    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_e5_small",
+    "license": "MIT",
+    "area_assignment_available": false,
+    "corpus_hash": "05af488be575db8d103953d089e5ffd8c6e398f1e29b45d52bcd0d89076565eb",
+    "chunks": 22,
+    "new": 6,
+    "updated": 16,
+    "metadata_updated": 0,
+    "unchanged": 0,
+    "deleted": 6,
+    "metrics": {
+      "wall_seconds": 5.790047899005003,
+      "embedding_seconds": 5.6963294930174015,
+      "embedded_chunks": 22,
+      "embedded_events": 10,
+      "chunks_per_second": 3.7996231436670174,
+      "events_per_second": 1.7271014289395534,
+      "encoder_cpu_seconds": 11.078101423,
+      "encoder_peak_rss_bytes": 982286336
+    },
+    "collection": {
+      "status": "green",
+      "optimizer_status": "ok",
+      "indexed_vectors_count": 0,
+      "points_count": 186,
+      "segments_count": 2,
+      "config": {
+        "params": {
+          "vectors": {
+            "size": 384,
+            "distance": "Cosine",
+            "on_disk": true
+          },
+          "shard_number": 1,
+          "replication_factor": 1,
+          "write_consistency_factor": 1,
+          "on_disk_payload": true
+        },
+        "hnsw_config": {
+          "m": 16,
+          "ef_construct": 100,
+          "full_scan_threshold": 10000,
+          "max_indexing_threads": 1,
+          "on_disk": false
+        },
+        "optimizer_config": {
+          "deleted_threshold": 0.2,
+          "vacuum_min_vector_number": 1000,
+          "default_segment_number": 0,
+          "max_segment_size": null,
+          "memmap_threshold": null,
+          "indexing_threshold": 10000,
+          "flush_interval_sec": 5,
+          "max_optimization_threads": 1,
+          "prevent_unoptimized": null
+        },
+        "wal_config": {
+          "wal_capacity_mb": 32,
+          "wal_segments_ahead": 0,
+          "wal_retain_closed": 1
+        },
+        "quantization_config": null
+      },
+      "payload_schema": {},
+      "update_queue": {
+        "length": 0
+      }
+    }
+  },
+  "sync-100": {
+    "snapshot_at": "2026-09-27T09:26:17.171610+00:00",
+    "events_total": 576,
+    "events_selected": 100,
+    "complete_snapshot": false,
+    "model": "intfloat/multilingual-e5-small",
+    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_e5_small",
+    "license": "MIT",
+    "area_assignment_available": false,
+    "corpus_hash": "037e1a523a06ecc495f418f64734e8c748dacc5efb78ae78b84f9f9644224f72",
+    "chunks": 186,
+    "new": 31,
+    "updated": 133,
+    "metadata_updated": 0,
+    "unchanged": 22,
+    "deleted": 31,
+    "metrics": {
+      "wall_seconds": 45.158684655005345,
+      "embedding_seconds": 44.39395652592066,
+      "embedded_chunks": 164,
+      "embedded_events": 90,
+      "chunks_per_second": 3.6316381057795577,
+      "events_per_second": 1.992972131220489,
+      "encoder_cpu_seconds": 85.87875886499992,
+      "encoder_peak_rss_bytes": 1181478912
+    },
+    "collection": {
+      "status": "green",
+      "optimizer_status": "ok",
+      "indexed_vectors_count": 0,
+      "points_count": 186,
+      "segments_count": 2,
+      "config": {
+        "params": {
+          "vectors": {
+            "size": 384,
+            "distance": "Cosine",
+            "on_disk": true
+          },
+          "shard_number": 1,
+          "replication_factor": 1,
+          "write_consistency_factor": 1,
+          "on_disk_payload": true
+        },
+        "hnsw_config": {
+          "m": 16,
+          "ef_construct": 100,
+          "full_scan_threshold": 10000,
+          "max_indexing_threads": 1,
+          "on_disk": false
+        },
+        "optimizer_config": {
+          "deleted_threshold": 0.2,
+          "vacuum_min_vector_number": 1000,
+          "default_segment_number": 0,
+          "max_segment_size": null,
+          "memmap_threshold": null,
+          "indexing_threshold": 10000,
+          "flush_interval_sec": 5,
+          "max_optimization_threads": 1,
+          "prevent_unoptimized": null
+        },
+        "wal_config": {
+          "wal_capacity_mb": 32,
+          "wal_segments_ahead": 0,
+          "wal_retain_closed": 1
+        },
+        "quantization_config": null
+      },
+      "payload_schema": {},
+      "update_queue": {
+        "length": 0
+      }
+    }
+  },
+  "sync-full": {
+    "snapshot_at": "2026-09-27T09:27:21.838759+00:00",
+    "events_total": 576,
+    "events_selected": 576,
+    "complete_snapshot": true,
+    "model": "intfloat/multilingual-e5-small",
+    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "document_schema_version": "event-public-v1",
+    "collection_name": "uranus_bench_events_e5_small",
+    "license": "MIT",
+    "area_assignment_available": false,
+    "corpus_hash": "1f612dfc4058ef28ae92b16f338f9f1ab09e9d788b0e8adff7d1f62b11cf33a6",
+    "chunks": 1126,
+    "new": 940,
+    "updated": 0,
+    "metadata_updated": 0,
+    "unchanged": 186,
+    "deleted": 0,
+    "metrics": {
+      "wall_seconds": 235.8023335809994,
+      "embedding_seconds": 231.43329612287926,
+      "embedded_chunks": 940,
+      "embedded_events": 476,
+      "chunks_per_second": 3.986389726194566,
+      "events_per_second": 2.0186399039027805,
+      "encoder_cpu_seconds": 444.75357603700087,
+      "encoder_peak_rss_bytes": 1297825792
+    },
+    "collection": {
+      "status": "green",
+      "optimizer_status": "ok",
+      "indexed_vectors_count": 0,
+      "points_count": 1126,
+      "segments_count": 2,
+      "config": {
+        "params": {
+          "vectors": {
+            "size": 384,
+            "distance": "Cosine",
+            "on_disk": true
+          },
+          "shard_number": 1,
+          "replication_factor": 1,
+          "write_consistency_factor": 1,
+          "on_disk_payload": true
+        },
+        "hnsw_config": {
+          "m": 16,
+          "ef_construct": 100,
+          "full_scan_threshold": 10000,
+          "max_indexing_threads": 1,
+          "on_disk": false
+        },
+        "optimizer_config": {
+          "deleted_threshold": 0.2,
+          "vacuum_min_vector_number": 1000,
+          "default_segment_number": 0,
+          "max_segment_size": null,
+          "memmap_threshold": null,
+          "indexing_threshold": 10000,
+          "flush_interval_sec": 5,
+          "max_optimization_threads": 1,
+          "prevent_unoptimized": null
+        },
+        "wal_config": {
+          "wal_capacity_mb": 32,
+          "wal_segments_ahead": 0,
+          "wal_retain_closed": 1
+        },
+        "quantization_config": null
+      },
+      "payload_schema": {},
+      "update_queue": {
+        "length": 0
+      }
+    }
+  }
+}
