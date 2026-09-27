@@ -72,6 +72,13 @@ not exhaustive corpus relevance or recall. No winner without real judgments.
 
 See [operations](operations.md) for exact reproducible commands and artifact paths.
 
+## Recorded pilot results
+
+The [2026-09-27 measurements](results/2026-09-27/README.md) contain the model
+comparison, stage timings, resource usage, verification results and all Top10
+CSV/JSON exports. They distinguish retrieval measurements from still-unjudged
+relevance and record the exact document/model provenance.
+
 ## Interpreting the pilot
 
 A semantic match for “kostenlos”, “barrierefrei” or “mit Anmeldung” is **not** a
@@ -80,3 +87,10 @@ claims; a later research planner should combine retrieval with explicit filters.
 The first six queries were executed and their Top10 titles/scores/unique identities
 inspected, but no title-only relevance grades were invented. Same-title rows can be
 different source events; deduplication is by stable event ID, never by title.
+
+Long-event ticket/accessibility chunks do not automatically repeat the event title.
+Shared boilerplate can therefore produce identical vectors and tied scores across
+different events. Max-score aggregation preserves these hits; the exported winning
+chunk kind makes them reviewable. Parent-context repetition or alternative chunk
+aggregation would need a separately versioned, measured follow-up, not an assumed
+quality improvement applied after this benchmark.

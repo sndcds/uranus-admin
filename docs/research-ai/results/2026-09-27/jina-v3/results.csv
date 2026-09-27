@@ -1,0 +1,301 @@
+query_id,query,language,event_language,model,rank,entity_id,event_title,score,chunk_kind,manual_relevance,query_latency_seconds
+q01,kostenlose Veranstaltungen für Familien,de,,jinaai/jina-embeddings-v3,1,01a019aa-f4b6-7b40-9d5a-093185d77609,Zwergentreff,0.554674,content,,0.4437365990015678
+q01,kostenlose Veranstaltungen für Familien,de,,jinaai/jina-embeddings-v3,2,019eb683-7f8b-79bc-b8da-aa956ed6b03c,Zwergentreff,0.5104254,content,,0.4437365990015678
+q01,kostenlose Veranstaltungen für Familien,de,,jinaai/jina-embeddings-v3,3,01a014cb-6efb-776a-b6b0-97ca03ecf986,Frühstücksschnack,0.4850803,content,,0.4437365990015678
+q01,kostenlose Veranstaltungen für Familien,de,de,jinaai/jina-embeddings-v3,4,019f07bc-6405-7969-9413-34f2e19f4d02,Punk meets Metal,0.46412623,content,,0.4437365990015678
+q01,kostenlose Veranstaltungen für Familien,de,,jinaai/jina-embeddings-v3,5,01a01964-403b-7845-a873-dbdb2ba3b8b1,Familienküche,0.4582682,content,,0.4437365990015678
+q01,kostenlose Veranstaltungen für Familien,de,de,jinaai/jina-embeddings-v3,6,019f17e8-61d1-7cc6-b5a0-b79013a7c6b6,Deniz & Ove,0.4533534,content,,0.4437365990015678
+q01,kostenlose Veranstaltungen für Familien,de,de,jinaai/jina-embeddings-v3,7,01a01992-35de-7772-a160-c9ced10ad334,Atempause,0.44541413,content,,0.4437365990015678
+q01,kostenlose Veranstaltungen für Familien,de,de,jinaai/jina-embeddings-v3,8,01a08b8a-4ef6-7a9d-906f-1c04bee729ba,Kleines Faires Fest,0.429536,content,,0.4437365990015678
+q01,kostenlose Veranstaltungen für Familien,de,de,jinaai/jina-embeddings-v3,9,01a0197b-12ee-7456-b766-02f354834af2,Themenabend: Familienleben in der Autonomiephase,0.41771904,content,,0.4437365990015678
+q01,kostenlose Veranstaltungen für Familien,de,,jinaai/jina-embeddings-v3,10,019f21e0-09f2-7117-a1e2-09a05763485d,DLRG Strandfest,0.41226178,content,,0.4437365990015678
+q02,Angebote zur kulturellen Bildung,de,,jinaai/jina-embeddings-v3,1,01a00ef9-aa7e-7d6e-b7d6-ca7fb23d0b1e,Schule trifft Kultur: Kulturelle Bildung in der Region Rendsburg stärken,0.55111086,content,,0.4844368839985691
+q02,Angebote zur kulturellen Bildung,de,,jinaai/jina-embeddings-v3,2,01a042a6-7817-7f0e-acaa-671052605969,Kultur_Seminar: Digitale und Analoge Sichtbarkeit,0.4235103,content,,0.4844368839985691
+q02,Angebote zur kulturellen Bildung,de,de,jinaai/jina-embeddings-v3,3,019e63f7-ebeb-7952-9304-e496b02e3588,Cultural Pearl Kulturtag,0.41712677,content,,0.4844368839985691
+q02,Angebote zur kulturellen Bildung,de,de,jinaai/jina-embeddings-v3,4,01a02334-8068-7851-9a0b-dcb70f7407d0,Interreligiöser Dialog,0.3948959,content,,0.4844368839985691
+q02,Angebote zur kulturellen Bildung,de,de,jinaai/jina-embeddings-v3,5,019dd89e-f434-7cbd-bc59-60d3c7bda536,KuRD 2026,0.3823908,additional,,0.4844368839985691
+q02,Angebote zur kulturellen Bildung,de,,jinaai/jina-embeddings-v3,6,01a042f7-fcc2-7a64-9fe2-705a951a5cec,Kulturtag: Interkulturelle Architektur mit Lehm & Co. von den Nuba-Bergen bis zum Bremsberg,0.3808795,content,,0.4844368839985691
+q02,Angebote zur kulturellen Bildung,de,,jinaai/jina-embeddings-v3,7,01a09fe9-0b46-7624-b0c7-4693e24250a2,Malkreis Glücksburg,0.37182873,content,,0.4844368839985691
+q02,Angebote zur kulturellen Bildung,de,de,jinaai/jina-embeddings-v3,8,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.37139103,content,,0.4844368839985691
+q02,Angebote zur kulturellen Bildung,de,,jinaai/jina-embeddings-v3,9,01a08aea-d3d8-7113-b313-3c8f7b6609d9,Kulturtag im Atelier Kreativecke,0.36387634,content,,0.4844368839985691
+q02,Angebote zur kulturellen Bildung,de,,jinaai/jina-embeddings-v3,10,019fe615-78d9-7cf8-971a-5d500839e933,Offener Nachmittag,0.35811532,content,,0.4844368839985691
+q03,barrierefreie Veranstaltungen,de,de,jinaai/jina-embeddings-v3,1,019daf9b-da9a-7524-9b5c-0f77457ab198,Deich ohne Schafe?,0.53177357,accessibility,,0.493765354010975
+q03,barrierefreie Veranstaltungen,de,de,jinaai/jina-embeddings-v3,2,019dafca-d731-7476-8e4c-49231d67e882,Katzen-Kratz-Traum,0.53177357,accessibility,,0.493765354010975
+q03,barrierefreie Veranstaltungen,de,de,jinaai/jina-embeddings-v3,3,019df20e-4efc-7c01-8c4a-8880af01f14a,triaden tiraden,0.53177357,accessibility,,0.493765354010975
+q03,barrierefreie Veranstaltungen,de,de,jinaai/jina-embeddings-v3,4,019e2bbb-892a-7482-a463-bb1da6b27ee5,SHOWER,0.53177357,accessibility,,0.493765354010975
+q03,barrierefreie Veranstaltungen,de,de,jinaai/jina-embeddings-v3,5,019e84a4-d625-79fa-99f6-ca653015e6e1,Liquid Bodies,0.53177357,accessibility,,0.493765354010975
+q03,barrierefreie Veranstaltungen,de,de,jinaai/jina-embeddings-v3,6,019eac66-4cca-7934-aeae-1dfcf2b5990d,Take Care & Stay Safe,0.53177357,accessibility,,0.493765354010975
+q03,barrierefreie Veranstaltungen,de,de,jinaai/jina-embeddings-v3,7,01a05c86-8cf0-7d1c-9446-75b5997dec6d,Passt das Gefühl? - Pilkentafel.dasEnsemble,0.53177357,accessibility,,0.493765354010975
+q03,barrierefreie Veranstaltungen,de,de,jinaai/jina-embeddings-v3,8,01a05ca5-c01f-7946-ab28-e8da21c39172,"Spucken wir auf Hegel! - Barletti, Waas",0.53177357,accessibility,,0.493765354010975
+q03,barrierefreie Veranstaltungen,de,de,jinaai/jina-embeddings-v3,9,01a05cc3-f200-72ad-99cf-db5ad55a3a56,"GRIND / ANDERS - Wennerberg, Burgess / Franzke",0.53177357,accessibility,,0.493765354010975
+q03,barrierefreie Veranstaltungen,de,de,jinaai/jina-embeddings-v3,10,01a05cdc-aaf1-741c-8f01-0b8b1dbe2c82,Memokratie. Soziale Medien und autoritäre Bildpolitik - Wolfgang Ullrich,0.53177357,accessibility,,0.493765354010975
+q04,Veranstaltungen mit Anmeldung,de,,jinaai/jina-embeddings-v3,1,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.56977373,participation,,0.42101329102297314
+q04,Veranstaltungen mit Anmeldung,de,,jinaai/jina-embeddings-v3,2,019fd167-b370-71f5-9e3b-53cc95f5262a,Flensburg fühlt die Mobilitätswende,0.5481116,participation,,0.42101329102297314
+q04,Veranstaltungen mit Anmeldung,de,de,jinaai/jina-embeddings-v3,3,019dce5e-3d70-7e44-9f1e-d59ab4013fd6,K26 Kulturtræf,0.4993065,tickets,,0.42101329102297314
+q04,Veranstaltungen mit Anmeldung,de,de,jinaai/jina-embeddings-v3,4,019ed978-b4b9-79cc-97da-4fce867a79da,Green Noise Festival,0.48845777,content,,0.42101329102297314
+q04,Veranstaltungen mit Anmeldung,de,da,jinaai/jina-embeddings-v3,5,019e6977-7a5c-7584-922d-4baf3ec3ac9a,Nymalet,0.47586754,participation,,0.42101329102297314
+q04,Veranstaltungen mit Anmeldung,de,de,jinaai/jina-embeddings-v3,6,01a05cee-868d-750d-9d3b-e82c7c9288a9,"Tschüss, Tech-Milliardäre!",0.4690035,tickets,,0.42101329102297314
+q04,Veranstaltungen mit Anmeldung,de,de,jinaai/jina-embeddings-v3,7,019e00e2-c2d9-7717-8d5f-f79f870e81cb,Circus Ubuntu,0.4505604,participation,,0.42101329102297314
+q04,Veranstaltungen mit Anmeldung,de,de,jinaai/jina-embeddings-v3,8,019eb5e3-5e29-72dc-8cac-3fcbceb3307b,Filmvorführung: Verwundene Fäden,0.44649372,additional,,0.42101329102297314
+q04,Veranstaltungen mit Anmeldung,de,,jinaai/jina-embeddings-v3,9,019eb5f2-356f-72b2-9bf0-5967d0fd97e6,Ginevra Lamberti: Das Wasser wiegt schwerer als die Zeit,0.4464936,additional,,0.42101329102297314
+q04,Veranstaltungen mit Anmeldung,de,,jinaai/jina-embeddings-v3,10,019e6e14-3709-7c21-acfc-74e3ee09bff8,Konzert vom JugO und dem Miniorchester,0.4300614,participation,,0.42101329102297314
+q05,Sprachkurse,de,,jinaai/jina-embeddings-v3,1,01a05c86-8ce5-72a9-8298-af9ec0859a12,Let`s talk - have fun!,0.44114172,content,,0.4175409360032063
+q05,Sprachkurse,de,,jinaai/jina-embeddings-v3,2,019fe206-af8d-7f3a-acf8-f8d4650642c6,Dänisch für leicht Fortgeschrittene,0.36040795,content,,0.4175409360032063
+q05,Sprachkurse,de,,jinaai/jina-embeddings-v3,3,019fe605-f6a8-7a49-80cd-f4a529892f9c,Kompaktkurs: Dänisch für Anfänger,0.32889158,content,,0.4175409360032063
+q05,Sprachkurse,de,,jinaai/jina-embeddings-v3,4,019fe1f8-79fa-7ccf-af26-935c68985969,Dänisch für Anfänger,0.32427907,content,,0.4175409360032063
+q05,Sprachkurse,de,,jinaai/jina-embeddings-v3,5,019fe1dc-d55d-7fb4-96ff-5bd5c1441978,Russisch lernen,0.31566533,content,,0.4175409360032063
+q05,Sprachkurse,de,de,jinaai/jina-embeddings-v3,6,01a06ade-f5ed-7571-9630-854d88fec839,Schnupperkurs Plattdeutsch,0.3083027,content,,0.4175409360032063
+q05,Sprachkurse,de,,jinaai/jina-embeddings-v3,7,01a076d4-bb19-7207-9a7b-11d9e2e1092c,Dänisch für Anfänger,0.3047843,content,,0.4175409360032063
+q05,Sprachkurse,de,de,jinaai/jina-embeddings-v3,8,01a01992-35de-7772-a160-c9ced10ad334,Atempause,0.30354238,content,,0.4175409360032063
+q05,Sprachkurse,de,de,jinaai/jina-embeddings-v3,9,01a06af6-9901-7ecf-aea9-0192a65a3a83,Woord un Klang - en plattdüütschen Ovend,0.2752223,content,,0.4175409360032063
+q05,Sprachkurse,de,,jinaai/jina-embeddings-v3,10,01a0a4ad-661d-78f8-8433-929d5642e2f4,Babysitter Führerschein,0.2666269,content,,0.4175409360032063
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,de,jinaai/jina-embeddings-v3,1,019ed93e-2d76-7731-b228-371aa3b00009,Nachhaltigkeitsmarkt,0.5081298,content,,0.41476219400647096
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,,jinaai/jina-embeddings-v3,2,01a0201f-5f06-7983-9497-62b4745a36a4,Faire Woche 2026 Flensburg,0.48635668,content,,0.41476219400647096
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,de,jinaai/jina-embeddings-v3,3,01a05c25-eda0-7271-a363-bd05c959f5ef,Veredeln statt Verschwenden,0.4554847,content,,0.41476219400647096
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,de,jinaai/jina-embeddings-v3,4,019ed978-b4b9-79cc-97da-4fce867a79da,Green Noise Festival,0.4522422,content,,0.41476219400647096
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,de,jinaai/jina-embeddings-v3,5,01a08b8a-4ef6-7a9d-906f-1c04bee729ba,Kleines Faires Fest,0.41887218,content,,0.41476219400647096
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,de,jinaai/jina-embeddings-v3,6,019dd805-5eef-7120-afba-14e688b30b50,Tag der Städtebauförderung,0.41807997,content,,0.41476219400647096
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,,jinaai/jina-embeddings-v3,7,01a01e94-3034-7d8b-8e1b-e26c0b926d25,MOSAIK Themen-Treffen,0.39407015,content,,0.41476219400647096
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,,jinaai/jina-embeddings-v3,8,01a01ead-94c4-7c86-9acd-b6655e6b6bdc,MOSAIK Themen-Treffen,0.38776422,content,,0.41476219400647096
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,,jinaai/jina-embeddings-v3,9,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.38603514,participation,,0.41476219400647096
+q06,Veranstaltungen zum Thema Nachhaltigkeit,de,,jinaai/jina-embeddings-v3,10,01a042f7-fcc2-7a64-9fe2-705a951a5cec,Kulturtag: Interkulturelle Architektur mit Lehm & Co. von den Nuba-Bergen bis zum Bremsberg,0.38102043,content,,0.41476219400647096
+q07,Angebote für Kinder,de,,jinaai/jina-embeddings-v3,1,01a0a8e7-94ad-7c44-9fcc-d782a8c28ede,Kinderatelier,0.45446965,content,,0.4925396340258885
+q07,Angebote für Kinder,de,de,jinaai/jina-embeddings-v3,2,019f17e8-61d1-7cc6-b5a0-b79013a7c6b6,Deniz & Ove,0.41565216,content,,0.4925396340258885
+q07,Angebote für Kinder,de,de,jinaai/jina-embeddings-v3,3,019e55cc-5709-7978-b35b-6ae037bee9ff,Pfoten hoch!,0.40710765,content,,0.4925396340258885
+q07,Angebote für Kinder,de,de,jinaai/jina-embeddings-v3,4,019e742f-7543-7ec1-bcdb-28e3d8124600,Geschichtenzirkus,0.40684843,content,,0.4925396340258885
+q07,Angebote für Kinder,de,,jinaai/jina-embeddings-v3,5,01a019aa-f4b6-7b40-9d5a-093185d77609,Zwergentreff,0.40439388,content,,0.4925396340258885
+q07,Angebote für Kinder,de,,jinaai/jina-embeddings-v3,6,019eb683-7f8b-79bc-b8da-aa956ed6b03c,Zwergentreff,0.40298766,content,,0.4925396340258885
+q07,Angebote für Kinder,de,,jinaai/jina-embeddings-v3,7,01a06706-305c-7c57-8dbf-3cd8f132a2e2,Kinder Disco,0.4028281,content,,0.4925396340258885
+q07,Angebote für Kinder,de,,jinaai/jina-embeddings-v3,8,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.39996925,participation,,0.4925396340258885
+q07,Angebote für Kinder,de,de,jinaai/jina-embeddings-v3,9,019e034e-dbcf-7a5f-b77e-17d4866f0e2d,Knallwut,0.39489758,content,,0.4925396340258885
+q07,Angebote für Kinder,de,de,jinaai/jina-embeddings-v3,10,019e55b1-f420-790b-8390-3c563cce6612,Maskenball der Tiere,0.39185274,content,,0.4925396340258885
+q08,Veranstaltungen für Seniorinnen und Senioren,de,,jinaai/jina-embeddings-v3,1,01a01ead-94c4-7c86-9acd-b6655e6b6bdc,MOSAIK Themen-Treffen,0.47331816,content,,0.44497206798405387
+q08,Veranstaltungen für Seniorinnen und Senioren,de,,jinaai/jina-embeddings-v3,2,019feff6-d7b3-74d1-af77-0358d6808104,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.46352786,content,,0.44497206798405387
+q08,Veranstaltungen für Seniorinnen und Senioren,de,,jinaai/jina-embeddings-v3,3,019ff000-a9ed-7824-9ccf-b334c55f6a80,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.45864078,content,,0.44497206798405387
+q08,Veranstaltungen für Seniorinnen und Senioren,de,,jinaai/jina-embeddings-v3,4,019e6367-8acf-7911-9a21-fa3b34e1f389,"Seniorenbeirat, 6. Sitzung",0.45669243,content,,0.44497206798405387
+q08,Veranstaltungen für Seniorinnen und Senioren,de,,jinaai/jina-embeddings-v3,5,019ff005-bbca-76a5-be56-08b216efaf38,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.4559157,content,,0.44497206798405387
+q08,Veranstaltungen für Seniorinnen und Senioren,de,,jinaai/jina-embeddings-v3,6,019fefd9-0306-7639-ae29-c9cc196e1720,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.44979313,content,,0.44497206798405387
+q08,Veranstaltungen für Seniorinnen und Senioren,de,,jinaai/jina-embeddings-v3,7,019fefdb-e8a2-781a-af3a-9e7a5a44674e,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.44721538,content,,0.44497206798405387
+q08,Veranstaltungen für Seniorinnen und Senioren,de,,jinaai/jina-embeddings-v3,8,019feffb-1e38-7aac-8b56-d5bb841bd67f,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.44507575,content,,0.44497206798405387
+q08,Veranstaltungen für Seniorinnen und Senioren,de,,jinaai/jina-embeddings-v3,9,019fefcb-f888-7db1-94c7-4a8780f67e8f,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.4409361,content,,0.44497206798405387
+q08,Veranstaltungen für Seniorinnen und Senioren,de,,jinaai/jina-embeddings-v3,10,019ff003-6c95-750a-ab07-93ec40632936,"Seniorennachmittag - ""Einfach mal raus: Treffen, reden, lachen"" - Herzliche Einladung!",0.43740702,content,,0.44497206798405387
+q09,Veranstaltungen mit Treffpunkt,de,de,jinaai/jina-embeddings-v3,1,019dd805-5eef-7120-afba-14e688b30b50,Tag der Städtebauförderung,0.56712985,participation,,0.4171156279917341
+q09,Veranstaltungen mit Treffpunkt,de,de,jinaai/jina-embeddings-v3,2,019dce5e-3d70-7e44-9f1e-d59ab4013fd6,K26 Kulturtræf,0.53673524,participation,,0.4171156279917341
+q09,Veranstaltungen mit Treffpunkt,de,de,jinaai/jina-embeddings-v3,3,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.4935786,participation,,0.4171156279917341
+q09,Veranstaltungen mit Treffpunkt,de,,jinaai/jina-embeddings-v3,4,01a057d9-f610-750f-93ec-e2ddfac534c6,Hamza Howidy/Judith Poppe: Muscheln am Strand von Gaza,0.49022835,participation,,0.4171156279917341
+q09,Veranstaltungen mit Treffpunkt,de,,jinaai/jina-embeddings-v3,5,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.45003808,participation,,0.4171156279917341
+q09,Veranstaltungen mit Treffpunkt,de,,jinaai/jina-embeddings-v3,6,01a066c7-44fb-7923-8f29-981c7ce331a0,Konzert: Deer Anna,0.44990766,participation,,0.4171156279917341
+q09,Veranstaltungen mit Treffpunkt,de,de,jinaai/jina-embeddings-v3,7,01a01e38-c6e7-755c-96fc-4dd2a0e07cfb,MOSAIK Meet & Talk,0.44171682,content,,0.4171156279917341
+q09,Veranstaltungen mit Treffpunkt,de,,jinaai/jina-embeddings-v3,8,01a01e94-3034-7d8b-8e1b-e26c0b926d25,MOSAIK Themen-Treffen,0.4333552,content,,0.4171156279917341
+q09,Veranstaltungen mit Treffpunkt,de,,jinaai/jina-embeddings-v3,9,01a01ec1-65dd-73a6-9c3a-1bb55983cf3c,MOSAIK Verbindung vor Ort,0.43301904,content,,0.4171156279917341
+q09,Veranstaltungen mit Treffpunkt,de,,jinaai/jina-embeddings-v3,10,01a01ead-94c4-7c86-9acd-b6655e6b6bdc,MOSAIK Themen-Treffen,0.42190638,content,,0.4171156279917341
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,,jinaai/jina-embeddings-v3,1,019fad57-d9d5-75d0-a34c-bf49c30ab219,Sunday Breakfast Club mit: Biita,0.456724,tickets,,0.56129228399368
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,,jinaai/jina-embeddings-v3,2,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.44768345,tickets,,0.56129228399368
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,de,jinaai/jina-embeddings-v3,3,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.44768333,tickets,,0.56129228399368
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,de,jinaai/jina-embeddings-v3,4,019daa4c-cdfc-7895-8c03-855852da0ed5,Rumregatta,0.44768333,tickets,,0.56129228399368
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,de,jinaai/jina-embeddings-v3,5,019dbded-ece7-783d-8d5f-562cd9680deb,Innere Gefährten,0.44768333,tickets,,0.56129228399368
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,en,jinaai/jina-embeddings-v3,6,019dc9c4-0c91-7d53-932d-1a1a3cda1d4d,European Future Talks,0.44768333,tickets,,0.56129228399368
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,de,jinaai/jina-embeddings-v3,7,019dd805-5eef-7120-afba-14e688b30b50,Tag der Städtebauförderung,0.44768333,tickets,,0.56129228399368
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,de,jinaai/jina-embeddings-v3,8,019dd89e-f434-7cbd-bc59-60d3c7bda536,KuRD 2026,0.44768333,tickets,,0.56129228399368
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,de,jinaai/jina-embeddings-v3,9,019e3c6b-3288-7065-b3d7-c8ef60bff177,OstseeMan,0.44768333,tickets,,0.56129228399368
+q10,Veranstaltungen mit ermäßigtem Eintritt,de,de,jinaai/jina-embeddings-v3,10,019e3c81-b184-70a7-89ac-73a5f512a5d4,Fördecrossing,0.44768333,tickets,,0.56129228399368
+q11,Veranstaltungen im Freien,de,,jinaai/jina-embeddings-v3,1,019fbe79-3762-7974-8981-ef618cf9e941,Stadtgrünfest,0.45132375,content,,0.41938796199974604
+q11,Veranstaltungen im Freien,de,de,jinaai/jina-embeddings-v3,2,019ed978-b4b9-79cc-97da-4fce867a79da,Green Noise Festival,0.42797652,content,,0.41938796199974604
+q11,Veranstaltungen im Freien,de,,jinaai/jina-embeddings-v3,3,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.42482662,participation,,0.41938796199974604
+q11,Veranstaltungen im Freien,de,da,jinaai/jina-embeddings-v3,4,019e5e75-be89-78b2-b574-cf5f9fa4b090,ORDRIG,0.4163313,content,,0.41938796199974604
+q11,Veranstaltungen im Freien,de,de,jinaai/jina-embeddings-v3,5,019e6382-ca19-7f89-90e4-13b5ba2c4cd2,Sommer im Garten,0.41521996,content,,0.41938796199974604
+q11,Veranstaltungen im Freien,de,de,jinaai/jina-embeddings-v3,6,019eb68f-5dab-7b32-b83f-bbb970b36086,Bücherflohmarkt,0.39431173,content,,0.41938796199974604
+q11,Veranstaltungen im Freien,de,,jinaai/jina-embeddings-v3,7,01a0c366-8dbc-7a1b-aaf4-383a8cf4042f,Wildkräuterwanderung,0.38988537,content,,0.41938796199974604
+q11,Veranstaltungen im Freien,de,de,jinaai/jina-embeddings-v3,8,019fbe4d-4720-7b8a-b8ea-e3c1dbf51ba0,Grünland - Kultivierte Horizonte,0.3838093,content,,0.41938796199974604
+q11,Veranstaltungen im Freien,de,,jinaai/jina-embeddings-v3,9,01a067bb-3ee8-7178-a1ec-06709687cd8a,Offenes Wohnzimmer,0.38330942,content,,0.41938796199974604
+q11,Veranstaltungen im Freien,de,da,jinaai/jina-embeddings-v3,10,019e6977-7a5c-7584-922d-4baf3ec3ac9a,Nymalet,0.38278085,participation,,0.41938796199974604
+q12,Integration und Migration,de,de,jinaai/jina-embeddings-v3,1,019f54ef-75df-7aee-851b-d3cd83db4a02,Wohin mit mir?,0.27098066,content,,0.4155206370051019
+q12,Integration und Migration,de,,jinaai/jina-embeddings-v3,2,01a09f4a-d945-7f5b-a0c2-7d0bbfa36ff4,BAM 밤 – für violette Nächte - TachoTinta,0.2616325,content,,0.4155206370051019
+q12,Integration und Migration,de,de,jinaai/jina-embeddings-v3,3,019f51e0-900d-71f9-bbef-6f0ec884fc13,Where The Waves Took Her,0.2610398,content,,0.4155206370051019
+q12,Integration und Migration,de,de,jinaai/jina-embeddings-v3,4,01a06740-e026-7b1c-bee7-8a7cd4f861b7,Viel wichtiger ist jetzt die Gegenwart - Marie-Louise Monrad Møller,0.25844508,content,,0.4155206370051019
+q12,Integration und Migration,de,de,jinaai/jina-embeddings-v3,5,019e1312-0f42-701e-86fe-f2bfb10093f8,Medeamaterial,0.23274603,content,,0.4155206370051019
+q12,Integration und Migration,de,,jinaai/jina-embeddings-v3,6,01a08aea-d3d8-7113-b313-3c8f7b6609d9,Kulturtag im Atelier Kreativecke,0.22205067,accessibility,,0.4155206370051019
+q12,Integration und Migration,de,de,jinaai/jina-embeddings-v3,7,01a08d89-d6b6-789f-a175-65ff2d2a8268,Porzellan bemalen,0.22205067,accessibility,,0.4155206370051019
+q12,Integration und Migration,de,de,jinaai/jina-embeddings-v3,8,01a02334-8068-7851-9a0b-dcb70f7407d0,Interreligiöser Dialog,0.21919832,content,,0.4155206370051019
+q12,Integration und Migration,de,da,jinaai/jina-embeddings-v3,9,01a07c26-8f40-70bc-ac84-7347d066867f,IZHAV (S),0.2173229,content,,0.4155206370051019
+q12,Integration und Migration,de,,jinaai/jina-embeddings-v3,10,01a057d9-f610-750f-93ec-e2ddfac534c6,Hamza Howidy/Judith Poppe: Muscheln am Strand von Gaza,0.21633768,content,,0.4155206370051019
+q13,queere Kultur,de,,jinaai/jina-embeddings-v3,1,019fad39-92b8-7b7f-aee9-60512c2b2016,Queer & Friends Party,0.38040027,content,,0.39850057699368335
+q13,queere Kultur,de,de,jinaai/jina-embeddings-v3,2,019eb719-75cb-749e-be9c-fab9c5b5636f,Speed-Dating - Kultur trifft Politik,0.34185478,content,,0.39850057699368335
+q13,queere Kultur,de,,jinaai/jina-embeddings-v3,3,01a09f4a-d945-7f5b-a0c2-7d0bbfa36ff4,BAM 밤 – für violette Nächte - TachoTinta,0.3163514,content,,0.39850057699368335
+q13,queere Kultur,de,de,jinaai/jina-embeddings-v3,4,019dd78e-468a-775e-a35a-0804dad94fbc,KINKTASTIC,0.3017577,content,,0.39850057699368335
+q13,queere Kultur,de,de,jinaai/jina-embeddings-v3,5,019dce5e-3d70-7e44-9f1e-d59ab4013fd6,K26 Kulturtræf,0.29431784,participation,,0.39850057699368335
+q13,queere Kultur,de,de,jinaai/jina-embeddings-v3,6,01a05ca5-c01f-7946-ab28-e8da21c39172,"Spucken wir auf Hegel! - Barletti, Waas",0.29417437,content,,0.39850057699368335
+q13,queere Kultur,de,,jinaai/jina-embeddings-v3,7,019e262e-5660-76c8-93cc-c7736848b4d3,KulturRotation 143,0.29398608,content,,0.39850057699368335
+q13,queere Kultur,de,de,jinaai/jina-embeddings-v3,8,019f51e0-900d-71f9-bbef-6f0ec884fc13,Where The Waves Took Her,0.2929715,content,,0.39850057699368335
+q13,queere Kultur,de,de,jinaai/jina-embeddings-v3,9,019ff5a4-b09d-7d34-a491-280e9228efa1,Feministischer Salon - Lesung v. Hugo Tepest,0.2829354,content,,0.39850057699368335
+q13,queere Kultur,de,,jinaai/jina-embeddings-v3,10,01a06711-4848-7f8b-99fb-2347527dcac0,Women Artists Film Festival,0.26817536,content,,0.39850057699368335
+q14,lokale Geschichte,de,,jinaai/jina-embeddings-v3,1,01a066e0-d712-7b96-b30d-e2d3fcc51d7f,Philosophische Diskussion & Buchvorstellung,0.28910637,content,,0.4133640009968076
+q14,lokale Geschichte,de,de,jinaai/jina-embeddings-v3,2,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.24603686,additional,,0.4133640009968076
+q14,lokale Geschichte,de,de,jinaai/jina-embeddings-v3,3,01a06740-e026-7b1c-bee7-8a7cd4f861b7,Viel wichtiger ist jetzt die Gegenwart - Marie-Louise Monrad Møller,0.23227182,content,,0.4133640009968076
+q14,lokale Geschichte,de,de,jinaai/jina-embeddings-v3,4,01a03ef6-e8ea-77d6-8504-552e1fa5ac9e,Postkolonialer Stadtrundgang,0.23205344,content,,0.4133640009968076
+q14,lokale Geschichte,de,,jinaai/jina-embeddings-v3,5,01a0679b-6b3a-7451-bfd4-b6af84d9cbf3,Vinyl Stories,0.23109862,content,,0.4133640009968076
+q14,lokale Geschichte,de,de,jinaai/jina-embeddings-v3,6,019fbe4d-4720-7b8a-b8ea-e3c1dbf51ba0,Grünland - Kultivierte Horizonte,0.20970836,content,,0.4133640009968076
+q14,lokale Geschichte,de,de,jinaai/jina-embeddings-v3,7,019e897f-3791-7ae7-baa4-0c239e013031,Steps in Time,0.2030572,content,,0.4133640009968076
+q14,lokale Geschichte,de,,jinaai/jina-embeddings-v3,8,01a06beb-e3a3-7e9a-bc62-bf794be8e297,Antike Mythen,0.20252308,content,,0.4133640009968076
+q14,lokale Geschichte,de,de,jinaai/jina-embeddings-v3,9,019dd805-5eef-7120-afba-14e688b30b50,Tag der Städtebauförderung,0.19725686,content,,0.4133640009968076
+q14,lokale Geschichte,de,,jinaai/jina-embeddings-v3,10,01a08aea-d3d8-7113-b313-3c8f7b6609d9,Kulturtag im Atelier Kreativecke,0.19470379,content,,0.4133640009968076
+q15,Kunst zum Mitmachen,de,de,jinaai/jina-embeddings-v3,1,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.52976334,content,,0.41140263198758475
+q15,Kunst zum Mitmachen,de,,jinaai/jina-embeddings-v3,2,019e03bb-3970-748f-a12d-ece11bf1d52a,Muss durch die Tür passen,0.48847914,content,,0.41140263198758475
+q15,Kunst zum Mitmachen,de,,jinaai/jina-embeddings-v3,3,01a09fe9-0b46-7624-b0c7-4693e24250a2,Malkreis Glücksburg,0.48577052,content,,0.41140263198758475
+q15,Kunst zum Mitmachen,de,da,jinaai/jina-embeddings-v3,4,01a0a3a8-40fb-7528-8371-bc0431487b2a,Lav jeres eget våbenskjold,0.45911986,participation,,0.41140263198758475
+q15,Kunst zum Mitmachen,de,,jinaai/jina-embeddings-v3,5,01a066d1-8ed7-723b-b14e-b2543ae11483,BeatsARTig,0.44052097,content,,0.41140263198758475
+q15,Kunst zum Mitmachen,de,de,jinaai/jina-embeddings-v3,6,01a056e5-98c0-7203-8a1b-39c78dd18f52,Kunst im Norden,0.43394428,content,,0.41140263198758475
+q15,Kunst zum Mitmachen,de,de,jinaai/jina-embeddings-v3,7,01a08d89-d6b6-789f-a175-65ff2d2a8268,Porzellan bemalen,0.4268358,content,,0.41140263198758475
+q15,Kunst zum Mitmachen,de,de,jinaai/jina-embeddings-v3,8,019ea6dd-bfe7-730a-97ec-9ff343cb6ce9,Malkreis Glücksburg,0.4265527,content,,0.41140263198758475
+q15,Kunst zum Mitmachen,de,de,jinaai/jina-embeddings-v3,9,019e74ab-6059-7266-808f-03fb6ac4ed93,Kunsthandwerk Markt,0.42514792,content,,0.41140263198758475
+q15,Kunst zum Mitmachen,de,de,jinaai/jina-embeddings-v3,10,01a0bad2-8447-79e3-bca8-108384330135,kunstkur.park,0.42201298,content,,0.41140263198758475
+q16,soziale Teilhabe,de,de,jinaai/jina-embeddings-v3,1,019db91a-89d5-7c5a-90ae-7596e488a1eb,Digitale Teilhabe – gemeinsam vernetzt,0.34898052,content,,0.5068630049936473
+q16,soziale Teilhabe,de,,jinaai/jina-embeddings-v3,2,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.308533,participation,,0.5068630049936473
+q16,soziale Teilhabe,de,de,jinaai/jina-embeddings-v3,3,019dab32-3e27-7f90-86f0-61f249ef3320,DADA heute!,0.30134583,content,,0.5068630049936473
+q16,soziale Teilhabe,de,en,jinaai/jina-embeddings-v3,4,019dc9c4-0c91-7d53-932d-1a1a3cda1d4d,European Future Talks,0.29590088,content,,0.5068630049936473
+q16,soziale Teilhabe,de,de,jinaai/jina-embeddings-v3,5,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.2500136,content,,0.5068630049936473
+q16,soziale Teilhabe,de,,jinaai/jina-embeddings-v3,6,019f4608-8996-72e3-9d34-0544db82c659,Arne Semsrott: Gegenmacht,0.25000942,content,,0.5068630049936473
+q16,soziale Teilhabe,de,,jinaai/jina-embeddings-v3,7,019fd167-b370-71f5-9e3b-53cc95f5262a,Flensburg fühlt die Mobilitätswende,0.2452209,participation,,0.5068630049936473
+q16,soziale Teilhabe,de,,jinaai/jina-embeddings-v3,8,01a01ead-94c4-7c86-9acd-b6655e6b6bdc,MOSAIK Themen-Treffen,0.2417774,content,,0.5068630049936473
+q16,soziale Teilhabe,de,de,jinaai/jina-embeddings-v3,9,01a05ca5-c01f-7946-ab28-e8da21c39172,"Spucken wir auf Hegel! - Barletti, Waas",0.2409873,content,,0.5068630049936473
+q16,soziale Teilhabe,de,de,jinaai/jina-embeddings-v3,10,019eb719-75cb-749e-be9c-fab9c5b5636f,Speed-Dating - Kultur trifft Politik,0.23473951,content,,0.5068630049936473
+q17,Musikveranstaltungen draußen,de,,jinaai/jina-embeddings-v3,1,019fbe79-3762-7974-8981-ef618cf9e941,Stadtgrünfest,0.483822,content,,0.4474944690009579
+q17,Musikveranstaltungen draußen,de,de,jinaai/jina-embeddings-v3,2,019ed978-b4b9-79cc-97da-4fce867a79da,Green Noise Festival,0.46395308,content,,0.4474944690009579
+q17,Musikveranstaltungen draußen,de,de,jinaai/jina-embeddings-v3,3,019e6382-ca19-7f89-90e4-13b5ba2c4cd2,Sommer im Garten,0.43581033,content,,0.4474944690009579
+q17,Musikveranstaltungen draußen,de,da,jinaai/jina-embeddings-v3,4,019e6977-7a5c-7584-922d-4baf3ec3ac9a,Nymalet,0.43442053,participation,,0.4474944690009579
+q17,Musikveranstaltungen draußen,de,da,jinaai/jina-embeddings-v3,5,019f5b8b-fdab-7bb9-b567-2119e7f30d8e,Sunbörn,0.42376935,content,,0.4474944690009579
+q17,Musikveranstaltungen draußen,de,de,jinaai/jina-embeddings-v3,6,019e1d20-4160-770d-aacc-0427d867f8cb,Midsommar Splash!,0.41961914,content,,0.4474944690009579
+q17,Musikveranstaltungen draußen,de,,jinaai/jina-embeddings-v3,7,01a066c7-44fb-7923-8f29-981c7ce331a0,Konzert: Deer Anna,0.41873935,content,,0.4474944690009579
+q17,Musikveranstaltungen draußen,de,de,jinaai/jina-embeddings-v3,8,019fb260-288b-7e23-8f88-d87edda3c1d4,Caoilfhionn Rose,0.4175973,content,,0.4474944690009579
+q17,Musikveranstaltungen draußen,de,da,jinaai/jina-embeddings-v3,9,019dbea3-5ef3-7993-8d67-e71dcdfc138f,"Peter Sommer, Katrine Muff, Palle Hjorth",0.4037633,content,,0.4474944690009579
+q17,Musikveranstaltungen draußen,de,de,jinaai/jina-embeddings-v3,10,019edfa2-11a6-7b82-b546-4a8ead61bc64,"Matinee ""Faux Tales""",0.3967052,content,,0.4474944690009579
+q18,Veranstaltungen für Jugendliche,de,de,jinaai/jina-embeddings-v3,1,019ed978-b4b9-79cc-97da-4fce867a79da,Green Noise Festival,0.47967014,content,,0.4488086750207003
+q18,Veranstaltungen für Jugendliche,de,de,jinaai/jina-embeddings-v3,2,01a08b8a-4ef6-7a9d-906f-1c04bee729ba,Kleines Faires Fest,0.45939943,content,,0.4488086750207003
+q18,Veranstaltungen für Jugendliche,de,da,jinaai/jina-embeddings-v3,3,019db61e-a230-7e9b-a02a-8d59e4662280,Gården Festival,0.38832295,content,,0.4488086750207003
+q18,Veranstaltungen für Jugendliche,de,,jinaai/jina-embeddings-v3,4,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.37980825,participation,,0.4488086750207003
+q18,Veranstaltungen für Jugendliche,de,de,jinaai/jina-embeddings-v3,5,019eb5e3-5e29-72dc-8cac-3fcbceb3307b,Filmvorführung: Verwundene Fäden,0.3688935,additional,,0.4488086750207003
+q18,Veranstaltungen für Jugendliche,de,,jinaai/jina-embeddings-v3,6,019eb5f2-356f-72b2-9bf0-5967d0fd97e6,Ginevra Lamberti: Das Wasser wiegt schwerer als die Zeit,0.3688934,additional,,0.4488086750207003
+q18,Veranstaltungen für Jugendliche,de,da,jinaai/jina-embeddings-v3,7,019e696d-100a-7b1d-a84c-64fb4788b5a4,DUEN,0.36065984,content,,0.4488086750207003
+q18,Veranstaltungen für Jugendliche,de,de,jinaai/jina-embeddings-v3,8,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.3597909,content,,0.4488086750207003
+q18,Veranstaltungen für Jugendliche,de,de,jinaai/jina-embeddings-v3,9,019ee559-db27-77c5-8b2f-1c81bc937b9b,scheitern.dreitausend & Das Aus Der Jugend,0.3576874,content,,0.4488086750207003
+q18,Veranstaltungen für Jugendliche,de,,jinaai/jina-embeddings-v3,10,01a0a921-f23e-7e72-be8f-bdf44719f914,Jugendatelier,0.35734183,content,,0.4488086750207003
+q19,Dänische Kultur und Begegnungen in Dänemark,de,de,jinaai/jina-embeddings-v3,1,019dce5e-3d70-7e44-9f1e-d59ab4013fd6,K26 Kulturtræf,0.59045434,content,,0.5287935160158668
+q19,Dänische Kultur und Begegnungen in Dänemark,de,de,jinaai/jina-embeddings-v3,2,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.5050683,content,,0.5287935160158668
+q19,Dänische Kultur und Begegnungen in Dänemark,de,,jinaai/jina-embeddings-v3,3,019fe605-f6a8-7a49-80cd-f4a529892f9c,Kompaktkurs: Dänisch für Anfänger,0.49310845,content,,0.5287935160158668
+q19,Dänische Kultur und Begegnungen in Dänemark,de,,jinaai/jina-embeddings-v3,4,01a076d4-bb19-7207-9a7b-11d9e2e1092c,Dänisch für Anfänger,0.48662427,content,,0.5287935160158668
+q19,Dänische Kultur und Begegnungen in Dänemark,de,,jinaai/jina-embeddings-v3,5,019fe1f8-79fa-7ccf-af26-935c68985969,Dänisch für Anfänger,0.47554204,content,,0.5287935160158668
+q19,Dänische Kultur und Begegnungen in Dänemark,de,,jinaai/jina-embeddings-v3,6,019fe206-af8d-7f3a-acf8-f8d4650642c6,Dänisch für leicht Fortgeschrittene,0.46337456,content,,0.5287935160158668
+q19,Dänische Kultur und Begegnungen in Dänemark,de,de,jinaai/jina-embeddings-v3,7,01a06740-e026-7b1c-bee7-8a7cd4f861b7,Viel wichtiger ist jetzt die Gegenwart - Marie-Louise Monrad Møller,0.4465828,content,,0.5287935160158668
+q19,Dänische Kultur und Begegnungen in Dänemark,de,de,jinaai/jina-embeddings-v3,8,01a0c8fb-4bbe-75e8-9d61-0c380229b121,NORDEN – The Nordic Arts Festival,0.42771912,content,,0.5287935160158668
+q19,Dänische Kultur und Begegnungen in Dänemark,de,de,jinaai/jina-embeddings-v3,9,01a02334-8068-7851-9a0b-dcb70f7407d0,Interreligiöser Dialog,0.42758894,content,,0.5287935160158668
+q19,Dänische Kultur und Begegnungen in Dänemark,de,da,jinaai/jina-embeddings-v3,10,01a0a3a8-40fb-7528-8371-bc0431487b2a,Lav jeres eget våbenskjold,0.40710676,tickets,,0.5287935160158668
+q20,Workshops für gemeinsames kreatives Arbeiten,de,de,jinaai/jina-embeddings-v3,1,019dab00-b596-705a-85cf-53889c2f643d,kreativ:treff,0.5069766,content,,0.4947850870084949
+q20,Workshops für gemeinsames kreatives Arbeiten,de,de,jinaai/jina-embeddings-v3,2,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.4819662,content,,0.4947850870084949
+q20,Workshops für gemeinsames kreatives Arbeiten,de,,jinaai/jina-embeddings-v3,3,019ee11a-20b6-72d0-8f5a-245286302530,Outdoor Naturstudien,0.4749271,content,,0.4947850870084949
+q20,Workshops für gemeinsames kreatives Arbeiten,de,,jinaai/jina-embeddings-v3,4,019fe1bf-f903-75aa-8867-4e0607f730ae,Outdoor Workshop,0.47392303,content,,0.4947850870084949
+q20,Workshops für gemeinsames kreatives Arbeiten,de,de,jinaai/jina-embeddings-v3,5,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.46336192,content,,0.4947850870084949
+q20,Workshops für gemeinsames kreatives Arbeiten,de,,jinaai/jina-embeddings-v3,6,01a09fe9-0b46-7624-b0c7-4693e24250a2,Malkreis Glücksburg,0.46211419,content,,0.4947850870084949
+q20,Workshops für gemeinsames kreatives Arbeiten,de,de,jinaai/jina-embeddings-v3,7,019edfb6-351f-7553-a7f5-4543ccf4ade2,LAZY SUNDAY UPCYCLING,0.46105447,content,,0.4947850870084949
+q20,Workshops für gemeinsames kreatives Arbeiten,de,,jinaai/jina-embeddings-v3,8,01a08aea-d3d8-7113-b313-3c8f7b6609d9,Kulturtag im Atelier Kreativecke,0.45882082,content,,0.4947850870084949
+q20,Workshops für gemeinsames kreatives Arbeiten,de,de,jinaai/jina-embeddings-v3,9,01a08d89-d6b6-789f-a175-65ff2d2a8268,Porzellan bemalen,0.4516608,content,,0.4947850870084949
+q20,Workshops für gemeinsames kreatives Arbeiten,de,,jinaai/jina-embeddings-v3,10,01a01952-9d9c-762e-afd0-86a2c38c40af,Kreativ im Skizzenbuch - Achtsames Zeichnen,0.44684875,content,,0.4947850870084949
+q21,Gratis arrangementer for familier,da,,jinaai/jina-embeddings-v3,1,01a019aa-f4b6-7b40-9d5a-093185d77609,Zwergentreff,0.53507876,content,,0.45856451700092293
+q21,Gratis arrangementer for familier,da,,jinaai/jina-embeddings-v3,2,019eb683-7f8b-79bc-b8da-aa956ed6b03c,Zwergentreff,0.5037429,content,,0.45856451700092293
+q21,Gratis arrangementer for familier,da,,jinaai/jina-embeddings-v3,3,01a014cb-6efb-776a-b6b0-97ca03ecf986,Frühstücksschnack,0.47785032,content,,0.45856451700092293
+q21,Gratis arrangementer for familier,da,de,jinaai/jina-embeddings-v3,4,019f07bc-6405-7969-9413-34f2e19f4d02,Punk meets Metal,0.4635266,content,,0.45856451700092293
+q21,Gratis arrangementer for familier,da,de,jinaai/jina-embeddings-v3,5,01a08b8a-4ef6-7a9d-906f-1c04bee729ba,Kleines Faires Fest,0.4608171,content,,0.45856451700092293
+q21,Gratis arrangementer for familier,da,,jinaai/jina-embeddings-v3,6,01a01964-403b-7845-a873-dbdb2ba3b8b1,Familienküche,0.4490289,content,,0.45856451700092293
+q21,Gratis arrangementer for familier,da,de,jinaai/jina-embeddings-v3,7,019f17e8-61d1-7cc6-b5a0-b79013a7c6b6,Deniz & Ove,0.43834877,content,,0.45856451700092293
+q21,Gratis arrangementer for familier,da,da,jinaai/jina-embeddings-v3,8,01a0a3a8-40fb-7528-8371-bc0431487b2a,Lav jeres eget våbenskjold,0.41927963,participation,,0.45856451700092293
+q21,Gratis arrangementer for familier,da,de,jinaai/jina-embeddings-v3,9,01a01992-35de-7772-a160-c9ced10ad334,Atempause,0.415475,content,,0.45856451700092293
+q21,Gratis arrangementer for familier,da,de,jinaai/jina-embeddings-v3,10,01a01999-1c0e-7219-a35c-942c7aeccc7a,Kükenrennen,0.40837356,content,,0.45856451700092293
+q22,Sprogkurser i Tyskland,da,,jinaai/jina-embeddings-v3,1,019fe206-af8d-7f3a-acf8-f8d4650642c6,Dänisch für leicht Fortgeschrittene,0.37588346,content,,0.48976322601083666
+q22,Sprogkurser i Tyskland,da,de,jinaai/jina-embeddings-v3,2,01a06ade-f5ed-7571-9630-854d88fec839,Schnupperkurs Plattdeutsch,0.3692936,content,,0.48976322601083666
+q22,Sprogkurser i Tyskland,da,,jinaai/jina-embeddings-v3,3,01a05c86-8ce5-72a9-8298-af9ec0859a12,Let`s talk - have fun!,0.36845794,content,,0.48976322601083666
+q22,Sprogkurser i Tyskland,da,de,jinaai/jina-embeddings-v3,4,01a06af6-9901-7ecf-aea9-0192a65a3a83,Woord un Klang - en plattdüütschen Ovend,0.35748404,content,,0.48976322601083666
+q22,Sprogkurser i Tyskland,da,de,jinaai/jina-embeddings-v3,5,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.3506741,content,,0.48976322601083666
+q22,Sprogkurser i Tyskland,da,,jinaai/jina-embeddings-v3,6,019fe605-f6a8-7a49-80cd-f4a529892f9c,Kompaktkurs: Dänisch für Anfänger,0.34574014,content,,0.48976322601083666
+q22,Sprogkurser i Tyskland,da,,jinaai/jina-embeddings-v3,7,01a076d4-bb19-7207-9a7b-11d9e2e1092c,Dänisch für Anfänger,0.3209741,content,,0.48976322601083666
+q22,Sprogkurser i Tyskland,da,,jinaai/jina-embeddings-v3,8,019fe1f8-79fa-7ccf-af26-935c68985969,Dänisch für Anfänger,0.31685197,content,,0.48976322601083666
+q22,Sprogkurser i Tyskland,da,,jinaai/jina-embeddings-v3,9,019fe1dc-d55d-7fb4-96ff-5bd5c1441978,Russisch lernen,0.3012836,content,,0.48976322601083666
+q22,Sprogkurser i Tyskland,da,de,jinaai/jina-embeddings-v3,10,01a01992-35de-7772-a160-c9ced10ad334,Atempause,0.27337992,content,,0.48976322601083666
+q23,Tilgængelige kulturarrangementer,da,de,jinaai/jina-embeddings-v3,1,019e63f7-ebeb-7952-9304-e496b02e3588,Cultural Pearl Kulturtag,0.5126689,content,,0.49590223300037906
+q23,Tilgængelige kulturarrangementer,da,de,jinaai/jina-embeddings-v3,2,019dce5e-3d70-7e44-9f1e-d59ab4013fd6,K26 Kulturtræf,0.46769157,participation,,0.49590223300037906
+q23,Tilgængelige kulturarrangementer,da,,jinaai/jina-embeddings-v3,3,01a067bb-3ee8-7178-a1ec-06709687cd8a,Offenes Wohnzimmer,0.45865455,content,,0.49590223300037906
+q23,Tilgængelige kulturarrangementer,da,de,jinaai/jina-embeddings-v3,4,019eb719-75cb-749e-be9c-fab9c5b5636f,Speed-Dating - Kultur trifft Politik,0.4560222,content,,0.49590223300037906
+q23,Tilgængelige kulturarrangementer,da,de,jinaai/jina-embeddings-v3,5,019dab32-3e27-7f90-86f0-61f249ef3320,DADA heute!,0.45002136,content,,0.49590223300037906
+q23,Tilgængelige kulturarrangementer,da,,jinaai/jina-embeddings-v3,6,01a042a6-7817-7f0e-acaa-671052605969,Kultur_Seminar: Digitale und Analoge Sichtbarkeit,0.4420366,content,,0.49590223300037906
+q23,Tilgængelige kulturarrangementer,da,de,jinaai/jina-embeddings-v3,7,01a0d816-d0af-770e-927c-6d1bf77ab522,Avant-Goth Theater,0.43807182,content,,0.49590223300037906
+q23,Tilgængelige kulturarrangementer,da,de,jinaai/jina-embeddings-v3,8,01a02334-8068-7851-9a0b-dcb70f7407d0,Interreligiöser Dialog,0.4356083,content,,0.49590223300037906
+q23,Tilgængelige kulturarrangementer,da,,jinaai/jina-embeddings-v3,9,019fefa1-5f68-7833-a6f2-c65db96a81aa,"Cultural-Pearl-Kulturtag: Ein gedeckter Tisch für Geschichten, Kaffee und Gespräche in der Auferstehungskirche Glücksburg",0.42911556,content,,0.49590223300037906
+q23,Tilgængelige kulturarrangementer,da,,jinaai/jina-embeddings-v3,10,01a0b64b-31ca-7bb3-9d22-c929fceaa554,Late Night Shopping zum 1. Glücksburger Kulturtag,0.42831373,content,,0.49590223300037906
+q24,Arrangementer om bæredygtighed,da,de,jinaai/jina-embeddings-v3,1,01a05c25-eda0-7271-a363-bd05c959f5ef,Veredeln statt Verschwenden,0.40909165,content,,0.44624654899234883
+q24,Arrangementer om bæredygtighed,da,de,jinaai/jina-embeddings-v3,2,019ed93e-2d76-7731-b228-371aa3b00009,Nachhaltigkeitsmarkt,0.40879005,content,,0.44624654899234883
+q24,Arrangementer om bæredygtighed,da,de,jinaai/jina-embeddings-v3,3,019ed978-b4b9-79cc-97da-4fce867a79da,Green Noise Festival,0.40449932,content,,0.44624654899234883
+q24,Arrangementer om bæredygtighed,da,,jinaai/jina-embeddings-v3,4,01a0201f-5f06-7983-9497-62b4745a36a4,Faire Woche 2026 Flensburg,0.39838248,content,,0.44624654899234883
+q24,Arrangementer om bæredygtighed,da,de,jinaai/jina-embeddings-v3,5,01a0c997-26d8-72e7-985f-dc4318bb8b7a,"Faires Frühstück: ""Ausgezeichnet"" essen in netter Runde",0.36349288,content,,0.44624654899234883
+q24,Arrangementer om bæredygtighed,da,,jinaai/jina-embeddings-v3,6,01a042f7-fcc2-7a64-9fe2-705a951a5cec,Kulturtag: Interkulturelle Architektur mit Lehm & Co. von den Nuba-Bergen bis zum Bremsberg,0.36058432,content,,0.44624654899234883
+q24,Arrangementer om bæredygtighed,da,de,jinaai/jina-embeddings-v3,7,01a08b95-bbc2-7882-bfa6-04debe483b6c,Politsches Abendgebet,0.35978353,content,,0.44624654899234883
+q24,Arrangementer om bæredygtighed,da,de,jinaai/jina-embeddings-v3,8,01a08b8a-4ef6-7a9d-906f-1c04bee729ba,Kleines Faires Fest,0.3311536,content,,0.44624654899234883
+q24,Arrangementer om bæredygtighed,da,,jinaai/jina-embeddings-v3,9,019fbe79-3762-7974-8981-ef618cf9e941,Stadtgrünfest,0.3275858,content,,0.44624654899234883
+q24,Arrangementer om bæredygtighed,da,en,jinaai/jina-embeddings-v3,10,019dc9c4-0c91-7d53-932d-1a1a3cda1d4d,European Future Talks,0.32512563,content,,0.44624654899234883
+q25,Musik under åben himmel,da,de,jinaai/jina-embeddings-v3,1,019e3ca8-3698-7f00-822d-7233ebe257d9,Space Tour,0.4712504,content,,0.4604157599969767
+q25,Musik under åben himmel,da,,jinaai/jina-embeddings-v3,2,019fbe79-3762-7974-8981-ef618cf9e941,Stadtgrünfest,0.39949948,content,,0.4604157599969767
+q25,Musik under åben himmel,da,da,jinaai/jina-embeddings-v3,3,019f5b8b-fdab-7bb9-b567-2119e7f30d8e,Sunbörn,0.39190447,content,,0.4604157599969767
+q25,Musik under åben himmel,da,de,jinaai/jina-embeddings-v3,4,019f1767-6e7e-7183-b14c-14f2f635eafc,Silent Disco,0.37935233,content,,0.4604157599969767
+q25,Musik under åben himmel,da,da,jinaai/jina-embeddings-v3,5,019f6f71-4e72-7e7e-ae19-4af80ce85e75,Girls in Airports,0.37192187,content,,0.4604157599969767
+q25,Musik under åben himmel,da,de,jinaai/jina-embeddings-v3,6,019db542-ea38-7270-8561-9315abdf2307,Angora Club & Knietenbrink & Cosmo Thunder,0.35046476,content,,0.4604157599969767
+q25,Musik under åben himmel,da,,jinaai/jina-embeddings-v3,7,019fa788-c906-72f0-88b0-73fc0a83ff11,Offene Bühne,0.35024595,content,,0.4604157599969767
+q25,Musik under åben himmel,da,de,jinaai/jina-embeddings-v3,8,019e4022-4f8d-72c6-9f8f-00ec7cc065dd,Keyo Roses Flying Circus & Krachym,0.34941065,content,,0.4604157599969767
+q25,Musik under åben himmel,da,de,jinaai/jina-embeddings-v3,9,019ed978-b4b9-79cc-97da-4fce867a79da,Green Noise Festival,0.3458305,content,,0.4604157599969767
+q25,Musik under åben himmel,da,de,jinaai/jina-embeddings-v3,10,019e6382-ca19-7f89-90e4-13b5ba2c4cd2,Sommer im Garten,0.34067896,content,,0.4604157599969767
+q26,Free family activities in Germany and Denmark,en,de,jinaai/jina-embeddings-v3,1,019f17e8-61d1-7cc6-b5a0-b79013a7c6b6,Deniz & Ove,0.3687974,content,,0.47912774301948957
+q26,Free family activities in Germany and Denmark,en,de,jinaai/jina-embeddings-v3,2,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.36744267,content,,0.47912774301948957
+q26,Free family activities in Germany and Denmark,en,,jinaai/jina-embeddings-v3,3,019eb683-7f8b-79bc-b8da-aa956ed6b03c,Zwergentreff,0.34462237,content,,0.47912774301948957
+q26,Free family activities in Germany and Denmark,en,da,jinaai/jina-embeddings-v3,4,01a0a3a8-40fb-7528-8371-bc0431487b2a,Lav jeres eget våbenskjold,0.34441525,participation,,0.47912774301948957
+q26,Free family activities in Germany and Denmark,en,,jinaai/jina-embeddings-v3,5,01a014cb-6efb-776a-b6b0-97ca03ecf986,Frühstücksschnack,0.34226125,content,,0.47912774301948957
+q26,Free family activities in Germany and Denmark,en,,jinaai/jina-embeddings-v3,6,01a019aa-f4b6-7b40-9d5a-093185d77609,Zwergentreff,0.34066817,content,,0.47912774301948957
+q26,Free family activities in Germany and Denmark,en,,jinaai/jina-embeddings-v3,7,019f21e0-09f2-7117-a1e2-09a05763485d,DLRG Strandfest,0.3334634,content,,0.47912774301948957
+q26,Free family activities in Germany and Denmark,en,de,jinaai/jina-embeddings-v3,8,019daa5f-1b98-70fc-aaba-45c5fa4a8aa2,Sommerhygge,0.33333966,content,,0.47912774301948957
+q26,Free family activities in Germany and Denmark,en,,jinaai/jina-embeddings-v3,9,019fe1f8-79fa-7ccf-af26-935c68985969,Dänisch für Anfänger,0.33258405,content,,0.47912774301948957
+q26,Free family activities in Germany and Denmark,en,,jinaai/jina-embeddings-v3,10,019ed14a-2c7d-793d-b633-edff2e3c3320,Walk `n`Talk,0.33168983,content,,0.47912774301948957
+q27,Accessible events requiring registration,en,,jinaai/jina-embeddings-v3,1,019fd167-b370-71f5-9e3b-53cc95f5262a,Flensburg fühlt die Mobilitätswende,0.46764112,participation,,0.47262701799627393
+q27,Accessible events requiring registration,en,de,jinaai/jina-embeddings-v3,2,019dce5e-3d70-7e44-9f1e-d59ab4013fd6,K26 Kulturtræf,0.4490168,tickets,,0.47262701799627393
+q27,Accessible events requiring registration,en,de,jinaai/jina-embeddings-v3,3,019e00e2-c2d9-7717-8d5f-f79f870e81cb,Circus Ubuntu,0.4256099,participation,,0.47262701799627393
+q27,Accessible events requiring registration,en,,jinaai/jina-embeddings-v3,4,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.4230629,participation,,0.47262701799627393
+q27,Accessible events requiring registration,en,da,jinaai/jina-embeddings-v3,5,019e6977-7a5c-7584-922d-4baf3ec3ac9a,Nymalet,0.3555966,participation,,0.47262701799627393
+q27,Accessible events requiring registration,en,da,jinaai/jina-embeddings-v3,6,019e96cd-c324-70bc-8027-f9ebd3ee27d4,Sange fra Livet med Anders Agger (Udsolgt!),0.3521247,participation,,0.47262701799627393
+q27,Accessible events requiring registration,en,da,jinaai/jina-embeddings-v3,7,019f02f3-a079-7e64-b317-362f9ee1c378,Sange fra Livet med Søren Ryge Petersen,0.3521247,participation,,0.47262701799627393
+q27,Accessible events requiring registration,en,de,jinaai/jina-embeddings-v3,8,01a05cee-868d-750d-9d3b-e82c7c9288a9,"Tschüss, Tech-Milliardäre!",0.34167087,tickets,,0.47262701799627393
+q27,Accessible events requiring registration,en,de,jinaai/jina-embeddings-v3,9,019eb5e3-5e29-72dc-8cac-3fcbceb3307b,Filmvorführung: Verwundene Fäden,0.33833736,additional,,0.47262701799627393
+q27,Accessible events requiring registration,en,,jinaai/jina-embeddings-v3,10,019eb5f2-356f-72b2-9bf0-5967d0fd97e6,Ginevra Lamberti: Das Wasser wiegt schwerer als die Zeit,0.33833724,additional,,0.47262701799627393
+q28,Language classes and cultural education,en,,jinaai/jina-embeddings-v3,1,01a00ef9-aa7e-7d6e-b7d6-ca7fb23d0b1e,Schule trifft Kultur: Kulturelle Bildung in der Region Rendsburg stärken,0.35046828,content,,0.48078096500830725
+q28,Language classes and cultural education,en,,jinaai/jina-embeddings-v3,2,01a05c86-8ce5-72a9-8298-af9ec0859a12,Let`s talk - have fun!,0.31371713,content,,0.48078096500830725
+q28,Language classes and cultural education,en,,jinaai/jina-embeddings-v3,3,019fe1dc-d55d-7fb4-96ff-5bd5c1441978,Russisch lernen,0.26869428,content,,0.48078096500830725
+q28,Language classes and cultural education,en,de,jinaai/jina-embeddings-v3,4,01a06af6-9901-7ecf-aea9-0192a65a3a83,Woord un Klang - en plattdüütschen Ovend,0.25750494,content,,0.48078096500830725
+q28,Language classes and cultural education,en,de,jinaai/jina-embeddings-v3,5,01a06ade-f5ed-7571-9630-854d88fec839,Schnupperkurs Plattdeutsch,0.25048015,content,,0.48078096500830725
+q28,Language classes and cultural education,en,,jinaai/jina-embeddings-v3,6,01a042f7-fcc2-7a64-9fe2-705a951a5cec,Kulturtag: Interkulturelle Architektur mit Lehm & Co. von den Nuba-Bergen bis zum Bremsberg,0.2390885,content,,0.48078096500830725
+q28,Language classes and cultural education,en,da,jinaai/jina-embeddings-v3,7,019e96cd-c324-70bc-8027-f9ebd3ee27d4,Sange fra Livet med Anders Agger (Udsolgt!),0.23454617,content,,0.48078096500830725
+q28,Language classes and cultural education,en,de,jinaai/jina-embeddings-v3,8,019e63f7-ebeb-7952-9304-e496b02e3588,Cultural Pearl Kulturtag,0.22451587,content,,0.48078096500830725
+q28,Language classes and cultural education,en,,jinaai/jina-embeddings-v3,9,019e6e14-3709-7c21-acfc-74e3ee09bff8,Konzert vom JugO und dem Miniorchester,0.2149668,content,,0.48078096500830725
+q28,Language classes and cultural education,en,de,jinaai/jina-embeddings-v3,10,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.20930114,content,,0.48078096500830725
+q29,Participatory art workshops for young people,en,da,jinaai/jina-embeddings-v3,1,01a0a3a8-40fb-7528-8371-bc0431487b2a,Lav jeres eget våbenskjold,0.4485396,participation,,0.49392099599936046
+q29,Participatory art workshops for young people,en,,jinaai/jina-embeddings-v3,2,01a0a921-f23e-7e72-be8f-bdf44719f914,Jugendatelier,0.42374036,content,,0.49392099599936046
+q29,Participatory art workshops for young people,en,,jinaai/jina-embeddings-v3,3,01a0a8e7-94ad-7c44-9fcc-d782a8c28ede,Kinderatelier,0.414362,content,,0.49392099599936046
+q29,Participatory art workshops for young people,en,de,jinaai/jina-embeddings-v3,4,01a067af-dddf-733c-aaf7-833c05c7c126,Zeichnen im Museum,0.41167927,participation,,0.49392099599936046
+q29,Participatory art workshops for young people,en,de,jinaai/jina-embeddings-v3,5,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.40801495,content,,0.49392099599936046
+q29,Participatory art workshops for young people,en,,jinaai/jina-embeddings-v3,6,01a01444-7520-7624-839c-046df141eeae,"""Weg sein"" - Ein Literatur- und Theaterprojekt für Jugendliche ab 12 Jahren",0.3999768,content,,0.49392099599936046
+q29,Participatory art workshops for young people,en,de,jinaai/jina-embeddings-v3,7,01a08d89-d6b6-789f-a175-65ff2d2a8268,Porzellan bemalen,0.38838047,participation,,0.49392099599936046
+q29,Participatory art workshops for young people,en,,jinaai/jina-embeddings-v3,8,01a09fe9-0b46-7624-b0c7-4693e24250a2,Malkreis Glücksburg,0.3853579,content,,0.49392099599936046
+q29,Participatory art workshops for young people,en,de,jinaai/jina-embeddings-v3,9,019ed978-b4b9-79cc-97da-4fce867a79da,Green Noise Festival,0.38512474,content,,0.49392099599936046
+q29,Participatory art workshops for young people,en,de,jinaai/jina-embeddings-v3,10,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.37222183,content,,0.49392099599936046
+q30,Local history and social inclusion,en,de,jinaai/jina-embeddings-v3,1,01a03ef6-e8ea-77d6-8504-552e1fa5ac9e,Postkolonialer Stadtrundgang,0.25821257,content,,0.4657365120074246
+q30,Local history and social inclusion,en,de,jinaai/jina-embeddings-v3,2,01a0b9bb-80fb-76a6-a694-54ae181cfbcb,St_ART der Begegnung,0.24436504,content,,0.4657365120074246
+q30,Local history and social inclusion,en,,jinaai/jina-embeddings-v3,3,01a066e0-d712-7b96-b30d-e2d3fcc51d7f,Philosophische Diskussion & Buchvorstellung,0.23409152,content,,0.4657365120074246
+q30,Local history and social inclusion,en,de,jinaai/jina-embeddings-v3,4,019dd805-5eef-7120-afba-14e688b30b50,Tag der Städtebauförderung,0.22860919,content,,0.4657365120074246
+q30,Local history and social inclusion,en,de,jinaai/jina-embeddings-v3,5,019db91a-89d5-7c5a-90ae-7596e488a1eb,Digitale Teilhabe – gemeinsam vernetzt,0.22072129,content,,0.4657365120074246
+q30,Local history and social inclusion,en,de,jinaai/jina-embeddings-v3,6,019dab32-3e27-7f90-86f0-61f249ef3320,DADA heute!,0.21062377,content,,0.4657365120074246
+q30,Local history and social inclusion,en,,jinaai/jina-embeddings-v3,7,01a042f7-fcc2-7a64-9fe2-705a951a5cec,Kulturtag: Interkulturelle Architektur mit Lehm & Co. von den Nuba-Bergen bis zum Bremsberg,0.21060015,content,,0.4657365120074246
+q30,Local history and social inclusion,en,de,jinaai/jina-embeddings-v3,8,019da011-1802-7924-8a24-821066242bba,Kulturh(a)us Utopia,0.20754951,content,,0.4657365120074246
+q30,Local history and social inclusion,en,,jinaai/jina-embeddings-v3,9,019fef40-7688-7bbe-997b-e7242c966554,Tag des offenen Denkmals 2026,0.20742175,content,,0.4657365120074246
+q30,Local history and social inclusion,en,de,jinaai/jina-embeddings-v3,10,01a06740-e026-7b1c-bee7-8a7cd4f861b7,Viel wichtiger ist jetzt die Gegenwart - Marie-Louise Monrad Møller,0.202438,content,,0.4657365120074246

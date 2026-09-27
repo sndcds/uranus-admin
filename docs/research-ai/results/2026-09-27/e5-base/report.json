@@ -1,12 +1,12 @@
 {
-  "snapshot_at": "2026-09-27T09:57:54.326745+00:00",
+  "snapshot_at": "2026-09-27T09:52:35.242592+00:00",
   "events_total": 576,
   "events_selected": 576,
   "complete_snapshot": true,
-  "model": "intfloat/multilingual-e5-small",
-  "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+  "model": "intfloat/multilingual-e5-base",
+  "embedding_version": "d128750597153bb5987e10b1c3493a34e5a4502a:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
   "document_schema_version": "event-public-v1",
-  "collection_name": "uranus_bench_events_e5_small",
+  "collection_name": "uranus_bench_events_e5_base",
   "license": "MIT",
   "area_assignment_available": false,
   "normalized_document_hash": "ad1906cf45628018934f911f627a835d48fd36c8ff39960563520968f22e67da",
@@ -20,8 +20,8 @@
   "query_set_hash": "6920b26a49a52e52495cedd5b517fd5817882b32e793e94ea96e39fe4bd1eb4b",
   "query_count": 30,
   "results_count": 300,
-  "latency_mean_seconds": 0.04447685682971496,
-  "latency_p95_seconds": 0.04935818599187769,
+  "latency_mean_seconds": 0.11781889113384143,
+  "latency_p95_seconds": 0.13399866101099178,
   "quality_metrics": null,
   "quality_note": "Manual relevance is not yet judged.",
   "collection": {
@@ -33,7 +33,7 @@
     "config": {
       "params": {
         "vectors": {
-          "size": 384,
+          "size": 768,
           "distance": "Cosine",
           "on_disk": true
         },

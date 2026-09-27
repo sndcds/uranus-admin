@@ -1,51 +1,51 @@
 {
   "plan-10": {
-    "snapshot_at": "2026-09-27T09:25:49.573446+00:00",
+    "snapshot_at": "2026-09-27T09:32:42.998573+00:00",
     "events_total": 576,
     "events_selected": 10,
     "complete_snapshot": false,
-    "model": "intfloat/multilingual-e5-small",
-    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "model": "intfloat/multilingual-e5-base",
+    "embedding_version": "d128750597153bb5987e10b1c3493a34e5a4502a:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
     "document_schema_version": "event-public-v1",
-    "collection_name": "uranus_bench_events_e5_small",
+    "collection_name": "uranus_bench_events_e5_base",
     "license": "MIT",
     "area_assignment_available": false,
     "corpus_hash": "05af488be575db8d103953d089e5ffd8c6e398f1e29b45d52bcd0d89076565eb",
     "chunks": 22,
-    "new": 6,
-    "updated": 16,
+    "new": 22,
+    "updated": 0,
     "metadata_updated": 0,
     "unchanged": 0,
-    "deleted": 6
+    "deleted": 0
   },
   "plan-100": {
-    "snapshot_at": "2026-09-27T09:26:13.915315+00:00",
+    "snapshot_at": "2026-09-27T09:33:24.385839+00:00",
     "events_total": 576,
     "events_selected": 100,
     "complete_snapshot": false,
-    "model": "intfloat/multilingual-e5-small",
-    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "model": "intfloat/multilingual-e5-base",
+    "embedding_version": "d128750597153bb5987e10b1c3493a34e5a4502a:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
     "document_schema_version": "event-public-v1",
-    "collection_name": "uranus_bench_events_e5_small",
+    "collection_name": "uranus_bench_events_e5_base",
     "license": "MIT",
     "area_assignment_available": false,
     "corpus_hash": "037e1a523a06ecc495f418f64734e8c748dacc5efb78ae78b84f9f9644224f72",
     "chunks": 186,
-    "new": 31,
-    "updated": 133,
+    "new": 164,
+    "updated": 0,
     "metadata_updated": 0,
     "unchanged": 22,
-    "deleted": 31
+    "deleted": 0
   },
   "plan-full": {
-    "snapshot_at": "2026-09-27T09:27:09.910945+00:00",
+    "snapshot_at": "2026-09-27T09:35:55.409731+00:00",
     "events_total": 576,
     "events_selected": 576,
     "complete_snapshot": true,
-    "model": "intfloat/multilingual-e5-small",
-    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "model": "intfloat/multilingual-e5-base",
+    "embedding_version": "d128750597153bb5987e10b1c3493a34e5a4502a:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
     "document_schema_version": "event-public-v1",
-    "collection_name": "uranus_bench_events_e5_small",
+    "collection_name": "uranus_bench_events_e5_base",
     "license": "MIT",
     "area_assignment_available": false,
     "corpus_hash": "1f612dfc4058ef28ae92b16f338f9f1ab09e9d788b0e8adff7d1f62b11cf33a6",
@@ -57,14 +57,14 @@
     "deleted": 0
   },
   "price-plan": {
-    "snapshot_at": "2026-09-27T09:56:26.935640+00:00",
+    "snapshot_at": "2026-09-27T09:49:47.002052+00:00",
     "events_total": 576,
     "events_selected": 576,
     "complete_snapshot": true,
-    "model": "intfloat/multilingual-e5-small",
-    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "model": "intfloat/multilingual-e5-base",
+    "embedding_version": "d128750597153bb5987e10b1c3493a34e5a4502a:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
     "document_schema_version": "event-public-v1",
-    "collection_name": "uranus_bench_events_e5_small",
+    "collection_name": "uranus_bench_events_e5_base",
     "license": "MIT",
     "area_assignment_available": false,
     "normalized_document_hash": "ad1906cf45628018934f911f627a835d48fd36c8ff39960563520968f22e67da",
@@ -77,14 +77,14 @@
     "deleted": 80
   },
   "price-repeat": {
-    "snapshot_at": "2026-09-27T09:58:05.494111+00:00",
+    "snapshot_at": "2026-09-27T09:52:49.580417+00:00",
     "events_total": 576,
     "events_selected": 576,
     "complete_snapshot": true,
-    "model": "intfloat/multilingual-e5-small",
-    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "model": "intfloat/multilingual-e5-base",
+    "embedding_version": "d128750597153bb5987e10b1c3493a34e5a4502a:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
     "document_schema_version": "event-public-v1",
-    "collection_name": "uranus_bench_events_e5_small",
+    "collection_name": "uranus_bench_events_e5_base",
     "license": "MIT",
     "area_assignment_available": false,
     "normalized_document_hash": "ad1906cf45628018934f911f627a835d48fd36c8ff39960563520968f22e67da",
@@ -96,7 +96,7 @@
     "unchanged": 1128,
     "deleted": 0,
     "metrics": {
-      "wall_seconds": 0.0032004840031731874,
+      "wall_seconds": 0.003767799003981054,
       "embedding_seconds": 0.0,
       "embedded_chunks": 0,
       "embedded_events": 0,
@@ -114,7 +114,7 @@
       "config": {
         "params": {
           "vectors": {
-            "size": 384,
+            "size": 768,
             "distance": "Cosine",
             "on_disk": true
           },
@@ -155,14 +155,14 @@
     }
   },
   "price-sync": {
-    "snapshot_at": "2026-09-27T09:57:31.203156+00:00",
+    "snapshot_at": "2026-09-27T09:51:42.993580+00:00",
     "events_total": 576,
     "events_selected": 576,
     "complete_snapshot": true,
-    "model": "intfloat/multilingual-e5-small",
-    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "model": "intfloat/multilingual-e5-base",
+    "embedding_version": "d128750597153bb5987e10b1c3493a34e5a4502a:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
     "document_schema_version": "event-public-v1",
-    "collection_name": "uranus_bench_events_e5_small",
+    "collection_name": "uranus_bench_events_e5_base",
     "license": "MIT",
     "area_assignment_available": false,
     "normalized_document_hash": "ad1906cf45628018934f911f627a835d48fd36c8ff39960563520968f22e67da",
@@ -174,14 +174,14 @@
     "unchanged": 1046,
     "deleted": 80,
     "metrics": {
-      "wall_seconds": 13.252867117000278,
-      "embedding_seconds": 12.958323152037337,
+      "wall_seconds": 41.93862467398867,
+      "embedding_seconds": 41.2222569170699,
       "embedded_chunks": 82,
       "embedded_events": 80,
-      "chunks_per_second": 6.187340390277775,
-      "events_per_second": 6.036429649051488,
-      "encoder_cpu_seconds": 24.29117879099999,
-      "encoder_peak_rss_bytes": 1016193024
+      "chunks_per_second": 1.9552381757253559,
+      "events_per_second": 1.9075494397320545,
+      "encoder_cpu_seconds": 80.0025563729996,
+      "encoder_peak_rss_bytes": 1844019200
     },
     "collection": {
       "status": "green",
@@ -192,7 +192,7 @@
       "config": {
         "params": {
           "vectors": {
-            "size": 384,
+            "size": 768,
             "distance": "Cosine",
             "on_disk": true
           },
@@ -233,14 +233,14 @@
     }
   },
   "reconcile-repeat": {
-    "snapshot_at": "2026-09-27T09:31:44.086597+00:00",
+    "snapshot_at": "2026-09-27T09:47:38.989806+00:00",
     "events_total": 576,
     "events_selected": 576,
     "complete_snapshot": true,
-    "model": "intfloat/multilingual-e5-small",
-    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "model": "intfloat/multilingual-e5-base",
+    "embedding_version": "d128750597153bb5987e10b1c3493a34e5a4502a:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
     "document_schema_version": "event-public-v1",
-    "collection_name": "uranus_bench_events_e5_small",
+    "collection_name": "uranus_bench_events_e5_base",
     "license": "MIT",
     "area_assignment_available": false,
     "corpus_hash": "1f612dfc4058ef28ae92b16f338f9f1ab09e9d788b0e8adff7d1f62b11cf33a6",
@@ -251,7 +251,7 @@
     "unchanged": 1126,
     "deleted": 0,
     "metrics": {
-      "wall_seconds": 0.004563521011732519,
+      "wall_seconds": 0.0035773910058196634,
       "embedding_seconds": 0.0,
       "embedded_chunks": 0,
       "embedded_events": 0,
@@ -269,7 +269,7 @@
       "config": {
         "params": {
           "vectors": {
-            "size": 384,
+            "size": 768,
             "distance": "Cosine",
             "on_disk": true
           },
@@ -310,43 +310,43 @@
     }
   },
   "sync-10": {
-    "snapshot_at": "2026-09-27T09:26:02.296012+00:00",
+    "snapshot_at": "2026-09-27T09:32:55.518945+00:00",
     "events_total": 576,
     "events_selected": 10,
     "complete_snapshot": false,
-    "model": "intfloat/multilingual-e5-small",
-    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "model": "intfloat/multilingual-e5-base",
+    "embedding_version": "d128750597153bb5987e10b1c3493a34e5a4502a:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
     "document_schema_version": "event-public-v1",
-    "collection_name": "uranus_bench_events_e5_small",
+    "collection_name": "uranus_bench_events_e5_base",
     "license": "MIT",
     "area_assignment_available": false,
     "corpus_hash": "05af488be575db8d103953d089e5ffd8c6e398f1e29b45d52bcd0d89076565eb",
     "chunks": 22,
-    "new": 6,
-    "updated": 16,
+    "new": 22,
+    "updated": 0,
     "metadata_updated": 0,
     "unchanged": 0,
-    "deleted": 6,
+    "deleted": 0,
     "metrics": {
-      "wall_seconds": 5.790047899005003,
-      "embedding_seconds": 5.6963294930174015,
+      "wall_seconds": 20.884101560979616,
+      "embedding_seconds": 20.201311397948302,
       "embedded_chunks": 22,
       "embedded_events": 10,
-      "chunks_per_second": 3.7996231436670174,
-      "events_per_second": 1.7271014289395534,
-      "encoder_cpu_seconds": 11.078101423,
-      "encoder_peak_rss_bytes": 982286336
+      "chunks_per_second": 1.0534329157403333,
+      "events_per_second": 0.4788331435183333,
+      "encoder_cpu_seconds": 34.03399599699999,
+      "encoder_peak_rss_bytes": 1286721536
     },
     "collection": {
       "status": "green",
       "optimizer_status": "ok",
       "indexed_vectors_count": 0,
-      "points_count": 186,
+      "points_count": 22,
       "segments_count": 2,
       "config": {
         "params": {
           "vectors": {
-            "size": 384,
+            "size": 768,
             "distance": "Cosine",
             "on_disk": true
           },
@@ -387,32 +387,32 @@
     }
   },
   "sync-100": {
-    "snapshot_at": "2026-09-27T09:26:17.171610+00:00",
+    "snapshot_at": "2026-09-27T09:33:27.484372+00:00",
     "events_total": 576,
     "events_selected": 100,
     "complete_snapshot": false,
-    "model": "intfloat/multilingual-e5-small",
-    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "model": "intfloat/multilingual-e5-base",
+    "embedding_version": "d128750597153bb5987e10b1c3493a34e5a4502a:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
     "document_schema_version": "event-public-v1",
-    "collection_name": "uranus_bench_events_e5_small",
+    "collection_name": "uranus_bench_events_e5_base",
     "license": "MIT",
     "area_assignment_available": false,
     "corpus_hash": "037e1a523a06ecc495f418f64734e8c748dacc5efb78ae78b84f9f9644224f72",
     "chunks": 186,
-    "new": 31,
-    "updated": 133,
+    "new": 164,
+    "updated": 0,
     "metadata_updated": 0,
     "unchanged": 22,
-    "deleted": 31,
+    "deleted": 0,
     "metrics": {
-      "wall_seconds": 45.158684655005345,
-      "embedding_seconds": 44.39395652592066,
+      "wall_seconds": 137.9696209070098,
+      "embedding_seconds": 137.0645769450348,
       "embedded_chunks": 164,
       "embedded_events": 90,
-      "chunks_per_second": 3.6316381057795577,
-      "events_per_second": 1.992972131220489,
-      "encoder_cpu_seconds": 85.87875886499992,
-      "encoder_peak_rss_bytes": 1181478912
+      "chunks_per_second": 1.188667468402587,
+      "events_per_second": 0.6523175131477612,
+      "encoder_cpu_seconds": 265.788952117,
+      "encoder_peak_rss_bytes": 1594986496
     },
     "collection": {
       "status": "green",
@@ -423,7 +423,7 @@
       "config": {
         "params": {
           "vectors": {
-            "size": 384,
+            "size": 768,
             "distance": "Cosine",
             "on_disk": true
           },
@@ -464,14 +464,14 @@
     }
   },
   "sync-full": {
-    "snapshot_at": "2026-09-27T09:27:21.838759+00:00",
+    "snapshot_at": "2026-09-27T09:36:07.522250+00:00",
     "events_total": 576,
     "events_selected": 576,
     "complete_snapshot": true,
-    "model": "intfloat/multilingual-e5-small",
-    "embedding_version": "614241f622f53c4eeff9890bdc4f31cfecc418b3:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
+    "model": "intfloat/multilingual-e5-base",
+    "embedding_version": "d128750597153bb5987e10b1c3493a34e5a4502a:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2",
     "document_schema_version": "event-public-v1",
-    "collection_name": "uranus_bench_events_e5_small",
+    "collection_name": "uranus_bench_events_e5_base",
     "license": "MIT",
     "area_assignment_available": false,
     "corpus_hash": "1f612dfc4058ef28ae92b16f338f9f1ab09e9d788b0e8adff7d1f62b11cf33a6",
@@ -482,14 +482,14 @@
     "unchanged": 186,
     "deleted": 0,
     "metrics": {
-      "wall_seconds": 235.8023335809994,
-      "embedding_seconds": 231.43329612287926,
+      "wall_seconds": 666.0593703660124,
+      "embedding_seconds": 661.5220606730145,
       "embedded_chunks": 940,
       "embedded_events": 476,
-      "chunks_per_second": 3.986389726194566,
-      "events_per_second": 2.0186399039027805,
-      "encoder_cpu_seconds": 444.75357603700087,
-      "encoder_peak_rss_bytes": 1297825792
+      "chunks_per_second": 1.41128560278861,
+      "events_per_second": 0.7146510073695516,
+      "encoder_cpu_seconds": 1290.1771317050013,
+      "encoder_peak_rss_bytes": 1843986432
     },
     "collection": {
       "status": "green",
@@ -500,7 +500,7 @@
       "config": {
         "params": {
           "vectors": {
-            "size": 384,
+            "size": 768,
             "distance": "Cosine",
             "on_disk": true
           },

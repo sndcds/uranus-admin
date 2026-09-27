@@ -106,6 +106,43 @@ sudo du -sh /srv/qdrant/storage/collections/* /srv/models
 sudo systemctl status uranus-research-ai-guard.service
 ```
 
+On Server B, a quick local check is:
+
+```sh
+curl -fsS http://127.0.0.1:6335/health
+curl -fsS http://127.0.0.1:6333/healthz
+```
+
+The encoder intentionally has no Swagger UI or root landing page. `GET /docs` may
+return 405 and `GET /` returns 404; neither is a readiness test. Authenticated
+`POST /embed` accepts `{"model":"e5-base","kind":"query","texts":["Sprachkurse"]}`
+and returns one 768-dimensional vector. It does not itself search events. Read the
+Bearer key from its protected file inside an operator script, never print it or
+place it in a curl command line. HTTP 429 means the single-request encoder is busy;
+retry after the active benchmark request completes.
+
+For a complete local curl smoke test on B, read the protected key into curl's
+standard-input header stream. The key is neither printed nor passed in curl's
+process arguments. Do not enable shell tracing or curl verbose/trace output:
+
+```sh
+sudo bash <<'SH'
+set +x
+set -euo pipefail
+printf 'Authorization: Bearer %s\n' \
+  "$(cat /etc/uranus-research-ai/embedding.key)" |
+curl --silent --show-error --fail-with-body --max-time 600 \
+  --request POST --header @- --header 'Content-Type: application/json' \
+  --data '{"model":"e5-base","kind":"query","texts":["kostenlose Veranstaltungen für Familien"]}' \
+  http://127.0.0.1:6335/embed
+printf '\n'
+SH
+```
+
+Run this after an active benchmark finishes: switching the loaded model introduces
+extra load and would contaminate timing measurements. The response is an embedding,
+not an event search result.
+
 Docker checks local `/healthz` (Qdrant) and `/health` (encoder). Encoder reports a
 bounded failure counter; container restart resets it. A health check proves process
 liveness, not that a given model is cached/loaded. Indexer dry-run and smoke establish
