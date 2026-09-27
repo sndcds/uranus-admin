@@ -486,7 +486,12 @@ async def test_benchmark_export_language_and_unjudged_provenance(tmp_path):
 
     from app.research.vector_benchmark import Question, benchmark
 
-    doc = sample(language="da")
+    doc = sample(
+        language="da",
+        description="<p>Dänisch lernen</p> private@example.test <script>NOT_EXPORTED</script>",
+        admin_note="NOT_EXPORTED",
+        registration_email="private@example.test",
+    )
     model = MODELS["e5-small"]
     plan = plan_changes([doc], prepare(doc), {}, model, complete=True)
     payload = next(iter(plan.desired.values()))[1]
@@ -509,6 +514,7 @@ async def test_benchmark_export_language_and_unjudged_provenance(tmp_path):
         Store(),
         encoder,
         [doc],
+        prepare(doc),
         [Question(id="q", query="Sprachkurse", language="de", notes="Unjudged")],
         output,
         {},
@@ -516,5 +522,102 @@ async def test_benchmark_export_language_and_unjudged_provenance(tmp_path):
     rows = json.loads((output / "results.json").read_text())
     assert rows[0]["language"] == "de" and rows[0]["event_language"] == "da"
     assert rows[0]["manual_relevance"] == ""
+    assert rows[0]["review_excerpt"]
+    assert "Sprachkurs" in rows[0]["review_excerpt"]
+    assert "Dänisch lernen" in rows[0]["review_excerpt"]
+    assert "NOT_EXPORTED" not in rows[0]["review_excerpt"]
+    assert "private@example.test" not in rows[0]["review_excerpt"]
     assert "NOT_EXPORTED" not in (output / "results.json").read_text()
     assert json.loads((output / "report.json").read_text())["quality_metrics"] is None
+
+
+@pytest.mark.parametrize("missing_hash", [None, "0" * 64])
+async def test_benchmark_excerpt_requires_exact_winning_chunk(tmp_path, missing_hash):
+    from app.research.vector_benchmark import Question, benchmark
+
+    doc = sample()
+    chunks = prepare(doc)
+    model = MODELS["e5-small"]
+    plan = plan_changes([doc], chunks, {}, model, complete=True)
+    payload = next(iter(plan.desired.values()))[1]
+    payload.pop("content_hash")
+    if missing_hash is not None:
+        payload["content_hash"] = missing_hash
+    payload["text"] = "NOT_EXPORTED"
+
+    class Store:
+        async def search(self, vector, limit):
+            return [{"score": 0.8, "payload": payload}]
+
+    class Embed:
+        async def embed(self, texts, query=False):
+            return [[1.0]]
+
+    encoder = Embed()
+    encoder.model = model
+    output = tmp_path / "export"
+    with pytest.raises(ValueError, match="missing_review_excerpt"):
+        await benchmark(
+            Store(),
+            encoder,
+            [doc],
+            chunks,
+            [Question(id="q", query="Sprachkurse", language="de", notes="")],
+            output,
+            {},
+        )
+    assert not output.exists()
+
+
+async def test_benchmark_winning_chunk_bound_utf8_and_csv_protection(tmp_path):
+    import csv
+    import json
+
+    from app.research.vector_benchmark import Question, benchmark
+
+    doc = sample(admin_note="NOT_EXPORTED", registration_email="private@example.test")
+    # Two public normalized sections; the winning chunk is deliberately not the first.
+    sections = [
+        Section(kind="content", text=clean("Titel: Sprachkurs")),
+        Section(kind="tickets", text=clean("=SUM(1) " + "äaa " * 750 + "private@example.test")),
+    ]
+    chunks = {str(doc.entity_id): chunk_sections(sections, lambda s: len(s.split()) + 2)}
+    model = MODELS["e5-small"]
+    plan = plan_changes([doc], chunks, {}, model, complete=True)
+    values = list(plan.desired.values())
+    winner, winning_payload = values[1]
+    assert len(winner.text) > 1200
+
+    class Store:
+        async def info(self):
+            return {"points_count": len(values)}
+
+        async def search(self, vector, limit):
+            return [
+                {"score": 0.1, "payload": values[0][1]},
+                {"score": 0.9, "payload": {**winning_payload, "text": "NOT_EXPORTED"}},
+            ]
+
+    class Embed:
+        async def embed(self, texts, query=False):
+            return [[1.0]]
+
+    encoder = Embed()
+    encoder.model = model
+    await benchmark(
+        Store(),
+        encoder,
+        [doc],
+        chunks,
+        [Question(id="q", query="Sprachkurse", language="de", notes="")],
+        tmp_path,
+        {},
+    )
+    rows = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
+    assert len(rows) == 1
+    assert rows[0]["review_excerpt"] == winner.text[:1200]
+    assert len(rows[0]["review_excerpt"]) == 1200
+    assert "NOT_EXPORTED" not in json.dumps(rows) and "private@example.test" not in json.dumps(rows)
+    with (tmp_path / "results.csv").open(encoding="utf-8", newline="") as file:
+        csv_rows = list(csv.DictReader(file))
+    assert csv_rows[0]["review_excerpt"] == "'" + winner.text[:1200]

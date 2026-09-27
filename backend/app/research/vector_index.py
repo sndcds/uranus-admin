@@ -110,7 +110,13 @@ async def run(args: argparse.Namespace, settings: Settings) -> dict[str, object]
             if args.output is None or args.questions is None:
                 raise ValueError("benchmark_output_and_questions_required")
             return await benchmark(
-                qdrant, encoder, documents, questions(args.questions), args.output, manifest
+                qdrant,
+                encoder,
+                documents,
+                chunks,
+                questions(args.questions),
+                args.output,
+                manifest,
             )
         if args.output is not None:
             await asyncio.to_thread(args.output.mkdir, parents=True, exist_ok=True, mode=0o700)

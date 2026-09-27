@@ -59,8 +59,22 @@ RAM. Qdrant disk/RAM measurements and actual run results are recorded with the l
 benchmark artifacts. Small collections may use exact scans rather than build HNSW.
 
 Export columns: query ID/text/language, source event language (unknown stays null), model, rank, event ID, current public title,
-score, winning chunk kind, latency, `manual_relevance`. CSV cells guard formula
-prefixes. No document prose, vectors, credentials or internal admin data are exported.
+score, winning chunk kind, `review_excerpt`, latency, `manual_relevance`.
+`review_excerpt` contains at most 1200 characters from the exact winning chunk,
+matched by `(entity_id, content_hash)`. Its source is the already normalized,
+allowlisted chunk text produced through `vector_documents.py`; it is not a raw
+database field or search payload. A missing winning chunk aborts the export without
+a text fallback or additional database lookup. Private contact/email fields, internal
+notes, authentication data, vectors and credentials are not exported. JSON and CSV
+use UTF-8; CSV formula-prefix protection also applies to `review_excerpt`.
+
+The excerpt serves only human relevance assessment. The
+[pooled review tool](operations.md#manual-pooled-relevance-review) hides model names,
+ranks and scores, including scores from different models. It presents each
+query/event pair once, with the distinct winning excerpts from all runs in a stable,
+model-independent order. The E5 `passage: ` prefix is removed only from the review
+display; the exported excerpt stays exact. Different chunk boundaries may still be
+visible, so this is metadata-blind review, not identical evidence across models.
 
 `manual_relevance` is initially empty. Human reviewers can assign 2 (clearly relevant),
 1 (partially relevant), 0 (irrelevant), consistently across pooled results. The
@@ -78,6 +92,9 @@ The [2026-09-27 measurements](results/2026-09-27/README.md) contain the model
 comparison, stage timings, resource usage, verification results and all Top10
 CSV/JSON exports. They distinguish retrieval measurements from still-unjudged
 relevance and record the exact document/model provenance.
+These historical artifacts have no `review_excerpt` and remain unchanged. The
+review tool rejects them explicitly. Generate new benchmarks in a fresh results
+directory (preferably operator-only outside Git); do not backfill historical files.
 
 ## Interpreting the pilot
 

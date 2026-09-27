@@ -97,6 +97,63 @@ reconciliation. It aborts on any failed stage, unexpected counts or non-distinct
 Top10 results. It is intended for this corpus of at least ten eligible events.
 Use one indexer host and one job at a time; local flock is not a distributed lease.
 
+## Manual pooled relevance review
+
+Run the standard-library-only review tool from the repository root against a fresh
+benchmark directory containing one `*/results.json` per model:
+
+```sh
+python deploy/research-ai/review-benchmark.py \
+  --results-dir /private/results/2026-09-27-review-v2 \
+  --output /private/pooled-results.json
+```
+
+The checked-in `docs/research-ai/results/2026-09-27/` exports lack `review_excerpt`
+and are explicitly rejected. Leave them unchanged; rerun benchmarks with the new
+exporter into a new directory, preferably outside Git. Excerpts come only from the
+exact winning normalized, allowlisted chunk, truncated to 1200 characters.
+
+The tool pools by `(query_id, entity_id)` across models. Each pair is reviewed once;
+different event IDs and different queries remain separate. Query, public event title,
+chunk types and distinct winning excerpts are shown, without model names, ranks or
+scores. Review order is deterministic and independent of model rankings. Identical
+excerpts are collapsed and the E5 `passage: ` prefix is hidden in the display.
+Terminal control characters are filtered. No AI or score-based grading occurs.
+
+- `2`: clearly relevant; `1`: partially relevant; `0`: irrelevant.
+- `s`: skip this pair for this session; it remains unjudged and returns on resume.
+- `q`: save and quit. EOF or Ctrl+C also preserves completed judgments.
+
+Every grade is applied to all model rows for that query/event pair and saved
+atomically with mode `0600`, file and directory fsync. The output keeps the original
+model/rank/score columns for evaluation, but never shows them during review. Input
+files are not changed. Use a separate output file and one reviewer at a time in
+operator-owned directories; concurrent reviewers are not coordinated. Symlink
+inputs, output files and parent directories are rejected. Temporary files use unique
+names and are cleaned up after a failed replacement, preserving the previous output.
+
+Restart the same command to resume. Already judged pairs are skipped; grades must
+agree across all model rows and any existing output. Conflicting query texts, event
+titles, judgments or invalid rankings abort before prompting. Existing output must
+match the complete input rows apart from grades and row order; new or changed runs
+require a separate output file so stale judgments are not silently reused.
+
+Limits: 20 result files, 1000 directory entries, 20,000 total rows and 8 MB aggregate
+input/output JSON, with bounded individual text fields. Invalid JSON, duplicate JSON
+keys, nonfinite numbers, malformed grades and missing excerpts are rejected. An
+unjudged pair stays empty; neither skipping nor quitting assigns an automatic zero.
+
+After completing all judgments:
+
+```sh
+cd backend
+uv run python -m app.research.vector_index evaluate \
+  --judgments /private/pooled-results.json
+```
+
+The existing evaluator accepts the output directly. It returns `null` for incomplete
+judgments and computes pooled relevance metrics only when every row is judged.
+
 ## Health, measurements and snapshots
 
 ```sh

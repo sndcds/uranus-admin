@@ -12,7 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.research.vector_documents import EventDocument, content_hash
+from app.research.vector_documents import Chunk, EventDocument, content_hash
 from app.research.vector_sync import deduplicate
 from app.research.vector_transport import Encoder, Qdrant
 
@@ -35,7 +35,9 @@ def questions(path: Path) -> list[Question]:
 
 
 def save_json(path: Path, value: object) -> None:
-    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as output:
+    with os.fdopen(
+        os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w", encoding="utf-8"
+    ) as output:
         json.dump(value, output, ensure_ascii=False, indent=2, allow_nan=False)
         output.write("\n")
 
@@ -50,11 +52,19 @@ async def benchmark(
     qdrant: Qdrant,
     encoder: Encoder,
     documents: list[EventDocument],
+    chunks: dict[str, list[Chunk]],
     items: list[Question],
     output: Path,
     manifest: dict[str, Any],
 ) -> dict[str, Any]:
     titles = {str(d.entity_id): d.title for d in documents}
+    # Reuse normalized, allowlisted encoder input; never retrieve prose from the
+    # search payload or fall back to another chunk when the winning hash is stale.
+    chunk_text = {
+        (entity_id, chunk.content_hash): chunk.text
+        for entity_id, items_for_event in chunks.items()
+        for chunk in items_for_event
+    }
     rows = []
     latencies = []
     for item in items:
@@ -71,6 +81,9 @@ async def benchmark(
         latencies.append(elapsed)
         for rank, hit in enumerate(ranked, 1):
             payload = hit["payload"]
+            excerpt = chunk_text.get((payload["entity_id"], payload.get("content_hash", "")), "")
+            if not excerpt:
+                raise ValueError("missing_review_excerpt")
             rows.append(
                 {
                     "query_id": item.id,
@@ -83,6 +96,7 @@ async def benchmark(
                     "event_title": titles[payload["entity_id"]],
                     "score": hit["score"],
                     "chunk_kind": payload["chunk_kind"],
+                    "review_excerpt": excerpt[:1200],
                     "manual_relevance": "",
                     "query_latency_seconds": elapsed,
                 }
@@ -106,6 +120,7 @@ async def benchmark(
     with os.fdopen(
         os.open(output / "results.csv", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600),
         "w",
+        encoding="utf-8",
         newline="",
     ) as file:
         columns = [
@@ -119,6 +134,7 @@ async def benchmark(
             "event_title",
             "score",
             "chunk_kind",
+            "review_excerpt",
             "manual_relevance",
             "query_latency_seconds",
         ]
