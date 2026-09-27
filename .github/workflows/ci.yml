@@ -69,6 +69,14 @@ jobs:
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-24.04
     services:
+      qdrant:
+        image: qdrant/qdrant:v1.19.1@sha256:0699e7733a6fa7fa7f6b95dcbed84ebb04584110da525cdfdef9f305c4f57738
+        env:
+          QDRANT__SERVICE__API_KEY: vector-test-only-key-with-more-than-32-characters
+          QDRANT__TELEMETRY_DISABLED: "true"
+        ports:
+          - 6333:6333
+        options: --memory=512m --cpus=1
       postgis:
         # postgis/postgis:17-3.5, immutable linux/amd64 manifest.
         image: postgis/postgis@sha256:8dfee83d8bd4c2873dc4a233c13ba2799a44f2edb16a0552d58715917fac32ba
@@ -84,6 +92,7 @@ jobs:
           --health-timeout 5s
           --health-retries 20
     env:
+      TEST_QDRANT_URL: http://127.0.0.1:6333
       TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/kulturbytes_admin_test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
