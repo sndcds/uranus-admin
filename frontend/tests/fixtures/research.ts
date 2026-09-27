@@ -156,3 +156,53 @@ export function researchDetail(kind: ResearchType = 'event'): ResearchDetail {
     observed_at: '2026-09-26T10:00:00Z',
   }
 }
+
+export const researchArea = {
+  id: '40000000-0000-4000-8000-000000000001',
+  area_type: 'municipality' as const,
+  country_code: 'DE' as const,
+  region_code: 'DE-SH',
+  name: 'Flensburg',
+  population: {
+    value: 12345,
+    as_of: '2024-12-31',
+    source: 'bkg_vg250_ew' as const,
+    municipality_name: 'Flensburg',
+    file_sha256: 'a'.repeat(64),
+    imported_at: '2026-09-27T00:00:00Z',
+  },
+  display_name: 'Flensburg, Schleswig-Holstein, Deutschland',
+  osm_type: 'R' as const,
+  osm_id: '27020',
+  osm_admin_level: 6,
+  centroid: { latitude: 54.78, longitude: 9.43 },
+  bbox: [9.3, 54.7, 9.6, 54.9] as [number, number, number, number],
+  source: 'osm' as const,
+  retrieved_at: '2026-09-27T10:00:00Z',
+  updated_at: '2026-09-27T10:00:00Z',
+}
+export function researchAreaDossier() {
+  return {
+    area: researchArea,
+    geometry: {
+      type: 'MultiPolygon' as const,
+      coordinates: [
+        [
+          [
+            [9.3, 54.7],
+            [9.6, 54.7],
+            [9.6, 54.9],
+            [9.3, 54.9],
+            [9.3, 54.7],
+          ],
+        ],
+      ],
+    },
+    events: researchPage([researchEvent]),
+    venues: researchPage([researchVenue]),
+    organizations: researchPage([researchOrganization]),
+    months: [{ month: '2026-09-01', event_count: 1 }],
+    usage: [{ kind: 'category' as const, key: '1', name: 'Kultur', event_count: 1 }],
+    observed_at: '2026-09-27T10:00:00Z',
+  }
+}

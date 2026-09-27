@@ -8,6 +8,8 @@ export function failure(status: number, code = 'request_failed'): ApiFailure {
   const retryMessages: Record<string, string> = {
     research_export_limit:
       'Bitte grenze die Suche auf höchstens 10.000 Treffer ein. Der Export wurde nicht gekürzt.',
+    research_area_not_found: 'Dieses Gebiet ist nicht verfügbar.',
+    research_area_unavailable: 'Der Gebietsfilter konnte nicht geladen werden.',
     research_access_denied: 'Dein Konto hat keine Recherche-Berechtigung.',
     request_timeout: 'Zeitüberschreitung beim Abruf. Bitte erneut versuchen.',
     live_findings_timeout:

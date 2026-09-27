@@ -24,6 +24,7 @@ class ResearchFilters(BaseModel):
     status: ResearchStatus | None = None
     organization_id: UUID | None = None
     venue_id: UUID | None = None
+    area_id: UUID | None = None
     sort: Literal["date", "name"] = "date"
     page: int = Field(default=1, ge=1, le=100_000)
     page_size: int = Field(default=25, ge=1, le=100)

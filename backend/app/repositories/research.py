@@ -20,6 +20,7 @@ from app.repositories.created_period import require_timezone
 from app.repositories.entities import pagination
 from app.repositories.entity_search import SEARCH_DEFINITIONS, escape_search
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
+from app.repositories.research_areas import ResolvedResearchArea
 from app.schemas.research import (
     ResearchCategory,
     ResearchDate,
@@ -60,6 +61,9 @@ DATE_FILTER = f"""e.release_status::text IN {PUBLIC} AND {DATE_STATUS} IN {PUBLI
     AND (CAST(:from_date AS date) IS NULL OR d.start_date>=:from_date)
     AND (CAST(:to_date AS date) IS NULL OR d.start_date<=:to_date)
     AND (:city='' OR v.city ILIKE :city)
+    AND (CAST(:area_wkb AS bytea) IS NULL OR (v.point IS NOT NULL
+        AND v.point && ST_GeomFromEWKB(:area_wkb)
+        AND ST_Covers(ST_GeomFromEWKB(:area_wkb),v.point)))
     AND (CAST(:venue_id AS uuid) IS NULL OR v.uuid=:venue_id)
     AND (CAST(:status AS text) IS NULL OR {DATE_STATUS}=:status)"""
 # Search uses the canonical definitions, with privacy-sensitive fields removed.
@@ -92,8 +96,13 @@ def search_sql(kind: ResearchType) -> str:
     return f"SELECT entity_key FROM ({public.projection()}) search WHERE {public.matches()}"
 
 
-def parameters(filters: ResearchFilters, settings: Settings) -> dict[str, Any]:
+def parameters(
+    filters: ResearchFilters, settings: Settings, area: ResolvedResearchArea | None = None
+) -> dict[str, Any]:
+    if filters.area_id is not None and (area is None or area.area.id != filters.area_id):
+        raise APIError(503, "research_area_unavailable", "Research area must be resolved.")
     return {
+        "area_wkb": area.ewkb if filters.area_id and area else None,
         **filters.model_dump(),
         "q": f"%{escape_search(filters.q)}%",
         "city": f"%{escape_search(filters.city)}%" if filters.city.strip() else "",
@@ -107,6 +116,20 @@ def research_sql() -> str:
     branches = []
     for kind, alias, table in (("venue", "v", "venue"), ("organization", "v", "organization")):
         link = "m.venue_id=v.uuid" if kind == "venue" else "m.organization_id=v.uuid"
+        visibility = f"EXISTS (SELECT 1 FROM matched_events m WHERE {link})"
+        if kind == "venue":
+            # With an area, also expose its public venue projection without activity.
+            # Explicit event filters still require an occurrence matching that selection.
+            visibility = f"""(CAST(:area_wkb AS bytea) IS NULL AND {visibility}) OR (
+                CAST(:area_wkb AS bytea) IS NOT NULL
+                AND v.point && ST_GeomFromEWKB(:area_wkb)
+                AND ST_Covers(ST_GeomFromEWKB(:area_wkb),v.point)
+                AND (:city='' OR v.city ILIKE :city)
+                AND (CAST(:venue_id AS uuid) IS NULL OR v.uuid=:venue_id)
+                AND ({visibility} OR (CAST(:from_date AS date) IS NULL
+                    AND CAST(:to_date AS date) IS NULL AND CAST(:category AS integer) IS NULL
+                    AND CAST(:status AS text) IS NULL
+                    AND CAST(:organization_id AS uuid) IS NULL)))"""
         branches.append(f"""SELECT '{kind}'::text entity_type,v.uuid entity_key,v.name,
             v.description,NULL::text status,'[]'::jsonb categories,v.content_iso_639_1 language,
             NULL::date start_date,NULL::time start_time,NULL::date end_date,NULL::time end_time,
@@ -116,8 +139,7 @@ def research_sql() -> str:
             (SELECT count(DISTINCT m.entity_key) FROM matched_events m WHERE {link}) event_count,
             v.web_link source_url,v.created_at AT TIME ZONE :tz created_at,
             v.modified_at AT TIME ZONE :tz modified_at
-            FROM uranus.{table} {alias} WHERE EXISTS (
-                SELECT 1 FROM matched_events m WHERE {link})""")
+            FROM uranus.{table} {alias} WHERE {visibility}""")
     return f"""WITH category_labels AS ({CATEGORY_LABELS}),
     filtered_dates AS MATERIALIZED (SELECT {DATE_COLUMNS} {DATE_JOINS} WHERE {DATE_FILTER}),
     matched_events AS MATERIALIZED (
@@ -136,7 +158,7 @@ def research_sql() -> str:
         AND (d.id IS NOT NULL OR (
             NOT EXISTS (SELECT 1 FROM uranus.event_date known WHERE known.event_uuid=e.uuid)
             AND CAST(:from_date AS date) IS NULL AND CAST(:to_date AS date) IS NULL
-            AND :city='' AND CAST(:venue_id AS uuid) IS NULL
+            AND :city='' AND CAST(:venue_id AS uuid) IS NULL AND CAST(:area_wkb AS bytea) IS NULL
             AND (CAST(:status AS text) IS NULL OR e.release_status::text=:status)))
     ), event_records AS (
         SELECT DISTINCT ON (entity_key) entity_type,entity_key,name,description,status,categories,
@@ -213,9 +235,13 @@ async def images(
 
 
 async def research_page(
-    connection: AsyncConnection, settings: Settings, filters: ResearchFilters, now: datetime
+    connection: AsyncConnection,
+    settings: Settings,
+    filters: ResearchFilters,
+    now: datetime,
+    area: ResolvedResearchArea | None = None,
 ) -> ResearchPage:
-    sql, params = research_sql(), parameters(filters, settings)
+    sql, params = research_sql(), parameters(filters, settings, area)
     total = int(
         (await connection.execute(text(f"SELECT count(*) FROM ({sql}) r"), params)).scalar_one()
     )
@@ -241,8 +267,13 @@ async def research_detail(
     key: UUID,
     filters: ResearchFilters,
     now: datetime,
+    area: ResolvedResearchArea | None = None,
 ) -> ResearchDetail:
-    params = parameters(ResearchFilters(entity_type=kind), settings)
+    params = parameters(
+        ResearchFilters(entity_type=kind, area_id=filters.area_id if kind == "venue" else None),
+        settings,
+        area,
+    )
     params["key"] = key
     row = (await connection.execute(text(research_sql()), params)).mappings().one_or_none()
     if row is None:
@@ -269,7 +300,7 @@ async def research_detail(
     months: list[ResearchMonth] = []
     usage: list[ResearchUsageItem] = []
     if kind == "event":
-        params = parameters(filters, settings)
+        params = parameters(filters, settings, area)
         params["key"] = key
         predicate = f"""{DATE_FILTER} AND e.uuid=:key
             AND (CAST(:organization_id AS uuid) IS NULL OR e.org_uuid=:organization_id)
@@ -302,63 +333,21 @@ async def research_detail(
             pagination=pagination(filters.page, filters.page_size, total),
         )
     else:
-        events = await research_page(connection, settings, event_filters, now)
-        params = parameters(event_filters, settings)
-        # A bounded monthly series counts distinct events in each calendar month.
-        rows = (
-            await connection.execute(
-                text(f"""SELECT date_trunc('month',d.start_date)::date AS month,
-            count(DISTINCT e.uuid) event_count {DATE_JOINS} WHERE {DATE_FILTER}
-            AND (CAST(:organization_id AS uuid) IS NULL OR e.org_uuid=:organization_id)
-            AND (CAST(:category AS integer) IS NULL OR :category=ANY(e.categories))
-            AND (:q='%%' OR e.uuid::text IN ({search_sql("event")}))
-            GROUP BY 1 ORDER BY 1 DESC LIMIT 120"""),
-                params,
-            )
-        ).mappings()
-        months = [ResearchMonth.model_validate(r) for r in rows]
-        usage_rows = (
-            await connection.execute(
-                text(f"""
-            WITH category_labels AS ({CATEGORY_LABELS}), occurrences AS MATERIALIZED (
-                SELECT e.uuid event_id,e.org_uuid,o.name organization_name,
-                    v.uuid venue_id,v.name venue_name,e.categories
-                {DATE_JOINS} JOIN uranus.organization o ON o.uuid=e.org_uuid
-                WHERE {DATE_FILTER}
-                AND (CAST(:organization_id AS uuid) IS NULL OR e.org_uuid=:organization_id)
-                AND (CAST(:category AS integer) IS NULL OR :category=ANY(e.categories))
-                AND (:q='%%' OR e.uuid::text IN ({search_sql("event")}))
-            ), usage AS (
-                SELECT 'venue' kind,venue_id::text key,venue_name name,
-                    count(DISTINCT event_id) event_count FROM occurrences
-                WHERE venue_id IS NOT NULL GROUP BY venue_id,venue_name
-                UNION ALL
-                SELECT 'organization',org_uuid::text,organization_name,
-                    count(DISTINCT event_id) FROM occurrences GROUP BY org_uuid,organization_name
-                UNION ALL
-                SELECT 'category',c.id::text,COALESCE(l.name,'Kategorie '||c.id),
-                    count(DISTINCT event_id) FROM occurrences
-                CROSS JOIN LATERAL unnest(categories) c(id)
-                LEFT JOIN category_labels l ON l.category_id=c.id
-                WHERE c.id IS NOT NULL GROUP BY c.id,l.name
-            ), ranked AS (
-                SELECT kind,key,name,event_count,row_number() OVER (PARTITION BY kind
-                    ORDER BY event_count DESC,name COLLATE "C",key COLLATE "C") rank FROM usage
-            ) SELECT kind,key,name,event_count FROM ranked WHERE rank<=10 ORDER BY kind,rank
-        """),
-                params,
-            )
-        ).mappings()
-        usage = [ResearchUsageItem.model_validate(r) for r in usage_rows]
+        events = await research_page(connection, settings, event_filters, now, area)
+        months, usage = await research_activity(connection, settings, event_filters, area)
     return ResearchDetail(
         item=item, events=events, dates=dates, months=months, usage=usage, observed_at=now
     )
 
 
 async def research_export(
-    connection: AsyncConnection, settings: Settings, filters: ResearchFilters, now: datetime
+    connection: AsyncConnection,
+    settings: Settings,
+    filters: ResearchFilters,
+    now: datetime,
+    area: ResolvedResearchArea | None = None,
 ) -> ResearchExport:
-    sql, params = research_sql(), parameters(filters, settings)
+    sql, params = research_sql(), parameters(filters, settings, area)
     rows = (
         (
             await connection.execute(
@@ -424,3 +413,59 @@ async def research_options(connection: AsyncConnection) -> ResearchOptions:
         )
     ).mappings()
     return ResearchOptions(categories=[ResearchCategory.model_validate(r) for r in rows])
+
+
+async def research_activity(
+    connection: AsyncConnection,
+    settings: Settings,
+    filters: ResearchFilters,
+    area: ResolvedResearchArea | None = None,
+) -> tuple[list[ResearchMonth], list[ResearchUsageItem]]:
+    params = parameters(filters, settings, area)
+    # A bounded monthly series counts distinct events in each calendar month.
+    rows = (
+        await connection.execute(
+            text(f"""SELECT date_trunc('month',d.start_date)::date AS month,
+        count(DISTINCT e.uuid) event_count {DATE_JOINS} WHERE {DATE_FILTER}
+        AND (CAST(:organization_id AS uuid) IS NULL OR e.org_uuid=:organization_id)
+        AND (CAST(:category AS integer) IS NULL OR :category=ANY(e.categories))
+        AND (:q='%%' OR e.uuid::text IN ({search_sql("event")}))
+        GROUP BY 1 ORDER BY 1 DESC LIMIT 120"""),
+            params,
+        )
+    ).mappings()
+    months = [ResearchMonth.model_validate(r) for r in rows]
+    usage_rows = (
+        await connection.execute(
+            text(f"""
+        WITH category_labels AS ({CATEGORY_LABELS}), occurrences AS MATERIALIZED (
+            SELECT e.uuid event_id,e.org_uuid,o.name organization_name,
+                v.uuid venue_id,v.name venue_name,e.categories
+            {DATE_JOINS} JOIN uranus.organization o ON o.uuid=e.org_uuid
+            WHERE {DATE_FILTER}
+            AND (CAST(:organization_id AS uuid) IS NULL OR e.org_uuid=:organization_id)
+            AND (CAST(:category AS integer) IS NULL OR :category=ANY(e.categories))
+            AND (:q='%%' OR e.uuid::text IN ({search_sql("event")}))
+        ), usage AS (
+            SELECT 'venue' kind,venue_id::text key,venue_name name,
+                count(DISTINCT event_id) event_count FROM occurrences
+            WHERE venue_id IS NOT NULL GROUP BY venue_id,venue_name
+            UNION ALL
+            SELECT 'organization',org_uuid::text,organization_name,
+                count(DISTINCT event_id) FROM occurrences GROUP BY org_uuid,organization_name
+            UNION ALL
+            SELECT 'category',c.id::text,COALESCE(l.name,'Kategorie '||c.id),
+                count(DISTINCT event_id) FROM occurrences
+            CROSS JOIN LATERAL unnest(categories) c(id)
+            LEFT JOIN category_labels l ON l.category_id=c.id
+            WHERE c.id IS NOT NULL GROUP BY c.id,l.name
+        ), ranked AS (
+            SELECT kind,key,name,event_count,row_number() OVER (PARTITION BY kind
+                ORDER BY event_count DESC,name COLLATE "C",key COLLATE "C") rank FROM usage
+        ) SELECT kind,key,name,event_count FROM ranked WHERE rank<=10 ORDER BY kind,rank
+    """),
+            params,
+        )
+    ).mappings()
+    usage = [ResearchUsageItem.model_validate(r) for r in usage_rows]
+    return months, usage

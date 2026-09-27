@@ -1,5 +1,6 @@
 import {
   researchQuerySchema,
+  researchAreaQuerySchema,
   diagnosticRequestSchema,
   geoAreaImportSchema,
   loginSchema,
@@ -231,9 +232,12 @@ export async function forwardAdminRequest(
     input.path,
   )
   const researchDetail =
-    /^\/api\/v1\/research\/(events|venues|organizations)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    /^\/api\/v1\/research\/(events|venues|organizations|areas)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       input.path,
     )
+  const researchAreas = input.path === '/api/v1/research/areas'
+  if (researchAreas && !researchAreaQuerySchema.safeParse(Object.fromEntries(input.query)).success)
+    return rejected(422, 'invalid_query')
   const researchOptions = input.path === '/api/v1/research/options'
   if (
     (researchList || researchDetail) &&
@@ -252,41 +256,44 @@ export async function forwardAdminRequest(
           'status',
           'organization_id',
           'venue_id',
+          'area_id',
           'sort',
           'page',
           'page_size',
         ]
-      : researchOptions
-        ? []
-        : provenanceView
-          ? provenanceExecute
-            ? []
-            : (provenanceViews[provenanceView as ProvenanceView] as readonly string[])
-          : notificationDetail || notificationRetry || geoDetail || geocodeDetail || geocodeRetry
-            ? []
-            : entityTimeline
-              ? ['cursor', 'page_size']
-              : notificationPreview
-                ? ['locale']
-                : entityList
-                  ? [
-                      'q',
-                      'organization_id',
-                      'status',
-                      'period',
-                      'temporal',
-                      'page',
-                      'page_size',
-                      ...(input.path === '/api/v1/venues' ? ['scope'] : []),
-                      ...(spatialList ? ['geo_scope_id'] : []),
-                    ]
-                  : entityDetail
-                    ? ['related_page']
-                    : markDetail || assignmentDetail || checkDetail
-                      ? []
-                      : Object.hasOwn(routes, input.path)
-                        ? routes[input.path]
-                        : undefined
+      : researchAreas
+        ? ['q', 'country_code', 'area_type', 'page', 'page_size']
+        : researchOptions
+          ? []
+          : provenanceView
+            ? provenanceExecute
+              ? []
+              : (provenanceViews[provenanceView as ProvenanceView] as readonly string[])
+            : notificationDetail || notificationRetry || geoDetail || geocodeDetail || geocodeRetry
+              ? []
+              : entityTimeline
+                ? ['cursor', 'page_size']
+                : notificationPreview
+                  ? ['locale']
+                  : entityList
+                    ? [
+                        'q',
+                        'organization_id',
+                        'status',
+                        'period',
+                        'temporal',
+                        'page',
+                        'page_size',
+                        ...(input.path === '/api/v1/venues' ? ['scope'] : []),
+                        ...(spatialList ? ['geo_scope_id'] : []),
+                      ]
+                    : entityDetail
+                      ? ['related_page']
+                      : markDetail || assignmentDetail || checkDetail
+                        ? []
+                        : Object.hasOwn(routes, input.path)
+                          ? routes[input.path]
+                          : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
   const diagnosticExecute = input.path === '/api/v1/findings/sql-diagnostic/execute'
   const authWrite = input.method === 'POST' && ['/auth/login', '/auth/logout'].includes(input.path)

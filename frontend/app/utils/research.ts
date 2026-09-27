@@ -51,3 +51,12 @@ export function researchDate(value: string | null) {
       }).format(new Date(`${value}T12:00:00Z`))
     : 'Termin unbekannt'
 }
+
+export const researchRegionLabels: Record<string, string> = {
+  'DE-SH': 'Schleswig-Holstein',
+  'DE-HH': 'Hamburg',
+  'DE-MV': 'Mecklenburg-Vorpommern',
+  'DE-NI': 'Niedersachsen',
+  'DE-HB': 'Bremen',
+  'DK-83': 'Region Syddanmark',
+}

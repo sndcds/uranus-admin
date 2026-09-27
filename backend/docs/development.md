@@ -499,7 +499,8 @@ GRANT SELECT, INSERT, UPDATE ON admin.geocode_request TO admin_user;
 GRANT SELECT, INSERT ON admin.geocode_candidate TO admin_user;
 GRANT SELECT, INSERT ON admin.notification_delivery_item TO admin_user;
 -- Migration 0004: runtime cannot create accounts or grant itself global access.
-GRANT SELECT ON admin.auth_account, admin.auth_system_admin, admin.auth_journalist TO admin_user;
+GRANT SELECT ON admin.auth_account, admin.auth_system_admin, admin.auth_journalist,
+  admin.research_area TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.auth_session, admin.auth_login_bucket TO admin_user;
 REVOKE UPDATE, DELETE, TRUNCATE, TRIGGER ON admin.finding_event, admin.record_mark_event, admin.assignment_event FROM admin_user;
 COMMIT;
@@ -683,7 +684,7 @@ Beispiel, nach Migration 0004 durch einen dazu berechtigten DB-Betreiber ausfüh
 CREATE ROLE admin_auth_operator LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOBYPASSRLS NOREPLICATION;
 GRANT USAGE ON SCHEMA admin TO admin_auth_operator;
 REVOKE CREATE ON SCHEMA admin, uranus FROM admin_auth_operator;
-GRANT SELECT, INSERT, UPDATE ON admin.auth_account TO admin_auth_operator;
+GRANT SELECT, INSERT, UPDATE ON admin.auth_account, admin.research_area TO admin_auth_operator;
 GRANT SELECT, INSERT, DELETE ON admin.auth_system_admin, admin.auth_journalist TO admin_auth_operator;
 GRANT SELECT, UPDATE ON admin.auth_session TO admin_auth_operator;
 GRANT SELECT ON admin.alembic_version TO admin_auth_operator;

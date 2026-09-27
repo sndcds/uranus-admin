@@ -55,7 +55,11 @@ const selectedPermalink = computed(() => {
     permalink.value,
   )
   url.search = new URLSearchParams(
-    researchUrlQuery({ from_date: query.value.from_date, to_date: query.value.to_date }),
+    researchUrlQuery({
+      from_date: query.value.from_date,
+      to_date: query.value.to_date,
+      area_id: query.value.area_id,
+    }),
   ).toString()
   return url.href
 })
@@ -123,6 +127,7 @@ const chips = computed(() => [
         from_date: 'Von',
         to_date: 'Bis',
         city: 'Stadt',
+        area_id: 'Gemeinde / Kommune',
         category: 'Kategorie',
         status: 'Status',
         organization_id: 'Organisation',
@@ -133,7 +138,7 @@ const chips = computed(() => [
           ? (categories.value.find((c) => c.id === value)?.name ?? `Kategorie ${value}`)
           : key === 'status'
             ? researchStatuses[value as keyof typeof researchStatuses]
-            : ['organization_id', 'venue_id'].includes(key)
+            : ['organization_id', 'venue_id', 'area_id'].includes(key)
               ? 'ausgewählt'
               : String(value)
       return { key, label: `${labels[key]}: ${display}` }
@@ -331,7 +336,11 @@ const columns = [
             ><NuxtLink
               :to="{
                 path: researchHref(row.entity_type, row.entity_key),
-                query: researchUrlQuery({ from_date: query.from_date, to_date: query.to_date }),
+                query: researchUrlQuery({
+                  from_date: query.from_date,
+                  to_date: query.to_date,
+                  area_id: query.area_id,
+                }),
               }"
               >{{ row.name }}</NuxtLink
             ></template
@@ -376,6 +385,7 @@ const columns = [
             v-if="view === 'map' || view === 'split'"
             :key="data.observed_at"
             ref="mapPanel"
+            :area-id="query.area_id"
             :class="view === 'split' ? 'hidden xl:block' : ''"
             :items="data.items"
             :selected="selected"
@@ -465,7 +475,11 @@ const columns = [
                   class="button-primary"
                   :to="{
                     path: researchHref(selectedItem.entity_type, selectedItem.entity_key),
-                    query: researchUrlQuery({ from_date: query.from_date, to_date: query.to_date }),
+                    query: researchUrlQuery({
+                      from_date: query.from_date,
+                      to_date: query.to_date,
+                      area_id: query.area_id,
+                    }),
                   }"
                   ><AppIcon name="external" :size="17" />Vollständige Details</NuxtLink
                 >

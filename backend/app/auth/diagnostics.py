@@ -12,6 +12,7 @@ from app.config import Settings
 from app.storage_preflight import StorageIssue, check_grants, check_schema
 
 OPERATOR_GRANTS = {
+    "research_area": ("SELECT", "INSERT", "UPDATE"),
     "alembic_version": ("SELECT",),
     "auth_account": ("SELECT", "INSERT", "UPDATE"),
     "auth_system_admin": ("SELECT", "INSERT", "DELETE"),

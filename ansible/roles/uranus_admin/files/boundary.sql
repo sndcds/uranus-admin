@@ -8,7 +8,8 @@ WITH roles AS (
 ), expected AS (
   SELECT key AS name, value AS privileges FROM jsonb_each(%(grants)s::jsonb)
 ), operator_expected(name, privileges) AS (
-  VALUES ('alembic_version','["SELECT"]'::jsonb),
+  VALUES ('research_area','["SELECT","INSERT","UPDATE"]'::jsonb),
+         ('alembic_version','["SELECT"]'::jsonb),
          ('auth_account','["SELECT","INSERT","UPDATE"]'::jsonb),
          ('auth_system_admin','["SELECT","INSERT","DELETE"]'::jsonb),
          ('auth_journalist','["SELECT","INSERT","DELETE"]'::jsonb),

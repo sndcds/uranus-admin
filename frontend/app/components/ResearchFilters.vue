@@ -6,6 +6,7 @@ const props = defineProps<{
   categories: { id: number; name: string }[]
   types?: boolean
   compact?: boolean
+  fixedArea?: boolean
 }>()
 const emit = defineEmits<{ apply: [query: ResearchQuery] }>()
 const draft = ref<ResearchQuery>({ entity_type: 'all', ...props.query })
@@ -68,6 +69,11 @@ function primaryChange() {
         /></label>
       </div>
     </fieldset>
+    <ResearchAreaSelect
+      v-if="!fixedArea"
+      v-model="draft.area_id"
+      @update:model-value="primaryChange"
+    />
     <label class="label relative"
       >Stadt<AppIcon name="pin" :size="17" class="research-filter-icon" /><input
         v-model="draft.city"
@@ -176,7 +182,7 @@ function primaryChange() {
   @apply mb-0 font-normal;
 }
 .research-filters-compact :deep(> div) {
-  grid-template-columns: minmax(17rem, 1.6fr) repeat(3, minmax(0, 1fr)) auto;
+  grid-template-columns: minmax(17rem, 1.6fr) minmax(12rem, 1.3fr) repeat(3, minmax(0, 1fr)) auto;
   @apply gap-2;
 }
 .research-filters-compact :deep(> div > div:last-child) {

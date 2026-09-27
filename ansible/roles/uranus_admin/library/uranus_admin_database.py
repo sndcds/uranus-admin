@@ -21,6 +21,7 @@ ROLES = {
     "admin_auth_operator": "ADMIN_AUTH_MANAGEMENT_DATABASE_URL",
 }
 OPERATOR_GRANTS = {
+    "research_area": ["SELECT", "INSERT", "UPDATE"],
     "alembic_version": ["SELECT"],
     "auth_account": ["SELECT", "INSERT", "UPDATE"],
     "auth_system_admin": ["SELECT", "INSERT", "DELETE"],

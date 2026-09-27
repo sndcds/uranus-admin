@@ -125,6 +125,7 @@ export const researchQuerySchema = z
     status: researchStatusSchema.optional(),
     organization_id: z.uuid().optional(),
     venue_id: z.uuid().optional(),
+    area_id: z.uuid().optional(),
     sort: z.enum(['date', 'name']).optional(),
     page: z.coerce.number().int().min(1).max(100000).optional(),
     page_size: z.coerce.number().int().min(1).max(100).optional(),
@@ -136,3 +137,69 @@ export type ResearchRecord = z.infer<typeof researchRecordSchema>
 export type ResearchPage = z.infer<typeof researchPageSchema>
 export type ResearchDetail = z.infer<typeof researchDetailSchema>
 export type ResearchQuery = z.infer<typeof researchQuerySchema>
+
+export const researchPopulationSchema = z
+  .object({
+    value: z.number().int().nonnegative(),
+    as_of: z.iso.date(),
+    source: z.literal('bkg_vg250_ew'),
+    municipality_name: z.string().min(1).max(120),
+    file_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    imported_at: z.iso.datetime({ offset: true }),
+  })
+  .strict()
+export const researchAreaSchema = z
+  .object({
+    id: z.uuid(),
+    area_type: z.enum(['region', 'district', 'municipality']),
+    country_code: z.enum(['DE', 'DK']),
+    region_code: z.string(),
+    name: z.string(),
+    display_name: z.string(),
+    osm_type: z.literal('R'),
+    osm_id: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    osm_admin_level: z.number().int(),
+    centroid: locationSchema,
+    bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+    population: researchPopulationSchema.nullable().default(null),
+    source: z.literal('osm'),
+    retrieved_at: z.iso.datetime({ offset: true }),
+    updated_at: z.iso.datetime({ offset: true }),
+  })
+  .strict()
+export const researchAreaQuerySchema = z
+  .object({
+    q: z.string().max(120).optional(),
+    country_code: z.enum(['DE', 'DK']).optional(),
+    area_type: z.enum(['region', 'district', 'municipality']).optional(),
+    page: z.coerce.number().int().min(1).max(100000).optional(),
+    page_size: z.coerce.number().int().min(1).max(50).optional(),
+  })
+  .strict()
+export const researchAreasSchema = z
+  .object({ items: z.array(researchAreaSchema).max(50), pagination: paginationSchema })
+  .strict()
+export const researchAreaBoundarySchema = z
+  .object({
+    type: z.literal('MultiPolygon'),
+    coordinates: z.array(
+      z.array(z.array(z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]))),
+    ),
+  })
+  .strict()
+export const researchAreaDossierSchema = z
+  .object({
+    area: researchAreaSchema,
+    geometry: researchAreaBoundarySchema,
+    events: researchPageSchema,
+    venues: researchPageSchema,
+    organizations: researchPageSchema,
+    months: researchDetailSchema.shape.months,
+    usage: researchDetailSchema.shape.usage,
+    observed_at: z.iso.datetime({ offset: true }),
+  })
+  .strict()
+export type ResearchArea = z.infer<typeof researchAreaSchema>
+export type ResearchAreaBoundary = z.infer<typeof researchAreaBoundarySchema>
+export type ResearchAreaQuery = z.infer<typeof researchAreaQuerySchema>
+export type ResearchAreaDossier = z.infer<typeof researchAreaDossierSchema>
