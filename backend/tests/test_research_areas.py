@@ -634,3 +634,26 @@ async def test_catalog_search_retry_requires_exact_ags(settings, area_store):
     assert len(calls) == 3
     assert calls[1]["q"] == "Test Municipality"
     assert calls[1]["countrycodes"] == "de"
+
+
+async def test_catalog_ignores_district_with_same_ags_but_rejects_two_municipalities(
+    settings, area_store
+):
+    municipality = row(
+        osm_id=101,
+        extratags={"admin_level": "8", "de:amtlicher_gemeindeschluessel": "01999000"},
+    )
+    district = row(
+        osm_id=102,
+        extratags={"admin_level": "9", "de:amtlicher_gemeindeschluessel": "01999000"},
+    )
+    catalog = [CatalogEntry("DE-SH", "01999000", "Test Municipality")]
+    counts = await import_boundaries(
+        area_store, provider(settings, [municipality, district]), "DE-SH", [], [], catalog=catalog
+    )
+    assert counts["new"] == 1 and counts["rejected"] == 0
+    district["extratags"]["admin_level"] = "8"
+    counts = await import_boundaries(
+        area_store, provider(settings, [municipality, district]), "DE-SH", [], [], catalog=catalog
+    )
+    assert counts["new"] == 0 and counts["rejected"] == 1

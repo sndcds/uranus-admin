@@ -21,6 +21,7 @@ from app.config import Settings
 from app.errors import APIError
 from app.logging import configure_logging
 from app.research.catalog import CatalogEntry, load_catalog
+from app.schemas.geo import GeoAreaSearchItem
 from app.services.nominatim import NominatimClient, area_item, validate_geometry
 from app.storage_preflight import check_grants, check_schema
 
@@ -71,14 +72,14 @@ class Boundary:
     municipality_key: str | None
 
 
-def boundary(
-    row: dict[str, Any], settings: Settings, region: str, expected_ags: str | None = None
-) -> Boundary:
+def municipality_item(
+    row: dict[str, Any], region: str, expected_ags: str | None = None
+) -> GeoAreaSearchItem | None:
     item = area_item(row)
     address = row.get("address") or {}
     tags = row.get("extratags") or {}
     if item is None or not isinstance(address, dict) or not isinstance(tags, dict):
-        raise APIError(422, "research_area_ineligible", "Not an eligible municipality.")
+        return None
     country = (item.country_code or "").upper()
     level = item.admin_level
     osm_id = int(item.osm_id)
@@ -99,15 +100,26 @@ def boundary(
             )
         )
     ):
+        return None
+    return item
+
+
+def boundary(
+    row: dict[str, Any], settings: Settings, region: str, expected_ags: str | None = None
+) -> Boundary:
+    item = municipality_item(row, region, expected_ags)
+    if item is None:
         raise APIError(422, "research_area_ineligible", "Not an eligible municipality.")
-    assert level is not None
+    country = (item.country_code or "").upper()
+    tags = row.get("extratags") or {}
+    assert item.admin_level is not None
     return Boundary(
-        osm_id,
+        int(item.osm_id),
         country,
         region,
         item.name,
         item.display_name,
-        level,
+        item.admin_level,
         validate_geometry(row.get("geojson"), settings.nominatim_max_geometry_points),
         tags.get("de:amtlicher_gemeindeschluessel")
         if country == "DE"
@@ -256,9 +268,7 @@ async def import_boundaries(
                 candidates = {
                     int(candidate.osm_id)
                     for row in rows
-                    if (candidate := area_item(row)) is not None
-                    and isinstance(row.get("extratags"), dict)
-                    and row["extratags"].get("de:amtlicher_gemeindeschluessel") == entry.ags
+                    if (candidate := municipality_item(row, region, entry.ags)) is not None
                 }
                 await asyncio.sleep(provider.settings.geocode_request_interval_ms / 1000)
                 if candidates:
