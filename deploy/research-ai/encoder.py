@@ -164,7 +164,9 @@ def create_app(runtime=None, key=None):
 
     @app.post("/{operation}")
     async def operation(operation: str, request: Request):
-        if not hmac.compare_digest(request.headers.get("authorization", ""), "Bearer " + key):
+        if not hmac.compare_digest(
+            request.headers.get("authorization", "").encode(), ("Bearer " + key).encode()
+        ):
             return JSONResponse({"error": "unauthorized"}, status_code=401)
         if operation not in {"chunks", "embed"}:
             return JSONResponse({"error": "not_found"}, status_code=404)

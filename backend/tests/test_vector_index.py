@@ -322,6 +322,9 @@ async def test_internal_service_auth_limits_and_no_model_download():
     ) as c:
         body = {"model": "e5-small", "texts": ["hello"], "kind": "query"}
         assert (await c.post("/embed", json=body)).status_code == 401
+        assert (
+            await c.post("/embed", json=body, headers={b"authorization": b"Bearer \xff"})
+        ).status_code == 401
         headers = {"Authorization": "Bearer " + "x" * 48}
         assert (await c.post("/embed", json=body, headers=headers)).status_code == 200
         body["model"] = "https://evil.test/model"

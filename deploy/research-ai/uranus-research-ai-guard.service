@@ -6,7 +6,7 @@ Wants=network-pre.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/sbin/nft -f /etc/uranus-research-ai/guard.nft
+ExecStart=/bin/sh -c '/usr/sbin/nft list table inet uranus_research_ai >/dev/null 2>&1 || /usr/sbin/nft -f /etc/uranus-research-ai/guard.nft'
 RemainAfterExit=yes
 
 [Install]
