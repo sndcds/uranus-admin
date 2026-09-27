@@ -1,0 +1,8 @@
+# Only pilot ports are affected. Existing Docker and host rules remain intact.
+table inet uranus_research_ai {
+    chain input {
+        type filter hook input priority -10; policy accept;
+        tcp dport { 7443, 7444 } ip saddr 89.58.56.254 accept
+        tcp dport { 7443, 7444 } drop
+    }
+}

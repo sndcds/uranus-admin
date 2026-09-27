@@ -1,0 +1,13 @@
+[Unit]
+Description=Restrict research pilot TLS listeners to Server A
+Before=nginx.service
+After=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/nft -f /etc/uranus-research-ai/guard.nft
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

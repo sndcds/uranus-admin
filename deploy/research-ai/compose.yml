@@ -1,0 +1,63 @@
+name: uranus-research-ai
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.1@sha256:0699e7733a6fa7fa7f6b95dcbed84ebb04584110da525cdfdef9f305c4f57738
+    user: "10001:10001"
+    restart: unless-stopped
+    ports: ["127.0.0.1:6333:6333"]
+    volumes:
+      - /srv/qdrant/storage:/qdrant/storage
+      - /srv/qdrant/snapshots:/qdrant/snapshots
+      - /etc/uranus-research-ai/qdrant.yaml:/qdrant/config/production.yaml:ro
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+      QDRANT__LOG_LEVEL: WARN
+    healthcheck:
+      test:
+        [
+          CMD,
+          bash,
+          -c,
+          "exec 3<>/dev/tcp/127.0.0.1/6333; printf 'GET /healthz HTTP/1.0\\r\\n\\r\\n' >&3; read -r line <&3; [[ \"$$line\" == *' 200 '* ]]",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpus: 2
+    pids_limit: 128
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+  encoder:
+    build: { context: ../.., dockerfile: deploy/research-ai/Dockerfile }
+    image: uranus-research-encoder:pilot
+    restart: unless-stopped
+    ports: ["127.0.0.1:6335:8080"]
+    volumes:
+      - /srv/models:/models:ro
+      - /etc/uranus-research-ai/embedding.key:/run/secrets/embedding.key:ro
+    environment:
+      EMBEDDING_KEY_FILE: /run/secrets/embedding.key
+      JINA_NONCOMMERCIAL: "1"
+    mem_limit: 5g
+    memswap_limit: 5g
+    cpus: 2
+    pids_limit: 128
+    read_only: true
+    tmpfs: ["/tmp:size=128m,mode=1777"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    healthcheck:
+      test:
+        [
+          CMD,
+          python,
+          -c,
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health',timeout=3)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
