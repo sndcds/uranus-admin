@@ -82,6 +82,19 @@ async def run(args: argparse.Namespace, settings: Settings) -> dict[str, object]
             "area_assignment_available": all(
                 d.payload["area_assignment_available"] for d in documents
             ),
+            "normalized_document_hash": content_hash(
+                json.dumps(
+                    [
+                        {
+                            "entity_id": str(d.entity_id),
+                            "sections": [s.model_dump() for s in d.sections],
+                        }
+                        for d in documents
+                    ],
+                    sort_keys=True,
+                    ensure_ascii=False,
+                )
+            ),
             "corpus_hash": content_hash(
                 json.dumps(sorted((i, c.content_hash) for i, (c, _) in plan.desired.items()))
             ),

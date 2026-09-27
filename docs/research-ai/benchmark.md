@@ -48,15 +48,17 @@ Finally repeat plan/reconcile to verify unchanged chunks and run all 30 queries.
 Only one model runs at a time. Restarting the encoder between models resets the
 process peak-RSS measurement. Prefetch/download time is excluded from embedding time.
 
-Reports contain source snapshot time, document/model versions, corpus/query hashes,
+Reports contain source snapshot time, document/model versions, model-independent normalized-document fingerprint, model-specific chunk corpus/query hashes,
 event/chunk counts, wall/embedding time, events/s, chunks/s, encoder CPU time and
 process peak RSS. Query latency includes encoding, TLS transport and Qdrant retrieval.
+The normalized-document fingerprint hashes event IDs and normalized sections before
+model prefixes/tokenization; it excludes time-dependent date metadata.
 Sync timing excludes extraction/chunk preparation; stage timings report only newly
 embedded chunks. Peak RSS is the encoder process lifetime maximum, not total host
 RAM. Qdrant disk/RAM measurements and actual run results are recorded with the live
 benchmark artifacts. Small collections may use exact scans rather than build HNSW.
 
-Export columns: query ID/text/language, model, rank, event ID, current public title,
+Export columns: query ID/text/language, source event language (unknown stays null), model, rank, event ID, current public title,
 score, winning chunk kind, latency, `manual_relevance`. CSV cells guard formula
 prefixes. No document prose, vectors, credentials or internal admin data are exported.
 

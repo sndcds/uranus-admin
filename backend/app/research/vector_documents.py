@@ -147,6 +147,7 @@ def document(row: Mapping[str, Any], context: Mapping[str, Any]) -> EventDocumen
                                 "on_site_ticket_sales": "Tickets vor Ort",
                                 "registration_required": "Anmeldung erforderlich",
                                 "reduced_price_available": "ermäßigter Eintritt verfügbar",
+                                "presale_fee_applies": "Vorverkaufsgebühr fällt an",
                             }.get(flag)
                             for flag in (row.get("ticket_flags") or [])
                         ]

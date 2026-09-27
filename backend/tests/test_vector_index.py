@@ -48,11 +48,12 @@ def test_public_allowlist_and_normalization():
         password="PASSWORD",
         description="<script>SECRET</script> Hallo a@example.test",
         price_type="free",
-        ticket_flags=["registration_required"],
+        ticket_flags=["registration_required", "presale_fee_applies"],
         language="de",
     )
     value = "\n".join(s.text for s in doc.sections)
     assert "kostenlos" in value and "Anmeldung erforderlich" in value and "Flensburg" in value
+    assert "Vorverkaufsgebühr fällt an" in value
     assert all(v not in value for v in ("INTERNAL", "PASSWORD", "SECRET", "@", str(doc.entity_id)))
     assert not any(k in doc.payload for k in ("description", "title", "registration_email"))
     assert clean("  e\u0301 <b>Hallo</b>  ") == "é Hallo"
@@ -478,3 +479,42 @@ def test_relevance_grades_are_not_coerced(grade):
                 }
             ]
         )
+
+
+async def test_benchmark_export_language_and_unjudged_provenance(tmp_path):
+    import json
+
+    from app.research.vector_benchmark import Question, benchmark
+
+    doc = sample(language="da")
+    model = MODELS["e5-small"]
+    plan = plan_changes([doc], prepare(doc), {}, model, complete=True)
+    payload = next(iter(plan.desired.values()))[1]
+
+    class Store:
+        async def info(self):
+            return {"points_count": 1}
+
+        async def search(self, vector, limit):
+            return [{"score": 0.8, "payload": {**payload, "internal_note": "NOT_EXPORTED"}}]
+
+    class Embed:
+        async def embed(self, texts, query=False):
+            return [[1.0]]
+
+    encoder = Embed()
+    encoder.model = model
+    output = tmp_path / "export"
+    await benchmark(
+        Store(),
+        encoder,
+        [doc],
+        [Question(id="q", query="Sprachkurse", language="de", notes="Unjudged")],
+        output,
+        {},
+    )
+    rows = json.loads((output / "results.json").read_text())
+    assert rows[0]["language"] == "de" and rows[0]["event_language"] == "da"
+    assert rows[0]["manual_relevance"] == ""
+    assert "NOT_EXPORTED" not in (output / "results.json").read_text()
+    assert json.loads((output / "report.json").read_text())["quality_metrics"] is None
