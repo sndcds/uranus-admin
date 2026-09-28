@@ -510,3 +510,117 @@ test('municipality selection, URL, boundary dossier and mobile layout', async ({
     page.getByRole('link', { name: 'Alle Veranstaltungen und CSV-Export →' }),
   ).toHaveAttribute('href', new RegExp(`area_id=${researchArea.id}`))
 })
+
+test('semantic pilot reuses search, submits explicitly, preserves filters and switches back', async ({
+  page,
+}, info) => {
+  let requests = 0
+  let release: (() => void) | undefined
+  await page.route('**/api/admin/api/v1/research/semantic-search?**', async (route) => {
+    requests++
+    await new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await route.fulfill({ json: researchPage([researchEvent]) })
+  })
+  await page.goto('/research')
+  await expect(page.getByRole('searchbox')).toHaveCount(1)
+  await expect(page.getByRole('radio', { name: 'Klassische Suche' })).toBeChecked()
+  await page.getByRole('searchbox').fill('Wo können Jugendliche kreativ werden?')
+  const semantic = page.getByRole('radio', { name: 'Semantisch · Experimentell' })
+  await semantic.focus()
+  await page.keyboard.press('Space')
+  await expect(semantic).toBeChecked()
+  expect(requests).toBe(0)
+  await page.getByRole('button', { name: 'Suchen', exact: true }).click()
+  await expect(page).toHaveURL(/search_mode=semantic/)
+  expect(new URL(page.url()).searchParams.get('q')).toBe('Wo können Jugendliche kreativ werden?')
+  await expect(page.getByText('Semantische Suche läuft …')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Recherche starten' })).toBeDisabled()
+  await expect.poll(() => requests).toBe(1)
+  release!()
+  await expect(page.getByRole('button', { name: `Vorschau: ${researchEvent.name}` })).toBeVisible()
+  await expect(
+    page.getByText('Semantische Suche durchsucht derzeit Veranstaltungen.', { exact: false }),
+  ).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Sortierung' })).toHaveCount(0)
+  await expect(page.getByText(/similarity|cosine|Qdrant|Jina|\d+ % relevant/i)).toHaveCount(0)
+  await page.getByRole('searchbox').fill('Kreative Freizeit')
+  await page.waitForTimeout(500) // Longer than the classic debounce: semantic must not fetch.
+  expect(requests).toBe(1)
+  await page.getByRole('searchbox').press('Enter')
+  await expect.poll(() => requests).toBe(2)
+  release!()
+  await expect(page.getByText('Semantische Suche läuft …')).toHaveCount(0)
+  await page.reload()
+  await expect.poll(() => requests).toBe(3)
+  release!()
+  await expect(semantic).toBeChecked()
+  await expect(page.getByRole('button', { name: `Vorschau: ${researchEvent.name}` })).toBeVisible()
+  await page.getByRole('button', { name: 'Tabelle', exact: true }).click()
+  await expect(page.getByRole('table', { name: 'Recherche-Ergebnisse' })).toBeVisible()
+  await page.getByRole('button', { name: 'Karte', exact: true }).click()
+  await expect(page.locator('.candidate-map-marker').first()).toBeVisible()
+  if (info.project.name === 'mobile')
+    await page.getByRole('button', { name: 'Filter öffnen' }).click()
+  await page
+    .getByRole('combobox', { name: 'Kategorie', exact: true })
+    .filter({ visible: true })
+    .selectOption('2')
+  if (info.project.name === 'mobile')
+    await page.getByRole('button', { name: 'Filter anwenden' }).filter({ visible: true }).click()
+  await expect.poll(() => requests).toBe(4)
+  release!()
+  await expect(page).toHaveURL(/category=2/)
+  await page.getByRole('button', { name: 'Liste', exact: true }).click()
+  if (info.project.name === 'desktop') {
+    const header = await page.locator('header.research-header').boundingBox()
+    const sidebar = await page.locator('aside').boundingBox()
+    expect(sidebar!.y).toBeGreaterThanOrEqual(header!.y + header!.height)
+  }
+  await page.screenshot({ path: info.outputPath('semantic-search.png'), fullPage: true })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
+  await page.getByRole('link', { name: 'Vollständige Details' }).click()
+  await expect(page).toHaveURL(new RegExp(`/research/events/${researchEvent.entity_key}`))
+  await page.goBack()
+  await expect.poll(() => requests).toBe(5)
+  release!()
+  await page.getByRole('radio', { name: 'Klassische Suche' }).check()
+  await page.getByRole('searchbox').fill('Jazz')
+  await page.getByRole('searchbox').press('Enter')
+  await expect(page).not.toHaveURL(/search_mode=semantic/)
+  await expect(page.getByText('3 Ergebnisse insgesamt')).toBeVisible()
+})
+
+test('semantic empty and safe error states retain classic search', async ({ page }) => {
+  await page.route('**/api/admin/api/v1/research/semantic-search?**', (route) =>
+    route.fulfill({ json: researchPage([]) }),
+  )
+  await page.goto('/research/search?q=creative&search_mode=semantic')
+  await expect(page.getByText('Keine passenden Veranstaltungen gefunden.')).toBeVisible()
+  await page.route('**/api/admin/api/v1/research/semantic-search?**', (route) =>
+    route.fulfill({
+      status: 503,
+      json: { error: { code: 'research_semantic_unavailable', message: 'provider-secret' } },
+    }),
+  )
+  await page.getByRole('searchbox').fill('Andere Angebote')
+  await page.getByRole('searchbox').press('Enter')
+  await expect(
+    page.getByText('Die semantische Suche ist gerade nicht verfügbar.', { exact: false }),
+  ).toBeVisible()
+  await expect(page.getByText('provider-secret')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Recherche starten' })).toBeEnabled()
+})
+
+test('existing landing form keeps classic submit as default', async ({ page }) => {
+  await page.goto('/research')
+  await expect(page.getByRole('searchbox')).toHaveCount(1)
+  await expect(page.getByRole('radio', { name: 'Klassische Suche' })).toBeChecked()
+  await page.getByRole('searchbox').fill('sprachkurs')
+  await page.getByRole('button', { name: 'Suchen', exact: true }).click()
+  await expect(page).toHaveURL('/research/search?q=sprachkurs')
+  await expect(page.getByText('3 Ergebnisse insgesamt')).toBeVisible()
+})

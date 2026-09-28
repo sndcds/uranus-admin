@@ -88,3 +88,60 @@ describe('research contracts and boundaries', () => {
     expect(fetcher).toHaveBeenCalledTimes(status === 200 ? 1 : 0)
   })
 })
+
+describe('experimental semantic search', () => {
+  it('preserves semantic URL state and rejects empty, long or ambiguous input', () => {
+    const query = { q: 'Wo können Jugendliche kreativ werden?', search_mode: 'semantic' as const }
+    expect(researchQuery(researchUrlQuery(query))).toEqual({ success: true, data: query })
+    for (const q of ['', ' ', 'x', 'x'.repeat(121)])
+      expect(researchQuery({ q, search_mode: 'semantic' }).success).toBe(false)
+    expect(researchQuery({ q: 'creative', search_mode: 'unknown' }).success).toBe(false)
+  })
+  it('calls the semantic endpoint with event filters and no UI mode or model parameter', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+    await createAdminApi(fetcher).researchSemanticSearch({
+      q: 'creative',
+      search_mode: 'semantic',
+      entity_type: 'all',
+      category: 2,
+      city: 'Flensburg',
+      sort: 'name',
+      page: 9,
+      page_size: 100,
+    })
+    const url = new URL(fetcher.mock.calls[0]![0], 'http://localhost')
+    expect(url.pathname).toBe('/api/admin/api/v1/research/semantic-search')
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      q: 'creative',
+      entity_type: 'event',
+      category: '2',
+      city: 'Flensburg',
+      page_size: '20',
+    })
+  })
+  it.each([
+    ['GET', 'q=creative', 200],
+    ['POST', 'q=creative', 405],
+    ['GET', '', 422],
+    ['GET', 'q=', 422],
+    ['GET', 'q=a&q=b', 422],
+    ['GET', 'q=creative&model=jina-v3', 422],
+    ['GET', 'q=creative&entity_type=venue', 422],
+    ['GET', 'q=creative&page_size=21', 422],
+    ['GET', 'q=creative&sort=name', 422],
+  ])('semantic proxy boundary %s %s', async (method, query, status) => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+    const result = await forwardAdminRequest(
+      {
+        path: '/api/v1/research/semantic-search',
+        method,
+        query: new URLSearchParams(query),
+        authorization: 'Bearer synthetic',
+      },
+      'http://backend.invalid',
+      fetcher,
+    )
+    expect(result.status).toBe(status)
+    if (status !== 200) expect(fetcher).not.toHaveBeenCalled()
+  })
+})

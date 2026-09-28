@@ -616,6 +616,9 @@ async def test_research_and_operations_authorization(auth_client, grant):
     assert (await client.get("/api/v1/research/search")).status_code == (
         403 if grant == "none" else 200
     )
+    assert (await client.get("/api/v1/research/semantic-search?q=creative")).status_code == (
+        403 if grant == "none" else 503
+    )
     assert (await client.get("/api/v1/research/areas")).status_code == (
         403 if grant == "none" else 200
     )
