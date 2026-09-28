@@ -1,0 +1,48 @@
+{
+  "measured_at": "2026-09-27T10:40:50.300068+00:00",
+  "collections": {
+    "e5_small": {
+      "allocated_bytes": 7090176,
+      "apparent_bytes": 205625744
+    },
+    "e5_base": {
+      "allocated_bytes": 10670080,
+      "apparent_bytes": 205620969
+    },
+    "jina_v3": {
+      "allocated_bytes": 9166848,
+      "apparent_bytes": 205612397
+    }
+  },
+  "model_cache": {
+    "allocated_bytes": 2788900864,
+    "apparent_bytes": 2788379662
+  },
+  "containers": {
+    "uranus-research-ai-qdrant-1": {
+      "health": "healthy",
+      "memory_limit_bytes": 2147483648,
+      "memory_swap_limit_bytes": 2147483648,
+      "nano_cpus": 2000000000,
+      "image": "sha256:0699e7733a6fa7fa7f6b95dcbed84ebb04584110da525cdfdef9f305c4f57738",
+      "oom_killed": false
+    },
+    "uranus-research-ai-encoder-1": {
+      "health": "healthy",
+      "memory_limit_bytes": 5368709120,
+      "memory_swap_limit_bytes": 5368709120,
+      "nano_cpus": 2000000000,
+      "image": "sha256:257de9e082bb3dbe487f794cb41d928f89a44e9b3bb90eb7cb7e6c0a321976f5",
+      "oom_killed": false
+    }
+  },
+  "host_memory_kib": {
+    "MemTotal": 16382172,
+    "MemAvailable": 4642108,
+    "SwapTotal": 16777212,
+    "SwapFree": 15748532
+  },
+  "firewall_enabled": true,
+  "existing_nginx_status": "active",
+  "existing_postgres_status": "active"
+}

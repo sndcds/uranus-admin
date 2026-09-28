@@ -244,3 +244,32 @@ class NominatimClient:
                     row.get("geojson"), self.settings.nominatim_max_geometry_points
                 )
         raise APIError(422, "geo_area_not_eligible", "Result is not an administrative boundary.")
+
+    async def discover_boundaries(self, query: str, country: str) -> list[dict[str, Any]]:
+        return await self._get(
+            "/search",
+            {
+                "q": query,
+                "countrycodes": country,
+                "limit": "10",
+                "addressdetails": "1",
+                "extratags": "1",
+            },
+        )
+
+    async def boundary_record(self, source_id: str) -> dict[str, Any]:
+        if not re.fullmatch(r"[1-9][0-9]{0,18}", source_id):
+            raise APIError(422, "geo_area_not_eligible", "Invalid boundary identity.")
+        rows = await self._get(
+            "/lookup",
+            {
+                "osm_ids": f"R{source_id}",
+                "polygon_geojson": "1",
+                "addressdetails": "1",
+                "extratags": "1",
+            },
+        )
+        for row in rows:
+            if row.get("osm_type") == "relation" and str(row.get("osm_id")) == source_id:
+                return row
+        raise APIError(422, "geo_area_not_eligible", "Administrative boundary was not found.")

@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { z } from '#shared/zod'
 import {
   geoAreaSchema,
+  researchAreaSchema,
+  type ResearchArea,
   type GeoArea,
   entityTypeSchema,
   graphEntityTypeSchema,
@@ -40,7 +42,7 @@ const entitySchemas = {
 }
 export type EntityPreferences = { [S in EntitySection]: z.infer<(typeof entitySchemas)[S]> }
 const defaults = () => ({
-  sharedGeoScope: null as GeoArea | null,
+  sharedGeoScope: null as GeoArea | ResearchArea | null,
   geoScopeError: '',
   geoRevision: 0,
   sharedPeriod: '24h' as SharedPeriod,
@@ -81,9 +83,10 @@ const defaults = () => ({
 export const useFilterPreferencesStore = defineStore('filter-preferences', {
   state: defaults,
   actions: {
-    setGeoScope(value: GeoArea | null) {
+    setGeoScope(value: GeoArea | ResearchArea | null) {
       this.geoRevision++
-      this.sharedGeoScope = value === null ? null : geoAreaSchema.parse(value)
+      this.sharedGeoScope =
+        value === null ? null : researchAreaSchema.or(geoAreaSchema).parse(value)
       this.geoScopeError = ''
     },
     resetAll() {

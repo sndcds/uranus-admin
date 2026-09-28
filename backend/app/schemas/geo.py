@@ -54,6 +54,8 @@ class GeoAreaSearchResponse(BaseModel):
 
 class GeoArea(BaseModel):
     id: UUID
+    # Canonical municipality identity; absent for legacy arbitrary boundaries.
+    area_id: UUID | None = None
     source: str
     source_type: str
     source_id: str

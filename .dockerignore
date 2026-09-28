@@ -1,0 +1,14 @@
+# Build only the reviewed encoder inputs; never send environments, exports or weights.
+**
+!backend/
+!backend/pyproject.toml
+!backend/uv.lock
+!backend/app/
+!backend/app/**
+backend/app/**/__pycache__/
+backend/app/**/*.pyc
+!deploy/
+!deploy/research-ai/
+!deploy/research-ai/Dockerfile
+!deploy/research-ai/encoder.py
+!deploy/research-ai/prefetch.py

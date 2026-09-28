@@ -51,3 +51,20 @@ export function researchDate(value: string | null) {
       }).format(new Date(`${value}T12:00:00Z`))
     : 'Termin unbekannt'
 }
+
+export const researchRegionLabels: Record<string, string> = {
+  'DE-SH': 'Schleswig-Holstein',
+  'DE-HH': 'Hamburg',
+  'DE-MV': 'Mecklenburg-Vorpommern',
+  'DE-NI': 'Niedersachsen',
+  'DE-HB': 'Bremen',
+  'DK-83': 'Region Syddanmark',
+}
+
+export const researchCountryLabels = { DE: 'Deutschland', DK: 'Dänemark' } as const
+export function researchAreaLabel(area: {
+  country_code: 'DE' | 'DK'
+  region_code: string
+}): string {
+  return `${researchCountryLabels[area.country_code]} · ${researchRegionLabels[area.region_code] ?? area.region_code}`
+}

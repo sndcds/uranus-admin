@@ -4,6 +4,7 @@ import { WebSocketServer } from 'ws'
 import { randomBytes } from 'node:crypto'
 import { summary, findings } from './api.ts'
 import { geoArea, geoSearchItem } from './geo.ts'
+import { researchArea } from './research.ts'
 
 const sessions = new Map()
 const production = process.env.TEST_PRODUCTION === '1'
@@ -64,6 +65,15 @@ const server = http
     if (!principal) return deny(401, token ? 'invalid_credentials' : 'authentication_required')
     if (path === '/auth/session' && (principal.system_admin || principal.journalist))
       return send(200, principal)
+    if ((principal.system_admin || principal.journalist) && request.method === 'GET') {
+      if (path === '/api/v1/research/areas')
+        return send(200, {
+          items: [researchArea],
+          pagination: { page: 1, page_size: 10, pages: 1, total: 1 },
+        })
+      if (path === `/api/v1/research/areas/${researchArea.id}/metadata`)
+        return send(200, researchArea)
+    }
     if (path.startsWith('/api/v1/research/') && principal.journalist)
       return deny(404, 'record_not_found')
     if (!principal.system_admin) return deny(403, 'admin_access_denied')
@@ -82,6 +92,10 @@ const server = http
       )
     }
     if (path === '/api/v1/geo/areas/search') return send(200, { items: [geoSearchItem] })
+    if (path === '/api/v1/geo/areas/10000000-0000-4000-8000-000000000088')
+      return send(200, { ...geoArea, id: researchArea.id, area_id: researchArea.id })
+    if (path === `/api/v1/geo/areas/${researchArea.id}`)
+      return send(200, { ...geoArea, id: researchArea.id, area_id: researchArea.id })
     if (path === `/api/v1/geo/areas/${geoArea.id}`) return send(200, geoArea)
     if (path.startsWith('/api/v1/geo/areas/')) return deny(404, 'geo_scope_not_found')
     if (path === '/api/v1/geo/areas' && request.method === 'POST') {

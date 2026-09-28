@@ -118,6 +118,8 @@ def test_filters_reuse_runtime_queries(view, filters, expected, settings):
 
 def test_geo_and_live_do_not_claim_fabricated_parameters(settings):
     result = definition("findings", parameters("findings", geo_scope_id=uid(99)), settings)
+    scope = next(source for source in result.sources if source.id == "findings.geo_area")
+    assert "area_id" in scope.columns
     assert any("membership_scan" in source.id for source in result.sources)
     assert any(source.datasource == "uranus" and source.dependencies for source in result.sources)
     assert any("Membership" in item for item in result.post_processing)

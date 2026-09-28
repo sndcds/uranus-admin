@@ -1494,6 +1494,8 @@ class ConsoleDatabaseTests(unittest.TestCase):
                 ROLE / "files/sql_console_contract.json", role / "files/sql_console_contract.json"
             )
             (role / "library/uranus_sql_console.py").write_text(self.fixture_module())
+            # The real console plan uses the controller's reviewed blocker filter.
+            shutil.copytree(ROLE.parents[1] / "filter_plugins", root / "filter_plugins")
             tasks = yaml.safe_load((ROLE / "tasks/main.yml").read_text())
             console_tasks = [
                 t

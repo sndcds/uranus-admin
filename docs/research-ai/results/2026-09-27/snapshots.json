@@ -1,0 +1,23 @@
+{
+  "created_at": "2026-09-27T10:56:37.501893+00:00",
+  "snapshots": [
+    {
+      "collection": "uranus_bench_events_e5_small",
+      "name": "uranus_bench_events_e5_small-819491098959558-2026-09-27-10-57-45.snapshot",
+      "size": 6952448,
+      "checksum": "5e5de4caaf7ab65508d3c45c91d4c4f51c628f0c4c8e363cf008063ea68f093c"
+    },
+    {
+      "collection": "uranus_bench_events_e5_base",
+      "name": "uranus_bench_events_e5_base-819491098959558-2026-09-27-10-57-45.snapshot",
+      "size": 10530816,
+      "checksum": "e71d59b4d581ba20e46d8a99ce031e2f903cd1ce3dcc03528298292ec5c16b6c"
+    },
+    {
+      "collection": "uranus_bench_events_jina_v3",
+      "name": "uranus_bench_events_jina_v3-819491098959558-2026-09-27-10-57-45.snapshot",
+      "size": 12366336,
+      "checksum": "51172d3058110792c9e8b225927a2f1f4d10b31122c10e8ace52f2a2999aeb58"
+    }
+  ]
+}

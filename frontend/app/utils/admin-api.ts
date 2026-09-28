@@ -6,6 +6,9 @@ import {
 } from '#shared/sql-provenance'
 import {
   researchPageSchema,
+  researchAreasSchema,
+  researchAreaSchema,
+  researchAreaDossierSchema,
   researchDetailSchema,
   researchOptionsSchema,
   researchExportSchema,
@@ -69,6 +72,7 @@ import type {
   AssignmentWorkflowType,
   InboxFilters,
   ResearchQuery,
+  ResearchAreaQuery,
 } from '#shared/contracts'
 import { AdminApiError, failure } from '#shared/errors'
 
@@ -198,6 +202,36 @@ export function createAdminApi(
     return parsed.data
   }
   return {
+    researchAreas: (query: ResearchAreaQuery, signal?: AbortSignal) =>
+      request(
+        '/api/v1/research/areas',
+        researchAreasSchema,
+        { ...query },
+        'GET',
+        undefined,
+        signal,
+      ),
+    researchAreaMetadata: (id: string, signal?: AbortSignal) =>
+      request(
+        `/api/v1/research/areas/${encodeURIComponent(id)}/metadata`,
+        researchAreaSchema,
+        {},
+        'GET',
+        undefined,
+        signal,
+      ),
+    researchArea: (id: string, query: ResearchQuery = {}) =>
+      request(`/api/v1/research/areas/${encodeURIComponent(id)}`, researchAreaDossierSchema, {
+        ...query,
+      }),
+    researchSemanticSearch: (query: ResearchQuery) => {
+      const { search_mode: _mode, sort: _sort, page: _page, page_size: _size, ...filters } = query
+      return request('/api/v1/research/semantic-search', researchPageSchema, {
+        ...filters,
+        entity_type: 'event',
+        page_size: 20,
+      })
+    },
     researchSearch: (query: ResearchQuery, signal?: AbortSignal) =>
       request(
         '/api/v1/research/search',

@@ -22,7 +22,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
         const area = await useNuxtApp().$adminApi.geoArea(parsed.data)
         if (auth.revision !== revision || !auth.isAdmin || preferences.geoRevision !== geoRevision)
           return
-        preferences.setGeoScope(area)
+        const selected = area.area_id
+          ? await useNuxtApp().$adminApi.researchAreaMetadata(area.area_id)
+          : area
+        if (auth.revision !== revision || !auth.isAdmin || preferences.geoRevision !== geoRevision)
+          return
+        preferences.setGeoScope(selected)
+        if (selected.id !== parsed.data)
+          return navigateTo(
+            { path: to.path, query: { ...to.query, geo_scope_id: selected.id }, hash: to.hash },
+            { replace: true },
+          )
       } catch (cause) {
         if (auth.revision !== revision || !auth.isAdmin || preferences.geoRevision !== geoRevision)
           return

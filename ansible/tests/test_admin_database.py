@@ -730,6 +730,28 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
             [(True, False, True, True)],
         )
 
+    def test_exact_0015_upgrade_adds_read_only_research_areas(self):
+        self.bootstrap()
+        self.alembic("downgrade", "0015")
+        source_before = self.snapshot_source()
+        plan = self.boundary.inspect("production", upgrade_approved=True)
+        self.assertEqual(plan["state"], "UPGRADEABLE")
+        self.assertEqual(plan["current_head"], "0015")
+        self.assertEqual(plan["blockers"], [])
+        self.assertTrue(self.boundary.upgrade("production", True, self.values, self.migrate))
+        self.assertEqual(self.boundary.inspect("production")["state"], "READY")
+        self.assertEqual(self.snapshot_source(), source_before)
+        self.assertEqual(
+            self.execute(
+                "SELECT has_table_privilege('admin_user','admin.research_area','SELECT'), "
+                "has_table_privilege('admin_user','admin.research_area','INSERT,UPDATE,DELETE'), "
+                "has_table_privilege('admin_auth_operator','admin.research_area','INSERT'), "
+                "has_table_privilege('admin_auth_operator','admin.research_area','UPDATE'), "
+                "has_table_privilege('admin_auth_operator','admin.research_area','DELETE')"
+            ),
+            [(True, False, True, True, False)],
+        )
+
     def test_existing_upgrade_login_is_checked_without_changing_schema(self):
         self.bootstrap()
         self.alembic("downgrade", "0011")

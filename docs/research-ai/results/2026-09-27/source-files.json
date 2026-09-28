@@ -1,0 +1,22 @@
+{
+  "backend/app/config.py": "12d34e1d4722b4e726997fee762df0843f54ffd31493b93960bc59536f5b4a7b",
+  "backend/app/repositories/vector_events.py": "9d436ae54207f561df95da9230c86dd445c8b466de86c424deb0467fcc2d66e0",
+  "backend/app/research/vector_benchmark.py": "558e9f3a8aff3c7941fb94baf1ca8a1ae44e9417ecb86906125b87c1ba7be2f1",
+  "backend/app/research/vector_documents.py": "f6f272ed566a05e8f5020c2249c0664e5f68cd75ab737b73dc9803821bc56d47",
+  "backend/app/research/vector_index.py": "7e7f37b510e6cfc4625832590cc7fa555c920069a7f0ae3f5cd0d17fc6d87622",
+  "backend/app/research/vector_models.py": "fbe7290e28d308d04986715e947512e3888bab71e72d9ceed0bfb5082dead40d",
+  "backend/app/research/vector_sync.py": "6ed9a9df14ab7d089846fe7358e16b55501fde1d08892474679a9456fb384be2",
+  "backend/app/research/vector_transport.py": "a1e3068321f002151cccb0c98dbe979f360eb54d6e09ab91c41219c26e869986",
+  "backend/pyproject.toml": "84ea67e76987c54ceaffa190400f57f978101b7dcf175fa5ef4c6aadb425ea0f",
+  "backend/uv.lock": "600eb22f3da94b90fb6c6258f18e7e34694b23e994feb546e2acc092fd4d8733",
+  "deploy/research-ai/Dockerfile": "6fa59710dbc6faf90ad7d33a42ca5f62d9022ce2b86a5b27b1207e2669b8778d",
+  "deploy/research-ai/compose.yml": "0a8dace02de0619327c4a5f06a9777a26f28f6ebb2aebf092a128d925fb2597b",
+  "deploy/research-ai/encoder.py": "51ab31cf211b95a3e41b77f464142acf80516395de5deda3ece2a1033057298b",
+  "deploy/research-ai/guard.nft": "2dfa192053086474987e51cb512fa0cb9792bb93521ebc57d1f4b716b45fa31c",
+  "deploy/research-ai/ingress.conf": "a36ec3eaafc8767ff8e8fe0292bdcdc6070dc368a9fe5c74fab57df4ccf817c8",
+  "deploy/research-ai/install.sh": "e337bf687c170ebe0f5d005d723d20dc769f85c7f5f563461adfcf36a2b6575b",
+  "deploy/research-ai/prefetch.py": "21fb9dd8c4bbadaae45af4626af8c20844f906884795c16050b2e692702375f0",
+  "deploy/research-ai/run-indexer.py": "932f79432b7b9ef9a08586ee36ee10d94ebb32968cfa7f174975ed7fe7780d05",
+  "deploy/research-ai/staged-benchmark.py": "78ece228387dec95a6533238f0c9b41ebb1f43a526ebbbb8322d009183e8ce88",
+  "deploy/research-ai/uranus-research-ai-guard.service": "8625ba8d3e67a0ed18fbe3723a05dafdaf39315f8f1f9965be717fec214868f3"
+}

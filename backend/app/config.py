@@ -66,6 +66,19 @@ class Settings(BaseSettings):
     nominatim_timeout_seconds: int = Field(default=8, ge=1, le=30)
     nominatim_max_response_bytes: int = Field(default=16_777_216, ge=1024, le=33_554_432)
     nominatim_max_geometry_points: int = Field(default=250_000, ge=4, le=500_000)
+    semantic_search_noncommercial_jina: bool = False
+    # Optional combined Jina-v3 event retrieval gateway; server configuration only.
+    semantic_search_url: str | None = None
+    # Internal retrieval pilot; never serialized into browser configuration.
+    qdrant_url: str | None = None
+    qdrant_api_key: SecretStr | None = None
+    qdrant_timeout_seconds: int = Field(default=30, ge=1, le=120)
+    qdrant_collection_prefix: str = Field(
+        default="uranus_bench", pattern=r"^uranus_[a-z0-9_]{1,40}$"
+    )
+    embedding_url: str | None = None
+    embedding_api_key: SecretStr | None = None
+    embedding_timeout_seconds: int = Field(default=120, ge=1, le=600)
     upcoming_days: int = Field(default=14, ge=1, le=365)
     image_orphan_grace_hours: int = Field(default=48, ge=1, le=8760)
     pending_age_days: int = Field(default=14, ge=1, le=3650)
@@ -99,6 +112,42 @@ class Settings(BaseSettings):
             raise ValueError("NOMINATIM_BASE_URL must be one exact HTTP(S) origin")
         _ = parsed.port
         return value
+
+    @field_validator("qdrant_url", "embedding_url")
+    @classmethod
+    def valid_vector_origin(cls, value: str | None) -> str | None:
+        return cls.valid_nominatim_origin(value)
+
+    @field_validator("semantic_search_url")
+    @classmethod
+    def valid_semantic_search_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parsed = urlsplit(value)
+        origin = cls.valid_nominatim_origin(
+            value.removesuffix("/search") if parsed.path == "/search" else value
+        )
+        if origin is None or parsed.scheme != "https" or parsed.path != "/search":
+            raise ValueError("SEMANTIC_SEARCH_URL requires an exact HTTPS /search endpoint")
+        return value
+
+    @model_validator(mode="after")
+    def vector_transport(self) -> "Settings":
+        for origin, key in (
+            (self.qdrant_url, self.qdrant_api_key),
+            (self.embedding_url, self.embedding_api_key),
+        ):
+            if origin is None:
+                continue
+            parsed = urlsplit(origin)
+            if parsed.scheme != "https" and not (
+                self.app_env in {"development", "test"}
+                and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+            ):
+                raise ValueError("Vector services require HTTPS outside explicit local tests")
+            if key is None or len(key.get_secret_value()) < 32:
+                raise ValueError("Vector service authentication is required")
+        return self
 
     @field_validator("admin_timezone", "event_timezone", "uranus_timestamp_timezone")
     @classmethod

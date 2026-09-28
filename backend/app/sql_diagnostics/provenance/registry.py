@@ -209,6 +209,7 @@ def build(view: str, params: Any, settings: Settings, now: datetime) -> list[Sou
                 "hierarchy",
                 "fetched_at",
                 "bbox",
+                "area_id",
                 "ewkb",
             ),
         )
@@ -649,6 +650,7 @@ def build(view: str, params: Any, settings: Settings, now: datetime) -> list[Sou
                 "hierarchy",
                 "fetched_at",
                 "bbox",
+                "area_id",
                 "ewkb",
             ),
         )

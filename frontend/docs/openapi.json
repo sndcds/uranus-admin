@@ -20919,17 +20919,20 @@
             }
           },
           {
-            "name": "sort",
+            "name": "area_id",
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "date",
-                "name"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
+              "title": "Area Id"
             }
           },
           {
@@ -20953,6 +20956,282 @@
               "maximum": 100,
               "minimum": 1,
               "default": 25,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/research/semantic-search": {
+      "get": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Semantic",
+        "description": "Experimental event-only retrieval with current public source rehydration.",
+        "operationId": "semantic_api_v1_research_semantic_search_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 120,
+              "pattern": "\\S.*\\S",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "entity_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "const": "event",
+              "type": "string",
+              "default": "event",
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "from_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Date"
+            }
+          },
+          {
+            "name": "to_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Date"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "City"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2147483647,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "released",
+                    "cancelled",
+                    "deferred",
+                    "rescheduled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "venue_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "area_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Area Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 20,
               "title": "Page Size"
             }
           }
@@ -21182,17 +21461,20 @@
             }
           },
           {
-            "name": "sort",
+            "name": "area_id",
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "date",
-                "name"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
+              "title": "Area Id"
             }
           },
           {
@@ -21217,6 +21499,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -21520,17 +21816,20 @@
             }
           },
           {
-            "name": "sort",
+            "name": "area_id",
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "date",
-                "name"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
+              "title": "Area Id"
             }
           },
           {
@@ -21555,6 +21854,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -21792,17 +22105,20 @@
             }
           },
           {
-            "name": "sort",
+            "name": "area_id",
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "date",
-                "name"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
+              "title": "Area Id"
             }
           },
           {
@@ -21827,6 +22143,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -22054,17 +22384,20 @@
             }
           },
           {
-            "name": "sort",
+            "name": "area_id",
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "date",
-                "name"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
+              "title": "Area Id"
             }
           },
           {
@@ -22089,6 +22422,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -22326,17 +22673,20 @@
             }
           },
           {
-            "name": "sort",
+            "name": "area_id",
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "date",
-                "name"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
+              "title": "Area Id"
             }
           },
           {
@@ -22361,6 +22711,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -22588,17 +22952,20 @@
             }
           },
           {
-            "name": "sort",
+            "name": "area_id",
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "date",
-                "name"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
+              "title": "Area Id"
             }
           },
           {
@@ -22623,6 +22990,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -22860,17 +23241,20 @@
             }
           },
           {
-            "name": "sort",
+            "name": "area_id",
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "date",
-                "name"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
+              "title": "Area Id"
             }
           },
           {
@@ -22896,6 +23280,20 @@
               "default": 25,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
+            }
           }
         ],
         "responses": {
@@ -22905,6 +23303,531 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ResearchDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/research/areas": {
+      "get": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Areas",
+        "operationId": "areas_api_v1_research_areas_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "country_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "DE",
+                    "DK"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Country Code"
+            }
+          },
+          {
+            "name": "area_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "region",
+                "district",
+                "municipality"
+              ],
+              "type": "string",
+              "default": "municipality",
+              "title": "Area Type"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 120,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 10,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AreaPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/research/areas/{identifier}": {
+      "get": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Area Detail",
+        "operationId": "area_detail_api_v1_research_areas__identifier__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 120,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "entity_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "event",
+                "venue",
+                "organization"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "from_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Date"
+            }
+          },
+          {
+            "name": "to_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Date"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "City"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2147483647,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "released",
+                    "cancelled",
+                    "deferred",
+                    "rescheduled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "venue_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "area_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Area Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AreaDossier"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/research/areas/{identifier}/metadata": {
+      "get": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Selected Area",
+        "operationId": "selected_area_api_v1_research_areas__identifier__metadata_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchArea"
                 }
               }
             }
@@ -23595,6 +24518,114 @@
           "subject"
         ],
         "title": "AdminPrincipal"
+      },
+      "AreaDossier": {
+        "properties": {
+          "area": {
+            "$ref": "#/components/schemas/ResearchArea"
+          },
+          "geometry": {
+            "$ref": "#/components/schemas/AreaGeometry"
+          },
+          "events": {
+            "$ref": "#/components/schemas/ResearchPage"
+          },
+          "venues": {
+            "$ref": "#/components/schemas/ResearchPage"
+          },
+          "organizations": {
+            "$ref": "#/components/schemas/ResearchPage"
+          },
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchMonth"
+            },
+            "type": "array",
+            "title": "Months"
+          },
+          "usage": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchUsageItem"
+            },
+            "type": "array",
+            "title": "Usage"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "area",
+          "geometry",
+          "events",
+          "venues",
+          "organizations",
+          "months",
+          "usage",
+          "observed_at"
+        ],
+        "title": "AreaDossier"
+      },
+      "AreaGeometry": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "MultiPolygon",
+            "title": "Type"
+          },
+          "coordinates": {
+            "items": {
+              "items": {
+                "items": {
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array",
+                  "maxItems": 2,
+                  "minItems": 2
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Coordinates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "coordinates"
+        ],
+        "title": "AreaGeometry"
+      },
+      "AreaPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchArea"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "title": "AreaPage"
       },
       "Assignment": {
         "properties": {
@@ -26834,6 +27865,18 @@
             "type": "string",
             "format": "uuid",
             "title": "Id"
+          },
+          "area_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Id"
           },
           "source": {
             "type": "string",
@@ -31143,6 +32186,866 @@
         ],
         "title": "RecentEntity"
       },
+      "ResearchArea": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "area_type": {
+            "type": "string",
+            "enum": [
+              "region",
+              "district",
+              "municipality"
+            ],
+            "title": "Area Type"
+          },
+          "country_code": {
+            "type": "string",
+            "enum": [
+              "DE",
+              "DK"
+            ],
+            "title": "Country Code"
+          },
+          "region_code": {
+            "type": "string",
+            "title": "Region Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "osm_type": {
+            "type": "string",
+            "const": "R",
+            "title": "Osm Type"
+          },
+          "osm_id": {
+            "type": "string",
+            "title": "Osm Id"
+          },
+          "osm_admin_level": {
+            "type": "integer",
+            "title": "Osm Admin Level"
+          },
+          "population": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchPopulation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "centroid": {
+            "$ref": "#/components/schemas/ResearchLocation"
+          },
+          "bbox": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Bbox"
+          },
+          "source": {
+            "type": "string",
+            "const": "osm",
+            "title": "Source"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Retrieved At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "area_type",
+          "country_code",
+          "region_code",
+          "name",
+          "display_name",
+          "osm_type",
+          "osm_id",
+          "osm_admin_level",
+          "centroid",
+          "bbox",
+          "source",
+          "retrieved_at",
+          "updated_at"
+        ],
+        "title": "ResearchArea"
+      },
+      "ResearchCategory": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ResearchCategory"
+      },
+      "ResearchDate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "all_day": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "All Day"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "released",
+              "cancelled",
+              "deferred",
+              "rescheduled"
+            ],
+            "title": "Status"
+          },
+          "venue_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Id"
+          },
+          "venue_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Name"
+          },
+          "space_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Id"
+          },
+          "space_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Name"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchLocation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "start_date",
+          "start_time",
+          "end_date",
+          "end_time",
+          "all_day",
+          "status",
+          "venue_id",
+          "venue_name",
+          "space_id",
+          "space_name",
+          "city",
+          "address",
+          "location"
+        ],
+        "title": "ResearchDate"
+      },
+      "ResearchDates": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchDate"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "title": "ResearchDates"
+      },
+      "ResearchDetail": {
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/ResearchRecord"
+          },
+          "events": {
+            "$ref": "#/components/schemas/ResearchPage"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/ResearchDates"
+          },
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchMonth"
+            },
+            "type": "array",
+            "title": "Months"
+          },
+          "usage": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchUsageItem"
+            },
+            "type": "array",
+            "title": "Usage"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item",
+          "events",
+          "dates",
+          "months",
+          "usage",
+          "observed_at"
+        ],
+        "title": "ResearchDetail"
+      },
+      "ResearchExport": {
+        "properties": {
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "columns",
+          "rows",
+          "total",
+          "observed_at"
+        ],
+        "title": "ResearchExport"
+      },
+      "ResearchLocation": {
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          }
+        },
+        "type": "object",
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "title": "ResearchLocation"
+      },
+      "ResearchMonth": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "format": "date",
+            "title": "Month"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "event_count"
+        ],
+        "title": "ResearchMonth"
+      },
+      "ResearchOptions": {
+        "properties": {
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchCategory"
+            },
+            "type": "array",
+            "title": "Categories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "categories"
+        ],
+        "title": "ResearchOptions"
+      },
+      "ResearchPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchRecord"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination",
+          "observed_at",
+          "timezone"
+        ],
+        "title": "ResearchPage"
+      },
+      "ResearchPopulation": {
+        "properties": {
+          "value": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Value"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date",
+            "title": "As Of"
+          },
+          "source": {
+            "type": "string",
+            "const": "bkg_vg250_ew",
+            "title": "Source"
+          },
+          "municipality_name": {
+            "type": "string",
+            "title": "Municipality Name"
+          },
+          "file_sha256": {
+            "type": "string",
+            "title": "File Sha256"
+          },
+          "imported_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Imported At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "as_of",
+          "source",
+          "municipality_name",
+          "file_sha256",
+          "imported_at"
+        ],
+        "title": "ResearchPopulation"
+      },
+      "ResearchRecord": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "event",
+              "venue",
+              "organization"
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Entity Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "released",
+                  "cancelled",
+                  "deferred",
+                  "rescheduled"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchCategory"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "all_day": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "All Day"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id"
+          },
+          "organization_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Name"
+          },
+          "venue_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Id"
+          },
+          "venue_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Name"
+          },
+          "space_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Id"
+          },
+          "space_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Name"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchLocation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Count"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "modified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_key",
+          "name"
+        ],
+        "title": "ResearchRecord"
+      },
+      "ResearchUsageItem": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "venue",
+              "organization",
+              "category"
+            ],
+            "title": "Kind"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "key",
+          "name",
+          "event_count"
+        ],
+        "title": "ResearchUsageItem"
+      },
       "ReviewUpdate": {
         "properties": {
           "finding_id": {
@@ -31790,707 +33693,6 @@
         "additionalProperties": false,
         "type": "object",
         "title": "VenueQualityParameters"
-      },
-      "ResearchCategory": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name"
-        ],
-        "title": "ResearchCategory"
-      },
-      "ResearchDate": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "start_date": {
-            "type": "string",
-            "format": "date",
-            "title": "Start Date"
-          },
-          "start_time": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Start Time"
-          },
-          "end_date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "End Date"
-          },
-          "end_time": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "End Time"
-          },
-          "all_day": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "All Day"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "released",
-              "cancelled",
-              "deferred",
-              "rescheduled"
-            ],
-            "title": "Status"
-          },
-          "venue_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Venue Id"
-          },
-          "venue_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Venue Name"
-          },
-          "space_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Space Id"
-          },
-          "space_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Space Name"
-          },
-          "city": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "City"
-          },
-          "address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
-          "location": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ResearchLocation"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "start_date",
-          "start_time",
-          "end_date",
-          "end_time",
-          "all_day",
-          "status",
-          "venue_id",
-          "venue_name",
-          "space_id",
-          "space_name",
-          "city",
-          "address",
-          "location"
-        ],
-        "title": "ResearchDate"
-      },
-      "ResearchDates": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ResearchDate"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "pagination"
-        ],
-        "title": "ResearchDates"
-      },
-      "ResearchDetail": {
-        "properties": {
-          "item": {
-            "$ref": "#/components/schemas/ResearchRecord"
-          },
-          "events": {
-            "$ref": "#/components/schemas/ResearchPage"
-          },
-          "dates": {
-            "$ref": "#/components/schemas/ResearchDates"
-          },
-          "months": {
-            "items": {
-              "$ref": "#/components/schemas/ResearchMonth"
-            },
-            "type": "array",
-            "title": "Months"
-          },
-          "usage": {
-            "items": {
-              "$ref": "#/components/schemas/ResearchUsageItem"
-            },
-            "type": "array",
-            "title": "Usage"
-          },
-          "observed_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Observed At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "item",
-          "events",
-          "dates",
-          "months",
-          "usage",
-          "observed_at"
-        ],
-        "title": "ResearchDetail"
-      },
-      "ResearchExport": {
-        "properties": {
-          "columns": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Columns"
-          },
-          "rows": {
-            "items": {
-              "additionalProperties": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Rows"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "observed_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Observed At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "columns",
-          "rows",
-          "total",
-          "observed_at"
-        ],
-        "title": "ResearchExport"
-      },
-      "ResearchLocation": {
-        "properties": {
-          "latitude": {
-            "type": "number",
-            "title": "Latitude"
-          },
-          "longitude": {
-            "type": "number",
-            "title": "Longitude"
-          }
-        },
-        "type": "object",
-        "required": [
-          "latitude",
-          "longitude"
-        ],
-        "title": "ResearchLocation"
-      },
-      "ResearchMonth": {
-        "properties": {
-          "month": {
-            "type": "string",
-            "format": "date",
-            "title": "Month"
-          },
-          "event_count": {
-            "type": "integer",
-            "title": "Event Count"
-          }
-        },
-        "type": "object",
-        "required": [
-          "month",
-          "event_count"
-        ],
-        "title": "ResearchMonth"
-      },
-      "ResearchOptions": {
-        "properties": {
-          "categories": {
-            "items": {
-              "$ref": "#/components/schemas/ResearchCategory"
-            },
-            "type": "array",
-            "title": "Categories"
-          }
-        },
-        "type": "object",
-        "required": [
-          "categories"
-        ],
-        "title": "ResearchOptions"
-      },
-      "ResearchPage": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ResearchRecord"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/Pagination"
-          },
-          "observed_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Observed At"
-          },
-          "timezone": {
-            "type": "string",
-            "title": "Timezone"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "pagination",
-          "observed_at",
-          "timezone"
-        ],
-        "title": "ResearchPage"
-      },
-      "ResearchRecord": {
-        "properties": {
-          "entity_type": {
-            "type": "string",
-            "enum": [
-              "event",
-              "venue",
-              "organization"
-            ],
-            "title": "Entity Type"
-          },
-          "entity_key": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Entity Key"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "released",
-                  "cancelled",
-                  "deferred",
-                  "rescheduled"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          },
-          "categories": {
-            "items": {
-              "$ref": "#/components/schemas/ResearchCategory"
-            },
-            "type": "array",
-            "title": "Categories"
-          },
-          "language": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Language"
-          },
-          "start_date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Start Date"
-          },
-          "start_time": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Start Time"
-          },
-          "end_date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "End Date"
-          },
-          "end_time": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "End Time"
-          },
-          "all_day": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "All Day"
-          },
-          "organization_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Organization Id"
-          },
-          "organization_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Organization Name"
-          },
-          "venue_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Venue Id"
-          },
-          "venue_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Venue Name"
-          },
-          "space_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Space Id"
-          },
-          "space_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Space Name"
-          },
-          "city": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "City"
-          },
-          "address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
-          "location": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ResearchLocation"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "event_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Event Count"
-          },
-          "source_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Url"
-          },
-          "image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Image Url"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "modified_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Modified At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "entity_type",
-          "entity_key",
-          "name"
-        ],
-        "title": "ResearchRecord"
-      },
-      "ResearchUsageItem": {
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "venue",
-              "organization",
-              "category"
-            ],
-            "title": "Kind"
-          },
-          "key": {
-            "type": "string",
-            "title": "Key"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "event_count": {
-            "type": "integer",
-            "title": "Event Count"
-          }
-        },
-        "type": "object",
-        "required": [
-          "kind",
-          "key",
-          "name",
-          "event_count"
-        ],
-        "title": "ResearchUsageItem"
       }
     },
     "securitySchemes": {
