@@ -15,7 +15,17 @@ from app.repositories.research import source_url
 DOCUMENT_VERSION = "event-public-v1"
 CHUNK_VERSION = "sections-480-overlap64-v2"
 POINT_NAMESPACE = UUID("f6d7a7df-8744-4d7b-a928-0a3df9335a36")
-Kind = Literal["content", "participation", "accessibility", "tickets", "additional"]
+Kind = Literal[
+    "content",
+    "participation",
+    "accessibility",
+    "tickets",
+    "additional",
+    "facilities",
+    "location_context",
+    "activities",
+    "categories",
+]
 
 
 class Section(BaseModel):
@@ -78,8 +88,8 @@ def clean(value: object) -> str:
     return "\n".join(" ".join(line.split()) for line in text.splitlines() if line.strip()).strip()
 
 
-def lines(fields: list[tuple[str, object]]) -> str:
-    return "\n\n".join(f"{label}: {value}" for label, raw in fields if (value := clean(raw)))
+def lines(fields: list[tuple[str, object]], cleaner: Callable[[object], str] = clean) -> str:
+    return "\n\n".join(f"{label}: {value}" for label, raw in fields if (value := cleaner(raw)))
 
 
 def names(values: object) -> str:
@@ -88,9 +98,14 @@ def names(values: object) -> str:
     return ", ".join(sorted({clean(v) for v in values if clean(v)}))
 
 
-def document(row: Mapping[str, Any], context: Mapping[str, Any]) -> EventDocument:
+def document(
+    row: Mapping[str, Any],
+    context: Mapping[str, Any],
+    *,
+    cleaner: Callable[[object], str] = clean,
+) -> EventDocument:
     """Never iterate arbitrary row keys into either semantic text or payload."""
-    title = clean(row["title"])
+    title = cleaner(row["title"])
     sections: list[tuple[Kind, list[tuple[str, object]]]] = [
         (
             "content",
@@ -161,7 +176,9 @@ def document(row: Mapping[str, Any], context: Mapping[str, Any]) -> EventDocumen
         ("additional", [("Öffentliche Quelle", source_url(row.get("source_link")))]),
     ]
     public_sections = [
-        Section(kind=kind, text=text) for kind, fields in sections if (text := lines(fields))
+        Section(kind=kind, text=text)
+        for kind, fields in sections
+        if (text := lines(fields, cleaner))
     ]
     if sum(len(s.text) for s in public_sections) > 200_000:
         raise ValueError("event_document_limit")

@@ -3,16 +3,19 @@
 import json
 from collections import defaultdict
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal, overload
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
+from app.repositories.activity_previews import location
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
 from app.repositories.research import CATEGORY_LABELS, DATE_STATUS, PUBLIC
 from app.repositories.temporal import is_upcoming_start
+from app.research.semantic_contracts import EffectiveLocation, SemanticDocument
+from app.research.semantic_documents import event_document, public_clean
 from app.research.vector_documents import EventDocument, document
 
 PUBLIC_EVENT = f"""e.release_status::text IN {PUBLIC} AND (
@@ -74,8 +77,20 @@ async def area_memberships(
     points = {
         str(d["venue_id"]): {"id": str(d["venue_id"]), "x": d["longitude"], "y": d["latitude"]}
         for d in dates
-        if d["venue_id"] and d["longitude"] is not None and d["latitude"] is not None
+        if d["venue_id"] and location(d["latitude"], d["longitude"]) is not None
     }
+    # Imports already reject positive-area overlaps. Fail closed if cached geometry
+    # was corrupted; shared edges remain valid and ST_Covers includes both sides.
+    if (
+        await admin.execute(
+            text("""SELECT EXISTS (
+        SELECT 1 FROM admin.research_area a JOIN admin.research_area b
+        ON a.id<b.id AND a.geometry && b.geometry
+        WHERE a.area_type='municipality' AND b.area_type='municipality'
+        AND ST_Relate(a.geometry,b.geometry,'2********'))""")
+        )
+    ).scalar_one():
+        raise ValueError("overlapping_research_areas")
     result: dict[str, list[dict[str, str]]] = defaultdict(list)
     values = list(points.values())
     for offset in range(0, len(values), 500):
@@ -96,13 +111,39 @@ async def area_memberships(
     return True, dict(result)
 
 
+@overload
 async def extract_events(
     connection: AsyncConnection,
     admin: AsyncConnection | None,
     settings: Settings,
     now: datetime,
     limit: int | None = None,
-) -> tuple[list[EventDocument], int]:
+    *,
+    semantic: Literal[False] = False,
+) -> tuple[list[EventDocument], int]: ...
+
+
+@overload
+async def extract_events(
+    connection: AsyncConnection,
+    admin: AsyncConnection | None,
+    settings: Settings,
+    now: datetime,
+    limit: int | None = None,
+    *,
+    semantic: Literal[True],
+) -> tuple[list[SemanticDocument], int]: ...
+
+
+async def extract_events(
+    connection: AsyncConnection,
+    admin: AsyncConnection | None,
+    settings: Settings,
+    now: datetime,
+    limit: int | None = None,
+    *,
+    semantic: bool = False,
+) -> tuple[list[EventDocument], int] | tuple[list[SemanticDocument], int]:
     if limit is not None and not 1 <= limit <= 10000:
         raise ValueError("invalid_event_limit")
     if not settings.uranus_timestamp_timezone:
@@ -140,7 +181,8 @@ async def extract_events(
         by_date[date["event_uuid"]].append(date)
     for kind in types:
         by_type[kind["event_uuid"]].append(kind)
-    documents = []
+    documents: list[EventDocument] = []
+    semantic_documents: list[SemanticDocument] = []
     local = now.astimezone(ZoneInfo(settings.event_timezone))
     for row in rows:
         event_dates = by_date[row["entity_id"]]
@@ -169,7 +211,26 @@ async def extract_events(
         )
         row["type_names"] = [t["type_name"] for t in by_type[row["entity_id"]]]
         row["genre_names"] = [t["genre_name"] for t in by_type[row["entity_id"]]]
-        documents.append(document(row, context))
-    if sum(len(s.text.encode()) for d in documents for s in d.sections) > 64 * 1024 * 1024:
+        locations: dict[str, dict[str, Any]] = {}
+        for date in event_dates:
+            point = location(date["latitude"], date["longitude"])
+            value = EffectiveLocation(
+                effective_venue_id=date["venue_id"],
+                effective_venue_name=public_clean(date["venue_name"]) or None,
+                effective_space_id=date["space_id"],
+                effective_space_name=public_clean(date["space_name"]) or None,
+                effective_latitude=point["latitude"] if point else None,
+                effective_longitude=point["longitude"] if point else None,
+            ).model_dump(mode="json")
+            locations[json.dumps(value, sort_keys=True)] = value
+        context["effective_locations"] = [locations[k] for k in sorted(locations)]
+        if semantic:
+            semantic_documents.append(event_document(row, context))
+        else:
+            documents.append(document(row, context))
+    corpus: list[EventDocument | SemanticDocument] = [*documents, *semantic_documents]
+    if sum(len(s.text.encode()) for d in corpus for s in d.sections) > 64 * 1024 * 1024:
         raise ValueError("event_corpus_limit")
-    return documents, total
+    if sum(len(d.model_dump_json().encode()) for d in semantic_documents) > 64 * 1024 * 1024:
+        raise ValueError("semantic_corpus_limit")
+    return (semantic_documents, total) if semantic else (documents, total)

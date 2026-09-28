@@ -683,8 +683,10 @@ research_area = sa.Table(
     sa.CheckConstraint("source = 'osm'", name="research_area_source"),
     sa.CheckConstraint("country_code IN ('DE','DK')", name="research_area_country"),
     sa.CheckConstraint(
-        "(country_code='DE' AND region_code IN ('DE-SH','DE-HH','DE-MV','DE-NI','DE-HB')) "
-        "OR (country_code='DK' AND region_code='DK-83')",
+        "(country_code='DE' AND region_code IN ('DE-SH','DE-HH','DE-MV','DE-NI','DE-HB',"
+        "'DE-BB','DE-BE','DE-BW','DE-BY','DE-HE','DE-NW',"
+        "'DE-RP','DE-SL','DE-SN','DE-ST','DE-TH')) "
+        "OR (country_code='DK' AND region_code IN ('DK-81','DK-82','DK-83','DK-84','DK-85'))",
         name="research_area_region",
     ),
     sa.CheckConstraint("osm_admin_level BETWEEN 2 AND 12", name="research_area_level"),

@@ -1,11 +1,26 @@
 """Incremental embedding reuse and explicit reconciliation against a complete snapshot."""
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Any
 
-from app.research.vector_documents import DOCUMENT_VERSION, Chunk, EventDocument, point_id
+from app.research.semantic_contracts import (
+    COLLECTIONS,
+    OWNER,
+    EntityType,
+    SemanticDocument,
+    semantic_point_id,
+)
+from app.research.semantic_documents import is_public_text
+from app.research.vector_documents import (
+    DOCUMENT_VERSION,
+    Chunk,
+    EventDocument,
+    content_hash,
+    point_id,
+)
 from app.research.vector_models import Model
 from app.research.vector_transport import MAX_POINTS, Encoder, Qdrant
 
@@ -13,6 +28,7 @@ from app.research.vector_transport import MAX_POINTS, Encoder, Qdrant
 @dataclass
 class Plan:
     desired: dict[str, tuple[Chunk, dict[str, Any]]]
+    entity: EntityType | None = None
     embed: list[str] = field(default_factory=list)
     metadata: list[str] = field(default_factory=list)
     delete: list[str] = field(default_factory=list)
@@ -31,23 +47,54 @@ class Plan:
 
 
 def plan_changes(
-    documents: list[EventDocument],
+    documents: Sequence[EventDocument | SemanticDocument],
     chunks: dict[str, list[Chunk]],
     existing: dict[str, dict[str, Any]],
     model: Model,
     *,
     complete: bool,
+    entity: EntityType | None = None,
 ) -> Plan:
+    if entity is not None:
+        if model.name != "jinaai/jina-embeddings-v3":
+            raise ValueError("semantic_model_mismatch")
+        if any(not isinstance(d, SemanticDocument) or d.entity_type != entity for d in documents):
+            raise ValueError("collection_document_mismatch")
+        if any(
+            p.get("entity_type") != entity or p.get("index_owner") != OWNER
+            for p in existing.values()
+        ):
+            raise ValueError("foreign_collection_points")
+    elif any(isinstance(d, SemanticDocument) for d in documents):
+        raise ValueError("semantic_collection_required")
     desired: dict[str, tuple[Chunk, dict[str, Any]]] = {}
     for document in documents:
         for chunk in chunks[str(document.entity_id)]:
-            identifier = point_id(document.entity_id, chunk)
+            semantic = isinstance(document, SemanticDocument)
+            if semantic and (
+                not is_public_text(chunk.text)
+                or chunk.content_hash != content_hash(chunk.text)
+                or chunk.token_count > 480
+                or chunk.text not in "\n\n".join(s.text for s in document.sections)
+            ):
+                raise ValueError("unsafe_or_unmatched_chunk")
+            identifier = (
+                semantic_point_id(document, chunk)
+                if isinstance(document, SemanticDocument)
+                else point_id(document.entity_id, chunk)
+            )
+            payload = (
+                document.payload.model_dump(mode="json")
+                if isinstance(document, SemanticDocument)
+                else document.payload
+            )
             if identifier in desired:
                 raise ValueError("duplicate_document_chunk")
             desired[identifier] = (
                 chunk,
                 {
-                    **document.payload,
+                    **payload,
+                    **({"chunk_text": chunk.text} if semantic else {}),
                     "chunk_index": chunk.chunk_index,
                     "chunk_kind": chunk.chunk_kind,
                     "content_hash": chunk.content_hash,
@@ -57,7 +104,7 @@ def plan_changes(
             )
     if len(desired) > MAX_POINTS:
         raise ValueError("collection_point_limit")
-    plan = Plan(desired)
+    plan = Plan(desired, entity=entity)
     selected = {str(d.entity_id) for d in documents}
     for identifier, (_chunk, payload) in desired.items():
         old = existing.get(identifier)
@@ -70,7 +117,7 @@ def plan_changes(
                 "content_hash",
                 "embedding_model",
                 "embedding_version",
-                "document_schema_version",
+                *(() if entity is not None else ("document_schema_version",)),
             )
         ):
             plan.embed.append(identifier)
@@ -87,6 +134,17 @@ def plan_changes(
 
 
 async def apply_changes(qdrant: Qdrant, encoder: Encoder, plan: Plan) -> dict[str, Any]:
+    # Defense in depth: a plan cannot be applied to a different semantic collection.
+    entity = getattr(qdrant, "entity", None)
+    if plan.entity != entity:
+        raise ValueError("collection_plan_mismatch")
+    if entity is not None and any(
+        p.get("entity_type") != entity
+        or p.get("index_owner") != OWNER
+        or p.get("document_schema_version") != COLLECTIONS[entity].document_version
+        for _, p in plan.desired.values()
+    ):
+        raise ValueError("collection_plan_mismatch")
     started = perf_counter()
     embedding_seconds = 0.0
     if await qdrant.info() is None:

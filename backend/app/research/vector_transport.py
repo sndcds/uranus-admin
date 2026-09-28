@@ -3,13 +3,17 @@
 import asyncio
 import json
 import math
-from typing import Any
+from collections.abc import Sequence
+from typing import Any, Literal
 from urllib.parse import quote
+from uuid import UUID
 
 import httpx
 
 from app.config import Settings
 from app.errors import APIError
+from app.research.semantic_contracts import COLLECTIONS, OWNER, EntityType, SemanticDocument
+from app.research.semantic_evidence import area_filter
 from app.research.vector_documents import Chunk, EventDocument, content_hash
 from app.research.vector_models import MODELS, Model
 
@@ -75,11 +79,24 @@ class InternalHTTP:
 
 class Qdrant:
     def __init__(
-        self, settings: Settings, model: str, transport: httpx.AsyncBaseTransport | None = None
+        self,
+        settings: Settings,
+        model: str,
+        transport: httpx.AsyncBaseTransport | None = None,
+        *,
+        entity: EntityType | None = None,
     ):
         if settings.qdrant_url is None or settings.qdrant_api_key is None:
             raise ValueError("qdrant_configuration_required")
-        self.collection = settings.qdrant_collection_prefix + "_events_" + model.replace("-", "_")
+        if entity is not None and model != "jina-v3":
+            raise ValueError("semantic_model_mismatch")
+        self.entity = entity
+        self.owner = OWNER if entity is not None else "uranus-admin-event-pilot-v1"
+        self.collection = (
+            COLLECTIONS[entity].name
+            if entity is not None
+            else settings.qdrant_collection_prefix + "_events_" + model.replace("-", "_")
+        )
         self.model = MODELS[model]
         self.path = "/collections/" + quote(self.collection, safe="")
         self.http = InternalHTTP(
@@ -132,9 +149,8 @@ class Qdrant:
             assert result is not None
             for point in result["result"]["points"]:
                 payload = point.get("payload") or {}
-                if (
-                    payload.get("index_owner") != "uranus-admin-event-pilot-v1"
-                    or payload.get("entity_type") != "event"
+                if payload.get("index_owner") != self.owner or payload.get("entity_type") != (
+                    self.entity or "event"
                 ):
                     raise ValueError("foreign_collection_points")
                 identity = str(point["id"])
@@ -173,14 +189,31 @@ class Qdrant:
                 },
             )
 
-    async def search(self, vector: list[float], limit: int) -> list[dict[str, Any]]:
+    async def search(
+        self,
+        vector: list[float],
+        limit: int,
+        *,
+        area_id: UUID | None = None,
+        organization_mode: Literal["home", "activity"] | None = None,
+    ) -> list[dict[str, Any]]:
         validate_vectors([vector], self.model, 1)
         if not 1 <= limit <= 10000:
             raise ValueError("invalid_search_limit")
+        filters: dict[str, Any] = {}
+        if area_id is not None:
+            if self.entity is None:
+                raise ValueError("semantic_collection_required_for_area_filter")
+            filters["filter"] = area_filter(
+                self.entity, area_id, organization_mode=organization_mode
+            )
+        elif organization_mode is not None:
+            raise ValueError("area_id_required")
         value = await self.http.request(
             "POST",
             self.path + "/points/query",
             {
+                **filters,
                 "query": vector,
                 "limit": limit,
                 "with_payload": True,
@@ -231,8 +264,11 @@ class Encoder:
             raise ValueError("encoder_version_mismatch")
         return response
 
-    async def prepare(self, documents: list[EventDocument]) -> dict[str, list[Chunk]]:
-        result: dict[str, list[Chunk]] = {}
+    async def prepare(
+        self, documents: Sequence[EventDocument | SemanticDocument]
+    ) -> dict[str, list[Chunk]]:
+        result: dict[str, list[Chunk]] = {str(d.entity_id): [] for d in documents if not d.sections}
+        documents = [d for d in documents if d.sections]
         for offset in range(0, len(documents), 4):
             batch = documents[offset : offset + 4]
             response = self.checked(
