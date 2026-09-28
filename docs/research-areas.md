@@ -27,19 +27,27 @@ Place-Nodes und POIs sind keine Gemeinden.
 Für deutsche `CatalogEntry`-Imports ersetzt `VERIFIED_MUNICIPALITY_RELATIONS`
 in `backend/app/research/areas.py` die unzuverlässige Namenssuche bei exakt diesen AGS:
 
-| AGS      | Gemeinde             | Relation |
-| -------- | -------------------- | -------: |
-| 01057001 | Ascheberg (Holstein) |   310405 |
-| 01057004 | Behrensdorf (Ostsee) |   288915 |
-| 01057030 | Hohwacht (Ostsee)    |   288939 |
-| 01061044 | Horst (Holstein)     |   447194 |
+| Region | AGS      | Gemeinde             | Relation |
+| ------ | -------- | -------------------- | -------: |
+| DE-SH  | 01057001 | Ascheberg (Holstein) |   310405 |
+| DE-SH  | 01057004 | Behrensdorf (Ostsee) |   288915 |
+| DE-SH  | 01057030 | Hohwacht (Ostsee)    |   288939 |
+| DE-SH  | 01061044 | Horst (Holstein)     |   447194 |
+| DE-NI  | 03151040 | Wittingen            |  1392804 |
+| DE-NI  | 03354026 | Wustrow (Wendland)   |  1821905 |
+| DE-NI  | 03357019 | Hamersen             |  1079013 |
+| DE-NI  | 03358001 | Ahlden (Aller)       |  1808860 |
 
-Die Relationen wurden laut bereitgestellter Verifikation per exaktem AGS-Tag in
-Overpass gefunden; für die ersten drei liegt außerdem eine Bestätigung des eigenen
-Nominatim-Lookups vor. Horst ist lokal durch synthetische Lookup-Vertragstests
-abgesichert; diese sind kein Live-Nachweis. Bei jedem Import bleibt für alle vier
+Alle acht Relationen (vier in Schleswig-Holstein, vier in Niedersachsen) wurden
+laut bereitgestellter Betreiberverifikation per exaktem AGS-Tag in Overpass gefunden
+und live gegen `https://nominatim.oklabflensburg.de/lookup` verifiziert. Bestätigt
+wurden `osm_type=relation`, `category=boundary`, `type=administrative`,
+`country_code=de`, die jeweilige Region `DE-SH` bzw. `DE-NI` in `ISO3166-2-lvl4`,
+`admin_level=8`, der exakte AGS und Polygon/MultiPolygon. Die lokalen synthetischen
+Lookup-Vertragstests sichern diesen Pfad ab, sind selbst aber kein Live-Nachweis.
+Bei jedem Import bleibt für alle acht
 der normale `boundary_record()`-Lookup mit `municipality_item()`/`boundary()`
-verpflichtend: Relation, administrative Grenze, DE, DE-SH, Ebene 8, exakter AGS und
+verpflichtend: Relation, administrative Grenze, DE, passende Region, Ebene 8, exakter AGS und
 Polygon/MultiPolygon. Auch die nachgelagerte PostGIS-Geometrieprüfung bleibt erhalten.
 Das Mapping ersetzt nur Discovery und gewährt keine Validierungsausnahme.
 `CITY_EXCEPTIONS` bleibt unverändert; andere reguläre Gemeinden verwenden weiter

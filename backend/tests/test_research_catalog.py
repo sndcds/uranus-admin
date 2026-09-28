@@ -94,10 +94,14 @@ def test_lookup_revalidates_official_identity(settings):
 
 
 VERIFIED_CASES = [
-    ("01057001", "Ascheberg (Holstein)", 310405),
-    ("01057004", "Behrensdorf (Ostsee)", 288915),
-    ("01057030", "Hohwacht (Ostsee)", 288939),
-    ("01061044", "Horst (Holstein)", 447194),
+    ("DE-SH", "01057001", "Ascheberg (Holstein)", 310405),
+    ("DE-SH", "01057004", "Behrensdorf (Ostsee)", 288915),
+    ("DE-SH", "01057030", "Hohwacht (Ostsee)", 288939),
+    ("DE-SH", "01061044", "Horst (Holstein)", 447194),
+    ("DE-NI", "03151040", "Wittingen", 1392804),
+    ("DE-NI", "03354026", "Wustrow (Wendland)", 1821905),
+    ("DE-NI", "03357019", "Hamersen", 1079013),
+    ("DE-NI", "03358001", "Ahlden (Aller)", 1808860),
 ]
 
 
@@ -110,24 +114,25 @@ def classification(monkeypatch):
     return classify
 
 
-def municipality_lookup(ags, name, identity):
-    # Synthetic contract data, including Horst; not evidence of a live lookup.
+def municipality_lookup(region, ags, name, identity):
+    # Synthetic contract data; not evidence of a live lookup.
     data = row(
         osm_id=identity,
         name=name,
         category="boundary",
+        address={"country_code": "de", "ISO3166-2-lvl4": region},
         extratags={"admin_level": "8", "de:amtlicher_gemeindeschluessel": ags},
     )
     del data["class"]
     return data
 
 
-@pytest.mark.parametrize("ags,name,identity", VERIFIED_CASES)
+@pytest.mark.parametrize("region,ags,name,identity", VERIFIED_CASES)
 @pytest.mark.parametrize("shape", ["Polygon", "MultiPolygon"])
 async def test_verified_municipality_uses_lookup_without_search(
-    settings, classification, ags, name, identity, shape
+    settings, classification, region, ags, name, identity, shape
 ):
-    data = municipality_lookup(ags, name, identity)
+    data = municipality_lookup(region, ags, name, identity)
     if shape == "MultiPolygon":
         data["geojson"] = {"type": shape, "coordinates": [POLYGON["coordinates"]]}
     requests = []
@@ -147,27 +152,28 @@ async def test_verified_municipality_uses_lookup_without_search(
     counts = await import_boundaries(
         MagicMock(spec=AsyncConnection),
         provider(settings, handler=handler),
-        "DE-SH",
+        region,
         [],
         [],
-        catalog=[CatalogEntry("DE-SH", ags, name)],
+        catalog=[CatalogEntry(region, ags, name)],
     )
     assert counts == dict(found=1, new=1, updated=0, unchanged=0, rejected=0)
     assert len(requests) == 1
     classification.assert_awaited_once()
     item = classification.call_args.args[1]
     assert (item.osm_id, item.municipality_key, item.osm_admin_level) == (identity, ags, 8)
+    assert item.region_code == region
     assert identity not in CITY_EXCEPTIONS
 
 
-@pytest.mark.parametrize("ags,name,identity", VERIFIED_CASES)
+@pytest.mark.parametrize("region,ags,name,identity", VERIFIED_CASES)
 @pytest.mark.parametrize(
     "changes",
     [
         {"extratags": {"admin_level": "8", "de:amtlicher_gemeindeschluessel": "01999000"}},
         {"extratags": {"de:amtlicher_gemeindeschluessel": None}},
-        {"address": {"country_code": "de", "ISO3166-2-lvl4": "DE-NI"}},
-        {"address": {"country_code": "dk", "ISO3166-2-lvl4": "DE-SH"}},
+        {"address": {"ISO3166-2-lvl4": "DE-BY"}},
+        {"address": {"country_code": "dk"}},
         {"extratags": {"admin_level": "6"}},
         {"osm_type": "way"},
         {"osm_id": 999999},
@@ -179,12 +185,14 @@ async def test_verified_municipality_uses_lookup_without_search(
     ],
 )
 async def test_verified_municipality_rejects_invalid_lookup(
-    settings, classification, ags, name, identity, changes
+    settings, classification, region, ags, name, identity, changes
 ):
-    data = municipality_lookup(ags, name, identity)
+    data = municipality_lookup(region, ags, name, identity)
     # Change one tag at a time to test each validation independently.
     if "extratags" in changes:
         data["extratags"].update(changes["extratags"])
+    elif "address" in changes:
+        data["address"].update(changes["address"])
     else:
         data.update(changes)
     requests = []
@@ -198,20 +206,29 @@ async def test_verified_municipality_rejects_invalid_lookup(
     counts = await import_boundaries(
         MagicMock(spec=AsyncConnection),
         provider(settings, handler=handler),
-        "DE-SH",
+        region,
         [],
         [],
-        catalog=[CatalogEntry("DE-SH", ags, name)],
+        catalog=[CatalogEntry(region, ags, name)],
     )
     assert counts == dict(found=1, new=0, updated=0, unchanged=0, rejected=1)
     assert len(requests) == 1
     classification.assert_not_awaited()
 
 
-@pytest.mark.parametrize("ags", ["01999000", "01057002"])
-async def test_unmapped_municipality_keeps_name_discovery(settings, classification, ags):
+@pytest.mark.parametrize(
+    "region,region_name,ags,name",
+    [
+        ("DE-SH", "Schleswig-Holstein", "01999000", "Ascheberg (Holstein)"),
+        ("DE-SH", "Schleswig-Holstein", "01057002", "Ascheberg (Holstein)"),
+        ("DE-NI", "Niedersachsen", "03999000", "Wittingen"),
+        ("DE-NI", "Niedersachsen", "03151041", "Wittingen"),
+    ],
+)
+async def test_unmapped_municipality_keeps_name_discovery(
+    settings, classification, region, region_name, ags, name
+):
     # Even the same name as a mapped municipality must not select its relation.
-    name = "Ascheberg (Holstein)"
     requests = []
 
     def handler(request):
@@ -219,21 +236,21 @@ async def test_unmapped_municipality_keeps_name_discovery(settings, classificati
         if request.url.path == "/search":
             assert request.url.params["countrycodes"] == "de"
             if len(requests) == 1:
-                assert request.url.params["q"] == f"{name}, Schleswig-Holstein, Deutschland"
+                assert request.url.params["q"] == f"{name}, {region_name}, Deutschland"
                 return httpx.Response(200, json=[])
             assert request.url.params["q"] == name
         else:
             assert request.url.path == "/lookup"
             assert request.url.params["osm_ids"] == "R101"
-        return httpx.Response(200, json=[municipality_lookup(ags, name, 101)])
+        return httpx.Response(200, json=[municipality_lookup(region, ags, name, 101)])
 
     counts = await import_boundaries(
         MagicMock(spec=AsyncConnection),
         provider(settings, handler=handler),
-        "DE-SH",
+        region,
         [],
         [],
-        catalog=[CatalogEntry("DE-SH", ags, name)],
+        catalog=[CatalogEntry(region, ags, name)],
     )
     assert counts == dict(found=1, new=1, updated=0, unchanged=0, rejected=0)
     assert [r.url.path for r in requests] == ["/search", "/search", "/lookup"]
@@ -246,6 +263,9 @@ async def test_unmapped_municipality_keeps_name_discovery(settings, classificati
         ("DK-81", CatalogEntry("DK-81", "01057001", "Ascheberg (Holstein)")),
         ("DE-NI", CatalogEntry("DE-NI", "01057001", "Ascheberg (Holstein)")),
         ("DE-SH", CatalogEntry("DE-SH", "01057001 ", "Ascheberg (Holstein)")),
+        ("DK-81", CatalogEntry("DK-81", "03151040", "Wittingen")),
+        ("DE-SH", CatalogEntry("DE-SH", "03151040", "Wittingen")),
+        ("DE-NI", CatalogEntry("DE-NI", "03151040 ", "Wittingen")),
     ],
 )
 async def test_mapping_cannot_bypass_german_catalog_identity(settings, region, entry):
