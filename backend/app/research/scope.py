@@ -1,7 +1,7 @@
-"""Run the municipality importer over the explicit Northern DE/Southern DK scope.
+"""Run the municipality importer over the complete German/Danish input inventory.
 
 The German inventory comes from the operator's BKG catalog. Danish membership is
-from Statistics Denmark's NUTS_V1_2007_DK hierarchy (region 083), checked 2026-09-27:
+from Statistics Denmark's NUTS_V1_2007_DK hierarchy (all five regions), checked 2026-09-28:
 https://www.dst.dk/da/Statistik/dokumentation/nomenklaturer/nuts
 Codes are cross-checked against the SOP_KOMKOD classification. Nonmunicipal codes
 (including Christiansø, Denmark and foreign/administrative codes) are excluded.
@@ -18,35 +18,10 @@ from pathlib import Path
 from app.config import Settings
 from app.logging import configure_logging
 from app.research.areas import REGIONS, run
-from app.research.catalog import CatalogEntry, catalog_entries
+from app.research.catalog import MAX_CATALOG_ENTRIES, CatalogEntry, catalog_entries
+from app.research.danish_catalog import DANISH_MUNICIPALITIES
 
-# Official code/name and stable OSM relation identity. All available boundaries
-# were checked through our own Nominatim on 2026-09-27. R1928466 (Aabenraa) was
-# absent there; keep it in the inventory so a missing municipality stays visible.
-SYDDANMARK = (
-    ("410", "Middelfart", 2178063),
-    ("420", "Assens", 2178091),
-    ("430", "Faaborg-Midtfyn", 2052179),
-    ("440", "Kerteminde", 2171010),
-    ("450", "Nyborg", 2077936),
-    ("461", "Odense", 2178124),
-    ("479", "Svendborg", 2069804),
-    ("480", "Nordfyns", 2178137),
-    ("482", "Langeland", 2096607),
-    ("492", "Ærø", 2096457),
-    ("510", "Haderslev", 1927271),
-    ("530", "Billund", 1801753),
-    ("540", "Sønderborg", 1928254),
-    ("550", "Tønder", 1928515),
-    ("561", "Esbjerg", 1927177),
-    ("563", "Fanø", 1926825),
-    ("573", "Varde", 1926826),
-    ("575", "Vejen", 1927241),
-    ("580", "Aabenraa", 1928466),
-    ("607", "Fredericia", 1799261),
-    ("621", "Kolding", 1819983),
-    ("630", "Vejle", 1618492),
-)
+MAX_SCOPE_ENTRIES = MAX_CATALOG_ENTRIES + len(DANISH_MUNICIPALITIES)
 
 
 @dataclass(frozen=True)
@@ -62,19 +37,23 @@ def inventory(catalog: Path | None, regions: list[str]) -> list[ScopeEntry]:
     if not selected <= REGIONS.keys():
         raise ValueError("Invalid scope")
     entries: list[ScopeEntry] = []
-    if selected - {"DK-83"}:
+    german_regions = {region for region in selected if region.startswith("DE-")}
+    if german_regions:
         if catalog is None:
             raise ValueError("German regions require the BKG catalog")
         german = catalog_entries(catalog)
-        if selected - {"DK-83"} - {entry.region_code for entry in german}:
+        if german_regions - {entry.region_code for entry in german}:
             raise ValueError("Catalog is missing a selected region")
         entries.extend(
             ScopeEntry(entry.region_code, entry.ags, entry.name)
             for entry in german
             if entry.region_code in selected
         )
-    if "DK-83" in selected:
-        entries.extend(ScopeEntry("DK-83", code, name, osm_id) for code, name, osm_id in SYDDANMARK)
+    entries.extend(
+        ScopeEntry(region, code, name, osm_id)
+        for region, code, name, osm_id in DANISH_MUNICIPALITIES
+        if region in selected
+    )
     return sorted(entries, key=lambda entry: (entry.region, entry.code))
 
 
@@ -122,16 +101,17 @@ def main() -> None:
     parser.add_argument("--german-catalog", type=Path)
     parser.add_argument("--region", choices=sorted(REGIONS), action="append", default=[])
     parser.add_argument("--offset", type=int, default=0)
-    parser.add_argument("--limit", type=int, default=20022)
+    parser.add_argument("--limit", type=int, default=MAX_SCOPE_ENTRIES)
     args = parser.parse_args()
-    if not 0 <= args.offset <= 20022 or not 1 <= args.limit <= 20022:
-        parser.error("Use offset 0–20022 and limit 1–20022.")
+    if not 0 <= args.offset <= MAX_SCOPE_ENTRIES or not 1 <= args.limit <= MAX_SCOPE_ENTRIES:
+        parser.error(f"Use offset 0–{MAX_SCOPE_ENTRIES} and limit 1–{MAX_SCOPE_ENTRIES}.")
     try:
         entries = inventory(args.german_catalog, args.region)
         batch = entries[args.offset : args.offset + args.limit]
         if not batch:
             parser.error("No municipalities in the selected range.")
-        settings = Settings()
+        # Pydantic Settings accepts this runtime option; its synthesized type omits it.
+        settings = Settings(_env_file=None)  # type: ignore[call-arg]
         configure_logging(settings.log_level)
 
         def report(value: dict[str, object]) -> None:

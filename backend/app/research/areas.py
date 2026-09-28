@@ -20,7 +20,8 @@ from app.auth.diagnostics import operator_boundary, operator_engine
 from app.config import Settings
 from app.errors import APIError
 from app.logging import configure_logging
-from app.research.catalog import CatalogEntry, load_catalog
+from app.research.catalog import REGION_PREFIX, CatalogEntry, load_catalog
+from app.research.danish_catalog import DANISH_MUNICIPALITIES
 from app.schemas.geo import GeoAreaSearchItem
 from app.services.nominatim import NominatimClient, area_item, validate_geometry
 from app.storage_preflight import check_grants, check_schema
@@ -33,18 +34,33 @@ REGIONS = {
     "DE-MV": "Mecklenburg-Vorpommern",
     "DE-NI": "Niedersachsen",
     "DE-HB": "Bremen",
+    "DE-BB": "Brandenburg",
+    "DE-BE": "Berlin",
+    "DE-BW": "Baden-Württemberg",
+    "DE-BY": "Bayern",
+    "DE-HE": "Hessen",
+    "DE-NW": "Nordrhein-Westfalen",
+    "DE-RP": "Rheinland-Pfalz",
+    "DE-SL": "Saarland",
+    "DE-SN": "Sachsen",
+    "DE-ST": "Sachsen-Anhalt",
+    "DE-TH": "Thüringen",
+    "DK-81": "Region Nordjylland",
+    "DK-82": "Region Midtjylland",
     "DK-83": "Region Syddanmark",
+    "DK-84": "Region Hovedstaden",
+    "DK-85": "Region Sjælland",
 }
-# Individually verified against the self-hosted provider, 2026-09-27.
+# Individually verified against the self-hosted provider, 2026-09-28.
+# All 107 BKG city/state municipalities with AGS ending 000 were checked by
+# exact AGS, region, country, administrative relation and lookup geometry.
 # Relation, actual level and official municipality key must ALL match.
 CITY_EXCEPTIONS = {
     27020: ("DE-SH", 6, "01001000"),  # Flensburg
     27021: ("DE-SH", 6, "01002000"),  # Kiel
-    62782: ("DE-HH", 4, "02000000"),  # Hamburg, both Land and municipality
-    62559: ("DE-HB", 6, "04011000"),  # Bremen city, never the two-city Land R62718
-    62658: ("DE-HB", 6, "04012000"),  # Bremerhaven
     27027: ("DE-SH", 6, "01003000"),  # Lübeck
     62528: ("DE-SH", 6, "01004000"),  # Neumünster
+    62782: ("DE-HH", 4, "02000000"),  # Hamburg
     62531: ("DE-NI", 6, "03101000"),  # Braunschweig
     62659: ("DE-NI", 6, "03102000"),  # Salzgitter
     62418: ("DE-NI", 6, "03103000"),  # Wolfsburg
@@ -53,9 +69,102 @@ CITY_EXCEPTIONS = {
     62409: ("DE-NI", 6, "03403000"),  # Oldenburg (Oldb)
     62631: ("DE-NI", 6, "03404000"),  # Osnabrück
     62444: ("DE-NI", 6, "03405000"),  # Wilhelmshaven
+    62559: ("DE-HB", 6, "04011000"),  # Bremen
+    62658: ("DE-HB", 6, "04012000"),  # Bremerhaven
+    62539: ("DE-NW", 6, "05111000"),  # Düsseldorf
+    62456: ("DE-NW", 6, "05112000"),  # Duisburg
+    62713: ("DE-NW", 6, "05113000"),  # Essen
+    62748: ("DE-NW", 6, "05114000"),  # Krefeld
+    62410: ("DE-NW", 6, "05116000"),  # Mönchengladbach
+    62385: ("DE-NW", 6, "05117000"),  # Mülheim an der Ruhr
+    62734: ("DE-NW", 6, "05119000"),  # Oberhausen
+    62455: ("DE-NW", 6, "05120000"),  # Remscheid
+    62699: ("DE-NW", 6, "05122000"),  # Solingen
+    62478: ("DE-NW", 6, "05124000"),  # Wuppertal
+    62508: ("DE-NW", 6, "05314000"),  # Bonn
+    62578: ("DE-NW", 6, "05315000"),  # Köln
+    62449: ("DE-NW", 6, "05316000"),  # Leverkusen
+    62634: ("DE-NW", 6, "05512000"),  # Bottrop
+    62522: ("DE-NW", 6, "05513000"),  # Gelsenkirchen
+    62591: ("DE-NW", 6, "05515000"),  # Münster
+    62646: ("DE-NW", 6, "05711000"),  # Bielefeld
+    62644: ("DE-NW", 6, "05911000"),  # Bochum
+    1829065: ("DE-NW", 6, "05913000"),  # Dortmund
+    1800297: ("DE-NW", 6, "05914000"),  # Hagen
+    62499: ("DE-NW", 6, "05915000"),  # Hamm
+    62396: ("DE-NW", 6, "05916000"),  # Herne
+    62581: ("DE-HE", 6, "06411000"),  # Darmstadt
+    62400: ("DE-HE", 6, "06412000"),  # Frankfurt am Main
+    62695: ("DE-HE", 6, "06413000"),  # Offenbach am Main
+    62496: ("DE-HE", 6, "06414000"),  # Wiesbaden
+    535895: ("DE-HE", 6, "06415000"),  # Hanau
+    62598: ("DE-HE", 6, "06611000"),  # Kassel
+    62512: ("DE-RP", 6, "07111000"),  # Koblenz
+    172679: ("DE-RP", 6, "07211000"),  # Trier
+    62573: ("DE-RP", 6, "07311000"),  # Frankenthal (Pfalz)
+    62652: ("DE-RP", 6, "07312000"),  # Kaiserslautern
+    62391: ("DE-RP", 6, "07313000"),  # Landau in der Pfalz
+    62347: ("DE-RP", 6, "07314000"),  # Ludwigshafen am Rhein
+    62630: ("DE-RP", 6, "07315000"),  # Mainz
+    62724: ("DE-RP", 6, "07316000"),  # Neustadt an der Weinstraße
+    62642: ("DE-RP", 6, "07317000"),  # Pirmasens
+    62352: ("DE-RP", 6, "07318000"),  # Speyer
+    62453: ("DE-RP", 6, "07319000"),  # Worms
+    62719: ("DE-RP", 6, "07320000"),  # Zweibrücken
+    62375: ("DE-BW", 6, "08111000"),  # Stuttgart
+    62751: ("DE-BW", 6, "08121000"),  # Heilbronn
+    62340: ("DE-BW", 6, "08211000"),  # Baden-Baden
+    62518: ("DE-BW", 6, "08212000"),  # Karlsruhe
+    62487: ("DE-BW", 6, "08221000"),  # Heidelberg
+    62691: ("DE-BW", 6, "08222000"),  # Mannheim
+    62471: ("DE-BW", 6, "08231000"),  # Pforzheim
+    62768: ("DE-BW", 6, "08311000"),  # Freiburg im Breisgau
+    62495: ("DE-BW", 6, "08421000"),  # Ulm
+    62381: ("DE-BY", 6, "09161000"),  # Ingolstadt
+    62428: ("DE-BY", 6, "09162000"),  # München
+    2168233: ("DE-BY", 6, "09163000"),  # Rosenheim
+    62484: ("DE-BY", 6, "09261000"),  # Landshut
+    62629: ("DE-BY", 6, "09262000"),  # Passau
+    62636: ("DE-BY", 6, "09263000"),  # Straubing
+    62772: ("DE-BY", 6, "09361000"),  # Amberg
+    62411: ("DE-BY", 6, "09362000"),  # Regensburg
+    62554: ("DE-BY", 6, "09363000"),  # Weiden i.d.OPf.
+    62525: ("DE-BY", 6, "09461000"),  # Bamberg
+    62640: ("DE-BY", 6, "09462000"),  # Bayreuth
+    62717: ("DE-BY", 6, "09463000"),  # Coburg
+    62589: ("DE-BY", 6, "09464000"),  # Hof
+    62654: ("DE-BY", 6, "09561000"),  # Ansbach
+    62403: ("DE-BY", 6, "09562000"),  # Erlangen
+    62374: ("DE-BY", 6, "09563000"),  # Fürth
+    62780: ("DE-BY", 6, "09564000"),  # Nürnberg
+    62720: ("DE-BY", 6, "09565000"),  # Schwabach
+    62532: ("DE-BY", 6, "09661000"),  # Aschaffenburg
+    62534: ("DE-BY", 6, "09662000"),  # Schweinfurt
+    62464: ("DE-BY", 6, "09663000"),  # Würzburg
+    62407: ("DE-BY", 6, "09761000"),  # Augsburg
+    62349: ("DE-BY", 6, "09762000"),  # Kaufbeuren
+    62701: ("DE-BY", 6, "09763000"),  # Kempten (Allgäu)
+    62590: ("DE-BY", 6, "09764000"),  # Memmingen
+    62422: ("DE-BE", 4, "11000000"),  # Berlin
+    62470: ("DE-BB", 6, "12051000"),  # Brandenburg an der Havel
+    62430: ("DE-BB", 6, "12052000"),  # Cottbus
+    62523: ("DE-BB", 6, "12053000"),  # Frankfurt (Oder)
+    62369: ("DE-BB", 6, "12054000"),  # Potsdam
     62405: ("DE-MV", 6, "13003000"),  # Rostock
     62685: ("DE-MV", 6, "13004000"),  # Schwerin
+    62594: ("DE-SN", 6, "14511000"),  # Chemnitz
+    191645: ("DE-SN", 6, "14612000"),  # Dresden
+    62649: ("DE-SN", 6, "14713000"),  # Leipzig
+    62526: ("DE-ST", 6, "15001000"),  # Dessau-Roßlau
+    62638: ("DE-ST", 6, "15002000"),  # Halle (Saale)
+    62481: ("DE-ST", 6, "15003000"),  # Magdeburg
+    62745: ("DE-TH", 6, "16051000"),  # Erfurt
+    62671: ("DE-TH", 6, "16052000"),  # Gera
+    62693: ("DE-TH", 6, "16053000"),  # Jena
+    62450: ("DE-TH", 6, "16054000"),  # Suhl
+    62493: ("DE-TH", 6, "16055000"),  # Weimar
 }
+DANISH_RELATIONS = {osm_id: region for region, _, _, osm_id in DANISH_MUNICIPALITIES}
 IMPORT_GRANTS = {"alembic_version": ("SELECT",), "research_area": ("SELECT", "INSERT", "UPDATE")}
 IMPORT_LOCK = 72619334016
 
@@ -85,7 +194,15 @@ def municipality_item(
     osm_id = int(item.osm_id)
     exception = CITY_EXCEPTIONS.get(osm_id)
     if (
-        (expected_ags is not None and tags.get("de:amtlicher_gemeindeschluessel") != expected_ags)
+        (
+            expected_ags is not None
+            and (
+                not re.fullmatch(r"[0-9]{8}", expected_ags)
+                or REGION_PREFIX.get(expected_ags[:2]) != region
+                or tags.get("de:amtlicher_gemeindeschluessel") != expected_ags
+            )
+        )
+        or (country == "DK" and DANISH_RELATIONS.get(osm_id) != region)
         or region not in REGIONS
         or not 0 < osm_id < 2**63
         or address.get("ISO3166-2-lvl4") != region
@@ -253,7 +370,11 @@ async def import_boundaries(
     found, counts["rejected"] = await discover(provider, region, queries, identities)
     expected: dict[int, str] = {}
     for entry in catalog or []:
-        if entry.region_code != region:
+        if (
+            entry.region_code != region
+            or not re.fullmatch(r"[0-9]{8}", entry.ags)
+            or REGION_PREFIX.get(entry.ags[:2]) != region
+        ):
             raise APIError(422, "invalid_input", "Catalog region does not match.")
         # These identities were individually verified; lookup still checks the
         # AGS, hierarchy and geometry. Repeating city/state names can confuse search.
@@ -391,7 +512,8 @@ def main() -> None:
             if args.catalog
             else None
         )
-        settings = Settings()
+        # Pydantic Settings accepts this runtime option; its synthesized type omits it.
+        settings = Settings(_env_file=None)  # type: ignore[call-arg]
         configure_logging(settings.log_level)
         counts = asyncio.run(
             run(settings, args.region, args.query, args.osm_id, args.mode == "apply", catalog)

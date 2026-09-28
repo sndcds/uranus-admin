@@ -167,7 +167,8 @@ def main() -> None:
     args = parser.parse_args()
     try:
         entries = population_entries(args.workbook, args.region, args.offset, args.limit)
-        settings = Settings()
+        # Pydantic Settings accepts this runtime option; its synthesized type omits it.
+        settings = Settings(_env_file=None)  # type: ignore[call-arg]
         configure_logging(settings.log_level)
         counts = asyncio.run(run(settings, entries, args.region, args.mode == "apply"))
         print(json.dumps({"region": args.region, "mode": args.mode, **counts}))
