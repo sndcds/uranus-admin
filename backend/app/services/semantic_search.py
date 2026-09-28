@@ -41,10 +41,11 @@ async def semantic_search(
     }
     stage = "retrieval_ms" if gateway else "embedding_ms"
     before = started
+    deadline = asyncio.timeout(REQUEST_TIMEOUT_SECONDS)
     try:
         if not settings.semantic_search_noncommercial_jina:
             raise ValueError("noncommercial_acknowledgment_required")
-        async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS), AsyncExitStack() as stack:
+        async with deadline, AsyncExitStack() as stack:
             if gateway:
                 candidates = await retrieve_candidates(gateway, filters.q.strip())
             else:
@@ -90,7 +91,21 @@ async def semantic_search(
         IndexError,
         AttributeError,
         SQLAlchemyError,
-    ):
+    ) as exc:
+        # Only retrieval failures belong to the semantic-unavailable contract.
+        # Area/source errors retain their existing API or central error handling.
+        provider_failure = stage != "postgres_rehydrate_ms" and not isinstance(
+            exc, (APIError, SQLAlchemyError)
+        )
+        if isinstance(exc, APIError):
+            provider_failure = (
+                stage != "postgres_rehydrate_ms"
+                and exc.status == 503
+                and exc.code == "vector_service_unavailable"
+            )
+        if not provider_failure and not (isinstance(exc, TimeoutError) and deadline.expired()):
+            metrics["error_type"] = "request_error"
+            raise
         metrics["error_type"] = "semantic_unavailable"
         raise APIError(
             503,

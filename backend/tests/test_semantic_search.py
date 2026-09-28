@@ -1,16 +1,23 @@
 """Online retrieval uses fake internal HTTP, never downloads models or writes source data."""
 
 import json
+from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
+from fastapi import Request
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
+from app.api import research as research_api
 from app.auth.dependencies import get_identity
 from app.auth.service import AdminPrincipal
+from app.database import get_connection
+from app.errors import APIError
 from app.logging import JsonFormatter
+from app.repositories import research_areas
 from app.repositories.research import rehydrate_semantic_events, research_sql
 from app.research.vector_documents import DOCUMENT_VERSION
 from app.research.vector_models import MODELS
@@ -68,7 +75,7 @@ def retrieval(settings, monkeypatch):
     monkeypatch.setattr(service, "Encoder", lambda s, m: Encoder(s, m, transport))
     monkeypatch.setattr(service, "Qdrant", lambda s, m: Qdrant(s, m, transport))
 
-    async def connection(request):
+    async def connection(request: Request):
         yield object()
 
     monkeypatch.setattr(service, "get_connection", connection)
@@ -147,7 +154,7 @@ async def test_missing_config_or_license_fails_closed(
     assert not retrieval["requests"]
 
 
-async def test_fixed_model_dedup_filters_and_safe_metrics(client, headers, retrieval, caplog):
+async def test_unconfigured_area_storage_error_is_preserved(client, headers, retrieval, caplog):
     retrieval["hits"] = [hit(30, 0.7), hit(32, 0.9), hit(30, 0.8)]
     with caplog.at_level("INFO", logger="admin.research"):
         response = await client.get(
@@ -165,8 +172,112 @@ async def test_fixed_model_dedup_filters_and_safe_metrics(client, headers, retri
                 "area_id": str(uid(99)),
             },
         )
-    # Resolve the area separately below; an unavailable area must fail closed.
+    # No admin engine is configured: this is a storage error, not an unknown area.
     assert response.status_code == 503
+    assert response.json()["error"]["code"] == "admin_storage_unconfigured"
+
+
+@pytest.fixture(params=["vector", "gateway", "classic"])
+def area_search(request, client, settings, retrieval, monkeypatch):
+    """Exercise the real area resolver with a bounded synthetic admin result."""
+    result = Mock()
+    result.mappings.return_value.first.return_value = None
+    admin = AsyncMock()
+    admin.execute.return_value = result
+
+    @asynccontextmanager
+    async def connect(request):
+        yield admin
+
+    monkeypatch.setattr(research_areas, "connect_admin", connect)
+    if request.param == "gateway":
+        settings.semantic_search_url = "https://search.example.test/search"
+        monkeypatch.setattr(service, "retrieve_candidates", AsyncMock(return_value=[]))
+    elif request.param == "classic":
+        client._transport.app.dependency_overrides[get_connection] = service.get_connection
+        monkeypatch.setattr(research_api, "research_page", retrieval["rehydrate"])
+    return ("/api/v1/research/search" if request.param == "classic" else PATH), result
+
+
+async def test_unknown_area_returns_not_found(client, headers, retrieval, area_search):
+    path, _ = area_search
+    retrieval["hits"] = []  # An empty candidate set must not bypass area validation.
+    response = await client.get(
+        path, headers=headers, params={"q": "creative", "area_id": str(uid(99))}
+    )
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "research_area_not_found"
+    retrieval["rehydrate"].assert_not_awaited()
+
+
+async def test_known_area_without_matches_returns_empty_page(
+    client, headers, retrieval, area_search
+):
+    path, result = area_search
+    result.mappings.return_value.first.return_value = {
+        "id": uid(99),
+        "area_type": "municipality",
+        "country_code": "DE",
+        "region_code": "DE-SH",
+        "name": "Fixture",
+        "display_name": "Fixture",
+        "osm_type": "R",
+        "osm_id": "876544",
+        "osm_admin_level": 8,
+        "centroid": {"longitude": 9.5, "latitude": 54.5},
+        "bbox": (9, 54, 10, 55),
+        "source": "osm",
+        "retrieved_at": datetime.now(UTC),
+        "updated_at": datetime.now(UTC),
+        "ewkb": b"synthetic-boundary",
+    }
+    retrieval["rehydrate"].return_value = ResearchPage(
+        items=[],
+        pagination={"page": 1, "page_size": 20, "pages": 0, "total": 0},
+        observed_at=datetime.now(UTC),
+        timezone="Europe/Berlin",
+    )
+    response = await client.get(
+        path, headers=headers, params={"q": "creative", "area_id": str(uid(99))}
+    )
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+    assert response.json()["pagination"]["total"] == 0
+    assert retrieval["rehydrate"].call_args.args[-1].area.id == uid(99)
+
+
+@pytest.mark.parametrize(
+    "stage", ["retrieve_candidates", "request_area", "rehydrate_semantic_events"]
+)
+@pytest.mark.parametrize("status,code", [(403, "forbidden"), (503, "admin_storage_unconfigured")])
+async def test_existing_api_errors_keep_status_code_and_message(
+    client, headers, settings, retrieval, monkeypatch, stage, status, code
+):
+    if stage == "retrieve_candidates":
+        settings.semantic_search_url = "https://search.example.test/search"
+    error = APIError(status, code, "Original safe message.")
+    monkeypatch.setattr(service, stage, AsyncMock(side_effect=error))
+    response = await client.get(PATH, headers=headers, params={"q": "creative"})
+    assert response.status_code == status
+    assert response.json()["error"] == {"code": code, "message": error.message}
+
+
+@pytest.mark.parametrize(
+    "error,status,code",
+    [
+        (SQLAlchemyError("private source details"), 503, "database_unavailable"),
+        (TimeoutError("private source details"), 503, "database_unavailable"),
+        (ValueError("private source details"), 500, "internal_error"),
+    ],
+)
+async def test_source_failures_are_not_semantic_provider_failures(
+    client, headers, retrieval, error, status, code
+):
+    retrieval["rehydrate"].side_effect = error
+    response = await client.get(PATH, headers=headers, params={"q": "creative"})
+    assert response.status_code == status
+    assert response.json()["error"]["code"] == code
+    assert "private source details" not in response.text
 
 
 async def test_ranked_candidates_contract_and_logs(client, headers, retrieval, monkeypatch, caplog):
@@ -263,18 +374,25 @@ def test_rehydration_is_select_only_and_candidates_are_bound():
     )
 
 
-async def test_overall_deadline_and_malformed_hits_fail_closed(
-    client, headers, retrieval, monkeypatch
-):
+@pytest.mark.parametrize("stage", ["embedding", "rehydration"])
+async def test_overall_deadline_fails_closed(client, headers, retrieval, monkeypatch, stage):
     import asyncio
 
     async def pending_embedding(*args, **kwargs):
         await asyncio.sleep(1)
 
-    monkeypatch.setattr(Encoder, "embed", pending_embedding)
+    if stage == "embedding":
+        monkeypatch.setattr(Encoder, "embed", pending_embedding)
+    else:
+        retrieval["rehydrate"].side_effect = pending_embedding
     monkeypatch.setattr(service, "REQUEST_TIMEOUT_SECONDS", 0.01)
-    assert (await client.get(PATH, headers=headers, params={"q": "creative"})).status_code == 503
-    retrieval["rehydrate"].assert_not_awaited()
+    response = await client.get(PATH, headers=headers, params={"q": "creative"})
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "research_semantic_unavailable"
+    if stage == "embedding":
+        retrieval["rehydrate"].assert_not_awaited()
+    else:
+        retrieval["rehydrate"].assert_awaited_once()
 
 
 @pytest.mark.parametrize(
@@ -295,7 +413,9 @@ async def test_overall_deadline_and_malformed_hits_fail_closed(
 )
 async def test_malformed_response_rejected(client, headers, retrieval, hits):
     retrieval["hits"] = hits
-    assert (await client.get(PATH, headers=headers, params={"q": "creative"})).status_code == 503
+    response = await client.get(PATH, headers=headers, params={"q": "creative"})
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "research_semantic_unavailable"
     retrieval["rehydrate"].assert_not_awaited()
 
 
