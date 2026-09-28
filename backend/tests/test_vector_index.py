@@ -290,18 +290,95 @@ def test_deduplication_metrics_and_csv():
     assert csv_cell("=FORMULA()") == "'=FORMULA()"
 
 
+@pytest.mark.parametrize("service", ["qdrant", "embedding"])
+@pytest.mark.parametrize("app_env", ["development", "test", "staging", "production"])
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://example.test:7443",
+        "http://127.0.0.1:7333",
+        "http://127.0.0.1:7335",
+        "http://127.0.0.2:7333",
+        "http://localhost:7333",
+        "http://[::1]:7333",
+    ],
+)
+def test_vector_origin_allows_https_and_loopback(service, app_env, origin):
+    settings = Settings(
+        _env_file=None,
+        app_env=app_env,
+        **{f"{service}_url": origin, f"{service}_api_key": SecretStr("x" * 48)},
+    )
+    assert getattr(settings, f"{service}_url") == origin
+
+
+@pytest.mark.parametrize("service", ["qdrant", "embedding"])
+@pytest.mark.parametrize("app_env", ["development", "test", "staging", "production"])
 @pytest.mark.parametrize(
     "origin",
     [
         "http://remote.test",
+        "http://10.0.0.1:6333",
+        "http://172.31.8.93:6333",
+        "http://192.168.1.20:6333",
+        "http://13.53.199.7:6333",
+        "http://89.58.44.151:6333",
+        "http://0.0.0.0:6333",
+        "http://[::]:6333",
+        "http://example.com:6333",
+        "http://127.0.0.1.example.com:6333",
+        "http://localhost.example.com:6333",
+        "http://127.1:6333",
+        "http://2130706433:6333",
+        "http://user:pass@127.0.0.1:7333",
+        "http://@localhost:7333",
+        "http://127.0.0.1:invalid",
+        "http://127.0.0.1:65536",
+        "http:///127.0.0.1:7333",
+        "http://[::1:7333",
+        "http://[::1]example.com:7333",
+        "http://[::1]garbage",
+        "http://local\nhost:7333",
+        "ftp://127.0.0.1:7333",
+        "http://127.0.0.1:7333/path",
+        "http://127.0.0.1:7333?token=secret",
+        "http://127.0.0.1:7333#fragment",
         "https://user:pass@host.test",
         "https://host.test/path",
         "https://host.test/?token=secret",
     ],
 )
-def test_vector_origin_policy(origin):
+def test_vector_origin_policy(service, app_env, origin):
     with pytest.raises(ValidationError):
-        Settings(_env_file=None, qdrant_url=origin, qdrant_api_key=SecretStr("x" * 48))
+        Settings(
+            _env_file=None,
+            app_env=app_env,
+            **{f"{service}_url": origin, f"{service}_api_key": SecretStr("x" * 48)},
+        )
+
+
+@pytest.mark.parametrize("service", ["qdrant", "embedding"])
+@pytest.mark.parametrize("key", [None, SecretStr("too-short")])
+def test_vector_loopback_still_requires_authentication(service, key):
+    with pytest.raises(ValidationError, match="Vector service authentication is required"):
+        Settings(
+            _env_file=None,
+            app_env="production",
+            **{f"{service}_url": "http://127.0.0.1:7333", f"{service}_api_key": key},
+        )
+
+
+def test_vector_settings_accept_both_tunnel_origins(monkeypatch):
+    monkeypatch.setenv("QDRANT_URL", "http://127.0.0.1:7333")
+    monkeypatch.setenv("EMBEDDING_URL", "http://127.0.0.1:7335")
+    monkeypatch.setenv("QDRANT_API_KEY", "x" * 48)
+    monkeypatch.setenv("EMBEDDING_API_KEY", "y" * 48)
+    settings = Settings(_env_file=None, app_env="production")
+    assert settings.qdrant_url == "http://127.0.0.1:7333"
+    assert settings.embedding_url == "http://127.0.0.1:7335"
+    monkeypatch.setenv("QDRANT_URL", "http://13.53.199.7:6333")
+    with pytest.raises(ValidationError, match="Vector services require HTTPS"):
+        Settings(_env_file=None, app_env="production")
 
 
 ENCODER_PATH = Path(__file__).resolve().parents[2] / "deploy/research-ai/encoder.py"
