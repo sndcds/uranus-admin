@@ -164,6 +164,15 @@ CITY_EXCEPTIONS = {
     62450: ("DE-TH", 6, "16054000"),  # Suhl
     62493: ("DE-TH", 6, "16055000"),  # Weimar
 }
+# Exact-AGS Overpass matches supplied for regular level-8 municipalities whose
+# names are unreliable discovery queries. These pin candidates only: every import
+# still requires the configured provider's lookup, AGS/hierarchy and geometry checks.
+VERIFIED_MUNICIPALITY_RELATIONS = {
+    "01057001": 310405,  # Ascheberg (Holstein)
+    "01057004": 288915,  # Behrensdorf (Ostsee)
+    "01057030": 288939,  # Hohwacht (Ostsee)
+    "01061044": 447194,  # Horst (Holstein)
+}
 DANISH_RELATIONS = {osm_id: region for region, _, _, osm_id in DANISH_MUNICIPALITIES}
 IMPORT_GRANTS = {"alembic_version": ("SELECT",), "research_area": ("SELECT", "INSERT", "UPDATE")}
 IMPORT_LOCK = 72619334016
@@ -383,6 +392,8 @@ async def import_boundaries(
             for identity, (scope, _, ags) in CITY_EXCEPTIONS.items()
             if scope == region and ags == entry.ags
         }
+        if (identity := VERIFIED_MUNICIPALITY_RELATIONS.get(entry.ags)) is not None:
+            candidates = {identity}
         if not candidates:
             for query in (f"{entry.name}, {REGIONS[region]}, Deutschland", entry.name):
                 rows = await provider.discover_boundaries(query, "de")

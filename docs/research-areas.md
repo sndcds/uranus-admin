@@ -24,6 +24,27 @@ Fixture-Tests `https://provider.test` beziehungsweise `http://127.0.0.1:8080`.
 Nur Relationen mit `class`/`category=boundary` und `type=administrative` sind geeignet.
 Place-Nodes und POIs sind keine Gemeinden.
 
+Für deutsche `CatalogEntry`-Imports ersetzt `VERIFIED_MUNICIPALITY_RELATIONS`
+in `backend/app/research/areas.py` die unzuverlässige Namenssuche bei exakt diesen AGS:
+
+| AGS      | Gemeinde              | Relation |
+| -------- | --------------------- | -------: |
+| 01057001 | Ascheberg (Holstein)   |   310405 |
+| 01057004 | Behrensdorf (Ostsee)   |   288915 |
+| 01057030 | Hohwacht (Ostsee)      |   288939 |
+| 01061044 | Horst (Holstein)       |   447194 |
+
+Die Relationen wurden laut bereitgestellter Verifikation per exaktem AGS-Tag in
+Overpass gefunden; für die ersten drei liegt außerdem eine Bestätigung des eigenen
+Nominatim-Lookups vor. Horst ist lokal durch synthetische Lookup-Vertragstests
+abgesichert; diese sind kein Live-Nachweis. Bei jedem Import bleibt für alle vier
+der normale `boundary_record()`-Lookup mit `municipality_item()`/`boundary()`
+verpflichtend: Relation, administrative Grenze, DE, DE-SH, Ebene 8, exakter AGS und
+Polygon/MultiPolygon. Auch die nachgelagerte PostGIS-Geometrieprüfung bleibt erhalten.
+Das Mapping ersetzt nur Discovery und gewährt keine Validierungsausnahme.
+`CITY_EXCEPTIONS` bleibt unverändert; andere reguläre Gemeinden verwenden weiter
+die bestehende Discovery. Es gibt keinen zusätzlichen Runtime-Provider.
+
 **Nominatim ist kein vollständiger Gemeindekatalog.** Seine Suche liefert höchstens
 zehn gerankte Treffer pro Begriff. Ein Operator wählt deshalb explizit Suchbegriffe
 oder bekannte OSM-Relationen. Ein Importlauf garantiert keine Vollständigkeit eines
