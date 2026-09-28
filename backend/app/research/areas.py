@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import json
 import logging
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -183,6 +184,19 @@ IMPORT_LOCK = 72619334016
 
 
 @dataclass(frozen=True)
+class OverlapLimits:
+    max_area_m2: float
+    max_percent_each: float
+
+
+# Operator-verified pairs only; percentages are 0–100, not fractions.
+VERIFIED_MUNICIPALITY_OVERLAPS = {
+    frozenset({"03151040", "03151007"}): OverlapLimits(60000, 0.10),
+    frozenset({"03357019", "03357017"}): OverlapLimits(45000, 0.35),
+}
+
+
+@dataclass(frozen=True)
 class Boundary:
     osm_id: int
     country_code: str
@@ -315,9 +329,92 @@ async def classify(connection: AsyncConnection, item: Boundary) -> tuple[str, di
         .one()
     )
     # Shared edges/points are legitimate; positive-area overlaps are ambiguous.
-    if not row["valid"] or row["overlap"]:
+    if not row["valid"]:
+        return "rejected", params
+    if row["overlap"] and await rejected_overlaps(connection, item):
         return "rejected", params
     return ("unchanged" if row["unchanged"] else "updated" if row["existing"] else "new"), params
+
+
+async def rejected_overlaps(
+    connection: AsyncConnection, item: Boundary, accepted: list[Boundary] | None = None
+) -> bool:
+    # Fixed application-owned SQL sources; both paths retain the same positive-area
+    # predicate. The table path keeps the spatial bounding-box index filter.
+    peers = """SELECT osm_id, municipality_key, geometry
+        FROM admin.research_area WHERE area_type='municipality'"""
+    params: dict[str, Any] = {"geometry": item.geometry, "osm_id": item.osm_id}
+    if accepted is not None:
+        peers = """SELECT osm_id, municipality_key,
+            ST_SetSRID(ST_GeomFromGeoJSON(value),4326) geometry
+            FROM unnest(CAST(:osm_ids AS bigint[]), CAST(:keys AS text[]),
+                CAST(:geometries AS text[])) p(osm_id, municipality_key, value)"""
+        params.update(
+            osm_ids=[a.osm_id for a in accepted],
+            keys=[a.municipality_key for a in accepted],
+            geometries=[a.geometry for a in accepted],
+        )
+    overlaps = (
+        (
+            await connection.execute(
+                text(f"""WITH candidate AS MATERIALIZED (
+                    SELECT ST_SetSRID(ST_GeomFromGeoJSON(:geometry),4326) g
+                ), peers AS ({peers}), measured AS MATERIALIZED (
+                    SELECT p.osm_id, p.municipality_key,
+                        CASE WHEN ST_IsValid(p.geometry) THEN
+                            ST_Area(ST_Intersection(g,p.geometry)::geography) END overlap_m2,
+                        ST_Area(g::geography) candidate_m2,
+                        CASE WHEN ST_IsValid(p.geometry) THEN
+                            ST_Area(p.geometry::geography) END existing_m2
+                    FROM candidate CROSS JOIN peers p
+                    WHERE p.osm_id<>:osm_id AND p.geometry && g
+                        AND ST_Relate(p.geometry,g,'2********')
+                ) SELECT osm_id, municipality_key, overlap_m2,
+                    100.0 * overlap_m2 / NULLIF(candidate_m2,0) candidate_overlap_percent,
+                    100.0 * overlap_m2 / NULLIF(existing_m2,0) existing_overlap_percent
+                FROM measured ORDER BY osm_id"""),
+                params,
+            )
+        )
+        .mappings()
+        .all()
+    )
+    warnings = []
+    for overlap in overlaps:
+        existing_ags = overlap["municipality_key"]
+        limits = (
+            VERIFIED_MUNICIPALITY_OVERLAPS.get(frozenset({item.municipality_key, existing_ags}))
+            if item.municipality_key is not None and existing_ags is not None
+            else None
+        )
+        area = overlap["overlap_m2"]
+        candidate_percent = overlap["candidate_overlap_percent"]
+        existing_percent = overlap["existing_overlap_percent"]
+        if (
+            limits is None
+            or any(
+                value is None or not math.isfinite(value) or value <= 0
+                for value in (area, candidate_percent, existing_percent)
+            )
+            or area > limits.max_area_m2
+            or candidate_percent > limits.max_percent_each
+            or existing_percent > limits.max_percent_each
+        ):
+            return True
+        warnings.append(
+            {
+                "candidate_ags": item.municipality_key,
+                "existing_ags": existing_ags,
+                "candidate_osm_id": item.osm_id,
+                "existing_osm_id": overlap["osm_id"],
+                "overlap_m2": area,
+                "candidate_overlap_percent": candidate_percent,
+                "existing_overlap_percent": existing_percent,
+            }
+        )
+    for fields in warnings:
+        logger.warning("research_area_verified_overlap", extra=fields)
+    return False
 
 
 async def persist(connection: AsyncConnection, params: dict[str, Any], status: str) -> None:
@@ -452,16 +549,7 @@ async def import_boundaries(
             status, params = await classify(connection, item)
             if status != "rejected" and accepted:
                 # Plan must detect same-batch overlaps without persisting scratch rows.
-                overlap = (
-                    await connection.execute(
-                        text("""SELECT EXISTS (
-                    SELECT 1 FROM unnest(CAST(:geometries AS text[])) other(value)
-                    WHERE ST_Relate(ST_SetSRID(ST_GeomFromGeoJSON(:geometry),4326),
-                        ST_SetSRID(ST_GeomFromGeoJSON(value),4326),'2********'))"""),
-                        {"geometry": item.geometry, "geometries": [a.geometry for a in accepted]},
-                    )
-                ).scalar_one()
-                if overlap:
+                if await rejected_overlaps(connection, item, accepted):
                     status = "rejected"
             counts[status] += 1
             if status != "rejected":
