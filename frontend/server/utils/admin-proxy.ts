@@ -1,5 +1,6 @@
 import {
-  researchQuerySchema,
+  classicResearchQuerySchema,
+  semanticResearchQuerySchema,
   researchAreaQuerySchema,
   diagnosticRequestSchema,
   geoAreaImportSchema,
@@ -228,6 +229,12 @@ export async function forwardAdminRequest(
       (provenanceExecute && !provenanceMatch[2]!.startsWith(provenanceView + '.')))
   )
     return rejected(404, 'route_not_allowed')
+  const researchSemantic = input.path === '/api/v1/research/semantic-search'
+  if (
+    researchSemantic &&
+    !semanticResearchQuerySchema.safeParse(Object.fromEntries(input.query)).success
+  )
+    return rejected(422, 'invalid_query')
   const researchList = /^\/api\/v1\/research\/(search|export|events|venues|organizations)$/.test(
     input.path,
   )
@@ -245,11 +252,11 @@ export async function forwardAdminRequest(
   const researchOptions = input.path === '/api/v1/research/options'
   if (
     (researchList || researchDetail) &&
-    !researchQuerySchema.safeParse(Object.fromEntries(input.query)).success
+    !classicResearchQuerySchema.safeParse(Object.fromEntries(input.query)).success
   )
     return rejected(422, 'invalid_query')
   const allowed =
-    researchList || researchDetail
+    researchList || researchDetail || researchSemantic
       ? [
           'q',
           'entity_type',

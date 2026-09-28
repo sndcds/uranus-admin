@@ -20936,20 +20936,6 @@
             }
           },
           {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "date",
-                "name"
-              ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
-            }
-          },
-          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -20970,6 +20956,282 @@
               "maximum": 100,
               "minimum": 1,
               "default": 25,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/research/semantic-search": {
+      "get": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Semantic",
+        "description": "Experimental event-only retrieval with current public source rehydration.",
+        "operationId": "semantic_api_v1_research_semantic_search_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 120,
+              "pattern": "\\S.*\\S",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "entity_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "const": "event",
+              "type": "string",
+              "default": "event",
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "from_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Date"
+            }
+          },
+          {
+            "name": "to_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Date"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "City"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2147483647,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "released",
+                    "cancelled",
+                    "deferred",
+                    "rescheduled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "venue_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "area_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Area Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 20,
               "title": "Page Size"
             }
           }
@@ -21216,20 +21478,6 @@
             }
           },
           {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "date",
-                "name"
-              ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
-            }
-          },
-          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -21251,6 +21499,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -21571,20 +21833,6 @@
             }
           },
           {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "date",
-                "name"
-              ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
-            }
-          },
-          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -21606,6 +21854,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -21860,20 +22122,6 @@
             }
           },
           {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "date",
-                "name"
-              ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
-            }
-          },
-          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -21895,6 +22143,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -22139,20 +22401,6 @@
             }
           },
           {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "date",
-                "name"
-              ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
-            }
-          },
-          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -22174,6 +22422,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -22428,20 +22690,6 @@
             }
           },
           {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "date",
-                "name"
-              ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
-            }
-          },
-          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -22463,6 +22711,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -22707,20 +22969,6 @@
             }
           },
           {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "date",
-                "name"
-              ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
-            }
-          },
-          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -22742,6 +22990,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -22996,20 +23258,6 @@
             }
           },
           {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "date",
-                "name"
-              ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
-            }
-          },
-          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -23031,6 +23279,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],
@@ -23433,20 +23695,6 @@
             }
           },
           {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "date",
-                "name"
-              ],
-              "type": "string",
-              "default": "date",
-              "title": "Sort"
-            }
-          },
-          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -23468,6 +23716,20 @@
               "minimum": 1,
               "default": 25,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date",
+                "name"
+              ],
+              "type": "string",
+              "default": "date",
+              "title": "Sort"
             }
           }
         ],

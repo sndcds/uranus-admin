@@ -27,6 +27,7 @@ from app.schemas.research import (
     ResearchDates,
     ResearchDetail,
     ResearchExport,
+    ResearchFilterFields,
     ResearchFilters,
     ResearchMonth,
     ResearchOptions,
@@ -34,6 +35,7 @@ from app.schemas.research import (
     ResearchRecord,
     ResearchType,
     ResearchUsageItem,
+    SemanticResearchFilters,
 )
 from app.services.quality.urls import url_problem
 
@@ -97,7 +99,7 @@ def search_sql(kind: ResearchType) -> str:
 
 
 def parameters(
-    filters: ResearchFilters, settings: Settings, area: ResolvedResearchArea | None = None
+    filters: ResearchFilterFields, settings: Settings, area: ResolvedResearchArea | None = None
 ) -> dict[str, Any]:
     if filters.area_id is not None and (area is None or area.area.id != filters.area_id):
         raise APIError(503, "research_area_unavailable", "Research area must be resolved.")
@@ -112,7 +114,8 @@ def parameters(
     }
 
 
-def research_sql() -> str:
+def research_sql(*, candidates: bool = False) -> str:
+    candidate_gate = " AND e.uuid=ANY(CAST(:candidate_ids AS uuid[]))" if candidates else ""
     branches = []
     for kind, alias, table in (("venue", "v", "venue"), ("organization", "v", "organization")):
         link = "m.venue_id=v.uuid" if kind == "venue" else "m.organization_id=v.uuid"
@@ -141,7 +144,8 @@ def research_sql() -> str:
             v.modified_at AT TIME ZONE :tz modified_at
             FROM uranus.{table} {alias} WHERE {visibility}""")
     return f"""WITH category_labels AS ({CATEGORY_LABELS}),
-    filtered_dates AS MATERIALIZED (SELECT {DATE_COLUMNS} {DATE_JOINS} WHERE {DATE_FILTER}),
+    filtered_dates AS MATERIALIZED (SELECT {DATE_COLUMNS} {DATE_JOINS}
+        WHERE {DATE_FILTER}{candidate_gate}),
     matched_events AS MATERIALIZED (
         SELECT 'event'::text entity_type,e.uuid entity_key,d.id date_key,e.title name,e.description,
         COALESCE(d.status,e.release_status::text) status,{CATEGORIES} categories,
@@ -152,7 +156,7 @@ def research_sql() -> str:
         e.created_at AT TIME ZONE :tz created_at,e.modified_at AT TIME ZONE :tz modified_at
         FROM uranus.event e JOIN uranus.organization o ON o.uuid=e.org_uuid
         LEFT JOIN filtered_dates d ON d.event_uuid=e.uuid
-        WHERE e.release_status::text IN {PUBLIC}
+        WHERE e.release_status::text IN {PUBLIC}{candidate_gate}
         AND (CAST(:organization_id AS uuid) IS NULL OR e.org_uuid=:organization_id)
         AND (CAST(:category AS integer) IS NULL OR :category=ANY(e.categories))
         AND (d.id IS NOT NULL OR (
@@ -469,3 +473,37 @@ async def research_activity(
     ).mappings()
     usage = [ResearchUsageItem.model_validate(r) for r in usage_rows]
     return months, usage
+
+
+async def rehydrate_semantic_events(
+    connection: AsyncConnection,
+    settings: Settings,
+    filters: SemanticResearchFilters,
+    candidates: list[UUID],
+    now: datetime,
+    area: ResolvedResearchArea | None = None,
+) -> ResearchPage:
+    """Bounded ranked IDs only; all facts and eligibility come from the source snapshot."""
+    if len(candidates) > 50:
+        raise ValueError("semantic_candidate_limit")
+    params = parameters(
+        filters.model_copy(update={"q": "", "entity_type": "event"}), settings, area
+    )
+    params["candidate_ids"] = candidates
+    rows = (
+        await connection.execute(
+            text(
+                research_sql(candidates=True)
+                + " ORDER BY array_position(CAST(:candidate_ids AS uuid[]),entity_key) LIMIT 20"
+            ),
+            params,
+        )
+    ).mappings()
+    items = [record(row) for row in rows][: filters.page_size]
+    await images(connection, items, settings)
+    return ResearchPage(
+        items=items,
+        pagination=pagination(1, filters.page_size, len(items)),
+        observed_at=now,
+        timezone=settings.event_timezone,
+    )

@@ -1,7 +1,12 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'research' })
 useHead({ title: 'Kulturbytes Recherche' })
+const ready = ref(false)
+onMounted(() => {
+  ready.value = true
+})
 const q = ref('')
+const mode = ref<'classic' | 'semantic'>('classic')
 </script>
 <template>
   <section class="research-landing relative mx-auto max-w-7xl py-6 sm:py-12">
@@ -76,7 +81,15 @@ const q = ref('')
     <form
       class="relative z-10 mt-6 max-w-4xl rounded-xl border border-slate-200 bg-white p-5 shadow-soft sm:p-8"
       role="search"
-      @submit.prevent="navigateTo({ path: '/research/search', query: q ? { q } : {} })"
+      @submit.prevent="
+        navigateTo({
+          path: '/research/search',
+          query: {
+            ...(q ? { q } : {}),
+            ...(mode === 'semantic' ? { search_mode: 'semantic' } : {}),
+          },
+        })
+      "
     >
       <h3 class="mb-5 text-xl font-semibold sm:text-2xl">
         <label for="research-start">Was möchtest du entdecken?</label>
@@ -87,14 +100,18 @@ const q = ref('')
           <input
             id="research-start"
             v-model="q"
+            :disabled="!ready"
             class="input h-12 pl-11"
             type="search"
             maxlength="120"
+            :required="mode === 'semantic'"
+            :minlength="mode === 'semantic' ? 2 : undefined"
             placeholder="Veranstaltungen, Orte, Organisationen …"
           />
         </div>
-        <button class="button-primary min-h-12 shrink-0">Suchen</button>
+        <button class="button-primary min-h-12 shrink-0" :disabled="!ready">Suchen</button>
       </div>
+      <ResearchSearchMode v-model="mode" :disabled="!ready" />
       <p class="mt-4 text-sm leading-6 text-slate-600">
         Öffentliche Kulturveranstaltungen recherchieren, Orte erkunden und Zusammenhänge
         nachvollziehen.

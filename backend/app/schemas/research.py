@@ -12,7 +12,7 @@ ResearchType = Literal["event", "venue", "organization"]
 ResearchStatus = Literal["released", "cancelled", "deferred", "rescheduled"]
 
 
-class ResearchFilters(BaseModel):
+class ResearchFilterFields(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     q: str = Field(default="", max_length=120)
@@ -25,15 +25,25 @@ class ResearchFilters(BaseModel):
     organization_id: UUID | None = None
     venue_id: UUID | None = None
     area_id: UUID | None = None
-    sort: Literal["date", "name"] = "date"
     page: int = Field(default=1, ge=1, le=100_000)
     page_size: int = Field(default=25, ge=1, le=100)
 
     @model_validator(mode="after")
-    def ordered_dates(self) -> "ResearchFilters":
+    def ordered_dates(self) -> "ResearchFilterFields":
         if self.from_date and self.to_date and self.from_date > self.to_date:
             raise ValueError("Date range must be ordered")
         return self
+
+
+class ResearchFilters(ResearchFilterFields):
+    sort: Literal["date", "name"] = "date"
+
+
+class SemanticResearchFilters(ResearchFilterFields):
+    q: str = Field(min_length=2, max_length=120, pattern=r"\S.*\S")
+    entity_type: Literal["event"] = "event"
+    page: int = Field(default=1, ge=1, le=1)
+    page_size: int = Field(default=20, ge=1, le=20)
 
 
 class ResearchCategory(BaseModel):

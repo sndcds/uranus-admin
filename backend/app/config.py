@@ -66,7 +66,10 @@ class Settings(BaseSettings):
     nominatim_timeout_seconds: int = Field(default=8, ge=1, le=30)
     nominatim_max_response_bytes: int = Field(default=16_777_216, ge=1024, le=33_554_432)
     nominatim_max_geometry_points: int = Field(default=250_000, ge=4, le=500_000)
-    # Operator-only retrieval pilot; never serialized into browser configuration.
+    semantic_search_noncommercial_jina: bool = False
+    # Optional combined Jina-v3 event retrieval gateway; server configuration only.
+    semantic_search_url: str | None = None
+    # Internal retrieval pilot; never serialized into browser configuration.
     qdrant_url: str | None = None
     qdrant_api_key: SecretStr | None = None
     qdrant_timeout_seconds: int = Field(default=30, ge=1, le=120)
@@ -114,6 +117,19 @@ class Settings(BaseSettings):
     @classmethod
     def valid_vector_origin(cls, value: str | None) -> str | None:
         return cls.valid_nominatim_origin(value)
+
+    @field_validator("semantic_search_url")
+    @classmethod
+    def valid_semantic_search_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parsed = urlsplit(value)
+        origin = cls.valid_nominatim_origin(
+            value.removesuffix("/search") if parsed.path == "/search" else value
+        )
+        if origin is None or parsed.scheme != "https" or parsed.path != "/search":
+            raise ValueError("SEMANTIC_SEARCH_URL requires an exact HTTPS /search endpoint")
+        return value
 
     @model_validator(mode="after")
     def vector_transport(self) -> "Settings":

@@ -3,7 +3,12 @@ const auth = useAuthStore()
 const route = useRoute()
 const menu = useTemplateRef('menu')
 const accountMenu = useTemplateRef('accountMenu')
+const header = useTemplateRef('header')
+const headerHeight = ref(72)
+let headerObserver: ResizeObserver | undefined
 const query = ref('')
+const mode = ref<'classic' | 'semantic'>('classic')
+const semanticLoading = useState('research-semantic-loading', () => false)
 const interactive = ref(false)
 const collection = computed(() =>
   /^\/research\/(search|map|events|venues|organizations)$/.test(route.path),
@@ -17,34 +22,55 @@ const account = computed(() => {
 let timer: ReturnType<typeof setTimeout> | undefined
 onMounted(() => {
   interactive.value = true
+  headerObserver = new ResizeObserver(() => {
+    headerHeight.value = header.value?.getBoundingClientRect().height ?? 72
+  })
+  if (header.value) headerObserver.observe(header.value)
 })
 watch(
   () => route.fullPath,
   () => {
     clearTimeout(timer)
+    mode.value = route.query.search_mode === 'semantic' ? 'semantic' : 'classic'
     query.value = typeof route.query.q === 'string' ? route.query.q : ''
   },
   { immediate: true },
 )
 function search() {
   clearTimeout(timer)
+  if (semanticLoading.value) return
+  const searchMode = mode.value === 'semantic' ? 'semantic' : undefined
   return navigateTo(
     collection.value
       ? {
-          path: route.path,
-          query: { ...route.query, q: query.value || undefined, page: undefined },
+          path: searchMode ? '/research/search' : route.path,
+          query: {
+            ...route.query,
+            q: query.value || undefined,
+            page: undefined,
+            search_mode: searchMode,
+            ...(searchMode
+              ? { entity_type: undefined, sort: undefined, page_size: undefined }
+              : {}),
+          },
         }
-      : { path: '/research/search', query: query.value ? { q: query.value } : {} },
+      : {
+          path: '/research/search',
+          query: { ...(query.value ? { q: query.value } : {}), search_mode: searchMode },
+        },
   )
 }
+watch(mode, () => clearTimeout(timer))
 watch(query, (value) => {
   clearTimeout(timer)
+  if (mode.value === 'semantic' || route.query.search_mode === 'semantic') return
   if (!interactive.value || !collection.value || value === (route.query.q ?? '')) return
   timer = setTimeout(() => {
     void search()
   }, 300)
 })
 onBeforeUnmount(() => {
+  headerObserver?.disconnect()
   clearTimeout(timer)
 })
 </script>
@@ -59,9 +85,12 @@ onBeforeUnmount(() => {
       class="fixed left-4 top-2 z-50 -translate-y-24 rounded-lg bg-white p-3 focus:translate-y-0"
       >Zum Inhalt</a
     >
-    <header class="research-header sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95">
+    <header
+      ref="header"
+      class="research-header sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95"
+    >
       <div
-        class="flex flex-wrap items-center gap-3 px-4 py-3 lg:h-[4.5rem] lg:flex-nowrap lg:gap-6 lg:px-6"
+        class="flex flex-wrap items-center gap-3 px-4 py-3 lg:min-h-[4.5rem] lg:flex-nowrap lg:gap-6 lg:px-6"
       >
         <button
           class="research-icon-button research-menu-button"
@@ -81,6 +110,7 @@ onBeforeUnmount(() => {
           </div>
         </NuxtLink>
         <form
+          v-if="route.path !== '/research'"
           role="search"
           aria-label="Globale Recherche-Suche"
           class="research-global-search relative order-3 w-full lg:order-none lg:mx-auto lg:max-w-2xl lg:flex-1"
@@ -92,17 +122,22 @@ onBeforeUnmount(() => {
           <input
             id="research-global-q"
             v-model="query"
+            :disabled="!interactive"
             class="input h-11 pl-11 pr-3"
             type="search"
             maxlength="120"
+            :required="mode === 'semantic'"
+            :minlength="mode === 'semantic' ? 2 : undefined"
             placeholder="Veranstaltungen, Orte, Organisationen suchen …"
           />
           <button
-            class="research-icon-button absolute inset-y-0 left-0 text-slate-500"
+            class="research-icon-button absolute top-0 left-0 text-slate-500"
+            :disabled="!interactive || semanticLoading"
             aria-label="Recherche starten"
           >
             <AppIcon name="search" />
           </button>
+          <ResearchSearchMode v-model="mode" :disabled="!interactive" />
         </form>
         <button
           class="ml-auto flex min-h-11 shrink-0 items-center gap-3 rounded-lg text-left"
@@ -122,7 +157,8 @@ onBeforeUnmount(() => {
       </div>
     </header>
     <aside
-      class="fixed bottom-0 top-[4.5rem] hidden w-52 border-r border-slate-200 bg-slate-50/70 lg:block"
+      :style="{ top: `${headerHeight}px` }"
+      class="fixed bottom-0 hidden w-52 border-r border-slate-200 bg-slate-50/70 lg:block"
     >
       <ResearchNavigation />
     </aside>

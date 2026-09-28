@@ -3,6 +3,7 @@ import InlineAlert from '~/components/InlineAlert.vue'
 import { dateTime } from '~/utils/presentation'
 import type { ApiFailure } from '#shared/errors'
 defineProps<{
+  loadingMessage?: string
   loading: boolean
   error: ApiFailure | null
   hasData?: boolean
@@ -40,6 +41,6 @@ defineEmits<{ retry: [] }>()
     </button>
   </InlineAlert>
   <p v-if="loading" role="status" class="text-sm text-slate-600">
-    {{ hasData ? 'Daten werden aktualisiert …' : 'Daten werden geladen …' }}
+    {{ loadingMessage ?? (hasData ? 'Daten werden aktualisiert …' : 'Daten werden geladen …') }}
   </p>
 </template>

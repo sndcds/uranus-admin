@@ -149,3 +149,9 @@ and intercepted local test tiles only.
 
 Source gaps and future features: [research-backend-gaps.md](../../docs/research-backend-gaps.md).
 Deployment/account setup: [authentication.md](../../backend/docs/authentication.md#research-authorization).
+
+## Experimentelle semantische Suche
+
+Das bestehende Suchfeld unterstützt optional `search_mode=semantic`. Der Pilot sucht
+nur Veranstaltungen und nutzt weiterhin Filter, ResearchResult, Karte, Tabelle und
+Detailvorschau. Klassisch bleibt Standard. [Vertrag, Grenzen, Lizenz und Messungen](../../docs/research-ai/semantic-search-pilot.md).

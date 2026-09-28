@@ -114,7 +114,7 @@ export const researchExportSchema = z
     observed_at: z.iso.datetime({ offset: true }),
   })
   .strict()
-export const researchQuerySchema = z
+const researchFilterSchema = z
   .object({
     q: z.string().max(120).optional(),
     entity_type: z.enum(['all', 'event', 'venue', 'organization']).optional(),
@@ -132,6 +132,29 @@ export const researchQuerySchema = z
   })
   .strict()
   .refine((q) => !q.from_date || !q.to_date || q.from_date <= q.to_date, 'Ungültiger Zeitraum')
+export const researchQuerySchema = researchFilterSchema
+  .safeExtend({
+    search_mode: z.enum(['classic', 'semantic']).optional(),
+  })
+  .refine(
+    (q) => q.search_mode !== 'semantic' || (q.q?.trim().length ?? 0) >= 2,
+    'Bitte gib mindestens zwei Zeichen ein.',
+  )
+export const semanticResearchQuerySchema = z
+  .object({ ...researchFilterSchema.shape, sort: z.never().optional() })
+  .strict()
+  .extend({
+    q: z
+      .string()
+      .min(2)
+      .max(120)
+      .regex(/\S.*\S/),
+    entity_type: z.literal('event').optional(),
+    page: z.coerce.number().int().min(1).max(1).optional(),
+    page_size: z.coerce.number().int().min(1).max(20).optional(),
+  })
+  .refine((q) => !q.from_date || !q.to_date || q.from_date <= q.to_date, 'Ungültiger Zeitraum')
+export const classicResearchQuerySchema = researchFilterSchema
 export type ResearchType = z.infer<typeof researchTypeSchema>
 export type ResearchRecord = z.infer<typeof researchRecordSchema>
 export type ResearchPage = z.infer<typeof researchPageSchema>
