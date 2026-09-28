@@ -5,6 +5,8 @@ https://www.dst.dk/da/Statistik/dokumentation/nomenklaturer/nuts
 OSM relation references (not boundary geometry):
 https://wiki.openstreetmap.org/w/index.php?title=Denmark/Da:Administrative_boundaries&oldid=1281923
 Christiansø (411) and other nonmunicipal codes are intentionally excluded.
+Own Nominatim lookup/geometry verification on 2026-09-28: 96 available; Thisted
+(R2095303) and Aabenraa (R1928466) absent. Keep both visible as rejected inputs.
 Every import revalidates the exact relation through our own Nominatim.
 """
 

@@ -351,6 +351,10 @@ reguläre Saarland-Gemeinde: 108 `new`, keine Ablehnungen. Ein Plan ohne `--regi
 meldete das vollständige Inventar mit 10.845 Einträgen und prüfte einen begrenzten
 Drei-Gemeinden-Batch erfolgreich. Beide Pläne verwendeten dieselbe leere Testdatenbank;
 sie ersetzt keine Klassifikation gegenüber dem vorhandenen Produktionsbestand.
+Zusätzlich bestand ein Plan für Aachen, Göttingen, Hannover, Saarbrücken und Eisenach
+(Thüringen) mit ihren exakten BKG-AGS. Alle fünf verwenden die reguläre Ebene 8;
+es wurden dafür keine Ausnahmen hinzugefügt. Insgesamt sind damit 112 verschiedene
+deutsche Gemeinden live geprüft.
 Ein vollständiger Provider-Plan aller 10.747 deutschen Gemeinden wurde nicht durchgeführt. Weitere
 fehlende/umgeschlüsselte deutsche Gemeinden oder nicht erfasste Sonderfälle sind
 damit nicht ausgeschlossen und bleiben im jeweiligen Plan als `rejected` sichtbar.
