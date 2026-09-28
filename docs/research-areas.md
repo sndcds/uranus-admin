@@ -27,12 +27,12 @@ Place-Nodes und POIs sind keine Gemeinden.
 Für deutsche `CatalogEntry`-Imports ersetzt `VERIFIED_MUNICIPALITY_RELATIONS`
 in `backend/app/research/areas.py` die unzuverlässige Namenssuche bei exakt diesen AGS:
 
-| AGS      | Gemeinde              | Relation |
-| -------- | --------------------- | -------: |
-| 01057001 | Ascheberg (Holstein)   |   310405 |
-| 01057004 | Behrensdorf (Ostsee)   |   288915 |
-| 01057030 | Hohwacht (Ostsee)      |   288939 |
-| 01061044 | Horst (Holstein)       |   447194 |
+| AGS      | Gemeinde             | Relation |
+| -------- | -------------------- | -------: |
+| 01057001 | Ascheberg (Holstein) |   310405 |
+| 01057004 | Behrensdorf (Ostsee) |   288915 |
+| 01057030 | Hohwacht (Ostsee)    |   288939 |
+| 01061044 | Horst (Holstein)     |   447194 |
 
 Die Relationen wurden laut bereitgestellter Verifikation per exaktem AGS-Tag in
 Overpass gefunden; für die ersten drei liegt außerdem eine Bestätigung des eigenen
@@ -430,6 +430,58 @@ runuser -u oklab -- uv run --no-cache --no-sync --offline --no-python-downloads 
 `runuser` ohne Login-Shell reicht die exportierten Operatorvariablen weiter.
 Bei anderem aktiven Release-Pfad dessen `backend/` verwenden; der BKG-CSV muss
 für `oklab` lesbar sein. Die Operator-DSN gehört weiterhin nicht in Runtime-Units.
+
+### Schleswig-Holstein aus dem Build-Checkout importieren
+
+Für den Operatorablauf mit Checkout unter `/home/oklab/build/uranus-admin` liegt
+der zuvor konvertierte BKG-Katalog unter
+`/home/oklab/uranus-research-gemeinden-2026.csv`. Der passende Release muss
+installiert, das Admin-Schema auf dessen aktuellem Alembic-Head und die oben
+beschriebenen Import-Grants müssen provisioniert sein. Der CSV muss die Einträge
+für `DE-SH` enthalten.
+
+Die folgenden Dateien müssen vertrauenswürdige, shell-kompatible Konfiguration
+enthalten und root:root mit Modus 0600 geschützt sein. Zuerst wird `operator.env`
+geladen, danach `runtime.env`; bei gleichen Variablennamen gewinnt die zweite
+Datei. `ADMIN_AUTH_MANAGEMENT_DATABASE_URL` stellt die gesonderte
+Operatorverbindung bereit, die Runtime-Konfiguration insbesondere
+`NOMINATIM_BASE_URL` und die Anwendungseinstellungen. `scope` liest keine
+`backend/.env`. Die Operator-DSN bleibt ausschließlich in `operator.env`.
+
+Vor dem Apply denselben Aufruf mit `scope plan` statt `scope apply` ausführen
+und Zählwerte sowie Ablehnungen prüfen. Der freigegebene Import lautet:
+
+```sh
+sudo bash -lc '
+set +x
+set -e
+set -a
+source /etc/uranus-admin/operator.env
+source /etc/uranus-admin/runtime.env
+set +a
+
+cd /home/oklab/build/uranus-admin/backend
+
+/usr/local/bin/uv run python -m app.research.scope apply \
+  --german-catalog /home/oklab/uranus-research-gemeinden-2026.csv \
+  --region DE-SH
+'
+```
+
+`set -a` exportiert die Einstellungen; `set -e` bricht bei fehlenden Dateien
+oder einem fehlgeschlagenen Verzeichniswechsel ab. Kein Shell-Tracing aktivieren.
+Der Aufruf verarbeitet nur Schleswig-Holstein und schreibt geprüfte Grenzen nach
+`admin.research_area`; Uranus-Punkte und Vektorcollections bleiben unverändert.
+`scope_started`, die einzelnen `scope_entry`-Zeilen und `scope_completed` prüfen,
+insbesondere `new`, `updated`, `unchanged` und `rejected`. Exit 2 bedeutet
+Ablehnungen, keine vollständige Abdeckung. Bereits übernommene Gemeinden bleiben
+bei Abbruch bestehen. Für eine Fortsetzung `--offset` ergänzen und dabei denselben
+CSV sowie ausdrücklich `--region DE-SH` beibehalten; siehe [Grenzen und Resume](#grenzen-und-resume).
+
+Anschließend die [Jina-Pläne für Organisationen, Orte und Veranstaltungen](research-ai/operations.md#operator-workflow-jina-plans-and-schleswig-holstein-areas)
+erneut ausführen und die Gebietszuordnung prüfen. Weder der Gebietsimport noch
+die Pläne aktualisieren den Vektorindex. Diese Anleitung dokumentiert den Ablauf,
+keinen bereits erfolgten Produktivimport.
 
 ## Amtliche Einwohnerzahlen
 

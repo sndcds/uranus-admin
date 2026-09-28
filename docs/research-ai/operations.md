@@ -98,6 +98,154 @@ reconciliation. It aborts on any failed stage, unexpected counts or non-distinct
 Top10 results. It is intended for this corpus of at least ten eligible events.
 Use one indexer host and one job at a time; local flock is not a distributed lease.
 
+## Operator workflow: Jina plans and Schleswig-Holstein areas
+
+These commands document the operator workflow on Server A using the checkout at
+`/home/oklab/build/uranus-admin/backend` and `/usr/local/bin/uv`. They are instructions,
+not evidence that an index or area import has completed. Use the reviewed release
+and its installed dependencies. Run each command separately and inspect its result
+before continuing; only one vector job may run on the host at a time.
+
+The three plans load `/etc/uranus-admin/operator.env`, then
+`/etc/uranus-research-ai/client.env`. Both must be trusted shell-compatible files,
+protected as root:root, mode 0600. `set -a` exports their assignments to the CLI;
+the second file overrides duplicate variables. The effective configuration must
+provide the verified read-only `DATABASE_URL`, vector service settings above and,
+for area metadata, the restricted runtime `ADMIN_DATABASE_URL`. Never substitute
+the migrator or auth-operator DSN for either reader connection. `vector_index` also
+loads missing settings from `backend/.env`, so review that configuration as well.
+Do not print environment values or enable shell tracing.
+
+### 1. Plan organizations, venues and events
+
+The explicit `--entity` selects the corresponding new knowledge collection;
+omitting it selects the legacy event pilot. `--noncommercial-jina` explicitly
+acknowledges the noncommercial use requirement. The encoder must already be
+configured for Jina with its model artifacts available.
+
+```sh
+sudo bash -lc '
+set +x
+set -e
+set -a
+source /etc/uranus-admin/operator.env
+source /etc/uranus-research-ai/client.env
+set +a
+
+cd /home/oklab/build/uranus-admin/backend
+
+/usr/local/bin/uv run python -m app.research.vector_index plan \
+  --entity organization \
+  --model jina-v3 \
+  --noncommercial-jina
+'
+```
+
+```sh
+sudo bash -lc '
+set +x
+set -e
+set -a
+source /etc/uranus-admin/operator.env
+source /etc/uranus-research-ai/client.env
+set +a
+
+cd /home/oklab/build/uranus-admin/backend
+
+/usr/local/bin/uv run python -m app.research.vector_index plan \
+  --entity venue \
+  --model jina-v3 \
+  --noncommercial-jina
+'
+```
+
+```sh
+sudo bash -lc '
+set +x
+set -e
+set -a
+source /etc/uranus-admin/operator.env
+source /etc/uranus-research-ai/client.env
+set +a
+
+cd /home/oklab/build/uranus-admin/backend
+
+/usr/local/bin/uv run python -m app.research.vector_index plan \
+  --entity event \
+  --model jina-v3 \
+  --noncommercial-jina
+'
+```
+
+`set -e` stops the shell if loading a file or changing directory fails. Each plan
+reads the eligible source corpus without a `--limit`, calls the encoder's `/chunks`
+for tokenization and reads Qdrant. It writes neither database nor Qdrant and does
+not call `/embed`. Check exit status 0 and the final `vector_complete` report:
+`collection_name`, source/public/document/chunk counts, `area_assignment_available`,
+`area_assignment_coverage`, and planned `new`, `updated`, `metadata_updated`,
+`unchanged`, `deleted` counts. These changes have not been applied. Missing area
+metadata may be reported by a plan; a successful plan does not prove area coverage.
+
+### 2. Import Schleswig-Holstein areas and repeat the plans
+
+Use the [DE-SH operator import](../research-areas.md#schleswig-holstein-aus-dem-build-checkout-importieren)
+with `/home/oklab/uranus-research-gemeinden-2026.csv`. That command loads
+`operator.env` followed by `runtime.env` and writes verified municipality boundaries
+to `admin.research_area` through the separate operator connection. It does not
+create vectors or change Uranus organization/venue points.
+
+After reviewing the import result, rerun all three plans above with the restricted
+admin reader configured. Compare area availability, coverage and planned changes.
+The vector plans are systemwide; `--region DE-SH` limits only the area import.
+Index writes require a separate explicit `sync` or `reconcile` run; this workflow
+ends with the reviewed plans. See the [snapshot and plan contract](semantic-knowledge-index.md#snapshot-sync-und-plan).
+
+### 3. Inspect a compact plan with jq
+
+With `jq` installed on Server A, this Bash loop runs the three plans sequentially
+and filters each `vector_plan` JSONL record to the area counts needed for review:
+
+```sh
+# Run in Bash; the subshell keeps these options local to the loop.
+(
+  set -e -o pipefail
+  for entity in event venue organization; do
+    sudo bash -lc '
+      set +x
+      set -e
+      set -a
+      source /etc/uranus-admin/operator.env
+      source /etc/uranus-research-ai/client.env
+      set +a
+
+      cd /home/oklab/build/uranus-admin/backend
+
+      /usr/local/bin/uv run python -m app.research.vector_index plan \
+        --entity "$1" \
+        --model jina-v3 \
+        --noncommercial-jina
+    ' vector-plan "$entity" \
+    | jq 'select(.event == "vector_plan") | {
+      entity_type,
+      document_count,
+      documents_with_area,
+      area_assignment_coverage,
+      documents_without_location
+    }'
+  done
+)
+```
+
+The entity is passed as the login shell's first positional argument (`$1`).
+`pipefail` applies to the outer `sudo … | jq …` pipeline; together with `set -e`,
+it stops the loop if an indexer or `jq` fails. The filter hides `vector_complete`,
+so inspect the command's exit status as well as its output.
+It also omits collection/version/snapshot identifiers; use the unfiltered plan for
+that context. For the detailed change summary, add `chunks`, `new`, `updated`,
+`metadata_updated` and `deleted` to the jq object after `documents_without_location`
+(separated by commas). [Operator-reported results recorded on 2026-09-28](results/2026-09-28/README.md)
+preserve the supplied counts for all three entities and explain their scope.
+
 ## Manual pooled relevance review
 
 Run the standard-library-only review tool from the repository root against a fresh
@@ -223,10 +371,12 @@ pilot collection from Uranus without any source changes.
 
 ## Known live limitations
 
-The observed Server A release has migration 0015 and no imported area table. Area
-metadata is therefore unavailable in these live payloads; the PostGIS assignment
-path exists and is tested, but enabling live municipality context requires a separately
-reviewed admin deployment/import. The existing application is intentionally left running.
+The [2026-09-27 benchmark](results/2026-09-27/README.md) observed Server A at
+migration 0015 with no imported area table; area metadata is unavailable in those
+historical payloads. The [operator-reported plans recorded on 2026-09-28](results/2026-09-28/README.md)
+contain area assignments for the new knowledge collections. Those excerpts do not
+identify the active release, migration head or complete imported municipality scope;
+verify those separately before an import or index write.
 
 `modified_at` is not a complete change feed. The pilot scans a bounded full source
 snapshot and reuses embeddings by exact content hash, rather than claiming a reliable
