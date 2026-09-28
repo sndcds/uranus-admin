@@ -15,7 +15,7 @@ def workbook(path: Path, rows: str) -> None:
     with ZipFile(path, "w") as z:
         z.writestr(
             "xl/workbook.xml",
-            """<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" 
+            """<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
             xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
             ><sheets><sheet name="VGTB_VZ_GEM" r:id="r1"/></sheets></workbook>""",
         )

@@ -213,17 +213,17 @@ async def persist(connection: AsyncConnection, params: dict[str, Any], status: s
         display_name=EXCLUDED.display_name,country_code=EXCLUDED.country_code,
         region_code=EXCLUDED.region_code,osm_admin_level=EXCLUDED.osm_admin_level,
         geometry=EXCLUDED.geometry,centroid=EXCLUDED.centroid,retrieved_at=EXCLUDED.retrieved_at,
-        population_count=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key 
+        population_count=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key
             THEN research_area.population_count ELSE NULL END,
-        population_date=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key 
+        population_date=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key
             THEN research_area.population_date ELSE NULL END,
-        population_source=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key 
+        population_source=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key
             THEN research_area.population_source ELSE NULL END,
-        population_name=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key 
+        population_name=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key
             THEN research_area.population_name ELSE NULL END,
-        population_file_sha256=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key 
+        population_file_sha256=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key
             THEN research_area.population_file_sha256 ELSE NULL END,
-        population_imported_at=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key 
+        population_imported_at=CASE WHEN research_area.municipality_key=EXCLUDED.municipality_key
             THEN research_area.population_imported_at ELSE NULL END,
         municipality_key=EXCLUDED.municipality_key,
         updated_at=EXCLUDED.updated_at"""),
