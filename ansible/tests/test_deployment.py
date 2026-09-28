@@ -413,7 +413,8 @@ class ArtifactTests(unittest.TestCase):
             self.assertEqual(manifest["head"], "0017")
             self.assertEqual(len(manifest["runtime_grants"]), 21)
             self.assertEqual(
-                set(manifest["admin_upgrade_contracts"]), {"0011", "0012", "0013", "0014", "0015", "0016"}
+                set(manifest["admin_upgrade_contracts"]),
+                {"0011", "0012", "0013", "0014", "0015", "0016"},
             )
             self.assertEqual(
                 manifest["admin_upgrade_contracts"]["0013"]["runtime_grants"],
