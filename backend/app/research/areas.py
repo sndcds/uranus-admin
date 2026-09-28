@@ -172,6 +172,10 @@ VERIFIED_MUNICIPALITY_RELATIONS = {
     "01057004": 288915,  # Behrensdorf (Ostsee)
     "01057030": 288939,  # Hohwacht (Ostsee)
     "01061044": 447194,  # Horst (Holstein)
+    "03151040": 1392804,  # Wittingen
+    "03354026": 1821905,  # Wustrow (Wendland)
+    "03357019": 1079013,  # Hamersen
+    "03358001": 1808860,  # Ahlden (Aller)
 }
 DANISH_RELATIONS = {osm_id: region for region, _, _, osm_id in DANISH_MUNICIPALITIES}
 IMPORT_GRANTS = {"alembic_version": ("SELECT",), "research_area": ("SELECT", "INSERT", "UPDATE")}
