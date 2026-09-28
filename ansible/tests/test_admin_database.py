@@ -752,6 +752,29 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
             [(True, False, True, True, False)],
         )
 
+    def test_exact_0016_upgrade_expands_regions_without_replacing_table(self):
+        self.bootstrap()
+        self.alembic("downgrade", "0016")
+        source_before = self.snapshot_source()
+        area_before = self.execute(
+            "SELECT oid,relowner,relacl::text FROM pg_class "
+            "WHERE oid='admin.research_area'::regclass"
+        )
+        plan = self.boundary.inspect("production", upgrade_approved=True)
+        self.assertEqual(plan["state"], "UPGRADEABLE")
+        self.assertEqual(plan["current_head"], "0016")
+        self.assertEqual(plan["blockers"], [])
+        self.assertTrue(self.boundary.upgrade("production", True, self.values, self.migrate))
+        self.assertEqual(self.boundary.inspect("production")["state"], "READY")
+        self.assertEqual(self.snapshot_source(), source_before)
+        self.assertEqual(
+            self.execute(
+                "SELECT oid,relowner,relacl::text FROM pg_class "
+                "WHERE oid='admin.research_area'::regclass"
+            ),
+            area_before,
+        )
+
     def test_existing_upgrade_login_is_checked_without_changing_schema(self):
         self.bootstrap()
         self.alembic("downgrade", "0011")

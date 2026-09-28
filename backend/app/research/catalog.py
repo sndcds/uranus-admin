@@ -13,7 +13,25 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
-REGION_PREFIX = {"01": "DE-SH", "02": "DE-HH", "03": "DE-NI", "04": "DE-HB", "13": "DE-MV"}
+REGION_PREFIX = {
+    "01": "DE-SH",
+    "02": "DE-HH",
+    "03": "DE-NI",
+    "04": "DE-HB",
+    "05": "DE-NW",
+    "06": "DE-HE",
+    "07": "DE-RP",
+    "08": "DE-BW",
+    "09": "DE-BY",
+    "10": "DE-SL",
+    "11": "DE-BE",
+    "12": "DE-BB",
+    "13": "DE-MV",
+    "14": "DE-SN",
+    "15": "DE-ST",
+    "16": "DE-TH",
+}
+MAX_CATALOG_ENTRIES = 20000
 NS = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 REL = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
 
@@ -113,13 +131,13 @@ def catalog_entries(path: Path) -> list[CatalogEntry]:
                 raise ValueError("Invalid catalog identity")
             seen.add(ags)
             entries.append(CatalogEntry(REGION_PREFIX[ags[:2]], ags, row["name"]))
-            if len(entries) > 20000:
+            if len(entries) > MAX_CATALOG_ENTRIES:
                 raise ValueError("Too many catalog entries")
     return sorted(entries, key=lambda entry: entry.ags)
 
 
 def load_catalog(path: Path, region: str, offset: int, limit: int) -> list[CatalogEntry]:
-    if not 0 <= offset <= 20000 or not 1 <= limit <= 100:
+    if not 0 <= offset <= MAX_CATALOG_ENTRIES or not 1 <= limit <= 100:
         raise ValueError("Invalid catalog batch bounds")
     return [entry for entry in catalog_entries(path) if entry.region_code == region][
         offset : offset + limit

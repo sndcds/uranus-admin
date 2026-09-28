@@ -55,7 +55,7 @@ def test_bkg_scope_excludes_nonmunicipalities(tmp_path):
         path,
         line("01001000", "Flensburg", "Stadt", "01")
         + line("03999999", "Forest", "Gemeindefreies Gebiet", "03")
-        + line("09999999", "Outside", "Gemeinde", "09"),
+        + line("17999999", "Outside", "Gemeinde", "17"),
     )
     assert workbook_entries(path) == [CatalogEntry("DE-SH", "01001000", "Flensburg")]
 
@@ -88,3 +88,64 @@ def test_lookup_revalidates_official_identity(settings):
     assert boundary(data, settings, "DE-SH", "01999000")
     with pytest.raises(APIError):
         boundary(data, settings, "DE-SH", "01999001")
+
+
+EXPECTED_PREFIXES = dict(
+    zip(
+        [f"{i:02}" for i in range(1, 17)],
+        [
+            "DE-SH",
+            "DE-HH",
+            "DE-NI",
+            "DE-HB",
+            "DE-NW",
+            "DE-HE",
+            "DE-RP",
+            "DE-BW",
+            "DE-BY",
+            "DE-SL",
+            "DE-BE",
+            "DE-BB",
+            "DE-MV",
+            "DE-SN",
+            "DE-ST",
+            "DE-TH",
+        ],
+        strict=True,
+    )
+)
+
+
+def test_all_official_state_prefixes_and_workbook(tmp_path):
+    from app.research.catalog import REGION_PREFIX
+
+    assert REGION_PREFIX == EXPECTED_PREFIXES
+    path = tmp_path / "all.xlsx"
+    workbook(
+        path,
+        "".join(
+            line(prefix + "999999", region, "Gemeinde", prefix)
+            for prefix, region in EXPECTED_PREFIXES.items()
+        ),
+    )
+    assert workbook_entries(path) == [
+        CatalogEntry(region, prefix + "999999", region)
+        for prefix, region in EXPECTED_PREFIXES.items()
+    ]
+
+
+@pytest.mark.parametrize(
+    "ags,region",
+    [
+        ("1234567", "DE-BB"),
+        ("123456789", "DE-BB"),
+        ("１２３４５６７８", "DE-BB"),
+        ("09999999", "DE-BW"),
+        ("17999999", "DE-XX"),
+    ],
+)
+def test_national_catalog_rejects_bad_ags_or_region(tmp_path, ags, region):
+    path = tmp_path / "catalog.csv"
+    path.write_text(f"region_code,ags,name\n{region},{ags},Fixture\n")
+    with pytest.raises(ValueError):
+        load_catalog(path, region, 0, 1)

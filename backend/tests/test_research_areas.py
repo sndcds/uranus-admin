@@ -13,8 +13,15 @@ from app.admin_database import assert_admin_boundary
 from app.errors import APIError
 from app.repositories.research import research_detail, research_export, research_page
 from app.repositories.research_areas import area_page, resolve_area
-from app.research.areas import boundary, import_boundaries, provider_policy
+from app.research.areas import (
+    CITY_EXCEPTIONS,
+    REGIONS,
+    boundary,
+    import_boundaries,
+    provider_policy,
+)
 from app.research.catalog import CatalogEntry
+from app.research.danish_catalog import DANISH_MUNICIPALITIES
 from app.schemas.research import ResearchFilters
 from app.schemas.research_areas import AreaFilters
 from app.services.nominatim import NominatimClient
@@ -69,6 +76,7 @@ def test_country_geometry_semantics(settings, country, level, region, shape):
     )
     result = boundary(
         row(
+            osm_id=2178063 if country == "dk" else 101,
             address={"country_code": country, "ISO3166-2-lvl4": region},
             extratags={"admin_level": str(level)},
             geojson=geometry,
@@ -770,3 +778,84 @@ async def test_operations_venue_membership_uses_canonical_polygon(
     )
     page = await entity_page(db_connection, settings, "venues", EntityFilters(), now, scope.ewkb)
     assert any(item.entity_key == str(uid(20)) for item in page.items) is expected
+
+
+@pytest.mark.parametrize("region", [r for r in REGIONS if r.startswith("DE-")])
+def test_all_german_regions(settings, region):
+    from app.research.catalog import REGION_PREFIX
+
+    prefix = next(p for p, r in REGION_PREFIX.items() if r == region)
+    ags = prefix + "999999"
+    data = row(
+        address={"country_code": "de", "ISO3166-2-lvl4": region},
+        extratags={"admin_level": "8", "de:amtlicher_gemeindeschluessel": ags},
+    )
+    assert boundary(data, settings, region, ags).region_code == region
+    with pytest.raises(APIError):
+        boundary(data, settings, region, prefix + "999998")
+
+
+@pytest.mark.parametrize("region,code,name,identity", DANISH_MUNICIPALITIES)
+def test_danish_explicit_id_required(settings, region, code, name, identity):
+    data = row(
+        osm_id=identity,
+        name=name,
+        address={"country_code": "dk", "ISO3166-2-lvl4": region},
+        extratags={"admin_level": "7"},
+    )
+    assert boundary(data, settings, region).osm_id == identity
+    for changes in (
+        {"osm_id": 999999},
+        {"osm_type": "way"},
+        {"type": "city"},
+        {"geojson": None},
+        {"extratags": {"admin_level": "8"}},
+        {"address": {"country_code": "de", "ISO3166-2-lvl4": region}},
+    ):
+        with pytest.raises(APIError):
+            boundary({**data, **changes}, settings, region)
+    wrong_region = "DK-82" if region == "DK-81" else "DK-81"
+    with pytest.raises(APIError):
+        boundary(
+            {**data, "address": {"country_code": "dk", "ISO3166-2-lvl4": wrong_region}},
+            settings,
+            wrong_region,
+        )
+
+
+@pytest.mark.parametrize("identity,exception", CITY_EXCEPTIONS.items())
+def test_all_verified_city_exceptions_are_identity_bound(settings, identity, exception):
+    region, level, ags = exception
+    data = row(
+        osm_id=identity,
+        address={"country_code": "de", "ISO3166-2-lvl4": region},
+        extratags={"admin_level": str(level), "de:amtlicher_gemeindeschluessel": ags},
+    )
+    assert boundary(data, settings, region, ags).municipality_key == ags
+    with pytest.raises(APIError):
+        boundary({**data, "osm_id": 999999}, settings, region, ags)
+    with pytest.raises(APIError):
+        boundary(
+            {
+                **data,
+                "extratags": {
+                    "admin_level": str(level),
+                    "de:amtlicher_gemeindeschluessel": ags[:-1] + "1",
+                },
+            },
+            settings,
+            region,
+            ags,
+        )
+
+
+@pytest.mark.parametrize(
+    "ags,region", [("1234567", "DE-BB"), ("123456789", "DE-BB"), ("09999999", "DE-BW")]
+)
+def test_expected_ags_cannot_bypass_catalog_checks(settings, ags, region):
+    data = row(
+        address={"country_code": "de", "ISO3166-2-lvl4": region},
+        extratags={"admin_level": "8", "de:amtlicher_gemeindeschluessel": ags},
+    )
+    with pytest.raises(APIError):
+        boundary(data, settings, region, ags)
