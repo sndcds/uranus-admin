@@ -207,7 +207,9 @@ aktualisiert, Embedding-Versionwechsel erzeugen neue Vektoren. Neue Punkte werde
 Entfernung alter Punkte geschrieben. Abgebrochene Läufe sind durch stabile IDs reparierbar;
 kein Erfolg bei Teilausfall. Ein Operator-Lock serialisiert Jobs auf einem Host.
 
-Aus `backend/`, nur für eine autorisierte Operatorumgebung:
+Aus `backend/`, nur für eine autorisierte Operatorumgebung. Die vollständigen
+[Serverbefehle mit Environment-Dateien und anschließendem DE-SH-Gebietsimport](operations.md#operator-workflow-jina-plans-and-schleswig-holstein-areas)
+stehen im Betriebshandbuch:
 
 ```sh
 uv run python -m app.research.vector_index plan --entity event --model jina-v3 --noncommercial-jina
@@ -226,6 +228,10 @@ Area-Verfügbarkeit/-Coverage, Dokumente ohne Text/Location, ungefähre UTF-8-Pa
 Versionen, Collection, Snapshot-/Corpus-Hashes und geplante Änderungen. Bei Organizations
 bezeichnet „ohne Location“ den fehlenden Home-Punkt; Activity kann trotzdem bekannt sein.
 Optionaler lokaler Output enthält nur das Manifest, keinen Corpus.
+
+Die [am 28.09.2026 dokumentierten Operatorausgaben](results/2026-09-28/README.md)
+halten die per `jq` ausgewerteten Plan-Zählwerte für alle drei Entity-Typen fest.
+Sie belegen geplante Chunks und gemeldete Gebietszuordnungen, keinen Index-Schreiblauf.
 
 `sync` und `reconcile` sind für spätere explizite Operatorläufe vorbereitet. **Für diesen
 Task werden beide nicht gegen AWS oder sonstige reale Collections ausgeführt.**
