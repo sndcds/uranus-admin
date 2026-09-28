@@ -1,3 +1,4 @@
+from ipaddress import ip_address
 from typing import Literal
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -6,6 +7,16 @@ from pydantic import EmailStr, Field, SecretStr, field_validator, model_validato
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.smtp_policy import is_loopback_smtp_host, normalize_smtp_host
+
+
+def _is_loopback_host(hostname: str) -> bool:
+    """Classify a parsed host without resolving DNS."""
+    if hostname == "localhost":
+        return True
+    try:
+        return ip_address(hostname).is_loopback
+    except ValueError:
+        return False
 
 
 class Settings(BaseSettings):
@@ -116,7 +127,15 @@ class Settings(BaseSettings):
     @field_validator("qdrant_url", "embedding_url")
     @classmethod
     def valid_vector_origin(cls, value: str | None) -> str | None:
-        return cls.valid_nominatim_origin(value)
+        value = cls.valid_nominatim_origin(value)
+        if value is not None:
+            parsed = urlsplit(value)
+            # urlsplit accepts junk after an IPv6 closing bracket; an origin must not.
+            if parsed.netloc.startswith("["):
+                suffix = parsed.netloc.partition("]")[2]
+                if suffix and not suffix.startswith(":"):
+                    raise ValueError("Vector service URL must be one exact HTTP(S) origin")
+        return value
 
     @field_validator("semantic_search_url")
     @classmethod
@@ -141,10 +160,9 @@ class Settings(BaseSettings):
                 continue
             parsed = urlsplit(origin)
             if parsed.scheme != "https" and not (
-                self.app_env in {"development", "test"}
-                and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+                parsed.scheme == "http" and _is_loopback_host(parsed.hostname or "")
             ):
-                raise ValueError("Vector services require HTTPS outside explicit local tests")
+                raise ValueError("Vector services require HTTPS unless the HTTP host is loopback")
             if key is None or len(key.get_secret_value()) < 32:
                 raise ValueError("Vector service authentication is required")
         return self
