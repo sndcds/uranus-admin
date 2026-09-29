@@ -24,6 +24,44 @@ from app.research.vector_documents import (
 from app.research.vector_models import Model
 from app.research.vector_transport import MAX_POINTS, Encoder, Qdrant
 
+_COORDINATE_PATHS = frozenset(
+    {
+        ("latitude",),
+        ("longitude",),
+        ("effective_latitude",),
+        ("effective_longitude",),
+        ("effective_locations", "[]", "effective_latitude"),
+        ("effective_locations", "[]", "effective_longitude"),
+    }
+)
+
+
+def payloads_equal(desired: Any, stored: Any, path: tuple[str, ...] = ()) -> bool:
+    """Compare every field, allowing only binary64 round-trip noise in coordinates."""
+    if desired == stored:
+        return True
+    if isinstance(desired, dict) and isinstance(stored, dict):
+        return desired.keys() == stored.keys() and all(
+            payloads_equal(value, stored[key], (*path, key)) for key, value in desired.items()
+        )
+    if isinstance(desired, list) and isinstance(stored, list):
+        return len(desired) == len(stored) and all(
+            payloads_equal(left, right, (*path, "[]"))
+            for left, right in zip(desired, stored, strict=True)
+        )
+    # Qdrant's JSON float parser can round decimal coordinates to a neighboring
+    # binary64 value. One ULP covers the observed drift (under 3e-14 degrees
+    # across valid coordinates), without rounding source values or payload writes.
+    # No tolerance applies to hashes, versions, IDs, dates or other numeric fields.
+    return (
+        path in _COORDINATE_PATHS
+        and isinstance(desired, float)
+        and isinstance(stored, float)
+        and math.isfinite(desired)
+        and math.isfinite(stored)
+        and abs(desired - stored) <= max(math.ulp(desired), math.ulp(stored))
+    )
+
 
 @dataclass
 class Plan:
@@ -121,7 +159,7 @@ def plan_changes(
             )
         ):
             plan.embed.append(identifier)
-        elif old != payload:
+        elif not payloads_equal(payload, old):
             plan.metadata.append(identifier)
         else:
             plan.unchanged += 1

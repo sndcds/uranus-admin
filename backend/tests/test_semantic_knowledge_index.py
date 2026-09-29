@@ -393,8 +393,9 @@ async def test_missing_points_and_invalid_overlap(admin_store, db_connection, se
 
 
 @pytest.mark.parametrize("entity", COLLECTIONS)
+@pytest.mark.parametrize("diagnostic_limit", [None, 5])
 async def test_plan_closes_all_connections_before_network_and_never_embeds(
-    monkeypatch, settings, entity
+    monkeypatch, settings, entity, diagnostic_limit
 ):
     import argparse
     from contextlib import asynccontextmanager
@@ -470,7 +471,13 @@ async def test_plan_closes_all_connections_before_network_and_never_embeds(
             network()
 
         async def info(self):
-            return None
+            return {"points_count": 1} if diagnostic_limit else None
+
+        async def points(self):
+            return {
+                i: {**p, "source_updated_at": "older"}
+                for i, (_, p) in plan(document).desired.items()
+            }
 
         async def create(self):
             pytest.fail("plan must never create a collection")
@@ -484,7 +491,14 @@ async def test_plan_closes_all_connections_before_network_and_never_embeds(
     monkeypatch.setattr(vector_index, "Encoder", EncoderStub)
     monkeypatch.setattr(vector_index, "Qdrant", Store)
     result = await vector_index.run(
-        argparse.Namespace(entity=entity, command="plan", model="jina-v3", limit=None, output=None),
+        argparse.Namespace(
+            entity=entity,
+            command="plan",
+            model="jina-v3",
+            limit=None,
+            output=None,
+            metadata_diagnostics=diagnostic_limit,
+        ),
         settings,
     )
     assert (
@@ -494,6 +508,8 @@ async def test_plan_closes_all_connections_before_network_and_never_embeds(
         == 1
     )
     assert result["approximate_payload_bytes"] > 0
+    if diagnostic_limit:
+        assert result["metadata_diagnostics"][0]["fields"][0]["field"] == "source_updated_at"
 
 
 @pytest.mark.parametrize("entity", COLLECTIONS)

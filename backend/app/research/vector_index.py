@@ -22,6 +22,7 @@ from app.repositories.vector_entities import extract_organizations, extract_venu
 from app.repositories.vector_events import extract_events
 from app.research.semantic_contracts import COLLECTIONS, SemanticDocument
 from app.research.vector_benchmark import benchmark, quality_metrics, questions, save_json
+from app.research.vector_diagnostics import MAX_DIAGNOSTIC_POINTS, metadata_diagnostics
 from app.research.vector_documents import DOCUMENT_VERSION, EventDocument, content_hash
 from app.research.vector_models import MODELS
 from app.research.vector_sync import apply_changes, plan_changes
@@ -39,6 +40,11 @@ WHERE n.nspname='uranus' AND c.relkind IN ('r','p','v','m','f') AND (
 
 
 async def run(args: argparse.Namespace, settings: Settings) -> dict[str, object]:
+    diagnostic_limit = getattr(args, "metadata_diagnostics", None)
+    if diagnostic_limit is not None and (
+        args.command != "plan" or not 1 <= diagnostic_limit <= MAX_DIAGNOSTIC_POINTS
+    ):
+        raise ValueError("metadata_diagnostics_requires_bounded_plan")
     entity = getattr(args, "entity", None)
     if entity is not None and (entity not in COLLECTIONS or args.model != "jina-v3"):
         raise ValueError("semantic_collection_model_required")
@@ -156,6 +162,10 @@ async def run(args: argparse.Namespace, settings: Settings) -> dict[str, object]
             ),
             **plan.counts(),
         }
+        if diagnostic_limit is not None:
+            manifest["metadata_diagnostics"] = metadata_diagnostics(
+                plan, existing, limit=diagnostic_limit
+            )
         print(json.dumps({"event": "vector_plan", **manifest}), flush=True)
         if args.command in {"sync", "reconcile"}:
             manifest["metrics"] = await apply_changes(qdrant, encoder, plan)
@@ -222,6 +232,13 @@ def main() -> None:
         help="New Jina knowledge collection. Omit only for the legacy event pilot/benchmark.",
     )
     parser.add_argument("--limit", type=int)
+    parser.add_argument(
+        "--metadata-diagnostics",
+        type=int,
+        choices=range(1, MAX_DIAGNOSTIC_POINTS + 1),
+        metavar="1..20",
+        help="Plan only: bounded metadata differences with redacted values.",
+    )
     parser.add_argument("--questions", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--judgments", type=Path)

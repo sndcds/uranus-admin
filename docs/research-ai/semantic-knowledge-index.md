@@ -229,6 +229,40 @@ Versionen, Collection, Snapshot-/Corpus-Hashes und geplante Änderungen. Bei Org
 bezeichnet „ohne Location“ den fehlenden Home-Punkt; Activity kann trotzdem bekannt sein.
 Optionaler lokaler Output enthält nur das Manifest, keinen Corpus.
 
+### Read-only payload drift diagnosis
+
+From `backend/` with the same authorized reader and vector configuration as `plan`:
+
+```sh
+uv run python -m app.research.vector_index plan --entity event --model jina-v3 --noncommercial-jina --metadata-diagnostics 5
+```
+
+`--metadata-diagnostics` accepts 1–20 points and is rejected for write commands.
+It reports raw metadata-only differences, including coordinate round-trip noise
+already accepted by reconciliation: point ID, field paths (including list indices),
+Python types and compact summaries, capped at 40 differences per point. Strings,
+including chunk text and names, are represented only by length and a short SHA-256
+fingerprint; unknown old field names are redacted. No embeddings or Qdrant writes
+occur. The existing `/chunks` tokenization call is still required. Do not run
+`sync` or `reconcile` merely to diagnose drift.
+
+Qdrant JSON round trips can move a coordinate to the adjacent binary64 value.
+Reconciliation therefore accepts at most one ULP (one representable float step;
+less than 3e-14 degrees over valid coordinates) for `latitude`, `longitude`,
+`effective_latitude`, `effective_longitude`, and the two effective coordinate
+fields inside `effective_locations`. Payload writes retain the full source values.
+All keys, null/missing distinctions, IDs, timestamps, names, list order and other
+values remain compared; content hashes and embedding model/version checks stay
+exact. Metadata overwrites continue using `PUT /points/payload?wait=true`.
+
+Read-only investigation on 2026-09-29 found that all 484 persistent event metadata
+differences were one-ULP coordinate changes, at the top level and inside
+`effective_locations`. No UUID, null, timestamp or area/venue/space-list differences
+were found. Against the same live snapshot, the candidate planner changed the
+counts from 484 metadata updates / 670 unchanged to 0 / 1154. The snapshot had
+also acquired one genuinely new chunk (1155 desired); it remained classified as
+new. No production reconciliation, embedding or deployment was performed.
+
 Die [am 28.09.2026 dokumentierten Operatorausgaben](results/2026-09-28/README.md)
 halten die per `jq` ausgewerteten Plan-Zählwerte für alle drei Entity-Typen fest.
 Sie belegen geplante Chunks und gemeldete Gebietszuordnungen, keinen Index-Schreiblauf.
