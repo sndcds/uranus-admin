@@ -6,6 +6,7 @@ import {
 } from '#shared/sql-provenance'
 import {
   researchPageSchema,
+  semanticResearchQuerySchema,
   researchAreasSchema,
   researchAreaSchema,
   researchAreaDossierSchema,
@@ -101,12 +102,11 @@ export function createAdminApi(
   async function request<T>(
     path: string,
     schema: z.ZodType<T>,
-    query: Record<string, string | number | boolean | undefined> = {},
+    query: Record<string, string | number | boolean | string[] | undefined> = {},
     method = 'GET',
     requestBody?: unknown,
     signal?: AbortSignal,
     timeoutMs = 12_000,
-    repeatedQuery: Record<string, string[]> = {},
   ) {
     const generation = accessGeneration
     const inspectable =
@@ -116,12 +116,15 @@ export function createAdminApi(
       path !== '/api/v1/search' &&
       !path.startsWith('/api/v1/research/')
     const readId = ++readRevision
-    if (inspectable) publishRead(path, { query: { ...query }, pending: true, revision: readId })
+    const viewQuery: ViewReadContext['query'] = {}
+    if (inspectable)
+      for (const [key, value] of Object.entries(query))
+        if (!Array.isArray(value)) viewQuery[key] = value
+    if (inspectable) publishRead(path, { query: viewQuery, pending: true, revision: readId })
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(query))
-      if (value !== undefined) params.set(key, String(value))
-    for (const [key, values] of Object.entries(repeatedQuery))
-      for (const value of values) params.append(key, value)
+      if (Array.isArray(value)) value.forEach((item) => params.append(key, item))
+      else if (value !== undefined) params.set(key, String(value))
     const timeoutSignal = AbortSignal.timeout(timeoutMs)
     const requestSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal
     const timedOut = () => timeoutSignal.aborted && requestSignal.reason === timeoutSignal.reason
@@ -196,7 +199,7 @@ export function createAdminApi(
       const mode = quality && typeof quality === 'object' && 'mode' in quality ? quality.mode : null
       publishRead(path, {
         dataMode: mode === 'live' || mode === 'persisted' ? mode : undefined,
-        query: { ...query },
+        query: viewQuery,
         pending: false,
         revision: readId,
         observedAt: typeof stamp === 'string' ? stamp : undefined,
@@ -230,32 +233,14 @@ export function createAdminApi(
     researchSemanticSearch: (
       query: ResearchQuery & { genre_keys?: string[]; area_ids?: string[] },
     ) => {
-      const {
-        search_mode: _mode,
-        sort: _sort,
-        page: _page,
-        page_size: _size,
-        genre_keys,
-        area_ids,
-        ...filters
-      } = query
-      return request(
-        '/api/v1/research/semantic-search',
-        researchPageSchema,
-        {
-          ...filters,
-          entity_type: 'event',
-          page_size: 20,
-        },
-        'GET',
-        undefined,
-        undefined,
-        12_000,
-        {
-          ...(genre_keys ? { genre_keys } : {}),
-          ...(area_ids ? { area_ids } : {}),
-        },
-      )
+      const { search_mode: _mode, sort: _sort, page: _page, page_size: _size, ...filters } = query
+      const parsed = semanticResearchQuerySchema.safeParse({
+        ...filters,
+        entity_type: 'event',
+        page_size: 20,
+      })
+      if (!parsed.success) return Promise.reject(new AdminApiError(failure(422, 'invalid_query')))
+      return request('/api/v1/research/semantic-search', researchPageSchema, parsed.data)
     },
     researchSearch: (query: ResearchQuery, signal?: AbortSignal) =>
       request(

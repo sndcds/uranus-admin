@@ -167,17 +167,13 @@ export const semanticResearchQuerySchema = z
       .max(50)
       .transform((keys) => [...new Set(keys)].sort())
       .optional(),
-    area_ids: z
-      .array(z.uuid())
-      .max(20)
-      .transform((ids) => [...new Set(ids)].sort())
-      .optional(),
     entity_type: z.literal('event').optional(),
+    area_ids: z.array(z.uuid()).min(1).max(50).optional(),
     page: z.coerce.number().int().min(1).max(1).optional(),
     page_size: z.coerce.number().int().min(1).max(20).optional(),
   })
   .refine((q) => !q.from_date || !q.to_date || q.from_date <= q.to_date, 'Ungültiger Zeitraum')
-  .refine((q) => !q.area_id || !q.area_ids?.length, 'Use area_id or area_ids, not both')
+  .refine((q) => q.area_id === undefined || q.area_ids === undefined, 'Wähle area_id oder area_ids')
 export type SemanticResearchQuery = z.infer<typeof semanticResearchQuerySchema>
 export const classicResearchQuerySchema = researchFilterSchema
 export type ResearchType = z.infer<typeof researchTypeSchema>

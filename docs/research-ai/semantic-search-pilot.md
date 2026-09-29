@@ -48,6 +48,36 @@ selection; they do not change the embedding or infer criteria from the text.
 A phrase mentioning Flensburg or “next week” remains semantic text. No municipality,
 period, price or other constraint is automatically extracted.
 
+### Multiple Research Areas
+
+The event-only endpoint also accepts repeated `area_ids` UUID query parameters.
+Areas are **ORed**: an event qualifies when a current public occurrence matches
+any selected area (and the other structured filters). For example, substitute the
+persisted Research Area UUIDs for Flensburg, Aabenraa and Sønderborg:
+
+```text
+/api/v1/research/semantic-search?q=Kultur&area_ids=<flensburg>&area_ids=<aabenraa>&area_ids=<sonderborg>
+```
+
+The query text parameter remains `q`. Existing `area_id=<uuid>` callers keep their
+single-area behavior. Supply either `area_id` or `area_ids`, never both. A list must
+contain 1–50 UUID entries; duplicates are removed. An empty or invalid UUID value,
+an oversized list or mixed parameter forms return 422. Every requested area must
+exist; an unknown ID returns 404 even if retrieval has no candidates. Known areas
+with no matching events return an empty successful result.
+
+Requests with `area_ids` use the typed event collection and apply the OR filter
+before the candidate limit, as described in [structured filters](#structured-genre-and-area-filters).
+Selected boundaries are resolved together and unioned, then checked against current
+authoritative points during public rehydration. The existing single `area_id` path
+remains compatible. Embedding, ranking and event-only response handling stay unchanged.
+The internal semantic collection transport and evidence checks also support OR
+filters for venues (`area_ids`) and organizations (`home_area_ids` or
+`activity_area_ids`, selected by an explicit `organization_mode`).
+
+No UI multi-select, location-name resolution or natural-language parsing is added.
+No index rebuild, database migration, grant change or worker change is required.
+
 ## UI behavior and limitations
 
 Existing `ResearchFilters`, `ResearchResult`, map/table/list views, dossier links,
@@ -212,10 +242,11 @@ an SLA. No source writes, index changes or production deployment were performed.
 ## Structured genre and area filters
 
 The semantic endpoint additionally accepts repeated `genre_keys` (maximum 50 raw
-entries) and repeated `area_ids` (maximum 20 raw entries). Both lists are validated
-and deduplicated; empty lists impose no restriction. Genre keys are canonical
+entries) and repeated `area_ids` (1–50 raw entries). Both lists are validated
+and deduplicated. Empty genre lists impose no restriction; explicit empty area lists
+are rejected. Genre keys are canonical
 `type_id:genre_id` identifiers, not localized names. Genre 0 is excluded.
-`area_id` remains the single-area parameter; combining it with nonempty `area_ids`
+`area_id` remains the single-area parameter; combining it with `area_ids`
 is rejected. Category filtering remains the existing independent `category` filter.
 
 ```text

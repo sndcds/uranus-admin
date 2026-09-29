@@ -12,6 +12,7 @@ import httpx
 
 from app.config import Settings
 from app.errors import APIError
+from app.research.area_selection import normalize_area_ids
 from app.research.semantic_contracts import COLLECTIONS, OWNER, EntityType, SemanticDocument
 from app.research.semantic_evidence import area_filter, genre_filter
 from app.research.vector_documents import Chunk, EventDocument, content_hash
@@ -203,21 +204,14 @@ class Qdrant:
         if not 1 <= limit <= 10000:
             raise ValueError("invalid_search_limit")
         filters: dict[str, Any] = {}
-        if area_ids is not None:
-            if area_id is not None or not 1 <= len(area_ids) <= 20:
-                raise ValueError("invalid_area_filter")
-            if self.entity is None:
-                raise ValueError("semantic_collection_required_for_area_filter")
-            gate = area_filter(self.entity, area_ids[0], organization_mode=organization_mode)
-            gate["must"][0]["match"] = {"any": sorted({str(UUID(str(a))) for a in area_ids})}
-            filters["filter"] = gate
-        if area_id is not None:
+        selected = normalize_area_ids(area_id, area_ids)
+        if selected is not None:
             if self.entity is None:
                 raise ValueError("semantic_collection_required_for_area_filter")
             filters["filter"] = area_filter(
-                self.entity, area_id, organization_mode=organization_mode
+                self.entity, area_ids=selected, organization_mode=organization_mode
             )
-        elif organization_mode is not None and area_ids is None:
+        elif organization_mode is not None:
             raise ValueError("area_id_required")
         if genre_keys is not None:
             filters.setdefault("filter", {"must": []})["must"].append(

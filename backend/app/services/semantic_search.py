@@ -14,7 +14,7 @@ from app.config import Settings
 from app.database import get_connection
 from app.errors import APIError
 from app.repositories.research import rehydrate_semantic_events
-from app.repositories.research_areas import request_area, request_area_union
+from app.repositories.research_areas import request_area, request_areas
 from app.research.search_gateway import retrieve_candidates
 from app.research.semantic_evidence import semantic_hits
 from app.research.vector_models import MODELS
@@ -80,7 +80,13 @@ async def semantic_search(
                     candidates = [
                         hit.entity_id
                         for hit in semantic_hits(
-                            hits, allowed_ids, MODELS[MODEL], entity="event", limit=50
+                            hits,
+                            allowed_ids,
+                            MODELS[MODEL],
+                            entity="event",
+                            limit=50,
+                            area_id=filters.area_id,
+                            area_ids=filters.area_ids,
                         )
                     ]
                 else:
@@ -100,9 +106,10 @@ async def semantic_search(
             stage, before = "postgres_rehydrate_ms", perf_counter()
             # Acquire the reader only after retrieval. No old snapshot, pool slot or
             # DB transaction is held while calling the encoder or Qdrant.
-            area = await request_area(request, filters.area_id)
-            area_union = (
-                await request_area_union(request, filters.area_ids) if filters.area_ids else None
+            area = (
+                await request_areas(request, filters.area_ids)
+                if filters.area_ids is not None
+                else await request_area(request, filters.area_id)
             )
             async with asynccontextmanager(get_connection)(request) as connection:
                 page = await rehydrate_semantic_events(
@@ -112,7 +119,6 @@ async def semantic_search(
                     candidates,
                     datetime.now(UTC),
                     area,
-                    **({"area_union": area_union} if filters.area_ids else {}),
                 )
             metrics["returned_count"] = len(page.items)
             return page

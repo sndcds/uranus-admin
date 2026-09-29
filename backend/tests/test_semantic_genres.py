@@ -14,6 +14,7 @@ from pydantic import SecretStr, ValidationError
 from sqlalchemy import text
 
 from app.repositories.research import rehydrate_semantic_events
+from app.repositories.research_areas import ResolvedResearchAreas
 from app.repositories.vector_events import TYPES_SQL, extract_events
 from app.research.semantic_contracts import COLLECTIONS, EventPayload
 from app.research.semantic_evidence import semantic_hits
@@ -141,7 +142,7 @@ def test_genre_query_dedup_bounds_and_category_unchanged():
     filters = SemanticResearchFilters(q="Music", genre_keys=["2:2", "1:2", "1:2"], category=5)
     assert filters.genre_keys == ["1:2", "2:2"] and filters.category == 5
     assert SemanticResearchFilters(q="Music").genre_keys == []
-    for values in ({"area_ids": [uuid4()] * 21}, {"area_id": uuid4(), "area_ids": [uuid4()]}):
+    for values in ({"area_ids": [uuid4()] * 51}, {"area_id": uuid4(), "area_ids": [uuid4()]}):
         with pytest.raises(ValidationError):
             SemanticResearchFilters(q="Music", **values)
 
@@ -270,9 +271,13 @@ async def test_api_passes_repeated_genres_to_semantic_collection(
 
     doc = sample("event", entity_id=uid(30), genre_keys=["1:2"], genre_names=["Jazz"])
     retrieval["hits"] = [{"score": 0.9, "payload": p} for _, p in plan(doc).desired.values()]
+    for hit in retrieval["hits"]:
+        hit["payload"]["area_ids"] = [str(uid(90))]
     monkeypatch.setattr(service, "request_area", AsyncMock(return_value=None))
-    union = AsyncMock(return_value=b"synthetic-area-union")
-    monkeypatch.setattr(service, "request_area_union", union)
+    union = AsyncMock(
+        return_value=ResolvedResearchAreas((uid(90), uid(91)), b"synthetic-area-union")
+    )
+    monkeypatch.setattr(service, "request_areas", union)
     area_params = (
         []
         if area_mode == "none"
@@ -308,7 +313,7 @@ async def test_api_passes_repeated_genres_to_semantic_collection(
             {
                 "key": "area_ids",
                 "match": (
-                    {"value": str(uid(90))}
+                    {"any": [str(uid(90))]}
                     if area_mode == "single"
                     else {"any": [str(uid(90)), str(uid(91))]}
                 ),
@@ -317,7 +322,7 @@ async def test_api_passes_repeated_genres_to_semantic_collection(
     assert json.loads(request.content)["filter"] == {"must": clauses}
     if area_mode == "multiple":
         assert union.call_args.args[1] == [uid(90), uid(91)]
-        assert retrieval["rehydrate"].call_args.kwargs["area_union"] == b"synthetic-area-union"
+        assert retrieval["rehydrate"].call_args.args[-1] == union.return_value
     filters = retrieval["rehydrate"].call_args.args[2]
     assert filters.genre_keys == ["1:2", "2:2"] and filters.category == 2
     assert retrieval["rehydrate"].call_args.args[3] == [uid(30)]
@@ -381,7 +386,7 @@ async def test_source_area_union_and_genre_and_category(
         VALUES (:a,1,2),(:b,1,3)"""),
         {"a": uid(30), "b": uid(32)},
     )
-    union = await research_areas.request_area_union(request, [flensburg, husum])
+    union = await research_areas.request_areas(request, [flensburg, husum])
     for keys, category, expected in (
         (["1:2"], None, [uid(30)]),
         (["1:2", "1:3"], None, [uid(32), uid(30)]),
@@ -396,11 +401,11 @@ async def test_source_area_union_and_genre_and_category(
             ),
             [uid(32), uid(30)],
             datetime.now(UTC),
-            area_union=union,
+            area=union,
         )
         assert [i.entity_key for i in page.items] == expected
     with pytest.raises(APIError, match="Research area was not found"):
-        await research_areas.request_area_union(request, [flensburg, uuid4()])
+        await research_areas.request_areas(request, [flensburg, uuid4()])
     with pytest.raises(APIError, match="must be resolved"):
         await rehydrate_semantic_events(
             db_connection,
@@ -429,3 +434,31 @@ def test_genre_payload_names_are_public_and_keys_are_not_embedded():
     assert "private@example.test" not in doc.model_dump_json()
     assert "Genres: Jazz" in doc.sections[0].text
     assert "123:456" not in doc.sections[0].text
+
+
+async def test_combined_area_genre_search_rejects_outside_provider_evidence(
+    client, headers, retrieval, monkeypatch
+):
+    areas = [uid(90), uid(91)]
+    retrieval["hits"] = []
+    for entity_id, memberships in ((uid(30), [uid(91)]), (uid(32), [uid(92)])):
+        doc = sample("event", entity_id=entity_id, genre_keys=["1:2"], genre_names=["Jazz"])
+        for _, payload in plan(doc).desired.values():
+            payload["area_ids"] = [str(area) for area in memberships]
+            retrieval["hits"].append({"score": 0.9, "payload": payload})
+    monkeypatch.setattr(
+        service,
+        "request_areas",
+        AsyncMock(return_value=ResolvedResearchAreas(tuple(areas), b"synthetic-area-union")),
+    )
+    response = await client.get(
+        PATH,
+        headers=headers,
+        params={
+            "q": "music",
+            "area_ids": [str(area) for area in areas],
+            "genre_keys": ["1:2"],
+        },
+    )
+    assert response.status_code == 200
+    assert retrieval["rehydrate"].call_args.args[3] == [uid(30)]

@@ -123,12 +123,19 @@ Dänemarks Municipality-Level 7 werden unverändert wiederverwendet; keine pausc
 Level-8-Annahme in der Indexierung.
 
 `semantic_evidence.area_filter()` liefert den harten Qdrant-Payloadfilter.
-Der interne `Qdrant.search(..., area_id=..., organization_mode=...)`-Transport
+Der interne `Qdrant.search(..., area_ids=[...], organization_mode=...)`-Transport
 sendet ihn vor der Vektorrangfolge an Qdrant, damit ein Ortsfilter nicht erst
 nach einem begrenzten Kandidatenabruf greift.
-`semantic_hits()` kann denselben Filter defensiv nachprüfen. Die neue Search-API ist
-noch nicht angeschlossen: Eine zukünftige Ortsauflösung muss „Husum“ auf einen
-existierenden Research-Area-Identifier auflösen und diesen Filter anwenden.
+`area_ids` akzeptiert 1–50 UUIDs, entfernt Duplikate und verknüpft die Gebiete
+mit OR über eine einzelne `match.any`-Bedingung ([Qdrant Match Any](https://qdrant.tech/documentation/search/filtering/#match-any)).
+`area_id` bleibt kompatibel; beide Parameter gleichzeitig sowie leere Listen sind
+ungültig. Events/Venues verwenden `area_ids`, Organisationen je nach explizitem
+Modus `home_area_ids` oder `activity_area_ids`. Andere Entity-Typen lehnen den
+Organisationsmodus ab.
+`semantic_hits()` prüft denselben OR-Filter defensiv nach. Der event-only
+Research-Endpunkt nutzt diesen Filter bei strukturierten Anfragen mit `area_ids`.
+Eine zukünftige Ortsauflösung muss „Husum“ auf einen existierenden
+Research-Area-Identifier auflösen und diesen Filter anwenden.
 Ein Organisationsname „Flensburger Veranstaltungsgesellschaft mbH“ darf weder
 Husumer Events ausschließen noch Flensburger Events durch den Husum-Filter lassen.
 Zeit-/Statuskombinationen brauchen weiterhin die autoritative SQL-Nachprüfung:
@@ -342,7 +349,7 @@ or deployment was performed for this implementation.
 
 Qdrant event search accepts `genre_keys` (1–50 entries when supplied) with array
 `match.any`. Venues, organizations and the legacy pilot collection reject this
-filter. `area_ids` supports 1–20 areas, including the existing organization
+filter. `area_ids` supports 1–50 areas, including the existing organization
 home/activity distinction. Each dimension contributes a separate `must` clause:
 OR within areas, OR within genres, AND between the dimensions. See the
 [Research API examples](semantic-search-pilot.md#structured-genre-and-area-filters).

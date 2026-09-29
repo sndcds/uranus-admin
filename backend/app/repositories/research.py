@@ -20,7 +20,7 @@ from app.repositories.created_period import require_timezone
 from app.repositories.entities import pagination
 from app.repositories.entity_search import SEARCH_DEFINITIONS, escape_search
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
-from app.repositories.research_areas import ResolvedResearchArea
+from app.repositories.research_areas import ResolvedResearchArea, ResolvedResearchAreas
 from app.schemas.research import (
     ResearchCategory,
     ResearchDate,
@@ -99,12 +99,29 @@ def search_sql(kind: ResearchType) -> str:
 
 
 def parameters(
-    filters: ResearchFilterFields, settings: Settings, area: ResolvedResearchArea | None = None
+    filters: ResearchFilterFields,
+    settings: Settings,
+    area: ResolvedResearchArea | ResolvedResearchAreas | None = None,
 ) -> dict[str, Any]:
-    if filters.area_id is not None and (area is None or area.area.id != filters.area_id):
+    if isinstance(filters, SemanticResearchFilters) and filters.area_ids is not None:
+        if not isinstance(area, ResolvedResearchAreas) or set(area.area_ids) != set(
+            filters.area_ids
+        ):
+            raise APIError(503, "research_area_unavailable", "Research areas must be resolved.")
+    elif filters.area_id is not None and (
+        not isinstance(area, ResolvedResearchArea) or area.area.id != filters.area_id
+    ):
         raise APIError(503, "research_area_unavailable", "Research area must be resolved.")
     return {
-        "area_wkb": area.ewkb if filters.area_id and area else None,
+        "area_wkb": (
+            area.ewkb
+            if area
+            and (
+                filters.area_id
+                or (isinstance(filters, SemanticResearchFilters) and filters.area_ids)
+            )
+            else None
+        ),
         **filters.model_dump(),
         "q": f"%{escape_search(filters.q)}%",
         "city": f"%{escape_search(filters.city)}%" if filters.city.strip() else "",
@@ -490,9 +507,7 @@ async def rehydrate_semantic_events(
     filters: SemanticResearchFilters,
     candidates: list[UUID],
     now: datetime,
-    area: ResolvedResearchArea | None = None,
-    *,
-    area_union: bytes | None = None,
+    area: ResolvedResearchArea | ResolvedResearchAreas | None = None,
 ) -> ResearchPage:
     """Bounded ranked IDs only; all facts and eligibility come from the source snapshot."""
     if len(candidates) > 50:
@@ -500,10 +515,6 @@ async def rehydrate_semantic_events(
     params = parameters(
         filters.model_copy(update={"q": "", "entity_type": "event"}), settings, area
     )
-    if filters.area_ids:
-        if area_union is None:
-            raise APIError(503, "research_area_unavailable", "Research areas must be resolved.")
-        params["area_wkb"] = area_union
     params["candidate_ids"] = candidates
     rows = (
         await connection.execute(
