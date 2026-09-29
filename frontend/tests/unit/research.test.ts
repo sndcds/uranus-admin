@@ -201,3 +201,77 @@ it('rejects an explicit empty area list before it can become an unfiltered reque
   ).rejects.toThrow()
   expect(fetcher).not.toHaveBeenCalled()
 })
+
+describe('structured semantic genre filters', () => {
+  it('serializes and forwards only the allowlisted repeated filters', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+    const areas = ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002']
+    await createAdminApi(fetcher).researchSemanticSearch({
+      q: 'Live-Musik',
+      category: 2,
+      genre_keys: ['1:2', '1:3'],
+      area_ids: areas,
+    })
+    const url = new URL(fetcher.mock.calls[0]![0], 'http://localhost')
+    expect(url.searchParams.getAll('genre_keys')).toEqual(['1:2', '1:3'])
+    expect(url.searchParams.getAll('area_ids')).toEqual(areas)
+    const upstream = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+    const result = await forwardAdminRequest(
+      {
+        path: '/api/v1/research/semantic-search',
+        method: 'GET',
+        query: url.searchParams,
+        authorization: 'Bearer synthetic',
+      },
+      'http://backend.invalid',
+      upstream,
+    )
+    expect(result.status).toBe(200)
+    const forwarded = new URL(upstream.mock.calls[0]![0])
+    expect(forwarded.searchParams.getAll('genre_keys')).toEqual(['1:2', '1:3'])
+    expect(forwarded.searchParams.getAll('area_ids')).toEqual(areas)
+    expect(forwarded.searchParams.get('category')).toBe('2')
+  })
+  it.each([
+    'genre_keys=Jazz',
+    'genre_keys=1:0',
+    'genre_keys=01:2',
+    'genre_keys=-0:2',
+    'genre_keys=1:2147483648',
+    'genre_keys=1:2:3',
+    'genre_keys=1:2%0A',
+    Array(51).fill('genre_keys=1:2').join('&'),
+    'genre_keys=1:2&category=1&category=2',
+    'area_ids=not-a-uuid',
+    'area_id=00000000-0000-4000-8000-000000000001&area_ids=00000000-0000-4000-8000-000000000002',
+  ])('rejects invalid structured queries: %s', async (query) => {
+    const fetcher = vi.fn()
+    const result = await forwardAdminRequest(
+      {
+        path: '/api/v1/research/semantic-search',
+        method: 'GET',
+        query: new URLSearchParams('q=Live-Musik&' + query),
+        authorization: 'Bearer synthetic',
+      },
+      'http://backend.invalid',
+      fetcher,
+    )
+    expect(result.status).toBe(422)
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+  it('keeps repeated genres exclusive to semantic search', async () => {
+    const fetcher = vi.fn()
+    const result = await forwardAdminRequest(
+      {
+        path: '/api/v1/research/search',
+        method: 'GET',
+        query: new URLSearchParams('q=music&genre_keys=1:2'),
+        authorization: 'Bearer synthetic',
+      },
+      'http://backend.invalid',
+      fetcher,
+    )
+    expect(result.status).toBe(422)
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+})

@@ -230,7 +230,9 @@ export function createAdminApi(
       request(`/api/v1/research/areas/${encodeURIComponent(id)}`, researchAreaDossierSchema, {
         ...query,
       }),
-    researchSemanticSearch: (query: ResearchQuery & { area_ids?: string[] }) => {
+    researchSemanticSearch: (
+      query: ResearchQuery & { genre_keys?: string[]; area_ids?: string[] },
+    ) => {
       const { search_mode: _mode, sort: _sort, page: _page, page_size: _size, ...filters } = query
       const parsed = semanticResearchQuerySchema.safeParse({
         ...filters,

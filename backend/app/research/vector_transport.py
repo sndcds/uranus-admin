@@ -14,7 +14,7 @@ from app.config import Settings
 from app.errors import APIError
 from app.research.area_selection import normalize_area_ids
 from app.research.semantic_contracts import COLLECTIONS, OWNER, EntityType, SemanticDocument
-from app.research.semantic_evidence import area_filter
+from app.research.semantic_evidence import area_filter, genre_filter
 from app.research.vector_documents import Chunk, EventDocument, content_hash
 from app.research.vector_models import MODELS, Model
 
@@ -197,6 +197,7 @@ class Qdrant:
         *,
         area_id: UUID | None = None,
         area_ids: list[UUID] | None = None,
+        genre_keys: list[str] | None = None,
         organization_mode: Literal["home", "activity"] | None = None,
     ) -> list[dict[str, Any]]:
         validate_vectors([vector], self.model, 1)
@@ -212,6 +213,10 @@ class Qdrant:
             )
         elif organization_mode is not None:
             raise ValueError("area_id_required")
+        if genre_keys is not None:
+            filters.setdefault("filter", {"must": []})["must"].append(
+                genre_filter(self.entity, genre_keys)
+            )
         value = await self.http.request(
             "POST",
             self.path + "/points/query",

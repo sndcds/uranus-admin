@@ -4,6 +4,8 @@ import math
 from typing import Any, Literal
 from uuid import UUID
 
+from pydantic import TypeAdapter
+
 from app.research.area_selection import normalize_area_ids
 from app.research.semantic_contracts import (
     COLLECTIONS,
@@ -15,6 +17,7 @@ from app.research.semantic_contracts import (
 from app.research.semantic_documents import is_public_text
 from app.research.vector_documents import content_hash
 from app.research.vector_models import Model
+from app.schemas.genre import GenreKey
 
 
 def area_filter(
@@ -36,6 +39,15 @@ def area_filter(
             raise ValueError("unexpected_organization_area_mode")
         key = "area_ids"
     return {"must": [{"key": key, "match": {"any": [str(identifier) for identifier in selected]}}]}
+
+
+def genre_filter(entity: EntityType | None, genre_keys: list[str]) -> dict[str, Any]:
+    if entity != "event":
+        raise ValueError("event_collection_required_for_genre_filter")
+    if not 1 <= len(genre_keys) <= 50:
+        raise ValueError("invalid_genre_filter_limit")
+    keys = TypeAdapter(list[GenreKey]).validate_python(genre_keys)
+    return {"key": "genre_keys", "match": {"any": sorted(set(keys))}}
 
 
 def semantic_hits(

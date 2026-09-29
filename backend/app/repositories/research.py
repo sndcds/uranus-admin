@@ -132,7 +132,16 @@ def parameters(
 
 
 def research_sql(*, candidates: bool = False) -> str:
-    candidate_gate = " AND e.uuid=ANY(CAST(:candidate_ids AS uuid[]))" if candidates else ""
+    candidate_gate = (
+        """ AND e.uuid=ANY(CAST(:candidate_ids AS uuid[]))
+        AND (cardinality(CAST(:genre_keys AS text[]))=0 OR EXISTS (
+            SELECT 1 FROM uranus.event_type_link genre
+            WHERE genre.event_uuid=e.uuid AND genre.genre_id<>0
+            AND (genre.type_id::text || ':' || genre.genre_id::text)
+                =ANY(CAST(:genre_keys AS text[]))))"""
+        if candidates
+        else ""
+    )
     branches = []
     for kind, alias, table in (("venue", "v", "venue"), ("organization", "v", "organization")):
         link = "m.venue_id=v.uuid" if kind == "venue" else "m.organization_id=v.uuid"

@@ -16,7 +16,7 @@ Die serverseitige Registry in
 
 | Entity       | Collection                             | Dokumentversion          |
 | ------------ | -------------------------------------- | ------------------------ |
-| Event        | `kulturbytes_events_jina_v3_v1`        | `event-public-v2`        |
+| Event        | `kulturbytes_events_jina_v3_v1`        | `event-public-v3`        |
 | Venue        | `kulturbytes_venues_jina_v3_v1`        | `venue-public-v1`        |
 | Organization | `kulturbytes_organizations_jina_v3_v1` | `organization-public-v1` |
 
@@ -132,9 +132,10 @@ mit OR über eine einzelne `match.any`-Bedingung ([Qdrant Match Any](https://qdr
 ungültig. Events/Venues verwenden `area_ids`, Organisationen je nach explizitem
 Modus `home_area_ids` oder `activity_area_ids`. Andere Entity-Typen lehnen den
 Organisationsmodus ab.
-`semantic_hits()` prüft denselben OR-Filter defensiv nach. Die neuen Collections sind
-noch nicht an den bestehenden event-only Research-Endpunkt angeschlossen: Eine zukünftige Ortsauflösung muss „Husum“ auf einen
-existierenden Research-Area-Identifier auflösen und diesen Filter anwenden.
+`semantic_hits()` prüft denselben OR-Filter defensiv nach. Der event-only
+Research-Endpunkt nutzt diesen Filter bei strukturierten Anfragen mit `area_ids`.
+Eine zukünftige Ortsauflösung muss „Husum“ auf einen existierenden
+Research-Area-Identifier auflösen und diesen Filter anwenden.
 Ein Organisationsname „Flensburger Veranstaltungsgesellschaft mbH“ darf weder
 Husumer Events ausschließen noch Flensburger Events durch den Husum-Filter lassen.
 Zeit-/Statuskombinationen brauchen weiterhin die autoritative SQL-Nachprüfung:
@@ -310,3 +311,45 @@ Kein Unit-Test ruft Nominatim oder einen echten Encoder auf.
 Vor einem späteren Produktionsindex bleiben: Live-Source-Katalogcheck, öffentlicher
 Freitext-Stichprobenreview, ONNX-Artefakt-/Versionsfreigabe, Lizenz-/Betriebsentscheidung,
 entityspezifische Retrieval-Benchmarks und gesonderte Reindex-/Deployment-Autorisierung.
+
+## Structured event genres (event-public-v3)
+
+The source DDL inspected at Uranus commit
+[`106ab24af97854e988f3c1b6c72b8ae2e9c1680f`](https://github.com/sndcds/uranus/tree/106ab24af97854e988f3c1b6c72b8ae2e9c1680f/ddl)
+(`genre_type.ddl`, `event_type_link.ddl`) provides **no global uniqueness constraint
+on genre_id**. `genre_type` is a translated lookup without a primary/unique key;
+the link is unique on `(event_uuid, type_id, genre_id)`. The lookup and assignment
+identity is therefore the pair `(type_id, genre_id)`, represented as canonical
+signed int32 decimal strings `type_id:genre_id`. Genre `0` means no genre assignment
+and is excluded. This is repository DDL evidence, not a fresh live catalog audit.
+
+`TYPES_SQL` projects both source IDs and chooses one nonblank translated name per
+pair (German, English, then deterministic language/name ordering). Every semantic
+event payload contains sorted, deduplicated `genre_keys` and sanitized `genre_names`,
+including empty arrays for events without genres. Unresolved nonzero assignment
+keys remain metadata even if a name is unavailable. Names are independently
+sorted/deduplicated, not a positional mapping to keys. `category_ids` is unchanged.
+The `Genres: ...` content line still contributes names to the embedding; neither
+IDs nor filter values are inferred from prose.
+
+The event payload version increases from `event-public-v2` to `event-public-v3`.
+Collection name, owner, model version and content-derived point identity stay
+unchanged. A later authorized `plan`/`sync`/`reconcile` compares the new payload to
+existing points. The version/genre metadata update overwrites payloads and reuses
+vectors when chunk text and embedding model/version are unchanged. Genre name
+changes that alter semantic content require embedding changed chunks and removal
+of superseded chunks. A second reconcile is unchanged. A complete reconcile also
+removes no-longer-public/deleted events; bounded snapshots never delete unselected
+entities. Old v2 payloads are rejected by v3 evidence validation until backfilled.
+The legacy benchmark `event-public-v1` document contract is unchanged.
+
+No PostgreSQL migration, grants or source writes are required. Do not treat this
+code change as a completed production backfill. No production sync, Qdrant mutation
+or deployment was performed for this implementation.
+
+Qdrant event search accepts `genre_keys` (1–50 entries when supplied) with array
+`match.any`. Venues, organizations and the legacy pilot collection reject this
+filter. `area_ids` supports 1–50 areas, including the existing organization
+home/activity distinction. Each dimension contributes a separate `must` clause:
+OR within areas, OR within genres, AND between the dimensions. See the
+[Research API examples](semantic-search-pilot.md#structured-genre-and-area-filters).

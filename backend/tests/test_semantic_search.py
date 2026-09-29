@@ -73,7 +73,7 @@ def retrieval(settings, monkeypatch):
 
     transport = httpx.MockTransport(respond)
     monkeypatch.setattr(service, "Encoder", lambda s, m: Encoder(s, m, transport))
-    monkeypatch.setattr(service, "Qdrant", lambda s, m: Qdrant(s, m, transport))
+    monkeypatch.setattr(service, "Qdrant", lambda s, m, **kwargs: Qdrant(s, m, transport, **kwargs))
 
     async def connection(request: Request):
         yield object()

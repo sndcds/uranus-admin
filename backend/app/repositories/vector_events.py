@@ -56,7 +56,7 @@ TYPES_SQL = """WITH types AS (
     WHERE NULLIF(trim(name),'') IS NOT NULL
     ORDER BY type_id,genre_id,CASE iso_639_1 WHEN 'de' THEN 0 WHEN 'en' THEN 1 ELSE 2 END,
         iso_639_1 COLLATE "C" NULLS LAST,name COLLATE "C"
-) SELECT l.event_uuid,t.name type_name,g.name genre_name
+) SELECT l.event_uuid,l.type_id,l.genre_id,t.name type_name,g.name genre_name
 FROM uranus.event_type_link l LEFT JOIN types t ON t.type_id=l.type_id
 LEFT JOIN genres g ON g.type_id=l.type_id AND g.genre_id=l.genre_id AND l.genre_id<>0
 WHERE l.event_uuid=ANY(CAST(:ids AS uuid[]))
@@ -210,7 +210,9 @@ async def extract_events(
             ),
         )
         row["type_names"] = [t["type_name"] for t in by_type[row["entity_id"]]]
-        row["genre_names"] = [t["genre_name"] for t in by_type[row["entity_id"]]]
+        genres = [t for t in by_type[row["entity_id"]] if t["genre_id"] != 0]
+        row["genre_keys"] = sorted({f"{t['type_id']}:{t['genre_id']}" for t in genres})
+        row["genre_names"] = sorted({t["genre_name"] for t in genres if t["genre_name"]})
         locations: dict[str, dict[str, Any]] = {}
         for date in event_dates:
             point = location(date["latitude"], date["longitude"])

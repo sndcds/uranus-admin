@@ -16,6 +16,7 @@ from app.errors import APIError
 from app.repositories.research import rehydrate_semantic_events
 from app.repositories.research_areas import request_area, request_areas
 from app.research.search_gateway import retrieve_candidates
+from app.research.semantic_evidence import semantic_hits
 from app.research.vector_models import MODELS
 from app.research.vector_sync import deduplicate
 from app.research.vector_transport import Encoder, Qdrant
@@ -29,7 +30,8 @@ async def semantic_search(
     request: Request, settings: Settings, filters: SemanticResearchFilters
 ) -> ResearchPage:
     started = perf_counter()
-    gateway = settings.semantic_search_url
+    structured = bool(filters.genre_keys or filters.area_ids)
+    gateway = settings.semantic_search_url if not structured else None
     metrics: dict[str, float | int | str | None] = {
         "embedding_ms": None if gateway else 0.0,
         "qdrant_ms": None if gateway else 0.0,
@@ -51,24 +53,53 @@ async def semantic_search(
             else:
                 encoder = Encoder(settings, MODEL)
                 stack.push_async_callback(encoder.http.close)
-                qdrant = Qdrant(settings, MODEL)
+                qdrant = (
+                    Qdrant(settings, MODEL, entity="event")
+                    if structured
+                    else Qdrant(settings, MODEL)
+                )
                 stack.push_async_callback(qdrant.http.close)
                 vector = (await encoder.embed([filters.q.strip()], query=True))[0]
                 metrics[stage] = round((perf_counter() - before) * 1000, 2)
                 stage, before = "qdrant_ms", perf_counter()
-                hits = await qdrant.search(vector, 50)
+                if structured:
+                    hits = await qdrant.search(
+                        vector,
+                        50,
+                        area_id=filters.area_id,
+                        area_ids=filters.area_ids or None,
+                        genre_keys=filters.genre_keys or None,
+                    )
+                else:
+                    hits = await qdrant.search(vector, 50)
                 if len(hits) > 50:
                     raise ValueError("invalid_candidate_count")
-                # Eligibility is deliberately NOT inferred from these payloads.
-                hits = [
-                    hit
-                    for hit in hits
-                    if hit["payload"].get("entity_type") == "event"
-                    and hit["payload"].get("index_owner") == "uranus-admin-event-pilot-v1"
-                ]
-                allowed = {str(UUID(hit["payload"]["entity_id"])) for hit in hits}
-                ranked = deduplicate(hits, allowed, MODELS[MODEL], limit=50)
-                candidates = [UUID(hit["payload"]["entity_id"]) for hit in ranked]
+                # Only source rehydration decides public eligibility in either collection.
+                if structured:
+                    allowed_ids = {UUID(hit["payload"]["entity_id"]) for hit in hits}
+                    candidates = [
+                        hit.entity_id
+                        for hit in semantic_hits(
+                            hits,
+                            allowed_ids,
+                            MODELS[MODEL],
+                            entity="event",
+                            limit=50,
+                            area_id=filters.area_id,
+                            area_ids=filters.area_ids,
+                        )
+                    ]
+                else:
+                    # Eligibility is deliberately NOT inferred from these payloads.
+                    hits = [
+                        hit
+                        for hit in hits
+                        if hit["payload"].get("entity_type") == "event"
+                        and hit["payload"].get("index_owner") == "uranus-admin-event-pilot-v1"
+                    ]
+                    allowed = {str(UUID(hit["payload"]["entity_id"])) for hit in hits}
+                    ranked = deduplicate(hits, allowed, MODELS[MODEL], limit=50)
+                    candidates = [UUID(hit["payload"]["entity_id"]) for hit in ranked]
             metrics["candidate_count"] = len(candidates)
             metrics[stage] = round((perf_counter() - before) * 1000, 2)
             metrics["retrieval_ms"] = round((perf_counter() - started) * 1000, 2)
@@ -82,7 +113,12 @@ async def semantic_search(
             )
             async with asynccontextmanager(get_connection)(request) as connection:
                 page = await rehydrate_semantic_events(
-                    connection, settings, filters, candidates, datetime.now(UTC), area
+                    connection,
+                    settings,
+                    filters,
+                    candidates,
+                    datetime.now(UTC),
+                    area,
                 )
             metrics["returned_count"] = len(page.items)
             return page

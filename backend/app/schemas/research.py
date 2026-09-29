@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.research.area_selection import MAX_AREA_IDS, normalize_area_ids
 from app.schemas.finding import Pagination
+from app.schemas.genre import GenreKey
 
 ResearchType = Literal["event", "venue", "organization"]
 ResearchStatus = Literal["released", "cancelled", "deferred", "rescheduled"]
@@ -47,6 +48,12 @@ class SemanticResearchFilters(ResearchFilterFields):
     entity_type: Literal["event"] = "event"
     page: int = Field(default=1, ge=1, le=1)
     page_size: int = Field(default=20, ge=1, le=20)
+    genre_keys: list[GenreKey] = Field(default_factory=list, max_length=50)
+
+    @model_validator(mode="after")
+    def structured_filters(self) -> "SemanticResearchFilters":
+        self.genre_keys = sorted(set(self.genre_keys))
+        return self
 
     @model_validator(mode="after")
     def selected_areas(self) -> "SemanticResearchFilters":
