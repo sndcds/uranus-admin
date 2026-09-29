@@ -14,7 +14,7 @@ from app.config import Settings
 from app.database import get_connection
 from app.errors import APIError
 from app.repositories.research import rehydrate_semantic_events
-from app.repositories.research_areas import request_area
+from app.repositories.research_areas import request_area, request_areas
 from app.research.search_gateway import retrieve_candidates
 from app.research.vector_models import MODELS
 from app.research.vector_sync import deduplicate
@@ -75,7 +75,11 @@ async def semantic_search(
             stage, before = "postgres_rehydrate_ms", perf_counter()
             # Acquire the reader only after retrieval. No old snapshot, pool slot or
             # DB transaction is held while calling the encoder or Qdrant.
-            area = await request_area(request, filters.area_id)
+            area = (
+                await request_areas(request, filters.area_ids)
+                if filters.area_ids is not None
+                else await request_area(request, filters.area_id)
+            )
             async with asynccontextmanager(get_connection)(request) as connection:
                 page = await rehydrate_semantic_events(
                     connection, settings, filters, candidates, datetime.now(UTC), area

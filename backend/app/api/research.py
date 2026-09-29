@@ -60,7 +60,7 @@ async def semantic(
     settings: SettingsDep,
     filters: Annotated[SemanticResearchFilters, Query()],
 ) -> ResearchPage:
-    """Experimental event-only retrieval with current public source rehydration."""
+    """Experimental event-only retrieval; repeated area_ids are ORed at rehydration."""
     return await semantic_search(request, settings, filters)
 
 

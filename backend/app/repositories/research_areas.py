@@ -11,6 +11,7 @@ from app.admin_database import connect_admin
 from app.errors import APIError
 from app.repositories.entities import pagination
 from app.repositories.entity_search import escape_search
+from app.research.area_selection import normalize_area_ids
 from app.schemas.research_areas import AreaFilters, AreaGeometry, AreaPage, ResearchArea
 
 AREA_COLUMNS = """id,area_type,country_code,region_code,name,display_name,
@@ -28,6 +29,37 @@ class ResolvedResearchArea:
     area: ResearchArea
     ewkb: bytes
     geometry: AreaGeometry | None = None
+
+
+@dataclass(frozen=True)
+class ResolvedResearchAreas:
+    area_ids: tuple[UUID, ...]
+    ewkb: bytes
+
+
+async def resolve_areas(admin: AsyncConnection, identifiers: list[UUID]) -> ResolvedResearchAreas:
+    """Resolve all selected boundaries in one snapshot; their union means OR."""
+    selected = normalize_area_ids(area_ids=identifiers)
+    assert selected is not None
+    row = (
+        (
+            await admin.execute(
+                text("""SELECT count(*) area_count, ST_AsEWKB(ST_Union(geometry)) ewkb
+                FROM admin.research_area WHERE id=ANY(CAST(:ids AS uuid[]))"""),
+                {"ids": selected},
+            )
+        )
+        .mappings()
+        .one()
+    )
+    if row["area_count"] != len(selected):
+        raise APIError(404, "research_area_not_found", "Research area was not found.")
+    return ResolvedResearchAreas(tuple(selected), bytes(row["ewkb"]))
+
+
+async def request_areas(request: Request, identifiers: list[UUID]) -> ResolvedResearchAreas:
+    async with connect_admin(request) as admin:
+        return await resolve_areas(admin, identifiers)
 
 
 async def area_page(admin: AsyncConnection, filters: AreaFilters) -> AreaPage:

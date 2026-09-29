@@ -48,6 +48,36 @@ selection; they do not change the embedding or infer criteria from the text.
 A phrase mentioning Flensburg or “next week” remains semantic text. No municipality,
 period, price or other constraint is automatically extracted.
 
+### Multiple Research Areas
+
+The event-only endpoint also accepts repeated `area_ids` UUID query parameters.
+Areas are **ORed**: an event qualifies when a current public occurrence matches
+any selected area (and the other structured filters). For example, substitute the
+persisted Research Area UUIDs for Flensburg, Aabenraa and Sønderborg:
+
+```text
+/api/v1/research/semantic-search?q=Kultur&area_ids=<flensburg>&area_ids=<aabenraa>&area_ids=<sonderborg>
+```
+
+The query text parameter remains `q`. Existing `area_id=<uuid>` callers keep their
+single-area behavior. Supply either `area_id` or `area_ids`, never both. A list must
+contain 1–50 UUID entries; duplicates are removed. An empty or invalid UUID value,
+an oversized list or mixed parameter forms return 422. Every requested area must
+exist; an unknown ID returns 404 even if retrieval has no candidates. Known areas
+with no matching events return an empty successful result.
+
+The existing pilot/gateway still retrieves bounded candidates before source
+filtering. Selected boundaries are resolved together and unioned, then checked
+against current authoritative points during the unchanged public rehydration.
+This does not switch the endpoint to the newer semantic collections, add venue or
+organization API retrieval, or change embedding, ranking or score behavior.
+The internal semantic collection transport and evidence checks support OR filters
+for events/venues (`area_ids`) and organizations (`home_area_ids` or
+`activity_area_ids`, selected by an explicit `organization_mode`).
+
+No UI multi-select, location-name resolution or natural-language parsing is added.
+No index rebuild, database migration, grant change or worker change is required.
+
 ## UI behavior and limitations
 
 Existing `ResearchFilters`, `ResearchResult`, map/table/list views, dossier links,

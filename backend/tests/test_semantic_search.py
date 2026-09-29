@@ -504,3 +504,119 @@ async def test_foreign_and_obsolete_chunks_cannot_influence_ranking(client, head
     retrieval["hits"] = [hit(32, 0.9), hit(30, 0.7), foreign, obsolete]
     assert (await client.get(PATH, headers=headers, params={"q": "creative"})).status_code == 200
     assert retrieval["rehydrate"].call_args.args[3] == [uid(32), uid(30)]
+
+
+@pytest.mark.parametrize("gateway", [False, True])
+@pytest.mark.parametrize("known", [True, False])
+async def test_repeated_area_query_resolves_all_or_rejects_unknown(
+    client, headers, retrieval, monkeypatch, settings, gateway, known
+):
+    result = Mock()
+    result.mappings.return_value.one.return_value = {
+        "area_count": 2 if known else 1,
+        "ewkb": b"synthetic-union",
+    }
+    admin = AsyncMock()
+    admin.execute.return_value = result
+
+    @asynccontextmanager
+    async def connect(request):
+        yield admin
+
+    monkeypatch.setattr(research_areas, "connect_admin", connect)
+    if gateway:
+        settings.semantic_search_url = "https://search.example.test/search"
+        monkeypatch.setattr(service, "retrieve_candidates", AsyncMock(return_value=[]))
+    retrieval["hits"] = []
+    retrieval["rehydrate"].return_value = retrieval["rehydrate"].return_value.model_copy(
+        update={"items": []}
+    )
+    response = await client.get(
+        PATH,
+        headers=headers,
+        params=[
+            ("q", "creative"),
+            ("area_ids", str(uid(991))),
+            ("area_ids", str(uid(992))),
+            ("area_ids", str(uid(991))),
+        ],
+    )
+    assert response.status_code == (200 if known else 404)
+    admin.execute.assert_awaited_once()
+    assert admin.execute.call_args.args[1] == {"ids": [uid(991), uid(992)]}
+    if known:
+        assert response.json()["items"] == []
+        args = retrieval["rehydrate"].call_args.args
+        assert args[2].area_ids == [uid(991), uid(992)]
+        assert args[-1] == research_areas.ResolvedResearchAreas(
+            (uid(991), uid(992)), b"synthetic-union"
+        )
+    else:
+        assert response.json()["error"]["code"] == "research_area_not_found"
+        retrieval["rehydrate"].assert_not_awaited()
+
+
+@pytest.mark.parametrize("areas", [["invalid"], [""], [str(uid(991))] * 51])
+async def test_invalid_multi_area_api_input(client, headers, retrieval, areas):
+    response = await client.get(PATH, headers=headers, params={"q": "creative", "area_ids": areas})
+    assert response.status_code == 422
+    assert not retrieval["requests"]
+
+
+async def test_conflicting_area_query_rejected(client, headers, retrieval):
+    response = await client.get(
+        PATH,
+        headers=headers,
+        params={"q": "creative", "area_id": str(uid(991)), "area_ids": [str(uid(991))]},
+    )
+    assert response.status_code == 422
+    assert not retrieval["requests"]
+
+
+def test_empty_area_list_and_unresolved_multi_area_fail_closed(settings):
+    from pydantic import ValidationError
+
+    from app.repositories.research import parameters
+
+    with pytest.raises(ValidationError):
+        SemanticResearchFilters(q="creative", area_ids=[])
+    filters = SemanticResearchFilters(q="creative", area_ids=[uid(991), uid(992)])
+    for area in (None, research_areas.ResolvedResearchAreas((uid(991),), b"wrong")):
+        with pytest.raises(APIError, match="Research areas must be resolved"):
+            parameters(filters, settings, area)
+
+
+@pytest.mark.parametrize(
+    "longitude,expected", [(9.5, True), (11.5, True), (10.5, False), (12.5, False)]
+)
+async def test_multi_area_source_rehydration_or_and_current_occurrence(
+    admin_store, db_connection, settings, longitude, expected
+):
+    # Two disjoint synthetic areas: a point in either qualifies, the gap does not.
+    for identifier, lon in [(uid(991), 9), (uid(992), 11)]:
+        await db_connection.execute(
+            text("""INSERT INTO admin.research_area
+          (id,area_type,country_code,region_code,name,display_name,osm_type,osm_id,osm_admin_level,
+           geometry,centroid,source,retrieved_at,created_at,updated_at)
+          VALUES (:id,'municipality','DE','DE-SH','Fixture','Fixture','R',:osm_id,8,
+           ST_Multi(ST_MakeEnvelope(:lon,54,:lon+1,55,4326)),
+           ST_SetSRID(ST_Point(:lon+0.5,54.5),4326),'osm',now(),now(),now())"""),
+            {"id": identifier, "lon": lon, "osm_id": lon},
+        )
+    await db_connection.execute(
+        text(
+            "UPDATE uranus.venue SET point=ST_SetSRID(ST_Point(:lon,54.5),4326) "
+            "WHERE uuid IN (:a,:b)"
+        ),
+        {"lon": longitude, "a": uid(20), "b": uid(21)},
+    )
+    areas = await research_areas.resolve_areas(db_connection, [uid(991), uid(992)])
+    page = await rehydrate_semantic_events(
+        db_connection,
+        settings,
+        SemanticResearchFilters(q="creative", area_ids=[uid(991), uid(992)]),
+        [uid(30)],
+        datetime.now(UTC),
+        areas,
+    )
+    assert bool(page.items) is expected

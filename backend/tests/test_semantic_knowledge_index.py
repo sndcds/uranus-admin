@@ -2,7 +2,7 @@
 
 import json
 from copy import deepcopy
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -568,6 +568,116 @@ async def test_geography_filter_sent_before_vector_ranking(settings, entity, mod
     q = Qdrant(vector_settings(settings), "jina-v3", httpx.MockTransport(serve), entity=entity)
     try:
         await q.search([1.0] + [0.0] * 1023, 10, area_id=area, organization_mode=mode)
-        assert requests[0]["filter"] == {"must": [{"key": key, "match": {"value": str(area)}}]}
+        assert requests[0]["filter"] == {"must": [{"key": key, "match": {"any": [str(area)]}}]}
     finally:
         await q.http.close()
+
+
+@pytest.mark.parametrize(
+    "entity,mode,key",
+    [
+        ("event", None, "area_ids"),
+        ("venue", None, "area_ids"),
+        ("organization", "home", "home_area_ids"),
+        ("organization", "activity", "activity_area_ids"),
+    ],
+)
+@pytest.mark.parametrize(
+    "selection", ["single", "one_item", "multiple", "duplicates", "no_matches"]
+)
+async def test_synthetic_multi_area_transport_and_evidence(settings, entity, mode, key, selection):
+    """Synthetic Qdrant boundary: apply its wire filter before ranking/limiting."""
+    flensburg, aabenraa, sonderborg, husum, elsewhere = [uuid4() for _ in range(5)]
+    memberships = [[flensburg], [aabenraa], [sonderborg], [flensburg, husum], [husum], []]
+    points = []
+    for areas in memberships:
+        doc = sample(entity)
+        payload = next(iter(plan(doc).desired.values()))[1]
+        payload[key] = [str(area) for area in areas]
+        # A different organization mode must never grant membership.
+        if entity == "organization":
+            other = "activity_area_ids" if mode == "home" else "home_area_ids"
+            payload[other] = [str(flensburg), str(aabenraa), str(sonderborg)]
+        points.append({"score": 0.8, "payload": payload})
+    requested = {
+        "single": {"area_id": flensburg},
+        "one_item": {"area_ids": [flensburg]},
+        "multiple": {"area_ids": [flensburg, aabenraa, sonderborg]},
+        "duplicates": {"area_ids": [flensburg, aabenraa, flensburg, sonderborg]},
+        "no_matches": {"area_ids": [elsewhere]},
+    }[selection]
+    expected_indices = {
+        "single": [0, 3],
+        "one_item": [0, 3],
+        "multiple": [0, 1, 2, 3],
+        "duplicates": [0, 1, 2, 3],
+        "no_matches": [],
+    }[selection]
+    expected = {UUID(points[i]["payload"]["entity_id"]) for i in expected_indices}
+
+    def serve(request):
+        body = json.loads(request.content)
+        conditions = body["filter"]["must"]
+        assert len(conditions) == 1  # Repeated must clauses would mean AND.
+        condition = conditions[0]
+        assert condition["key"] == key
+        values = condition["match"]["any"]
+        assert len(values) == len(set(values))
+        matches = [p for p in points if set(p["payload"][key]).intersection(values)]
+        return httpx.Response(200, json={"result": {"points": matches[: body["limit"]]}})
+
+    qdrant = Qdrant(vector_settings(settings), "jina-v3", httpx.MockTransport(serve), entity=entity)
+    try:
+        hits = await qdrant.search([1.0] * 1024, 10, organization_mode=mode, **requested)
+    finally:
+        await qdrant.http.close()
+    allowed = {UUID(p["payload"]["entity_id"]) for p in points}
+    assert {UUID(h["payload"]["entity_id"]) for h in hits} == expected
+    for candidates in (hits, points):  # Also reject out-of-area provider results defensively.
+        evidence = semantic_hits(
+            candidates, allowed, MODEL, entity=entity, organization_mode=mode, **requested
+        )
+        assert {h.entity_id for h in evidence} == expected
+        assert all(h.score == 0.8 for h in evidence)
+
+
+@pytest.mark.parametrize(
+    "entity,kwargs,error",
+    [
+        ("event", {"area_ids": []}, "invalid_area_count"),
+        ("event", {"area_ids": [uuid4()] * 51}, "invalid_area_count"),
+        ("event", {"area_id": uuid4(), "area_ids": [uuid4()]}, "conflicting_area_filters"),
+        ("event", {"area_id": uuid4(), "area_ids": []}, "conflicting_area_filters"),
+        ("organization", {"area_ids": [uuid4()]}, "organization_area_mode_required"),
+        ("event", {"area_ids": [uuid4()], "organization_mode": "home"}, "unexpected_organization"),
+        (
+            "venue",
+            {"area_ids": [uuid4()], "organization_mode": "activity"},
+            "unexpected_organization",
+        ),
+        ("organization", {"organization_mode": "home"}, "area_id_required"),
+    ],
+)
+async def test_invalid_area_selection_rejected_before_transport(settings, entity, kwargs, error):
+    def serve(request):
+        pytest.fail("Invalid filters must not reach Qdrant")
+
+    qdrant = Qdrant(vector_settings(settings), "jina-v3", httpx.MockTransport(serve), entity=entity)
+    try:
+        with pytest.raises(ValueError, match=error):
+            await qdrant.search([1.0] * 1024, 10, **kwargs)
+    finally:
+        await qdrant.http.close()
+    with pytest.raises(ValueError, match=error):
+        area_filter(entity, **kwargs)
+    with pytest.raises(ValueError, match=error):
+        semantic_hits([], set(), MODEL, entity=entity, **kwargs)
+
+
+async def test_pilot_index_still_rejects_area_filters(settings):
+    qdrant = Qdrant(vector_settings(settings), "jina-v3")
+    try:
+        with pytest.raises(ValueError, match="semantic_collection_required"):
+            await qdrant.search([1.0] * 1024, 10, area_ids=[uuid4()])
+    finally:
+        await qdrant.http.close()

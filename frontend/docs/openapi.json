@@ -21044,7 +21044,7 @@
           "Research"
         ],
         "summary": "Semantic",
-        "description": "Experimental event-only retrieval with current public source rehydration.",
+        "description": "Experimental event-only retrieval; repeated area_ids are ORed at rehydration.",
         "operationId": "semantic_api_v1_research_semantic_search_get",
         "security": [
           {
@@ -21233,6 +21233,28 @@
               "minimum": 1,
               "default": 20,
               "title": "Page Size"
+            }
+          },
+          {
+            "name": "area_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "minItems": 1,
+                  "maxItems": 50
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Area Ids"
             }
           }
         ],

@@ -145,3 +145,59 @@ describe('experimental semantic search', () => {
     if (status !== 200) expect(fetcher).not.toHaveBeenCalled()
   })
 })
+
+it('serializes semantic area IDs as repeated query parameters', async () => {
+  const areas = ['00000000-0000-4000-8000-000000000991', '00000000-0000-4000-8000-000000000992']
+  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+  await createAdminApi(fetcher).researchSemanticSearch({ q: 'creative', area_ids: areas })
+  const url = new URL(fetcher.mock.calls[0]![0], 'http://localhost')
+  expect(url.searchParams.getAll('area_ids')).toEqual(areas)
+})
+
+it.each([
+  ['semantic-search', ['00000000-0000-4000-8000-000000000991'], false, 200],
+  [
+    'semantic-search',
+    ['00000000-0000-4000-8000-000000000991', '00000000-0000-4000-8000-000000000992'],
+    false,
+    200,
+  ],
+  [
+    'semantic-search',
+    ['00000000-0000-4000-8000-000000000991', '00000000-0000-4000-8000-000000000991'],
+    false,
+    200,
+  ],
+  ['semantic-search', [''], false, 422],
+  ['semantic-search', ['bad', '00000000-0000-4000-8000-000000000991'], false, 422],
+  [
+    'semantic-search',
+    Array(51).fill('00000000-0000-4000-8000-000000000991') as string[],
+    false,
+    422,
+  ],
+  ['semantic-search', ['00000000-0000-4000-8000-000000000991'], true, 422],
+  ['search', ['00000000-0000-4000-8000-000000000991'], false, 422],
+])('bounds repeated areas to semantic search: %s %s', async (path, areas, single, status) => {
+  const query = new URLSearchParams({ q: 'creative' })
+  for (const area of areas) query.append('area_ids', area)
+  if (single) query.set('area_id', '00000000-0000-4000-8000-000000000991')
+  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+  const result = await forwardAdminRequest(
+    { path: `/api/v1/research/${path}`, method: 'GET', query, authorization: 'Bearer synthetic' },
+    'http://backend.invalid',
+    fetcher,
+  )
+  expect(result.status).toBe(status)
+  if (status === 200) {
+    expect(new URL(fetcher.mock.calls[0]![0]).searchParams.getAll('area_ids')).toEqual(areas)
+  } else expect(fetcher).not.toHaveBeenCalled()
+})
+
+it('rejects an explicit empty area list before it can become an unfiltered request', async () => {
+  const fetcher = vi.fn()
+  await expect(
+    createAdminApi(fetcher).researchSemanticSearch({ q: 'creative', area_ids: [] }),
+  ).rejects.toThrow()
+  expect(fetcher).not.toHaveBeenCalled()
+})

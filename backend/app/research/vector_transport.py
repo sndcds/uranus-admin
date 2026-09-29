@@ -12,6 +12,7 @@ import httpx
 
 from app.config import Settings
 from app.errors import APIError
+from app.research.area_selection import normalize_area_ids
 from app.research.semantic_contracts import COLLECTIONS, OWNER, EntityType, SemanticDocument
 from app.research.semantic_evidence import area_filter
 from app.research.vector_documents import Chunk, EventDocument, content_hash
@@ -195,17 +196,19 @@ class Qdrant:
         limit: int,
         *,
         area_id: UUID | None = None,
+        area_ids: list[UUID] | None = None,
         organization_mode: Literal["home", "activity"] | None = None,
     ) -> list[dict[str, Any]]:
         validate_vectors([vector], self.model, 1)
         if not 1 <= limit <= 10000:
             raise ValueError("invalid_search_limit")
         filters: dict[str, Any] = {}
-        if area_id is not None:
+        selected = normalize_area_ids(area_id, area_ids)
+        if selected is not None:
             if self.entity is None:
                 raise ValueError("semantic_collection_required_for_area_filter")
             filters["filter"] = area_filter(
-                self.entity, area_id, organization_mode=organization_mode
+                self.entity, area_ids=selected, organization_mode=organization_mode
             )
         elif organization_mode is not None:
             raise ValueError("area_id_required")

@@ -232,7 +232,10 @@ export async function forwardAdminRequest(
   const researchSemantic = input.path === '/api/v1/research/semantic-search'
   if (
     researchSemantic &&
-    !semanticResearchQuerySchema.safeParse(Object.fromEntries(input.query)).success
+    !semanticResearchQuerySchema.safeParse({
+      ...Object.fromEntries(input.query),
+      ...(input.query.has('area_ids') ? { area_ids: input.query.getAll('area_ids') } : {}),
+    }).success
   )
     return rejected(422, 'invalid_query')
   const researchList = /^\/api\/v1\/research\/(search|export|events|venues|organizations)$/.test(
@@ -268,6 +271,7 @@ export async function forwardAdminRequest(
           'organization_id',
           'venue_id',
           'area_id',
+          ...(researchSemantic ? ['area_ids'] : []),
           'sort',
           'page',
           'page_size',
@@ -402,7 +406,10 @@ export async function forwardAdminRequest(
   )
     return rejected(422, 'invalid_input')
   for (const key of input.query.keys()) {
-    if (!allowed.includes(key) || input.query.getAll(key).length !== 1) {
+    if (
+      !allowed.includes(key) ||
+      (input.query.getAll(key).length !== 1 && !(researchSemantic && key === 'area_ids'))
+    ) {
       return rejected(422, 'invalid_query')
     }
   }

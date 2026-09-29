@@ -123,11 +123,17 @@ Dänemarks Municipality-Level 7 werden unverändert wiederverwendet; keine pausc
 Level-8-Annahme in der Indexierung.
 
 `semantic_evidence.area_filter()` liefert den harten Qdrant-Payloadfilter.
-Der interne `Qdrant.search(..., area_id=..., organization_mode=...)`-Transport
+Der interne `Qdrant.search(..., area_ids=[...], organization_mode=...)`-Transport
 sendet ihn vor der Vektorrangfolge an Qdrant, damit ein Ortsfilter nicht erst
 nach einem begrenzten Kandidatenabruf greift.
-`semantic_hits()` kann denselben Filter defensiv nachprüfen. Die neue Search-API ist
-noch nicht angeschlossen: Eine zukünftige Ortsauflösung muss „Husum“ auf einen
+`area_ids` akzeptiert 1–50 UUIDs, entfernt Duplikate und verknüpft die Gebiete
+mit OR über eine einzelne `match.any`-Bedingung ([Qdrant Match Any](https://qdrant.tech/documentation/search/filtering/#match-any)).
+`area_id` bleibt kompatibel; beide Parameter gleichzeitig sowie leere Listen sind
+ungültig. Events/Venues verwenden `area_ids`, Organisationen je nach explizitem
+Modus `home_area_ids` oder `activity_area_ids`. Andere Entity-Typen lehnen den
+Organisationsmodus ab.
+`semantic_hits()` prüft denselben OR-Filter defensiv nach. Die neuen Collections sind
+noch nicht an den bestehenden event-only Research-Endpunkt angeschlossen: Eine zukünftige Ortsauflösung muss „Husum“ auf einen
 existierenden Research-Area-Identifier auflösen und diesen Filter anwenden.
 Ein Organisationsname „Flensburger Veranstaltungsgesellschaft mbH“ darf weder
 Husumer Events ausschließen noch Flensburger Events durch den Husum-Filter lassen.

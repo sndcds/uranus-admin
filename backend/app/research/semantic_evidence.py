@@ -4,6 +4,7 @@ import math
 from typing import Any, Literal
 from uuid import UUID
 
+from app.research.area_selection import normalize_area_ids
 from app.research.semantic_contracts import (
     COLLECTIONS,
     OWNER,
@@ -18,10 +19,14 @@ from app.research.vector_models import Model
 
 def area_filter(
     entity: EntityType,
-    area_id: UUID,
+    area_id: UUID | None = None,
     *,
+    area_ids: list[UUID] | None = None,
     organization_mode: Literal["home", "activity"] | None = None,
 ) -> dict[str, Any]:
+    selected = normalize_area_ids(area_id, area_ids)
+    if selected is None:
+        raise ValueError("area_id_required")
     if entity == "organization":
         if organization_mode not in {"home", "activity"}:
             raise ValueError("organization_area_mode_required")
@@ -30,7 +35,7 @@ def area_filter(
         if organization_mode is not None:
             raise ValueError("unexpected_organization_area_mode")
         key = "area_ids"
-    return {"must": [{"key": key, "match": {"value": str(area_id)}}]}
+    return {"must": [{"key": key, "match": {"any": [str(identifier) for identifier in selected]}}]}
 
 
 def semantic_hits(
@@ -42,11 +47,19 @@ def semantic_hits(
     limit: int = 10,
     supporting: int = 2,
     area_id: UUID | None = None,
+    area_ids: list[UUID] | None = None,
     organization_mode: Literal["home", "activity"] | None = None,
 ) -> list[SemanticHit]:
     if not 1 <= limit <= 50 or not 0 <= supporting <= 3 or len(hits) > 10000:
         raise ValueError("invalid_evidence_limits")
-    gate = area_filter(entity, area_id, organization_mode=organization_mode) if area_id else None
+    selected = normalize_area_ids(area_id, area_ids)
+    if selected is None and organization_mode is not None:
+        raise ValueError("area_id_required")
+    gate = (
+        area_filter(entity, area_ids=selected, organization_mode=organization_mode)
+        if selected is not None
+        else None
+    )
     grouped: dict[UUID, list[tuple[EvidenceChunk, str, str]]] = {}
     for hit in hits:
         score = hit.get("score")
@@ -67,8 +80,13 @@ def semantic_hits(
         identity = UUID(payload["entity_id"])
         if identity not in allowed:
             continue
-        if gate and str(area_id) not in payload.get(gate["must"][0]["key"], []):
-            continue
+        if gate:
+            condition = gate["must"][0]
+            memberships = payload.get(condition["key"], [])
+            if not isinstance(memberships, list) or not any(
+                identifier in memberships for identifier in condition["match"]["any"]
+            ):
+                continue
         text, name = payload["chunk_text"], payload["display_name"]
         if (
             not is_public_text(text)

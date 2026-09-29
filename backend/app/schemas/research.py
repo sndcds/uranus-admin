@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.research.area_selection import MAX_AREA_IDS, normalize_area_ids
 from app.schemas.finding import Pagination
 
 ResearchType = Literal["event", "venue", "organization"]
@@ -40,10 +41,19 @@ class ResearchFilters(ResearchFilterFields):
 
 
 class SemanticResearchFilters(ResearchFilterFields):
+    area_ids: list[UUID] | None = Field(default=None, min_length=1, max_length=MAX_AREA_IDS)
+
     q: str = Field(min_length=2, max_length=120, pattern=r"\S.*\S")
     entity_type: Literal["event"] = "event"
     page: int = Field(default=1, ge=1, le=1)
     page_size: int = Field(default=20, ge=1, le=20)
+
+    @model_validator(mode="after")
+    def selected_areas(self) -> "SemanticResearchFilters":
+        selected = normalize_area_ids(self.area_id, self.area_ids)
+        if self.area_ids is not None:
+            self.area_ids = selected
+        return self
 
 
 class ResearchCategory(BaseModel):
