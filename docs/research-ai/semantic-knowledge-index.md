@@ -29,7 +29,7 @@ Die serverseitige Registry in
 
 | Entity       | Collection                             | Dokumentversion          |
 | ------------ | -------------------------------------- | ------------------------ |
-| Event        | `kulturbytes_events_jina_v3_v1`        | `event-public-v3`        |
+| Event        | `kulturbytes_events_jina_v3_v1`        | `event-public-v4`        |
 | Venue        | `kulturbytes_venues_jina_v3_v1`        | `venue-public-v1`        |
 | Organization | `kulturbytes_organizations_jina_v3_v1` | `organization-public-v1` |
 
@@ -38,11 +38,11 @@ Entity-Semantik, Filter und vollständige Snapshots verlangen getrennte Reconcil
 und Collection-Lebenszyklen. Spätere parallele Suche kann ihre Ergebnisse zusammenführen.
 Browser und Requestparameter dürfen keine Collection-Namen auswählen.
 
-`SemanticDocument` enthält `entity_type`, UUID `entity_id`, `display_name`, bis zu fünf
-Sections und eine diskriminierte, geschlossene Payload. Pydantic verbietet unbekannte
+`SemanticDocument` enthält `entity_type`, UUID `entity_id`, `display_name`, bis zu 1.000 kontextgebundene
+Sections (weiterhin insgesamt höchstens 200.000 Zeichen) und eine diskriminierte, geschlossene Payload. Pydantic verbietet unbekannte
 Felder und nicht endliche Zahlen. IDs sind strukturierte Metadaten, keine Prosa.
 `extract_events()` bleibt ohne Zusatzargument beim bisherigen Event-v1-Vertrag;
-`semantic=True` wählt v2. `extract_venues()` und `extract_organizations()` sind eigene,
+`semantic=True` wählt Event-v4. `extract_venues()` und `extract_organizations()` sind eigene,
 explizite SQL-Projektionen und verwenden dieselben Public-/Location-/Area-Bausteine.
 
 ## Quelle, Sichtbarkeit und Feldlisten
@@ -67,15 +67,16 @@ Die Sichtbarkeit folgt der vorhandenen Research-Projektion:
 - `venue.scope` ist Nutzung (`organization`/`shared`), **kein Release-Status**.
   Unerwartete Werte scheitern an der Payload-Validierung; es wird nichts umgedeutet.
 
-Event-v2 verwendet die öffentliche Feldliste von Event-v1:
+Event-v4 verwendet folgende explizite öffentliche Feldliste:
 
-| Section       | Öffentliche Inhalte                                                                                                                                                                     |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| content       | title, subtitle, summary, description; übersetzte category/type/genre names; tags; content language und languages; Organization-Name, effektive Venue-/Space-Namen, Research-Area-Namen |
-| participation | participation_info, meeting_point, min/max_age, geprüfter online_link                                                                                                                   |
-| accessibility | accessibility_summary der effektiven Venue/Space sowie öffentliche date.accessibility_info                                                                                              |
-| tickets       | price_type, min/max_price, currency, bekannte Ticket-/Registrierungsflags, ticket_link, registration_link, registration_deadline                                                        |
-| additional    | source_link                                                                                                                                                                             |
+| Section          | Öffentliche Inhalte                                                                                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| content          | title, subtitle, summary, description; übersetzte category/type/genre names; tags; content language und languages; Organization-Name; Ortsnamen stehen separat in location_context |
+| participation    | participation_info, meeting_point, min/max_age, geprüfter online_link                                                                                                              |
+| accessibility    | accessibility_summary der effektiven Venue/Space sowie öffentliche date.accessibility_info                                                                                         |
+| tickets          | price_type, min/max_price, currency, bekannte Ticket-/Registrierungsflags, ticket_link, registration_link, registration_deadline                                                   |
+| location_context | effektive Venue-/Space-Namen und zugehörige Research-Area-Namen, jeweils mit passendem Kontext                                                                                     |
+| additional       | source_link                                                                                                                                                                        |
 
 Event-Payload: gemeinsamer Kern plus `title`, `organization_id`, `category_ids`,
 öffentlicher `status`, `language`, `venue_ids`, `space_ids`, `first_date`, `next_date`,
@@ -158,12 +159,15 @@ Eventweite Arrays beweisen keine Kombination von Datum und Ort desselben Termins
 
 Chunking bleibt `sections-480-overlap64-v2`: nativer Tokenizer, maximal 480 Tokens
 inklusive Modellpräfix und Spezialtokens, Überlappung 64, keine Trunkierung.
-Kurze Dokumente werden wie bisher zu einem `content`-Chunk kombiniert. Bei langen
-Dokumenten bleiben die tatsächlichen Section-Kinds erhalten. Neue erlaubte Kinds:
+Event-v4 trennt auch kurze Sections nach Kind und Kontext. Venue/Organization und der
+Legacy-Pilot behalten ihr bisheriges Chunking: kurze Dokumente werden zu `content`
+kombiniert. Tokenizer, 480/64-Splitting und Embedding-Version bleiben unverändert;
+die neue Section-Zusammenstellung ist durch die Dokumentversion v4 versioniert. Neue erlaubte Kinds:
 `facilities`, `location_context`, `activities`, `categories`; leere Sections entfallen.
 
 Jeder Punkt trägt den geschlossenen Entity-Payload plus `chunk_index`, `chunk_kind`,
-`chunk_text`, `content_hash`, `embedding_model`, `embedding_version`.
+`chunk_text`, `content_hash`, `embedding_model`, `embedding_version`; Event-v4 zusätzlich
+die erforderliche geschlossene Liste `evidence_contexts`.
 `chunk_text` ist exakt die an `/embed` übergebene normalisierte Passage, kein gesamtes
 Dokument. Maximal 480 Tokens und zusätzlich die bestehende 200.000-Zeichen-Schranke.
 Der Plan prüft Hash, Kontaktfreiheit und Zugehörigkeit zum materialisierten Dokument.
@@ -180,7 +184,9 @@ für Re-Embedding; ein veränderter `embedding_version` dagegen schon.
 
 `SemanticHit`: Entity-Typ/UUID, endlicher Score, öffentlicher `display_name`,
 `winning_chunk` und standardmäßig maximal zwei, absolut maximal drei `supporting_chunks`.
-Jeder Beleg enthält Kind, Text und Score. Höchster Chunk-Score ist Entity-Score;
+Jeder Beleg enthält Kind, Text, Score und intern seine expliziten Kontexte. Alle validierten
+Retrieval-Chunks bleiben bis zur Kontextprüfung in `candidate_chunks` erhalten, auch
+weitere Chunks desselben Kinds. Höchster **kontextgültiger** Chunk-Score ist finaler Entity-Score;
 Gleichstände werden deterministisch nach Kind/Hash/Name und danach Entity-UUID sortiert.
 Support-Kinds und Inhalte sind eindeutig. Es werden nur explizite Ergebnisfelder
 zurückgegeben, keine beliebigen Qdrant-Payloads.
@@ -201,6 +207,96 @@ Privacy-Review:
   Freitexte nötig; es wird keine perfekte Anonymisierung behauptet.
 - Keine Modellbegründung, keine Chain-of-Thought, keine LLM-Erklärung. Eine spätere
   „Warum dieser Treffer?“-Ansicht zeigt diese **Evidence**, nicht erfundenes Reasoning.
+
+## Kontextvertrag für Event-Evidence (event-public-v4)
+
+Event-level Retrieval kann mehrere öffentliche Occurrences und effektive Orte besitzen.
+Bisher wurden Venue-, Space- und Termin-Barrierefreiheit eventweit zusammengeführt;
+Ortsnamen standen zusätzlich im globalen Content. Ein höher bewerteter Beleg von Ort A
+konnte so einen von PostgreSQL ausgewählten Termin an Ort B erklären. Auch kurze
+Dokumente verloren beim Zusammenführen ihre Section-Grenzen. Die eventweite Liste
+`effective_locations` allein konnte diese Zuordnung nicht herstellen.
+
+Die lokale Uranus-DDL (`event.ddl`, `event_date.ddl`) wurde am oben genannten Commit
+geprüft. `event_date.uuid` ist bereits die stabile Terminidentität in der Research-SQL.
+Das ist keine neue Live-Schemaverifikation. Nur diese öffentlichen/technischen UUIDs
+werden ergänzt, keine Nutzer-IDs oder Source-JSON-Dumps.
+
+Jede Event-Section trägt beim Aufbau einen geschlossenen `EvidenceContext`:
+
+| scope      | Abgleich nach PostgreSQL-Rehydration                                                |
+| ---------- | ----------------------------------------------------------------------------------- |
+| event      | Eventweite Quelle ohne strukturierte Orts-/Terminbindung                            |
+| venue      | `venue_id` muss passen; anderer Raum am selben Ort ist erlaubt                      |
+| space      | `venue_id` und `space_id` müssen passen                                             |
+| occurrence | `occurrence_id`, `venue_id` und `space_id` müssen exakt passen, einschließlich null |
+
+Venue-Barrierefreiheit bleibt Venue-Evidence, Space-Barrierefreiheit bleibt Space-Evidence;
+`event_date.accessibility_info` wird termin- und ortsgebunden. `location_context`
+enthält ausschließlich die Namen des zugehörigen Ortes/Raums/Gebiets. Event-Content
+enthält keine aus anderen Orten zusammengeführten Location-Zeilen mehr.
+`participation` (einschließlich des unstrukturierten Event-Treffpunkts) und `additional`
+kommen aus Event-Feldern; die geprüfte Terminprojektion besitzt keine entsprechenden
+Overrides. Globale Preis-/Anmeldeangaben bleiben Event-Evidence. Ticket-URLs werden
+separat pro Termin gebunden: ein vorhandener `event_date.ticket_link` wird verwendet,
+sonst der Event-Link; ein vorhandener leerer/unsicherer Terminlink liefert keinen Beleg.
+Bei Events ohne Termine bleibt der Event-Link global. Freitext wird nicht mittels
+Ortsnamen, Koordinaten oder LLM interpretiert. In Event-Prosa verborgene Einschränkungen
+haben keine strukturierte Identität und können damit nicht automatisch aufgelöst werden.
+
+Ein Chunk führt `evidence_contexts` als explizites OR. Identische Texte desselben Kinds
+innerhalb eines Events teilen einen Punkt/Vektor und vereinigen ihre tatsächlich
+belegten Kontexte; unterschiedliche Texte/Orte werden nie zu einem Sammelbeleg
+zusammengefügt. Identische Boilerplate in verschiedenen Events bleibt erlaubt.
+Die Punkt-ID und der Texthash enthalten weiterhin keine Kontext-IDs. Reine
+Kontextänderungen aktualisieren deshalb nur die Metadaten. Der Plan prüft Text, Kind
+und jeden angegebenen Kontext gegen die materialisierten Sections.
+
+PostgreSQL entscheidet weiterhin Public Eligibility, Filter und den angezeigten Termin
+(die vorhandene deterministische Datums-/UUID-Auswahl bleibt erhalten). Die Termin-ID
+wird intern mitgeführt und nicht dem öffentlichen Response-Vertrag hinzugefügt.
+Erst danach werden **alle** validierten abgerufenen Chunks gegen den konkreten Record
+geprüft. Der beste passende Chunk wird Winning Evidence; sämtliche Supporting Evidence
+wird ebenfalls kontextgeprüft. Ohne passenden Chunk entfällt der Treffer vollständig.
+Es wird keine Ersatzbegründung erfunden und kein weiterer Ort ausgewählt, nur um
+Qdrant-Evidence passend zu machen.
+
+`semantic.score` ist exakt der Score des tatsächlich angezeigten finalen Evidence-Chunks,
+ohne Rundung oder Gewichtung. Erst nach Public Eligibility und Kontextprüfung wird
+absteigend nach diesem Score, bei Gleichstand nach Event-UUID sortiert; anschließend
+wird `page_size` angewendet. PostgreSQL rehydriert dafür bis zu 50 Event-Kandidaten statt
+vorzeitig auf 20 zu kürzen. Der Qdrant-Abruf bleibt bei 50 **Punkten**, nicht 50 Events;
+fehlende passende Chunks außerhalb dieses Fensters werden nicht nachgeladen.
+Maximal 20 Events, nur Seite 1; Counts beschreiben die zurückgegebene begrenzte Auswahl.
+Keine Threshold-/Ranking-Kalibrierung, kein Reranker. Kein Score ist eine Wahrscheinlichkeit.
+Keine Chain-of-Thought, keine LLM-Begründung: Label und Reason bleiben deterministisch.
+
+### Operatorwechsel v3 → v4
+
+Die Collection `kulturbytes_events_jina_v3_v1`, Owner, Modell und Embedding-Version
+bleiben gleich. Ein Event-Reconcile ist erforderlich; v3-Punkte gelten nicht als v4
+und werden bis zur Aktualisierung verworfen. Während eines Teilwechsels kann die Suche
+weniger oder keine Treffer liefern. Der Encoder benötigt den aktualisierten `/chunks`-
+Vertrag mit bis zu 1.000 Sections und Kontext-Roundtrip vor einem Operator-Plan.
+API und Indexer müssen denselben v4-Vertrag verwenden. Kein DB-Migrationsbedarf.
+
+Der Plan klassifiziert identische Punkte mit neuer Version/Kontext als `metadata_updated`
+(keine Embeddings); veränderte Texte bzw. getrennte bisher kombinierte Sections als neue
+Punkte mit Entfernung überholter Punkte; geänderte Embedding-Versionen als `updated`.
+Vektoren werden nur für neue/veränderte Texte oder Embedding-Verträge berechnet.
+Reine Kontextänderungen behalten Punkt-ID und Vektor; der nächste Plan ist unverändert.
+
+Nach separater Bereitstellung der kompatiblen Komponenten darf ein Betreiber zunächst
+nur diesen Plan prüfen (aus `backend/`):
+
+```sh
+uv run python -m app.research.vector_index plan --entity event --model jina-v3 --noncommercial-jina
+```
+
+Erst nach Prüfung des vollständigen Plans ist ein gesondert autorisierter Reconcile
+vorgesehen. Dieser Implementierungstask führt weder Live-Plan noch Produktions-Reconcile,
+Qdrant-Writes auf AWS, DB-Migration oder Deployment aus. Die Tests verwenden nur
+synthetische Fixtures, lokale wegwerfbare Datenbanken und Fake-Encoder.
 
 ## Snapshot, Sync und Plan
 
@@ -302,7 +398,11 @@ Zielruntime ist Jina v3 unter ONNX. Der interne HTTP-Vertrag bleibt unverändert
 später Query-Encoding mit `kind: "query"`. Antwort: 1024-dimensionale endliche,
 nicht-null Vektoren und exakt erwartete `embedding_version`. Die bestehende
 Normalisierung ist Bestandteil der Modellversion, Qdrant verwendet Cosine.
-`/chunks` liefert Text, Index, Kind, Hash und native Tokenzahl. Authentisierung,
+`/chunks` liefert Text, Index, Kind, Hash, native Tokenzahl und für Event-v4 explizite
+`contexts`; Eingabe-Sections tragen `context`. Encoder und Indexer müssen diesen
+Vertrag gemeinsam unterstützen. Für Sections ohne Kontext bleibt die Encoder-Antwort
+unverändert; bestehende Venue-/Organization-/Legacy-Clients erhalten kein neues Feld.
+Ein alter Encoder darf Event-v4-Kontext nicht still entfernen. Authentisierung,
 Timeouts, Bodylimits, keine Redirects und keine Environment-Proxies bleiben bestehen.
 
 Es wird kein ONNX-Artefakt, Modellgewicht oder Service ausgerollt. Die bestehende
@@ -345,7 +445,8 @@ sorted/deduplicated, not a positional mapping to keys. `category_ids` is unchang
 The `Genres: ...` content line still contributes names to the embedding; neither
 IDs nor filter values are inferred from prose.
 
-The event payload version increases from `event-public-v2` to `event-public-v3`.
+Historically, the genre change increased the payload version from `event-public-v2`
+to `event-public-v3`; the current context contract above supersedes it with v4.
 Collection name, owner, model version and content-derived point identity stay
 unchanged. A later authorized `plan`/`sync`/`reconcile` compares the new payload to
 existing points. The version/genre metadata update overwrites payloads and reuses

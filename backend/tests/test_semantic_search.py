@@ -22,13 +22,16 @@ from app.database import get_connection
 from app.errors import APIError
 from app.logging import JsonFormatter
 from app.repositories import research_areas
-from app.repositories.research import rehydrate_semantic_events, research_sql
+from app.repositories.research import (
+    RehydratedSemanticPage,
+    rehydrate_semantic_events,
+    research_sql,
+)
 from app.research.semantic_evidence import semantic_hits
 from app.research.vector_documents import content_hash
 from app.research.vector_models import MODELS
 from app.research.vector_transport import Encoder, Qdrant
 from app.schemas.research import (
-    ResearchPage,
     ResearchRecord,
     SemanticResearchFilters,
     SemanticResearchPage,
@@ -40,7 +43,11 @@ PATH = "/api/v1/research/semantic-search"
 
 
 def hit(
-    key: int, score: float = 0.8, kind: str = "content", chunk_text: str | None = None
+    key: int,
+    score: float = 0.8,
+    kind: str = "content",
+    chunk_text: str | None = None,
+    contexts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     chunk_text = chunk_text or f"Public evidence for event {key}"
     return {
@@ -50,7 +57,14 @@ def hit(
             "entity_type": "event",
             "index_owner": "kulturbytes-semantic-search-v1",
             "embedding_version": MODELS["jina-v3"].version,
-            "document_schema_version": "event-public-v3",
+            "document_schema_version": "event-public-v4",
+            "evidence_contexts": contexts
+            if contexts is not None
+            else (
+                [{"scope": "venue", "venue_id": str(uid(20))}]
+                if kind in {"accessibility", "location_context"}
+                else [{"scope": "event"}]
+            ),
             "display_name": f"Indexed event {key}",
             "chunk_kind": kind,
             "chunk_text": chunk_text,
@@ -95,8 +109,17 @@ def retrieval(settings, monkeypatch):
         yield object()
 
     monkeypatch.setattr(service, "get_connection", connection)
-    page = ResearchPage(
-        items=[ResearchRecord(entity_type="event", entity_key=uid(30), name="Current")],
+    page = RehydratedSemanticPage(
+        occurrence_ids={uid(30): uid(40)},
+        items=[
+            ResearchRecord(
+                entity_type="event",
+                entity_key=uid(30),
+                name="Current",
+                venue_id=uid(20),
+                space_id=uid(25),
+            )
+        ],
         pagination={"page": 1, "page_size": 20, "pages": 1, "total": 1},
         observed_at=datetime.now(UTC),
         timezone="Europe/Berlin",
@@ -247,7 +270,7 @@ async def test_known_area_without_matches_returns_empty_page(
         "updated_at": datetime.now(UTC),
         "ewkb": b"synthetic-boundary",
     }
-    retrieval["rehydrate"].return_value = ResearchPage(
+    retrieval["rehydrate"].return_value = RehydratedSemanticPage(
         items=[],
         pagination={"page": 1, "page_size": 20, "pages": 0, "total": 0},
         observed_at=datetime.now(UTC),
@@ -459,9 +482,9 @@ async def test_rehydration_bound_and_read_only_transaction(db_connection, settin
         candidates,
         datetime.now(UTC),
     )
-    assert len(page.items) == 20
-    assert [i.entity_key for i in page.items] == candidates[:20]
-    assert page.pagination.total == 20 and page.pagination.pages == 1
+    assert len(page.items) == 30
+    assert [i.entity_key for i in page.items] == candidates
+    assert page.pagination.total == 30 and page.pagination.pages == 1
 
 
 async def test_rehydration_runs_in_read_only_transaction(db_connection, settings):
@@ -507,7 +530,7 @@ async def test_semantic_area_filter_uses_current_occurrence(
 
 
 async def test_rehydrate_empty_candidates_and_page_size(db_connection, settings):
-    for ids, size, expected in [([], 20, []), ([uid(32), uid(30)], 1, [uid(32)])]:
+    for ids, size, expected in [([], 20, []), ([uid(32), uid(30)], 1, [uid(32), uid(30)])]:
         result = await rehydrate_semantic_events(
             db_connection,
             settings,
@@ -879,3 +902,200 @@ async def test_api_uses_current_postgres_eligibility_and_rank(
     ][:page_size]
     assert "Public evidence for event 31" not in response.text
     assert "Public evidence for event 999999" not in response.text
+
+
+def venue_context(key=20):
+    return [{"scope": "venue", "venue_id": str(uid(key))}]
+
+
+@pytest.mark.parametrize(
+    "contexts,expected",
+    [
+        (venue_context(), True),
+        (venue_context(21), False),
+        ([{"scope": "space", "venue_id": str(uid(20)), "space_id": str(uid(25))}], True),
+        ([{"scope": "space", "venue_id": str(uid(20)), "space_id": str(uid(26))}], False),
+        (
+            [
+                {
+                    "scope": "occurrence",
+                    "venue_id": str(uid(20)),
+                    "space_id": str(uid(25)),
+                    "occurrence_id": str(uid(40)),
+                }
+            ],
+            True,
+        ),
+        (
+            [
+                {
+                    "scope": "occurrence",
+                    "venue_id": str(uid(20)),
+                    "space_id": str(uid(25)),
+                    "occurrence_id": str(uid(41)),
+                }
+            ],
+            False,
+        ),
+        ([{"scope": "occurrence", "venue_id": str(uid(20)), "occurrence_id": str(uid(40))}], False),
+        (
+            [
+                {
+                    "scope": "occurrence",
+                    "venue_id": str(uid(21)),
+                    "space_id": str(uid(25)),
+                    "occurrence_id": str(uid(40)),
+                }
+            ],
+            False,
+        ),
+        ([*venue_context(21), *venue_context()], True),
+    ],
+)
+@pytest.mark.parametrize("kind", ["accessibility", "location_context", "tickets"])
+async def test_evidence_scope_matches_authoritative_record(
+    client, headers, retrieval, contexts, expected, kind
+):
+    retrieval["hits"] = [hit(30, 0.59, kind, "Scoped public evidence", contexts)]
+    response = await client.get(PATH, headers=headers, params={"q": "barrierefreie Kulturangebote"})
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert bool(items) == expected
+    assert response.json()["pagination"]["total"] == int(expected)
+    if expected:
+        assert items[0]["semantic"]["score"] == 0.59
+        assert items[0]["semantic"]["matched_aspect"] == kind
+    else:
+        assert "Scoped public evidence" not in response.text
+
+
+@pytest.mark.parametrize("fallback", [None, "content", "accessibility"])
+async def test_pilkentafel_evidence_never_explains_tableau_occurrence(
+    client, headers, retrieval, fallback
+):
+    # Synthetic identities reproducing the reported two-occurrence failure.
+    pilkentafel, theatersaal, tableau, cafe = uid(21), uid(26), uid(20), uid(25)
+    assert retrieval["rehydrate"].return_value.items[0].venue_id == tableau
+    assert retrieval["rehydrate"].return_value.items[0].space_id == cafe
+    wrong = (
+        "Die Theaterwerkstatt Pilkentafel ist eingeschränkt barrierefrei und stufenlos erreichbar."
+    )
+    retrieval["hits"] = [
+        hit(
+            30,
+            0.59,
+            "accessibility",
+            wrong,
+            [{"scope": "space", "venue_id": str(pilkentafel), "space_id": str(theatersaal)}],
+        )
+    ]
+    if fallback:
+        retrieval["hits"].append(hit(30, 0.38, fallback, "Passender öffentlicher Beleg"))
+    response = await client.get(PATH, headers=headers, params={"q": "barrierefreie Kulturangebote"})
+    assert response.status_code == 200
+    assert wrong not in response.text
+    items = response.json()["items"]
+    if fallback:
+        assert items[0]["semantic"]["matched_aspect"] == fallback
+        assert items[0]["semantic"]["score"] == 0.38
+        assert items[0]["semantic"]["evidence"]["text"] == "Passender öffentlicher Beleg"
+        assert items[0]["semantic"]["supporting_evidence"] == []
+    else:
+        assert items == []
+
+
+@pytest.mark.parametrize("page_size", [1, 20])
+async def test_context_selection_reranks_before_page_size(client, headers, retrieval, page_size):
+    retrieval["hits"] = [
+        hit(30, 0.59, "accessibility", "Wrong place", venue_context(21)),
+        hit(30, 0.58, "accessibility", "Another wrong place", venue_context(22)),
+        hit(30, 0.57, "location_context", "Wrong location", venue_context(21)),
+        hit(30, 0.56, "tickets", "Wrong ticket", venue_context(21)),
+        hit(30, 0.31, "accessibility", "Correct place", venue_context()),
+        hit(32, 0.50),
+    ]
+    retrieval["rehydrate"].return_value.items.append(
+        ResearchRecord(entity_type="event", entity_key=uid(32), name="B")
+    )
+    response = await client.get(
+        PATH, headers=headers, params={"q": "culture", "page_size": page_size}
+    )
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [i["entity_key"] for i in items] == [str(uid(32)), str(uid(30))][:page_size]
+    assert [i["semantic"]["score"] for i in items] == [0.50, 0.31][:page_size]
+    assert "Wrong" not in response.text
+    assert response.json()["pagination"]["total"] == len(items)
+
+
+async def test_same_boilerplate_across_events_and_tie_order(client, headers, retrieval):
+    retrieval["hits"] = [hit(key, 0.5, "accessibility", "Stufenlos erreichbar") for key in (32, 30)]
+    retrieval["rehydrate"].return_value.items.insert(
+        0,
+        ResearchRecord(
+            entity_type="event", entity_key=uid(32), name="B", venue_id=uid(20), space_id=uid(26)
+        ),
+    )
+    response = await client.get(PATH, headers=headers, params={"q": "culture"})
+    assert response.status_code == 200
+    assert [i["entity_key"] for i in response.json()["items"]] == [str(uid(30)), str(uid(32))]
+
+
+@pytest.mark.parametrize(
+    "contexts",
+    [
+        None,
+        [],
+        [{"scope": "event"}],
+        [{"scope": "venue"}],
+        [{"scope": "space", "space_id": "not-a-uuid"}],
+        [{"scope": "venue", "venue_id": str(uid(20)), "user_id": str(uid(1))}],
+    ],
+)
+async def test_missing_or_malformed_scoped_context_fails_closed(
+    client, headers, retrieval, contexts
+):
+    point = hit(30, kind="accessibility")
+    if contexts is None:
+        del point["payload"]["evidence_contexts"]
+    else:
+        point["payload"]["evidence_contexts"] = contexts
+    retrieval["hits"] = [point]
+    response = await client.get(PATH, headers=headers, params={"q": "culture"})
+    assert response.status_code == 503
+    retrieval["rehydrate"].assert_not_awaited()
+
+
+async def test_v3_points_are_not_treated_as_context_aware(client, headers, retrieval):
+    old = hit(32, 0.99, "accessibility", "Old unscoped evidence")
+    old["payload"]["document_schema_version"] = "event-public-v3"
+    del old["payload"]["evidence_contexts"]
+    retrieval["hits"] = [old, hit(30)]
+    response = await client.get(PATH, headers=headers, params={"q": "culture"})
+    assert response.status_code == 200
+    assert "Old unscoped evidence" not in response.text
+    assert retrieval["rehydrate"].call_args.args[3] == [uid(30)]
+
+
+async def test_context_filter_can_fill_page_from_candidate_after_twentieth(
+    client, headers, retrieval, db_connection, monkeypatch
+):
+    await db_connection.execute(
+        text("""INSERT INTO uranus.event
+        (uuid,org_uuid,title,release_status)
+        SELECT CAST(lpad(to_hex(n),32,'0') AS uuid),:org,'Candidate','released'
+        FROM generate_series(9000,9024) n"""),
+        {"org": uid(10)},
+    )
+
+    async def connection(request):
+        yield db_connection
+
+    monkeypatch.setattr(service, "get_connection", connection)
+    monkeypatch.setattr(service, "rehydrate_semantic_events", rehydrate_semantic_events)
+    retrieval["hits"] = [hit(key, 0.9, "accessibility") for key in range(9000, 9024)]
+    retrieval["hits"].append(hit(9024, 0.4))
+    response = await client.get(PATH, headers=headers, params={"q": "culture", "page_size": 1})
+    assert response.status_code == 200
+    assert [i["entity_key"] for i in response.json()["items"]] == [str(uid(9024))]
+    assert response.json()["items"][0]["semantic"]["score"] == 0.4

@@ -13,9 +13,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.config import Settings
 from app.database import get_connection
 from app.errors import APIError
+from app.repositories.entities import pagination
 from app.repositories.research import rehydrate_semantic_events
 from app.repositories.research_areas import request_area, request_areas
-from app.research.semantic_evidence import semantic_hits
+from app.research.semantic_evidence import contextualize_event_hit, semantic_hits
 from app.research.semantic_explanations import explain
 from app.research.vector_models import MODELS
 from app.research.vector_transport import Encoder, Qdrant
@@ -99,15 +100,24 @@ async def semantic_search(
                     datetime.now(UTC),
                     area,
                 )
-            metrics["returned_count"] = len(page.items)
-            return SemanticResearchPage(
-                items=[
-                    SemanticResearchRecord(
-                        **item.model_dump(), semantic=explain(evidence_by_id[item.entity_key])
+            items = []
+            for item in page.items:
+                contextual = contextualize_event_hit(
+                    evidence_by_id[item.entity_key],
+                    venue_id=item.venue_id,
+                    space_id=item.space_id,
+                    occurrence_id=page.occurrence_ids.get(item.entity_key),
+                )
+                if contextual is not None:
+                    items.append(
+                        SemanticResearchRecord(**item.model_dump(), semantic=explain(contextual))
                     )
-                    for item in page.items
-                ],
-                pagination=page.pagination,
+            items.sort(key=lambda item: (-item.semantic.score, str(item.entity_key)))
+            items = items[: filters.page_size]
+            metrics["returned_count"] = len(items)
+            return SemanticResearchPage(
+                items=items,
+                pagination=pagination(1, filters.page_size, len(items)),
                 observed_at=page.observed_at,
                 timezone=page.timezone,
             )

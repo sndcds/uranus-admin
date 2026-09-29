@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import urlsplit
 from uuid import UUID
 
+from pydantic import Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -168,6 +169,7 @@ def research_sql(*, candidates: bool = False) -> str:
             (SELECT count(DISTINCT m.entity_key) FROM matched_events m WHERE {link}) event_count,
             v.web_link source_url,v.created_at AT TIME ZONE :tz created_at,
             v.modified_at AT TIME ZONE :tz modified_at
+            {",NULL::uuid date_key" if candidates else ""}
             FROM uranus.{table} {alias} WHERE {visibility}""")
     return f"""WITH category_labels AS ({CATEGORY_LABELS}),
     filtered_dates AS MATERIALIZED (SELECT {DATE_COLUMNS} {DATE_JOINS}
@@ -194,12 +196,14 @@ def research_sql(*, candidates: bool = False) -> str:
         SELECT DISTINCT ON (entity_key) entity_type,entity_key,name,description,status,categories,
             language,start_date,start_time,end_date,end_time,all_day,organization_id,organization_name,
             venue_id,venue_name,space_id,space_name,city,address,latitude,longitude,event_count,
-            source_url,created_at,modified_at FROM matched_events
+            source_url,created_at,modified_at {",date_key" if candidates else ""}
+        FROM matched_events
         ORDER BY entity_key,start_date NULLS LAST,start_time NULLS LAST,date_key
     ), records AS (SELECT * FROM event_records UNION ALL {" UNION ALL ".join(branches)})
     SELECT entity_type,entity_key,name,description,status,categories,language,start_date,start_time,
         end_date,end_time,all_day,organization_id,organization_name,venue_id,venue_name,space_id,
         space_name,city,address,latitude,longitude,event_count,source_url,created_at,modified_at
+        {",date_key" if candidates else ""}
     FROM records WHERE (:entity_type='all' OR entity_type=:entity_type)
     AND (CAST(:key AS uuid) IS NULL OR entity_key=:key)
     AND ( :q='%%' OR
@@ -501,6 +505,11 @@ async def research_activity(
     return months, usage
 
 
+class RehydratedSemanticPage(ResearchPage):
+    # Internal only: the public API retains the existing ResearchRecord contract.
+    occurrence_ids: dict[UUID, UUID | None] = Field(default_factory=dict, exclude=True)
+
+
 async def rehydrate_semantic_events(
     connection: AsyncConnection,
     settings: Settings,
@@ -508,7 +517,7 @@ async def rehydrate_semantic_events(
     candidates: list[UUID],
     now: datetime,
     area: ResolvedResearchArea | ResolvedResearchAreas | None = None,
-) -> ResearchPage:
+) -> RehydratedSemanticPage:
     """Bounded ranked IDs only; all facts and eligibility come from the source snapshot."""
     if len(candidates) > 50:
         raise ValueError("semantic_candidate_limit")
@@ -517,19 +526,24 @@ async def rehydrate_semantic_events(
     )
     params["candidate_ids"] = candidates
     rows = (
-        await connection.execute(
-            text(
-                research_sql(candidates=True)
-                + " ORDER BY array_position(CAST(:candidate_ids AS uuid[]),entity_key) LIMIT 20"
-            ),
-            params,
+        (
+            await connection.execute(
+                text(
+                    research_sql(candidates=True)
+                    + " ORDER BY array_position(CAST(:candidate_ids AS uuid[]),entity_key) LIMIT 50"
+                ),
+                params,
+            )
         )
-    ).mappings()
-    items = [record(row) for row in rows][: filters.page_size]
+        .mappings()
+        .all()
+    )
+    items = [record(row) for row in rows]
     await images(connection, items, settings)
-    return ResearchPage(
+    return RehydratedSemanticPage(
+        occurrence_ids={row["entity_key"]: row["date_key"] for row in rows},
         items=items,
-        pagination=pagination(1, filters.page_size, len(items)),
+        pagination=pagination(1, 50, len(items)),
         observed_at=now,
         timezone=settings.event_timezone,
     )

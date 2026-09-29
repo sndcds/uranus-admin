@@ -188,6 +188,9 @@ def test_evidence_deterministic_unique_bounded_and_allowlisted():
                 "payload": {
                     **payload,
                     "chunk_kind": kind,
+                    "evidence_contexts": [{"scope": "venue", "venue_id": str(uuid4())}]
+                    if kind == "accessibility"
+                    else [{"scope": "event"}],
                     "chunk_text": value,
                     "content_hash": content_hash(value),
                     "internal_note": "SECRET",
@@ -681,3 +684,315 @@ async def test_pilot_index_still_rejects_area_filters(settings):
             await qdrant.search([1.0] * 1024, 10, area_ids=[uuid4()])
     finally:
         await qdrant.http.close()
+
+
+def occurrence_document(**changes):
+    from tests.conftest import uid
+
+    row = {
+        "entity_id": uid(30),
+        "organization_id": uid(10),
+        "title": "Culture",
+        "status": "released",
+        "participation_info": "Gemeinsam gestalten",
+        "ticket_link": "https://example.test/event-tickets",
+        "price_type": "free",
+        "source_link": "https://example.test/source",
+    }
+    occurrences = [
+        {
+            "occurrence_id": uid(40),
+            "venue_id": uid(20),
+            "space_id": uid(25),
+            "venue_name": "Venue A",
+            "space_name": "Room A",
+            "area_names": ["Town A"],
+            "venue_accessibility": "Venue A stufenlos",
+            "space_accessibility": "Room A erreichbar",
+            "date_accessibility": "Assistenz am Termin A",
+            "ticket_link": None,
+        },
+        {
+            "occurrence_id": uid(41),
+            "venue_id": uid(21),
+            "space_id": uid(26),
+            "venue_name": "Venue B",
+            "space_name": "Room B",
+            "area_names": ["Town B"],
+            "venue_accessibility": "Venue B stufenlos",
+            "space_accessibility": None,
+            "date_accessibility": "Assistenz am Termin B",
+            "ticket_link": "https://example.test/date-b",
+        },
+    ]
+    return event_document(
+        row,
+        {
+            "venue_names": ["Venue A", "Venue B"],
+            "space_names": ["Room A", "Room B"],
+            "area_names": ["Town A", "Town B"],
+            "accessibility": ["UNSCOPED MUST NOT SURVIVE"],
+            "occurrences": occurrences,
+            **changes,
+        },
+    )
+
+
+def test_sections_and_short_chunks_keep_explicit_source_scope():
+    doc = occurrence_document()
+    assert len(doc.sections) > 5
+    content = next(s for s in doc.sections if s.kind == "content")
+    assert content.context.scope == "event"
+    assert all(word not in content.text for word in ("Venue", "Room", "Town", "Assistenz"))
+    assert "UNSCOPED" not in doc.model_dump_json()
+    payloads = [p for _, p in plan(doc).desired.values()]
+    assert all(p["evidence_contexts"] for p in payloads)
+    for payload in payloads:
+        text = payload["chunk_text"]
+        assert not ("Venue A" in text and "Venue B" in text)
+        contexts = payload["evidence_contexts"]
+        if "Venue A stufenlos" in text:
+            assert contexts[0]["scope"] == "venue" and contexts[0]["space_id"] is None
+        if "Room A erreichbar" in text:
+            assert contexts[0]["scope"] == "space"
+        if "Assistenz" in text or "/date-b" in text or "/event-tickets" in text:
+            assert contexts[0]["scope"] == "occurrence"
+        if payload["chunk_kind"] in {"participation", "additional"} or "kostenlos" in text:
+            assert contexts == [
+                {"scope": "event", "venue_id": None, "space_id": None, "occurrence_id": None}
+            ]
+
+
+def test_identical_scoped_text_shares_vector_with_explicit_context_union():
+    from app.research.evidence_context import EvidenceContext
+    from tests.conftest import uid
+
+    doc = sample("event")
+    scopes = [EvidenceContext(scope="venue", venue_id=uid(i)) for i in (20, 21)]
+    doc.sections = [
+        Section(kind="accessibility", text="Barrierefreiheit: Stufenlos", context=c) for c in scopes
+    ]
+    first = plan(doc)
+    assert len(first.desired) == 1
+    chunk, payload = next(iter(first.desired.values()))
+    assert chunk.contexts == scopes
+    assert payload["evidence_contexts"] == [c.model_dump(mode="json") for c in scopes]
+    doc.sections.reverse()
+    assert plan(doc).desired == first.desired
+    existing = {i: p for i, (_, p) in first.desired.items()}
+    doc.sections.pop()
+    changed = plan(doc, existing)
+    assert len(changed.metadata) == 1
+    assert not changed.embed and not changed.delete
+
+
+def test_v3_upgrade_reuses_text_vectors_and_replaces_changed_sections():
+    doc = sample("event")
+    first = plan(doc)
+    existing = {
+        i: {**p, "document_schema_version": "event-public-v3"}
+        for i, (_, p) in first.desired.items()
+    }
+    for payload in existing.values():
+        del payload["evidence_contexts"]
+    upgrade = plan(doc, existing)
+    assert len(upgrade.metadata) == 1 and not upgrade.embed
+    doc.sections[0].text += " Changed text"
+    replacement = plan(doc, existing)
+    assert replacement.new == 1 and len(replacement.embed) == len(replacement.delete) == 1
+
+
+@pytest.mark.parametrize("tamper", ["missing", "other_venue", "global", "wrong_kind", "text"])
+def test_plan_rejects_forged_context_and_kind(tamper):
+    from app.research.evidence_context import EvidenceContext
+    from tests.conftest import uid
+
+    doc = occurrence_document()
+    chunks = prepare(doc)
+    chunk = next(c for c in chunks[str(doc.entity_id)] if c.chunk_kind == "accessibility")
+    if tamper == "missing":
+        chunk.contexts = []
+    elif tamper == "other_venue":
+        chunk.contexts = [EvidenceContext(scope="venue", venue_id=uid(999))]
+    elif tamper == "global":
+        chunk.contexts = [EvidenceContext(scope="event")]
+    elif tamper == "wrong_kind":
+        chunk.chunk_kind = "content"
+    else:
+        chunk.text = "Text not from source"
+        chunk.content_hash = content_hash(chunk.text)
+    with pytest.raises(ValueError, match="unmatched"):
+        plan_changes([doc], chunks, {}, MODEL, complete=True, entity="event")
+
+
+async def test_context_survives_encoder_json_wire(settings):
+    # Exercise the real /chunks handler with a synthetic tokenizer, no model load.
+    import importlib.util
+
+    from tests.test_vector_index import ENCODER_PATH
+
+    spec = importlib.util.spec_from_file_location("context_encoder", ENCODER_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    runtime = module.Runtime()
+    runtime.load = lambda key: None
+    runtime.count = lambda value: len(value.split()) + 2
+    app = module.create_app(runtime, "x" * 48)
+    settings = vector_settings(settings)
+    from pydantic import SecretStr
+
+    settings.embedding_api_key = SecretStr("x" * 48)
+    encoder = Encoder(settings, "jina-v3", httpx.ASGITransport(app=app))
+    doc = occurrence_document()
+    try:
+        prepared = await encoder.prepare([doc])
+        result = plan_changes([doc], prepared, {}, MODEL, complete=True, entity="event")
+        assert result.desired == plan(doc).desired
+        response = await encoder.http.request(
+            "POST",
+            "/chunks",
+            {
+                "model": "jina-v3",
+                "documents": [
+                    {
+                        "entity_id": str(doc.entity_id),
+                        "sections": [{"kind": "content", "text": "Legacy public text"}],
+                    }
+                ],
+            },
+        )
+        assert "contexts" not in response["documents"][0]["chunks"][0]
+    finally:
+        await encoder.http.close()
+
+
+@pytest.mark.integration
+async def test_two_occurrences_extract_rehydrate_and_filter(db_connection, settings, now):
+    from datetime import date
+
+    from app.repositories.research import rehydrate_semantic_events
+    from app.research.semantic_evidence import contextualize_event_hit
+    from app.schemas.research import SemanticResearchFilters
+    from tests.conftest import uid
+
+    await db_connection.execute(
+        text("""UPDATE uranus.venue SET accessibility_summary=
+        CASE WHEN uuid=:a THEN 'Pilkentafel stufenlos erreichbar' ELSE NULL END
+        WHERE uuid IN (:a,:b)"""),
+        {"a": uid(20), "b": uid(21)},
+    )
+    await db_connection.execute(
+        text("""UPDATE uranus.event_date
+        SET release_status='draft' WHERE event_uuid=:id"""),
+        {"id": uid(30)},
+    )
+    for key, day, venue, space in [(9040, 1, 20, 25), (9041, 2, 21, None)]:
+        await db_connection.execute(
+            text("""INSERT INTO uranus.event_date
+            (uuid,event_uuid,start_date,venue_uuid,space_uuid,release_status,accessibility_info)
+            VALUES (:id,:event,:day,:venue,:space,'released',:access)"""),
+            {
+                "id": uid(key),
+                "event": uid(30),
+                "day": date(2030, 1, day),
+                "venue": uid(venue),
+                "space": uid(space) if space else None,
+                "access": f"Assistenz an Tag {day}",
+            },
+        )
+    docs, _ = await extract_events(db_connection, None, settings, now, semantic=True)
+    doc = next(d for d in docs if d.entity_id == uid(30))
+    points = [
+        {"score": 0.9 if "Pilkentafel" in p["chunk_text"] else 0.4, "payload": p}
+        for _, p in plan(doc).desired.values()
+    ]
+    hit = semantic_hits(points, {uid(30)}, MODEL, entity="event")[0]
+    assert "Pilkentafel" in hit.winning_chunk.chunk_text
+    for day, expected in [(1, True), (2, False)]:
+        page = await rehydrate_semantic_events(
+            db_connection,
+            settings,
+            SemanticResearchFilters(
+                q="culture", from_date=date(2030, 1, day), to_date=date(2030, 1, day)
+            ),
+            [uid(30)],
+            now,
+        )
+        record = page.items[0]
+        assert page.occurrence_ids[record.entity_key] == uid(9039 + day)
+        final = contextualize_event_hit(
+            hit,
+            venue_id=record.venue_id,
+            space_id=record.space_id,
+            occurrence_id=page.occurrence_ids[record.entity_key],
+        )
+        assert final is not None
+        assert ("Pilkentafel" in final.winning_chunk.chunk_text) is expected
+        assert final.score == (0.9 if expected else 0.4)
+        assert "occurrence_ids" not in page.model_dump()
+
+
+def test_shorter_text_inside_another_location_section_does_not_expand_scope():
+    from app.research.evidence_context import EvidenceContext
+    from tests.conftest import uid
+
+    doc = sample("event")
+    doc.sections = [
+        Section(
+            kind="accessibility",
+            text="Barrierefreiheit: Stufenlos",
+            context=EvidenceContext(scope="venue", venue_id=uid(20)),
+        ),
+        Section(
+            kind="accessibility",
+            text="Barrierefreiheit: Stufenlos mit Assistenz",
+            context=EvidenceContext(scope="venue", venue_id=uid(21)),
+        ),
+    ]
+    result = plan(doc)
+    assert len(result.desired) == 2
+    for chunk, payload in result.desired.values():
+        assert len(payload["evidence_contexts"]) == 1
+        assert chunk.contexts[0].venue_id == uid(21 if "Assistenz" in chunk.text else 20)
+
+
+def test_long_scoped_sections_preserve_context_on_every_chunk():
+    from app.research.evidence_context import EvidenceContext
+    from tests.conftest import uid
+
+    doc = sample("event")
+    scope = EvidenceContext(scope="occurrence", occurrence_id=uid(40), venue_id=uid(20))
+    doc.sections = [
+        Section(
+            kind="accessibility",
+            text=" ".join(f"Stufenlos erreichbar in Abschnitt {i}." for i in range(700)),
+            context=scope,
+        )
+    ]
+    result = plan(doc)
+    assert len(result.desired) > 2
+    assert all(
+        chunk.contexts == [scope] and chunk.token_count <= 480
+        for chunk, _ in result.desired.values()
+    )
+
+
+def test_context_only_update_keeps_plan_idempotent():
+    from app.research.evidence_context import EvidenceContext
+    from tests.conftest import uid
+
+    doc = sample("event")
+    doc.sections = [
+        Section(
+            kind="accessibility",
+            text="Barrierefreiheit: Stufenlos",
+            context=EvidenceContext(scope="venue", venue_id=uid(20)),
+        )
+    ]
+    old = {i: p for i, (_, p) in plan(doc).desired.items()}
+    doc.sections[0].context = EvidenceContext(scope="space", venue_id=uid(20), space_id=uid(25))
+    update = plan(doc, old)
+    assert update.metadata and not update.embed and not update.delete
+    applied = {i: p for i, (_, p) in update.desired.items()}
+    second = plan(doc, applied)
+    assert second.unchanged == 1 and not second.metadata and not second.embed
