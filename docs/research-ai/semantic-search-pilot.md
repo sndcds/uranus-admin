@@ -208,3 +208,46 @@ events per query from the ten supplied candidates.
 Separate embedding/Qdrant durations are unavailable for this API. These measurements
 again exclude browser/Nitro/auth overhead and establish neither upstream quota nor
 an SLA. No source writes, index changes or production deployment were performed.
+
+## Structured genre and area filters
+
+The semantic endpoint additionally accepts repeated `genre_keys` (maximum 50 raw
+entries) and repeated `area_ids` (maximum 20 raw entries). Both lists are validated
+and deduplicated; empty lists impose no restriction. Genre keys are canonical
+`type_id:genre_id` identifiers, not localized names. Genre 0 is excluded.
+`area_id` remains the single-area parameter; combining it with nonempty `area_ids`
+is rejected. Category filtering remains the existing independent `category` filter.
+
+```text
+/api/v1/research/semantic-search?q=Live-Musik&area_ids=<flensburg>&genre_keys=<jazz-key>
+/api/v1/research/semantic-search?q=Live-Musik&area_ids=<flensburg>&area_ids=<husum>&genre_keys=<jazz-key>&genre_keys=<rock-key>
+```
+
+Replace placeholders with persisted area UUIDs and actual composite genre keys.
+Locations are **ORed within the area dimension**; genres are **ORed within the genre
+dimension**; area and genre dimensions are **ANDed**. Thus `(Flensburg OR Husum)
+AND Jazz` excludes Jazz in Kiel and Rock-only events in Husum. Adding Rock to the
+genre list admits the Husum event. Mentioning a genre in `q` alone is semantic text,
+not an exact filter.
+
+Requests containing nonempty `genre_keys` or `area_ids` use the typed
+`kulturbytes_events_jina_v3_v1` collection with `event-public-v3` payloads and apply
+both dimensions in Qdrant **before** the 50-chunk candidate limit. They require the
+existing direct Encoder/Qdrant configuration and license acknowledgment. The
+candidate gateway has no verified structured-filter contract and is not used for
+these requests, even if `SEMANTIC_SEARCH_URL` is configured. Missing direct
+configuration returns the usual safe 503. Requests without these new filters retain
+the existing gateway/legacy pilot path. This explicit compatibility split avoids
+assuming that a deployed gateway or benchmark collection supports the new payload.
+
+After retrieval, PostgreSQL rechecks current genre links, public eligibility,
+category and all existing filters. Multiple cached area boundaries are read in one
+bounded admin query and unioned for the same source spatial predicate. Qdrant names,
+status and genre metadata never establish authorization or public eligibility.
+Stale assignments can therefore be removed from results; newly matching records
+still require an index refresh to enter the bounded candidate set.
+
+The API client, Zod validation, Nitro repeated-parameter allowlist and generated
+OpenAPI support these parameters. No genre-picker UI is introduced. Payload
+version/backfill and embedding reuse are described in the
+[semantic index contract](semantic-knowledge-index.md#structured-event-genres-event-public-v3).

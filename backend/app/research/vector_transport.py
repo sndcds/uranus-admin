@@ -13,7 +13,7 @@ import httpx
 from app.config import Settings
 from app.errors import APIError
 from app.research.semantic_contracts import COLLECTIONS, OWNER, EntityType, SemanticDocument
-from app.research.semantic_evidence import area_filter
+from app.research.semantic_evidence import area_filter, genre_filter
 from app.research.vector_documents import Chunk, EventDocument, content_hash
 from app.research.vector_models import MODELS, Model
 
@@ -195,20 +195,34 @@ class Qdrant:
         limit: int,
         *,
         area_id: UUID | None = None,
+        area_ids: list[UUID] | None = None,
+        genre_keys: list[str] | None = None,
         organization_mode: Literal["home", "activity"] | None = None,
     ) -> list[dict[str, Any]]:
         validate_vectors([vector], self.model, 1)
         if not 1 <= limit <= 10000:
             raise ValueError("invalid_search_limit")
         filters: dict[str, Any] = {}
+        if area_ids is not None:
+            if area_id is not None or not 1 <= len(area_ids) <= 20:
+                raise ValueError("invalid_area_filter")
+            if self.entity is None:
+                raise ValueError("semantic_collection_required_for_area_filter")
+            gate = area_filter(self.entity, area_ids[0], organization_mode=organization_mode)
+            gate["must"][0]["match"] = {"any": sorted({str(UUID(str(a))) for a in area_ids})}
+            filters["filter"] = gate
         if area_id is not None:
             if self.entity is None:
                 raise ValueError("semantic_collection_required_for_area_filter")
             filters["filter"] = area_filter(
                 self.entity, area_id, organization_mode=organization_mode
             )
-        elif organization_mode is not None:
+        elif organization_mode is not None and area_ids is None:
             raise ValueError("area_id_required")
+        if genre_keys is not None:
+            filters.setdefault("filter", {"must": []})["must"].append(
+                genre_filter(self.entity, genre_keys)
+            )
         value = await self.http.request(
             "POST",
             self.path + "/points/query",

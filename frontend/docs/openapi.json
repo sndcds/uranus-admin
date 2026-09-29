@@ -21234,6 +21234,35 @@
               "default": 20,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "genre_keys",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 23,
+                "pattern": "^-?(0|[1-9][0-9]*):-?(0|[1-9][0-9]*)$"
+              },
+              "maxItems": 50,
+              "title": "Genre Keys"
+            }
+          },
+          {
+            "name": "area_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "maxItems": 20,
+              "title": "Area Ids"
+            }
           }
         ],
         "responses": {

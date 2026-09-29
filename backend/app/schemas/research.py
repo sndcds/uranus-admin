@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.finding import Pagination
+from app.schemas.genre import GenreKey
 
 ResearchType = Literal["event", "venue", "organization"]
 ResearchStatus = Literal["released", "cancelled", "deferred", "rescheduled"]
@@ -44,6 +45,16 @@ class SemanticResearchFilters(ResearchFilterFields):
     entity_type: Literal["event"] = "event"
     page: int = Field(default=1, ge=1, le=1)
     page_size: int = Field(default=20, ge=1, le=20)
+    genre_keys: list[GenreKey] = Field(default_factory=list, max_length=50)
+    area_ids: list[UUID] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def structured_filters(self) -> "SemanticResearchFilters":
+        if self.area_id is not None and self.area_ids:
+            raise ValueError("Use area_id or area_ids, not both")
+        self.genre_keys = sorted(set(self.genre_keys))
+        self.area_ids = sorted(set(self.area_ids))
+        return self
 
 
 class ResearchCategory(BaseModel):
