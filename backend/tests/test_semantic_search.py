@@ -599,9 +599,15 @@ async def test_multi_area_source_rehydration_or_and_current_occurrence(
           (id,area_type,country_code,region_code,name,display_name,osm_type,osm_id,osm_admin_level,
            geometry,centroid,source,retrieved_at,created_at,updated_at)
           VALUES (:id,'municipality','DE','DE-SH','Fixture','Fixture','R',:osm_id,8,
-           ST_Multi(ST_MakeEnvelope(:lon,54,:lon+1,55,4326)),
-           ST_SetSRID(ST_Point(:lon+0.5,54.5),4326),'osm',now(),now(),now())"""),
-            {"id": identifier, "lon": lon, "osm_id": lon},
+           ST_Multi(ST_MakeEnvelope(:west,54,:east,55,4326)),
+           ST_SetSRID(ST_Point(:center,54.5),4326),'osm',now(),now(),now())"""),
+            {
+                "id": identifier,
+                "west": float(lon),
+                "east": lon + 1.0,
+                "center": lon + 0.5,
+                "osm_id": lon,
+            },
         )
     await db_connection.execute(
         text(
