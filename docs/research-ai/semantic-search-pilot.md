@@ -22,25 +22,48 @@ with journalist **or** system administrator permission. Anonymous requests recei
    characters. Unknown parameters, model/provider selection and non-event types are
    rejected. The server fixes the model to `jina-v3` and embedding kind to `query`.
 2. Use the existing authenticated, fixed-origin Encoder transport on Server B.
-3. Query up to **50 chunks** from `uranus_bench_events_jina_v3` (or the explicitly
-   configured prefix). Validate ownership, stable UUIDs, model/document versions
-   and finite scores. Reuse `deduplicate()`, retaining the best chunk per event and
-   a deterministic UUID tie-break. Its benchmark default remains ten events; online
-   retrieval retains up to 50 distinct candidates for subsequent filtering.
-4. Only then acquire a PostgreSQL reader and its READ ONLY / REPEATABLE READ
-   snapshot. Reuse `repositories/research.py` public projections, date visibility,
-   effective venue/space inheritance and category labels. The UUID candidate array
-   is bound in SQL, including inside event/date filtering.
-5. Apply structured filters in PostgreSQL, retain semantic order, and return at
-   most **20 current events** through the unchanged `ResearchPage` / `ResearchRecord`
-   response. `page_size` can reduce the bound; only page 1 exists. Counts describe
-   the returned limited selection, not the entire source corpus.
+3. Query up to **50 chunks** from the fixed event knowledge collection
+   `kulturbytes_events_jina_v3_v1` (`event-public-v3`, owner
+   `kulturbytes-semantic-search-v1`). Both unstructured and structured event searches
+   now use `Qdrant(..., entity="event")`; the former `uranus_bench_events_jina_v3`
+   pilot collection is no longer queried by this endpoint. `semantic_hits()` validates
+   owner, entity type, embedding/document versions, public text, content hash and
+   bounded IDs, then ranks events deterministically with UUID tie-breaks.
+4. Preserve `SemanticHit` objects, extract their UUIDs, and only then acquire a
+   PostgreSQL READ ONLY / REPEATABLE READ snapshot. Reuse the existing public
+   projections, date visibility, effective location inheritance and bound SQL filters.
+5. For **only** the records returned by PostgreSQL, attach validated evidence by
+   `entity_key`. Return a separate `SemanticResearchPage` of `SemanticResearchRecord`
+   objects, each with required `semantic`. Keep the original `ResearchPage` and
+   `ResearchRecord` unchanged for classic search, details and CSV export. At most
+   **20 current events** are returned; `page_size` may reduce that bound. Only page 1
+   exists, and counts describe this bounded selection.
 
-Qdrant supplies identity and ranking only. Deleted, draft/private parents and events
-whose remaining dates are not public are removed, even if still indexed. A public
-event without dates follows the existing Research eligibility rules. Names,
-descriptions, categories, organizations, effective venues/spaces, dates, coordinates
-and images are loaded from current PostgreSQL records. No Qdrant prose is rendered.
+Qdrant supplies retrieval candidates and indexed public evidence. PostgreSQL remains
+solely authoritative for current public eligibility, structured filters, deletion,
+public/draft state and displayed record fields. Discarded candidates contribute
+neither records nor evidence. Indexed evidence may lag source edits: the hash proves
+consistency with the indexed chunk, not freshness against the current source text.
+Names, descriptions, categories, organizations, locations, dates and images in the
+record itself continue to come from PostgreSQL.
+
+### “Warum passt das?”: evidence, not model reasoning
+
+**„Warum passt das?“ ist Evidence, keine Modellbegründung und keine Chain-of-Thought.**
+The explanation consists of the deterministic label/reason for the winning chunk
+kind, that actually indexed public winning chunk, and optional validated supporting
+chunks. No LLM generates or paraphrases a reason, no query text is interpolated, and
+no quality judgment is produced. The central mapping is
+[`semantic_explanations.py`](../../backend/app/research/semantic_explanations.py).
+
+`semantic.score` preserves the entity similarity score without API rounding.
+`matched_aspect`, `matched_aspect_label` and `reason` describe the winning kind;
+`evidence` and `supporting_evidence` expose only `kind`, `label`, `text`. No arbitrary
+payload, contact fields, internal notes or supporting scores are returned. The
+existing `semantic_hits()` default stays at two supporting chunks (internal and
+response contract maximum: three), with distinct kinds and text hashes.
+Owner/version mismatches are discarded; unsafe text or a mismatching hash fails
+closed with a safe unavailable response. Existing privacy checks are reused.
 
 `area_id`, `from_date`, `to_date`, `city`, `category`, `status`, `organization_id`
 and `venue_id` retain existing Research semantics. Filters restrict the candidate
@@ -82,7 +105,12 @@ No index rebuild, database migration, grant change or worker change is required.
 
 Existing `ResearchFilters`, `ResearchResult`, map/table/list views, dossier links,
 selection previews and permalinks are reused. The event-only scope and experimental
-status are explicit. Scores are neither returned nor displayed, including as percentages.
+status are explicit. Semantic results show a compact fixed reason and an accessible
+“Beleg anzeigen” details disclosure for the winning and supporting evidence. Text
+wraps and is rendered as plain text, without HTML or Markdown execution. List,
+table and selected preview expose the same explanation only in semantic mode.
+The small technical “Ähnlichkeit: 0.446” line rounds only for display. Similarity
+scores are **not probabilities or relevance percentages**.
 The semantic mode hides date/name sorting, pagination and the classic full-result CSV
 export, since those controls would misrepresent a bounded semantic selection.
 
@@ -95,69 +123,34 @@ failed retrieval does not silently fall back to classic search or an empty succe
 
 Candidate retrieval is bounded and may miss otherwise eligible events beyond its
 50 chunks, especially with many chunks per event or restrictive filters. Index text
-can lag source edits, affecting rank; rehydration guarantees current displayed facts
+can lag source edits, affecting rank; rehydration guarantees current record fields
 and eligibility at the source snapshot, not current semantic relevance or a complete
 index publication. There is no relevance threshold or quality/SLA promise.
 
 ## Configuration, license and operations
 
-### Combined search service
+### Candidate-only gateway compatibility
 
-The operator confirmed on 2026-09-27 that `https://search.kulturbytes.de/search`
-uses fixed **Jina v3 and events**. To use that existing service instead of the direct
-Encoder/Qdrant transport, set these server-only values:
+`SEMANTIC_SEARCH_URL` and the tested adapter in `search_gateway.py` are retained,
+but the evidence endpoint no longer uses them, even for unstructured queries.
+The gateway returns only candidate UUIDs/scores and cannot supply validated chunk
+evidence. No pseudo-evidence or gateway-authored reason is accepted. A deployment
+configured only with `SEMANTIC_SEARCH_URL` must provide direct Encoder/Qdrant
+configuration before this endpoint can work; otherwise it returns the safe 503.
 
-```dotenv
-SEMANTIC_SEARCH_URL=https://search.kulturbytes.de/search
-SEMANTIC_SEARCH_NONCOMMERCIAL_JINA=true
-```
-
-For local development, add these values to the ignored `backend/.env` and restart
-the backend process: settings are loaded at application startup. An already running
-process does not automatically reread `.env`. Missing configuration or the absent
-noncommercial acknowledgment produces the safe `research_semantic_unavailable`
-(HTTP 503) response. Never commit the local `.env` or print its other values.
-
-The backend sends `POST {"query": "…", "limit": 10}` over verified HTTPS.
-The service accepted ten candidates in live verification; limits 20 and 50 returned
-HTTP 422. Therefore this path has **at most ten candidates before filtering**, and
-may return fewer after PostgreSQL eligibility/structured filters. It cannot provide
-the direct path's 50-chunk overfetch. No extra requests attempt to fill the result
-set. The gateway does not expose its internal chunk limit or index/version metadata;
-those properties depend on its operator-managed implementation, not this adapter.
-
-Responses must contain a bounded `results` array of UUID `entity_id` and finite
-numeric `score`, with a matching `count`. Defensive best-score deduplication and a
-UUID tie-break preserve deterministic ranking. The returned `status` is ignored:
-all candidates go through exactly the same current PostgreSQL eligibility checks,
-filters and record projections as the direct path. No provider fields reach the UI.
-
-The configured endpoint must be an exact HTTPS `/search` URL without credentials,
-query parameters or fragments. Admin authorization remains mandatory. No admin
-credentials, vector keys, cookies or CSRF headers are forwarded to this externally
-reachable service, which currently accepts requests without authentication. The
-query text leaves the admin backend for that explicitly configured service; operators
-must keep query/body logging disabled there as well. Browser traffic still uses the
-same-origin Research proxy. Response bodies are limited to 64 KiB, the network
-timeout is six seconds, and the existing eight-second overall deadline still applies.
-Redirects and environment proxies are disabled. Failures use the same safe error;
-there is no automatic fallback or additional direct-vector request.
-Live verification also observed HTTP 429 for a series of rapid requests. Upstream
-rate limiting uses the same safe unavailable state, without automatic retries or
-polling. Since requests originate from the admin backend, limits may be shared by
-multiple journalists; no upstream quota or capacity guarantee has been established.
-
-The license acknowledgment remains required. Direct vector credentials are not
-needed when this URL is configured; when absent, the original Encoder/Qdrant path
-below remains available. No production runtime configuration or deployment is changed by
-adding this option.
+**Follow-up TODO:** if gateway retrieval is needed again, agree a bounded,
+versioned evidence contract and pass its chunks through the same
+`semantic_evidence.py` owner/version/public-text/hash checks before reuse. Do not
+accept free-form `reason` fields. Gateway redirect rejection, fixed HTTPS endpoint,
+credential isolation and its existing candidate contract remain unchanged.
 
 ### Direct Encoder/Qdrant transport
 
 Reuse server-only `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_TIMEOUT_SECONDS`,
-`QDRANT_COLLECTION_PREFIX` (default `uranus_bench`), `EMBEDDING_URL`,
+`EMBEDDING_URL`,
 `EMBEDDING_API_KEY`, `EMBEDDING_TIMEOUT_SECONDS`. Additionally, the API runtime
-requires an explicit operator acknowledgment:
+requires an explicit operator acknowledgment. The event collection name comes from
+the registry; `QDRANT_COLLECTION_PREFIX` applies to legacy benchmarks, not this endpoint:
 
 ```dotenv
 SEMANTIC_SEARCH_NONCOMMERCIAL_JINA=true
@@ -185,9 +178,9 @@ is requested; no runtime schema repair is attempted.
 No LLM, Pydantic AI, agent, tool calling, chat, intent interpretation or SQL generation
 is involved. There are no Uranus writes or browser secrets. Fixed SQL uses the existing
 reader boundary; vector queries never upsert/delete points. Search text necessarily
-travels to the configured encoder or search gateway and appears in the user's explicit search
+travels to the configured encoder and appears in the user's explicit search
 URL/permalink, as classic Research queries do. Application/proxy logging must continue
-to omit raw URLs/query strings. No query text, vectors, event descriptions, provider
+to omit raw URLs/query strings. No query text, reasons, chunk text, scores, vectors, event descriptions, provider
 response text or credentials enter normal structured logs. No persistent query cache
 or browser storage is added.
 
@@ -223,7 +216,8 @@ HTTP authentication overhead; it is not an endpoint SLA or a commercial-readines
 claim. Live area filtering was not measured. Automated tests use fake internal HTTP
 and isolated PostgreSQL/PostGIS; normal frontend CI needs neither Jina nor Qdrant.
 
-The combined service was also measured on **2026-09-27** from the local backend,
+The historical candidate-only combined service (no longer used by this endpoint)
+was also measured on **2026-09-27** from the local backend,
 using its configured source reader after verifying effective read-only privileges.
 One warm-up was excluded. Ten varied German queries completed sequentially with
 seven seconds between requests after the earlier rapid sequence encountered HTTP 429. Those idle gaps are excluded from timings. PostgreSQL returned 8–10 eligible
@@ -235,7 +229,7 @@ events per query from the ten supplied candidates.
 | PostgreSQL rehydration  |  13.12 ms |                       21.25 ms |
 | Total service           | 796.19 ms |                    1,329.67 ms |
 
-Separate embedding/Qdrant durations are unavailable for this API. These measurements
+Separate embedding/Qdrant durations were unavailable for that historical gateway API. These measurements
 again exclude browser/Nitro/auth overhead and establish neither upstream quota nor
 an SLA. No source writes, index changes or production deployment were performed.
 
@@ -261,15 +255,12 @@ AND Jazz` excludes Jazz in Kiel and Rock-only events in Husum. Adding Rock to th
 genre list admits the Husum event. Mentioning a genre in `q` alone is semantic text,
 not an exact filter.
 
-Requests containing nonempty `genre_keys` or `area_ids` use the typed
-`kulturbytes_events_jina_v3_v1` collection with `event-public-v3` payloads and apply
-both dimensions in Qdrant **before** the 50-chunk candidate limit. They require the
-existing direct Encoder/Qdrant configuration and license acknowledgment. The
-candidate gateway has no verified structured-filter contract and is not used for
-these requests, even if `SEMANTIC_SEARCH_URL` is configured. Missing direct
-configuration returns the usual safe 503. Requests without these new filters retain
-the existing gateway/legacy pilot path. This explicit compatibility split avoids
-assuming that a deployed gateway or benchmark collection supports the new payload.
+All semantic event requests use `kulturbytes_events_jina_v3_v1` with
+`event-public-v3` payloads. Explicit `area_id` / `area_ids` and `genre_keys` become
+Qdrant payload filters **before** the 50-chunk candidate limit. The direct
+Encoder/Qdrant configuration and license acknowledgment are required regardless of
+`SEMANTIC_SEARCH_URL`. There is no legacy collection fallback or request-controlled
+collection selection.
 
 After retrieval, PostgreSQL rechecks current genre links, public eligibility,
 category and all existing filters. Multiple cached area boundaries are read in one

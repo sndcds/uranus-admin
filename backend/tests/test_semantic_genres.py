@@ -266,8 +266,6 @@ async def test_api_passes_repeated_genres_to_semantic_collection(
     client, headers, retrieval, monkeypatch, settings, area_mode
 ):
     settings.semantic_search_url = "https://search.example.test/search"
-    gateway = AsyncMock()
-    monkeypatch.setattr(service, "retrieve_candidates", gateway)
 
     doc = sample("event", entity_id=uid(30), genre_keys=["1:2"], genre_names=["Jazz"])
     retrieval["hits"] = [{"score": 0.9, "payload": p} for _, p in plan(doc).desired.values()]
@@ -326,7 +324,6 @@ async def test_api_passes_repeated_genres_to_semantic_collection(
     filters = retrieval["rehydrate"].call_args.args[2]
     assert filters.genre_keys == ["1:2", "2:2"] and filters.category == 2
     assert retrieval["rehydrate"].call_args.args[3] == [uid(30)]
-    gateway.assert_not_awaited()
 
 
 @pytest.mark.parametrize(

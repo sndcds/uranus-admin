@@ -5,27 +5,17 @@ import re
 import unicodedata
 from collections.abc import Callable, Mapping
 from html.parser import HTMLParser
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID, uuid5
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.repositories.research import source_url
+from app.research.chunk_kinds import Kind as Kind
 
 DOCUMENT_VERSION = "event-public-v1"
 CHUNK_VERSION = "sections-480-overlap64-v2"
 POINT_NAMESPACE = UUID("f6d7a7df-8744-4d7b-a928-0a3df9335a36")
-Kind = Literal[
-    "content",
-    "participation",
-    "accessibility",
-    "tickets",
-    "additional",
-    "facilities",
-    "location_context",
-    "activities",
-    "categories",
-]
 
 
 class Section(BaseModel):

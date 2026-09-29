@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import type { ResearchRecord, ResearchQuery } from '#shared/contracts'
-import { researchHref, researchUrlQuery } from '~/utils/research'
-const props = defineProps<{ item: ResearchRecord; selected?: boolean; query?: ResearchQuery }>()
+import type { ResearchRecord, SemanticResearchRecord, ResearchQuery } from '#shared/contracts'
+import { hasSemanticEvidence, researchHref, researchUrlQuery } from '~/utils/research'
+const props = defineProps<{
+  item: ResearchRecord | SemanticResearchRecord
+  semantic?: boolean
+  selected?: boolean
+  query?: ResearchQuery
+}>()
 defineEmits<{ select: [] }>()
 const date = computed(() =>
   props.item.start_date ? new Date(`${props.item.start_date}T12:00:00Z`) : null,
@@ -80,6 +85,10 @@ const month = computed(() =>
         }}</template>
         <template v-else>{{ item.event_count }} Veranstaltungen im Filter</template>
       </p>
+      <ResearchSemanticExplanation
+        v-if="semantic && hasSemanticEvidence(item)"
+        :explanation="item.semantic"
+      />
     </div>
     <button
       type="button"

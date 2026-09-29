@@ -58,6 +58,49 @@ export const researchPageSchema = z
     timezone: z.string(),
   })
   .strict()
+const semanticChunkKindSchema = z.enum([
+  'content',
+  'participation',
+  'accessibility',
+  'tickets',
+  'additional',
+  'facilities',
+  'location_context',
+  'activities',
+  'categories',
+])
+export const semanticEvidenceSchema = z
+  .object({
+    kind: semanticChunkKindSchema,
+    label: z.string(),
+    text: z.string().min(1).max(200000),
+  })
+  .strict()
+export const semanticExplanationSchema = z
+  .object({
+    score: z.number().finite(),
+    matched_aspect: semanticChunkKindSchema,
+    matched_aspect_label: z.string(),
+    reason: z.string(),
+    evidence: semanticEvidenceSchema,
+    supporting_evidence: z.array(semanticEvidenceSchema).max(3),
+  })
+  .strict()
+export const semanticResearchRecordSchema = researchRecordSchema
+  .extend({
+    semantic: semanticExplanationSchema,
+  })
+  .strict()
+export const semanticResearchPageSchema = researchPageSchema
+  .extend({
+    items: z.array(semanticResearchRecordSchema).max(20),
+  })
+  .strict()
+export type SemanticEvidence = z.infer<typeof semanticEvidenceSchema>
+export type SemanticExplanation = z.infer<typeof semanticExplanationSchema>
+export type SemanticResearchRecord = z.infer<typeof semanticResearchRecordSchema>
+export type SemanticResearchPage = z.infer<typeof semanticResearchPageSchema>
+
 export const researchDateSchema = z
   .object({
     id: z.uuid(),

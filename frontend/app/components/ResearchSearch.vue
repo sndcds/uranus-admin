@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import type { ResearchPage, ResearchQuery, ResearchType } from '#shared/contracts'
+import type {
+  ResearchPage,
+  SemanticResearchPage,
+  ResearchQuery,
+  ResearchType,
+} from '#shared/contracts'
 import { asFailure } from '#shared/errors'
 import {
+  hasSemanticEvidence,
   researchHref,
   researchKey,
   researchDate,
@@ -14,7 +20,7 @@ import { researchCategoryColor } from '~/utils/research-categories'
 const props = defineProps<{ kind?: ResearchType; map?: boolean }>()
 const route = useRoute()
 const { $adminApi } = useNuxtApp()
-const request = useOperationsRequest<ResearchPage>()
+const request = useOperationsRequest<ResearchPage | SemanticResearchPage>()
 const { data, error, loading } = request
 const parsed = computed(() => researchQuery(route.query))
 const query = computed<ResearchQuery>(() => ({
@@ -381,7 +387,11 @@ const columns = [
                 }),
               }"
               >{{ row.name }}</NuxtLink
-            ></template
+            >
+            <ResearchSemanticExplanation
+              v-if="semantic && hasSemanticEvidence(row)"
+              :explanation="row.semantic"
+            /> </template
           ><template #cell-status="{ row }">{{
             row.status ? researchStatuses[row.status] : '—'
           }}</template>
@@ -414,6 +424,7 @@ const columns = [
               v-for="item in data.items"
               :key="researchKey(item)"
               :item="item"
+              :semantic="semantic"
               :query="query"
               :selected="selected === researchKey(item)"
               @select="selected = researchKey(item)"
@@ -509,6 +520,10 @@ const columns = [
               <p v-else class="type-body line-clamp-3">
                 {{ selectedItem.description || 'Keine Beschreibung vorhanden.' }}
               </p>
+              <ResearchSemanticExplanation
+                v-if="semantic && hasSemanticEvidence(selectedItem)"
+                :explanation="selectedItem.semantic"
+              />
               <div class="flex flex-wrap gap-2">
                 <NuxtLink
                   class="button-primary"

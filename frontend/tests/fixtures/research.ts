@@ -1,4 +1,6 @@
 import type {
+  SemanticResearchPage,
+  SemanticResearchRecord,
   ResearchDetail,
   ResearchPage,
   ResearchRecord,
@@ -204,5 +206,34 @@ export function researchAreaDossier() {
     months: [{ month: '2026-09-01', event_count: 1 }],
     usage: [{ kind: 'category' as const, key: '1', name: 'Kultur', event_count: 1 }],
     observed_at: '2026-09-27T10:00:00Z',
+  }
+}
+
+export const semanticResearchEvent: SemanticResearchRecord = {
+  ...researchEvent,
+  semantic: {
+    score: 0.446123456789,
+    matched_aspect: 'content',
+    matched_aspect_label: 'Inhalt',
+    reason: 'Der Inhalt passt zur Suchanfrage.',
+    evidence: {
+      kind: 'content',
+      label: 'Inhalt',
+      text: 'Öffentlicher Jazzabend mit regionalen Künstlern.',
+    },
+    supporting_evidence: [
+      {
+        kind: 'accessibility',
+        label: 'Barrierefreiheit',
+        text: 'Der Saal ist stufenlos erreichbar.',
+      },
+    ],
+  },
+}
+export function semanticResearchPage(items = [semanticResearchEvent]): SemanticResearchPage {
+  return {
+    ...researchPage(),
+    items,
+    pagination: { page: 1, page_size: 20, total: items.length, pages: items.length ? 1 : 0 },
   }
 }

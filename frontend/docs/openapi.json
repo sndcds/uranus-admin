@@ -21279,7 +21279,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResearchPage"
+                  "$ref": "#/components/schemas/SemanticResearchPage"
                 }
               }
             }
@@ -33157,6 +33157,426 @@
           "status"
         ],
         "title": "ReviewUpdate"
+      },
+      "SemanticEvidence": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "content",
+              "participation",
+              "accessibility",
+              "tickets",
+              "additional",
+              "facilities",
+              "location_context",
+              "activities",
+              "categories"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "label",
+          "text"
+        ],
+        "title": "SemanticEvidence"
+      },
+      "SemanticExplanation": {
+        "properties": {
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "matched_aspect": {
+            "type": "string",
+            "enum": [
+              "content",
+              "participation",
+              "accessibility",
+              "tickets",
+              "additional",
+              "facilities",
+              "location_context",
+              "activities",
+              "categories"
+            ],
+            "title": "Matched Aspect"
+          },
+          "matched_aspect_label": {
+            "type": "string",
+            "title": "Matched Aspect Label"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/SemanticEvidence"
+          },
+          "supporting_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/SemanticEvidence"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Supporting Evidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "score",
+          "matched_aspect",
+          "matched_aspect_label",
+          "reason",
+          "evidence",
+          "supporting_evidence"
+        ],
+        "title": "SemanticExplanation"
+      },
+      "SemanticResearchPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SemanticResearchRecord"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "pagination",
+          "observed_at",
+          "timezone"
+        ],
+        "title": "SemanticResearchPage"
+      },
+      "SemanticResearchRecord": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "event",
+              "venue",
+              "organization"
+            ],
+            "title": "Entity Type"
+          },
+          "entity_key": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Entity Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "released",
+                  "cancelled",
+                  "deferred",
+                  "rescheduled"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchCategory"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "all_day": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "All Day"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id"
+          },
+          "organization_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Name"
+          },
+          "venue_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Id"
+          },
+          "venue_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Name"
+          },
+          "space_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Id"
+          },
+          "space_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Name"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchLocation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Count"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "modified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified At"
+          },
+          "semantic": {
+            "$ref": "#/components/schemas/SemanticExplanation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_key",
+          "name",
+          "semantic"
+        ],
+        "title": "SemanticResearchRecord"
       },
       "Severity": {
         "type": "string",

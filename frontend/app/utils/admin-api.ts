@@ -6,6 +6,7 @@ import {
 } from '#shared/sql-provenance'
 import {
   researchPageSchema,
+  semanticResearchPageSchema,
   semanticResearchQuerySchema,
   researchAreasSchema,
   researchAreaSchema,
@@ -240,7 +241,7 @@ export function createAdminApi(
         page_size: 20,
       })
       if (!parsed.success) return Promise.reject(new AdminApiError(failure(422, 'invalid_query')))
-      return request('/api/v1/research/semantic-search', researchPageSchema, parsed.data)
+      return request('/api/v1/research/semantic-search', semanticResearchPageSchema, parsed.data)
     },
     researchSearch: (query: ResearchQuery, signal?: AbortSignal) =>
       request(

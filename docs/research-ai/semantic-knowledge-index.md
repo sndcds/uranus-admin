@@ -1,8 +1,21 @@
-# Semantischer Knowledge-Index: vorbereiteter Vertrag
+# Semantischer Knowledge-Index und Research-Evidence
 
 Dieser Stand implementiert Extraktion, Dokumente, Evidence und Operator-Planung für
 Event, Venue und Organization. Er erstellt keine Collections und führt keinen
-Produktions-Reindex durch. Keine API-, UI-, Deployment-, DB-Schema- oder Grant-Änderung.
+Produktions-Reindex durch. Die Research Semantic Search nutzt jetzt die Event-Collection
+für alle Anfragen und liefert validierte Evidence in eigenen Response-Modellen.
+Klassische Suche und CSV-Export bleiben unverändert. Keine DB-Migration, Grant-Änderung,
+Collection-Schreiboperation oder Deployment gehört zu dieser Änderung.
+
+„Warum passt das?“ ist Evidence, keine Modellbegründung und keine Chain-of-Thought:
+ein deterministisches Label/Reason des winning chunk type, der tatsächlich indexierte
+öffentliche winning chunk und optional weitere validierte supporting chunks. Nur
+aktuell von PostgreSQL zugelassene Records erhalten ihre per UUID zugeordneten Belege.
+Scores sind Ähnlichkeitswerte, keine Wahrscheinlichkeiten oder Relevanz-Prozentzahlen.
+Der Online-Pfad wechselt von `uranus_bench_events_jina_v3` zu
+`kulturbytes_events_jina_v3_v1`; der Candidate-only-Gateway reicht für diesen Vertrag
+nicht aus. Konfiguration, Grenzen und Gateway-Follow-up stehen im
+[Research-Suchvertrag](semantic-search-pilot.md).
 
 ## Zuständigkeiten und Collection Registry
 

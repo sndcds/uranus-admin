@@ -1,44 +1,60 @@
 """Online retrieval uses fake internal HTTP, never downloads models or writes source data."""
 
 import json
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
-from fastapi import Request
+from fastapi import FastAPI, Request
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.api import research as research_api
 from app.auth.dependencies import get_identity
 from app.auth.service import AdminPrincipal
+from app.config import Settings
 from app.database import get_connection
 from app.errors import APIError
 from app.logging import JsonFormatter
 from app.repositories import research_areas
 from app.repositories.research import rehydrate_semantic_events, research_sql
-from app.research.vector_documents import DOCUMENT_VERSION
+from app.research.semantic_evidence import semantic_hits
+from app.research.vector_documents import content_hash
 from app.research.vector_models import MODELS
-from app.research.vector_sync import deduplicate
 from app.research.vector_transport import Encoder, Qdrant
-from app.schemas.research import ResearchPage, ResearchRecord, SemanticResearchFilters
+from app.schemas.research import (
+    ResearchPage,
+    ResearchRecord,
+    SemanticResearchFilters,
+    SemanticResearchPage,
+)
 from app.services import semantic_search as service
 from tests.conftest import uid
 
 PATH = "/api/v1/research/semantic-search"
 
 
-def hit(key, score=0.8):
+def hit(
+    key: int, score: float = 0.8, kind: str = "content", chunk_text: str | None = None
+) -> dict[str, Any]:
+    chunk_text = chunk_text or f"Public evidence for event {key}"
     return {
         "score": score,
         "payload": {
             "entity_id": str(uid(key)),
             "entity_type": "event",
-            "index_owner": "uranus-admin-event-pilot-v1",
+            "index_owner": "kulturbytes-semantic-search-v1",
             "embedding_version": MODELS["jina-v3"].version,
-            "document_schema_version": DOCUMENT_VERSION,
+            "document_schema_version": "event-public-v3",
+            "display_name": f"Indexed event {key}",
+            "chunk_kind": kind,
+            "chunk_text": chunk_text,
+            "content_hash": content_hash(chunk_text),
         },
     }
 
@@ -85,6 +101,7 @@ def retrieval(settings, monkeypatch):
         observed_at=datetime.now(UTC),
         timezone="Europe/Berlin",
     )
+    state["connection"] = connection
     state["rehydrate"] = AsyncMock(return_value=page)
     monkeypatch.setattr(service, "rehydrate_semantic_events", state["rehydrate"])
     return state
@@ -192,7 +209,6 @@ def area_search(request, client, settings, retrieval, monkeypatch):
     monkeypatch.setattr(research_areas, "connect_admin", connect)
     if request.param == "gateway":
         settings.semantic_search_url = "https://search.example.test/search"
-        monkeypatch.setattr(service, "retrieve_candidates", AsyncMock(return_value=[]))
     elif request.param == "classic":
         client._transport.app.dependency_overrides[get_connection] = service.get_connection
         monkeypatch.setattr(research_api, "research_page", retrieval["rehydrate"])
@@ -246,15 +262,11 @@ async def test_known_area_without_matches_returns_empty_page(
     assert retrieval["rehydrate"].call_args.args[-1].area.id == uid(99)
 
 
-@pytest.mark.parametrize(
-    "stage", ["retrieve_candidates", "request_area", "rehydrate_semantic_events"]
-)
+@pytest.mark.parametrize("stage", ["request_area", "rehydrate_semantic_events"])
 @pytest.mark.parametrize("status,code", [(403, "forbidden"), (503, "admin_storage_unconfigured")])
 async def test_existing_api_errors_keep_status_code_and_message(
     client, headers, settings, retrieval, monkeypatch, stage, status, code
 ):
-    if stage == "retrieve_candidates":
-        settings.semantic_search_url = "https://search.example.test/search"
     error = APIError(status, code, "Original safe message.")
     monkeypatch.setattr(service, stage, AsyncMock(side_effect=error))
     response = await client.get(PATH, headers=headers, params={"q": "creative"})
@@ -288,7 +300,7 @@ async def test_ranked_candidates_contract_and_logs(client, headers, retrieval, m
             PATH, headers=headers, params={"q": "private query", "category": 2}
         )
     assert response.status_code == 200
-    ResearchPage.model_validate(response.json())
+    SemanticResearchPage.model_validate(response.json())
     args = retrieval["rehydrate"].call_args.args
     assert args[2].category == 2 and args[3] == [uid(32), uid(30)]
     requests = retrieval["requests"]
@@ -297,7 +309,7 @@ async def test_ranked_candidates_contract_and_logs(client, headers, retrieval, m
         "kind": "query",
         "texts": ["private query"],
     }
-    assert requests[1].url.path == "/collections/uranus_bench_events_jina_v3/points/query"
+    assert requests[1].url.path == "/collections/kulturbytes_events_jina_v3_v1/points/query"
     assert json.loads(requests[1].content)["limit"] == 50
     logged = json.loads(
         JsonFormatter().format(
@@ -308,14 +320,24 @@ async def test_ranked_candidates_contract_and_logs(client, headers, retrieval, m
     for key in ("embedding_ms", "qdrant_ms", "postgres_rehydrate_ms", "total_ms"):
         assert logged[key] >= 0
     assert "private query" not in json.dumps(logged)
-    assert "score" not in response.text
+    for forbidden in (
+        "private query",
+        "reason",
+        "chunk_text",
+        "score",
+        "Public evidence",
+        "test-secret",
+    ):
+        assert forbidden not in json.dumps(logged)
+    assert response.json()["items"][0]["semantic"]["score"] == 0.8
 
 
-def test_dedup_keeps_candidates_beyond_first_ten():
+def test_evidence_keeps_candidates_beyond_first_ten():
     hits = [hit(i, i / 100) for i in range(30, 60)] + [hit(30, 0.99)]
-    ranked = deduplicate(hits, {str(uid(i)) for i in range(30, 60)}, MODELS["jina-v3"], limit=50)
-    assert len(ranked) == 30 and ranked[0]["payload"]["entity_id"] == str(uid(30))
-    assert len(deduplicate(hits, {str(uid(i)) for i in range(30, 60)}, MODELS["jina-v3"])) == 10
+    ranked = semantic_hits(
+        hits, {uid(i) for i in range(30, 60)}, MODELS["jina-v3"], entity="event", limit=50
+    )
+    assert len(ranked) == 30 and ranked[0].entity_id == uid(30)
 
 
 async def test_rehydration_public_deleted_private_rank_and_current_data(db_connection, settings):
@@ -526,7 +548,6 @@ async def test_repeated_area_query_resolves_all_or_rejects_unknown(
     monkeypatch.setattr(research_areas, "connect_admin", connect)
     if gateway:
         settings.semantic_search_url = "https://search.example.test/search"
-        monkeypatch.setattr(service, "retrieve_candidates", AsyncMock(return_value=[]))
     retrieval["hits"] = []
     retrieval["rehydrate"].return_value = retrieval["rehydrate"].return_value.model_copy(
         update={"items": []}
@@ -626,3 +647,235 @@ async def test_multi_area_source_rehydration_or_and_current_occurrence(
         areas,
     )
     assert bool(page.items) is expected
+
+
+async def test_evidence_is_attached_by_identity_only_after_rehydration(
+    client: httpx.AsyncClient, headers: dict[str, str], retrieval: dict[str, Any]
+) -> None:
+    retrieval["hits"] = [
+        hit(31, 0.99, chunk_text="Removed private candidate"),
+        hit(30, 0.446123456789),
+        hit(32, 0.8, "participation"),
+        hit(30, 0.4, "accessibility"),
+        hit(30, 0.3, "tickets"),
+        hit(30, 0.2, "additional"),
+    ]
+    page = retrieval["rehydrate"].return_value
+    page.items = [
+        ResearchRecord(entity_type="event", entity_key=uid(32), name="Current B"),
+        *page.items,
+    ]
+    page.pagination.total = 2
+    response = await client.get(PATH, headers=headers, params={"q": "creative"})
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [i["entity_key"] for i in items] == [str(uid(32)), str(uid(30))]
+    assert items[0]["semantic"]["evidence"]["text"] == "Public evidence for event 32"
+    assert items[0]["semantic"]["matched_aspect_label"] == "Teilnahme & Mitmachen"
+    assert items[1]["semantic"] == {
+        "score": 0.446123456789,
+        "matched_aspect": "content",
+        "matched_aspect_label": "Inhalt",
+        "reason": "Der Inhalt passt zur Suchanfrage.",
+        "evidence": {"kind": "content", "label": "Inhalt", "text": "Public evidence for event 30"},
+        "supporting_evidence": [],
+    }
+    # Duplicate text hashes are already removed by semantic_hits; no new supporting limit.
+    assert "Removed private candidate" not in response.text
+    assert "Indexed event" not in response.text
+
+
+async def test_distinct_supporting_chunks_keep_existing_default_limit(
+    client: httpx.AsyncClient, headers: dict[str, str], retrieval: dict[str, Any]
+) -> None:
+    retrieval["hits"] = [hit(30)] + [
+        hit(30, score, kind, f"Public {kind} information")
+        for score, kind in [(0.7, "participation"), (0.6, "tickets"), (0.5, "additional")]
+    ]
+    response = await client.get(PATH, headers=headers, params={"q": "creative"})
+    assert response.status_code == 200
+    supporting = response.json()["items"][0]["semantic"]["supporting_evidence"]
+    assert [e["kind"] for e in supporting] == ["participation", "tickets"]
+    assert all(set(e) == {"kind", "label", "text"} for e in supporting)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("index_owner", "foreign"),
+        ("embedding_version", "old"),
+        ("document_schema_version", "event-public-v2"),
+        ("entity_type", "venue"),
+    ],
+)
+async def test_invalid_evidence_identity_is_discarded(
+    client: httpx.AsyncClient,
+    headers: dict[str, str],
+    retrieval: dict[str, Any],
+    field: str,
+    value: str,
+) -> None:
+    invalid = hit(32, 1, chunk_text="Discarded evidence")
+    invalid["payload"][field] = value
+    retrieval["hits"] = [invalid, hit(30)]
+    response = await client.get(PATH, headers=headers, params={"q": "creative"})
+    assert response.status_code == 200
+    assert retrieval["rehydrate"].call_args.args[3] == [uid(30)]
+    assert "Discarded evidence" not in response.text
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("chunk_text", "Contact secret@example.org"),
+        ("content_hash", "wrong"),
+        ("chunk_text", "<script>alert(1)</script>"),
+        ("chunk_kind", "internal_notes"),
+    ],
+)
+async def test_unsafe_evidence_fails_closed(
+    client: httpx.AsyncClient,
+    headers: dict[str, str],
+    retrieval: dict[str, Any],
+    caplog: pytest.LogCaptureFixture,
+    field: str,
+    value: str,
+) -> None:
+    retrieval["hits"][0]["payload"][field] = value
+    if field == "chunk_text":
+        retrieval["hits"][0]["payload"]["content_hash"] = content_hash(value)
+    with caplog.at_level("INFO", logger="admin.research"):
+        response = await client.get(PATH, headers=headers, params={"q": "private query"})
+    assert response.status_code == 503
+    retrieval["rehydrate"].assert_not_awaited()
+    assert value not in response.text
+    assert value not in caplog.text and "private query" not in caplog.text
+
+
+async def test_payload_extras_are_never_exposed(
+    client: httpx.AsyncClient, headers: dict[str, str], retrieval: dict[str, Any]
+) -> None:
+    retrieval["hits"][0]["payload"].update(
+        email="private@example.org", internal_notes="secret note", reason="invented"
+    )
+    response = await client.get(PATH, headers=headers, params={"q": "creative"})
+    assert response.status_code == 200
+    for private in ("private@example.org", "internal_notes", "secret note", "invented"):
+        assert private not in response.text
+
+
+async def test_classic_response_stays_without_semantic(
+    client: httpx.AsyncClient,
+    headers: dict[str, str],
+    retrieval: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transport = cast(httpx.ASGITransport, client._transport)
+    app = cast(FastAPI, transport.app)
+    app.dependency_overrides[get_connection] = retrieval["connection"]
+    monkeypatch.setattr(research_api, "research_page", retrieval["rehydrate"])
+    response = await client.get("/api/v1/research/search", headers=headers)
+    assert response.status_code == 200
+    assert "semantic" not in response.json()["items"][0]
+
+
+async def test_candidate_only_gateway_does_not_supply_evidence(
+    client: httpx.AsyncClient,
+    headers: dict[str, str],
+    settings: Settings,
+    retrieval: dict[str, Any],
+) -> None:
+    settings.semantic_search_url = "https://search.example.test/search"
+    response = await client.get(PATH, headers=headers, params={"q": "creative"})
+    assert response.status_code == 200
+    assert [r.url.path for r in retrieval["requests"]] == [
+        "/embed",
+        "/collections/kulturbytes_events_jina_v3_v1/points/query",
+    ]
+    settings.embedding_url = None
+    response = await client.get(PATH, headers=headers, params={"q": "creative"})
+    assert response.status_code == 503
+
+
+@pytest.mark.parametrize(
+    "kind,label,reason",
+    [
+        ("content", "Inhalt", "Der Inhalt passt zur Suchanfrage."),
+        (
+            "participation",
+            "Teilnahme & Mitmachen",
+            "Die Angaben zur Teilnahme oder zum Mitmachen passen zur Suchanfrage.",
+        ),
+        (
+            "accessibility",
+            "Barrierefreiheit",
+            "Die Angaben zur Barrierefreiheit passen zur Suchanfrage.",
+        ),
+        (
+            "tickets",
+            "Tickets & Anmeldung",
+            "Die Ticket- oder Anmeldeinformationen passen zur Suchanfrage.",
+        ),
+        (
+            "additional",
+            "Weitere Informationen",
+            "Zusätzliche öffentliche Informationen passen zur Suchanfrage.",
+        ),
+        (
+            "facilities",
+            "Ausstattung & Nutzung",
+            "Die Angaben zur Ausstattung oder Nutzung des Ortes passen zur Suchanfrage.",
+        ),
+        (
+            "location_context",
+            "Ort & Umgebung",
+            "Der Orts- und Umgebungskontext passt zur Suchanfrage.",
+        ),
+        ("activities", "Aktivitäten", "Die beschriebenen Aktivitäten passen zur Suchanfrage."),
+        ("categories", "Kategorien", "Die Kategorien passen zur Suchanfrage."),
+    ],
+)
+async def test_deterministic_labels_and_reasons(
+    client: httpx.AsyncClient,
+    headers: dict[str, str],
+    retrieval: dict[str, Any],
+    kind: str,
+    label: str,
+    reason: str,
+) -> None:
+    retrieval["hits"] = [hit(30, kind=kind)]
+    response = await client.get(PATH, headers=headers, params={"q": "creative"})
+    assert response.status_code == 200
+    explanation = response.json()["items"][0]["semantic"]
+    assert explanation["matched_aspect"] == explanation["evidence"]["kind"] == kind
+    assert explanation["matched_aspect_label"] == explanation["evidence"]["label"] == label
+    assert explanation["reason"] == reason
+
+
+@pytest.mark.parametrize("page_size", [1, 20])
+async def test_api_uses_current_postgres_eligibility_and_rank(
+    client: httpx.AsyncClient,
+    headers: dict[str, str],
+    retrieval: dict[str, Any],
+    db_connection: AsyncConnection,
+    monkeypatch: pytest.MonkeyPatch,
+    page_size: int,
+) -> None:
+    async def connection(request: Request) -> AsyncIterator[AsyncConnection]:
+        yield db_connection
+
+    monkeypatch.setattr(service, "get_connection", connection)
+    monkeypatch.setattr(service, "rehydrate_semantic_events", rehydrate_semantic_events)
+    retrieval["hits"] = [hit(31, 0.99), hit(999999, 0.98), hit(32, 0.9), hit(30, 0.8)]
+    response = await client.get(
+        PATH, headers=headers, params={"q": "creative", "page_size": page_size}
+    )
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [i["entity_key"] for i in items] == [str(uid(32)), str(uid(30))][:page_size]
+    assert [i["semantic"]["evidence"]["text"] for i in items] == [
+        "Public evidence for event 32",
+        "Public evidence for event 30",
+    ][:page_size]
+    assert "Public evidence for event 31" not in response.text
+    assert "Public evidence for event 999999" not in response.text
