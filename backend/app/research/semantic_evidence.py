@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import TypeAdapter
 
 from app.research.area_selection import normalize_area_ids
+from app.research.evidence_context import EvidenceContext
 from app.research.semantic_contracts import (
     COLLECTIONS,
     OWNER,
@@ -106,7 +107,19 @@ def semantic_hits(
             or content_hash(text) != payload.get("content_hash")
         ):
             raise ValueError("unsafe_or_stale_evidence")
-        evidence = EvidenceChunk(chunk_kind=payload["chunk_kind"], chunk_text=text, score=score)
+        contexts = []
+        if entity == "event":
+            contexts = TypeAdapter(list[EvidenceContext]).validate_python(
+                payload["evidence_contexts"]
+            )
+            if not contexts or (
+                payload["chunk_kind"] in {"accessibility", "location_context"}
+                and any(c.scope == "event" for c in contexts)
+            ):
+                raise ValueError("invalid_evidence_context")
+        evidence = EvidenceChunk(
+            chunk_kind=payload["chunk_kind"], chunk_text=text, score=score, contexts=contexts
+        )
         grouped.setdefault(identity, []).append((evidence, name, payload["content_hash"]))
     result = []
     for identity, chunks in grouped.items():
@@ -128,7 +141,48 @@ def semantic_hits(
                 score=winning.score,
                 display_name=name,
                 winning_chunk=winning,
+                candidate_chunks=[c for c, _, _ in chunks],
                 supporting_chunks=supports,
             )
         )
     return sorted(result, key=lambda h: (-h.score, str(h.entity_id)))[:limit]
+
+
+def contextualize_event_hit(
+    hit: SemanticHit,
+    *,
+    venue_id: UUID | None,
+    space_id: UUID | None,
+    occurrence_id: UUID | None,
+    supporting: int = 2,
+) -> SemanticHit | None:
+    """Choose only after PostgreSQL eligibility/occurrence selection, before paging."""
+    if hit.entity_type != "event" or not 0 <= supporting <= 3:
+        raise ValueError("invalid_event_evidence_selection")
+    chunks = [
+        c
+        for c in hit.candidate_chunks
+        if any(context.matches(venue_id, space_id, occurrence_id) for context in c.contexts)
+    ]
+    chunks.sort(key=lambda c: (-c.score, c.chunk_kind, content_hash(c.chunk_text)))
+    if not chunks:
+        return None
+    winning = chunks[0]
+    kinds, hashes = {winning.chunk_kind}, {content_hash(winning.chunk_text)}
+    supports: list[EvidenceChunk] = []
+    for chunk in chunks[1:]:
+        if len(supports) == supporting:
+            break
+        digest = content_hash(chunk.chunk_text)
+        if chunk.chunk_kind not in kinds and digest not in hashes:
+            supports.append(chunk)
+            kinds.add(chunk.chunk_kind)
+            hashes.add(digest)
+    return hit.model_copy(
+        update={
+            "score": winning.score,
+            "winning_chunk": winning,
+            "supporting_chunks": supports,
+            "candidate_chunks": chunks,
+        }
+    )

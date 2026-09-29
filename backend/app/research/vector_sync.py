@@ -116,6 +116,18 @@ def plan_changes(
                 or chunk.text not in "\n\n".join(s.text for s in document.sections)
             ):
                 raise ValueError("unsafe_or_unmatched_chunk")
+            if isinstance(document, SemanticDocument) and document.entity_type == "event":
+                expected_contexts = {
+                    s.context
+                    for s in document.sections
+                    if s.kind == chunk.chunk_kind and chunk.text in s.text
+                }
+                if (
+                    not chunk.contexts
+                    or None in expected_contexts
+                    or not set(chunk.contexts).issubset(expected_contexts)
+                ):
+                    raise ValueError("unsafe_or_unmatched_chunk_context")
             identifier = (
                 semantic_point_id(document, chunk)
                 if isinstance(document, SemanticDocument)
@@ -133,6 +145,12 @@ def plan_changes(
                 {
                     **payload,
                     **({"chunk_text": chunk.text} if semantic else {}),
+                    **(
+                        {"evidence_contexts": [c.model_dump(mode="json") for c in chunk.contexts]}
+                        if isinstance(document, SemanticDocument)
+                        and document.entity_type == "event"
+                        else {}
+                    ),
                     "chunk_index": chunk.chunk_index,
                     "chunk_kind": chunk.chunk_kind,
                     "content_hash": chunk.content_hash,

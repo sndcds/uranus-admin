@@ -35,11 +35,12 @@ SELECT e.uuid entity_id,e.title,e.subtitle,e.summary,e.description,
         ORDER BY c.category_id) category_names
 FROM uranus.event e JOIN uranus.organization o ON o.uuid=e.org_uuid
 WHERE {PUBLIC_EVENT} ORDER BY e.uuid LIMIT :limit"""
-DATES_SQL = f"""SELECT d.event_uuid,d.start_date,d.start_time,d.end_date,d.end_time,d.all_day,
+DATES_SQL = f"""SELECT d.uuid occurrence_id,d.event_uuid,d.start_date,d.start_time,
+    d.end_date,d.end_time,d.all_day,
     v.uuid venue_id,v.name venue_name,s.uuid space_id,s.name space_name,
     ST_X(v.point) longitude,ST_Y(v.point) latitude,
     v.accessibility_summary venue_accessibility,s.accessibility_summary space_accessibility,
-    d.accessibility_info date_accessibility
+    d.accessibility_info date_accessibility,d.ticket_link
 FROM uranus.event_date d JOIN uranus.event e ON e.uuid=d.event_uuid
 LEFT JOIN uranus.venue v ON v.uuid={EFFECTIVE_VENUE_SQL}
 LEFT JOIN uranus.space s ON s.uuid={EFFECTIVE_SPACE_SQL}
@@ -227,6 +228,13 @@ async def extract_events(
             locations[json.dumps(value, sort_keys=True)] = value
         context["effective_locations"] = [locations[k] for k in sorted(locations)]
         if semantic:
+            context["occurrences"] = [
+                {
+                    **date,
+                    "area_names": [a["name"] for a in memberships.get(str(date["venue_id"]), [])],
+                }
+                for date in event_dates
+            ]
             semantic_documents.append(event_document(row, context))
         else:
             documents.append(document(row, context))

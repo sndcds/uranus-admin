@@ -288,7 +288,9 @@ class Encoder:
                         "documents": [
                             {
                                 "entity_id": str(d.entity_id),
-                                "sections": [s.model_dump() for s in d.sections],
+                                "sections": [
+                                    s.model_dump(mode="json", exclude_none=True) for s in d.sections
+                                ],
                             }
                             for d in batch
                         ],

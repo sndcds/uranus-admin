@@ -39,7 +39,7 @@ def evidence(chunk: EvidenceChunk) -> SemanticEvidence:
 
 
 def explain(hit: SemanticHit) -> SemanticExplanation:
-    """Call only with semantic_hits() evidence for a currently eligible source record."""
+    """Call only after authoritative eligibility and evidence context validation."""
     label, reason = ASPECTS[hit.winning_chunk.chunk_kind]
     return SemanticExplanation(
         score=hit.score,

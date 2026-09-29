@@ -93,7 +93,7 @@ def test_genre_metadata_version_and_content_reconciliation():
     assert (
         doc.payload.document_schema_version
         == COLLECTIONS["event"].document_version
-        == "event-public-v3"
+        == "event-public-v4"
     )
     assert "Genres: Jazz" in doc.sections[0].text
     changed = sample(

@@ -24,7 +24,7 @@ from app.research.vector_models import MODELS
 class InputDocument(BaseModel):
     model_config = ConfigDict(extra="forbid")
     entity_id: UUID
-    sections: list[Section] = Field(min_length=1, max_length=5)
+    sections: list[Section] = Field(min_length=1, max_length=1000)
 
 
 class ChunkInput(BaseModel):
@@ -103,7 +103,7 @@ class Runtime:
                 {
                     "entity_id": str(d.entity_id),
                     "chunks": [
-                        c.model_dump()
+                        c.model_dump(mode="json", exclude={"contexts"} if not c.contexts else set())
                         for c in chunk_sections(d.sections, self.count, prefix=spec.prefix)
                     ],
                 }

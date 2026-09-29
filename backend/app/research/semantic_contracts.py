@@ -6,6 +6,7 @@ from uuid import UUID, uuid5
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.research.evidence_context import EvidenceContext
 from app.research.vector_documents import POINT_NAMESPACE, Chunk, Kind, Section
 from app.schemas.genre import GenreKey
 
@@ -20,7 +21,7 @@ class Collection:
 
 
 COLLECTIONS: dict[EntityType, Collection] = {
-    "event": Collection("kulturbytes_events_jina_v3_v1", "event-public-v3"),
+    "event": Collection("kulturbytes_events_jina_v3_v1", "event-public-v4"),
     "venue": Collection("kulturbytes_venues_jina_v3_v1", "venue-public-v1"),
     "organization": Collection("kulturbytes_organizations_jina_v3_v1", "organization-public-v1"),
 }
@@ -51,7 +52,7 @@ class EffectiveLocation(ClosedModel):
 
 class EventPayload(PayloadCore, EffectiveLocation):
     entity_type: Literal["event"] = "event"
-    document_schema_version: Literal["event-public-v3"] = "event-public-v3"
+    document_schema_version: Literal["event-public-v4"] = "event-public-v4"
     title: str
     organization_id: UUID
     category_ids: list[int] = Field(default_factory=list)
@@ -99,7 +100,7 @@ class SemanticDocument(ClosedModel):
     entity_type: EntityType
     entity_id: UUID
     display_name: str
-    sections: list[Section] = Field(max_length=5)
+    sections: list[Section] = Field(max_length=1000)
     payload: Payload
 
     @model_validator(mode="after")
@@ -126,6 +127,7 @@ def semantic_point_id(document: SemanticDocument, chunk: Chunk) -> str:
 
 class EvidenceChunk(ClosedModel):
     chunk_kind: Kind
+    contexts: list[EvidenceContext] = Field(default_factory=list, max_length=100000)
     chunk_text: str = Field(min_length=1, max_length=200_000)
     score: float
 
@@ -136,4 +138,6 @@ class SemanticHit(ClosedModel):
     score: float
     display_name: str
     winning_chunk: EvidenceChunk
+    # Retain all validated retrieval evidence until authoritative context selection.
+    candidate_chunks: list[EvidenceChunk] = Field(default_factory=list, max_length=10000)
     supporting_chunks: list[EvidenceChunk] = Field(default_factory=list, max_length=3)

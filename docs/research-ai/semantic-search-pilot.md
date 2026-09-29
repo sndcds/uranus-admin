@@ -23,7 +23,7 @@ with journalist **or** system administrator permission. Anonymous requests recei
    rejected. The server fixes the model to `jina-v3` and embedding kind to `query`.
 2. Use the existing authenticated, fixed-origin Encoder transport on Server B.
 3. Query up to **50 chunks** from the fixed event knowledge collection
-   `kulturbytes_events_jina_v3_v1` (`event-public-v3`, owner
+   `kulturbytes_events_jina_v3_v1` (`event-public-v4`, owner
    `kulturbytes-semantic-search-v1`). Both unstructured and structured event searches
    now use `Qdrant(..., entity="event")`; the former `uranus_bench_events_jina_v3`
    pilot collection is no longer queried by this endpoint. `semantic_hits()` validates
@@ -32,8 +32,13 @@ with journalist **or** system administrator permission. Anonymous requests recei
 4. Preserve `SemanticHit` objects, extract their UUIDs, and only then acquire a
    PostgreSQL READ ONLY / REPEATABLE READ snapshot. Reuse the existing public
    projections, date visibility, effective location inheritance and bound SQL filters.
-5. For **only** the records returned by PostgreSQL, attach validated evidence by
-   `entity_key`. Return a separate `SemanticResearchPage` of `SemanticResearchRecord`
+5. Rehydrate all eligible candidates (at most 50) before paging. For **only** the
+   records returned by PostgreSQL, select evidence by `entity_key` and explicit
+   venue/space/occurrence context. Retain all validated retrieved chunks until this
+   check, including chunks of the same kind. If the original winner mismatches, use
+   the highest-scoring matching chunk; with none, remove the event. Apply the same
+   context check to supporting evidence. Sort by final evidence score descending,
+   then event UUID; apply `page_size` only afterward. Return a separate `SemanticResearchPage` of `SemanticResearchRecord`
    objects, each with required `semantic`. Keep the original `ResearchPage` and
    `ResearchRecord` unchanged for classic search, details and CSV export. At most
    **20 current events** are returned; `page_size` may reduce that bound. Only page 1
@@ -56,13 +61,19 @@ chunks. No LLM generates or paraphrases a reason, no query text is interpolated,
 no quality judgment is produced. The central mapping is
 [`semantic_explanations.py`](../../backend/app/research/semantic_explanations.py).
 
-`semantic.score` preserves the entity similarity score without API rounding.
+`semantic.score` is the score of the **actually displayed, context-valid winning
+chunk**, without API rounding. A weaker replacement also lowers the final rank.
+The [v4 context contract](semantic-knowledge-index.md#kontextvertrag-für-event-evidence-event-public-v4)
+uses stable source UUIDs, never name/coordinate heuristics. Event retrieval may cover
+multiple occurrences/locations; PostgreSQL alone selects the displayed context and
+Qdrant evidence is checked against it afterward. No frontend business logic is added.
 `matched_aspect`, `matched_aspect_label` and `reason` describe the winning kind;
 `evidence` and `supporting_evidence` expose only `kind`, `label`, `text`. No arbitrary
 payload, contact fields, internal notes or supporting scores are returned. The
 existing `semantic_hits()` default stays at two supporting chunks (internal and
 response contract maximum: three), with distinct kinds and text hashes.
-Owner/version mismatches are discarded; unsafe text or a mismatching hash fails
+Owner/version mismatches (including event-public-v3) are discarded; missing/invalid
+v4 context, unsafe text or a mismatching hash fails
 closed with a safe unavailable response. Existing privacy checks are reused.
 
 `area_id`, `from_date`, `to_date`, `city`, `category`, `status`, `organization_id`
@@ -256,7 +267,7 @@ genre list admits the Husum event. Mentioning a genre in `q` alone is semantic t
 not an exact filter.
 
 All semantic event requests use `kulturbytes_events_jina_v3_v1` with
-`event-public-v3` payloads. Explicit `area_id` / `area_ids` and `genre_keys` become
+`event-public-v4` payloads. Explicit `area_id` / `area_ids` and `genre_keys` become
 Qdrant payload filters **before** the 50-chunk candidate limit. The direct
 Encoder/Qdrant configuration and license acknowledgment are required regardless of
 `SEMANTIC_SEARCH_URL`. There is no legacy collection fallback or request-controlled

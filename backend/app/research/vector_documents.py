@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.repositories.research import source_url
 from app.research.chunk_kinds import Kind as Kind
+from app.research.evidence_context import EvidenceContext
 
 DOCUMENT_VERSION = "event-public-v1"
 CHUNK_VERSION = "sections-480-overlap64-v2"
@@ -21,6 +22,7 @@ POINT_NAMESPACE = UUID("f6d7a7df-8744-4d7b-a928-0a3df9335a36")
 class Section(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Kind
+    context: EvidenceContext | None = None
     text: str = Field(min_length=1, max_length=200_000)
 
 
@@ -28,6 +30,7 @@ class Chunk(BaseModel):
     model_config = ConfigDict(extra="forbid")
     chunk_index: int = Field(ge=0)
     chunk_kind: Kind
+    contexts: list[EvidenceContext] = Field(default_factory=list, max_length=100000)
     text: str = Field(min_length=1, max_length=200_000)
     content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     token_count: int = Field(ge=1, le=512)
@@ -212,6 +215,38 @@ def chunk_sections(
     """Native-tokenizer limit includes model prefix and special tokens; never truncate."""
     if not 100 <= maximum <= 480 or not 0 <= overlap < maximum // 2:
         raise ValueError("invalid_chunk_limits")
+    if any(s.context is not None for s in sections):
+        if any(s.context is None for s in sections):
+            raise ValueError("mixed_context_contract")
+        # Context-bearing sections never combine, even below the token limit.
+        # Identical text/kind can share a vector with an explicit OR of scopes.
+        contextual_chunks: dict[tuple[Kind, str], Chunk] = {}
+        for section in sections:
+            assert section.context is not None
+            parts = chunk_sections(
+                [Section(kind=section.kind, text=section.text)],
+                count,
+                prefix=prefix,
+                maximum=maximum,
+                overlap=overlap,
+            )
+            for piece in parts:
+                key = (section.kind, piece.content_hash)
+                if key not in contextual_chunks:
+                    contextual_chunks[key] = piece.model_copy(
+                        update={
+                            "chunk_index": len(contextual_chunks),
+                            "chunk_kind": section.kind,
+                            "contexts": [],
+                        }
+                    )
+                if section.context not in contextual_chunks[key].contexts:
+                    contextual_chunks[key].contexts.append(section.context)
+                if len(contextual_chunks) > 1000:
+                    raise ValueError("event_chunk_limit")
+        for chunk in contextual_chunks.values():
+            chunk.contexts.sort(key=lambda c: c.model_dump_json())
+        return list(contextual_chunks.values())
     combined = "\n\n".join(s.text for s in sections)
     if not combined:
         return []
