@@ -140,6 +140,19 @@ export const researchQuerySchema = researchFilterSchema
     (q) => q.search_mode !== 'semantic' || (q.q?.trim().length ?? 0) >= 2,
     'Bitte gib mindestens zwei Zeichen ein.',
   )
+const genreKeySchema = z
+  .string()
+  .max(23)
+  .regex(/^-?(0|[1-9][0-9]*):-?(0|[1-9][0-9]*)$/)
+  .refine((key) => {
+    const parts = key.split(':').map(Number)
+    return (
+      parts.every((part) => Number.isInteger(part) && part >= -2147483648 && part <= 2147483647) &&
+      parts[1] !== 0 &&
+      parts.join(':') === key
+    )
+  })
+
 export const semanticResearchQuerySchema = z
   .object({ ...researchFilterSchema.shape, sort: z.never().optional() })
   .strict()
@@ -149,11 +162,23 @@ export const semanticResearchQuerySchema = z
       .min(2)
       .max(120)
       .regex(/\S.*\S/),
+    genre_keys: z
+      .array(genreKeySchema)
+      .max(50)
+      .transform((keys) => [...new Set(keys)].sort())
+      .optional(),
+    area_ids: z
+      .array(z.uuid())
+      .max(20)
+      .transform((ids) => [...new Set(ids)].sort())
+      .optional(),
     entity_type: z.literal('event').optional(),
     page: z.coerce.number().int().min(1).max(1).optional(),
     page_size: z.coerce.number().int().min(1).max(20).optional(),
   })
   .refine((q) => !q.from_date || !q.to_date || q.from_date <= q.to_date, 'Ungültiger Zeitraum')
+  .refine((q) => !q.area_id || !q.area_ids?.length, 'Use area_id or area_ids, not both')
+export type SemanticResearchQuery = z.infer<typeof semanticResearchQuerySchema>
 export const classicResearchQuerySchema = researchFilterSchema
 export type ResearchType = z.infer<typeof researchTypeSchema>
 export type ResearchRecord = z.infer<typeof researchRecordSchema>

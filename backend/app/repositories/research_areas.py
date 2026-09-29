@@ -109,3 +109,25 @@ async def request_area(
         return None
     async with connect_admin(request) as admin:
         return await resolve_area(admin, identifier, boundary=boundary)
+
+
+async def request_area_union(request: Request, identifiers: list[UUID]) -> bytes:
+    """One bounded read; OR across cached boundaries, including shared edges."""
+    if not 1 <= len(identifiers) <= 20:
+        raise ValueError("invalid_area_filter")
+    async with connect_admin(request) as admin:
+        row = (
+            (
+                await admin.execute(
+                    text("""SELECT count(*) count,
+                ST_AsEWKB(ST_UnaryUnion(ST_Collect(geometry))) ewkb
+                FROM admin.research_area WHERE id=ANY(CAST(:ids AS uuid[]))"""),
+                    {"ids": sorted(set(identifiers))},
+                )
+            )
+            .mappings()
+            .one()
+        )
+    if row["count"] != len(set(identifiers)):
+        raise APIError(404, "research_area_not_found", "Research area was not found.")
+    return bytes(row["ewkb"])

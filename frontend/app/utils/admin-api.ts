@@ -106,6 +106,7 @@ export function createAdminApi(
     requestBody?: unknown,
     signal?: AbortSignal,
     timeoutMs = 12_000,
+    repeatedQuery: Record<string, string[]> = {},
   ) {
     const generation = accessGeneration
     const inspectable =
@@ -119,6 +120,8 @@ export function createAdminApi(
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(query))
       if (value !== undefined) params.set(key, String(value))
+    for (const [key, values] of Object.entries(repeatedQuery))
+      for (const value of values) params.append(key, value)
     const timeoutSignal = AbortSignal.timeout(timeoutMs)
     const requestSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal
     const timedOut = () => timeoutSignal.aborted && requestSignal.reason === timeoutSignal.reason
@@ -224,13 +227,35 @@ export function createAdminApi(
       request(`/api/v1/research/areas/${encodeURIComponent(id)}`, researchAreaDossierSchema, {
         ...query,
       }),
-    researchSemanticSearch: (query: ResearchQuery) => {
-      const { search_mode: _mode, sort: _sort, page: _page, page_size: _size, ...filters } = query
-      return request('/api/v1/research/semantic-search', researchPageSchema, {
-        ...filters,
-        entity_type: 'event',
-        page_size: 20,
-      })
+    researchSemanticSearch: (
+      query: ResearchQuery & { genre_keys?: string[]; area_ids?: string[] },
+    ) => {
+      const {
+        search_mode: _mode,
+        sort: _sort,
+        page: _page,
+        page_size: _size,
+        genre_keys,
+        area_ids,
+        ...filters
+      } = query
+      return request(
+        '/api/v1/research/semantic-search',
+        researchPageSchema,
+        {
+          ...filters,
+          entity_type: 'event',
+          page_size: 20,
+        },
+        'GET',
+        undefined,
+        undefined,
+        12_000,
+        {
+          ...(genre_keys ? { genre_keys } : {}),
+          ...(area_ids ? { area_ids } : {}),
+        },
+      )
     },
     researchSearch: (query: ResearchQuery, signal?: AbortSignal) =>
       request(

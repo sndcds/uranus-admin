@@ -115,7 +115,16 @@ def parameters(
 
 
 def research_sql(*, candidates: bool = False) -> str:
-    candidate_gate = " AND e.uuid=ANY(CAST(:candidate_ids AS uuid[]))" if candidates else ""
+    candidate_gate = (
+        """ AND e.uuid=ANY(CAST(:candidate_ids AS uuid[]))
+        AND (cardinality(CAST(:genre_keys AS text[]))=0 OR EXISTS (
+            SELECT 1 FROM uranus.event_type_link genre
+            WHERE genre.event_uuid=e.uuid AND genre.genre_id<>0
+            AND (genre.type_id::text || ':' || genre.genre_id::text)
+                =ANY(CAST(:genre_keys AS text[]))))"""
+        if candidates
+        else ""
+    )
     branches = []
     for kind, alias, table in (("venue", "v", "venue"), ("organization", "v", "organization")):
         link = "m.venue_id=v.uuid" if kind == "venue" else "m.organization_id=v.uuid"
@@ -482,6 +491,8 @@ async def rehydrate_semantic_events(
     candidates: list[UUID],
     now: datetime,
     area: ResolvedResearchArea | None = None,
+    *,
+    area_union: bytes | None = None,
 ) -> ResearchPage:
     """Bounded ranked IDs only; all facts and eligibility come from the source snapshot."""
     if len(candidates) > 50:
@@ -489,6 +500,10 @@ async def rehydrate_semantic_events(
     params = parameters(
         filters.model_copy(update={"q": "", "entity_type": "event"}), settings, area
     )
+    if filters.area_ids:
+        if area_union is None:
+            raise APIError(503, "research_area_unavailable", "Research areas must be resolved.")
+        params["area_wkb"] = area_union
     params["candidate_ids"] = candidates
     rows = (
         await connection.execute(

@@ -91,12 +91,16 @@ def event_document(row: Mapping[str, Any], context: Mapping[str, Any]) -> Semant
         EffectiveLocation.model_validate(value) for value in context.get("effective_locations", [])
     ]
     single = locations[0].model_dump() if len(locations) == 1 else {}
-    # Legacy payload is itself explicitly allowlisted; validate into a closed v2 model.
+    # Legacy payload is itself explicitly allowlisted; validate into a closed v3 model.
     payload = EventPayload.model_validate(
         {
             **legacy.payload,
             "index_owner": "kulturbytes-semantic-search-v1",
-            "document_schema_version": "event-public-v2",
+            "document_schema_version": "event-public-v3",
+            "genre_keys": sorted(set(row.get("genre_keys") or [])),
+            "genre_names": sorted(
+                {name for raw in row.get("genre_names") or [] if (name := public_clean(raw))}
+            ),
             "display_name": title,
             "title": title,
             "language": public_clean(row.get("language")) or None,

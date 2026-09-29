@@ -7,6 +7,7 @@ from uuid import UUID, uuid5
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.research.vector_documents import POINT_NAMESPACE, Chunk, Kind, Section
+from app.schemas.genre import GenreKey
 
 EntityType = Literal["event", "venue", "organization"]
 OWNER = "kulturbytes-semantic-search-v1"
@@ -19,7 +20,7 @@ class Collection:
 
 
 COLLECTIONS: dict[EntityType, Collection] = {
-    "event": Collection("kulturbytes_events_jina_v3_v1", "event-public-v2"),
+    "event": Collection("kulturbytes_events_jina_v3_v1", "event-public-v3"),
     "venue": Collection("kulturbytes_venues_jina_v3_v1", "venue-public-v1"),
     "organization": Collection("kulturbytes_organizations_jina_v3_v1", "organization-public-v1"),
 }
@@ -50,10 +51,12 @@ class EffectiveLocation(ClosedModel):
 
 class EventPayload(PayloadCore, EffectiveLocation):
     entity_type: Literal["event"] = "event"
-    document_schema_version: Literal["event-public-v2"] = "event-public-v2"
+    document_schema_version: Literal["event-public-v3"] = "event-public-v3"
     title: str
     organization_id: UUID
     category_ids: list[int] = Field(default_factory=list)
+    genre_keys: list[GenreKey] = Field(default_factory=list)
+    genre_names: list[str] = Field(default_factory=list)
     status: Literal["released", "cancelled", "deferred", "rescheduled"]
     language: str | None = None
     venue_ids: list[UUID] = Field(default_factory=list)
