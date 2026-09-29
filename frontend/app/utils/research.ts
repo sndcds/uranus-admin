@@ -1,4 +1,9 @@
-import type { ResearchQuery, ResearchRecord, ResearchType } from '#shared/contracts'
+import type {
+  ResearchQuery,
+  ResearchRecord,
+  SemanticResearchRecord,
+  ResearchType,
+} from '#shared/contracts'
 import { researchQuerySchema } from '#shared/contracts'
 
 export const researchSections = {
@@ -67,4 +72,11 @@ export function researchAreaLabel(area: {
   region_code: string
 }): string {
   return `${researchCountryLabels[area.country_code]} · ${researchRegionLabels[area.region_code] ?? area.region_code}`
+}
+
+/** Narrow records already validated by the separate API response schemas. */
+export function hasSemanticEvidence(
+  item: ResearchRecord | SemanticResearchRecord,
+): item is SemanticResearchRecord {
+  return 'semantic' in item
 }

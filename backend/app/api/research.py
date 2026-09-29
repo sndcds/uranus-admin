@@ -26,6 +26,7 @@ from app.schemas.research import (
     ResearchPage,
     ResearchType,
     SemanticResearchFilters,
+    SemanticResearchPage,
 )
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
 from app.services.semantic_search import semantic_search
@@ -54,12 +55,12 @@ async def search(
     )
 
 
-@router.get("/semantic-search", response_model=ResearchPage)
+@router.get("/semantic-search", response_model=SemanticResearchPage)
 async def semantic(
     request: Request,
     settings: SettingsDep,
     filters: Annotated[SemanticResearchFilters, Query()],
-) -> ResearchPage:
+) -> SemanticResearchPage:
     """Experimental event-only retrieval; repeated area_ids are ORed at rehydration."""
     return await semantic_search(request, settings, filters)
 

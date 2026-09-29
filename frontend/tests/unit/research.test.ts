@@ -5,7 +5,7 @@ import { researchRelations } from '../../app/utils/research-relations'
 import { workspaceTarget } from '../../app/utils/auth-redirect'
 import { forwardAdminRequest } from '../../server/utils/admin-proxy'
 import { createAdminApi } from '../../app/utils/admin-api'
-import { researchDetail, researchPage } from '../fixtures/research'
+import { researchDetail, researchPage, semanticResearchPage } from '../fixtures/research'
 import { sqlCsv } from '../../app/utils/sql-csv'
 
 describe('research contracts and boundaries', () => {
@@ -98,7 +98,7 @@ describe('experimental semantic search', () => {
     expect(researchQuery({ q: 'creative', search_mode: 'unknown' }).success).toBe(false)
   })
   it('calls the semantic endpoint with event filters and no UI mode or model parameter', async () => {
-    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(semanticResearchPage())))
     await createAdminApi(fetcher).researchSemanticSearch({
       q: 'creative',
       search_mode: 'semantic',
@@ -130,7 +130,7 @@ describe('experimental semantic search', () => {
     ['GET', 'q=creative&page_size=21', 422],
     ['GET', 'q=creative&sort=name', 422],
   ])('semantic proxy boundary %s %s', async (method, query, status) => {
-    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(semanticResearchPage())))
     const result = await forwardAdminRequest(
       {
         path: '/api/v1/research/semantic-search',
@@ -148,7 +148,7 @@ describe('experimental semantic search', () => {
 
 it('serializes semantic area IDs as repeated query parameters', async () => {
   const areas = ['00000000-0000-4000-8000-000000000991', '00000000-0000-4000-8000-000000000992']
-  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(semanticResearchPage())))
   await createAdminApi(fetcher).researchSemanticSearch({ q: 'creative', area_ids: areas })
   const url = new URL(fetcher.mock.calls[0]![0], 'http://localhost')
   expect(url.searchParams.getAll('area_ids')).toEqual(areas)
@@ -182,7 +182,7 @@ it.each([
   const query = new URLSearchParams({ q: 'creative' })
   for (const area of areas) query.append('area_ids', area)
   if (single) query.set('area_id', '00000000-0000-4000-8000-000000000991')
-  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(semanticResearchPage())))
   const result = await forwardAdminRequest(
     { path: `/api/v1/research/${path}`, method: 'GET', query, authorization: 'Bearer synthetic' },
     'http://backend.invalid',
@@ -204,7 +204,7 @@ it('rejects an explicit empty area list before it can become an unfiltered reque
 
 describe('structured semantic genre filters', () => {
   it('serializes and forwards only the allowlisted repeated filters', async () => {
-    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(semanticResearchPage())))
     const areas = ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002']
     await createAdminApi(fetcher).researchSemanticSearch({
       q: 'Live-Musik',
@@ -215,7 +215,7 @@ describe('structured semantic genre filters', () => {
     const url = new URL(fetcher.mock.calls[0]![0], 'http://localhost')
     expect(url.searchParams.getAll('genre_keys')).toEqual(['1:2', '1:3'])
     expect(url.searchParams.getAll('area_ids')).toEqual(areas)
-    const upstream = vi.fn().mockResolvedValue(new Response(JSON.stringify(researchPage())))
+    const upstream = vi.fn().mockResolvedValue(new Response(JSON.stringify(semanticResearchPage())))
     const result = await forwardAdminRequest(
       {
         path: '/api/v1/research/semantic-search',

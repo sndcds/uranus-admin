@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.research.area_selection import MAX_AREA_IDS, normalize_area_ids
+from app.research.chunk_kinds import Kind
 from app.schemas.finding import Pagination
 from app.schemas.genre import GenreKey
 
@@ -104,6 +105,40 @@ class ResearchRecord(BaseModel):
 
 class ResearchPage(BaseModel):
     items: list[ResearchRecord]
+    pagination: Pagination
+    observed_at: datetime
+    timezone: str
+
+
+class SemanticEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Kind
+    label: str
+    text: str = Field(min_length=1, max_length=200_000)
+
+
+class SemanticExplanation(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    score: float
+    matched_aspect: Kind
+    matched_aspect_label: str
+    reason: str
+    evidence: SemanticEvidence
+    supporting_evidence: list[SemanticEvidence] = Field(max_length=3)
+
+
+class SemanticResearchRecord(ResearchRecord):
+    model_config = ConfigDict(extra="forbid")
+
+    semantic: SemanticExplanation
+
+
+class SemanticResearchPage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[SemanticResearchRecord] = Field(max_length=20)
     pagination: Pagination
     observed_at: datetime
     timezone: str

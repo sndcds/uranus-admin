@@ -2,6 +2,7 @@ import { test, expect } from '../fixtures/authenticated'
 import {
   researchCategories,
   researchDetail,
+  semanticResearchPage,
   researchEvent,
   researchOrganization,
   researchPage,
@@ -521,7 +522,7 @@ test('semantic pilot reuses search, submits explicitly, preserves filters and sw
     await new Promise<void>((resolve) => {
       release = resolve
     })
-    await route.fulfill({ json: researchPage([researchEvent]) })
+    await route.fulfill({ json: semanticResearchPage() })
   })
   await page.goto('/research')
   await expect(page.getByRole('searchbox')).toHaveCount(1)
@@ -558,7 +559,11 @@ test('semantic pilot reuses search, submits explicitly, preserves filters and sw
   await expect(semantic).toBeChecked()
   await expect(page.getByRole('button', { name: `Vorschau: ${researchEvent.name}` })).toBeVisible()
   await page.getByRole('button', { name: 'Tabelle', exact: true }).click()
-  await expect(page.getByRole('table', { name: 'Recherche-Ergebnisse' })).toBeVisible()
+  const table = page.getByRole('table', { name: 'Recherche-Ergebnisse' })
+  await expect(table).toBeVisible()
+  await expect(table.getByText('Warum passt das?')).toBeVisible()
+  await table.getByText('Beleg anzeigen', { exact: true }).click()
+  await expect(table.getByText('Öffentlicher Jazzabend mit regionalen Künstlern.')).toBeVisible()
   await page.getByRole('button', { name: 'Karte', exact: true }).click()
   await expect(page.locator('.candidate-map-marker').first()).toBeVisible()
   if (info.project.name === 'mobile')
@@ -578,6 +583,15 @@ test('semantic pilot reuses search, submits explicitly, preserves filters and sw
     const sidebar = await page.locator('aside').boundingBox()
     expect(sidebar!.y).toBeGreaterThanOrEqual(header!.y + header!.height)
   }
+  const evidence = page.locator('article.research-result').first()
+  await expect(evidence.getByText('Warum passt das?')).toBeVisible()
+  await expect(
+    evidence.getByText('Öffentlicher Jazzabend mit regionalen Künstlern.'),
+  ).not.toBeVisible()
+  await evidence.getByText('Beleg anzeigen', { exact: true }).click()
+  await expect(evidence.getByText('Öffentlicher Jazzabend mit regionalen Künstlern.')).toBeVisible()
+  await expect(evidence.getByText('Der Saal ist stufenlos erreichbar.')).toBeVisible()
+  await expect(evidence.getByText('Ähnlichkeit: 0.446')).toBeVisible()
   await page.screenshot({ path: info.outputPath('semantic-search.png'), fullPage: true })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
@@ -592,11 +606,12 @@ test('semantic pilot reuses search, submits explicitly, preserves filters and sw
   await page.getByRole('searchbox').press('Enter')
   await expect(page).not.toHaveURL(/search_mode=semantic/)
   await expect(page.getByText('3 Ergebnisse insgesamt')).toBeVisible()
+  await expect(page.getByText('Warum passt das?')).toHaveCount(0)
 })
 
 test('semantic empty and safe error states retain classic search', async ({ page }) => {
   await page.route('**/api/admin/api/v1/research/semantic-search?**', (route) =>
-    route.fulfill({ json: researchPage([]) }),
+    route.fulfill({ json: semanticResearchPage([]) }),
   )
   await page.goto('/research/search?q=creative&search_mode=semantic')
   await expect(page.getByText('Keine passenden Veranstaltungen gefunden.')).toBeVisible()
