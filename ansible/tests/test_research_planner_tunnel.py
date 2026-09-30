@@ -7,6 +7,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -112,6 +113,61 @@ class PlannerTunnelTests(unittest.TestCase):
             **extra,
         }
         return env.get_template("research-planner-tunnel.service.j2").render(values)
+
+    def test_real_ansible_inventory_scalar_validation(self):
+        cases = [{**self.config, "expected": True}]
+        for field, value in (
+            ("ssh_port", "22"),
+            ("ssh_port", True),
+            ("local_port", 0),
+            ("remote_port", 65536),
+            ("host", ""),
+            ("remote_host", "localhost"),
+            ("key", "relative/key"),
+            ("known", "/etc/%d"),
+        ):
+            cases.append({**self.config, field: value, "expected": False})
+        play = [
+            {
+                "hosts": "localhost",
+                "connection": "local",
+                "gather_facts": False,
+                "vars": {"cases": cases},
+                "tasks": [
+                    {
+                        "ansible.builtin.assert": {
+                            "that": "item.expected == (item.host | ua_valid_planner_tunnel("
+                            "item.ssh_port, item.user, item.local_port, item.remote_host, "
+                            "item.remote_port, item.key, item.known))",
+                        },
+                        "loop": "{{ cases }}",
+                    }
+                ],
+            }
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "play.yml"
+            path.write_text(yaml.safe_dump(play))
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "ansible.cli.playbook",
+                    "-i",
+                    "localhost,",
+                    str(path),
+                    "--check",
+                ],
+                env={
+                    **os.environ,
+                    "ANSIBLE_CONFIG": str(ROOT / "ansible/ansible.cfg"),
+                    "ANSIBLE_LOCAL_TEMP": str(Path(directory) / "tmp"),
+                },
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_unit_has_fixed_arguments_and_private_systemd_credentials(self):
         unit = self.render(

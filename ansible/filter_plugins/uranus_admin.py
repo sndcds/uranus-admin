@@ -339,7 +339,8 @@ def valid_planner_tunnel(host, ssh_port, user, local_port, remote_host, remote_p
         and user != "root"
         and re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", user) is not None
         and all(
-            type(port) is int and 1 <= port <= 65535 for port in (ssh_port, local_port, remote_port)
+            isinstance(port, int) and not isinstance(port, bool) and 1 <= port <= 65535
+            for port in (ssh_port, local_port, remote_port)
         )
         and remote_host == "127.0.0.1"
         and safe_path(key)
