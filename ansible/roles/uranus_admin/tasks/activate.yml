@@ -155,12 +155,17 @@
         - ua_research_planner_tunnel_enabled
         - ua_previous_services['uranus-admin-research-planner-tunnel.service'].exists
 
-    - name: Require the local tunnel port to be free without killing another process
+    - name: Require the local tunnel ports to be free without killing another process
       ansible.builtin.wait_for:
         host: 127.0.0.1
-        port: "{{ ua_research_planner_local_port }}"
+        port: "{{ item }}"
         state: stopped
         timeout: 1
+        msg: "A local tunnel port is occupied; refusing to start the tunnel or stop a foreign process."
+      loop:
+        - "{{ ua_research_planner_local_port }}"
+        - "{{ ua_research_planner_qdrant_local_port }}"
+        - "{{ ua_research_planner_embedding_local_port }}"
       when: ua_planner_reconcile | default(false) and ua_research_planner_tunnel_enabled
 
     - name: Reconcile the optional tunnel before starting the backend

@@ -323,7 +323,20 @@ def artifact_manifest(path, expected_hash, expected_sha):
 PLANNER_UNIT = "uranus-admin-research-planner-tunnel.service"
 
 
-def valid_planner_tunnel(host, ssh_port, user, local_port, remote_host, remote_port, key, known):
+def valid_planner_tunnel(
+    host,
+    ssh_port,
+    user,
+    local_port,
+    remote_host,
+    remote_port,
+    key,
+    known,
+    qdrant_local_port,
+    qdrant_remote_port,
+    embedding_local_port,
+    embedding_remote_port,
+):
     def safe_path(value):
         return (
             isinstance(value, str)
@@ -340,8 +353,17 @@ def valid_planner_tunnel(host, ssh_port, user, local_port, remote_host, remote_p
         and re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", user) is not None
         and all(
             isinstance(port, int) and not isinstance(port, bool) and 1 <= port <= 65535
-            for port in (ssh_port, local_port, remote_port)
+            for port in (
+                ssh_port,
+                local_port,
+                remote_port,
+                qdrant_local_port,
+                qdrant_remote_port,
+                embedding_local_port,
+                embedding_remote_port,
+            )
         )
+        and len({local_port, qdrant_local_port, embedding_local_port}) == 3
         and remote_host == "127.0.0.1"
         and safe_path(key)
         and safe_path(known)

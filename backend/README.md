@@ -226,11 +226,13 @@ nonblank and preserved exactly. Unknown body fields are rejected. The backend su
 `EVENT_TIMEZONE` and `language=auto`; the planner calculates `reference_date`.
 See the [wire contract and error mapping](docs/contracts.md#research-language-planning).
 
-The production transport path (with future browser integration) is:
+The optional Ansible transport uses one SSH connection with three local forwards:
 
 ```text
-Browser → same-origin Nuxt → uranus-admin → http://127.0.0.1:8090
-  → systemd-managed SSH tunnel → AWS planner 127.0.0.1:8090 → OpenAI Terra
+uranus-admin
+  ├─ 127.0.0.1:8090 → SSH → planner 127.0.0.1:8090
+  ├─ 127.0.0.1:6333 → SSH → Qdrant 127.0.0.1:6333
+  └─ 127.0.0.1:6335 → SSH → Jina-v3 encoder 127.0.0.1:6335
 ```
 
 Phase 1 adds the FastAPI endpoint only. No frontend UI, Nitro allowlist or browser client
@@ -245,6 +247,32 @@ the optional [Ansible-managed tunnel](../ansible/README.md#research-planner-ssh-
 owns SSH host/key configuration and pins the host identity through `known_hosts`.
 Its SSH key is separate from the planner service Bearer key. Same-host development
 uses the same URL with the tunnel disabled. Only the planner host holds the OpenAI key.
+
+All three remote services remain loopback-only, and all local forwards bind only
+`127.0.0.1`; Qdrant and the embedding service have no direct public exposure.
+The remote AWS operator must separately allow all three destinations in sshd
+`PermitOpen` and matching `authorized_keys permitopen=` restrictions (see the Ansible
+instructions). This repository does not manage those remote files.
+
+With the tunnel and semantic mode enabled, operators must separately provision
+`/etc/uranus-admin/runtime.env`:
+
+```dotenv
+SEMANTIC_SEARCH_NONCOMMERCIAL_JINA=true
+QDRANT_URL=http://127.0.0.1:6333
+QDRANT_API_KEY=<qdrant-service-secret>
+EMBEDDING_URL=http://127.0.0.1:6335
+EMBEDDING_API_KEY=<embedding-service-secret>
+```
+
+Ansible preflight requires exact URLs matching the configured local Qdrant/embedding
+ports and nonempty keys. Service keys stay independent of each other and the SSH key;
+Ansible neither generates secrets nor copies them from AWS. Secret validation is
+hidden from logs, and service keys never enter the tunnel unit. Deployment checks
+local vector TCP connectivity only, without inference; this proves local listeners,
+not remote service readiness or key validity. Planner `/health` checks remain unchanged.
+Before a tunnel start/restart, Ansible stops only its managed tunnel and rejects
+collisions on any of the three local ports without killing foreign processes.
 
 Provision these settings in the **Admin API's own environment** and restart that process:
 

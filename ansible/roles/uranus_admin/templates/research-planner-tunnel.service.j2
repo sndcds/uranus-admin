@@ -28,6 +28,8 @@ ExecStart=/usr/bin/ssh -F /dev/null -N -T \
     -i %d/planner-ssh-key \
     -p {{ ua_research_planner_ssh_port }} \
     -L 127.0.0.1:{{ ua_research_planner_local_port }}:127.0.0.1:{{ ua_research_planner_remote_port }} \
+    -L 127.0.0.1:{{ ua_research_planner_qdrant_local_port }}:127.0.0.1:{{ ua_research_planner_qdrant_remote_port }} \
+    -L 127.0.0.1:{{ ua_research_planner_embedding_local_port }}:127.0.0.1:{{ ua_research_planner_embedding_remote_port }} \
     {{ ua_research_planner_ssh_user }}@{{ ua_research_planner_ssh_host }}
 Restart=on-failure
 RestartSec=5s
