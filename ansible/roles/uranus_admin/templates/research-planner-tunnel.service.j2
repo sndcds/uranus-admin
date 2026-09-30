@@ -1,0 +1,50 @@
+# Ansible-managed Uranus Admin research planner tunnel
+# Credential metadata revision: {{ ua_planner_tunnel.credential_revision }}
+[Unit]
+Description=Uranus Admin research planner SSH tunnel
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User={{ ua_service_user }}
+Group={{ ua_service_group }}
+LoadCredential=planner-ssh-key:{{ ua_research_planner_ssh_key_path }}
+LoadCredential=planner-known-hosts:{{ ua_research_planner_known_hosts_path }}
+ExecStart=/usr/bin/ssh -F /dev/null -N -T \
+    -o BatchMode=yes \
+    -o ExitOnForwardFailure=yes \
+    -o ServerAliveInterval=30 \
+    -o ServerAliveCountMax=3 \
+    -o ConnectTimeout=15 \
+    -o StrictHostKeyChecking=yes \
+    -o UserKnownHostsFile=%d/planner-known-hosts \
+    -o GlobalKnownHostsFile=/dev/null \
+    -o UpdateHostKeys=no \
+    -o IdentitiesOnly=yes \
+    -o IdentityAgent=none \
+    -o PreferredAuthentications=publickey \
+    -i %d/planner-ssh-key \
+    -p {{ ua_research_planner_ssh_port }} \
+    -L 127.0.0.1:{{ ua_research_planner_local_port }}:127.0.0.1:{{ ua_research_planner_remote_port }} \
+    {{ ua_research_planner_ssh_user }}@{{ ua_research_planner_ssh_host }}
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=30s
+TimeoutStopSec=15s
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

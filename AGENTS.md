@@ -172,6 +172,11 @@ and `X-Admin-CSRF: 1`; preserve logout's equivalent cookie/no-credential checks.
 Bearer sessions follow the existing non-cookie CSRF path; never invent a bypass.
 Dev auth requires explicit opt-in and is limited to development/test.
 
+Research language planning is server-to-server: admin → uranus-research-planner.
+Admin holds only the planner service key, never the planner's OpenAI key; neither key
+reaches the browser. The planner interprets queries only; future source/Qdrant plan
+execution belongs in admin. Never log or persist queries/plans or forward browser credentials.
+
 Preserve login rate limits, body limits, hash concurrency limits and trusted ingress
 handling. Nitro validates the socket peer before accepting configured `X-Real-IP`;
 NEVER trust arbitrary forwarded headers or configure wildcard trusted proxy peers.

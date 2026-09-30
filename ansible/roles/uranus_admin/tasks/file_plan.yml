@@ -69,6 +69,12 @@
   when: ua_manage_notification_timer | bool and (ua_target_environment == 'production' or ua_env_stats.results[2].stat.exists)
   no_log: true
 
+- name: Include the optional tunnel unit in the existing file snapshot and recovery plan
+  ansible.builtin.set_fact:
+    ua_files: "{{ ua_files + [{'path': '/etc/systemd/system/uranus-admin-research-planner-tunnel.service', 'content': lookup('template', 'research-planner-tunnel.service.j2'), 'mode': '0644'}] }}"
+  when: ua_research_planner_tunnel_enabled | bool
+  no_log: true
+
 - name: Compare installed files without emitting old contents or secret diffs
   ansible.builtin.stat:
     path: "{{ item.path }}"

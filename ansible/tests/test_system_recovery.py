@@ -242,6 +242,54 @@ class StaticRecoveryBoundaries(unittest.TestCase):
 
 
 class ActivationIntegrationTests(unittest.TestCase):
+    def test_planner_enable_and_repeat_are_idempotent(self):
+        observed = self.run_activation(planner=True, repeat_without_activation=True)
+        unit = "uranus-admin-research-planner-tunnel.service"
+        self.assertTrue(observed["services"][unit]["active"])
+        events = observed["events"]
+        tunnel = next(
+            i
+            for i, e in enumerate(events)
+            if e["task"] == "Reconcile the optional tunnel before starting the backend"
+        )
+        backend = next(
+            i for i, e in enumerate(events) if e["task"] == "Start affected application services"
+        )
+        self.assertLess(tunnel, backend)
+
+    def test_planner_disable_stops_only_previously_managed_tunnel(self):
+        observed = self.run_activation(planner_existing=True)
+        self.assertEqual(
+            observed["services"]["uranus-admin-research-planner-tunnel.service"],
+            {"active": False, "unit_file_state": "disabled"},
+        )
+
+    def test_planner_health_failure_recovers_first_install(self):
+        self.run_activation(
+            "Check the enabled planner tunnel without credentials or inference", planner=True
+        )
+
+    def test_planner_health_failure_restores_existing_tunnel(self):
+        self.run_activation(
+            "Check the enabled planner tunnel without credentials or inference",
+            planner=True,
+            planner_existing=True,
+        )
+
+    def test_planner_port_conflict_recovers_without_starting_tunnel(self):
+        observed = self.run_activation(
+            "Require the local tunnel port to be free without killing another process", planner=True
+        )
+        self.assertFalse(
+            any(
+                e["task"] == "Reconcile the optional tunnel before starting the backend"
+                for e in observed["events"]
+            )
+        )
+
+    def test_planner_check_mode_does_not_start_tunnel(self):
+        self.run_activation(planner=True, check=True)
+
     def test_geocode_production_timer_is_enabled_and_idempotent(self):
         self.run_activation(repeat_without_activation=True)
 
@@ -271,6 +319,8 @@ class ActivationIntegrationTests(unittest.TestCase):
     def run_activation(
         self,
         fail_task=None,
+        planner=False,
+        planner_existing=False,
         manage=False,
         approved=False,
         first_adoption=False,
@@ -371,6 +421,10 @@ class ActivationIntegrationTests(unittest.TestCase):
                 legacy / "backend/.env",
                 legacy / "frontend/.env",
             ]
+            planner_unit = "uranus-admin-research-planner-tunnel.service"
+            planner_file = root / "etc/systemd/system" / planner_unit
+            if planner_existing:
+                files.append(planner_file)
             geocode_files = [root / "etc/systemd/system" / name for name in GEOCODE]
             files.extend(geocode_files if geocode_existing else [])
             originals = {str(path): None for path in geocode_files} if not geocode_existing else {}
@@ -384,6 +438,8 @@ class ActivationIntegrationTests(unittest.TestCase):
                 path.write_text(original)
                 path.chmod(0o640)
                 originals[str(path)] = (path.read_text(), 0o640)
+            if planner and not planner_existing:
+                originals[str(planner_file)] = None
             if first_adoption:
                 for path in (
                     config / "runtime.env",
@@ -460,6 +516,10 @@ class ActivationIntegrationTests(unittest.TestCase):
                 + GEOCODE
                 + (NOTIFICATION if bootstrap and manage else []),
             }
+            if planner_existing:
+                services[planner_unit] = {"active": True, "unit_file_state": "enabled"}
+            if planner or planner_existing:
+                state["app_units"].append(planner_unit)
             initial_services = copy.deepcopy(services)
             state_path = root / "state.json"
             state_path.write_text(json.dumps(state))
@@ -470,6 +530,13 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "ansible_remote_tmp": str(root / "remote-tmp"),
                 "ansible_python_interpreter": sys.executable,
                 "fixture_state": str(state_path),
+                "ua_research_planner_tunnel_enabled": planner,
+                "ua_research_planner_ssh_host": "planner.example.invalid",
+                "ua_planner_tunnel": {
+                    "managed": planner_existing,
+                    "credential_revision": "synthetic-metadata" if planner else "disabled",
+                },
+                "ua_research_planner_units": [planner_unit] if planner or planner_existing else [],
                 "ua_config_dir": str(config),
                 "ua_root": str(release_root),
                 "ua_maintenance_root": str(maintenance),
@@ -686,7 +753,8 @@ class ActivationIntegrationTests(unittest.TestCase):
                 self.assertEqual((release_root / "current").resolve(), release)
                 health_events = [event for event in observed["events"] if event["kind"] == "uri"]
                 self.assertEqual(
-                    len(health_events), 5 + max(0, len(maintenance_responses or []) - 1)
+                    len(health_events),
+                    5 + int(planner) + max(0, len(maintenance_responses or []) - 1),
                 )
                 self.assertTrue(
                     all(event["pointer"] == str(old_release) for event in health_events)
@@ -848,6 +916,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                 )
         for task in tasks:
             for name, kind in (
+                ("uranus_planner_tunnel", "planner_inspect"),
                 ("ansible.builtin.systemd_service", "systemd"),
                 ("ansible.builtin.service_facts", "service_facts"),
                 ("ansible.builtin.command", "command"),

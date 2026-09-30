@@ -21,6 +21,9 @@
   ansible.builtin.assert:
     that: not ua_previous_frontend_env.stat.exists or (ua_previous_frontend_env.stat.isreg and not ua_previous_frontend_env.stat.islnk)
 
+- name: Recheck planner credentials and unit ownership after the build
+  ansible.builtin.import_tasks: research_planner_inspect.yml
+
 - name: Refresh service states after the potentially long build
   ansible.builtin.import_tasks: service_snapshot.yml
 
@@ -57,6 +60,7 @@
   ansible.builtin.set_fact:
     ua_activation_required: >-
       {{ ua_changed_paths | length > 0 or ua_restart_services | length > 0
+         or ua_planner_reconcile | default(false)
          or not ua_previous_services['uranus-admin-geocode-worker.timer'].active
          or not ua_previous_services['uranus-admin-geocode-worker.timer'].enabled
          or ua_admin_database_plan.admin_database.state | default('READY') == 'UPGRADEABLE'

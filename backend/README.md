@@ -216,3 +216,76 @@ Kanonische Felder, Privacy, Queryplan und spätere Uranus-eigene pg_trgm-Indizes
 
 The dedicated `/api/v1/research` API uses an explicit journalist-or-system-admin
 authorization dependency and public projections. See [account setup and rollout](docs/authentication.md#research-authorization).
+
+### Research planner (Phase 1)
+
+`POST /api/v1/research/plan` accepts `{"query":"Culture this evening in Flensburg"}`
+and returns a validated `research-query-plan-v1` / `research-planner-v4` envelope.
+It requires a journalist or system-admin session. Queries are 1–2,000 characters,
+nonblank and preserved exactly. Unknown body fields are rejected. The backend supplies
+`EVENT_TIMEZONE` and `language=auto`; the planner calculates `reference_date`.
+See the [wire contract and error mapping](docs/contracts.md#research-language-planning).
+
+The production transport path (with future browser integration) is:
+
+```text
+Browser → same-origin Nuxt → uranus-admin → http://127.0.0.1:8090
+  → systemd-managed SSH tunnel → AWS planner 127.0.0.1:8090 → OpenAI Terra
+```
+
+Phase 1 adds the FastAPI endpoint only. No frontend UI, Nitro allowlist or browser client
+is added yet. Future browser use must pass through Nuxt and Admin; the browser never
+contacts the planner directly or receives its service key. Admin never receives, stores
+or forwards the OpenAI key. The planner receives no PostgreSQL/Qdrant records: `/plan`
+only interprets language. Plan execution, entity resolution, hybrid retrieval,
+recommendations/results, aggregation and comparison execution are deferred.
+
+The planner port stays private on the remote host. FastAPI sees only loopback;
+the optional [Ansible-managed tunnel](../ansible/README.md#research-planner-ssh-tunnel)
+owns SSH host/key configuration and pins the host identity through `known_hosts`.
+Its SSH key is separate from the planner service Bearer key. Same-host development
+uses the same URL with the tunnel disabled. Only the planner host holds the OpenAI key.
+
+Provision these settings in the **Admin API's own environment** and restart that process:
+
+```dotenv
+RESEARCH_PLANNER_URL=http://127.0.0.1:8090
+RESEARCH_PLANNER_API_KEY=replace-with-planner-service-key
+RESEARCH_PLANNER_TIMEOUT_SECONDS=30
+```
+
+`RESEARCH_PLANNER_API_KEY` is the internal Bearer key for Admin → planner, **not an
+OpenAI API key**. Replace the placeholder with the same secret value provisioned as
+the planner's `RESEARCH_PLANNER_SERVICE_API_KEY` (32–512 printable ASCII characters,
+without whitespace). Each service owns its environment; Admin must not read
+`/etc/research-planner/planner.env` or receive the planner's model credentials.
+
+Only `http://127.0.0.1:<port>` is accepted (canonical decimal port 1–65535, required,
+no leading zeroes). Hostnames, IPv6, other loopback addresses, external origins, HTTPS,
+credentials, paths including `/`, query strings, fragments and whitespace are rejected.
+Both URL and key may be absent; partial configuration fails startup. A missing or
+unreachable planner affects only this endpoint, returning safe 503. `/health` and
+`/ready` remain unchanged and do not contact the planner. No migrations, grants or
+worker changes are needed.
+
+One process-lifetime HTTP client uses no environment proxies, redirects, cookie replay
+or automatic retries. The timeout defaults to 30 seconds (allowed 1–30), including a
+total deadline; responses are limited to 32 KiB. Submit another request explicitly
+after a timeout if appropriate. No queries/plans are persisted or logged.
+The 30-second default matches the planner's configured timeout, avoiding a much earlier
+Admin cutoff while paid inference is still running. The observed roughly 4.3-second
+request is not a p95/p99 latency measurement; matching deadlines cannot guarantee
+completion before Admin's total deadline, which also includes transport overhead.
+
+For a direct backend request with an existing Research-authorized **Admin session
+Bearer token** (not the planner service key):
+
+```sh
+curl --request POST http://127.0.0.1:8000/api/v1/research/plan \
+  --header 'Authorization: Bearer <ADMIN_SESSION_TOKEN>' \
+  --header 'Content-Type: application/json' \
+  --data '{"query":"Was ist heute Abend in Flensburg kulturell interessant?"}'
+```
+
+Cookie-authenticated POSTs additionally require the exact configured `Origin` and
+`X-Admin-CSRF: 1`. Mocked transport tests require neither the planner nor an OpenAI call.

@@ -82,6 +82,13 @@
     state: absent
   when: ua_target_environment in ['staging', 'test'] and ua_infrastructure.would_create_symlink and ua_install_attempted
 
+- name: Stop the touched planner tunnel before restoring its unit
+  ansible.builtin.systemd_service:
+    name: uranus-admin-research-planner-tunnel.service
+    state: stopped
+    enabled: false
+  when: ua_planner_touched | default(false)
+
 - name: Restore previous managed file contents and permissions
   ansible.builtin.copy:
     remote_src: true
@@ -139,6 +146,13 @@
   failed_when: ua_nginx_validation.rc != 0 or 'conflicting server name' in (ua_nginx_validation.stderr | default(''))
   changed_when: false
   no_log: true
+
+- name: Restore the previously managed tunnel before application services
+  ansible.builtin.systemd_service:
+    name: uranus-admin-research-planner-tunnel.service
+    state: "{{ 'started' if ua_previous_services['uranus-admin-research-planner-tunnel.service'].active else 'stopped' }}"
+    enabled: "{{ ua_previous_services['uranus-admin-research-planner-tunnel.service'].enabled }}"
+  when: ua_planner_touched | default(false) and ua_previous_services['uranus-admin-research-planner-tunnel.service'].exists
 
 - name: Restore affected application services to their actual previous states
   ansible.builtin.systemd_service:

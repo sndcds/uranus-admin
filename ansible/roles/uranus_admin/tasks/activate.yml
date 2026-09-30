@@ -6,6 +6,7 @@
     ua_services_stop_attempted: false
     ua_maintenance_attempted: false
     ua_geocode_touched: false
+    ua_planner_touched: false
 
 - name: Activate validated system configuration with bounded recovery
   when: not ansible_check_mode
@@ -109,7 +110,7 @@
 
     - name: Verify installed units before loading or starting them
       ansible.builtin.command:
-        argv: "{{ ['systemd-analyze', 'verify'] + ((ua_services + ua_geocode_units + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else [])) | map('regex_replace', '^', '/etc/systemd/system/') | list) }}"
+        argv: "{{ ['systemd-analyze', 'verify'] + ((ua_services + ua_geocode_units + (['uranus-admin-research-planner-tunnel.service'] if ua_research_planner_tunnel_enabled else []) + (ua_notification_units if ua_target_environment in ['staging', 'test'] and ua_manage_notification_timer | bool else [])) | map('regex_replace', '^', '/etc/systemd/system/') | list) }}"
       changed_when: false
 
     - name: Validate bootstrap Nginx before loading units
@@ -139,6 +140,35 @@
       failed_when: ua_nginx_validation.rc != 0 or 'conflicting server name' in (ua_nginx_validation.stderr | default(''))
       changed_when: false
       no_log: true
+
+    - name: Record optional tunnel changes before reconciliation
+      ansible.builtin.set_fact:
+        ua_planner_touched: true
+      when: ua_planner_reconcile | default(false)
+
+    - name: Stop only the managed tunnel before changing its listener
+      ansible.builtin.systemd_service:
+        name: uranus-admin-research-planner-tunnel.service
+        state: stopped
+      when:
+        - ua_planner_reconcile | default(false)
+        - ua_research_planner_tunnel_enabled
+        - ua_previous_services['uranus-admin-research-planner-tunnel.service'].exists
+
+    - name: Require the local tunnel port to be free without killing another process
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ ua_research_planner_local_port }}"
+        state: stopped
+        timeout: 1
+      when: ua_planner_reconcile | default(false) and ua_research_planner_tunnel_enabled
+
+    - name: Reconcile the optional tunnel before starting the backend
+      ansible.builtin.systemd_service:
+        name: uranus-admin-research-planner-tunnel.service
+        state: "{{ 'restarted' if ua_research_planner_tunnel_enabled else 'stopped' }}"
+        enabled: "{{ ua_research_planner_tunnel_enabled }}"
+      when: ua_planner_reconcile | default(false)
 
     - name: Start affected application services
       ansible.builtin.systemd_service:

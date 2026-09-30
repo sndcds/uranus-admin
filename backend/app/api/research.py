@@ -29,6 +29,8 @@ from app.schemas.research import (
     SemanticResearchPage,
 )
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
+from app.schemas.research_planner import PlanResponse, ResearchPlanRequest
+from app.services.research_planner import ResearchPlannerClient, unavailable
 from app.services.semantic_search import semantic_search
 
 router = APIRouter(
@@ -37,6 +39,19 @@ router = APIRouter(
     dependencies=[Depends(get_current_research_user)],
     responses={code: {"model": ErrorResponse} for code in (401, 403, 404, 422, 503)},
 )
+
+
+@router.post(
+    "/plan",
+    response_model=PlanResponse,
+    responses={code: {"model": ErrorResponse} for code in (413, 502)},
+)
+async def plan(request: Request, body: ResearchPlanRequest) -> PlanResponse:
+    """Interpret a research question; no source or vector retrieval and no plan execution."""
+    planner: ResearchPlannerClient | None = request.app.state.research_planner
+    if planner is None:
+        raise unavailable()
+    return await planner.plan(body.query)
 
 
 @router.get("/search", response_model=ResearchPage)

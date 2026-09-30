@@ -4,6 +4,9 @@
 - name: Inspect the existing host and database
   ansible.builtin.import_tasks: preflight.yml
 
+- name: Inspect optional planner tunnel ownership and operator-provisioned credentials
+  ansible.builtin.import_tasks: research_planner_inspect.yml
+
 - name: Inspect and prepare secret separation in memory
   ansible.builtin.import_tasks: environment_plan.yml
 

@@ -144,9 +144,18 @@ class ActionModule(ActionBase):
                         "enabled" if args["enabled"] else "disabled"
                     )
             result["changed"] = True
+        elif kind == "planner_inspect":
+            result.update(
+                managed=(
+                    Path(state["unit_dir"]) / "uranus-admin-research-planner-tunnel.service"
+                ).exists(),
+                credential_revision="synthetic-metadata" if args["enabled"] else "disabled",
+            )
         elif kind == "wait_for":
-            state["loaded_maintenance_capable"] = state.pop("pending_maintenance_capable")
+            if "pending_maintenance_capable" in state:
+                state["loaded_maintenance_capable"] = state.pop("pending_maintenance_capable")
         elif kind == "uri":
+            result["json"] = {"status": "ok"}
             event["pointer"] = str(Path(state["current"]).resolve())
             result["status"] = (
                 503 if args["url"].startswith("https://") and event["public_maintenance"] else 200

@@ -1,0 +1,19 @@
+- name: Inspect planner credentials and unit without reading key material
+  uranus_planner_tunnel:
+    enabled: "{{ ua_research_planner_tunnel_enabled }}"
+    key_path: "{{ ua_research_planner_ssh_key_path }}"
+    known_hosts_path: "{{ ua_research_planner_known_hosts_path }}"
+  register: ua_planner_tunnel_inspection
+  no_log: true
+  diff: false
+
+- name: Reject credential rotation during release preparation
+  ansible.builtin.assert:
+    that: ua_planner_tunnel.credential_revision == ua_planner_tunnel_inspection.credential_revision
+    fail_msg: "Planner credentials changed during preparation; rerun the reviewed deployment."
+  when: ua_planner_tunnel is defined and ua_research_planner_tunnel_enabled
+
+- name: Remember optional tunnel inspection and the bounded service set
+  ansible.builtin.set_fact:
+    ua_planner_tunnel: "{{ ua_planner_tunnel_inspection }}"
+    ua_research_planner_units: "{{ ['uranus-admin-research-planner-tunnel.service'] if (ua_research_planner_tunnel_enabled or ua_planner_tunnel_inspection.managed) else [] }}"
