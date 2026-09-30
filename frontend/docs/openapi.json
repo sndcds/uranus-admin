@@ -20881,6 +20881,112 @@
         ]
       }
     },
+    "/api/v1/research/query": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Query",
+        "operationId": "query_api_v1_research_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchExecutionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/research/search": {
       "get": {
         "tags": [
@@ -24678,6 +24784,76 @@
         ],
         "title": "AdminPrincipal"
       },
+      "AggregateItem": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "value"
+        ],
+        "title": "AggregateItem"
+      },
+      "AggregateResult": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "aggregate",
+            "title": "Kind",
+            "default": "aggregate"
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "event_count",
+              "occurrence_count",
+              "venue_count",
+              "organization_count"
+            ],
+            "title": "Metric"
+          },
+          "group_by": {
+            "type": "string",
+            "enum": [
+              "venue",
+              "organization",
+              "category"
+            ],
+            "title": "Group By"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AggregateItem"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metric",
+          "group_by",
+          "items"
+        ],
+        "title": "AggregateResult"
+      },
       "AreaDossier": {
         "properties": {
           "area": {
@@ -25270,6 +25446,61 @@
         ],
         "title": "ClarificationResponse"
       },
+      "ComparisonItem": {
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/ResolutionCandidate"
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "target",
+          "value"
+        ],
+        "title": "ComparisonItem"
+      },
+      "ComparisonResult": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "comparison",
+            "title": "Kind",
+            "default": "comparison"
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "event_count",
+              "occurrence_count",
+              "venue_count",
+              "organization_count"
+            ],
+            "title": "Metric"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonItem"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 2,
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metric",
+          "items"
+        ],
+        "title": "ComparisonResult"
+      },
       "ComparisonTarget": {
         "properties": {
           "kind": {
@@ -25407,6 +25638,38 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ContentParameters"
+      },
+      "CountResult": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "count",
+            "title": "Kind",
+            "default": "count"
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "event_count",
+              "occurrence_count",
+              "venue_count",
+              "organization_count"
+            ],
+            "title": "Metric"
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metric",
+          "value"
+        ],
+        "title": "CountResult"
       },
       "CursorPagination": {
         "properties": {
@@ -27608,6 +27871,194 @@
           "comparison"
         ],
         "title": "EventContentStatistics"
+      },
+      "ExecutionClarification": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "needs_clarification",
+            "title": "Kind",
+            "default": "needs_clarification"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "planner",
+              "ambiguous",
+              "no_match",
+              "duplicate_target"
+            ],
+            "title": "Reason"
+          },
+          "planner_state": {
+            "type": "string",
+            "enum": [
+              "none",
+              "needs_criteria",
+              "needs_location",
+              "needs_date"
+            ],
+            "title": "Planner State",
+            "default": "none"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "area_query",
+                  "venue_query",
+                  "organization_query",
+                  "category_queries",
+                  "genre_queries",
+                  "comparison_targets"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ResolutionCandidate"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Candidates"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "ExecutionClarification"
+      },
+      "ExecutionDiagnostics": {
+        "properties": {
+          "planner_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Planner Ms"
+          },
+          "resolution_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Resolution Ms",
+            "default": 0
+          },
+          "execution_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Execution Ms",
+            "default": 0
+          },
+          "total_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Total Ms"
+          },
+          "returned_count": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 0.0,
+            "title": "Returned Count",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "planner_ms",
+          "total_ms"
+        ],
+        "title": "ExecutionDiagnostics"
+      },
+      "ExecutionProvenance": {
+        "properties": {
+          "structured": {
+            "type": "boolean",
+            "title": "Structured",
+            "default": false
+          },
+          "semantic": {
+            "type": "boolean",
+            "title": "Semantic",
+            "default": false
+          },
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date"
+          },
+          "to_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Date"
+          },
+          "time_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time From"
+          },
+          "category_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Category Ids"
+          },
+          "genre_keys": {
+            "items": {
+              "type": "string",
+              "maxLength": 23,
+              "pattern": "^-?(0|[1-9][0-9]*):-?(0|[1-9][0-9]*)$"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Genre Keys"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ExecutionProvenance"
       },
       "Finding": {
         "properties": {
@@ -32532,6 +32983,49 @@
         ],
         "title": "RecentEntity"
       },
+      "RecordsResult": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "records",
+            "title": "Kind",
+            "default": "records"
+          },
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SemanticResearchRecord"
+                },
+                {
+                  "$ref": "#/components/schemas/ResearchRecord"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Items"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "RecordsResult"
+      },
       "ResearchArea": {
         "properties": {
           "id": {
@@ -32895,6 +33389,99 @@
           "observed_at"
         ],
         "title": "ResearchDetail"
+      },
+      "ResearchExecutionResponse": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "plan": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlannedResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ClarificationResponse"
+              }
+            ],
+            "title": "Plan",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "needs_clarification": "#/components/schemas/ClarificationResponse",
+                "plan": "#/components/schemas/PlannedResponse"
+              }
+            }
+          },
+          "resolution": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedField"
+            },
+            "type": "array",
+            "maxItems": 23,
+            "title": "Resolution"
+          },
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RecordsResult"
+              },
+              {
+                "$ref": "#/components/schemas/CountResult"
+              },
+              {
+                "$ref": "#/components/schemas/AggregateResult"
+              },
+              {
+                "$ref": "#/components/schemas/ComparisonResult"
+              },
+              {
+                "$ref": "#/components/schemas/ExecutionClarification"
+              }
+            ],
+            "title": "Result",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "aggregate": "#/components/schemas/AggregateResult",
+                "comparison": "#/components/schemas/ComparisonResult",
+                "count": "#/components/schemas/CountResult",
+                "needs_clarification": "#/components/schemas/ExecutionClarification",
+                "records": "#/components/schemas/RecordsResult"
+              }
+            }
+          },
+          "execution": {
+            "$ref": "#/components/schemas/ExecutionProvenance"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/ExecutionDiagnostics"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query",
+          "plan",
+          "result",
+          "execution",
+          "observed_at",
+          "timezone",
+          "diagnostics"
+        ],
+        "title": "ResearchExecutionResponse"
       },
       "ResearchExport": {
         "properties": {
@@ -33668,6 +34255,70 @@
           "event_count"
         ],
         "title": "ResearchUsageItem"
+      },
+      "ResolutionCandidate": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "area",
+              "venue",
+              "organization",
+              "category",
+              "genre"
+            ],
+            "title": "Entity Type"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "entity_type",
+          "id",
+          "label"
+        ],
+        "title": "ResolutionCandidate"
+      },
+      "ResolvedField": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "area_query",
+              "venue_query",
+              "organization_query",
+              "category_queries",
+              "genre_queries",
+              "comparison_targets"
+            ],
+            "title": "Field"
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ResolutionCandidate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "field",
+          "query",
+          "target"
+        ],
+        "title": "ResolvedField"
       },
       "ReviewUpdate": {
         "properties": {

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.config import Settings
 from app.repositories.activity_previews import location
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
-from app.repositories.research import CATEGORY_LABELS, DATE_STATUS, PUBLIC
+from app.repositories.research import CATEGORY_LABELS, DATE_STATUS, GENRE_LABELS, PUBLIC
 from app.repositories.temporal import is_upcoming_start
 from app.research.semantic_contracts import EffectiveLocation, SemanticDocument
 from app.research.semantic_documents import event_document, public_clean
@@ -47,16 +47,13 @@ LEFT JOIN uranus.space s ON s.uuid={EFFECTIVE_SPACE_SQL}
 WHERE e.uuid=ANY(CAST(:ids AS uuid[])) AND e.release_status::text IN {PUBLIC}
     AND {DATE_STATUS} IN {PUBLIC}
 ORDER BY d.event_uuid,d.start_date,d.start_time NULLS LAST,d.uuid LIMIT 100001"""
-TYPES_SQL = """WITH types AS (
+TYPES_SQL = f"""WITH types AS (
     SELECT DISTINCT ON(type_id) type_id,name FROM uranus.event_type
     WHERE NULLIF(trim(name),'') IS NOT NULL
     ORDER BY type_id,CASE iso_639_1 WHEN 'de' THEN 0 WHEN 'en' THEN 1 ELSE 2 END,
         iso_639_1 COLLATE "C" NULLS LAST,name COLLATE "C"
 ), genres AS (
-    SELECT DISTINCT ON(type_id,genre_id) type_id,genre_id,name FROM uranus.genre_type
-    WHERE NULLIF(trim(name),'') IS NOT NULL
-    ORDER BY type_id,genre_id,CASE iso_639_1 WHEN 'de' THEN 0 WHEN 'en' THEN 1 ELSE 2 END,
-        iso_639_1 COLLATE "C" NULLS LAST,name COLLATE "C"
+    {GENRE_LABELS}
 ) SELECT l.event_uuid,l.type_id,l.genre_id,t.name type_name,g.name genre_name
 FROM uranus.event_type_link l LEFT JOIN types t ON t.type_id=l.type_id
 LEFT JOIN genres g ON g.type_id=l.type_id AND g.genre_id=l.genre_id AND l.genre_id<>0

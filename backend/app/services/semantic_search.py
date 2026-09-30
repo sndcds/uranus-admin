@@ -30,7 +30,7 @@ MODEL = "jina-v3"
 REQUEST_TIMEOUT_SECONDS = 8
 
 
-async def semantic_search(
+async def semantic_research(
     request: Request, settings: Settings, filters: SemanticResearchFilters
 ) -> SemanticResearchPage:
     started = perf_counter()
@@ -155,3 +155,10 @@ async def semantic_search(
         metrics[stage] = round((perf_counter() - before) * 1000, 2)
         metrics["total_ms"] = round((perf_counter() - started) * 1000, 2)
         logging.getLogger("admin.research").info("research_semantic_search", extra=metrics)
+
+
+async def semantic_search(
+    request: Request, settings: Settings, filters: SemanticResearchFilters
+) -> SemanticResearchPage:
+    """Backward-compatible public endpoint wrapper."""
+    return await semantic_research(request, settings, filters)
