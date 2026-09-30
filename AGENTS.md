@@ -176,7 +176,10 @@ Research language planning is server-to-server: admin → uranus-research-planne
 Admin holds only the planner service key, never the planner's OpenAI key; neither key
 reaches the browser. The planner interprets queries only; `/research/query` executes
 validated server-side plans in Admin, never browser-submitted plans. Semantic-required
-execution must fail explicitly when retrieval is unavailable; top-K results never
+execution establishes complete, bounded PostgreSQL eligibility before Qdrant top-K
+ranking; overflow fails explicitly instead of truncating. Final source rehydration
+remains authoritative. Nonempty semantic-required execution must fail explicitly
+when retrieval is unavailable; top-K results never
 establish exact population metrics. Never log or persist queries/plans or forward browser credentials.
 
 Preserve login rate limits, body limits, hash concurrency limits and trusted ingress

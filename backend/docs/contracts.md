@@ -1334,15 +1334,39 @@ factual values without winners or “better” labels.
 Semantic event list/search/recommendation uses fixed Jina v3 and the existing event
 collection, at most 50 candidates. Optional semantic_focus is joined to semantic_query
 by a newline for one bounded embedding request (maximum 1,001 characters).
-Candidate IDs → authoritative PostgreSQL hard eligibility (release, date, area,
-venue, organization, category, genre, evening) → contextual evidence validation →
-score DESC, UUID tie-breaker → at most 20 records. Qdrant payload is not authoritative
-source data. Semantic ranking never bypasses source eligibility. Top-K retrieval
-can miss eligible records; it is not exhaustive and its size is not a population count.
-Semantic-required queries fail explicitly with 503 `research_semantic_unavailable`
-when semantic retrieval fails; there is no structured fallback. Structured-only
-plans work independently of semantic availability. Existing classic and semantic
-GET endpoint contracts remain unchanged.
+PostgreSQL/PostGIS hard eligibility (event/occurrence release, date, evening,
+effective venue/space, area, organization, categories, genres) → complete event
+UUID set → Qdrant exact `entity_id` membership filter → top 50 → authoritative
+PostgreSQL rehydration → unchanged contextual evidence validation → score DESC,
+UUID tie-breaker → at most 20 records. The UUID-only eligibility query and final
+rehydration share `eligible_event_ctes()` and `DATE_FILTER`, rather than separate
+eligibility predicates. No full source records are materialized for the ID stage.
+
+The complete eligibility limit is 10,000 unique events, matching the existing
+[event index scan budget](../../docs/research-ai/event-embeddings.md). The documented
+[September audit](../../docs/research-ai/architecture.md) found 576 public events;
+that historical observation is not a live production count. A 10,000-UUID filter
+uses approximately 400 KiB, below the internal HTTP 2 MiB request limit even with
+the 1,024-dimensional embedding. SQL reads at most 10,001 IDs to detect overflow.
+Overflow returns 422 `research_execution_too_broad` with “Narrow the research request
+before semantic ranking.” There is no truncated ranking population, chunking, retry,
+or increase of top-K. Broader semantic requests must be narrowed by the caller.
+
+Qdrant payload is not authoritative source data. Execution does not additionally
+filter on indexed area/genre metadata, so stale membership cannot silently narrow
+SQL eligibility. The exact UUID filter prevents higher-scoring ineligible events
+from consuming the top 50. Final source rehydration still enforces all hard filters,
+including PostGIS and genre membership; evidence owner, versions, hash, public text
+and occurrence context checks remain unchanged. Retrieval still depends on indexed
+coverage and valid evidence; top-K results are not exhaustive population counts.
+
+Empty SQL eligibility returns `items=[]`, `total=null` without calling encoder or
+Qdrant, even if those services are unavailable. With eligible events, retrieval
+failure returns 503 `research_semantic_unavailable`; there is no structured fallback.
+Structured-only plans work independently of semantic availability. Existing classic
+and semantic GET endpoint contracts and authorization remain unchanged. The legacy
+semantic GET retains its existing payload filters and retrieval flow; the execution
+engine passes its authoritative UUID set into the shared internal evidence pipeline.
 
 Explicit execution gaps return 422 `research_execution_unsupported` before retrieval:
 semantic venue/organization results (index definitions exist, but no public execution
@@ -1353,13 +1377,17 @@ Structured counts/aggregates/comparisons alone establish exact membership; top-K
 semantic results are never used for exact population metrics.
 
 The planner retains its existing maximum 30-second deadline. Resolution and the
-structured execution stage each have `DB_TIMEOUT_SECONDS` deadlines in addition
-to existing statement/pool limits; semantic execution retains its existing 8-second
+structured execution/semantic eligibility stages each have `DB_TIMEOUT_SECONDS`
+deadlines in addition to existing statement/pool limits; semantic execution retains its existing 8-second
 budget. No retries. No source connection is held during planner, embedding or Qdrant
 work. Area resolution reads only persisted admin geometry in a read-only snapshot;
 source result work uses READ ONLY / REPEATABLE READ, with comparisons sharing one
-snapshot. Resolution and final results may observe separate snapshots; final source
-eligibility is always reapplied. Database/timeouts become safe 503
+snapshot. The eligibility snapshot closes before encoder/Qdrant calls. Final
+rehydration opens a fresh short read-only snapshot and may drop events whose source
+facts changed. This is not an atomic snapshot across external ranking; newly eligible
+events after the first snapshot can appear in a subsequent request. Resolution and
+final results may also observe separate snapshots; final source eligibility is
+always reapplied. Database/timeouts become safe 503
 `research_execution_unavailable`; invalid execution plans fail with safe 502
 `research_execution_invalid_plan`. Provider/database messages are never reflected.
 Diagnostics expose only planner/resolution/execution/total milliseconds and returned

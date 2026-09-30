@@ -100,6 +100,17 @@ def pipeline(client, monkeypatch):
     return planner
 
 
+@pytest.fixture
+def eligible_population(monkeypatch):
+    async def connection(request):
+        yield object()
+
+    monkeypatch.setattr(service, "get_connection", connection)
+    eligible = AsyncMock(return_value=[uid(30)])
+    monkeypatch.setattr(service, "eligible_event_ids", eligible)
+    return eligible
+
+
 async def test_reject_plan_tampering_and_body_limit(client, headers, pipeline):
     for extra in (
         "plan",
@@ -213,7 +224,7 @@ async def test_unsupported_before_resolution(settings, monkeypatch, changes):
 
 
 async def test_semantic_required_failure_has_no_fallback(
-    client, headers, pipeline, monkeypatch, settings
+    client, headers, pipeline, monkeypatch, settings, eligible_population
 ):
     pipeline.plan.return_value = planned(
         intent="recommend",
@@ -235,7 +246,9 @@ async def test_semantic_required_failure_has_no_fallback(
     pipeline.plan.assert_awaited_once()
 
 
-async def test_semantic_query_shared_retrieval(client, headers, pipeline, monkeypatch, retrieval):
+async def test_semantic_query_shared_retrieval(
+    client, headers, pipeline, monkeypatch, retrieval, eligible_population
+):
     pipeline.plan.return_value = planned(
         intent="recommend",
         answer_mode="recommendation",
@@ -720,7 +733,7 @@ async def test_uuid_and_taxonomy_normalization(settings, execution_source):
 
 
 async def test_query_cannot_select_vector_model_collection_or_url(
-    client, headers, pipeline, monkeypatch, retrieval
+    client, headers, pipeline, monkeypatch, retrieval, eligible_population
 ):
     response = planned(
         intent="search",

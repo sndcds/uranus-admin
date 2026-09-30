@@ -16,7 +16,11 @@ from app.config import Settings
 from app.database import get_connection
 from app.errors import APIError
 from app.repositories.research import research_page
-from app.repositories.research_execution import aggregate_selection, count_selection
+from app.repositories.research_execution import (
+    aggregate_selection,
+    count_selection,
+    eligible_event_ids,
+)
 from app.repositories.research_resolution import Resolution, resolve_plan
 from app.schemas.research_execution import (
     AggregateResult,
@@ -187,7 +191,23 @@ class ResearchPlanExecutor:
                                 )
                             ),
                         )
-                        page = await semantic_research(request, settings, semantic_filters)
+                        # Complete UUID-only eligibility in a short read-only snapshot.
+                        # Release it before embedding/ranking; final rehydration checks
+                        # the same constraints again in a fresh authoritative snapshot.
+                        async with (
+                            asyncio.timeout(settings.db_timeout_seconds),
+                            asynccontextmanager(get_connection)(request) as connection,
+                        ):
+                            eligible_ids = await eligible_event_ids(
+                                connection, settings, filters, resolution.area
+                            )
+                        page = await semantic_research(
+                            request,
+                            settings,
+                            semantic_filters,
+                            eligible_ids=eligible_ids,
+                            resolved_area=resolution.area,
+                        )
                         result = RecordsResult(items=list(page.items))
                         observed_at = page.observed_at
                     else:

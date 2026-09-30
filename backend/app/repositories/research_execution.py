@@ -1,17 +1,45 @@
 """Exact, bounded SQL metrics using the shared eligible Research population."""
 
+from uuid import UUID
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
-from app.repositories.research import parameters, research_sql
+from app.errors import APIError
+from app.repositories.research import eligible_event_ctes, parameters, research_sql, search_sql
 from app.repositories.research_areas import ResolvedResearchArea
+from app.research.semantic_limits import MAX_ELIGIBLE_EVENTS
 from app.schemas.research_execution import (
     AggregateItem,
     ExecutionFilters,
     ExecutionGrouping,
     ExecutionMetric,
 )
+
+
+async def eligible_event_ids(
+    connection: AsyncConnection,
+    settings: Settings,
+    filters: ExecutionFilters,
+    area: ResolvedResearchArea | None,
+) -> list[UUID]:
+    """Complete hard-eligible population or an explicit error; never a truncated sample."""
+    rows = await connection.execute(
+        text(f"""{eligible_event_ctes(ids_only=True)}
+        SELECT DISTINCT entity_key FROM matched_events
+        WHERE (:q='%%' OR entity_key::text IN ({search_sql("event")}))
+        ORDER BY entity_key LIMIT :eligibility_probe_limit"""),
+        {**parameters(filters, settings, area), "eligibility_probe_limit": MAX_ELIGIBLE_EVENTS + 1},
+    )
+    identifiers = list(rows.scalars())
+    if len(identifiers) > MAX_ELIGIBLE_EVENTS:
+        raise APIError(
+            422,
+            "research_execution_too_broad",
+            "Narrow the research request before semantic ranking.",
+        )
+    return identifiers
 
 
 async def count_selection(

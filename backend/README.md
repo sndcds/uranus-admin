@@ -299,9 +299,13 @@ facts come from Admin. The endpoint returns bounded typed records, counts, aggre
 comparisons or clarification, without generated answer prose. `/plan` is unchanged.
 
 Structured lists/counts support events, venues and organizations. Event semantic
-search/recommendation applies authoritative hard filters before contextual evidence
-ranking. Semantic-required queries fail explicitly with 503 when retrieval is
-unavailable; structured-only queries work independently. Exact metrics use SQL;
+search/recommendation first selects the complete hard-eligible UUID population in
+PostgreSQL/PostGIS, then ranks only those IDs in Qdrant (top 50), and finally
+rehydrates and validates contextual evidence in a fresh source snapshot. The
+10,000-event eligibility bound fails with 422 `research_execution_too_broad` when
+exceeded; it never silently truncates. Empty eligibility returns empty records
+without encoder/Qdrant calls. For nonempty eligibility, semantic-required queries
+fail explicitly with 503 when retrieval is unavailable; structured-only queries work independently. Exact metrics use SQL;
 top-K semantic results never establish exact counts, aggregates or comparisons.
 Evening follows the planner contract: known local start >=18:00 and <24:00, excluding
 all-day/unknown-time occurrences. No migrations, new grants, query persistence or
