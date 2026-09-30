@@ -1181,3 +1181,67 @@ and composes with search, organization, creation period, temporal and geographic
 Other entity sections ignore a valid scope in direct backend requests; Nitro only
 allowlists it on the venue collection. No source writes, migrations or grants are required.
 SQL provenance includes the applied scope and reproduces the same filtered queries.
+
+## Research language planning
+
+`POST /api/v1/research/plan` is a Research-authorized interpretation endpoint
+(`system_admin OR journalist`), independent of Operations. Cookie sessions retain exact
+Origin and CSRF validation; Bearer sessions follow the existing non-cookie path.
+Anonymous requests receive 401; identities without either role receive 403.
+The request is a closed JSON object containing only `query`: a nonblank string of
+1–2,000 characters, preserved exactly (including surrounding whitespace). This language
+input limit follows the planner contract, independently of the existing 120-character
+collection/semantic retrieval query limits. The inbound JSON body is capped at 32 KiB,
+including chunked requests; invalid input returns safe 422, oversized bodies 413.
+
+Admin calls only the operator-configured numeric loopback origin's `POST /plan` with
+`Authorization: Bearer <planner service key>`, `Content-Type: application/json`,
+`Accept: application/json`, and `Accept-Encoding: identity`. The JSON body contains
+exactly `query`, `timezone` from `EVENT_TIMEZONE`, and fixed `language: "auto"`.
+Browser headers, sessions, cookies, CSRF values and IPs never reach the planner.
+No redirects, environment proxies, cookies from earlier responses or retries are used.
+One reusable client is created/closed with FastAPI lifespan. There is a configurable
+1–30 second total/network timeout (default 10 seconds), no Admin request queue, and a
+32 KiB response limit. Compressed responses are rejected to bound decoding work.
+Startup and health/readiness do not probe this optional service.
+
+The closed, strict Admin models mirror the
+[canonical planner schema at 63dcd78](https://github.com/sndcds/uranus-research-planner/blob/63dcd78d0b10668283d649ecc10dbbbaa10dc089/src/research_planner/schemas.py).
+Only `schema_version: research-query-plan-v1` and `prompt_version: research-planner-v4`
+are accepted. The response includes `model`, `plan`, `reference_date`, `timezone`,
+`diagnostics`, and `kind` (`plan` or `needs_clarification`). All wire fields are required,
+including nullable plan fields and both version tags. Plan enums, slot/list bounds,
+date and cross-field constraints follow that contract. No planner package, prompt or
+inference implementation is imported. Upgrades require explicit compatibility review.
+
+Admin checks exact `original_query` and timezone equality, diagnostics consistency,
+clarification/kind agreement, and absence of an unsupported reason in HTTP 200.
+The planner owns `reference_date` and model selection; Admin does not invent either.
+The six explicitly modeled diagnostics are `request_id`, `planner_intent`,
+`planner_model`, `planner_prompt_version`, `planner_ms`, and `total_ms`. No raw provider
+responses, prompt text, reasoning, exceptions or upstream HTTP headers are exposed.
+Unknown fields at every modeled level, missing fields, coercible wrong types, unknown
+versions/enums, HTML, invalid JSON, oversized bodies and unexpected statuses fail closed.
+
+| Planner outcome                                                    | Admin status / safe code                |
+| ------------------------------------------------------------------ | --------------------------------------- |
+| 422 with `error.code=planner_unsupported_plan`                     | 422 `research_plan_unsupported`         |
+| 401, 403, 503; timeout/network failure; unconfigured               | 503 `research_planner_unavailable`      |
+| 502; other status (including other 422); invalid response contract | 502 `research_planner_invalid_response` |
+
+Messages are fixed Admin text; upstream error messages are never reflected or logged.
+Operational logs contain only the fixed request event, status, duration and safe error
+category. Queries, semantic/area/venue/organization/category/genre terms, complete plans
+and keys are not logged or persisted, including in error tracebacks.
+
+[Configuration and deployment](../README.md#research-planner-phase-1) preserve separate
+service environments: Admin's `RESEARCH_PLANNER_API_KEY` equals the provisioned planner
+`RESEARCH_PLANNER_SERVICE_API_KEY`, never the OpenAI key. The browser never contacts the
+planner or receives either credential. Admin never receives the OpenAI key.
+
+Phase 1 changes only the backend API and generated OpenAPI snapshot, with no frontend
+consumer or Nitro allowlist addition. Future browser access follows
+Browser → Nuxt → Admin → planner → OpenAI Terra. No database/migration/grant changes,
+query history or source writes occur. The planner receives no PostgreSQL/Qdrant records.
+Entity/area resolution, plan execution, hybrid retrieval, recommendations/results,
+aggregation and comparison execution remain for the next PR in Admin.

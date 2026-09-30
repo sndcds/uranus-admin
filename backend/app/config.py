@@ -1,3 +1,4 @@
+import re
 from ipaddress import ip_address
 from typing import Literal
 from urllib.parse import urlsplit
@@ -90,6 +91,9 @@ class Settings(BaseSettings):
     embedding_url: str | None = None
     embedding_api_key: SecretStr | None = None
     embedding_timeout_seconds: int = Field(default=120, ge=1, le=600)
+    research_planner_url: str | None = None
+    research_planner_api_key: SecretStr | None = None
+    research_planner_timeout_seconds: int = Field(default=10, ge=1, le=30)
     upcoming_days: int = Field(default=14, ge=1, le=365)
     image_orphan_grace_hours: int = Field(default=48, ge=1, le=8760)
     pending_age_days: int = Field(default=14, ge=1, le=3650)
@@ -102,6 +106,35 @@ class Settings(BaseSettings):
     openapi_enabled: bool = False
     dev_auth_enabled: bool = False
     dev_admin_token: SecretStr | None = None
+
+    @field_validator("research_planner_url")
+    @classmethod
+    def valid_research_planner_origin(cls, value: str | None) -> str | None:
+        if value is not None and (
+            re.fullmatch(r"http://127\.0\.0\.1:[1-9][0-9]{0,4}", value) is None
+            or not 1 <= int(value.rsplit(":", 1)[1]) <= 65535
+        ):
+            raise ValueError("RESEARCH_PLANNER_URL requires http://127.0.0.1:<port 1-65535>")
+        return value
+
+    @field_validator("research_planner_api_key")
+    @classmethod
+    def valid_research_planner_key(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None:
+            secret = value.get_secret_value()
+            if not 32 <= len(secret) <= 512 or any(not 33 <= ord(c) <= 126 for c in secret):
+                raise ValueError(
+                    "RESEARCH_PLANNER_API_KEY requires 32-512 printable ASCII characters"
+                )
+        return value
+
+    @model_validator(mode="after")
+    def complete_research_planner(self) -> "Settings":
+        if (self.research_planner_url is None) != (self.research_planner_api_key is None):
+            raise ValueError(
+                "RESEARCH_PLANNER_URL and RESEARCH_PLANNER_API_KEY must be set together"
+            )
+        return self
 
     @field_validator("nominatim_base_url")
     @classmethod

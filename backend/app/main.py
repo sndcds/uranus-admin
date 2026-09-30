@@ -49,6 +49,7 @@ from app.errors import (
     validation_error_handler,
 )
 from app.logging import RequestLoggingMiddleware, configure_logging
+from app.services.research_planner import ResearchPlannerClient
 from app.sql_console.runtime import ConsoleRuntime
 
 
@@ -67,9 +68,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         admin_engine = create_admin_engine(settings)
         application.state.admin_engine = admin_engine
         application.state.sql_console = ConsoleRuntime(settings)
+        planner = ResearchPlannerClient(settings) if settings.research_planner_url else None
+        application.state.research_planner = planner
         try:
             yield
         finally:
+            if planner is not None:
+                await planner.close()
             await application.state.sql_console.close()
             await engine.dispose()
             if admin_engine is not None:
@@ -86,6 +91,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
     )
     application.state.settings = settings
+    application.state.research_planner = None
     application.add_exception_handler(APIError, api_error_handler)  # type: ignore[arg-type]
     application.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
     application.add_exception_handler(HTTPException, http_error_handler)  # type: ignore[arg-type]

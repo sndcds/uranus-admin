@@ -1,4 +1,4 @@
-"""Bound login and area-identity JSON, including requests without Content-Length."""
+"""Bound login, area-identity and planning JSON, even without Content-Length."""
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -10,7 +10,13 @@ class AuthBodyLimitMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope.get("path") not in {"/auth/login", "/api/v1/geo/areas"}:
+        limits = {
+            "/auth/login": 8192,
+            "/api/v1/geo/areas": 8192,
+            "/api/v1/research/plan": 32 * 1024,
+        }
+        limit = limits.get(scope.get("path", ""))
+        if scope["type"] != "http" or limit is None:
             await self.app(scope, receive, send)
             return
         body = bytearray()
@@ -18,12 +24,13 @@ class AuthBodyLimitMiddleware:
             message = await receive()
             if message["type"] == "http.disconnect":
                 return
-            body.extend(message.get("body", b""))
-            if len(body) > 8192:
+            chunk = message.get("body", b"")
+            if len(body) + len(chunk) > limit:
                 await error_response(413, "request_too_large", "Request is too large.")(
                     scope, receive, send
                 )
                 return
+            body.extend(chunk)
             if not message.get("more_body", False):
                 break
         delivered = False
