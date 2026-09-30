@@ -278,13 +278,22 @@ class ActivationIntegrationTests(unittest.TestCase):
 
     def test_planner_port_conflict_recovers_without_starting_tunnel(self):
         observed = self.run_activation(
-            "Require the local tunnel port to be free without killing another process", planner=True
+            "Require the local tunnel ports to be free without killing another process",
+            planner=True,
         )
         self.assertFalse(
             any(
                 e["task"] == "Reconcile the optional tunnel before starting the backend"
                 for e in observed["events"]
             )
+        )
+
+    def test_vector_health_failure_restores_existing_tunnel(self):
+        self.run_activation(
+            "Check local vector forwards without credentials or inference",
+            planner=True,
+            planner_existing=True,
+            semantic=True,
         )
 
     def test_planner_check_mode_does_not_start_tunnel(self):
@@ -321,6 +330,7 @@ class ActivationIntegrationTests(unittest.TestCase):
         fail_task=None,
         planner=False,
         planner_existing=False,
+        semantic=False,
         manage=False,
         approved=False,
         first_adoption=False,
@@ -531,6 +541,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                 "ansible_python_interpreter": sys.executable,
                 "fixture_state": str(state_path),
                 "ua_research_planner_tunnel_enabled": planner,
+                "ua_research_vector_enabled": planner and semantic,
                 "ua_research_planner_ssh_host": "planner.example.invalid",
                 "ua_planner_tunnel": {
                     "managed": planner_existing,

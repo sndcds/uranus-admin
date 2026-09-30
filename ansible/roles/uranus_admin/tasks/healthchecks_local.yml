@@ -51,3 +51,15 @@
   register: ua_planner_active
   failed_when: ua_planner_active.rc != 0 or ua_planner_active.stdout | trim != 'active'
   when: ua_research_planner_tunnel_enabled | bool
+
+- name: Check local vector forwards without credentials or inference
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ item }}"
+    state: started
+    connect_timeout: 2
+    timeout: 30
+  loop:
+    - "{{ ua_research_planner_qdrant_local_port }}"
+    - "{{ ua_research_planner_embedding_local_port }}"
+  when: ua_research_vector_enabled

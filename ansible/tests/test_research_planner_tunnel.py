@@ -4,7 +4,9 @@ import ast
 import io
 import json
 import os
+import re
 import shutil
+import socket
 import stat
 import subprocess
 import sys
@@ -32,6 +34,10 @@ class PlannerTunnelTests(unittest.TestCase):
             local_port=8090,
             remote_host="127.0.0.1",
             remote_port=8090,
+            qdrant_local_port=6333,
+            qdrant_remote_port=6333,
+            embedding_local_port=6335,
+            embedding_remote_port=6335,
             key="/etc/uranus-admin/research-planner-ssh-key",
             known="/etc/uranus-admin/research-planner-known_hosts",
         )
@@ -44,6 +50,10 @@ class PlannerTunnelTests(unittest.TestCase):
             "local_port": 8090,
             "remote_host": "127.0.0.1",
             "remote_port": 8090,
+            "qdrant_local_port": 6333,
+            "qdrant_remote_port": 6333,
+            "embedding_local_port": 6335,
+            "embedding_remote_port": 6335,
             "ssh_user": "research-planner-tunnel",
         }.items():
             self.assertEqual(self.defaults["ua_research_planner_" + key], value)
@@ -77,6 +87,10 @@ class PlannerTunnelTests(unittest.TestCase):
             "ssh_port": [0, 65536, "22", True, "22 -oProxyCommand=evil"],
             "local_port": [0, 65536, False, "8090"],
             "remote_port": [0, 65536, True, "8090"],
+            "qdrant_local_port": [0, 65536, True, "6333", 8090, 6335],
+            "qdrant_remote_port": [0, 65536, False, "6333"],
+            "embedding_local_port": [0, 65536, False, "6335", 8090, 6333],
+            "embedding_remote_port": [0, 65536, True, "6335"],
             "remote_host": ["", "localhost", "::1", "10.0.0.1", "127.0.0.2"],
             "key": [
                 "relative/key",
@@ -121,6 +135,11 @@ class PlannerTunnelTests(unittest.TestCase):
             ("ssh_port", True),
             ("local_port", 0),
             ("remote_port", 65536),
+            ("qdrant_local_port", "6333"),
+            ("qdrant_local_port", 8090),
+            ("qdrant_remote_port", False),
+            ("embedding_local_port", 6333),
+            ("embedding_remote_port", 65536),
             ("host", ""),
             ("remote_host", "localhost"),
             ("key", "relative/key"),
@@ -138,7 +157,9 @@ class PlannerTunnelTests(unittest.TestCase):
                         "ansible.builtin.assert": {
                             "that": "item.expected == (item.host | ua_valid_planner_tunnel("
                             "item.ssh_port, item.user, item.local_port, item.remote_host, "
-                            "item.remote_port, item.key, item.known))",
+                            "item.remote_port, item.key, item.known, item.qdrant_local_port, "
+                            "item.qdrant_remote_port, item.embedding_local_port, "
+                            "item.embedding_remote_port))",
                         },
                         "loop": "{{ cases }}",
                     }
@@ -188,6 +209,10 @@ class PlannerTunnelTests(unittest.TestCase):
             "IdentityAgent=none",
             "ServerAliveInterval=30",
             "ServerAliveCountMax=3",
+            "ConnectTimeout=15",
+            "GlobalKnownHostsFile=/dev/null",
+            "UpdateHostKeys=no",
+            "PreferredAuthentications=publickey",
             "-p 2222",
             "-L 127.0.0.1:18090:127.0.0.1:28090",
             "planner-fixture@planner.example.invalid",
@@ -231,6 +256,249 @@ class PlannerTunnelTests(unittest.TestCase):
                     ["systemd-analyze", "verify", str(path)], capture_output=True, text=True
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
+
+    def run_tasks(self, tasks, variables=None, check=False):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "play.yml"
+            path.write_text(
+                yaml.safe_dump(
+                    [
+                        {
+                            "hosts": "localhost",
+                            "connection": "local",
+                            "gather_facts": False,
+                            "vars": {**self.defaults, **(variables or {})},
+                            "tasks": tasks,
+                        }
+                    ]
+                )
+            )
+            return subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "ansible.cli.playbook",
+                    "-i",
+                    "localhost,",
+                    str(path),
+                    "--diff",
+                    *(["--check"] if check else []),
+                ],
+                env={
+                    **os.environ,
+                    "ANSIBLE_CONFIG": str(ROOT / "ansible/ansible.cfg"),
+                    "ANSIBLE_LOCAL_TEMP": str(Path(directory) / "tmp"),
+                },
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+
+    def test_exact_three_loopback_forwards_with_defaults_and_custom_ports(self):
+        for ports in (
+            (8090, 8090, 6333, 6333, 6335, 6335),
+            (18090, 28090, 16333, 26333, 16335, 26335),
+        ):
+            overrides = dict(
+                zip(
+                    (
+                        "ua_research_planner_local_port",
+                        "ua_research_planner_remote_port",
+                        "ua_research_planner_qdrant_local_port",
+                        "ua_research_planner_qdrant_remote_port",
+                        "ua_research_planner_embedding_local_port",
+                        "ua_research_planner_embedding_remote_port",
+                    ),
+                    ports,
+                    strict=True,
+                )
+            )
+            unit = self.render(
+                **overrides,
+                ua_runtime={
+                    "RESEARCH_PLANNER_API_KEY": "synthetic-planner-secret",
+                    "QDRANT_API_KEY": "synthetic-qdrant-secret",
+                    "EMBEDDING_API_KEY": "synthetic-embedding-secret",
+                },
+            )
+            self.assertEqual(
+                re.findall(r"-L (\S+)", unit),
+                [
+                    f"127.0.0.1:{local}:127.0.0.1:{remote}"
+                    for local, remote in zip(ports[::2], ports[1::2], strict=True)
+                ],
+            )
+            self.assertEqual(unit.count("ExecStart="), 1)
+            self.assertNotIn("synthetic-", unit.replace("synthetic-metadata", ""))
+            self.assertNotIn("API_KEY", unit)
+
+    def test_real_ansible_runtime_preflight_and_secret_redaction(self):
+        tasks = yaml.safe_load((ROLE / "tasks/environment_plan.yml").read_text())[-3:]
+        self.assertTrue(all(task["no_log"] for task in tasks))
+        runtime = {
+            "SEMANTIC_SEARCH_NONCOMMERCIAL_JINA": "true",
+            "RESEARCH_PLANNER_URL": "http://127.0.0.1:18090",
+            "RESEARCH_PLANNER_API_KEY": "synthetic-planner-secret-" * 2,
+            "QDRANT_URL": "http://127.0.0.1:16333",
+            "QDRANT_API_KEY": "synthetic-qdrant-secret",
+            "EMBEDDING_URL": "http://127.0.0.1:16335",
+            "EMBEDDING_API_KEY": "synthetic-embedding-secret",
+        }
+        cases = [(runtime, True, True)]
+        for field in ("QDRANT_API_KEY", "EMBEDDING_API_KEY", "RESEARCH_PLANNER_API_KEY"):
+            cases.append(({k: v for k, v in runtime.items() if k != field}, True, False))
+            for empty in ("", "   "):
+                cases.append(({**runtime, field: empty}, True, False))
+        for field, default_port in (
+            ("QDRANT_URL", 6333),
+            ("EMBEDDING_URL", 6335),
+            ("RESEARCH_PLANNER_URL", 8090),
+        ):
+            for url in (
+                f"http://127.0.0.1:{default_port}",
+                "http://localhost:16333",
+                "https://remote.invalid:6333",
+                "",
+            ):
+                cases.append(({**runtime, field: url}, True, False))
+        planner_only = {k: v for k, v in runtime.items() if k.startswith("RESEARCH_PLANNER_")}
+        cases.extend([(planner_only, True, True), ({}, False, True), (runtime, False, True)])
+        for value in ("false", "0", "off"):
+            cases.append(
+                ({**planner_only, "SEMANTIC_SEARCH_NONCOMMERCIAL_JINA": value}, True, True)
+            )
+        for value in ("True", "1", "on", "yes", "t", "y"):
+            cases.append(
+                ({**planner_only, "SEMANTIC_SEARCH_NONCOMMERCIAL_JINA": value}, True, False)
+            )
+        play_tasks = []
+        for index, (values, enabled, expected) in enumerate(cases):
+            play_tasks.extend(
+                [
+                    {
+                        "ansible.builtin.set_fact": {
+                            "ua_runtime": values,
+                            "ua_research_planner_tunnel_enabled": enabled,
+                            "fixture_valid": True,
+                        },
+                        "no_log": True,
+                    },
+                    {
+                        "block": tasks,
+                        "rescue": [
+                            {"ansible.builtin.set_fact": {"fixture_valid": False}},
+                        ],
+                    },
+                    {
+                        "name": f"Check preflight case {index}",
+                        "ansible.builtin.assert": {
+                            "that": f"fixture_valid == {expected}",
+                        },
+                    },
+                ]
+            )
+        result = self.run_tasks(
+            play_tasks,
+            {
+                "ua_research_planner_local_port": 18090,
+                "ua_research_planner_qdrant_local_port": 16333,
+                "ua_research_planner_embedding_local_port": 16335,
+            },
+            check=True,
+        )
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 0, output)
+        for key in ("RESEARCH_PLANNER_API_KEY", "QDRANT_API_KEY", "EMBEDDING_API_KEY"):
+            self.assertNotIn(runtime[key], output)
+
+    def test_collisions_fail_without_stopping_foreign_listeners(self):
+        activation = yaml.safe_load((ROLE / "tasks/activate.yml").read_text())
+        block = next(task["block"] for task in activation if "block" in task)
+        collision = next(t for t in block if "local tunnel ports to be free" in t["name"])
+        stop = next(
+            t
+            for t in block
+            if t.get("ansible.builtin.systemd_service", {}).get("state") == "stopped"
+            and t["ansible.builtin.systemd_service"].get("name") == UNIT
+        )
+        start = next(t for t in block if "Reconcile the optional tunnel" in t["name"])
+        self.assertLess(block.index(stop), block.index(collision))
+        self.assertLess(block.index(collision), block.index(start))
+        self.assertIn("ua_previous_services", str(stop["when"]))
+        self.assertEqual(collision["ansible.builtin.wait_for"]["host"], "127.0.0.1")
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.listen(64)
+            occupied = listener.getsockname()[1]
+            fields = [
+                "ua_research_planner_local_port",
+                "ua_research_planner_qdrant_local_port",
+                "ua_research_planner_embedding_local_port",
+            ]
+            self.assertEqual(collision["loop"], ["{{ " + field + " }}" for field in fields])
+            tasks = []
+            for field in fields:
+                tasks.extend(
+                    [
+                        {"ansible.builtin.set_fact": {"fixture_collision": False}},
+                        {
+                            "block": [{**collision, "loop": ["{{ " + field + " }}"]}],
+                            "rescue": [{"ansible.builtin.set_fact": {"fixture_collision": True}}],
+                        },
+                        {"ansible.builtin.assert": {"that": "fixture_collision"}},
+                    ]
+                )
+            variables = {
+                "ua_planner_reconcile": True,
+                "ua_research_planner_tunnel_enabled": True,
+                **dict.fromkeys(fields, occupied),
+            }
+            result = self.run_tasks(tasks, variables)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            with socket.create_connection(("127.0.0.1", occupied), timeout=1):
+                pass  # The unrelated listener survived every failed check.
+            result = self.run_tasks(
+                [collision], {**variables, "ua_research_planner_tunnel_enabled": False}
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("skipping:", result.stdout)
+
+    def test_vector_health_is_bounded_tcp_only_and_conditional(self):
+        health = yaml.safe_load((ROLE / "tasks/healthchecks_local.yml").read_text())
+        task = next(t for t in health if "local vector forwards" in t["name"])
+        self.assertEqual(task["when"], "ua_research_vector_enabled")
+        self.assertEqual(
+            task["loop"],
+            [
+                "{{ ua_research_planner_qdrant_local_port }}",
+                "{{ ua_research_planner_embedding_local_port }}",
+            ],
+        )
+        self.assertEqual(
+            task["ansible.builtin.wait_for"],
+            {
+                "host": "127.0.0.1",
+                "port": "{{ item }}",
+                "state": "started",
+                "connect_timeout": 2,
+                "timeout": 30,
+            },
+        )
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.listen(8)
+            result = self.run_tasks(
+                [task],
+                {
+                    "ua_research_vector_enabled": True,
+                    "ua_research_planner_qdrant_local_port": listener.getsockname()[1],
+                    "ua_research_planner_embedding_local_port": listener.getsockname()[1],
+                },
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        result = self.run_tasks([task], {"ua_research_vector_enabled": False})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("skipping:", result.stdout)
 
     def test_backend_only_wants_after_tunnel_when_enabled(self):
         env = Environment(loader=FileSystemLoader(ROLE / "templates"), undefined=StrictUndefined)
@@ -308,7 +576,7 @@ class PlannerTunnelTests(unittest.TestCase):
         self.assertLess(
             text.index("Reconcile the optional tunnel"), text.index("Start affected application")
         )
-        self.assertIn("Require the local tunnel port to be free", text)
+        self.assertIn("Require the local tunnel ports to be free", text)
         for name in ("release.yml", "activate.yml"):
             self.assertIn(UNIT, (ROLE / "tasks" / name).read_text())
         recovery = (ROLE / "tasks/system_recovery.yml").read_text()

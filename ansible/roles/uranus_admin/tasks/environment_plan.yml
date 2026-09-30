@@ -80,3 +80,19 @@
     fail_msg: "Provision the Admin planner environment separately and align it with the tunnel."
   when: ua_research_planner_tunnel_enabled
   no_log: true
+
+- name: Determine whether the tunnel requires semantic service validation
+  ansible.builtin.set_fact:
+    ua_research_vector_enabled: "{{ ua_research_planner_tunnel_enabled and (ua_runtime.get('SEMANTIC_SEARCH_NONCOMMERCIAL_JINA', 'false') | lower in ['1', 'true', 't', 'yes', 'y', 'on']) }}"
+  no_log: true
+
+- name: Require separately provisioned vector service keys and matching loopback ports
+  ansible.builtin.assert:
+    that:
+      - ua_runtime.get('QDRANT_URL', '') == 'http://127.0.0.1:' + (ua_research_planner_qdrant_local_port | string)
+      - ua_runtime.get('QDRANT_API_KEY', '') | trim | length > 0
+      - ua_runtime.get('EMBEDDING_URL', '') == 'http://127.0.0.1:' + (ua_research_planner_embedding_local_port | string)
+      - ua_runtime.get('EMBEDDING_API_KEY', '') | trim | length > 0
+    fail_msg: "Provision QDRANT_API_KEY and EMBEDDING_API_KEY separately in runtime.env and align both URLs with the tunnel ports."
+  when: ua_research_vector_enabled
+  no_log: true

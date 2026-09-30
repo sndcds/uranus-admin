@@ -1774,19 +1774,22 @@ Importe sind eigene Betreiberaktionen.
 ## Research planner SSH tunnel
 
 Der optionale Service `uranus-admin-research-planner-tunnel.service` verbindet den
-Admin-Host mit dem privaten Planner auf dem AWS-Host. Der geplante Browserpfad ist:
+Admin-Host mit dem privaten Planner, Qdrant und Jina-v3-Encoder auf dem AWS-Host.
+Eine SSH-Verbindung trägt genau drei lokale Forwards:
 
 ```text
-Browser → Nuxt → uranus-admin → http://127.0.0.1:8090
-  → systemd-managed SSH tunnel → AWS planner 127.0.0.1:8090 → OpenAI Terra
+uranus-admin
+  ├─ 127.0.0.1:8090 → SSH → planner 127.0.0.1:8090
+  ├─ 127.0.0.1:6333 → SSH → Qdrant 127.0.0.1:6333
+  └─ 127.0.0.1:6335 → SSH → Jina-v3 encoder 127.0.0.1:6335
 ```
 
-Phase 1 stellt nur den Backend-Planungsendpunkt bereit; eine Browserintegration
-folgt separat. Port 8090 bleibt auf beiden Hosts ausschließlich an Loopback gebunden
-und wird niemals öffentlich freigegeben. FastAPI kennt nur die Loopback-URL; seine
-strenge URL-Prüfung bleibt unverändert. Ein lokaler Planner funktioniert weiterhin
-mit derselben URL und deaktiviertem Tunnel. Plan-Ausführung, Datenbank-/Qdrant-Zugriffe
-und UI-Änderungen gehören nicht zu dieser Transportintegration.
+Alle drei Dienste bleiben auf dem AWS-Host ausschließlich an Loopback gebunden;
+auch die lokalen Forwards binden nur `127.0.0.1`. Qdrant und der Encoder erhalten
+keine direkte öffentliche Freigabe. Der Tunnel wird nicht dupliziert und trägt alle
+drei Forwards auch bei deaktivierter semantischer Suche. Ein lokaler Planner
+funktioniert weiterhin mit derselben URL und deaktiviertem Tunnel. Die Rolle
+verwaltet ausschließlich den Admin-Host, nicht die entfernten Dienste oder deren sshd.
 
 ### Variablen und Aktivierung
 
@@ -1801,12 +1804,18 @@ ua_research_planner_ssh_user: research-planner-tunnel
 ua_research_planner_local_port: 8090
 ua_research_planner_remote_host: "127.0.0.1"
 ua_research_planner_remote_port: 8090
+ua_research_planner_qdrant_local_port: 6333
+ua_research_planner_qdrant_remote_port: 6333
+ua_research_planner_embedding_local_port: 6335
+ua_research_planner_embedding_remote_port: 6335
 ua_research_planner_ssh_key_path: /etc/uranus-admin/research-planner-ssh-key
 ua_research_planner_known_hosts_path: /etc/uranus-admin/research-planner-known_hosts
 ```
 
 Bei Aktivierung müssen Host und Benutzer nichtleer sein, alle Ports ganzzahlig in
-1–65535 liegen und das Remoteziel exakt `127.0.0.1` sein. SSH-Hosts erlauben nur
+1–65535 liegen, die drei lokalen Ports verschieden und das Remoteziel exakt
+`127.0.0.1` sein. Qdrant-/Encoder-Zielhosts sind fest im Template vorgegeben.
+SSH-Hosts erlauben nur
 ASCII-Buchstaben, Ziffern, Punkte und Bindestriche in begrenzter Hostname-Form;
 SSH-Benutzer nur einfache Unix-Namen, niemals `root`. Credential-Pfade müssen absolut,
 verschieden und frei von Leerzeichen, Variablen, systemd-Specifiern und `.`/`..`-Segmenten
@@ -1833,19 +1842,25 @@ wie die bestehenden Services. Andere Services werden nur gemäß ihrem eigenen
 Änderungsplan neu gestartet.
 
 Vor einem Start prüft die Rolle nach dem Stoppen eines eventuell eigenen Tunnels,
-dass der lokale Port frei ist. `ExitOnForwardFailure=yes` verhindert einen scheinbar
-laufenden Tunnel bei Bindefehlern. Fremde Prozesse werden niemals beendet. Diagnose:
+dass alle drei konfigurierten lokalen Ports frei sind. Eine Kollision bricht explizit ab,
+bevor der verwaltete Tunnel gestartet wird. `ExitOnForwardFailure=yes` verhindert
+einen scheinbar laufenden Tunnel bei Bindefehlern. Fremde Prozesse werden niemals beendet. Diagnose:
 
 ```sh
-ss -ltnp 'sport = :8090'
+ss -ltnp '( sport = :8090 or sport = :6333 or sport = :6335 )'
 ```
 
 Der Deployment-Healthcheck fordert über Loopback `GET /health` mit exakt
 `{"status":"ok"}` an und prüft zusätzlich den aktiven Tunnel-Service. Er folgt keinen
 Redirects, nutzt keine Proxies, Cookies oder Credentials und hat begrenzte Wiederholungen
 für den SSH-Aufbau. Es gibt keinen `/plan`-Aufruf und keine bezahlte Inferenz beim
-Deployment. Ein fehlgeschlagener Check verhindert eine erfolgreiche Aktivierung und
-führt im Aktivierungsblock zur bestehenden System-Recovery. Spätere Planner-Ausfälle
+Deployment. Bei aktiviertem Tunnel und `SEMANTIC_SEARCH_NONCOMMERCIAL_JINA=true`
+prüft Ansible zusätzlich die beiden lokalen Vector-Ports per TCP (maximal 30 Sekunden
+je Port, zwei Sekunden Verbindungs-Timeout). Diese günstigen Checks senden weder
+Credentials noch HTTP-/Embedding-Anfragen. Sie bestätigen die lokalen SSH-Listener,
+nicht die entfernte Dienstbereitschaft oder gültige Service-Schlüssel; dafür ist ein
+separater Operator-Funktionstest nötig. Ein fehlgeschlagener Check verhindert eine
+erfolgreiche Aktivierung und führt im Aktivierungsblock zur bestehenden System-Recovery. Spätere Planner-Ausfälle
 betreffen nur den Planungsendpunkt; Admins `/health` und `/ready` bleiben unabhängig.
 
 ### Schlüssel und Hostvertrauen
@@ -1881,7 +1896,7 @@ Match User research-planner-tunnel
     PasswordAuthentication no
     KbdInteractiveAuthentication no
     AllowTcpForwarding local
-    PermitOpen 127.0.0.1:8090
+    PermitOpen 127.0.0.1:8090 127.0.0.1:6333 127.0.0.1:6335
     AllowStreamLocalForwarding no
     X11Forwarding no
     AllowAgentForwarding no
@@ -1903,7 +1918,7 @@ vor dem kontrollierten Reload. Die Admin-Rolle verändert die entfernte SSH-Konf
 Zusätzlich kann der öffentliche Schlüssel in `authorized_keys` eingeschränkt werden:
 
 ```text
-restrict,port-forwarding,permitopen="127.0.0.1:8090" ssh-ed25519 <DEDICATED_PUBLIC_KEY>
+restrict,port-forwarding,permitopen="127.0.0.1:8090",permitopen="127.0.0.1:6333",permitopen="127.0.0.1:6335" ssh-ed25519 <DEDICATED_PUBLIC_KEY>
 ```
 
 Dies ergänzt den `Match User`-Block. `restrict,port-forwarding` allein begrenzt die
@@ -1914,7 +1929,8 @@ Keine produktiven öffentlichen oder privaten Schlüssel ins Repository aufnehme
 ### Operator-Ablauf
 
 1. Dedizierten SSH-Benutzer auf dem Planner-Host einrichten; SSH-Client auf dem
-   Admin-Host bereitstellen. Der Planner lauscht weiter nur auf `127.0.0.1:8090`.
+   Admin-Host bereitstellen. Planner, Qdrant und Encoder lauschen weiter nur auf
+   `127.0.0.1:8090`, `127.0.0.1:6333` und `127.0.0.1:6335`.
 2. Separat bereitgestellten öffentlichen Schlüssel mit den obigen Einschränkungen
    autorisieren und die effektive sshd-Konfiguration prüfen.
 3. Hostschlüssel über einen vertrauenswürdigen Kanal verifizieren und in Admins
@@ -1936,6 +1952,27 @@ Keine produktiven öffentlichen oder privaten Schlüssel ins Repository aufnehme
    `/etc/research-planner/planner.env` wird nicht gelesen/kopiert. Der OpenAI-Key bleibt
    ausschließlich auf dem Planner-Host. Admins Timeout hat nun Default 30 statt 10,
    weiterhin Bereich 1–30 Sekunden, einen Gesamtabbruch und keine Inferenz-Retries.
+
+   Bei semantischer Suche müssen Operatoren zusätzlich in
+   `/etc/uranus-admin/runtime.env` provisionieren (Ports an die konfigurierten lokalen Ports anpassen):
+
+   ```dotenv
+   SEMANTIC_SEARCH_NONCOMMERCIAL_JINA=true
+   QDRANT_URL=http://127.0.0.1:6333
+   QDRANT_API_KEY=<qdrant-service-secret>
+   EMBEDDING_URL=http://127.0.0.1:6335
+   EMBEDDING_API_KEY=<embedding-service-secret>
+   ```
+
+   Ansible prüft die exakten URLs gegen die konfigurierten lokalen Ports und verlangt
+   beide nichtleeren Schlüssel zusätzlich zum unveränderten Planner-Check. Fehlende
+   Schlüssel oder abweichende URLs brechen schon im Preflight ab; Werte bleiben durch
+   `no_log` verborgen und gelangen nicht in die Tunnel-Unit. Die drei Service-Schlüssel
+   bleiben unabhängig voneinander und vom SSH-Schlüssel. Ansible erzeugt keine Secrets
+   und kopiert keine vom AWS-Host. Bei deaktivierter semantischer Suche entfällt die
+   Vector-Validierung; bei deaktiviertem Tunnel bleiben die bisherigen Stop-/Disable-
+   Regeln unverändert.
+
 7. Den bestehenden Review-/Dry-Run-/Apply-Ablauf ausführen. Trust-Aufbau, Schlüssel-
    Provisionierung und Änderungen am entfernten sshd bleiben bewusst manuell.
 8. Auf dem Admin-Host verifizieren:
