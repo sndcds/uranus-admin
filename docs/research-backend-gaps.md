@@ -1,23 +1,23 @@
 # Research source boundaries and follow-ups
 
-Baseline: `dev` at `8b63e011c71de0b8ef377965005a537d58710f69` (Operations PR #129).
-Only `sndcds/uranus-admin` was inspected and changed. No other repository was
-accessed. Checked-in source contracts, existing projections and tests provided the
+Initial Research baseline (historical): `dev` at `8b63e011c71de0b8ef377965005a537d58710f69` (Operations PR #129).
+That initial implementation inspected and changed only `sndcds/uranus-admin`.
+No other repository was accessed at that baseline. Checked-in source contracts, existing projections and tests provided the
 implementation evidence. Before the authorized LXD test rollout on 2026-09-26, the
 existing source catalog verifier confirmed the test database contract, with no
 missing tables/columns or type mismatches and a read-only transaction. This is
 evidence for that test database only; synthetic fixtures are not proof of a
 production Uranus schema.
 
-| Desired feature                                            | Required data                                                | Available research API / evidence                                                                           | Missing field or capability                                                                      | Possible later extension                                                                                        |
-| ---------------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| Exact time/date/location/status/description change history | Ordered historical before/after values with visibility rules | Dossier `created_at` / `modified_at`; existing Operations timeline also has only source timestamps          | Source audit records and prior values                                                            | A reviewed source read contract for typed public field changes; never reconstruct a diff from the current state |
-| Region / district filtering                                | Authoritative public region identity and geometry membership | `search` supports literal city matching on effective event venues; authoritative source points feed the map | No public research region lookup; existing Geo Scope lookup/import is an administrative workflow | A separate read-only public boundary lookup after data and access review                                        |
-| Named source attribution                                   | Public source/provider name                                  | Event `source_link`, venue/organization `web_link`, source update and retrieval times                       | No verified source/provider label on these records                                               | Add only a verified public projection; do not infer providers from external IDs                                 |
-| All locations of every event directly on one map           | Bounded occurrence-level map projection                      | Search shows the first matching public date per event; event dossier exposes paginated effective dates      | Separate all-occurrence map response and bounds/cluster contract                                 | A bounded viewport endpoint with the identical filter semantics; no automatic source indexes                    |
-| Full relationship network in one view                      | Paginated public relationship traversal                      | Graph/list derives actual organization/event/venue/space/date relationships from the dossier page           | Cross-page graph expansion                                                                       | Public traversal with explicit bounds; never expose the Operations graph's users or memberships                 |
-| Saved research                                             | Personal, read-authorized query metadata and ownership       | Reproducible filter URLs                                                                                    | Persistence and ownership contract                                                               | Separate admin metadata migration and authorization design; no placeholder navigation in this MVP               |
-| Images for every source record                             | Verified public image association                            | Existing Pluto main/main_logo/main_photo associations and public thumbnail helper                           | Some records have no matching image                                                              | Keep the existing empty-image fallback; never guess image URLs                                                  |
+| Desired feature                                            | Required data                                                                   | Available research API / evidence                                                                      | Missing field or capability                                       | Possible later extension                                                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Exact time/date/location/status/description change history | Ordered historical before/after values with visibility rules                    | Dossier `created_at` / `modified_at`; existing Operations timeline also has only source timestamps     | Source audit records and prior values                             | A reviewed source read contract for typed public field changes; never reconstruct a diff from the current state |
+| Region / district filtering                                | Persisted region/district/municipality geometry and authoritative source points | Research areas and PostGIS filtering; query execution resolves persisted names                         | No implied non-overlapping area level for aggregate/group_by=area | Define a compatible area population before enabling area aggregation                                            |
+| Named source attribution                                   | Public source/provider name                                                     | Event `source_link`, venue/organization `web_link`, source update and retrieval times                  | No verified source/provider label on these records                | Add only a verified public projection; do not infer providers from external IDs                                 |
+| All locations of every event directly on one map           | Bounded occurrence-level map projection                                         | Search shows the first matching public date per event; event dossier exposes paginated effective dates | Separate all-occurrence map response and bounds/cluster contract  | A bounded viewport endpoint with the identical filter semantics; no automatic source indexes                    |
+| Full relationship network in one view                      | Paginated public relationship traversal                                         | Graph/list derives actual organization/event/venue/space/date relationships from the dossier page      | Cross-page graph expansion                                        | Public traversal with explicit bounds; never expose the Operations graph's users or memberships                 |
+| Saved research                                             | Personal, read-authorized query metadata and ownership                          | Reproducible filter URLs                                                                               | Persistence and ownership contract                                | Separate admin metadata migration and authorization design; no placeholder navigation in this MVP               |
+| Images for every source record                             | Verified public image association                                               | Existing Pluto main/main_logo/main_photo associations and public thumbnail helper                      | Some records have no matching image                               | Keep the existing empty-image fallback; never guess image URLs                                                  |
 
 Research intentionally excludes draft/review events, private dates, internal user
 or membership data, admin findings/comments/assignments and operator activity.
@@ -33,3 +33,26 @@ CSV rejects selections above 10,000 records rather than silently truncating them
 Saved searches, watchlists, alerts, notes, collections, advanced statistics,
 GeoJSON, polygon analysis, subscriptions and domain write access are follow-ups,
 not implemented capabilities. None requires a change to `sndcds/uranus` in this PR.
+
+## Deterministic plan execution
+
+The backend `/api/v1/research/query` now connects natural language → planner →
+deterministic executor → public PostgreSQL/PostGIS projections and optional Jina/Qdrant.
+The LLM does not query the database or see source records; Admin supplies current
+source facts. Semantic ranking cannot bypass authoritative source eligibility.
+Semantic-required failures remain explicit 503 responses, with no structured fallback.
+Structured SQL counts/aggregates/comparisons are exact; semantic top-K membership is
+not exhaustive and is never reported as an exact population.
+
+Remaining gaps: semantic venue/organization execution, semantic population metrics,
+area aggregation without an explicit compatible area level, comparison/common filters
+on the same dimension, and frontend natural-language UI/proxy integration. Named
+resolution returns bounded clarification on missing/ambiguous matches. Current semantic
+infrastructure availability remains an operational concern; this change does not
+repair Jina/Qdrant or weaken its evidence contract. No schema changes are needed.
+See the [execution contract](../backend/docs/contracts.md#research-plan-execution).
+
+Source evidence for genres: existing vector extraction and local Uranus DDL
+(`genre_type`, `event_type_link`); temporal/evening semantics: planner documentation
+at `63dcd78d0b10668283d649ecc10dbbbaa10dc089`. Disposable fixtures verify behavior,
+not live production data or current deployment.

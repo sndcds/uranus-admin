@@ -15,6 +15,7 @@ from app.errors import APIError
 from app.research.area_selection import normalize_area_ids
 from app.research.semantic_contracts import COLLECTIONS, OWNER, EntityType, SemanticDocument
 from app.research.semantic_evidence import area_filter, genre_filter
+from app.research.semantic_limits import MAX_ELIGIBLE_EVENTS
 from app.research.vector_documents import Chunk, EventDocument, content_hash
 from app.research.vector_models import MODELS, Model
 
@@ -199,6 +200,7 @@ class Qdrant:
         area_ids: list[UUID] | None = None,
         genre_keys: list[str] | None = None,
         organization_mode: Literal["home", "activity"] | None = None,
+        entity_ids: list[UUID] | None = None,
     ) -> list[dict[str, Any]]:
         validate_vectors([vector], self.model, 1)
         if not 1 <= limit <= 10000:
@@ -216,6 +218,16 @@ class Qdrant:
         if genre_keys is not None:
             filters.setdefault("filter", {"must": []})["must"].append(
                 genre_filter(self.entity, genre_keys)
+            )
+        if entity_ids is not None:
+            if (
+                self.entity != "event"
+                or not 1 <= len(entity_ids) <= MAX_ELIGIBLE_EVENTS
+                or any(not isinstance(key, UUID) for key in entity_ids)
+            ):
+                raise ValueError("invalid_eligible_event_ids")
+            filters.setdefault("filter", {"must": []})["must"].append(
+                {"key": "entity_id", "match": {"any": [str(key) for key in entity_ids]}}
             )
         value = await self.http.request(
             "POST",

@@ -47,6 +47,11 @@ CATEGORY_LABELS = """SELECT DISTINCT ON (category_id) category_id,name
     ORDER BY category_id,CASE iso_639_1 WHEN 'de' THEN 0 WHEN 'en' THEN 1 ELSE 2 END,
         iso_639_1 COLLATE "C" NULLS LAST,name COLLATE "C"
 """
+GENRE_LABELS = """SELECT DISTINCT ON(type_id,genre_id) type_id,genre_id,name FROM uranus.genre_type
+    WHERE NULLIF(trim(name),'') IS NOT NULL
+    ORDER BY type_id,genre_id,CASE iso_639_1 WHEN 'de' THEN 0 WHEN 'en' THEN 1 ELSE 2 END,
+        iso_639_1 COLLATE "C" NULLS LAST,name COLLATE "C"
+"""
 CATEGORIES = """COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'name',
     COALESCE(l.name,'Kategorie '||c.id)) ORDER BY c.id)
     FROM (SELECT DISTINCT unnest(e.categories) id) c
@@ -63,6 +68,8 @@ DATE_JOINS = f"""FROM uranus.event_date d JOIN uranus.event e ON e.uuid=d.event_
 DATE_FILTER = f"""e.release_status::text IN {PUBLIC} AND {DATE_STATUS} IN {PUBLIC}
     AND (CAST(:from_date AS date) IS NULL OR d.start_date>=:from_date)
     AND (CAST(:to_date AS date) IS NULL OR d.start_date<=:to_date)
+    AND (CAST(:time_from AS time) IS NULL OR
+        (d.all_day IS FALSE AND d.start_time>=:time_from AND d.start_time<TIME '24:00'))
     AND (:city='' OR v.city ILIKE :city)
     AND (CAST(:area_wkb AS bytea) IS NULL OR (v.point IS NOT NULL
         AND v.point && ST_GeomFromEWKB(:area_wkb)
@@ -123,6 +130,9 @@ def parameters(
             )
             else None
         ),
+        "time_from": None,
+        "category_ids": [],
+        "genre_keys": [],
         **filters.model_dump(),
         "q": f"%{escape_search(filters.q)}%",
         "city": f"%{escape_search(filters.city)}%" if filters.city.strip() else "",
@@ -132,17 +142,49 @@ def parameters(
     }
 
 
-def research_sql(*, candidates: bool = False) -> str:
-    candidate_gate = (
-        """ AND e.uuid=ANY(CAST(:candidate_ids AS uuid[]))
+def eligible_event_ctes(*, candidates: bool = False, ids_only: bool = False) -> str:
+    """One authoritative occurrence/event eligibility definition for all Research paths."""
+    candidate_gate = " AND e.uuid=ANY(CAST(:candidate_ids AS uuid[]))" if candidates else ""
+    candidate_gate += """ AND (cardinality(CAST(:category_ids AS integer[]))=0
+        OR e.categories && CAST(:category_ids AS integer[]))
         AND (cardinality(CAST(:genre_keys AS text[]))=0 OR EXISTS (
             SELECT 1 FROM uranus.event_type_link genre
             WHERE genre.event_uuid=e.uuid AND genre.genre_id<>0
             AND (genre.type_id::text || ':' || genre.genre_id::text)
                 =ANY(CAST(:genre_keys AS text[]))))"""
-        if candidates
-        else ""
+    date_columns = "d.uuid id,d.event_uuid" if ids_only else DATE_COLUMNS
+    event_columns = (
+        "e.uuid entity_key"
+        if ids_only
+        else f"""'event'::text entity_type,e.uuid entity_key,d.id date_key,
+        e.title name,e.description,
+        COALESCE(d.status,e.release_status::text) status,{CATEGORIES} categories,
+        e.content_iso_639_1 language,d.start_date,d.start_time,d.end_date,d.end_time,d.all_day,
+        o.uuid organization_id,o.name organization_name,d.venue_id,d.venue_name,
+        d.space_id,d.space_name,d.city,d.address,d.latitude,d.longitude,
+        NULL::bigint event_count,e.source_link source_url,
+        e.created_at AT TIME ZONE :tz created_at,e.modified_at AT TIME ZONE :tz modified_at"""
     )
+    return f"""WITH category_labels AS ({CATEGORY_LABELS}),
+    filtered_dates AS MATERIALIZED (SELECT {date_columns} {DATE_JOINS}
+        WHERE {DATE_FILTER}{candidate_gate}),
+    matched_events AS MATERIALIZED (
+        SELECT {event_columns}
+        FROM uranus.event e JOIN uranus.organization o ON o.uuid=e.org_uuid
+        LEFT JOIN filtered_dates d ON d.event_uuid=e.uuid
+        WHERE e.release_status::text IN {PUBLIC}{candidate_gate}
+        AND (CAST(:organization_id AS uuid) IS NULL OR e.org_uuid=:organization_id)
+        AND (CAST(:category AS integer) IS NULL OR :category=ANY(e.categories))
+        AND (d.id IS NOT NULL OR (
+            NOT EXISTS (SELECT 1 FROM uranus.event_date known WHERE known.event_uuid=e.uuid)
+            AND CAST(:from_date AS date) IS NULL AND CAST(:to_date AS date) IS NULL
+            AND CAST(:time_from AS time) IS NULL
+            AND :city='' AND CAST(:venue_id AS uuid) IS NULL AND CAST(:area_wkb AS bytea) IS NULL
+            AND (CAST(:status AS text) IS NULL OR e.release_status::text=:status)))
+    )"""
+
+
+def research_sql(*, candidates: bool = False, occurrences: bool = False) -> str:
     branches = []
     for kind, alias, table in (("venue", "v", "venue"), ("organization", "v", "organization")):
         link = "m.venue_id=v.uuid" if kind == "venue" else "m.organization_id=v.uuid"
@@ -158,7 +200,9 @@ def research_sql(*, candidates: bool = False) -> str:
                 AND (CAST(:venue_id AS uuid) IS NULL OR v.uuid=:venue_id)
                 AND ({visibility} OR (CAST(:from_date AS date) IS NULL
                     AND CAST(:to_date AS date) IS NULL AND CAST(:category AS integer) IS NULL
-                    AND CAST(:status AS text) IS NULL
+                    AND CAST(:status AS text) IS NULL AND CAST(:time_from AS time) IS NULL
+                    AND cardinality(CAST(:category_ids AS integer[]))=0
+                    AND cardinality(CAST(:genre_keys AS text[]))=0
                     AND CAST(:organization_id AS uuid) IS NULL)))"""
         branches.append(f"""SELECT '{kind}'::text entity_type,v.uuid entity_key,v.name,
             v.description,NULL::text status,'[]'::jsonb categories,v.content_iso_639_1 language,
@@ -171,28 +215,7 @@ def research_sql(*, candidates: bool = False) -> str:
             v.modified_at AT TIME ZONE :tz modified_at
             {",NULL::uuid date_key" if candidates else ""}
             FROM uranus.{table} {alias} WHERE {visibility}""")
-    return f"""WITH category_labels AS ({CATEGORY_LABELS}),
-    filtered_dates AS MATERIALIZED (SELECT {DATE_COLUMNS} {DATE_JOINS}
-        WHERE {DATE_FILTER}{candidate_gate}),
-    matched_events AS MATERIALIZED (
-        SELECT 'event'::text entity_type,e.uuid entity_key,d.id date_key,e.title name,e.description,
-        COALESCE(d.status,e.release_status::text) status,{CATEGORIES} categories,
-        e.content_iso_639_1 language,d.start_date,d.start_time,d.end_date,d.end_time,d.all_day,
-        o.uuid organization_id,o.name organization_name,d.venue_id,d.venue_name,
-        d.space_id,d.space_name,d.city,d.address,d.latitude,d.longitude,
-        NULL::bigint event_count,e.source_link source_url,
-        e.created_at AT TIME ZONE :tz created_at,e.modified_at AT TIME ZONE :tz modified_at
-        FROM uranus.event e JOIN uranus.organization o ON o.uuid=e.org_uuid
-        LEFT JOIN filtered_dates d ON d.event_uuid=e.uuid
-        WHERE e.release_status::text IN {PUBLIC}{candidate_gate}
-        AND (CAST(:organization_id AS uuid) IS NULL OR e.org_uuid=:organization_id)
-        AND (CAST(:category AS integer) IS NULL OR :category=ANY(e.categories))
-        AND (d.id IS NOT NULL OR (
-            NOT EXISTS (SELECT 1 FROM uranus.event_date known WHERE known.event_uuid=e.uuid)
-            AND CAST(:from_date AS date) IS NULL AND CAST(:to_date AS date) IS NULL
-            AND :city='' AND CAST(:venue_id AS uuid) IS NULL AND CAST(:area_wkb AS bytea) IS NULL
-            AND (CAST(:status AS text) IS NULL OR e.release_status::text=:status)))
-    ), event_records AS (
+    return f"""{eligible_event_ctes(candidates=candidates)}, event_records AS (
         SELECT DISTINCT ON (entity_key) entity_type,entity_key,name,description,status,categories,
             language,start_date,start_time,end_date,end_time,all_day,organization_id,organization_name,
             venue_id,venue_name,space_id,space_name,city,address,latitude,longitude,event_count,
@@ -203,8 +226,9 @@ def research_sql(*, candidates: bool = False) -> str:
     SELECT entity_type,entity_key,name,description,status,categories,language,start_date,start_time,
         end_date,end_time,all_day,organization_id,organization_name,venue_id,venue_name,space_id,
         space_name,city,address,latitude,longitude,event_count,source_url,created_at,modified_at
-        {",date_key" if candidates else ""}
-    FROM records WHERE (:entity_type='all' OR entity_type=:entity_type)
+        {",date_key" if candidates or occurrences else ""}
+    FROM {"matched_events" if occurrences else "records"}
+    WHERE (:entity_type='all' OR entity_type=:entity_type)
     AND (CAST(:key AS uuid) IS NULL OR entity_key=:key)
     AND ( :q='%%' OR
         (entity_type='event' AND entity_key::text IN ({search_sql("event")})) OR
@@ -435,16 +459,17 @@ async def research_export(
     return ResearchExport(columns=columns, rows=exported, total=len(rows), observed_at=now)
 
 
-async def research_options(connection: AsyncConnection) -> ResearchOptions:
-    rows = (
-        await connection.execute(
-            text(f"""WITH labels AS ({CATEGORY_LABELS})
+def research_options_sql() -> str:
+    return f"""WITH labels AS ({CATEGORY_LABELS})
         SELECT DISTINCT c.id,COALESCE(l.name,'Kategorie '||c.id) name
         FROM uranus.event e CROSS JOIN LATERAL unnest(e.categories) c(id)
         LEFT JOIN labels l ON l.category_id=c.id
-        WHERE e.release_status::text IN {PUBLIC} AND c.id IS NOT NULL
-        ORDER BY c.id LIMIT 1000""")
-        )
+        WHERE e.release_status::text IN {PUBLIC} AND c.id IS NOT NULL"""
+
+
+async def research_options(connection: AsyncConnection) -> ResearchOptions:
+    rows = (
+        await connection.execute(text(research_options_sql() + " ORDER BY c.id LIMIT 1000"))
     ).mappings()
     return ResearchOptions(categories=[ResearchCategory.model_validate(r) for r in rows])
 

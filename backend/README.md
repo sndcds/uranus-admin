@@ -237,8 +237,8 @@ Phase 1 adds the FastAPI endpoint only. No frontend UI, Nitro allowlist or brows
 is added yet. Future browser use must pass through Nuxt and Admin; the browser never
 contacts the planner directly or receives its service key. Admin never receives, stores
 or forwards the OpenAI key. The planner receives no PostgreSQL/Qdrant records: `/plan`
-only interprets language. Plan execution, entity resolution, hybrid retrieval,
-recommendations/results, aggregation and comparison execution are deferred.
+only interprets language. The separate execution endpoint below resolves and executes
+validated plans in Admin.
 
 The planner port stays private on the remote host. FastAPI sees only loopback;
 the optional [Ansible-managed tunnel](../ansible/README.md#research-planner-ssh-tunnel)
@@ -289,3 +289,25 @@ curl --request POST http://127.0.0.1:8000/api/v1/research/plan \
 
 Cookie-authenticated POSTs additionally require the exact configured `Origin` and
 `X-Admin-CSRF: 1`. Mocked transport tests require neither the planner nor an OpenAI call.
+
+### Research plan execution
+
+`POST /api/v1/research/query` accepts only `{"query":"Welche Veranstaltungen gibt es heute in Flensburg?"}`.
+Natural language → planner → deterministic executor → PostgreSQL/PostGIS and optionally
+Jina/Qdrant. The LLM neither queries the database nor sees source records; all source
+facts come from Admin. The endpoint returns bounded typed records, counts, aggregates,
+comparisons or clarification, without generated answer prose. `/plan` is unchanged.
+
+Structured lists/counts support events, venues and organizations. Event semantic
+search/recommendation first selects the complete hard-eligible UUID population in
+PostgreSQL/PostGIS, then ranks only those IDs in Qdrant (top 50), and finally
+rehydrates and validates contextual evidence in a fresh source snapshot. The
+10,000-event eligibility bound fails with 422 `research_execution_too_broad` when
+exceeded; it never silently truncates. Empty eligibility returns empty records
+without encoder/Qdrant calls. For nonempty eligibility, semantic-required queries
+fail explicitly with 503 when retrieval is unavailable; structured-only queries work independently. Exact metrics use SQL;
+top-K semantic results never establish exact counts, aggregates or comparisons.
+Evening follows the planner contract: known local start >=18:00 and <24:00, excluding
+all-day/unknown-time occurrences. No migrations, new grants, query persistence or
+Uranus writes. Frontend UI and Nitro integration remain deferred. See the
+[execution contract, resolver rules and capability gaps](docs/contracts.md#research-plan-execution).

@@ -1254,5 +1254,146 @@ Browser → Nuxt → Admin → loopback HTTP → systemd SSH tunnel → AWS plan
 → OpenAI Terra. Same-host deployments can use a local planner with the tunnel disabled.
 No database/migration/grant changes,
 query history or source writes occur. The planner receives no PostgreSQL/Qdrant records.
-Entity/area resolution, plan execution, hybrid retrieval, recommendations/results,
-aggregation and comparison execution remain for the next PR in Admin.
+The subsequent [execution endpoint](#research-plan-execution) resolves and executes
+validated plans in Admin; `/plan` itself still performs no retrieval.
+
+## Research plan execution
+
+`POST /api/v1/research/query` accepts the same closed `{query}` body and 32 KiB body
+limit as `/plan`. Research authorization (journalist OR system_admin), exact Origin
+and CSRF checks for cookie sessions, and private/no-store responses apply. The
+browser cannot submit a plan, filters, model, collection, URL or geometry. `/plan`
+remains available unchanged for interpretation/debugging.
+
+The pipeline is natural language → ResearchPlannerClient → validated server-side
+plan → deterministic ResearchPlanExecutor → PostgreSQL/PostGIS and, when required,
+Jina/Qdrant. The LLM does not query the database or see source records. All current
+source facts and visibility decisions come from Admin. There is no second inference
+call, generated answer prose, persistence of plans/queries, or query logging.
+
+The closed execution response contains `query`, the validated planner envelope in
+`plan`, resolved public IDs/labels in `resolution`, a discriminated `result`,
+`execution` provenance, `observed_at`, `timezone`, and safe timing diagnostics.
+Result kinds are `records`, `count`, `aggregate`, `comparison`, and
+`needs_clarification`. Records contain the existing public ResearchRecord projection;
+semantic records also carry the existing SemanticExplanation/Evidence contract.
+Record and aggregate results contain at most 20 items, comparisons 2–4 targets.
+There is no browser pagination in this endpoint. `records.total` is exact for
+structured selection and null for semantic top-K retrieval.
+
+Planner clarification returns its validated state without source/vector execution.
+Unsupported planner outcomes retain `research_plan_unsupported`. Resolution
+clarification returns `reason` (`ambiguous`, `no_match`, or `duplicate_target`),
+`field`, `query`, and at most five public candidates; it does not invent a question
+or call the planner again. One unique best-tier candidate is required. Areas rank
+case-insensitive display name, name, literal prefix, then literal substring. Venue
+and organization resolution ranks UUID, case-insensitive name, prefix, substring
+within existing public Research projections, with the selected area applied.
+Ambiguity never selects the first row. Category labels share `research_options()`;
+genres use current `genre_type`/`event_type_link` and canonical `type_id:genre_id`
+keys, excluding genre zero. Both taxonomies require exact case-insensitive canonical
+labels after trimming surrounding whitespace, preferring German then English as the existing index does; duplicate labels
+clarify. No fuzzy inference, hard-coded genre dictionary or Nominatim request occurs.
+
+Temporal translation uses the planner's `reference_date` and validated timezone,
+never a newly computed today. Inclusive bounds use occurrence **start dates**:
+
+| Temporal               | Bounds                                                                  |
+| ---------------------- | ----------------------------------------------------------------------- |
+| none                   | No date restriction                                                     |
+| today / tomorrow       | Reference date / next calendar date                                     |
+| this_weekend           | Saturday–Sunday of the reference ISO week, including Saturday on Sunday |
+| next_week              | Monday–Sunday of the following ISO week                                 |
+| this_month / this_year | First–last calendar date of the month/year                              |
+| past                   | Strictly before reference date                                          |
+| future                 | On/after reference date                                                 |
+| explicit_range         | Both supplied dates, inclusive                                          |
+
+These mirror planner documentation at `63dcd78d0b10668283d649ecc10dbbbaa10dc089`.
+Evening requires a known local start time **18:00 inclusive to midnight exclusive**
+and `all_day=false`; all-day, unknown-time and unknown-all-day occurrences are
+excluded. Calendar arithmetic preserves these rules across DST. Category IDs are
+ORed within their dimension, as are genre keys; different dimensions are ANDed.
+The internal execution filters do not change classic search's public query schema.
+
+Structured lists and exact metrics reuse `research_sql()` / `parameters()` and the
+shared public status, effective venue/space, image and PostGIS projections. Event
+counts count distinct events; occurrence counts count distinct matching event_date
+UUIDs (two different date UUIDs at the same date/time count twice). Venue and
+organization counts count distinct selected Research records. Aggregates use SQL
+on matching event/occurrence facts, grouping by venue, organization or category;
+metrics count distinct events, date UUIDs, effective venues or organizing
+organizations respectively. Groups with no relevant identity are omitted; events
+without dates can contribute to organization/category event counts but not
+occurrence or venue counts. A record may participate in several venue/category
+groups; group totals are not an additive population total. Ordering is count DESC,
+case-normalized label, stable ID, limited to 20 groups. Comparisons apply all common
+filters and each resolved target within one read-only source snapshot, returning
+factual values without winners or “better” labels.
+
+Semantic event list/search/recommendation uses fixed Jina v3 and the existing event
+collection, at most 50 candidates. Optional semantic_focus is joined to semantic_query
+by a newline for one bounded embedding request (maximum 1,001 characters).
+PostgreSQL/PostGIS hard eligibility (event/occurrence release, date, evening,
+effective venue/space, area, organization, categories, genres) → complete event
+UUID set → Qdrant exact `entity_id` membership filter → top 50 → authoritative
+PostgreSQL rehydration → unchanged contextual evidence validation → score DESC,
+UUID tie-breaker → at most 20 records. The UUID-only eligibility query and final
+rehydration share `eligible_event_ctes()` and `DATE_FILTER`, rather than separate
+eligibility predicates. No full source records are materialized for the ID stage.
+
+The complete eligibility limit is 10,000 unique events, matching the existing
+[event index scan budget](../../docs/research-ai/event-embeddings.md). The documented
+[September audit](../../docs/research-ai/architecture.md) found 576 public events;
+that historical observation is not a live production count. A 10,000-UUID filter
+uses approximately 400 KiB, below the internal HTTP 2 MiB request limit even with
+the 1,024-dimensional embedding. SQL reads at most 10,001 IDs to detect overflow.
+Overflow returns 422 `research_execution_too_broad` with “Narrow the research request
+before semantic ranking.” There is no truncated ranking population, chunking, retry,
+or increase of top-K. Broader semantic requests must be narrowed by the caller.
+
+Qdrant payload is not authoritative source data. Execution does not additionally
+filter on indexed area/genre metadata, so stale membership cannot silently narrow
+SQL eligibility. The exact UUID filter prevents higher-scoring ineligible events
+from consuming the top 50. Final source rehydration still enforces all hard filters,
+including PostGIS and genre membership; evidence owner, versions, hash, public text
+and occurrence context checks remain unchanged. Retrieval still depends on indexed
+coverage and valid evidence; top-K results are not exhaustive population counts.
+
+Empty SQL eligibility returns `items=[]`, `total=null` without calling encoder or
+Qdrant, even if those services are unavailable. With eligible events, retrieval
+failure returns 503 `research_semantic_unavailable`; there is no structured fallback.
+Structured-only plans work independently of semantic availability. Existing classic
+and semantic GET endpoint contracts and authorization remain unchanged. The legacy
+semantic GET retains its existing payload filters and retrieval flow; the execution
+engine passes its authoritative UUID set into the shared internal evidence pipeline.
+
+Explicit execution gaps return 422 `research_execution_unsupported` before retrieval:
+semantic venue/organization results (index definitions exist, but no public execution
+contract is established), semantic counts/aggregates/comparisons, area grouping
+(the plan lacks an area level/non-overlap rule), and comparisons with a common
+constraint on the same dimension as any target (no silent constraint replacement).
+Structured counts/aggregates/comparisons alone establish exact membership; top-K
+semantic results are never used for exact population metrics.
+
+The planner retains its existing maximum 30-second deadline. Resolution and the
+structured execution/semantic eligibility stages each have `DB_TIMEOUT_SECONDS`
+deadlines in addition to existing statement/pool limits; semantic execution retains its existing 8-second
+budget. No retries. No source connection is held during planner, embedding or Qdrant
+work. Area resolution reads only persisted admin geometry in a read-only snapshot;
+source result work uses READ ONLY / REPEATABLE READ, with comparisons sharing one
+snapshot. The eligibility snapshot closes before encoder/Qdrant calls. Final
+rehydration opens a fresh short read-only snapshot and may drop events whose source
+facts changed. This is not an atomic snapshot across external ranking; newly eligible
+events after the first snapshot can appear in a subsequent request. Resolution and
+final results may also observe separate snapshots; final source eligibility is
+always reapplied. Database/timeouts become safe 503
+`research_execution_unavailable`; invalid execution plans fail with safe 502
+`research_execution_invalid_plan`. Provider/database messages are never reflected.
+Diagnostics expose only planner/resolution/execution/total milliseconds and returned
+item count; existing semantic logs retain their safe stage timings/counts.
+
+No migrations, new tables, grants, Uranus writes, workers, external geometry access,
+model configuration changes, or live semantic infrastructure repair are introduced.
+Only backend and generated OpenAPI change; the natural-language frontend and Nitro
+allowlist/client integration are deferred to the next PR.

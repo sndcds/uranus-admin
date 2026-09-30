@@ -1,6 +1,7 @@
 """Dedicated read-only research routes, independently authorized from Operations."""
 
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import Annotated
 from uuid import UUID
 
@@ -29,7 +30,9 @@ from app.schemas.research import (
     SemanticResearchPage,
 )
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
+from app.schemas.research_execution import ResearchExecutionResponse
 from app.schemas.research_planner import PlanResponse, ResearchPlanRequest
+from app.services.research_plan_execution import ResearchPlanExecutor
 from app.services.research_planner import ResearchPlannerClient, unavailable
 from app.services.semantic_search import semantic_search
 
@@ -52,6 +55,23 @@ async def plan(request: Request, body: ResearchPlanRequest) -> PlanResponse:
     if planner is None:
         raise unavailable()
     return await planner.plan(body.query)
+
+
+@router.post(
+    "/query",
+    response_model=ResearchExecutionResponse,
+    responses={code: {"model": ErrorResponse} for code in (413, 502)},
+)
+async def query(
+    request: Request, body: ResearchPlanRequest, settings: SettingsDep
+) -> ResearchExecutionResponse:
+    planner: ResearchPlannerClient | None = request.app.state.research_planner
+    if planner is None:
+        raise unavailable()
+    started = perf_counter()
+    response = await planner.plan(body.query)
+    planner_ms = (perf_counter() - started) * 1000
+    return await ResearchPlanExecutor().execute(request, settings, response, planner_ms=planner_ms)
 
 
 @router.get("/search", response_model=ResearchPage)

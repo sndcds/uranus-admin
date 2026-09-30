@@ -15,7 +15,11 @@ from app.database import get_connection
 from app.errors import APIError
 from app.repositories.entities import pagination
 from app.repositories.research import rehydrate_semantic_events
-from app.repositories.research_areas import request_area, request_areas
+from app.repositories.research_areas import (
+    ResolvedResearchArea,
+    request_area,
+    request_areas,
+)
 from app.research.semantic_evidence import contextualize_event_hit, semantic_hits
 from app.research.semantic_explanations import explain
 from app.research.vector_models import MODELS
@@ -30,9 +34,26 @@ MODEL = "jina-v3"
 REQUEST_TIMEOUT_SECONDS = 8
 
 
-async def semantic_search(
-    request: Request, settings: Settings, filters: SemanticResearchFilters
+async def semantic_research(
+    request: Request,
+    settings: Settings,
+    filters: SemanticResearchFilters,
+    *,
+    eligible_ids: list[UUID] | None = None,
+    resolved_area: ResolvedResearchArea | None = None,
 ) -> SemanticResearchPage:
+    """Shared evidence pipeline; execution supplies complete PostgreSQL eligibility.
+
+    Legacy callers retain payload area/genre filtering. Execution uses only the
+    authoritative ID membership, so stale payload metadata cannot narrow it.
+    """
+    if eligible_ids == []:
+        return SemanticResearchPage(
+            items=[],
+            pagination=pagination(1, filters.page_size, 0),
+            observed_at=datetime.now(UTC),
+            timezone=settings.event_timezone,
+        )
     started = perf_counter()
     metrics: dict[str, float | int | str | None] = {
         "embedding_ms": 0.0,
@@ -58,25 +79,33 @@ async def semantic_search(
             vector = (await encoder.embed([filters.q.strip()], query=True))[0]
             metrics[stage] = round((perf_counter() - before) * 1000, 2)
             stage, before = "qdrant_ms", perf_counter()
-            hits = await qdrant.search(
-                vector,
-                50,
-                area_id=filters.area_id,
-                area_ids=filters.area_ids or None,
-                genre_keys=filters.genre_keys or None,
-            )
+            if eligible_ids is not None:
+                hits = await qdrant.search(vector, 50, entity_ids=eligible_ids)
+            else:
+                hits = await qdrant.search(
+                    vector,
+                    50,
+                    area_id=filters.area_id,
+                    area_ids=filters.area_ids or None,
+                    genre_keys=filters.genre_keys or None,
+                )
             if len(hits) > 50:
                 raise ValueError("invalid_candidate_count")
-            # This bounds retrieval identities; it does not establish public eligibility.
-            allowed_ids = {UUID(hit["payload"]["entity_id"]) for hit in hits}
+            # Execution identities come from SQL; legacy identities only bound retrieval.
+            # Both paths still require authoritative final source rehydration.
+            allowed_ids = (
+                set(eligible_ids)
+                if eligible_ids is not None
+                else {UUID(hit["payload"]["entity_id"]) for hit in hits}
+            )
             semantic_results = semantic_hits(
                 hits,
                 allowed_ids,
                 MODELS[MODEL],
                 entity="event",
                 limit=50,
-                area_id=filters.area_id,
-                area_ids=filters.area_ids,
+                area_id=filters.area_id if eligible_ids is None else None,
+                area_ids=filters.area_ids if eligible_ids is None else None,
             )
             candidates = [hit.entity_id for hit in semantic_results]
             evidence_by_id = {hit.entity_id: hit for hit in semantic_results}
@@ -87,9 +116,13 @@ async def semantic_search(
             # Acquire the reader only after retrieval. No old snapshot, pool slot or
             # DB transaction is held while calling the encoder or Qdrant.
             area = (
-                await request_areas(request, filters.area_ids)
-                if filters.area_ids is not None
-                else await request_area(request, filters.area_id)
+                resolved_area
+                if eligible_ids is not None
+                else (
+                    await request_areas(request, filters.area_ids)
+                    if filters.area_ids is not None
+                    else await request_area(request, filters.area_id)
+                )
             )
             async with asynccontextmanager(get_connection)(request) as connection:
                 page = await rehydrate_semantic_events(
@@ -155,3 +188,10 @@ async def semantic_search(
         metrics[stage] = round((perf_counter() - before) * 1000, 2)
         metrics["total_ms"] = round((perf_counter() - started) * 1000, 2)
         logging.getLogger("admin.research").info("research_semantic_search", extra=metrics)
+
+
+async def semantic_search(
+    request: Request, settings: Settings, filters: SemanticResearchFilters
+) -> SemanticResearchPage:
+    """Backward-compatible public endpoint wrapper."""
+    return await semantic_research(request, settings, filters)
