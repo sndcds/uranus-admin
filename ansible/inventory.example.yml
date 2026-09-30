@@ -23,3 +23,11 @@ all:
           # Python/uv/Node paths are derived from the reviewed toolchain pins.
           # Do not override ua_python, ua_uv or ua_node. Frontend arrives prebuilt.
           # No passwords, runtime DSNs or operator credentials belong in inventory.
+          # Optional private planner transport; provision SSH trust/key separately.
+          # FastAPI still uses http://127.0.0.1:8090. See README's planner tunnel section.
+          # ua_research_planner_tunnel_enabled: true
+          # ua_research_planner_ssh_host: planner.example.invalid
+          # ua_research_planner_ssh_port: 22
+          # ua_research_planner_ssh_user: research-planner-tunnel
+          # Local/remote ports default to 8090; remote host is fixed to 127.0.0.1.
+          # Key and known_hosts paths use protected /etc/uranus-admin defaults.

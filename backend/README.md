@@ -226,10 +226,11 @@ nonblank and preserved exactly. Unknown body fields are rejected. The backend su
 `EVENT_TIMEZONE` and `language=auto`; the planner calculates `reference_date`.
 See the [wire contract and error mapping](docs/contracts.md#research-language-planning).
 
-The service boundary is:
+The production transport path (with future browser integration) is:
 
 ```text
-Browser → same-origin Nuxt → uranus-admin → uranus-research-planner → OpenAI Terra
+Browser → same-origin Nuxt → uranus-admin → http://127.0.0.1:8090
+  → systemd-managed SSH tunnel → AWS planner 127.0.0.1:8090 → OpenAI Terra
 ```
 
 Phase 1 adds the FastAPI endpoint only. No frontend UI, Nitro allowlist or browser client
@@ -239,12 +240,18 @@ or forwards the OpenAI key. The planner receives no PostgreSQL/Qdrant records: `
 only interprets language. Plan execution, entity resolution, hybrid retrieval,
 recommendations/results, aggregation and comparison execution are deferred.
 
+The planner port stays private on the remote host. FastAPI sees only loopback;
+the optional [Ansible-managed tunnel](../ansible/README.md#research-planner-ssh-tunnel)
+owns SSH host/key configuration and pins the host identity through `known_hosts`.
+Its SSH key is separate from the planner service Bearer key. Same-host development
+uses the same URL with the tunnel disabled. Only the planner host holds the OpenAI key.
+
 Provision these settings in the **Admin API's own environment** and restart that process:
 
 ```dotenv
 RESEARCH_PLANNER_URL=http://127.0.0.1:8090
 RESEARCH_PLANNER_API_KEY=replace-with-planner-service-key
-RESEARCH_PLANNER_TIMEOUT_SECONDS=10
+RESEARCH_PLANNER_TIMEOUT_SECONDS=30
 ```
 
 `RESEARCH_PLANNER_API_KEY` is the internal Bearer key for Admin → planner, **not an
@@ -262,9 +269,13 @@ unreachable planner affects only this endpoint, returning safe 503. `/health` an
 worker changes are needed.
 
 One process-lifetime HTTP client uses no environment proxies, redirects, cookie replay
-or automatic retries. The timeout defaults to 10 seconds (allowed 1–30), including a
+or automatic retries. The timeout defaults to 30 seconds (allowed 1–30), including a
 total deadline; responses are limited to 32 KiB. Submit another request explicitly
 after a timeout if appropriate. No queries/plans are persisted or logged.
+The 30-second default matches the planner's configured timeout, avoiding a much earlier
+Admin cutoff while paid inference is still running. The observed roughly 4.3-second
+request is not a p95/p99 latency measurement; matching deadlines cannot guarantee
+completion before Admin's total deadline, which also includes transport overhead.
 
 For a direct backend request with an existing Research-authorized **Admin session
 Bearer token** (not the planner service key):

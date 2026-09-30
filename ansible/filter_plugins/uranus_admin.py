@@ -320,6 +320,44 @@ def artifact_manifest(path, expected_hash, expected_sha):
         raise AnsibleFilterError("Release archive or manifest unavailable/invalid") from None
 
 
+PLANNER_UNIT = "uranus-admin-research-planner-tunnel.service"
+
+
+def valid_planner_tunnel(host, ssh_port, user, local_port, remote_host, remote_port, key, known):
+    def safe_path(value):
+        return (
+            isinstance(value, str)
+            and re.fullmatch(r"/[A-Za-z0-9_./-]+", value) is not None
+            and all(part not in {"", ".", ".."} for part in value.split("/")[1:])
+        )
+
+    return (
+        isinstance(host, str)
+        and len(host) <= 253
+        and re.fullmatch(r"[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*", host) is not None
+        and isinstance(user, str)
+        and user != "root"
+        and re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", user) is not None
+        and all(
+            type(port) is int and 1 <= port <= 65535 for port in (ssh_port, local_port, remote_port)
+        )
+        and remote_host == "127.0.0.1"
+        and safe_path(key)
+        and safe_path(known)
+        and key != known
+    )
+
+
+def planner_reconcile(enabled, state, changed_paths):
+    if enabled:
+        return (
+            not state.get("active", False)
+            or not state.get("enabled", False)
+            or "/etc/systemd/system/" + PLANNER_UNIT in changed_paths
+        )
+    return state.get("active", False) or state.get("enabled", False)
+
+
 def activation_plan(changed_paths, service_states, config_dir):
     """Keep restarts tied to executable/config changes or an already stopped service."""
     runtime_changed = config_dir + "/runtime.env" in changed_paths
@@ -360,6 +398,8 @@ class FilterModule:
             "ua_privileged_env": privileged_environment,
             "ua_manifest": artifact_manifest,
             "ua_activation_plan": activation_plan,
+            "ua_valid_planner_tunnel": valid_planner_tunnel,
+            "ua_planner_reconcile": planner_reconcile,
             "ua_service_snapshot": service_snapshot,
             "ua_recovery_files": recovery_files,
         }
@@ -373,7 +413,7 @@ def service_snapshot(results, environment="production"):
         fields = dict(line.split("=", 1) for line in result["stdout"].splitlines() if "=" in line)
         if (
             (
-                name in GEOCODE_UNITS
+                name in GEOCODE_UNITS | {PLANNER_UNIT}
                 or (
                     environment in {"staging", "test"}
                     and name

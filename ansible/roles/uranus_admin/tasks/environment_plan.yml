@@ -71,3 +71,12 @@
   ansible.builtin.set_fact:
     ua_privileged: "{{ ua_privileged | ua_archive_console((ua_env_source.content | b64decode | ua_parse_env), (ua_existing_operator.content | default('') | b64decode | ua_parse_env)) }}"
   no_log: true
+
+- name: Require separately provisioned planner runtime credentials and matching loopback port
+  ansible.builtin.assert:
+    that:
+      - ua_runtime.get('RESEARCH_PLANNER_URL', '') == 'http://127.0.0.1:' + (ua_research_planner_local_port | string)
+      - ua_runtime.get('RESEARCH_PLANNER_API_KEY', '') | length >= 32
+    fail_msg: "Provision the Admin planner environment separately and align it with the tunnel."
+  when: ua_research_planner_tunnel_enabled
+  no_log: true

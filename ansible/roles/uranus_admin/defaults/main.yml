@@ -62,3 +62,14 @@ ua_maintenance_public_message: >-
   Die Anwendung ist in Kürze wieder verfügbar.
   Bitte versuche es in wenigen Minuten erneut.
 ua_maintenance_public_window: ""
+
+# Optional remote planner transport; the application still sees numeric loopback only.
+ua_research_planner_tunnel_enabled: false
+ua_research_planner_ssh_host: ""
+ua_research_planner_ssh_port: 22
+ua_research_planner_ssh_user: research-planner-tunnel
+ua_research_planner_local_port: 8090
+ua_research_planner_remote_host: "127.0.0.1"
+ua_research_planner_remote_port: 8090
+ua_research_planner_ssh_key_path: /etc/uranus-admin/research-planner-ssh-key
+ua_research_planner_known_hosts_path: /etc/uranus-admin/research-planner-known_hosts

@@ -74,7 +74,7 @@ def configured(**values):
 
 def test_optional_complete_configuration():
     assert Settings(_env_file=None).research_planner_url is None
-    assert configured().research_planner_timeout_seconds == 10
+    assert configured().research_planner_timeout_seconds == 30
     assert KEY not in repr(configured())
 
 
@@ -178,7 +178,7 @@ async def test_exact_request_and_no_cookie_replay(monkeypatch):
             "language": "auto",
         }
         assert request.extensions["timeout"] == dict.fromkeys(
-            ("connect", "read", "write", "pool"), 10
+            ("connect", "read", "write", "pool"), 30
         )
         return httpx.Response(200, json=fixture, headers={"Set-Cookie": "upstream=secret"})
 

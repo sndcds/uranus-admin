@@ -25,3 +25,29 @@
   until: ua_frontend_health.status == 200
   retries: 10
   delay: 2
+
+- name: Check the enabled planner tunnel without credentials or inference
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ua_research_planner_local_port }}/health"
+    method: GET
+    status_code: 200
+    return_content: false
+    follow_redirects: none
+    use_proxy: false
+    use_netrc: false
+    timeout: 5
+  register: ua_planner_health
+  until: >-
+    ua_planner_health.status | default(0) == 200 and ua_planner_health.json | default({}) == {'status': 'ok'}
+  retries: 10
+  delay: 2
+  no_log: true
+  when: ua_research_planner_tunnel_enabled | bool
+
+- name: Verify enabled planner tunnel service is active independently of HTTP health
+  ansible.builtin.command:
+    argv: [systemctl, is-active, uranus-admin-research-planner-tunnel.service]
+  changed_when: false
+  register: ua_planner_active
+  failed_when: ua_planner_active.rc != 0 or ua_planner_active.stdout | trim != 'active'
+  when: ua_research_planner_tunnel_enabled | bool

@@ -1201,9 +1201,18 @@ exactly `query`, `timezone` from `EVENT_TIMEZONE`, and fixed `language: "auto"`.
 Browser headers, sessions, cookies, CSRF values and IPs never reach the planner.
 No redirects, environment proxies, cookies from earlier responses or retries are used.
 One reusable client is created/closed with FastAPI lifespan. There is a configurable
-1–30 second total/network timeout (default 10 seconds), no Admin request queue, and a
+1–30 second total/network timeout (default 30 seconds), no Admin request queue, and a
 32 KiB response limit. Compressed responses are rejected to bound decoding work.
 Startup and health/readiness do not probe this optional service.
+The default matches the planner's 30-second timeout; the observed roughly 4.3-second
+request does not establish tail latency. No automatic inference retry follows a timeout.
+For the remote production planner, the optional
+[managed SSH tunnel](../../ansible/README.md#research-planner-ssh-tunnel) forwards
+Admin's loopback port to the AWS planner's `127.0.0.1:8090`. URL validation remains
+unchanged. SSH configuration belongs solely to Ansible/systemd; host identity is
+pinned through `known_hosts`, with an SSH key separate from the service Bearer key.
+The planner port is never public. Deployment checks only unauthenticated `/health`
+through the tunnel, without model calls or service credentials.
 
 The closed, strict Admin models mirror the
 [canonical planner schema at 63dcd78](https://github.com/sndcds/uranus-research-planner/blob/63dcd78d0b10668283d649ecc10dbbbaa10dc089/src/research_planner/schemas.py).
@@ -1241,7 +1250,9 @@ planner or receives either credential. Admin never receives the OpenAI key.
 
 Phase 1 changes only the backend API and generated OpenAPI snapshot, with no frontend
 consumer or Nitro allowlist addition. Future browser access follows
-Browser → Nuxt → Admin → planner → OpenAI Terra. No database/migration/grant changes,
+Browser → Nuxt → Admin → loopback HTTP → systemd SSH tunnel → AWS planner loopback
+→ OpenAI Terra. Same-host deployments can use a local planner with the tunnel disabled.
+No database/migration/grant changes,
 query history or source writes occur. The planner receives no PostgreSQL/Qdrant records.
 Entity/area resolution, plan execution, hybrid retrieval, recommendations/results,
 aggregation and comparison execution remain for the next PR in Admin.

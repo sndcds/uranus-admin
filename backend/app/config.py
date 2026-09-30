@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     embedding_timeout_seconds: int = Field(default=120, ge=1, le=600)
     research_planner_url: str | None = None
     research_planner_api_key: SecretStr | None = None
-    research_planner_timeout_seconds: int = Field(default=10, ge=1, le=30)
+    research_planner_timeout_seconds: int = Field(default=30, ge=1, le=30)
     upcoming_days: int = Field(default=14, ge=1, le=365)
     image_orphan_grace_hours: int = Field(default=48, ge=1, le=8760)
     pending_age_days: int = Field(default=14, ge=1, le=3650)

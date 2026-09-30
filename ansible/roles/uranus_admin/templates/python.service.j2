@@ -3,6 +3,10 @@
 Description=Uranus Admin {{ ua_component }}
 After=network-online.target postgresql.service
 Wants=network-online.target
+{% if ua_component == 'backend' and ua_research_planner_tunnel_enabled | default(false) %}
+After=uranus-admin-research-planner-tunnel.service
+Wants=uranus-admin-research-planner-tunnel.service
+{% endif %}
 
 [Service]
 Type={{ 'oneshot' if ua_oneshot else 'simple' }}

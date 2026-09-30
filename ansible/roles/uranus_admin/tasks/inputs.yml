@@ -1,6 +1,8 @@
 - name: Require a valid target environment and safe paths
   ansible.builtin.assert:
     that:
+      - ua_research_planner_tunnel_enabled is boolean
+      - not ua_research_planner_tunnel_enabled or (ua_research_planner_ssh_host | ua_valid_planner_tunnel(ua_research_planner_ssh_port, ua_research_planner_ssh_user, ua_research_planner_local_port, ua_research_planner_remote_host, ua_research_planner_remote_port, ua_research_planner_ssh_key_path, ua_research_planner_known_hosts_path))
       - ua_map_tile_url | ua_valid_map_tiles(ua_map_tile_attribution, ua_map_tile_attribution_url)
       - ua_action in ['inspect', 'deploy']
       - ua_target_environment is string

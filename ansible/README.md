@@ -1770,3 +1770,181 @@ Nominatim-Grenzen und optionale BKG-Einwohnerzahlen werden mit separaten Operato
 CLIs geplant und importiert. Siehe [Research areas](../docs/research-areas.md) für
 Scope, BKG-Dateien, Plan/Apply, Quellen und Grenzen. Production-Deploy und reale
 Importe sind eigene Betreiberaktionen.
+
+## Research planner SSH tunnel
+
+Der optionale Service `uranus-admin-research-planner-tunnel.service` verbindet den
+Admin-Host mit dem privaten Planner auf dem AWS-Host. Der geplante Browserpfad ist:
+
+```text
+Browser → Nuxt → uranus-admin → http://127.0.0.1:8090
+  → systemd-managed SSH tunnel → AWS planner 127.0.0.1:8090 → OpenAI Terra
+```
+
+Phase 1 stellt nur den Backend-Planungsendpunkt bereit; eine Browserintegration
+folgt separat. Port 8090 bleibt auf beiden Hosts ausschließlich an Loopback gebunden
+und wird niemals öffentlich freigegeben. FastAPI kennt nur die Loopback-URL; seine
+strenge URL-Prüfung bleibt unverändert. Ein lokaler Planner funktioniert weiterhin
+mit derselben URL und deaktiviertem Tunnel. Plan-Ausführung, Datenbank-/Qdrant-Zugriffe
+und UI-Änderungen gehören nicht zu dieser Transportintegration.
+
+### Variablen und Aktivierung
+
+Die Rolle verwendet folgende Defaults. Den echten SSH-Host ausschließlich im privaten
+Inventory setzen; es gibt keine frei konfigurierbaren SSH-Optionen:
+
+```yaml
+ua_research_planner_tunnel_enabled: false
+ua_research_planner_ssh_host: ""
+ua_research_planner_ssh_port: 22
+ua_research_planner_ssh_user: research-planner-tunnel
+ua_research_planner_local_port: 8090
+ua_research_planner_remote_host: "127.0.0.1"
+ua_research_planner_remote_port: 8090
+ua_research_planner_ssh_key_path: /etc/uranus-admin/research-planner-ssh-key
+ua_research_planner_known_hosts_path: /etc/uranus-admin/research-planner-known_hosts
+```
+
+Bei Aktivierung müssen Host und Benutzer nichtleer sein, alle Ports ganzzahlig in
+1–65535 liegen und das Remoteziel exakt `127.0.0.1` sein. SSH-Hosts erlauben nur
+ASCII-Buchstaben, Ziffern, Punkte und Bindestriche in begrenzter Hostname-Form;
+SSH-Benutzer nur einfache Unix-Namen, niemals `root`. Credential-Pfade müssen absolut,
+verschieden und frei von Leerzeichen, Variablen, systemd-Specifiern und `.`/`..`-Segmenten
+sein. Die Rolle akzeptiert keine Shell-/SSH-Optionsfragmente aus dem Inventory.
+Ein kommentiertes Beispiel steht in [inventory.example.yml](inventory.example.yml).
+
+Die Unit läuft unter `ua_service_user`/`ua_service_group` (derzeit `oklab`), mit
+`ssh -N -T`, BatchMode, IdentitiesOnly, deaktiviertem Agent und ohne Benutzer-/System-
+SSH-Konfiguration. `StrictHostKeyChecking=yes` und ausschließlich die provisionierte
+`known_hosts`-Datei binden die Verbindung an den geprüften Hostschlüssel. Keepalives
+laufen alle 30 Sekunden mit maximal drei unbeantworteten Prüfungen; Verbindungsaufbau
+ist auf 15 Sekunden begrenzt. systemd startet fehlgeschlagene Tunnel nach fünf Sekunden
+neu. Das stellt die SSH-Verbindung wieder her und wiederholt keine Planner-HTTP-Anfrage.
+Die Unit verwendet die üblichen Dateisystem-/Kernel-Schutzoptionen und `UMask=0077`.
+
+Bei Aktivierung installiert/verifiziert die Rolle die Unit, lädt systemd neu und
+aktiviert/startet sie vor dem Backend. Das Backend erhält nur `Wants=` und `After=`,
+kein `Requires=`. Unveränderte, laufende Tunnel werden nicht neu gestartet;
+Konfigurationsänderungen und Credential-Rotation lösen einen gezielten Neustart aus.
+Bei Deaktivierung wird ein zuvor von der Rolle verwalteter Tunnel gestoppt/deaktiviert;
+die Unit-Datei bleibt erhalten. Fremde Units und ungeprüfte Drop-ins werden nicht
+übernommen. Dateisnapshots und Service-Recovery erfassen den optionalen Tunnel ebenso
+wie die bestehenden Services. Andere Services werden nur gemäß ihrem eigenen
+Änderungsplan neu gestartet.
+
+Vor einem Start prüft die Rolle nach dem Stoppen eines eventuell eigenen Tunnels,
+dass der lokale Port frei ist. `ExitOnForwardFailure=yes` verhindert einen scheinbar
+laufenden Tunnel bei Bindefehlern. Fremde Prozesse werden niemals beendet. Diagnose:
+
+```sh
+ss -ltnp 'sport = :8090'
+```
+
+Der Deployment-Healthcheck fordert über Loopback `GET /health` mit exakt
+`{"status":"ok"}` an und prüft zusätzlich den aktiven Tunnel-Service. Er folgt keinen
+Redirects, nutzt keine Proxies, Cookies oder Credentials und hat begrenzte Wiederholungen
+für den SSH-Aufbau. Es gibt keinen `/plan`-Aufruf und keine bezahlte Inferenz beim
+Deployment. Ein fehlgeschlagener Check verhindert eine erfolgreiche Aktivierung und
+führt im Aktivierungsblock zur bestehenden System-Recovery. Spätere Planner-Ausfälle
+betreffen nur den Planungsendpunkt; Admins `/health` und `/ready` bleiben unabhängig.
+
+### Schlüssel und Hostvertrauen
+
+Operatoren provisionieren beide Dateien auf dem Admin-Host. Die Rolle erzeugt keine
+Schlüssel, führt kein `ssh-keyscan` aus und kopiert keine Planner-Umgebungsdatei:
+
+- Private Key: `root:root`, Modus `0600` oder `0400`, reguläre, nichtleere Datei ohne
+  Symlink. Der dedizierte Schlüssel muss ohne interaktive Passphrase verwendbar sein.
+- `known_hosts`: `root:root`, Modus `0644`, `0600`, `0444` oder `0400`, regulär,
+  nichtleer, kein Symlink. Der Eintrag muss zum konfigurierten SSH-Host und Port passen
+  (bei abweichendem Port zum Namen `[host]:port`). Fingerprint unabhängig verifizieren.
+- Beide Dateien maximal 1 MiB; alle Elternverzeichnisse müssen root gehören,
+  dürfen keine Symlinks und nicht gruppen-/weltbeschreibbar sein.
+
+Root-only Quelldateien bleiben für `oklab` unlesbar. systemd stellt sie über
+`LoadCredential=` in einem privaten Credential-Verzeichnis der Tunnel-Unit bereit;
+SSH verwendet dort `%d/planner-ssh-key` und `%d/planner-known-hosts`. Damit muss SSH
+nicht als root laufen. Siehe [systemd 255: Credentials](https://github.com/systemd/systemd/blob/v255/man/systemd.exec.xml).
+Ansible prüft nur Metadaten und liest keinen privaten Schlüsselinhalt. Eine Revision
+aus Dateimetadaten erkennt Rotation; Rotation während der Release-Vorbereitung bricht
+ab. Schlüsselmaterial gelangt weder in Ansible-Ausgaben noch ins Release-Artefakt,
+`runtime.env`, FastAPI-Settings oder Frontend-Konfiguration.
+
+### Dedizierte Identität auf dem Planner-Host
+
+Ein Operator richtet dort einen eigenen Benutzer `research-planner-tunnel` ohne
+interaktive Nutzung ein. Ein Beispiel für einen zu prüfenden `sshd_config`-Block:
+
+```text
+Match User research-planner-tunnel
+    AuthenticationMethods publickey
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    AllowTcpForwarding local
+    PermitOpen 127.0.0.1:8090
+    AllowStreamLocalForwarding no
+    X11Forwarding no
+    AllowAgentForwarding no
+    PermitTTY no
+    PermitTunnel no
+    PermitUserRC no
+    MaxSessions 0
+```
+
+`AllowTcpForwarding local` erlaubt nur lokale TCP-Weiterleitung aus Sicht des
+SSH-Clients, `PermitOpen` begrenzt deren Ziel. `MaxSessions 0` unterbindet Shell-,
+Login- und Subsystem-Sessions einschließlich SFTP, lässt Forwarding aber zu.
+Siehe [OpenSSH sshd_config](https://man.openbsd.org/sshd_config).
+Den Block am passenden Ende der Konfiguration platzieren und vorhandene `Match`-
+Regeln berücksichtigen. Der Operator prüft Syntax mit `sshd -t` und die effektiven
+Benutzerregeln mit `sshd -T -C user=research-planner-tunnel,host=<ADMIN_HOST>,addr=<ADMIN_IP>`
+vor dem kontrollierten Reload. Die Admin-Rolle verändert die entfernte SSH-Konfiguration nicht.
+
+Zusätzlich kann der öffentliche Schlüssel in `authorized_keys` eingeschränkt werden:
+
+```text
+restrict,port-forwarding,permitopen="127.0.0.1:8090" ssh-ed25519 <DEDICATED_PUBLIC_KEY>
+```
+
+Dies ergänzt den `Match User`-Block. `restrict,port-forwarding` allein begrenzt die
+Weiterleitungsziele nicht; die Remote-Forwarding-Sperre kommt aus der sshd-Regel.
+Siehe [OpenSSH authorized_keys](https://man.openbsd.org/sshd.8#AUTHORIZED_KEYS_FILE_FORMAT).
+Keine produktiven öffentlichen oder privaten Schlüssel ins Repository aufnehmen.
+
+### Operator-Ablauf
+
+1. Dedizierten SSH-Benutzer auf dem Planner-Host einrichten; SSH-Client auf dem
+   Admin-Host bereitstellen. Der Planner lauscht weiter nur auf `127.0.0.1:8090`.
+2. Separat bereitgestellten öffentlichen Schlüssel mit den obigen Einschränkungen
+   autorisieren und die effektive sshd-Konfiguration prüfen.
+3. Hostschlüssel über einen vertrauenswürdigen Kanal verifizieren und in Admins
+   geschützter `research-planner-known_hosts`-Datei pinnen.
+4. Privaten SSH-Schlüssel mit den oben genannten Eigentums-/Modusregeln installieren.
+5. Im privaten Inventory `ua_research_planner_tunnel_enabled: true`, echten SSH-Host,
+   Port und dedizierten Benutzer setzen; Standardports/-pfade bei Bedarf explizit anpassen.
+6. Admins eigene Runtime-Konfiguration über den bestehenden Secret-/Environment-Ablauf
+   um folgende Werte ergänzen. URL-Port und lokaler Tunnelport müssen übereinstimmen:
+
+   ```dotenv
+   RESEARCH_PLANNER_URL=http://127.0.0.1:8090
+   RESEARCH_PLANNER_API_KEY=<planner-service-bearer-secret>
+   RESEARCH_PLANNER_TIMEOUT_SECONDS=30
+   ```
+
+   Der Bearer-Schlüssel entspricht dem separat provisionierten
+   `RESEARCH_PLANNER_SERVICE_API_KEY` des Planners. Er ist **weder SSH-Key noch OpenAI-Key**.
+   `/etc/research-planner/planner.env` wird nicht gelesen/kopiert. Der OpenAI-Key bleibt
+   ausschließlich auf dem Planner-Host. Admins Timeout hat nun Default 30 statt 10,
+   weiterhin Bereich 1–30 Sekunden, einen Gesamtabbruch und keine Inferenz-Retries.
+7. Den bestehenden Review-/Dry-Run-/Apply-Ablauf ausführen. Trust-Aufbau, Schlüssel-
+   Provisionierung und Änderungen am entfernten sshd bleiben bewusst manuell.
+8. Auf dem Admin-Host verifizieren:
+
+   ```sh
+   systemctl is-active uranus-admin-research-planner-tunnel.service
+   curl --fail http://127.0.0.1:8090/health
+   ```
+
+   Danach bei Bedarf den [Admin-Planungsendpunkt](../backend/README.md#research-planner-phase-1)
+   mit einer Research-berechtigten Admin-Session testen. Dieser explizite Funktionstest
+   kann eine bezahlte Inferenz auslösen und ist kein automatischer Deployment-Schritt.
