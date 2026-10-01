@@ -63,11 +63,19 @@ const fieldLabels = {
       </p>
       <p v-else-if="result.kind === 'comparison'">Vergleich: {{ metric }}</p>
       <template v-else-if="result.kind === 'records'">
-        <p v-if="result.total !== null">
+        <p v-if="plan.ordering !== 'none'">
+          {{
+            plan.ordering === 'earliest'
+              ? 'Früheste gefundene Veranstaltungen'
+              : 'Späteste gefundene Veranstaltungen'
+          }}
+          · {{ result.items.length }} angezeigt (höchstens {{ plan.limit }})
+        </p>
+        <p v-else-if="result.total !== null">
           {{ number(result.total) }} Ergebnisse insgesamt · {{ result.items.length }} angezeigt
         </p>
         <p v-else>Semantische Relevanzsuche · bis zu 20 Treffer</p>
-        <p v-if="result.total === null" class="text-sm text-slate-600">
+        <p v-if="result.total === null && plan.ordering === 'none'" class="text-sm text-slate-600">
           {{ result.items.length }} angezeigte Treffer. Keine vollständige Zählung aller passenden
           Datensätze.
         </p>
@@ -145,6 +153,7 @@ const fieldLabels = {
         :key="researchKey(item)"
         :item="item"
         :semantic="response.execution.semantic"
+        :show-full-date="plan.ordering !== 'none'"
         @select="navigateTo(researchHref(item.entity_type, item.entity_key))"
       />
     </div>

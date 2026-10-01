@@ -18,6 +18,7 @@ from app.errors import APIError
 from app.repositories.research import research_page
 from app.repositories.research_execution import (
     aggregate_selection,
+    chronological_records,
     count_selection,
     eligible_event_ids,
 )
@@ -269,6 +270,18 @@ class ResearchPlanExecutor:
                                         )
                                     )
                                 result = ComparisonResult(metric=metric, items=comparisons)
+                            elif plan.ordering != "none":
+                                assert plan.limit is not None
+                                result = RecordsResult(
+                                    items=await chronological_records(
+                                        connection,
+                                        settings,
+                                        filters,
+                                        resolution.area,
+                                        plan.ordering,
+                                        plan.limit,
+                                    )
+                                )
                             else:
                                 records = await research_page(
                                     connection, settings, filters, observed_at, resolution.area

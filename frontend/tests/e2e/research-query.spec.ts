@@ -105,3 +105,35 @@ test('clarification offers editable candidates without a continuation request', 
   await page.getByRole('button', { name: 'Antwort anzeigen' }).click()
   await expect.poll(() => requests).toBe(2)
 })
+
+test('first event renders the selected occurrence without semantic or count claims', async ({
+  page,
+}) => {
+  const response = executionResponse('records')
+  const query = 'wann war das erste event im system?'
+  response.query = query
+  Object.assign(response.plan.plan, {
+    original_query: query,
+    ordering: 'earliest',
+    limit: 1,
+    temporal: 'none',
+    explicit_from_date: null,
+    explicit_to_date: null,
+    area_query: null,
+  })
+  response.resolution = []
+  response.execution.from_date = null
+  response.execution.to_date = null
+  if (response.result.kind !== 'records') throw new Error('fixture')
+  response.result.total = null
+  response.result.items[0]!.start_date = '2024-12-31'
+  response.result.items[0]!.end_date = '2024-12-31'
+  await page.route(`**${root}/query`, (route) => {
+    expect(route.request().postDataJSON()).toEqual({ query })
+    return route.fulfill({ json: response })
+  })
+  await page.goto(`/research/search?mode=answer&question=${encodeURIComponent(query)}`)
+  await expect(page.getByText(/Früheste gefundene Veranstaltungen/)).toBeVisible()
+  await expect(page.getByText(/31\.12\.2024/).first()).toBeVisible()
+  await expect(page.getByText(/Semantische Relevanzsuche|Ergebnisse insgesamt/)).toHaveCount(0)
+})

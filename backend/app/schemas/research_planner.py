@@ -1,7 +1,7 @@
-"""Admin mirror of the planner v1/v4 wire contract, not inference or execution logic.
+"""Admin mirror of the planner v2/v5 wire contract, not inference or execution logic.
 
 Verified against sndcds/uranus-research-planner at
-63dcd78d0b10668283d649ecc10dbbbaa10dc089 (src/research_planner/schemas.py).
+05ab44c8298781e2a0765066b8fb958913c36784 (src/research_planner/schemas.py).
 Nullable plan fields remain required. Changes require explicit compatibility review.
 """
 
@@ -84,6 +84,8 @@ class ResearchQueryPlan(ClosedModel):
     category_queries: list[Slot] = Field(max_length=8)
     genre_queries: list[Slot] = Field(max_length=8)
     temporal: Temporal
+    ordering: Literal["none", "earliest", "latest"]
+    limit: Annotated[int, Field(ge=1, le=20)] | None
     explicit_from_date: date | None
     explicit_to_date: date | None
     time_of_day: Literal["none", "evening"]
@@ -111,6 +113,8 @@ class ResearchQueryPlan(ClosedModel):
                 "category_queries": [],
                 "genre_queries": [],
                 "temporal": "none",
+                "ordering": "none",
+                "limit": None,
                 "explicit_from_date": None,
                 "explicit_to_date": None,
                 "time_of_day": "none",
@@ -134,6 +138,21 @@ class ResearchQueryPlan(ClosedModel):
         }
         if self.answer_mode != modes[self.intent]:
             raise ValueError("intent_answer_mode_mismatch")
+        if self.ordering == "none":
+            if self.limit is not None:
+                raise ValueError("limit_requires_ordering")
+        else:
+            if self.intent not in {"list", "search"} or self.answer_mode != "records":
+                raise ValueError("ordering_requires_records")
+            if self.entity_type != "event":
+                raise ValueError("ordering_requires_event")
+            if self.limit is None:
+                raise ValueError("ordering_requires_limit")
+            if (
+                self.semantic_query is not None
+                and self.unsupported_reason != "unsupported_constraint"
+            ):
+                raise ValueError("semantic_ordering_unsupported")
         has_semantics = self.semantic_query is not None
         if self.requires_semantic_relevance != has_semantics:
             raise ValueError("semantic_relevance_mismatch")
@@ -189,14 +208,14 @@ class PlanDiagnostics(ClosedModel):
     request_id: str = Field(pattern=r"^[a-f0-9]{32}$")
     planner_intent: Intent
     planner_model: str = Field(min_length=1, max_length=160)
-    planner_prompt_version: Literal["research-planner-v4"]
+    planner_prompt_version: Literal["research-planner-v5"]
     planner_ms: float = Field(ge=0)
     total_ms: float = Field(ge=0)
 
 
 class PlanEnvelope(ClosedModel):
-    schema_version: Literal["research-query-plan-v1"]
-    prompt_version: Literal["research-planner-v4"]
+    schema_version: Literal["research-query-plan-v2"]
+    prompt_version: Literal["research-planner-v5"]
     model: str = Field(min_length=1, max_length=160)
     plan: ResearchQueryPlan
     reference_date: date

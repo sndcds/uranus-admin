@@ -206,3 +206,12 @@ Validierung: `research-execution.test.ts`, `research-question.test.ts` und
 `research-query.spec.ts` ergänzen die bestehenden Research-Tests. Browser-Fixtures
 sind synthetisch und belegen keine Live-Daten oder produktive Planner-Verfügbarkeit.
 Keine Backendänderung, Migration, Grants oder Workeranpassung erforderlich.
+
+## Chronologische Recherchefragen
+
+Der Planvertrag verlangt `research-query-plan-v2` / `research-planner-v5` sowie die
+Pflichtfelder `ordering` und `limit`. Der Browser sendet weiterhin ausschließlich
+`{"query":"..."}`. Früheste/späteste Ergebnisse zeigen die tatsächlich ausgewählten
+Termine und deren Ortskontext; die Auswahl ist auf 1–20 verschiedene Veranstaltungen
+begrenzt. Die Oberfläche unterscheidet diese Auswahl von semantischen Treffern und
+behauptet keine Gesamtzählung. [Semantik und Deployment](../../backend/docs/research-chronology.md).

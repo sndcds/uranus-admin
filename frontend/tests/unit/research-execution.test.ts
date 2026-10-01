@@ -294,3 +294,84 @@ describe('deterministic answers', () => {
     view.unmount()
   })
 })
+
+it.each(['earliest', 'latest'] as const)(
+  'validates and renders %s occurrence selection',
+  async (ordering) => {
+    const response = executionResponse('records')
+    response.plan.plan.ordering = ordering
+    response.plan.plan.limit = 1
+    if (response.result.kind !== 'records') throw new Error('fixture')
+    response.result.total = null
+    expect(researchExecutionResponseSchema.parse(response)).toEqual(response)
+    const view = render('records')
+    await view.setProps({ response })
+    expect(view.text()).toContain(
+      ordering === 'earliest'
+        ? 'Früheste gefundene Veranstaltungen'
+        : 'Späteste gefundene Veranstaltungen',
+    )
+    expect(view.text()).toContain('höchstens 1')
+    expect(view.text()).toContain('12.08.2026')
+    expect(view.text()).not.toContain('Semantische Relevanzsuche')
+    expect(view.text()).not.toContain('Ergebnisse insgesamt')
+    view.unmount()
+  },
+)
+it.each([
+  { ordering: 'earliest', limit: null },
+  { ordering: 'none', limit: 1 },
+  { ordering: 'best', limit: 1 },
+  { ordering: 'earliest', limit: 0 },
+  { ordering: 'earliest', limit: 21 },
+  { ordering: 'earliest', limit: true },
+  { ordering: 'earliest', limit: '1' },
+  { ordering: 'earliest', limit: 1.5 },
+  { ordering: 'earliest', limit: 1, entity_type: 'venue' },
+  { ordering: 'earliest', limit: 1, intent: 'count', answer_mode: 'count', metric: 'event_count' },
+  {
+    ordering: 'latest',
+    limit: 1,
+    intent: 'aggregate',
+    answer_mode: 'aggregate',
+    metric: 'event_count',
+    group_by: 'venue',
+  },
+  {
+    ordering: 'earliest',
+    limit: 1,
+    semantic_query: 'interesting',
+    requires_semantic_relevance: true,
+  },
+])('rejects invalid chronological plans %j', (change) => {
+  const response = executionResponse('records')
+  expect(
+    researchExecutionResponseSchema.safeParse({
+      ...response,
+      plan: { ...response.plan, plan: { ...response.plan.plan, ...change } },
+    }).success,
+  ).toBe(false)
+})
+it.each(['ordering', 'limit'])('requires chronological field %s even when unused', (field) => {
+  const response = executionResponse('records')
+  const plan = Object.fromEntries(
+    Object.entries(response.plan.plan).filter(([key]) => key !== field),
+  )
+  expect(
+    researchExecutionResponseSchema.safeParse({ ...response, plan: { ...response.plan, plan } })
+      .success,
+  ).toBe(false)
+})
+it.each([{ ordering: 'earliest' }, { limit: 1 }])(
+  'proxy rejects browser chronological fields %j',
+  async (extra) => {
+    const fetcher = vi.fn()
+    const result = await forwardAdminRequest(
+      { ...proxyInput, body: { query: countQuestion, ...extra } },
+      'http://backend.invalid',
+      fetcher,
+    )
+    expect(result.status).toBe(422)
+    expect(fetcher).not.toHaveBeenCalled()
+  },
+)

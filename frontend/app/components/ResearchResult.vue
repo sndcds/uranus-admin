@@ -4,6 +4,7 @@ import { hasSemanticEvidence, researchHref, researchUrlQuery } from '~/utils/res
 const props = defineProps<{
   item: ResearchRecord | SemanticResearchRecord
   semantic?: boolean
+  showFullDate?: boolean
   selected?: boolean
   query?: ResearchQuery
 }>()
@@ -75,14 +76,18 @@ const month = computed(() =>
       </div>
       <p class="flex items-center gap-2 text-xs text-slate-700">
         <AppIcon :name="item.entity_type === 'event' ? 'clock' : 'calendar'" :size="15" />
-        <template v-if="item.entity_type === 'event'">{{
-          item.all_day
-            ? 'Ganztägig'
-            : item.start_time
-              ? item.start_time.slice(0, 5) +
-                (item.end_time ? ' – ' + item.end_time.slice(0, 5) : '')
-              : 'Uhrzeit unbekannt'
-        }}</template>
+        <template v-if="item.entity_type === 'event'">
+          <span v-if="showFullDate && item.start_date"
+            >{{ item.start_date.split('-').reverse().join('.') }} · </span
+          >{{
+            item.all_day
+              ? 'Ganztägig'
+              : item.start_time
+                ? item.start_time.slice(0, 5) +
+                  (item.end_time ? ' – ' + item.end_time.slice(0, 5) : '')
+                : 'Uhrzeit unbekannt'
+          }}</template
+        >
         <template v-else>{{ item.event_count }} Veranstaltungen im Filter</template>
       </p>
       <ResearchSemanticExplanation
