@@ -1,9 +1,10 @@
 """No model downloads or network in unit tests; fixtures are synthetic public records."""
 
 import importlib.util
+import json
 from datetime import UTC, datetime
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -13,9 +14,11 @@ from sqlalchemy import text
 from app.config import Settings
 from app.errors import APIError
 from app.repositories.vector_events import extract_events
+from app.research.evidence_context import EvidenceContext
+from app.research.semantic_contracts import EventPayload, SemanticDocument
 from app.research.vector_benchmark import csv_cell, quality_metrics
 from app.research.vector_documents import Section, chunk_sections, clean, content_hash, document
-from app.research.vector_index import SOURCE_BOUNDARY
+from app.research.vector_index import SOURCE_BOUNDARY, normalized_document_json
 from app.research.vector_models import MODELS
 from app.research.vector_sync import apply_changes, deduplicate, plan_changes
 from app.research.vector_transport import Encoder, InternalHTTP, Qdrant, validate_vectors
@@ -39,6 +42,81 @@ def prepare(doc):
             doc.sections, lambda s: len(s.split()) + 2, prefix="passage: "
         )
     }
+
+
+@pytest.fixture
+def contextual_document():
+    entity_id = UUID("019d9b4e-b7ca-7b1f-8d19-56ca89e33ce8")
+    return SemanticDocument(
+        entity_type="event",
+        entity_id=entity_id,
+        display_name="Sprachkurs",
+        sections=[
+            Section(kind="content", text="Dänisch lernen", context=EvidenceContext(scope="event")),
+            Section(
+                kind="location_context",
+                text="Ort: VHS",
+                context=EvidenceContext(
+                    scope="venue", venue_id=UUID("019D9B4E-B7CA-7B1F-8D19-56CA89E33CE7")
+                ),
+            ),
+        ],
+        payload=EventPayload(
+            entity_id=entity_id,
+            display_name="Sprachkurs",
+            title="Sprachkurs",
+            organization_id=UUID("019d9b4e-b7ca-7b1f-8d19-56ca89e33ce9"),
+            status="released",
+        ),
+    )
+
+
+def test_normalized_document_hash_contextual_uuid_and_determinism(contextual_document):
+    serialized = normalized_document_json([contextual_document])
+    normalized_hash = content_hash(serialized)
+    assert normalized_hash == content_hash(normalized_document_json([contextual_document]))
+    assert normalized_hash == content_hash(
+        normalized_document_json([contextual_document.model_copy(deep=True)])
+    )
+    value = json.loads(serialized)
+    assert value[0]["entity_id"] == "019d9b4e-b7ca-7b1f-8d19-56ca89e33ce8"
+    assert value[0]["sections"][0]["context"]["scope"] == "event"
+    assert value[0]["sections"][1]["context"] == {
+        "scope": "venue",
+        "venue_id": "019d9b4e-b7ca-7b1f-8d19-56ca89e33ce7",
+        "space_id": None,
+        "occurrence_id": None,
+    }
+    assert "Dänisch lernen" in serialized
+
+
+def test_normalized_document_hash_changes_with_context_uuid(contextual_document):
+    changed = contextual_document.model_copy(deep=True)
+    changed.sections[1].context = EvidenceContext(
+        scope="venue", venue_id=UUID("019d9b4e-b7ca-7b1f-8d19-56ca89e33cea")
+    )
+    assert content_hash(normalized_document_json([contextual_document])) != content_hash(
+        normalized_document_json([changed])
+    )
+
+
+def test_normalized_document_hash_preserves_non_contextual_input(contextual_document):
+    for section in contextual_document.sections:
+        section.context = None
+    for documents in ([], [sample()], [contextual_document]):
+        previous = json.dumps(
+            [
+                {
+                    "entity_id": str(d.entity_id),
+                    "sections": [s.model_dump() for s in d.sections],
+                }
+                for d in documents
+            ],
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        assert normalized_document_json(documents) == previous
+        assert content_hash(normalized_document_json(documents)) == content_hash(previous)
 
 
 def test_public_allowlist_and_normalization():

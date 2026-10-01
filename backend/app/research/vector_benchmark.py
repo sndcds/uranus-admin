@@ -105,7 +105,9 @@ async def benchmark(
     report = {
         **manifest,
         "query_set_hash": content_hash(
-            json.dumps([q.model_dump() for q in items], sort_keys=True, ensure_ascii=False)
+            json.dumps(
+                [q.model_dump(mode="json") for q in items], sort_keys=True, ensure_ascii=False
+            )
         ),
         "query_count": len(items),
         "results_count": len(rows),
