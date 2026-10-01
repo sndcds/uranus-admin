@@ -1,7 +1,7 @@
 """Only admin-owned metadata. Never reflect or model Uranus tables here."""
 
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 
 from app.geo_types import Geometry
 
@@ -712,7 +712,7 @@ research_query_suggestion = sa.Table(
     sa.Column("normalized_query", sa.String(300), nullable=False, unique=True),
     sa.Column("display_query", sa.String(300), nullable=False),
     sa.Column("language", sa.String(16), nullable=False),
-    sa.Column("search_prefixes", sa.ARRAY(sa.Text), nullable=False),
+    sa.Column("search_prefixes", ARRAY(sa.Text), nullable=False),
     sa.Column("success_count", sa.BigInteger, nullable=False, server_default="0"),
     sa.Column("suggestion_impressions", sa.BigInteger, nullable=False, server_default="0"),
     sa.Column("suggestion_selections", sa.BigInteger, nullable=False, server_default="0"),

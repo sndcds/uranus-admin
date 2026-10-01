@@ -1,9 +1,10 @@
 """Privacy/ranking units and CI-only PostgreSQL counter/receipt regressions."""
 
 import io
+import re
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -12,6 +13,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi import Request
 from pydantic import ValidationError
+from sqlalchemy.dialects import postgresql
 
 from app.admin_database import get_admin_connection
 from app.admin_tables import research_query_history as history
@@ -146,6 +148,38 @@ def test_migration_offline(monkeypatch):
 )
 async def test_auth(client, path, method):
     assert (await getattr(client, method)("/api/v1/research" + path)).status_code == 401
+
+
+@pytest.mark.parametrize(
+    "prefix,canonical", [("welche org", "welche org"), ("Straße", "strasse"), ("we%_", "we%_")]
+)
+async def test_lookup_builds_indexed_postgresql_query_without_database(prefix, canonical):
+    identifier = uuid4()
+    row = {"id": identifier, "display_query": "Welche Organisation hat die meisten Events?"}
+    result = Mock()
+    result.mappings.return_value = [row]
+    connection = AsyncMock()
+    connection.execute.return_value = result
+
+    response = await repo.lookup(connection, SuggestionFilters(q=prefix, language="de"))
+
+    connection.execute.assert_awaited_once()
+    statement = connection.execute.await_args.args[0]
+    compiled = statement.compile(dialect=postgresql.dialect())
+    sql = str(compiled)
+    assert "search_prefixes @>" in sql
+    assert "::TEXT[]" in sql
+    assert compiled.params["search_prefixes_1"] == [canonical.split()[0]]
+    escaped = canonical.replace("%", "\\%").replace("_", "\\_")
+    assert compiled.params["normalized_query_1"] == escaped + "%"
+    assert compiled.params["normalized_query_2"] == "% " + escaped + "%"
+    assert compiled.params["language_1"] == ["de", "und"]
+    limit_parameter = re.search(r"LIMIT %\((\w+)\)s", sql)
+    assert limit_parameter is not None
+    assert compiled.params[limit_parameter[1]] == 8
+    assert response.suggestions[0].id == identifier
+    assert response.suggestions[0].position == 1
+    assert response.suggestions[0].query == row["display_query"]
 
 
 async def test_api_validation(client, headers):
