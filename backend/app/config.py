@@ -94,6 +94,7 @@ class Settings(BaseSettings):
     research_domain_enabled: bool = False
     research_knowledge_url: str | None = None
     research_knowledge_api_key: SecretStr | None = None
+    research_analytics_enabled: bool = False
     research_planner_url: str | None = None
     research_planner_api_key: SecretStr | None = None
     research_planner_timeout_seconds: int = Field(default=30, ge=1, le=30)

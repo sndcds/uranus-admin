@@ -194,7 +194,6 @@ optimistic locking, due dates, aggregation and the migration/grant sequence.
 
 [SQL / Datenherkunft – registrierte Queries, Sicherheitsmodell und Coverage](backend/docs/sql-provenance.md).
 
-
 ## Globale Suche und Command Palette
 
 **Ctrl+K / Cmd+K** oder der Suchtrigger im Desktop-/Mobile-Header öffnet die globale
@@ -219,3 +218,9 @@ Kanonische Felder, Privacy, Queryplan und spätere Uranus-eigene pg_trgm-Indizes
 The opt-in API-only v4 Research route combines exact PostgreSQL metrics with project
 source evidence while preserving the existing interface. See
 [domain routing, metrics and migration](docs/unified-research-v4.md).
+
+## Analytical Research contract
+
+See [v5/v8 analytical planning and coordinated activation](backend/docs/research-analytics.md) for taxonomy,
+exact rankings, spatial predicates and time windows. Legacy v3/v7 and unified v4
+remain available; activate the new path only after both components are installed.

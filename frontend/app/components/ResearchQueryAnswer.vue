@@ -58,12 +58,52 @@ const fieldLabels = {
           {{ number(result.value) }} {{ metric }}
         </p>
       </template>
+      <template v-else-if="result.kind === 'taxonomy'">
+        <p>
+          {{ number(result.total) }} verwendete
+          {{
+            { genre: 'Genres', category: 'Kategorien', event_type: 'Veranstaltungstypen' }[
+              result.taxonomy
+            ]
+          }}<span v-if="result.total > result.items.length">
+            · {{ result.items.length }} angezeigt</span
+          >
+        </p>
+        <ul class="space-y-1" aria-label="Taxonomie">
+          <li v-for="item in result.items" :key="item.key">
+            {{ item.name }} – {{ number(item.event_count) }} Veranstaltungen
+          </li>
+        </ul>
+      </template>
+      <template v-else-if="result.kind === 'spatial'">
+        <p v-if="result.items[0]">
+          {{
+            result.spatial_metric === 'longitude'
+              ? result.ordering === 'asc'
+                ? 'Westlichster'
+                : 'Östlichster'
+              : result.ordering === 'asc'
+                ? 'Südlichster'
+                : 'Nördlichster'
+          }}
+          Treffer: „{{ result.items[0].name }}“<span v-if="result.items[0].city">
+            in {{ result.items[0].city }}</span
+          >
+          bei {{ result.items[0].location?.[result.spatial_metric] }}°
+          {{ result.spatial_metric === 'longitude' ? 'Länge' : 'Breite' }}.
+        </p>
+        <p v-else>Keine passenden Datensätze mit bekannter Position.</p>
+      </template>
       <p v-else-if="result.kind === 'aggregate'">
         {{ metric }} nach
         {{
-          { venue: 'Veranstaltungsort', organization: 'Organisation', category: 'Kategorie' }[
-            result.group_by
-          ]
+          {
+            venue: 'Veranstaltungsort',
+            organization: 'Organisation',
+            category: 'Kategorie',
+            genre: 'Genre',
+            event_type: 'Veranstaltungstyp',
+          }[result.group_by]
         }}
         · {{ result.items.length }} gelieferte Gruppen (höchstens 20)
       </p>
@@ -106,10 +146,38 @@ const fieldLabels = {
       </template>
       <template v-if="result.kind !== 'needs_clarification'">
         <p class="text-sm text-slate-600">
-          {{ area ? `${area} · ` : '' }}{{ period
+          {{
+            area
+              ? `${response.execution.area_relation === 'outside' ? 'Außerhalb: ' : ''}${area} · `
+              : ''
+          }}{{ period
           }}<span v-if="response.execution.time_from">
             · ab {{ response.execution.time_from }} Uhr</span
           >
+        </p>
+        <p
+          v-if="response.execution.time_of_day && response.execution.time_of_day !== 'none'"
+          class="text-sm text-slate-600"
+        >
+          Tageszeit:
+          {{
+            {
+              morning: '06:00–12:00',
+              afternoon: '12:00–18:00',
+              evening: '18:00–22:00',
+              night: '22:00–06:00',
+            }[response.execution.time_of_day]
+          }}
+          (Ende ausgeschlossen, {{ response.timezone }})
+        </p>
+        <p
+          v-for="item in response.resolution.filter((item) =>
+            ['genre_queries', 'event_type_queries', 'category_queries'].includes(item.field),
+          )"
+          :key="`${item.field}:${item.target.id}`"
+          class="text-sm text-slate-600"
+        >
+          {{ fieldLabels[item.field] }}: {{ item.target.label }}
         </p>
         <p
           v-if="response.execution.structured && !response.execution.semantic"
@@ -151,7 +219,7 @@ const fieldLabels = {
       </table>
       <EmptyState v-if="!result.items.length" message="Keine Gruppen für diese Auswertung." />
     </div>
-    <div v-if="result.kind === 'records'" class="space-y-2">
+    <div v-if="result.kind === 'records' || result.kind === 'spatial'" class="space-y-2">
       <EmptyState v-if="!result.items.length" message="Keine passenden Datensätze gefunden." />
       <ResearchResult
         v-for="item in result.items"

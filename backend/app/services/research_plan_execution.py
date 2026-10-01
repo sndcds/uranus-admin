@@ -21,8 +21,12 @@ from app.repositories.research_execution import (
     chronological_records,
     count_selection,
     eligible_event_ids,
+    spatial_records,
+    taxonomy_selection,
 )
 from app.repositories.research_resolution import Resolution, resolve_plan
+from app.schemas.research_analytics import AnalyticalPlanResponse, AnalyticalQueryPlan
+from app.schemas.research_analytics_guard import analytical_mismatch
 from app.schemas.research_execution import (
     AggregateResult,
     ComparisonItem,
@@ -38,6 +42,8 @@ from app.schemas.research_execution import (
     ExecutionSemanticFilters,
     RecordsResult,
     ResearchExecutionResponse,
+    SpatialResult,
+    TaxonomyResult,
 )
 from app.schemas.research_planner import PlanResponse
 from app.services.semantic_search import semantic_research
@@ -53,7 +59,9 @@ def unsupported(message: str) -> APIError:
     )
 
 
-def temporal_bounds(response: PlanResponse) -> tuple[date | None, date | None]:
+def temporal_bounds(
+    response: PlanResponse | AnalyticalPlanResponse,
+) -> tuple[date | None, date | None]:
     # reference_date is already a local date in this validated zone. Calendar
     # arithmetic deliberately avoids UTC offsets, including across DST changes.
     ZoneInfo(response.timezone)
@@ -83,13 +91,24 @@ def temporal_bounds(response: PlanResponse) -> tuple[date | None, date | None]:
             return plan.explicit_from_date, plan.explicit_to_date
 
 
-def execution_filters(response: PlanResponse, resolution: Resolution) -> ExecutionFilters:
+def execution_filters(
+    response: PlanResponse | AnalyticalPlanResponse, resolution: Resolution
+) -> ExecutionFilters:
     start, end = temporal_bounds(response)
     filters = ExecutionFilters(
         entity_type=response.plan.entity_type,
         from_date=start,
         to_date=end,
-        time_from=EVENING_START if response.plan.time_of_day == "evening" else None,
+        time_from=EVENING_START
+        if response.plan.time_of_day == "evening"
+        and not isinstance(response.plan, AnalyticalQueryPlan)
+        else None,
+        time_of_day=response.plan.time_of_day
+        if isinstance(response.plan, AnalyticalQueryPlan)
+        else "none",
+        area_relation=response.plan.area_relation
+        if isinstance(response.plan, AnalyticalQueryPlan)
+        else "inside",
         page_size=response.plan.limit or 20,
         area_id=resolution.area.area.id if resolution.area else None,
     )
@@ -115,7 +134,7 @@ class ResearchPlanExecutor:
         self,
         request: Request,
         settings: Settings,
-        plan_response: PlanResponse,
+        plan_response: PlanResponse | AnalyticalPlanResponse,
         *,
         planner_ms: float | None = None,
     ) -> ResearchExecutionResponse:
@@ -126,7 +145,17 @@ class ResearchPlanExecutor:
         provenance = ExecutionProvenance()
         resolution_ms = execution_ms = 0.0
         observed_at = datetime.now(UTC)
-        if plan.unsupported_reason is not None:
+        if plan.unsupported_reason is not None or (
+            plan.clarification == "none"
+            and analytical_mismatch(
+                plan.original_query,
+                plan.intent,
+                plan.group_by,
+                getattr(plan, "taxonomy", None),
+                getattr(plan, "area_relation", "inside"),
+                plan.time_of_day,
+            )
+        ):
             raise APIError(422, "research_plan_unsupported", "This research plan is unsupported.")
         if plan_response.kind == "needs_clarification":
             result: ExecutionResult = ExecutionClarification(
@@ -173,6 +202,8 @@ class ResearchPlanExecutor:
                         from_date=filters.from_date,
                         to_date=filters.to_date,
                         time_from=filters.time_from,
+                        time_of_day=filters.time_of_day,
+                        area_relation=filters.area_relation,
                         event_type_ids=filters.event_type_ids,
                         category_ids=filters.category_ids,
                         genre_keys=filters.genre_keys,
@@ -222,7 +253,36 @@ class ResearchPlanExecutor:
                             asynccontextmanager(get_connection)(request) as connection,
                         ):
                             observed_at = datetime.now(UTC)
-                            if plan.intent == "count":
+                            if isinstance(plan, AnalyticalQueryPlan) and plan.intent == "taxonomy":
+                                assert plan.taxonomy is not None
+                                result = await taxonomy_selection(
+                                    connection,
+                                    settings,
+                                    filters,
+                                    plan.taxonomy,
+                                    resolution.area,
+                                    filters.page_size,
+                                    plan.ordering or "asc",
+                                )
+                            elif (
+                                isinstance(plan, AnalyticalQueryPlan)
+                                and plan.intent == "spatial_rank"
+                            ):
+                                assert plan.spatial_metric is not None and plan.ordering is not None
+                                result = SpatialResult(
+                                    spatial_metric=plan.spatial_metric,
+                                    ordering=plan.ordering,
+                                    items=await spatial_records(
+                                        connection,
+                                        settings,
+                                        filters,
+                                        resolution.area,
+                                        plan.spatial_metric,
+                                        plan.ordering,
+                                        filters.page_size,
+                                    ),
+                                )
+                            elif plan.intent == "count":
                                 metric = cast(ExecutionMetric, plan.metric)
                                 result = CountResult(
                                     metric=metric,
@@ -243,6 +303,8 @@ class ResearchPlanExecutor:
                                         metric,
                                         grouping,
                                         resolution.area,
+                                        ordering=plan.ordering or "desc",
+                                        limit=filters.page_size,
                                     ),
                                 )
                             elif plan.intent == "compare":
@@ -318,7 +380,16 @@ class ResearchPlanExecutor:
                 execution_ms=execution_ms,
                 total_ms=planner_ms + (perf_counter() - started) * 1000,
                 returned_count=len(result.items)
-                if isinstance(result, (RecordsResult, AggregateResult, ComparisonResult))
+                if isinstance(
+                    result,
+                    (
+                        RecordsResult,
+                        AggregateResult,
+                        ComparisonResult,
+                        TaxonomyResult,
+                        SpatialResult,
+                    ),
+                )
                 else 0,
             ),
         )
