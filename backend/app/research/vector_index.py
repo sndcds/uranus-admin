@@ -144,19 +144,7 @@ async def run(args: argparse.Namespace, settings: Settings) -> dict[str, object]
             "area_assignment_available": all(
                 payload_dict(d)["area_assignment_available"] for d in documents
             ),
-            "normalized_document_hash": content_hash(
-                json.dumps(
-                    [
-                        {
-                            "entity_id": str(d.entity_id),
-                            "sections": [s.model_dump() for s in d.sections],
-                        }
-                        for d in documents
-                    ],
-                    sort_keys=True,
-                    ensure_ascii=False,
-                )
-            ),
+            "normalized_document_hash": content_hash(normalized_document_json(documents)),
             "corpus_hash": content_hash(
                 json.dumps(sorted((i, c.content_hash) for i, (c, _) in plan.desired.items()))
             ),
@@ -191,6 +179,21 @@ async def run(args: argparse.Namespace, settings: Settings) -> dict[str, object]
     finally:
         await qdrant.http.close()
         await encoder.http.close()
+
+
+def normalized_document_json(documents: Sequence[EventDocument | SemanticDocument]) -> str:
+    """Serialize the manifest hash input, preserving document and section order."""
+    return json.dumps(
+        [
+            {
+                "entity_id": str(d.entity_id),
+                "sections": [s.model_dump(mode="json") for s in d.sections],
+            }
+            for d in documents
+        ],
+        sort_keys=True,
+        ensure_ascii=False,
+    )
 
 
 def payload_dict(document: EventDocument | SemanticDocument) -> dict[str, Any]:
