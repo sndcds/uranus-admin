@@ -25,7 +25,7 @@ from app.schemas.research_execution import (
 )
 from app.schemas.research_planner import ResearchQueryPlan
 
-ResolutionKind = Literal["area", "venue", "organization", "category", "genre"]
+ResolutionKind = Literal["area", "venue", "organization", "category", "event_type", "genre"]
 
 
 # Canonical labels and public event eligibility shared with semantic indexing.
@@ -35,6 +35,19 @@ GENRES_SQL = f"""WITH genres AS ({GENRE_LABELS})
     AND EXISTS (SELECT 1 FROM uranus.event_type_link l
         JOIN uranus.event e ON e.uuid=l.event_uuid
         WHERE l.type_id=g.type_id AND l.genre_id=g.genre_id AND {PUBLIC_EVENT})
+"""
+
+
+EVENT_TYPES_SQL = f"""WITH types AS (
+    SELECT DISTINCT ON(type_id) type_id,name FROM uranus.event_type
+    WHERE NULLIF(trim(name),'') IS NOT NULL
+    ORDER BY type_id,CASE iso_639_1 WHEN 'de' THEN 0 WHEN 'en' THEN 1 ELSE 2 END,
+        iso_639_1 COLLATE "C" NULLS LAST,name COLLATE "C"
+)
+    SELECT t.type_id::text id,t.name label,t.name name FROM types t
+    WHERE EXISTS (SELECT 1 FROM uranus.event_type_link l
+        JOIN uranus.event e ON e.uuid=l.event_uuid
+        WHERE l.type_id=t.type_id AND {PUBLIC_EVENT})
 """
 
 
@@ -58,6 +71,8 @@ async def candidates(
         base = "SELECT id::text id,display_name label,name FROM admin.research_area"
     elif kind == "category":
         base = f"SELECT id::text id,name label,name FROM ({research_options_sql()}) options"
+    elif kind == "event_type":
+        base = EVENT_TYPES_SQL
     elif kind == "genre":
         base = GENRES_SQL
     else:
@@ -78,12 +93,12 @@ async def candidates(
     # Taxonomies use exact labels only; names must never become guessed IDs.
     prefix = (
         "false"
-        if kind in {"category", "genre"}
+        if kind in {"category", "event_type", "genre"}
         else "(name ILIKE :prefix ESCAPE '\\' OR label ILIKE :prefix ESCAPE '\\')"
     )
     substring = (
         "false"
-        if kind in {"category", "genre"}
+        if kind in {"category", "event_type", "genre"}
         else "(name ILIKE :substring ESCAPE '\\' OR label ILIKE :substring ESCAPE '\\')"
     )
     uuid_rank = "id=:identity" if kind in {"venue", "organization"} else "false"
@@ -154,8 +169,9 @@ async def resolve_plan(request: Request, settings: Settings, plan: ResearchQuery
         slots.append(("venue_query", "venue", plan.venue_query))
     if plan.organization_query:
         slots.append(("organization_query", "organization", plan.organization_query))
-    slots.extend(("category_queries", "category", q) for q in plan.category_queries)
+    slots.extend(("event_type_queries", "event_type", q) for q in plan.event_type_queries)
     slots.extend(("genre_queries", "genre", q) for q in plan.genre_queries)
+    slots.extend(("category_queries", "category", q) for q in plan.category_queries)
     slots.extend(
         ("comparison_targets", t.kind, t.query) for t in plan.comparison_targets if t.kind != "area"
     )
@@ -171,6 +187,22 @@ async def resolve_plan(request: Request, settings: Settings, plan: ResearchQuery
                     is None
                 ):
                     return resolved
+    # Every requested genre must belong to one of the explicitly selected types.
+    # Keep composite genre identities intact; never discard a contradictory filter.
+    type_ids = {r.target.id for r in resolved.fields if r.field == "event_type_queries"}
+    for item in resolved.fields:
+        if (
+            item.field == "genre_queries"
+            and type_ids
+            and item.target.id.split(":", 1)[0] not in type_ids
+        ):
+            resolved.clarification = ExecutionClarification(
+                reason="taxonomy_conflict",
+                field="genre_queries",
+                query=item.query,
+                candidates=[item.target],
+            )
+            return resolved
     targets = [r.target for r in resolved.fields if r.field == "comparison_targets"]
     if len({(t.entity_type, t.id) for t in targets}) != len(targets):
         resolved.clarification = ExecutionClarification(

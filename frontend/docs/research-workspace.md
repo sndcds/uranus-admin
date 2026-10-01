@@ -209,7 +209,7 @@ Keine Backendänderung, Migration, Grants oder Workeranpassung erforderlich.
 
 ## Sortierung und Limit für Recherchefragen
 
-Der Planvertrag verlangt `research-query-plan-v3` / `research-planner-v6` sowie
+Der Planvertrag verlangt `research-query-plan-v3` / `research-planner-v7` sowie
 `ordering: "asc" | "desc" | null` und `limit: 1..20 | null` als unabhängige Pflichtfelder.
 Der Browser sendet weiterhin ausschließlich `{"query":"..."}`. Strukturierte Eventlisten
 verwenden ASC, wenn die Frage keine Richtung vorgibt; ohne Limit werden höchstens 20

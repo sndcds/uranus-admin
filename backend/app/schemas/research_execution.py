@@ -20,6 +20,7 @@ ExecutionGrouping = Literal["venue", "organization", "category"]
 
 class ExecutionFilters(ResearchFilters):
     time_from: time | None = None
+    event_type_ids: list[int] = Field(default_factory=list, max_length=8)
     category_ids: list[int] = Field(default_factory=list, max_length=8)
     genre_keys: list[GenreKey] = Field(default_factory=list, max_length=8)
 
@@ -29,11 +30,12 @@ class ExecutionSemanticFilters(SemanticResearchFilters):
     # The classic endpoint remains 2–120.
     q: str = Field(min_length=1, max_length=1001)
     time_from: time | None = None
+    event_type_ids: list[int] = Field(default_factory=list, max_length=8)
     category_ids: list[int] = Field(default_factory=list, max_length=8)
 
 
 class ResolutionCandidate(ClosedModel):
-    entity_type: Literal["area", "venue", "organization", "category", "genre"]
+    entity_type: Literal["area", "venue", "organization", "category", "event_type", "genre"]
     id: str
     label: str
 
@@ -42,6 +44,7 @@ ResolutionField = Literal[
     "area_query",
     "venue_query",
     "organization_query",
+    "event_type_queries",
     "category_queries",
     "genre_queries",
     "comparison_targets",
@@ -56,7 +59,7 @@ class ResolvedField(ClosedModel):
 
 class ExecutionClarification(ClosedModel):
     kind: Literal["needs_clarification"] = "needs_clarification"
-    reason: Literal["planner", "ambiguous", "no_match", "duplicate_target"]
+    reason: Literal["planner", "ambiguous", "no_match", "duplicate_target", "taxonomy_conflict"]
     planner_state: Literal["none", "needs_criteria", "needs_location", "needs_date"] = "none"
     field: ResolutionField | None = None
     query: Slot | None = None
@@ -112,6 +115,7 @@ class ExecutionProvenance(ClosedModel):
     from_date: date | None = None
     to_date: date | None = None
     time_from: time | None = None
+    event_type_ids: list[int] = Field(default_factory=list, max_length=8)
     category_ids: list[int] = Field(default_factory=list, max_length=8)
     genre_keys: list[GenreKey] = Field(default_factory=list, max_length=8)
 
@@ -127,7 +131,7 @@ class ExecutionDiagnostics(ClosedModel):
 class ResearchExecutionResponse(ClosedModel):
     query: Query
     plan: PlanResponse
-    resolution: list[ResolvedField] = Field(default_factory=list, max_length=23)
+    resolution: list[ResolvedField] = Field(default_factory=list, max_length=31)
     result: ExecutionResult
     execution: ExecutionProvenance
     observed_at: datetime

@@ -220,7 +220,7 @@ authorization dependency and public projections. See [account setup and rollout]
 ### Research planner (Phase 1)
 
 `POST /api/v1/research/plan` accepts `{"query":"Culture this evening in Flensburg"}`
-and returns a validated `research-query-plan-v3` / `research-planner-v6` envelope.
+and returns a validated `research-query-plan-v3` / `research-planner-v7` envelope.
 It requires a journalist or system-admin session. Queries are 1–2,000 characters,
 nonblank and preserved exactly. Unknown body fields are rejected. The backend supplies
 `EVENT_TIMEZONE` and `language=auto`; the planner calculates `reference_date`.

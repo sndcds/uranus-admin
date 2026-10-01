@@ -34,6 +34,7 @@ export const researchQueryPlanSchema = z
     area_query: slot.nullable(),
     venue_query: slot.nullable(),
     organization_query: slot.nullable(),
+    event_type_queries: z.array(slot).max(8),
     category_queries: z.array(slot).max(8),
     genre_queries: z.array(slot).max(8),
     temporal: z.enum([
@@ -138,6 +139,7 @@ export const researchQueryPlanSchema = z
         plan.area_query !== null ||
         plan.venue_query !== null ||
         plan.organization_query !== null ||
+        plan.event_type_queries.length ||
         plan.category_queries.length ||
         plan.genre_queries.length ||
         plan.temporal !== 'none' ||
@@ -156,7 +158,7 @@ const milliseconds = z.number().finite().nonnegative()
 const planEnvelope = z
   .object({
     schema_version: z.literal('research-query-plan-v3'),
-    prompt_version: z.literal('research-planner-v6'),
+    prompt_version: z.literal('research-planner-v7'),
     model: z.string().min(1).max(160),
     plan: researchQueryPlanSchema,
     reference_date: z.iso.date(),
@@ -166,7 +168,7 @@ const planEnvelope = z
         request_id: z.string().regex(/^[a-f0-9]{32}$/),
         planner_intent: intent,
         planner_model: z.string().min(1).max(160),
-        planner_prompt_version: z.literal('research-planner-v6'),
+        planner_prompt_version: z.literal('research-planner-v7'),
         planner_ms: milliseconds,
         total_ms: milliseconds,
       })
@@ -179,7 +181,7 @@ export const researchPlanResponseSchema = z.discriminatedUnion('kind', [
 ])
 export const resolutionCandidateSchema = z
   .object({
-    entity_type: z.enum(['area', 'venue', 'organization', 'category', 'genre']),
+    entity_type: z.enum(['area', 'venue', 'organization', 'category', 'event_type', 'genre']),
     id: z.string(),
     label: z.string(),
   })
@@ -188,6 +190,7 @@ const resolutionField = z.enum([
   'area_query',
   'venue_query',
   'organization_query',
+  'event_type_queries',
   'category_queries',
   'genre_queries',
   'comparison_targets',
@@ -226,7 +229,7 @@ export const executionResultSchema = z.discriminatedUnion('kind', [
   z
     .object({
       kind: z.literal('needs_clarification'),
-      reason: z.enum(['planner', 'ambiguous', 'no_match', 'duplicate_target']),
+      reason: z.enum(['planner', 'ambiguous', 'no_match', 'duplicate_target', 'taxonomy_conflict']),
       planner_state: clarification,
       field: resolutionField.nullable(),
       query: slot.nullable(),
@@ -241,6 +244,7 @@ export const executionProvenanceSchema = z
     from_date: z.iso.date().nullable(),
     to_date: z.iso.date().nullable(),
     time_from: z.iso.time().nullable(),
+    event_type_ids: z.array(z.number().int()).max(8),
     category_ids: z.array(z.number().int()).max(8),
     genre_keys: z.array(genreKeySchema).max(8),
   })
@@ -258,7 +262,7 @@ export const researchExecutionResponseSchema = z
   .object({
     query: researchQuestionSchema,
     plan: researchPlanResponseSchema,
-    resolution: z.array(resolvedFieldSchema).max(23),
+    resolution: z.array(resolvedFieldSchema).max(31),
     result: executionResultSchema,
     execution: executionProvenanceSchema,
     observed_at: z.iso.datetime({ offset: true }),

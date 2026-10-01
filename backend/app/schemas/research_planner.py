@@ -1,7 +1,7 @@
-"""Admin mirror of the planner v3/v6 wire contract, not inference or execution logic.
+"""Admin mirror of the planner v3/v7 wire contract, not inference or execution logic.
 
-Verified against sndcds/uranus-research-planner at
-b2c4a14046a9ba31c15eb96579d29f6774c6071b (src/research_planner/schemas.py).
+Mirrors sndcds/uranus-research-planner src/research_planner/schemas.py,
+including the required v7 event_type_queries slot.
 Nullable plan fields remain required. Changes require explicit compatibility review.
 """
 
@@ -81,6 +81,7 @@ class ResearchQueryPlan(ClosedModel):
     area_query: Slot | None
     venue_query: Slot | None
     organization_query: Slot | None
+    event_type_queries: list[Slot] = Field(max_length=8)
     category_queries: list[Slot] = Field(max_length=8)
     genre_queries: list[Slot] = Field(max_length=8)
     temporal: Temporal
@@ -110,6 +111,7 @@ class ResearchQueryPlan(ClosedModel):
                 "area_query": None,
                 "venue_query": None,
                 "organization_query": None,
+                "event_type_queries": [],
                 "category_queries": [],
                 "genre_queries": [],
                 "temporal": "none",
@@ -205,14 +207,14 @@ class PlanDiagnostics(ClosedModel):
     request_id: str = Field(pattern=r"^[a-f0-9]{32}$")
     planner_intent: Intent
     planner_model: str = Field(min_length=1, max_length=160)
-    planner_prompt_version: Literal["research-planner-v6"]
+    planner_prompt_version: Literal["research-planner-v7"]
     planner_ms: float = Field(ge=0)
     total_ms: float = Field(ge=0)
 
 
 class PlanEnvelope(ClosedModel):
     schema_version: Literal["research-query-plan-v3"]
-    prompt_version: Literal["research-planner-v6"]
+    prompt_version: Literal["research-planner-v7"]
     model: str = Field(min_length=1, max_length=160)
     plan: ResearchQueryPlan
     reference_date: date

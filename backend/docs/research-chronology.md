@@ -1,7 +1,7 @@
 # Event record ordering and independent limits — v3 / v6
 
 The required wire contract is **research-query-plan-v3**, with prompt
-**research-planner-v6**. Both fields remain required JSON keys, including when null:
+**research-planner-v7**. Both fields remain required JSON keys, including when null:
 
 | Field      | Type                          | Meaning                                                                        |
 | ---------- | ----------------------------- | ------------------------------------------------------------------------------ |

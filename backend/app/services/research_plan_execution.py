@@ -98,10 +98,13 @@ def execution_filters(response: PlanResponse, resolution: Resolution) -> Executi
             filters.venue_id = UUID(item.target.id)
         elif item.field == "organization_query":
             filters.organization_id = UUID(item.target.id)
+        elif item.field == "event_type_queries":
+            filters.event_type_ids.append(int(item.target.id))
         elif item.field == "category_queries":
             filters.category_ids.append(int(item.target.id))
         elif item.field == "genre_queries":
             filters.genre_keys.append(item.target.id)
+    filters.event_type_ids = sorted(set(filters.event_type_ids))
     filters.category_ids = sorted(set(filters.category_ids))
     filters.genre_keys = sorted(set(filters.genre_keys))
     return filters
@@ -170,6 +173,7 @@ class ResearchPlanExecutor:
                         from_date=filters.from_date,
                         to_date=filters.to_date,
                         time_from=filters.time_from,
+                        event_type_ids=filters.event_type_ids,
                         category_ids=filters.category_ids,
                         genre_keys=filters.genre_keys,
                         structured=True,

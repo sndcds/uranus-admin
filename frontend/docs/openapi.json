@@ -25401,7 +25401,7 @@
           },
           "prompt_version": {
             "type": "string",
-            "const": "research-planner-v6",
+            "const": "research-planner-v7",
             "title": "Prompt Version"
           },
           "model": {
@@ -27886,7 +27886,8 @@
               "planner",
               "ambiguous",
               "no_match",
-              "duplicate_target"
+              "duplicate_target",
+              "taxonomy_conflict"
             ],
             "title": "Reason"
           },
@@ -27909,6 +27910,7 @@
                   "area_query",
                   "venue_query",
                   "organization_query",
+                  "event_type_queries",
                   "category_queries",
                   "genre_queries",
                   "comparison_targets"
@@ -28036,6 +28038,14 @@
               }
             ],
             "title": "Time From"
+          },
+          "event_type_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Event Type Ids"
           },
           "category_ids": {
             "items": {
@@ -32272,7 +32282,7 @@
           },
           "planner_prompt_version": {
             "type": "string",
-            "const": "research-planner-v6",
+            "const": "research-planner-v7",
             "title": "Planner Prompt Version"
           },
           "planner_ms": {
@@ -32307,7 +32317,7 @@
           },
           "prompt_version": {
             "type": "string",
-            "const": "research-planner-v6",
+            "const": "research-planner-v7",
             "title": "Prompt Version"
           },
           "model": {
@@ -33421,7 +33431,7 @@
               "$ref": "#/components/schemas/ResolvedField"
             },
             "type": "array",
-            "maxItems": 23,
+            "maxItems": 31,
             "title": "Resolution"
           },
           "result": {
@@ -33751,6 +33761,16 @@
             ],
             "title": "Organization Query"
           },
+          "event_type_queries": {
+            "items": {
+              "type": "string",
+              "maxLength": 160,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Event Type Queries"
+          },
           "category_queries": {
             "items": {
               "type": "string",
@@ -33942,6 +33962,7 @@
           "area_query",
           "venue_query",
           "organization_query",
+          "event_type_queries",
           "category_queries",
           "genre_queries",
           "temporal",
@@ -34295,6 +34316,7 @@
               "venue",
               "organization",
               "category",
+              "event_type",
               "genre"
             ],
             "title": "Entity Type"
@@ -34325,6 +34347,7 @@
               "area_query",
               "venue_query",
               "organization_query",
+              "event_type_queries",
               "category_queries",
               "genre_queries",
               "comparison_targets"

@@ -79,7 +79,7 @@ it('enforces bounded values, records, resolution, genres, date/time and consiste
         total: null,
       },
     },
-    { resolution: Array(24).fill(r.resolution[0]) },
+    { resolution: Array(32).fill(r.resolution[0]) },
     { execution: { ...r.execution, category_ids: Array(9).fill(1) } },
     { execution: { ...r.execution, genre_keys: ['1:0'] } },
     { execution: { ...r.execution, from_date: '2026-02-30' } },
@@ -396,3 +396,30 @@ it.each([{ ordering: 'asc' }, { limit: 1 }])(
     expect(fetcher).not.toHaveBeenCalled()
   },
 )
+
+it('requires distinct event type slots and preserves taxonomy conflicts', async () => {
+  const r = executionResponse('records')
+  r.plan.plan.event_type_queries = ['Konzerte']
+  r.plan.plan.genre_queries = ['Jazz']
+  r.execution.event_type_ids = [1]
+  r.execution.genre_keys = ['1:2']
+  expect(researchExecutionResponseSchema.parse(r).plan.plan.category_queries).toEqual([])
+  const missing = structuredClone(r)
+  Reflect.deleteProperty(missing.plan.plan, 'event_type_queries')
+  expect(researchExecutionResponseSchema.safeParse(missing).success).toBe(false)
+  r.plan.plan.event_type_queries = Array(9).fill('Konzerte')
+  expect(researchExecutionResponseSchema.safeParse(r).success).toBe(false)
+  r.plan.plan.event_type_queries = ['Konzerte']
+  r.result = {
+    kind: 'needs_clarification',
+    reason: 'taxonomy_conflict',
+    planner_state: 'none',
+    field: 'genre_queries',
+    query: 'Jazz',
+    candidates: [],
+  }
+  expect(researchExecutionResponseSchema.parse(r).result.kind).toBe('needs_clarification')
+  const view = render('records')
+  await view.setProps({ response: r })
+  expect(view.text()).toContain('Das Genre gehört nicht zum gewählten Veranstaltungstyp')
+})
