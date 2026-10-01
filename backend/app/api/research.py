@@ -6,6 +6,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request
+from pydantic import TypeAdapter
 
 from app.admin_database import AdminConnectionDep
 from app.auth.dependencies import get_current_research_user
@@ -65,7 +66,8 @@ async def plan(request: Request, body: ResearchPlanRequest) -> PlanResponse:
     planner: ResearchPlannerClient | None = request.app.state.research_planner
     if planner is None:
         raise unavailable()
-    return await planner.plan(body.query)
+    response = await planner.plan(body.query)
+    return TypeAdapter(PlanResponse).validate_json(response.model_dump_json())
 
 
 @router.post(
@@ -83,7 +85,11 @@ async def query(
     if planner is None:
         raise unavailable()
     started = perf_counter()
-    response = await planner.plan(body.query)
+    response = (
+        await planner.plan(body.query, analytical=True)
+        if settings.research_analytics_enabled
+        else await planner.plan(body.query)
+    )
     planner_ms = (perf_counter() - started) * 1000
     result = await ResearchPlanExecutor().execute(
         request, settings, response, planner_ms=planner_ms

@@ -18,6 +18,7 @@ from app.repositories.entity_search import escape_search
 from app.repositories.research import GENRE_LABELS, parameters, research_options_sql, research_sql
 from app.repositories.research_areas import ResolvedResearchArea, resolve_area
 from app.repositories.vector_events import PUBLIC_EVENT
+from app.schemas.research_analytics import AnalyticalQueryPlan
 from app.schemas.research_execution import (
     ExecutionClarification,
     ExecutionFilters,
@@ -217,7 +218,9 @@ class Resolution:
         return target
 
 
-async def resolve_plan(request: Request, settings: Settings, plan: ResearchQueryPlan) -> Resolution:
+async def resolve_plan(
+    request: Request, settings: Settings, plan: ResearchQueryPlan | AnalyticalQueryPlan
+) -> Resolution:
     resolved = Resolution()
     areas: list[tuple[ResolutionField, str]] = []
     if plan.area_query:
@@ -250,20 +253,21 @@ async def resolve_plan(request: Request, settings: Settings, plan: ResearchQuery
     slots.extend(
         ("comparison_targets", t.kind, t.query) for t in plan.comparison_targets if t.kind != "area"
     )
+    candidate_area = None if getattr(plan, "area_relation", "inside") == "outside" else resolved.area
     if slots:
         async with asynccontextmanager(get_connection)(request) as connection:
             for field_name, kind, query in slots:
                 type_ids = {r.target.id for r in resolved.fields if r.field == "event_type_queries"}
                 if kind == "genre" and type_ids:
                     choices = await candidates(
-                        connection, kind, query, settings, resolved.area, type_ids
+                        connection, kind, query, settings, candidate_area, type_ids
                     )
                     # A global fallback diagnoses a contradictory parent; the
                     # conflict check below prevents it from reaching execution.
                     if not choices:
                         choices = await candidates(connection, kind, query, settings)
                 else:
-                    choices = await candidates(connection, kind, query, settings, resolved.area)
+                    choices = await candidates(connection, kind, query, settings, candidate_area)
                 if resolved.select(field_name, query, choices) is None:
                     return resolved
     # Every requested genre must belong to one of the explicitly selected types.

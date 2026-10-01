@@ -70,10 +70,20 @@ DATE_FILTER = f"""e.release_status::text IN {PUBLIC} AND {DATE_STATUS} IN {PUBLI
     AND (CAST(:to_date AS date) IS NULL OR d.start_date<=:to_date)
     AND (CAST(:time_from AS time) IS NULL OR
         (d.all_day IS FALSE AND d.start_time>=:time_from AND d.start_time<TIME '24:00'))
+    AND (:time_of_day='none' OR (d.all_day IS FALSE AND CASE :time_of_day
+        WHEN 'morning' THEN d.start_time>=TIME '06:00' AND d.start_time<TIME '12:00'
+        WHEN 'afternoon' THEN d.start_time>=TIME '12:00' AND d.start_time<TIME '18:00'
+        WHEN 'evening' THEN d.start_time>=TIME '18:00' AND d.start_time<TIME '22:00'
+        WHEN 'night' THEN d.start_time>=TIME '22:00' OR d.start_time<TIME '06:00'
+        ELSE FALSE END))
     AND (:city='' OR v.city ILIKE :city)
     AND (CAST(:area_wkb AS bytea) IS NULL OR (v.point IS NOT NULL
-        AND v.point && ST_GeomFromEWKB(:area_wkb)
-        AND ST_Covers(ST_GeomFromEWKB(:area_wkb),v.point)))
+        AND ST_IsValid(v.point) AND NOT ST_IsEmpty(v.point)
+        AND ST_X(v.point) BETWEEN -180 AND 180 AND ST_Y(v.point) BETWEEN -90 AND 90
+        AND CASE :area_relation WHEN 'outside'
+            THEN NOT ST_Covers(ST_GeomFromEWKB(:area_wkb),v.point)
+            ELSE v.point && ST_GeomFromEWKB(:area_wkb)
+                AND ST_Covers(ST_GeomFromEWKB(:area_wkb),v.point) END))
     AND (CAST(:venue_id AS uuid) IS NULL OR v.uuid=:venue_id)
     AND (CAST(:status AS text) IS NULL OR {DATE_STATUS}=:status)"""
 # Search uses the canonical definitions, with privacy-sensitive fields removed.
@@ -131,6 +141,8 @@ def parameters(
             else None
         ),
         "time_from": None,
+        "time_of_day": "none",
+        "area_relation": "inside",
         "event_type_ids": [],
         "category_ids": [],
         "genre_keys": [],
@@ -183,7 +195,7 @@ def eligible_event_ctes(*, candidates: bool = False, ids_only: bool = False) -> 
         AND (d.id IS NOT NULL OR (
             NOT EXISTS (SELECT 1 FROM uranus.event_date known WHERE known.event_uuid=e.uuid)
             AND CAST(:from_date AS date) IS NULL AND CAST(:to_date AS date) IS NULL
-            AND CAST(:time_from AS time) IS NULL
+            AND CAST(:time_from AS time) IS NULL AND :time_of_day='none'
             AND :city='' AND CAST(:venue_id AS uuid) IS NULL AND CAST(:area_wkb AS bytea) IS NULL
             AND (CAST(:status AS text) IS NULL OR e.release_status::text=:status)))
     )"""
@@ -199,13 +211,18 @@ def research_sql(*, candidates: bool = False, occurrences: bool = False) -> str:
             # Explicit event filters still require an occurrence matching that selection.
             visibility = f"""(CAST(:area_wkb AS bytea) IS NULL AND {visibility}) OR (
                 CAST(:area_wkb AS bytea) IS NOT NULL
-                AND v.point && ST_GeomFromEWKB(:area_wkb)
-                AND ST_Covers(ST_GeomFromEWKB(:area_wkb),v.point)
+                AND v.point IS NOT NULL AND ST_IsValid(v.point) AND NOT ST_IsEmpty(v.point)
+                AND ST_X(v.point) BETWEEN -180 AND 180 AND ST_Y(v.point) BETWEEN -90 AND 90
+                AND CASE :area_relation WHEN 'outside'
+                    THEN NOT ST_Covers(ST_GeomFromEWKB(:area_wkb),v.point)
+                    ELSE v.point && ST_GeomFromEWKB(:area_wkb)
+                        AND ST_Covers(ST_GeomFromEWKB(:area_wkb),v.point) END
                 AND (:city='' OR v.city ILIKE :city)
                 AND (CAST(:venue_id AS uuid) IS NULL OR v.uuid=:venue_id)
                 AND ({visibility} OR (CAST(:from_date AS date) IS NULL
                     AND CAST(:to_date AS date) IS NULL AND CAST(:category AS integer) IS NULL
                     AND CAST(:status AS text) IS NULL AND CAST(:time_from AS time) IS NULL
+                    AND :time_of_day='none'
                     AND cardinality(CAST(:event_type_ids AS integer[]))=0
                     AND cardinality(CAST(:category_ids AS integer[]))=0
                     AND cardinality(CAST(:genre_keys AS text[]))=0

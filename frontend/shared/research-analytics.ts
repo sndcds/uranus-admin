@@ -1,11 +1,5 @@
-import { analyticalPlanResponseSchema } from './research-analytics'
 import { z } from './zod'
-import {
-  genreKeySchema,
-  researchRecordSchema,
-  semanticResearchRecordSchema,
-  researchTypeSchema,
-} from './research'
+import { researchTypeSchema } from './research'
 
 const nonblank = (max: number) =>
   z
@@ -17,7 +11,16 @@ export const researchQuestionSchema = nonblank(2000).refine((value) => value.isW
 export const researchPlanRequestSchema = z.object({ query: researchQuestionSchema }).strict()
 const slot = nonblank(160)
 const topic = nonblank(500)
-const intent = z.enum(['search', 'list', 'count', 'aggregate', 'recommend', 'compare'])
+const intent = z.enum([
+  'search',
+  'list',
+  'count',
+  'aggregate',
+  'recommend',
+  'compare',
+  'taxonomy',
+  'spatial_rank',
+])
 export const executionMetricSchema = z.enum([
   'event_count',
   'occurrence_count',
@@ -26,8 +29,11 @@ export const executionMetricSchema = z.enum([
 ])
 const metric = z.enum([...executionMetricSchema.options, 'none'])
 const clarification = z.enum(['none', 'needs_criteria', 'needs_location', 'needs_date'])
-export const researchQueryPlanSchema = z
+export const analyticalQueryPlanSchema = z
   .object({
+    taxonomy: z.enum(['genre', 'event_type', 'category']).nullable(),
+    spatial_metric: z.enum(['longitude', 'latitude']).nullable(),
+    area_relation: z.enum(['inside', 'outside']),
     original_query: researchQuestionSchema,
     intent,
     entity_type: researchTypeSchema,
@@ -54,15 +60,22 @@ export const researchQueryPlanSchema = z
     limit: z.number().int().min(1).max(20).nullable(),
     explicit_from_date: z.iso.date().nullable(),
     explicit_to_date: z.iso.date().nullable(),
-    time_of_day: z.enum(['none', 'evening']),
+    time_of_day: z.enum(['none', 'morning', 'afternoon', 'evening', 'night']),
     metric,
-    group_by: z.enum(['venue', 'area', 'organization', 'category', 'none']),
+    group_by: z.enum(['venue', 'area', 'organization', 'category', 'genre', 'event_type', 'none']),
     comparison_targets: z
       .array(z.object({ kind: z.enum(['venue', 'area', 'organization']), query: slot }).strict())
       .max(4),
     semantic_focus: topic.nullable(),
     requires_semantic_relevance: z.boolean(),
-    answer_mode: z.enum(['records', 'count', 'aggregate', 'recommendation', 'comparison']),
+    answer_mode: z.enum([
+      'records',
+      'count',
+      'aggregate',
+      'recommendation',
+      'comparison',
+      'taxonomy',
+    ]),
     clarification,
     unsupported_reason: z
       .enum(['outside_research', 'multi_area', 'unsupported_constraint'])
@@ -78,11 +91,20 @@ export const researchQueryPlanSchema = z
       aggregate: 'aggregate',
       recommend: 'recommendation',
       compare: 'comparison',
+      taxonomy: 'taxonomy',
+      spatial_rank: 'records',
     }
     if (plan.answer_mode !== modes[plan.intent]) fail()
-    if (plan.limit !== null && !['list', 'search', 'recommend'].includes(plan.intent)) fail()
+    if (
+      plan.limit !== null &&
+      !['list', 'search', 'recommend', 'taxonomy', 'aggregate', 'spatial_rank'].includes(
+        plan.intent,
+      )
+    )
+      fail()
     if (
       plan.ordering !== null &&
+      !['taxonomy', 'aggregate', 'spatial_rank'].includes(plan.intent) &&
       (!['list', 'search'].includes(plan.intent) ||
         plan.answer_mode !== 'records' ||
         plan.entity_type !== 'event' ||
@@ -104,9 +126,12 @@ export const researchQueryPlanSchema = z
       )
         fail()
     } else if (plan.explicit_from_date !== null || plan.explicit_to_date !== null) fail()
-    if (plan.time_of_day === 'evening' && plan.temporal === 'none') fail()
     if (['count', 'aggregate'].includes(plan.intent) && plan.metric === 'none') fail()
-    if (['search', 'list', 'recommend'].includes(plan.intent) && plan.metric !== 'none') fail()
+    if (
+      ['search', 'list', 'recommend', 'taxonomy', 'spatial_rank'].includes(plan.intent) &&
+      plan.metric !== 'none'
+    )
+      fail()
     if ((plan.intent === 'aggregate') !== (plan.group_by !== 'none')) fail()
     const entities = {
       event_count: 'event',
@@ -127,6 +152,21 @@ export const researchQueryPlanSchema = z
       (plan.comparison_targets.length < 2 || plan.metric === 'none')
     )
       fail()
+    if ((plan.intent === 'taxonomy') !== (plan.taxonomy !== null)) fail()
+    if (plan.intent === 'taxonomy' && plan.entity_type !== 'event') fail()
+    if ((plan.intent === 'spatial_rank') !== (plan.spatial_metric !== null)) fail()
+    if (
+      plan.intent === 'spatial_rank' &&
+      (!['event', 'venue'].includes(plan.entity_type) || plan.ordering === null)
+    )
+      fail()
+    if (plan.area_relation === 'outside' && plan.area_query === null) fail()
+    if (
+      semantic &&
+      ['count', 'aggregate', 'compare', 'taxonomy', 'spatial_rank'].includes(plan.intent) &&
+      plan.unsupported_reason === null
+    )
+      fail()
     const targets = plan.comparison_targets.map(
       (target) =>
         `${target.kind}:${target.query.trim().toLowerCase().replaceAll('ß', 'ss').replaceAll('ς', 'σ')}`,
@@ -134,7 +174,10 @@ export const researchQueryPlanSchema = z
     if (new Set(targets).size !== targets.length) fail()
     if (
       plan.unsupported_reason === 'outside_research' &&
-      (plan.intent !== 'list' ||
+      (plan.taxonomy !== null ||
+        plan.spatial_metric !== null ||
+        plan.area_relation !== 'inside' ||
+        plan.intent !== 'list' ||
         plan.entity_type !== 'event' ||
         semantic ||
         plan.area_query !== null ||
@@ -158,10 +201,10 @@ export const researchQueryPlanSchema = z
 const milliseconds = z.number().finite().nonnegative()
 const planEnvelope = z
   .object({
-    schema_version: z.literal('research-query-plan-v3'),
-    prompt_version: z.literal('research-planner-v7'),
+    schema_version: z.literal('research-query-plan-v5'),
+    prompt_version: z.literal('research-planner-v8'),
     model: z.string().min(1).max(160),
-    plan: researchQueryPlanSchema,
+    plan: analyticalQueryPlanSchema,
     reference_date: z.iso.date(),
     timezone: z.string().max(64),
     diagnostics: z
@@ -169,132 +212,14 @@ const planEnvelope = z
         request_id: z.string().regex(/^[a-f0-9]{32}$/),
         planner_intent: intent,
         planner_model: z.string().min(1).max(160),
-        planner_prompt_version: z.literal('research-planner-v7'),
+        planner_prompt_version: z.literal('research-planner-v8'),
         planner_ms: milliseconds,
         total_ms: milliseconds,
       })
       .strict(),
   })
   .strict()
-export const researchPlanResponseSchema = z.discriminatedUnion('kind', [
+export const analyticalPlanResponseSchema = z.discriminatedUnion('kind', [
   planEnvelope.extend({ kind: z.literal('plan') }),
   planEnvelope.extend({ kind: z.literal('needs_clarification') }),
 ])
-export const resolutionCandidateSchema = z
-  .object({
-    entity_type: z.enum(['area', 'venue', 'organization', 'category', 'event_type', 'genre']),
-    id: z.string(),
-    label: z.string(),
-  })
-  .strict()
-const resolutionField = z.enum([
-  'area_query',
-  'venue_query',
-  'organization_query',
-  'event_type_queries',
-  'category_queries',
-  'genre_queries',
-  'comparison_targets',
-])
-export const resolvedFieldSchema = z
-  .object({ field: resolutionField, query: slot, target: resolutionCandidateSchema })
-  .strict()
-const value = z.number().int().nonnegative()
-export const executionResultSchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      kind: z.literal('taxonomy'),
-      taxonomy: z.enum(['genre', 'event_type', 'category']),
-      total: value,
-      items: z
-        .array(z.object({ key: z.string(), name: z.string(), event_count: value }).strict())
-        .max(20),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('spatial'),
-      spatial_metric: z.enum(['longitude', 'latitude']),
-      ordering: z.enum(['asc', 'desc']),
-      items: z.array(researchRecordSchema).max(20),
-    })
-    .strict(),
-  z.object({ kind: z.literal('count'), metric: executionMetricSchema, value }).strict(),
-  z
-    .object({
-      kind: z.literal('aggregate'),
-      metric: executionMetricSchema,
-      group_by: z.enum(['venue', 'organization', 'category', 'genre', 'event_type']),
-      items: z.array(z.object({ key: z.string(), name: z.string(), value }).strict()).max(20),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('comparison'),
-      metric: executionMetricSchema,
-      items: z
-        .array(z.object({ target: resolutionCandidateSchema, value }).strict())
-        .min(2)
-        .max(4),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('records'),
-      items: z.array(z.union([semanticResearchRecordSchema, researchRecordSchema])).max(20),
-      total: value.nullable(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('needs_clarification'),
-      reason: z.enum(['planner', 'ambiguous', 'no_match', 'duplicate_target', 'taxonomy_conflict']),
-      planner_state: clarification,
-      field: resolutionField.nullable(),
-      query: slot.nullable(),
-      candidates: z.array(resolutionCandidateSchema).max(5),
-    })
-    .strict(),
-])
-export const executionProvenanceSchema = z
-  .object({
-    structured: z.boolean(),
-    semantic: z.boolean(),
-    from_date: z.iso.date().nullable(),
-    to_date: z.iso.date().nullable(),
-    time_from: z.iso.time().nullable(),
-    time_of_day: z.enum(['none', 'morning', 'afternoon', 'evening', 'night']).optional(),
-    area_relation: z.enum(['inside', 'outside']).optional(),
-    event_type_ids: z.array(z.number().int()).max(8),
-    category_ids: z.array(z.number().int()).max(8),
-    genre_keys: z.array(genreKeySchema).max(8),
-  })
-  .strict()
-export const executionDiagnosticsSchema = z
-  .object({
-    planner_ms: milliseconds,
-    resolution_ms: milliseconds,
-    execution_ms: milliseconds,
-    total_ms: milliseconds,
-    returned_count: value.max(20),
-  })
-  .strict()
-export const researchExecutionResponseSchema = z
-  .object({
-    query: researchQuestionSchema,
-    plan: z.union([researchPlanResponseSchema, analyticalPlanResponseSchema]),
-    resolution: z.array(resolvedFieldSchema).max(31),
-    result: executionResultSchema,
-    execution: executionProvenanceSchema,
-    observed_at: z.iso.datetime({ offset: true }),
-    timezone: z.string(),
-    diagnostics: executionDiagnosticsSchema,
-  })
-  .strict()
-export type ResearchExecutionResponse = z.infer<typeof researchExecutionResponseSchema>
-export type ExecutionResult = z.infer<typeof executionResultSchema>
-export type ExecutionProvenance = z.infer<typeof executionProvenanceSchema>
-export type ExecutionDiagnostics = z.infer<typeof executionDiagnosticsSchema>
-export type ResolutionCandidate = z.infer<typeof resolutionCandidateSchema>
-export type ResolvedField = z.infer<typeof resolvedFieldSchema>
-export type ResearchQueryPlan = z.infer<typeof researchQueryPlanSchema>

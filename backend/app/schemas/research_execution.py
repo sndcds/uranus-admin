@@ -12,14 +12,18 @@ from app.schemas.research import (
     SemanticResearchFilters,
     SemanticResearchRecord,
 )
+from app.schemas.research_analytics import AnalyticalPlanResponse
 from app.schemas.research_planner import ClosedModel, PlanResponse, Query, Slot
 
 ExecutionMetric = Literal["event_count", "occurrence_count", "venue_count", "organization_count"]
-ExecutionGrouping = Literal["venue", "organization", "category"]
+ExecutionGrouping = Literal["venue", "organization", "category", "genre", "event_type"]
+TaxonomyKind = Literal["genre", "event_type", "category"]
 
 
 class ExecutionFilters(ResearchFilters):
     time_from: time | None = None
+    time_of_day: Literal["none", "morning", "afternoon", "evening", "night"] = "none"
+    area_relation: Literal["inside", "outside"] = "inside"
     event_type_ids: list[int] = Field(default_factory=list, max_length=8)
     category_ids: list[int] = Field(default_factory=list, max_length=8)
     genre_keys: list[GenreKey] = Field(default_factory=list, max_length=8)
@@ -30,6 +34,8 @@ class ExecutionSemanticFilters(SemanticResearchFilters):
     # The classic endpoint remains 2–120.
     q: str = Field(min_length=1, max_length=1001)
     time_from: time | None = None
+    time_of_day: Literal["none", "morning", "afternoon", "evening", "night"] = "none"
+    area_relation: Literal["inside", "outside"] = "inside"
     event_type_ids: list[int] = Field(default_factory=list, max_length=8)
     category_ids: list[int] = Field(default_factory=list, max_length=8)
 
@@ -103,8 +109,34 @@ class ComparisonResult(ClosedModel):
     items: list[ComparisonItem] = Field(min_length=2, max_length=4)
 
 
+class TaxonomyItem(ClosedModel):
+    key: str
+    name: str
+    event_count: int = Field(ge=0)
+
+
+class TaxonomyResult(ClosedModel):
+    kind: Literal["taxonomy"] = "taxonomy"
+    taxonomy: TaxonomyKind
+    items: list[TaxonomyItem] = Field(max_length=20)
+    total: int = Field(ge=0)
+
+
+class SpatialResult(ClosedModel):
+    kind: Literal["spatial"] = "spatial"
+    spatial_metric: Literal["longitude", "latitude"]
+    ordering: Literal["asc", "desc"]
+    items: list[ResearchRecord] = Field(max_length=20)
+
+
 ExecutionResult = Annotated[
-    RecordsResult | CountResult | AggregateResult | ComparisonResult | ExecutionClarification,
+    RecordsResult
+    | CountResult
+    | AggregateResult
+    | ComparisonResult
+    | ExecutionClarification
+    | TaxonomyResult
+    | SpatialResult,
     Field(discriminator="kind"),
 ]
 
@@ -115,6 +147,8 @@ class ExecutionProvenance(ClosedModel):
     from_date: date | None = None
     to_date: date | None = None
     time_from: time | None = None
+    time_of_day: Literal["none", "morning", "afternoon", "evening", "night"] = "none"
+    area_relation: Literal["inside", "outside"] = "inside"
     event_type_ids: list[int] = Field(default_factory=list, max_length=8)
     category_ids: list[int] = Field(default_factory=list, max_length=8)
     genre_keys: list[GenreKey] = Field(default_factory=list, max_length=8)
@@ -130,7 +164,7 @@ class ExecutionDiagnostics(ClosedModel):
 
 class ResearchExecutionResponse(ClosedModel):
     query: Query
-    plan: PlanResponse
+    plan: PlanResponse | AnalyticalPlanResponse
     resolution: list[ResolvedField] = Field(default_factory=list, max_length=31)
     result: ExecutionResult
     execution: ExecutionProvenance
