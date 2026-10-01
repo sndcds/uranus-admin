@@ -1,4 +1,9 @@
 import {
+  suggestionFiltersSchema,
+  suggestionImpressionSchema,
+  suggestionSelectionSchema,
+} from '../../shared/contracts'
+import {
   researchPlanRequestSchema,
   classicResearchQuerySchema,
   semanticResearchQuerySchema,
@@ -27,6 +32,9 @@ import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
   '/api/v1/research/query': [],
+  '/api/v1/research/suggestions': ['q', 'limit', 'language'],
+  '/api/v1/research/suggestions/impression': [],
+  '/api/v1/research/suggestions/select': [],
   '/api/v1/admins': [],
   '/api/v1/assignments': ['finding_id', 'workflow_type', 'workflow_key'],
   '/api/v1/inbox': ['scope', 'attention', 'kind', 'entity_type', 'page', 'page_size'],
@@ -154,6 +162,7 @@ export interface ProxyInput {
   sessionCookie?: string
   origin?: string
   csrf?: string
+  selectionReceipt?: string
   body?: unknown
 }
 export interface ProxyResult {
@@ -312,6 +321,22 @@ export async function forwardAdminRequest(
                           : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
   const researchExecution = input.path === '/api/v1/research/query'
+  const suggestionImpression = input.path === '/api/v1/research/suggestions/impression'
+  const suggestionSelection = input.path === '/api/v1/research/suggestions/select'
+  const suggestionWrite = suggestionImpression || suggestionSelection
+  if (
+    input.path === '/api/v1/research/suggestions' &&
+    !suggestionFiltersSchema.safeParse(Object.fromEntries(input.query)).success
+  )
+    return rejected(422, 'invalid_query')
+  if (
+    input.selectionReceipt &&
+    (!researchExecution ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        input.selectionReceipt,
+      ))
+  )
+    return rejected(422, 'invalid_input')
   const diagnosticExecute = input.path === '/api/v1/findings/sql-diagnostic/execute'
   const authWrite = input.method === 'POST' && ['/auth/login', '/auth/logout'].includes(input.path)
   if (
@@ -322,6 +347,7 @@ export async function forwardAdminRequest(
     return rejected(405, 'method_not_allowed')
   const write =
     authWrite ||
+    (input.method === 'POST' && suggestionWrite) ||
     (input.method === 'POST' && researchExecution) ||
     (input.method === 'POST' && provenanceExecute) ||
     (input.method === 'POST' && diagnosticExecute) ||
@@ -338,6 +364,7 @@ export async function forwardAdminRequest(
     (input.method !== 'GET' ||
       input.path === '/api/v1/finding-reviews' ||
       researchExecution ||
+      suggestionWrite ||
       diagnosticExecute ||
       provenanceExecute ||
       notificationRetry ||
@@ -350,6 +377,13 @@ export async function forwardAdminRequest(
   if (input.path === '/api/v1/geo/areas' && input.method !== 'POST')
     return rejected(405, 'method_not_allowed')
   let requestBody: string | undefined
+  if (suggestionWrite) {
+    const parsed = (
+      suggestionImpression ? suggestionImpressionSchema : suggestionSelectionSchema
+    ).safeParse(input.body)
+    if (!parsed.success) return rejected(422, 'invalid_input')
+    requestBody = JSON.stringify(parsed.data)
+  }
   if (provenanceExecute && provenanceView) {
     const params = validProvenanceParams(provenanceView, input.body)
     if (!params) return rejected(422, 'invalid_input')
@@ -476,6 +510,8 @@ export async function forwardAdminRequest(
     if (cookie && (input.path.startsWith('/api/') || input.path.startsWith('/auth/')))
       headers.Cookie = cookie
     if (input.origin) headers.Origin = input.origin
+    if (researchExecution && input.selectionReceipt)
+      headers['X-Research-Selection'] = input.selectionReceipt
     if (input.csrf === '1') headers['X-Admin-CSRF'] = '1'
     const response = await fetcher(url, {
       method: input.method,

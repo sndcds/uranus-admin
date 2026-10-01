@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
       sessionCookie: sessionToken ? `${cookieName}=${sessionToken}` : undefined,
       origin: getHeader(event, 'origin'),
       csrf: getHeader(event, 'x-admin-csrf'),
+      selectionReceipt: getHeader(event, 'x-research-selection'),
     },
     config.adminApiBase,
   )

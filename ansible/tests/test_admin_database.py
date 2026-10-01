@@ -775,6 +775,28 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
             area_before,
         )
 
+    def test_exact_0017_upgrade_adds_learning_with_append_only_events(self):
+        self.bootstrap()
+        self.alembic("downgrade", "0017")
+        source_before = self.snapshot_source()
+        plan = self.boundary.inspect("production", upgrade_approved=True)
+        self.assertEqual(plan["state"], "UPGRADEABLE")
+        self.assertEqual(plan["current_head"], "0017")
+        self.assertEqual(plan["blockers"], [])
+        self.assertTrue(self.boundary.upgrade("production", True, self.values, self.migrate))
+        self.assertEqual(self.boundary.inspect("production")["state"], "READY")
+        self.assertEqual(self.snapshot_source(), source_before)
+        for table in ("research_query_history", "research_query_suggestion_event"):
+            self.assertEqual(
+                self.execute(
+                    "SELECT has_table_privilege('admin_user', %s, 'SELECT'), "
+                    "has_table_privilege('admin_user', %s, 'INSERT'), "
+                    "has_table_privilege('admin_user', %s, 'UPDATE,DELETE')",
+                    ("admin." + table,) * 3,
+                ),
+                [(True, True, False)],
+            )
+
     def test_existing_upgrade_login_is_checked_without_changing_schema(self):
         self.bootstrap()
         self.alembic("downgrade", "0011")

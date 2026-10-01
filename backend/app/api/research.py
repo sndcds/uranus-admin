@@ -1,16 +1,17 @@
-"""Dedicated read-only research routes, independently authorized from Operations."""
+"""Research routes with source read-only access and admin-only suggestion learning."""
 
 from datetime import UTC, datetime
 from time import perf_counter
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 
 from app.admin_database import AdminConnectionDep
 from app.auth.dependencies import get_current_research_user
 from app.database import ConnectionDep, SettingsDep
 from app.errors import ErrorResponse
+from app.repositories import research_suggestions
 from app.repositories.research import (
     research_activity,
     research_detail,
@@ -32,7 +33,15 @@ from app.schemas.research import (
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
 from app.schemas.research_execution import ResearchExecutionResponse
 from app.schemas.research_planner import PlanResponse, ResearchPlanRequest
+from app.schemas.research_suggestions import (
+    Impression,
+    Selection,
+    SuggestionFilters,
+    Suggestions,
+    TelemetryResult,
+)
 from app.schemas.research_unified import UnifiedAnswer
+from app.services.research_learning import record_success
 from app.services.research_plan_execution import ResearchPlanExecutor
 from app.services.research_planner import ResearchPlannerClient, unavailable
 from app.services.research_unified import execute as execute_unified
@@ -65,7 +74,10 @@ async def plan(request: Request, body: ResearchPlanRequest) -> PlanResponse:
     responses={code: {"model": ErrorResponse} for code in (413, 502)},
 )
 async def query(
-    request: Request, body: ResearchPlanRequest, settings: SettingsDep
+    request: Request,
+    body: ResearchPlanRequest,
+    settings: SettingsDep,
+    x_research_selection: Annotated[UUID | None, Header()] = None,
 ) -> ResearchExecutionResponse:
     planner: ResearchPlannerClient | None = request.app.state.research_planner
     if planner is None:
@@ -73,7 +85,11 @@ async def query(
     started = perf_counter()
     response = await planner.plan(body.query)
     planner_ms = (perf_counter() - started) * 1000
-    return await ResearchPlanExecutor().execute(request, settings, response, planner_ms=planner_ms)
+    result = await ResearchPlanExecutor().execute(
+        request, settings, response, planner_ms=planner_ms
+    )
+    await record_success(request, result, x_research_selection)
+    return result
 
 
 @router.get("/search", response_model=ResearchPage)
@@ -235,3 +251,25 @@ async def unified_query(
     request: Request, body: ResearchPlanRequest, settings: SettingsDep
 ) -> UnifiedAnswer:
     return await execute_unified(request, settings, body.query)
+
+
+@router.get("/suggestions", response_model=Suggestions)
+async def suggestions(
+    admin: AdminConnectionDep, filters: Annotated[SuggestionFilters, Query()]
+) -> Suggestions:
+    """Rank learned questions using only admin PostgreSQL data."""
+    return await research_suggestions.lookup(admin, filters)
+
+
+@router.post("/suggestions/impression", response_model=TelemetryResult)
+async def suggestion_impression(admin: AdminConnectionDep, body: Impression) -> TelemetryResult:
+    async with admin.begin():
+        await research_suggestions.impression(admin, body)
+    return TelemetryResult()
+
+
+@router.post("/suggestions/select", response_model=TelemetryResult)
+async def suggestion_select(admin: AdminConnectionDep, body: Selection) -> TelemetryResult:
+    async with admin.begin():
+        receipt = await research_suggestions.select(admin, body)
+    return TelemetryResult(receipt=receipt)

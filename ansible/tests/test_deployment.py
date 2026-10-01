@@ -410,22 +410,32 @@ class ArtifactTests(unittest.TestCase):
             self.assertEqual(paths[0].read_bytes(), paths[1].read_bytes())
             digest = hashlib.sha256(paths[0].read_bytes()).hexdigest()
             manifest = filters.artifact_manifest(paths[0], digest, commit)
-            self.assertEqual(manifest["head"], "0017")
-            self.assertEqual(len(manifest["runtime_grants"]), 21)
+            self.assertEqual(manifest["head"], "0018")
+            self.assertEqual(len(manifest["runtime_grants"]), 24)
             self.assertEqual(
                 set(manifest["admin_upgrade_contracts"]),
-                {"0011", "0012", "0013", "0014", "0015", "0016"},
+                {"0011", "0012", "0013", "0014", "0015", "0016", "0017"},
             )
             self.assertEqual(
                 manifest["admin_upgrade_contracts"]["0013"]["runtime_grants"],
                 {
                     k: v
                     for k, v in manifest["runtime_grants"].items()
-                    if k not in {"auth_journalist", "research_area"}
+                    if k
+                    not in {
+                        "auth_journalist",
+                        "research_area",
+                        "research_query_history",
+                        "research_query_suggestion",
+                        "research_query_suggestion_event",
+                    }
                 },
             )
             for table in ("assignment", "assignment_event"):
                 self.assertIn("snoozed_until", manifest["admin_columns"][table])
+            self.assertIn("success_count", manifest["admin_columns"]["research_query_suggestion"])
+            self.assertIn("last_used_at", manifest["admin_columns"]["research_query_suggestion"])
+            self.assertIn("intent", manifest["admin_columns"]["research_query_history"])
             self.assertNotIn("DELETE", json.dumps(manifest["runtime_grants"]))
             with self.assertRaises(AnsibleFilterError):
                 filters.artifact_manifest(paths[0], "0" * 64, commit)

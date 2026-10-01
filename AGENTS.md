@@ -180,7 +180,9 @@ execution establishes complete, bounded PostgreSQL eligibility before Qdrant top
 ranking; overflow fails explicitly instead of truncating. Final source rehydration
 remains authoritative. Nonempty semantic-required execution must fail explicitly
 when retrieval is unavailable; top-K results never
-establish exact population metrics. Never log or persist queries/plans or forward browser credentials.
+establish exact population metrics. Never log queries/plans or forward browser credentials. The explicit Research autosuggestion
+exception persists privacy-gated successful query text and identity-free interactions in admin;
+rejected text and free-text planner slots are not retained. See backend/docs/research-suggestions.md.
 
 Preserve login rate limits, body limits, hash concurrency limits and trusted ingress
 handling. Nitro validates the socket peer before accepting configured `X-Real-IP`;

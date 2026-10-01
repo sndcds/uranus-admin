@@ -449,3 +449,58 @@ it('allows scope only on the venue list and rejects duplicate scope parameters',
   ).toBe(422)
   expect(fetcher).not.toHaveBeenCalled()
 })
+
+it('bounds suggestion reads/writes and forwards receipts only on question execution', async () => {
+  const fetcher = vi.fn().mockImplementation(async () => Response.json({ ok: true, receipt: null }))
+  const requestId = '10000000-0000-4000-8000-000000000020'
+  const suggestionId = '10000000-0000-4000-8000-000000000021'
+  for (const query of ['q=a', 'q=ab&limit=9', 'q=ab&q=cd', 'q=ab&url=x']) {
+    const result = await forwardAdminRequest(
+      { ...input, path: '/api/v1/research/suggestions', query: new URLSearchParams(query) },
+      base,
+      fetcher,
+    )
+    expect(result.status).toBe(422)
+  }
+  for (const [suffix, body] of [
+    [
+      'impression',
+      { request_id: requestId, prefix: 'welche', suggestions: [{ id: suggestionId, position: 1 }] },
+    ],
+    ['select', { request_id: requestId, suggestion_id: suggestionId, position: 1 }],
+  ] as const) {
+    const path = `/api/v1/research/suggestions/${suffix}`
+    expect(
+      (await forwardAdminRequest({ ...input, path, method: 'POST', body }, base, fetcher)).status,
+    ).toBe(200)
+    expect(
+      (
+        await forwardAdminRequest(
+          { ...input, path, method: 'POST', body: { ...body, user_id: requestId } },
+          base,
+          fetcher,
+        )
+      ).status,
+    ).toBe(422)
+    expect((await forwardAdminRequest({ ...input, path }, base, fetcher)).status).toBe(405)
+  }
+  expect(
+    (await forwardAdminRequest({ ...input, selectionReceipt: requestId }, base, fetcher)).status,
+  ).toBe(422)
+  expect(
+    (
+      await forwardAdminRequest(
+        {
+          ...input,
+          path: '/api/v1/research/query',
+          method: 'POST',
+          body: { query: 'Welche Orte?' },
+          selectionReceipt: requestId,
+        },
+        base,
+        fetcher,
+      )
+    ).status,
+  ).toBe(200)
+  expect(fetcher.mock.calls.at(-1)?.[1].headers['X-Research-Selection']).toBe(requestId)
+})

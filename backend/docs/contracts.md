@@ -1435,3 +1435,11 @@ The v3 schema identifier is retained and the prompt gate is bumped to
 including an explicit empty list in neutral/outside-research plans. Coordinate
 the compatible release; no migration, grants or Uranus schema changes are needed.
 The independent v4 domain planner remains unchanged.
+
+## Research learning suggestions
+
+The explicit [learning suggestion contract](research-suggestions.md) permits
+privacy-gated successful query history and identity-free interaction events in
+admin. Research execution remains question-only; an optional validated selection
+receipt header correlates successful execution without accepting browser plans.
+The three suggestion endpoints use existing Research authorization/CSRF policies.
