@@ -54,5 +54,5 @@ See the [execution contract](../backend/docs/contracts.md#research-plan-executio
 
 Source evidence for genres: existing vector extraction and local Uranus DDL
 (`genre_type`, `event_type_link`); temporal/evening semantics: planner documentation
-at `63dcd78d0b10668283d649ecc10dbbbaa10dc089`. Disposable fixtures verify behavior,
+at `b2c4a14046a9ba31c15eb96579d29f6774c6071b`. Disposable fixtures verify behavior,
 not live production data or current deployment.

@@ -23,8 +23,8 @@ KEY = "synthetic-planner-service-key-for-tests-only"
 URL = "http://127.0.0.1:8090"
 PATH = "/api/v1/research/plan"
 ENVELOPE = {
-    "schema_version": "research-query-plan-v1",
-    "prompt_version": "research-planner-v4",
+    "schema_version": "research-query-plan-v3",
+    "prompt_version": "research-planner-v6",
     "model": "gpt-5.6-terra",
     "plan": {
         "original_query": QUERY,
@@ -37,6 +37,8 @@ ENVELOPE = {
         "category_queries": [],
         "genre_queries": [],
         "temporal": "today",
+        "ordering": None,
+        "limit": None,
         "explicit_from_date": None,
         "explicit_to_date": None,
         "time_of_day": "evening",
@@ -55,7 +57,7 @@ ENVELOPE = {
         "request_id": "a" * 32,
         "planner_intent": "recommend",
         "planner_model": "gpt-5.6-terra",
-        "planner_prompt_version": "research-planner-v4",
+        "planner_prompt_version": "research-planner-v6",
         "planner_ms": 4200.5,
         "total_ms": 4201.0,
     },
@@ -265,8 +267,12 @@ async def test_compressed_response_rejected_without_reading():
 @pytest.mark.parametrize(
     "path,value",
     [
+        ("schema_version", "research-query-plan-v1"),
         ("schema_version", "research-query-plan-v2"),
+        ("schema_version", "research-query-plan-v4"),
+        ("prompt_version", "research-planner-v4"),
         ("prompt_version", "research-planner-v5"),
+        ("prompt_version", "research-planner-v7"),
         ("kind", "other"),
         ("kind", "needs_clarification"),
         ("extra", "secret"),

@@ -18,6 +18,7 @@ from app.errors import APIError
 from app.repositories.research import research_page
 from app.repositories.research_execution import (
     aggregate_selection,
+    chronological_records,
     count_selection,
     eligible_event_ids,
 )
@@ -89,7 +90,7 @@ def execution_filters(response: PlanResponse, resolution: Resolution) -> Executi
         from_date=start,
         to_date=end,
         time_from=EVENING_START if response.plan.time_of_day == "evening" else None,
-        page_size=20,
+        page_size=response.plan.limit or 20,
         area_id=resolution.area.area.id if resolution.area else None,
     )
     for item in resolution.fields:
@@ -269,6 +270,18 @@ class ResearchPlanExecutor:
                                         )
                                     )
                                 result = ComparisonResult(metric=metric, items=comparisons)
+                            elif plan.entity_type == "event":
+                                # Structured events always have explicit occurrence ordering.
+                                result = RecordsResult(
+                                    items=await chronological_records(
+                                        connection,
+                                        settings,
+                                        filters,
+                                        resolution.area,
+                                        plan.ordering or "asc",
+                                        filters.page_size,
+                                    )
+                                )
                             else:
                                 records = await research_page(
                                     connection, settings, filters, observed_at, resolution.area

@@ -1,5 +1,6 @@
 """Exact, bounded SQL metrics using the shared eligible Research population."""
 
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import text
@@ -7,9 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.errors import APIError
-from app.repositories.research import eligible_event_ctes, parameters, research_sql, search_sql
+from app.repositories.research import (
+    eligible_event_ctes,
+    images,
+    parameters,
+    record,
+    research_sql,
+    search_sql,
+)
 from app.repositories.research_areas import ResolvedResearchArea
 from app.research.semantic_limits import MAX_ELIGIBLE_EVENTS
+from app.schemas.research import ResearchRecord
 from app.schemas.research_execution import (
     AggregateItem,
     ExecutionFilters,
@@ -99,3 +108,43 @@ async def aggregate_selection(
         )
     ).mappings()
     return [AggregateItem.model_validate(dict(r)) for r in rows]
+
+
+async def chronological_records(
+    connection: AsyncConnection,
+    settings: Settings,
+    filters: ExecutionFilters,
+    area: ResolvedResearchArea | None,
+    ordering: Literal["asc", "desc"],
+    limit: int,
+) -> list[ResearchRecord]:
+    """Rank matching occurrences, then distinct events; never the UI representative date.
+
+    Unknown dates and undated events cannot establish a chronological position.
+    All eligibility and occurrence context come from the shared source projection.
+    """
+    if filters.entity_type != "event" or not 1 <= limit <= 20:
+        raise ValueError("invalid_chronological_selection")
+    direction = {"asc": "ASC", "desc": "DESC"}[ordering]
+    order = (
+        f"start_date {direction},start_time {direction} NULLS LAST,"
+        f"date_key {direction},entity_key {direction}"
+    )
+    columns = """entity_type,entity_key,name,description,status,categories,language,
+        start_date,start_time,end_date,end_time,all_day,organization_id,organization_name,
+        venue_id,venue_name,space_id,space_name,city,address,latitude,longitude,event_count,
+        source_url,created_at,modified_at,date_key"""
+    rows = (
+        await connection.execute(
+            text(f"""WITH selected AS ({research_sql(occurrences=True)}), ranked AS (
+                SELECT {columns},row_number() OVER (
+                    PARTITION BY entity_key ORDER BY {order}) occurrence_rank
+                FROM selected WHERE date_key IS NOT NULL AND start_date IS NOT NULL
+            ) SELECT {columns} FROM ranked WHERE occurrence_rank=1
+            ORDER BY {order} LIMIT :chronological_limit"""),
+            {**parameters(filters, settings, area), "chronological_limit": limit},
+        )
+    ).mappings()
+    items = [record(row) for row in rows]
+    await images(connection, items, settings)
+    return items

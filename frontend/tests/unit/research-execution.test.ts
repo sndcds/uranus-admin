@@ -20,7 +20,11 @@ import ResearchQueryAnswer from '../../app/components/ResearchQueryAnswer.vue'
 import ResearchResult from '../../app/components/ResearchResult.vue'
 import ResearchSemanticExplanation from '../../app/components/ResearchSemanticExplanation.vue'
 import { researchEvent } from '../fixtures/research'
-import { countQuestion, executionResponse } from '../fixtures/research-execution'
+import {
+  countQuestion,
+  executionResponse,
+  sortedEventsResponse,
+} from '../fixtures/research-execution'
 
 afterEach(() => vi.unstubAllGlobals())
 const variants = ['count', 'aggregate', 'comparison', 'records', 'needs_clarification'] as const
@@ -261,9 +265,17 @@ describe('deterministic answers', () => {
       view.unmount()
     },
   )
-  it('uses exact total only when supplied and displays semantic evidence separately', () => {
+  it('uses exact total only when supplied and displays semantic evidence separately', async () => {
     const structured = render('records')
+    expect(structured.text()).toContain('1 Ergebnisse angezeigt')
+    expect(structured.text()).not.toContain('Ergebnisse insgesamt')
+    const exact = executionResponse('records')
+    exact.plan.plan.entity_type = 'venue'
+    if (exact.result.kind !== 'records') throw new Error('fixture')
+    exact.result.total = 123
+    await structured.setProps({ response: exact })
     expect(structured.text()).toContain('123 Ergebnisse insgesamt · 1 angezeigt')
+    expect(structured.text()).not.toContain('Sortierung: Datum')
     expect(structured.text()).not.toContain('Warum passt das?')
     const semantic = render('records', true)
     expect(semantic.text()).toContain('Semantische Relevanzsuche · bis zu 20 Treffer')
@@ -294,3 +306,93 @@ describe('deterministic answers', () => {
     view.unmount()
   })
 })
+
+it.each([null, 'asc', 'desc'] as const)(
+  'renders effective %s order, limit and full dates',
+  async (ordering) => {
+    const response = sortedEventsResponse(ordering)
+    expect(researchExecutionResponseSchema.parse(response)).toEqual(response)
+    const view = render('records')
+    await view.setProps({ response })
+    expect(view.text()).toContain(
+      `Sortierung: Datum ${ordering === 'desc' ? 'absteigend' : 'aufsteigend'}`,
+    )
+    expect(view.text()).toContain('Maximal 2 Ergebnisse')
+    expect(view.findAll('article')).toHaveLength(2)
+    expect(view.text()).toContain('16.06.2025')
+    expect(view.text()).toContain('27.09.2025')
+    expect(view.text()).not.toMatch(
+      /Semantische Relevanzsuche|Ergebnisse insgesamt|Keine vollständige Zählung/,
+    )
+    view.unmount()
+  },
+)
+it.each([null, 'asc', 'desc'] as const)(
+  'accepts %s direction without a requested limit',
+  (ordering) => {
+    const response = executionResponse('records')
+    response.plan.plan.ordering = ordering
+    expect(researchExecutionResponseSchema.parse(response)).toEqual(response)
+  },
+)
+it('shows default ASC without implying a requested limit and keeps semantic ranking separate', () => {
+  const view = render('records')
+  expect(view.text()).toContain('Sortierung: Datum aufsteigend')
+  expect(view.text()).not.toContain('Maximal')
+  const semantic = render('records', true)
+  expect(semantic.text()).not.toContain('Sortierung: Datum')
+  expect(semantic.text()).toContain('30.09.2026')
+  view.unmount()
+  semantic.unmount()
+})
+it.each([
+  { ordering: 'earliest' },
+  { ordering: 'latest' },
+  { ordering: 'none' },
+  { ordering: 'best' },
+  ...[0, 21, true, '1', 1.5].map((limit) => ({ limit })),
+  { ordering: 'asc', entity_type: 'venue' },
+  { ordering: 'desc', entity_type: 'organization' },
+  { ordering: 'asc', intent: 'count', answer_mode: 'count', metric: 'event_count' },
+  { limit: 2, intent: 'count', answer_mode: 'count', metric: 'event_count' },
+  {
+    limit: 2,
+    intent: 'aggregate',
+    answer_mode: 'aggregate',
+    metric: 'event_count',
+    group_by: 'venue',
+  },
+  { limit: 2, intent: 'compare', answer_mode: 'comparison', clarification: 'needs_criteria' },
+  { ordering: 'asc', semantic_query: 'interesting', requires_semantic_relevance: true },
+])('rejects invalid ordering/limit plans %j', (change) => {
+  const response = executionResponse('records')
+  expect(
+    researchExecutionResponseSchema.safeParse({
+      ...response,
+      plan: { ...response.plan, plan: { ...response.plan.plan, ...change } },
+    }).success,
+  ).toBe(false)
+})
+it.each(['ordering', 'limit'])('requires chronological field %s even when unused', (field) => {
+  const response = executionResponse('records')
+  const plan = Object.fromEntries(
+    Object.entries(response.plan.plan).filter(([key]) => key !== field),
+  )
+  expect(
+    researchExecutionResponseSchema.safeParse({ ...response, plan: { ...response.plan, plan } })
+      .success,
+  ).toBe(false)
+})
+it.each([{ ordering: 'asc' }, { limit: 1 }])(
+  'proxy rejects browser chronological fields %j',
+  async (extra) => {
+    const fetcher = vi.fn()
+    const result = await forwardAdminRequest(
+      { ...proxyInput, body: { query: countQuestion, ...extra } },
+      'http://backend.invalid',
+      fetcher,
+    )
+    expect(result.status).toBe(422)
+    expect(fetcher).not.toHaveBeenCalled()
+  },
+)

@@ -6,6 +6,9 @@ const props = defineProps<{ response: ResearchExecutionResponse }>()
 defineEmits<{ adjust: [text?: string] }>()
 const result = computed(() => props.response.result)
 const plan = computed(() => props.response.plan.plan)
+const structuredEvents = computed(
+  () => plan.value.entity_type === 'event' && !props.response.execution.semantic,
+)
 const metric = computed(() =>
   'metric' in result.value ? researchMetricLabels[result.value.metric] : 'Datensätze',
 )
@@ -63,14 +66,21 @@ const fieldLabels = {
       </p>
       <p v-else-if="result.kind === 'comparison'">Vergleich: {{ metric }}</p>
       <template v-else-if="result.kind === 'records'">
+        <p v-if="structuredEvents">
+          Sortierung: Datum {{ plan.ordering === 'desc' ? 'absteigend' : 'aufsteigend' }}
+        </p>
+        <p v-if="plan.limit !== null">Maximal {{ plan.limit }} Ergebnisse</p>
         <p v-if="result.total !== null">
           {{ number(result.total) }} Ergebnisse insgesamt · {{ result.items.length }} angezeigt
         </p>
-        <p v-else>Semantische Relevanzsuche · bis zu 20 Treffer</p>
-        <p v-if="result.total === null" class="text-sm text-slate-600">
-          {{ result.items.length }} angezeigte Treffer. Keine vollständige Zählung aller passenden
-          Datensätze.
-        </p>
+        <template v-else-if="response.execution.semantic">
+          <p>Semantische Relevanzsuche · bis zu {{ plan.limit ?? 20 }} Treffer</p>
+          <p class="text-sm text-slate-600">
+            {{ result.items.length }} angezeigte Treffer. Keine vollständige Zählung aller passenden
+            Datensätze.
+          </p>
+        </template>
+        <p v-else>{{ result.items.length }} Ergebnisse angezeigt</p>
       </template>
       <template v-else>
         <p>{{ clarification }}</p>
@@ -145,6 +155,7 @@ const fieldLabels = {
         :key="researchKey(item)"
         :item="item"
         :semantic="response.execution.semantic"
+        :show-full-date="true"
         @select="navigateTo(researchHref(item.entity_type, item.entity_key))"
       />
     </div>

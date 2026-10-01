@@ -51,7 +51,7 @@ export function executionResponse(
                     end_date: semantic ? '2026-09-30' : '2026-08-12',
                   },
                 ],
-                total: semantic ? null : 123,
+                total: null,
               }
             : {
                 kind,
@@ -68,8 +68,8 @@ export function executionResponse(
     query,
     plan: {
       kind: 'plan',
-      schema_version: 'research-query-plan-v1',
-      prompt_version: 'research-planner-v4',
+      schema_version: 'research-query-plan-v3',
+      prompt_version: 'research-planner-v6',
       model: 'synthetic-fixture',
       reference_date: '2026-09-30',
       timezone: 'Europe/Berlin',
@@ -77,7 +77,7 @@ export function executionResponse(
         request_id: 'a'.repeat(32),
         planner_intent: intent,
         planner_model: 'synthetic-fixture',
-        planner_prompt_version: 'research-planner-v4',
+        planner_prompt_version: 'research-planner-v6',
         planner_ms: 10,
         total_ms: 11,
       },
@@ -97,6 +97,8 @@ export function executionResponse(
         category_queries: [],
         genre_queries: [],
         temporal: semantic ? 'today' : kind === 'comparison' ? 'none' : 'explicit_range',
+        ordering: null,
+        limit: null,
         explicit_from_date: semantic || kind === 'comparison' ? null : '2026-08-01',
         explicit_to_date: semantic || kind === 'comparison' ? null : '2026-08-31',
         time_of_day: semantic ? 'evening' : 'none',
@@ -140,4 +142,37 @@ export function executionResponse(
         kind === 'count' ? 1 : kind === 'comparison' ? 2 : kind === 'needs_clarification' ? 0 : 1,
     },
   }
+}
+
+export const sortedEventsQuestion =
+  'welche veranstaltungen sind in flensburg? sortiere die nach datum. zeige nur 2 ergebnisse.'
+export function sortedEventsResponse(
+  ordering: 'asc' | 'desc' | null = 'asc',
+): ResearchExecutionResponse {
+  const response = executionResponse('records')
+  response.query = sortedEventsQuestion
+  Object.assign(response.plan.plan, {
+    original_query: sortedEventsQuestion,
+    ordering,
+    limit: 2,
+    temporal: 'none',
+    explicit_from_date: null,
+    explicit_to_date: null,
+  })
+  response.execution.from_date = null
+  response.execution.to_date = null
+  const items = ['2025-06-16', '2025-09-27'].map((date, i) => ({
+    ...researchEvent,
+    entity_key: `20000000-0000-4000-8000-00000000000${i + 1}`,
+    name: `Veranstaltung ${i + 1}`,
+    start_date: date,
+    end_date: date,
+  }))
+  response.result = {
+    kind: 'records',
+    items: ordering === 'desc' ? items.reverse() : items,
+    total: null,
+  }
+  response.diagnostics.returned_count = 2
+  return response
 }
