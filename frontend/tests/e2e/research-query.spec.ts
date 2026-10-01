@@ -38,7 +38,9 @@ test('exact question answer, link/reload/history and independent search modes', 
     return route.fulfill({ json: researchPage() })
   })
   await page.goto('/research')
-  await page.getByRole('link', { name: 'Frage beantworten', exact: true }).click()
+  await expect(page.getByLabel('Deine Recherchefrage')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Frage beantworten', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Frage beantworten', exact: true })).toHaveCount(0)
   await page.getByLabel('Deine Recherchefrage').fill(countQuestion)
   expect(questions).toBe(0)
   await page.getByRole('button', { name: 'Antwort anzeigen' }).click()
@@ -46,6 +48,7 @@ test('exact question answer, link/reload/history and independent search modes', 
   await expect(page.getByText('Flensburg · 01.08.2026 – 31.08.2026', { exact: true })).toBeVisible()
   await expect(page.getByText('Exakte strukturierte Auswertung')).toBeVisible()
   expect(searches).toBe(0)
+  expect(new URL(page.url()).pathname).toBe('/research')
   expect(new URL(page.url()).searchParams.get('question')).toBe(countQuestion)
   await page.getByRole('button', { name: 'Frage-Link kopieren' }).click()
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(page.url())
@@ -55,7 +58,7 @@ test('exact question answer, link/reload/history and independent search modes', 
   await page.screenshot({ path: info.outputPath('research-query-count.png'), fullPage: true })
   await page.getByText('So wurde die Frage verstanden').click()
   await expect(page.getByText('Europe/Berlin')).toBeVisible()
-  await page.getByRole('button', { name: 'Treffer suchen', exact: true }).click()
+  await page.getByRole('link', { name: 'Klassische Suche', exact: true }).click()
   await expect(page.getByText('3 Ergebnisse insgesamt')).toBeVisible()
   expect(questions).toBe(2)
   await page.goBack()
@@ -71,6 +74,7 @@ test('semantic records show evidence and bounded selection, never an exact popul
   await page.route(`**${root}/query`, (route) => route.fulfill({ json: response }))
   await page.goto(`/research/search?mode=answer&question=${encodeURIComponent(response.query)}`)
   await expect(page.getByText('Semantische Relevanzsuche · bis zu 20 Treffer')).toBeVisible()
+  expect(new URL(page.url()).pathname).toBe('/research')
   await expect(page.getByText(/Keine vollständige Zählung/)).toBeVisible()
   await expect(
     page.getByText(/Ergebnisse insgesamt|Es gibt \d|Exakte strukturierte Auswertung/),
@@ -165,4 +169,68 @@ test('explicit date sort and independent limit render two Flensburg records', as
       /research_plan_unsupported|Abruf fehlgeschlagen|Semantische Relevanzsuche|Ergebnisse insgesamt/,
     ),
   ).toHaveCount(0)
+})
+
+test('homepage examples, keyboard, loading and responsive layout', async ({ page }, info) => {
+  let requests = 0
+  let release!: () => void
+  const response = executionResponse('records')
+  if (response.result.kind !== 'records') throw new Error('fixture')
+  response.result.items = []
+  response.result.total = 0
+  await page.route(`**${root}/query`, async (route) => {
+    requests++
+    await new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await route.fulfill({ json: response })
+  })
+  await page.goto('/research')
+  const input = page.getByLabel('Deine Recherchefrage')
+  const examples = page.getByRole('group', { name: 'Beispiele für Fragen' })
+  await expect(input).toBeEnabled()
+  await expect(examples.getByRole('button')).toHaveCount(4)
+  await page.screenshot({ path: info.outputPath('research-homepage.png'), fullPage: true })
+  for (const width of [390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await expect(page.getByRole('button', { name: 'Antwort anzeigen' })).toBeInViewport()
+  }
+  await examples
+    .getByRole('button', { name: 'Wo finden Jazz-Konzerte statt?', exact: true })
+    .click()
+  await expect(input).toBeFocused()
+  await expect(input).toHaveValue('Wo finden Jazz-Konzerte statt?')
+  expect(requests).toBe(0)
+  await input.press('End')
+  await input.press('Shift+Enter')
+  await input.press('Enter')
+  await expect(input).toHaveValue('Wo finden Jazz-Konzerte statt?\n\n')
+  expect(requests).toBe(0)
+  await input.press('Control+Enter')
+  await expect(page.getByText('Frage wird ausgewertet …')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Antwort anzeigen' })).toBeDisabled()
+  await input.press('Control+Enter')
+  expect(requests).toBe(1)
+  release()
+  await expect(page.getByText('Keine passenden Datensätze gefunden.')).toBeVisible()
+  await expect(page.getByText('Abruf fehlgeschlagen')).toHaveCount(0)
+  await expect(input).toBeVisible()
+  expect(new URL(page.url()).pathname).toBe('/research')
+})
+
+test('homepage API errors keep the editable question and allow retry', async ({ page }) => {
+  await page.route(`**${root}/query`, (route) =>
+    route.fulfill({
+      status: 503,
+      json: { error: { code: 'research_planner_unavailable', message: 'provider-secret' } },
+    }),
+  )
+  await page.goto(`/research?question=${encodeURIComponent(countQuestion)}`)
+  await expect(page.getByRole('button', { name: 'Erneut versuchen' })).toBeVisible()
+  await expect(page.getByLabel('Deine Recherchefrage')).toHaveValue(countQuestion)
+  await expect(page.getByText('provider-secret')).toHaveCount(0)
+  await page.route(`**${root}/query`, (route) => route.fulfill({ json: executionResponse() }))
+  await page.getByRole('button', { name: 'Erneut versuchen' }).click()
+  await expect(page.getByTestId('research-count')).toHaveText('123 Veranstaltungen')
 })

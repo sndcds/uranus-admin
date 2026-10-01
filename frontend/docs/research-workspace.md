@@ -158,15 +158,27 @@ Detailvorschau. Klassisch bleibt Standard. [Vertrag, Grenzen, Lizenz und Messung
 
 ## Fragen beantworten
 
-„Frage beantworten“ ist der hervorgehobene Einstieg für vollständige Recherchefragen.
-Auf `/research/search` trennt eine kompakte Moduswahl ihn von „Treffer suchen“.
-Bestehende URLs einschließlich der leeren Suchseite sowie klassische und semantische
-Suche behalten ihre Bedeutung. Die Frageansicht zeigt ein Formular und eine Antwort,
-keinen Chatverlauf. Listenfilter aus der Treffersuche werden nicht auf Fragen übertragen.
+`/research` ist der zentrale Arbeitsbereich: eine Recherchefrage kann direkt im
+mehrzeiligen Composer gestellt werden. Antwort, Rückfrage, leeres Ergebnis und
+technischer Fehler erscheinen unter derselben Eingabe. Es gibt keine vorgeschaltete
+Moduswahl. „Suche“ in der Navigation führt auf diese Startseite; „Klassische Suche“
+führt als sekundärer Link nach `/research/search`. Dort bleiben Filter und die
+experimentelle semantische Suche verfügbar. Die vier unteren Entdeckungskarten
+führen weiterhin zu Veranstaltungen, Orten, Organisationen und Karte.
 
-`/research/search?mode=answer&question=…` speichert die vollständige Frage (1–2.000
-Zeichen) im Link. Absenden schreibt die URL; Reload und Zurück/Vorwärts führen die
-Frage erneut aus. Relative Angaben wie „heute“ werden dabei mit dem aktuellen
+Die vier festen Beispielchips dienen nur der Einführung, nicht als lernende
+Autosuggestions. Ein Klick füllt die Eingabe und fokussiert sie ohne API-Aufruf.
+Enter und Shift+Enter fügen Zeilenumbrüche ein; Strg/⌘+Enter oder der Sendebutton
+senden ab. Während einer Anfrage bleibt die Frage sichtbar; weiteres Absenden ist
+gesperrt. Kleine Bildschirme zeigen den beschrifteten Sendebutton als zugängliches
+Symbol, die Beispiele umbrechen und die Entdeckungskarten stapeln sich.
+
+`/research?question=…` speichert die vollständige Frage (1–2.000 Zeichen) im Link.
+Alte `/research/search?mode=answer&question=…`-Links (auch ohne `mode`) werden mit
+erhaltener Frage auf die Startseite umgeleitet. Klassische und semantische Such-URLs
+bleiben unverändert. Die Ansicht zeigt eine Frage und eine Antwort, keinen Chatverlauf;
+Listenfilter aus der Treffersuche werden nicht auf Fragen übertragen. Absenden schreibt
+die URL; Reload und Zurück/Vorwärts führen die Frage erneut aus. Relative Angaben wie „heute“ werden dabei mit dem aktuellen
 Referenzdatum interpretiert, nicht als eingefrorene Antwort. Ohne Frage erfolgt kein
 Request. Der Hinweis am Formular macht die Sichtbarkeit im kopierbaren Link deutlich;
 keine zusätzliche Speicherung in Browser-Storage, Pinia-Präferenzen oder Telemetrie.

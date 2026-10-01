@@ -57,7 +57,12 @@ test('journalist landing, isolated navigation, direct Operations redirect and AP
   context,
 }, info) => {
   await page.goto('/research')
-  await expect(page.getByRole('heading', { name: 'Kulturbytes Recherche', level: 2 })).toBeVisible()
+  await expect(
+    page.getByRole('heading', {
+      name: 'Was möchtest du über Kultur in deiner Region erfahren?',
+      level: 2,
+    }),
+  ).toBeVisible()
   await expect(page.getByRole('link', { name: 'Operations', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Globale Suche öffnen' })).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('research-desktop.png'), fullPage: true })
@@ -525,7 +530,8 @@ test('semantic pilot reuses search, submits explicitly, preserves filters and sw
     await route.fulfill({ json: semanticResearchPage() })
   })
   await page.goto('/research')
-  await expect(page.getByRole('searchbox')).toHaveCount(1)
+  await page.getByRole('link', { name: 'Klassische Suche', exact: true }).click()
+  await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(1)
   await expect(page.getByRole('radio', { name: 'Klassische Suche' })).toBeChecked()
   await page.getByRole('searchbox').fill('Wo können Jugendliche kreativ werden?')
   const semantic = page.getByRole('radio', { name: 'Semantisch · Experimentell' })
@@ -533,7 +539,7 @@ test('semantic pilot reuses search, submits explicitly, preserves filters and sw
   await page.keyboard.press('Space')
   await expect(semantic).toBeChecked()
   expect(requests).toBe(0)
-  await page.getByRole('button', { name: 'Suchen', exact: true }).click()
+  await page.getByRole('searchbox').press('Enter')
   await expect(page).toHaveURL(/search_mode=semantic/)
   expect(new URL(page.url()).searchParams.get('q')).toBe('Wo können Jugendliche kreativ werden?')
   await expect(page.getByText('Semantische Suche läuft …')).toBeVisible()
@@ -630,12 +636,13 @@ test('semantic empty and safe error states retain classic search', async ({ page
   await expect(page.getByRole('button', { name: 'Recherche starten' })).toBeEnabled()
 })
 
-test('existing landing form keeps classic submit as default', async ({ page }) => {
+test('homepage keeps classic search available as a secondary action', async ({ page }) => {
   await page.goto('/research')
-  await expect(page.getByRole('searchbox')).toHaveCount(1)
+  await page.getByRole('link', { name: 'Klassische Suche', exact: true }).click()
+  await expect(page.getByRole('searchbox').filter({ visible: true })).toHaveCount(1)
   await expect(page.getByRole('radio', { name: 'Klassische Suche' })).toBeChecked()
   await page.getByRole('searchbox').fill('sprachkurs')
-  await page.getByRole('button', { name: 'Suchen', exact: true }).click()
+  await page.getByRole('searchbox').press('Enter')
   await expect(page).toHaveURL('/research/search?q=sprachkurs')
   await expect(page.getByText('3 Ergebnisse insgesamt')).toBeVisible()
 })

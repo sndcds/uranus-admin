@@ -23,7 +23,7 @@ export const researchStatuses = {
   rescheduled: 'Neuer Termin',
 } as const
 export const researchNavigation = [
-  { to: '/research/search', label: 'Suche', icon: 'search' },
+  { to: '/research', label: 'Suche', icon: 'search' },
   { to: '/research/map', label: 'Karte', icon: 'map' },
   { to: '/research/events', label: 'Veranstaltungen', icon: 'calendar' },
   { to: '/research/venues', label: 'Orte', icon: 'pin' },
