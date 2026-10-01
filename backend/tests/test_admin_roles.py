@@ -163,6 +163,9 @@ SELECT has_schema_privilege(current_user,'admin','USAGE'),
                 )
             ).one() == (True, False, False, False, False, False)
             expected = {
+                "research_query_history": (True, True, False, False, False, False),
+                "research_query_suggestion": (True, True, True, False, False, False),
+                "research_query_suggestion_event": (True, True, False, False, False, False),
                 "geocode_request": (True, True, True, False, False, False),
                 "geocode_candidate": (True, True, False, False, False, False),
                 "geo_area": (True, True, True, False, False, False),
