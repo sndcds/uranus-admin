@@ -158,6 +158,15 @@ Detailvorschau. Klassisch bleibt Standard. [Vertrag, Grenzen, Lizenz und Messung
 
 ## Fragen beantworten
 
+Die Startseite folgt der freigegebenen Desktopvorlage: zweizeilige Überschrift,
+816 × 116 px großer Composer (auf kleinen Bildschirmen flexibel), zwei Reihen
+Beispielchips und vier gleich hohe Entdeckungskarten. `ResearchHeroIllustration`
+zeichnet lokale, rein dekorative SVG-Stadtsilhouetten mit vorhandenen Lucide-Icons;
+auf Tablets werden sie kleiner, auf Mobilgeräten ausgeblendet. Die Hinweise zu
+Tastatur und kopierbarem Link stehen unter „Hinweise zur Eingabe“. Die klassische
+Suche bleibt als ruhiger Link erreichbar. `research-homepage-visual.spec.ts` prüft
+Desktop-/Tablet-/Mobilgeometrie und erzeugt Screenshots mit synthetischen Testkonten.
+
 `/research` ist der zentrale Arbeitsbereich: eine Recherchefrage kann direkt im
 mehrzeiligen Composer gestellt werden. Antwort, Rückfrage, leeres Ergebnis und
 technischer Fehler erscheinen unter derselben Eingabe. Es gibt keine vorgeschaltete

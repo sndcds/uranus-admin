@@ -113,10 +113,10 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <div class="space-y-6">
-    <div class="mx-auto max-w-3xl">
+  <div>
+    <div class="mx-auto max-w-[51rem]">
       <form
-        class="research-composer rounded-2xl border border-blue-200 bg-white p-3 shadow-soft sm:p-4"
+        class="research-composer relative rounded-2xl border border-slate-200 bg-white"
         @submit.prevent="submit"
       >
         <label for="research-question" class="sr-only">Deine Recherchefrage</label>
@@ -124,7 +124,7 @@ onBeforeUnmount(() => {
           id="research-question"
           ref="input"
           v-model="question"
-          class="w-full resize-y rounded-lg border-0 bg-transparent p-2 text-base leading-relaxed text-slate-900 placeholder:text-slate-500"
+          class="research-composer-input block w-full resize-none border-0 bg-transparent text-base leading-6 text-slate-900 placeholder:text-slate-500"
           rows="2"
           maxlength="2000"
           required
@@ -136,28 +136,22 @@ onBeforeUnmount(() => {
           "
           @keydown="onKeydown"
         />
-        <div class="mt-1 flex items-center justify-end gap-3">
-          <span class="text-xs tabular-nums text-slate-500" aria-hidden="true"
+        <div class="research-composer-actions absolute flex items-end gap-4">
+          <span class="translate-y-2 text-xs tabular-nums text-slate-500" aria-hidden="true"
             >{{ question.length.toLocaleString('de-DE') }}/2.000</span
           >
           <button
             type="submit"
-            class="button-primary min-h-11 min-w-11 rounded-xl"
+            class="research-send inline-flex h-12 w-12 items-center justify-center rounded-lg bg-blue-700 text-white shadow-soft hover:bg-blue-800 disabled:cursor-not-allowed"
             :disabled="!ready || loading || !question.trim()"
             :aria-busy="loading"
             aria-label="Antwort anzeigen"
           >
             <AppIcon :name="loading ? 'refresh' : 'send'" :size="20" />
-            <span class="hidden sm:inline">{{
-              loading ? 'Wird ausgewertet …' : 'Antwort anzeigen'
-            }}</span>
+            <span class="sr-only">{{ loading ? 'Wird ausgewertet …' : 'Antwort anzeigen' }}</span>
           </button>
         </div>
       </form>
-      <p id="research-question-help" class="mt-2 text-xs leading-relaxed text-slate-500">
-        Bis zu 2.000 Zeichen. Strg/⌘ + Enter zum Absenden. Die Frage wird im kopierbaren Link
-        gespeichert.
-      </p>
       <p
         v-if="invalid"
         id="research-question-error"
@@ -168,17 +162,17 @@ onBeforeUnmount(() => {
       </p>
       <div
         v-if="!route.query.question"
-        class="mt-6 text-center"
+        class="mt-4 text-center"
         role="group"
         aria-label="Beispiele für Fragen"
       >
-        <p class="mb-2 text-sm text-slate-600">Beispiele für Fragen</p>
-        <div class="flex flex-wrap justify-center gap-2">
+        <p class="mb-2 text-sm text-slate-600">Beispiele für Fragen:</p>
+        <div class="research-examples flex flex-wrap justify-center gap-x-3 gap-y-1">
           <button
             v-for="example in examples"
             :key="example"
             type="button"
-            class="inline-flex min-h-11 max-w-full items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:border-blue-300 hover:bg-blue-50"
+            class="research-example inline-flex min-h-11 max-w-full items-center gap-4 px-4 py-2 text-left text-sm text-slate-700"
             :disabled="!ready || loading"
             @click="useExample(example)"
           >
@@ -186,13 +180,22 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
-      <div class="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+      <div class="mt-1 flex min-h-8 flex-wrap items-center justify-center gap-x-5 gap-y-1">
         <NuxtLink
           to="/research/search"
-          class="inline-flex min-h-11 items-center gap-2 text-sm text-slate-600 underline decoration-slate-300 underline-offset-4 hover:text-blue-700"
+          class="inline-flex min-h-8 items-center gap-2 text-xs text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-blue-700"
         >
           <AppIcon name="search" :size="16" />Klassische Suche
         </NuxtLink>
+        <details class="research-input-help text-xs text-slate-500">
+          <summary class="flex min-h-8 cursor-pointer items-center hover:text-blue-700">
+            Hinweise zur Eingabe
+          </summary>
+          <p id="research-question-help" class="max-w-sm pb-2 leading-relaxed">
+            Bis zu 2.000 Zeichen. Strg/⌘ + Enter zum Absenden. Die Frage wird im kopierbaren Link
+            gespeichert.
+          </p>
+        </details>
         <CopyValueButton
           v-if="permalink"
           :value="permalink"
@@ -201,7 +204,7 @@ onBeforeUnmount(() => {
         />
       </div>
     </div>
-    <div class="mx-auto max-w-5xl space-y-4">
+    <div v-if="loading || error || data" class="mx-auto mt-6 max-w-5xl space-y-4">
       <RequestState
         :loading="loading"
         loading-message="Frage wird ausgewertet …"
@@ -215,6 +218,38 @@ onBeforeUnmount(() => {
 
 <style scoped>
 @reference '../assets/css/main.css';
+.research-composer {
+  min-height: 116px;
+  padding: 12px 20px;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-blue-200) 22%, transparent);
+}
+.research-composer-input {
+  height: 90px;
+  padding-right: 68px;
+  padding-bottom: 24px;
+}
+.research-composer-actions {
+  right: 16px;
+  bottom: 20px;
+}
+.research-example {
+  position: relative;
+  isolation: isolate;
+}
+.research-example::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 4px 0;
+  border: 1px solid var(--color-slate-200);
+  border-radius: 9999px;
+  background: white;
+  box-shadow: var(--shadow-soft);
+}
+.research-example:hover::before {
+  background: var(--color-blue-50);
+  border-color: var(--color-blue-200);
+}
 .research-composer:focus-within {
   @apply border-blue-400 ring-2 ring-blue-100;
 }

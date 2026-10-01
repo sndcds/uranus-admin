@@ -27,7 +27,7 @@ const auth = useAuthStore()
     <NuxtLink
       v-if="auth.isAdmin"
       to="/"
-      class="research-nav-link mt-8 border-t border-slate-200 text-sm"
+      class="research-nav-link relative mt-8 text-sm before:absolute before:inset-x-0 before:-top-4 before:border-t before:border-slate-200"
       @click="$emit('navigate')"
     >
       <AppIcon name="settings" />Operations
@@ -38,7 +38,7 @@ const auth = useAuthStore()
 <style scoped>
 @reference '../assets/css/main.css';
 .research-nav-link {
-  @apply flex min-h-11 items-center gap-3 rounded-md border-l-2 border-transparent px-3 py-3 text-sm text-slate-600 hover:bg-slate-100;
+  @apply flex min-h-11 items-center gap-4 rounded-md border-l-2 border-transparent px-3 py-3.5 text-sm text-slate-600 hover:bg-slate-100;
 }
 .research-nav-link[aria-current='page'] {
   @apply border-blue-600 bg-blue-50 font-medium text-blue-700;

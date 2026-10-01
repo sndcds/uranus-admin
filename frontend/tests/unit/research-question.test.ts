@@ -57,6 +57,7 @@ function setup(question: unknown = countQuestion) {
     components: { ResearchQuestion, ResearchQueryAnswer, RequestState, EmptyState },
     stubs: {
       PageHeader: true,
+      ResearchHeroIllustration: true,
       CopyValueButton: true,
       ResearchResult: true,
       AppIcon: true,

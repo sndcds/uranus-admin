@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
     </header>
     <aside
       :style="{ top: `${headerHeight}px` }"
-      class="fixed bottom-0 hidden w-52 border-r border-slate-200 bg-slate-50/70 lg:block"
+      class="fixed bottom-0 hidden w-56 border-r border-slate-200 bg-slate-50/70 lg:block"
     >
       <ResearchNavigation />
     </aside>
@@ -178,7 +178,7 @@ onBeforeUnmount(() => {
         <AppIcon name="logout" />Abmelden
       </button>
     </AppModal>
-    <main id="main-content" tabindex="-1" class="min-w-0 p-4 lg:ml-52 lg:px-6 lg:py-5">
+    <main id="main-content" tabindex="-1" class="min-w-0 p-4 lg:ml-56 lg:px-10 lg:py-5">
       <div class="mx-auto max-w-[100rem] space-y-5"><slot /></div>
     </main>
   </div>
