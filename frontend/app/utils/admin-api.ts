@@ -5,6 +5,8 @@ import {
   type ProvenanceParams,
 } from '#shared/sql-provenance'
 import {
+  researchExecutionResponseSchema,
+  researchPlanRequestSchema,
   researchPageSchema,
   semanticResearchPageSchema,
   semanticResearchQuerySchema,
@@ -209,6 +211,19 @@ export function createAdminApi(
     return parsed.data
   }
   return {
+    researchQuery: (query: string, signal?: AbortSignal) => {
+      const parsed = researchPlanRequestSchema.safeParse({ query })
+      if (!parsed.success) throw new AdminApiError(failure(422, 'invalid_input'))
+      return request(
+        '/api/v1/research/query',
+        researchExecutionResponseSchema,
+        {},
+        'POST',
+        parsed.data,
+        signal,
+        60_000,
+      )
+    },
     researchAreas: (query: ResearchAreaQuery, signal?: AbortSignal) =>
       request(
         '/api/v1/research/areas',

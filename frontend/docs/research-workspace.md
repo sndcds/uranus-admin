@@ -155,3 +155,54 @@ Deployment/account setup: [authentication.md](../../backend/docs/authentication.
 Das bestehende Suchfeld unterstützt optional `search_mode=semantic`. Der Pilot sucht
 nur Veranstaltungen und nutzt weiterhin Filter, ResearchResult, Karte, Tabelle und
 Detailvorschau. Klassisch bleibt Standard. [Vertrag, Grenzen, Lizenz und Messungen](../../docs/research-ai/semantic-search-pilot.md).
+
+## Fragen beantworten
+
+„Frage beantworten“ ist der hervorgehobene Einstieg für vollständige Recherchefragen.
+Auf `/research/search` trennt eine kompakte Moduswahl ihn von „Treffer suchen“.
+Bestehende URLs einschließlich der leeren Suchseite sowie klassische und semantische
+Suche behalten ihre Bedeutung. Die Frageansicht zeigt ein Formular und eine Antwort,
+keinen Chatverlauf. Listenfilter aus der Treffersuche werden nicht auf Fragen übertragen.
+
+`/research/search?mode=answer&question=…` speichert die vollständige Frage (1–2.000
+Zeichen) im Link. Absenden schreibt die URL; Reload und Zurück/Vorwärts führen die
+Frage erneut aus. Relative Angaben wie „heute“ werden dabei mit dem aktuellen
+Referenzdatum interpretiert, nicht als eingefrorene Antwort. Ohne Frage erfolgt kein
+Request. Der Hinweis am Formular macht die Sichtbarkeit im kopierbaren Link deutlich;
+keine zusätzliche Speicherung in Browser-Storage, Pinia-Präferenzen oder Telemetrie.
+
+Die Ansicht ruft ausschließlich `POST /api/v1/research/query` über
+`adminApi.researchQuery(query, signal)` auf. Der Nitro-Proxy erlaubt exakt diesen
+POST mit `{ query }`, ohne Queryparameter oder browserseitige Pläne. Die bestehenden
+Cookie-/Origin-/CSRF- und Journalist-Prüfungen bleiben erhalten. Planung und Ausführung
+haben zusammen 60 Sekunden Clientbudget, davon 58 Sekunden Proxybudget; andere Routen
+behalten ihre bisherigen Grenzen. Wechsel und Unmount brechen den Request ab;
+Generationsprüfungen verwerfen verspätete Antworten. Authverlust leert geschützte Daten.
+
+`shared/research-execution.ts` spiegelt die geschlossenen Backendmodelle mit Zod:
+Plan v1/Prompt v4, Auflösung/Kandidaten, diskriminierte Ergebnisse, Provenienz und
+Diagnostik. Es werden keine Antworten aus Treffern synthetisiert:
+
+- `count`: exakter Wert und Metrik (Veranstaltungen, Termine, Veranstaltungsorte,
+  Organisationen), darunter ausschließlich aufgelöstes Gebiet und Ausführungszeitraum.
+  Beispiel-Fixture: **123 Veranstaltungen**, **Flensburg · 01.08.2026 – 31.08.2026**.
+- `aggregate`: gelieferte Gruppen nach Veranstaltungsort, Organisation oder Kategorie,
+  maximal 20; keine erfundene Gesamtsumme oder Behauptung vollständiger Gruppenabdeckung.
+- `comparison`: Vergleichsziele und Werte als Tabelle, ohne Gewinnerbehauptung.
+- `records`: vorhandene Ergebniszeilen und semantische Belege. Nur ein nicht-null
+  `total` erscheint als Gesamtzahl. `total: null` heißt „Semantische Relevanzsuche ·
+  bis zu 20 Treffer“ und ausdrücklich keine vollständige Zählung.
+- `needs_clarification`: Rückfrage statt Fehler. Kandidaten ersetzen die passende
+  Textstelle oder ergänzen eine editierbare Präzisierung. Erst erneutes Absenden startet
+  eine neue Frage; es gibt keinen erfundenen Continuation-Vertrag.
+
+„So wurde die Frage verstanden“ zeigt ausgewählte Plan-/Auflösungsdaten, Ausführungsfilter,
+strukturierte/semantische Provenienz, `observed_at`, Zeitzone und Laufzeiten. Modellname,
+Prompts und rohe Plan-JSON werden nicht angezeigt. Exakte strukturierte Auswertungen
+tragen ein eigenes Label. Fehler führen nie automatisch zur semantischen Suche;
+unsichere Backend-Fehlermeldungen werden durch stabile lokalisierte Texte ersetzt.
+
+Validierung: `research-execution.test.ts`, `research-question.test.ts` und
+`research-query.spec.ts` ergänzen die bestehenden Research-Tests. Browser-Fixtures
+sind synthetisch und belegen keine Live-Daten oder produktive Planner-Verfügbarkeit.
+Keine Backendänderung, Migration, Grants oder Workeranpassung erforderlich.

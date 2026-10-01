@@ -78,6 +78,14 @@ const mode = ref<'classic' | 'semantic'>('classic')
         /></span>
       </div>
     </div>
+    <div class="relative z-10 mt-6 flex flex-wrap items-center gap-3">
+      <NuxtLink class="button-primary" to="/research/search?mode=answer"
+        >Frage beantworten</NuxtLink
+      >
+      <p class="text-sm text-slate-600">
+        Vollständige Fragen zählen, gruppieren oder vergleichen lassen.
+      </p>
+    </div>
     <form
       class="relative z-10 mt-6 max-w-4xl rounded-xl border border-slate-200 bg-white p-5 shadow-soft sm:p-8"
       role="search"

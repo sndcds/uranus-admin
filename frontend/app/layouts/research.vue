@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { researchAnswerMode } from '~/utils/research-answer'
 const auth = useAuthStore()
 const route = useRoute()
 const menu = useTemplateRef('menu')
@@ -10,6 +11,9 @@ const query = ref('')
 const mode = ref<'classic' | 'semantic'>('classic')
 const semanticLoading = useState('research-semantic-loading', () => false)
 const interactive = ref(false)
+const answering = computed(
+  () => route.path === '/research/search' && researchAnswerMode(route.query),
+)
 const collection = computed(() =>
   /^\/research\/(search|map|events|venues|organizations)$/.test(route.path),
 )
@@ -38,7 +42,7 @@ watch(
 )
 function search() {
   clearTimeout(timer)
-  if (semanticLoading.value) return
+  if (semanticLoading.value || answering.value) return
   const searchMode = mode.value === 'semantic' ? 'semantic' : undefined
   return navigateTo(
     collection.value
@@ -63,7 +67,7 @@ function search() {
 watch(mode, () => clearTimeout(timer))
 watch(query, (value) => {
   clearTimeout(timer)
-  if (mode.value === 'semantic' || route.query.search_mode === 'semantic') return
+  if (answering.value || mode.value === 'semantic' || route.query.search_mode === 'semantic') return
   if (!interactive.value || !collection.value || value === (route.query.q ?? '')) return
   timer = setTimeout(() => {
     void search()
@@ -110,7 +114,7 @@ onBeforeUnmount(() => {
           </div>
         </NuxtLink>
         <form
-          v-if="route.path !== '/research'"
+          v-if="route.path !== '/research' && !answering"
           role="search"
           aria-label="Globale Recherche-Suche"
           class="research-global-search relative order-3 w-full lg:order-none lg:mx-auto lg:max-w-2xl lg:flex-1"
