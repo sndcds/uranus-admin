@@ -57,7 +57,7 @@ def envelope(plan=None, **updates):
 
 def test_public_schema_matches_pinned_planner():
     fixture = json.loads(Path("tests/fixtures/research_domain_planner_schema.json").read_text())
-    assert fixture["commit"] == "c47321f8b3e048cddca2eabbe634974b1f6ca951"
+    assert fixture["commit"] == "48831449947520ce3a42c465d0e0357c4316c823"
     assert PlanEnvelopeV4.model_json_schema() == fixture["schema"]
     assert get_args(FactKey) == FACTS
 

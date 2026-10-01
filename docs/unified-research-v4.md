@@ -6,8 +6,8 @@
 The planner is a model-backed natural-language interpreter: it returns plans only,
 never facts. Admin is the exact executor/router; the knowledge service supplies
 project evidence. Admin accepts only `schema_version=research-query-plan-v4` and
-`interpreter_version=research-domain-planner-v2`, mirrored from Planner PR #12 at
-`c47321f8b3e048cddca2eabbe634974b1f6ca951`. Mixed interpreter versions fail closed;
+`interpreter_version=research-domain-planner-v2`, mirrored from merged Planner PR #12 at
+`48831449947520ce3a42c465d0e0357c4316c823`. Mixed interpreter versions fail closed;
 there is no legacy dual-read or response repair. Provider-internal `DomainProposal`
 and `ProviderDataDecision` are not Admin contracts. The final Planner change preserves
 constraints internally; its generated public JSON Schema is identical to the previous
@@ -96,9 +96,39 @@ user question exactly, including whitespace and case. The planner client and
 orchestrator both reject rewritten retrieval text before contacting knowledge.
 Admin sends this exact question to authenticated `POST /evidence-answer`.
 Fact-key matching, evidence schemas, content hashes, provenance, indexed commits
-and `authoritative_source` validation remain unchanged. The knowledge service's
-separate evidence contract is not narrowed or redesigned by this planner sync.
+and `authoritative_source` are validated before returning an answer.
 An unsupported founding-date answer stays unsupported; Admin invents no date.
+
+### Public Evidence and excerpt redistribution
+
+Admin mirrors Knowledge PR #1 at
+`adcb6b917850b2656fd6145181ad47c3c4d3becd`, using its generated
+`contracts/AnswerResponse.json`. The pinned schema fixture is
+`backend/tests/fixtures/project_knowledge_answer_schema.json`; the entire generated
+Admin schema must match it. This response uses public `Evidence`, never internal
+`Chunk`, `Assertion` or `GraphAssertion` payloads. The eleven FactKeys listed above
+are also the complete answer vocabulary; `unknown` is rejected.
+
+Evidence preserves `id`, repository/path, pinned commit/source URL, content hash,
+line range, license and license-source URL, availability, redistribution permission,
+excerpt status and `graph_edge_ids`. Knowledge may withhold source text for licensing
+or policy reasons. `chunk_text` is nullable and may be omitted upstream; Admin
+serializes missing text as null, never an invented excerpt or empty string.
+
+`excerpt_included=true` requires non-null text and
+`evidence_redistribution_allowed=true`. `excerpt_included=false` requires absent/null
+text. `supported=true` does **not** require excerpt redistribution: reviewed facts
+remain supported by metadata-only evidence. Admin checks every `Fact.evidence_ids`
+reference against public `Evidence.id`, rejecting missing or duplicate identities.
+It does not require assertion quotes or rederive facts from text.
+
+Admin retains its consumer-side support/reason, indexed-commit and provenance
+checks: reviewed repository names, relative paths, pinned GitHub source URLs, line
+ordering and SHA formats. Included excerpts must match their SHA-256 content hash;
+withheld excerpts retain the digest as metadata without attempting to reconstruct
+the source text. Invalid responses fail closed without repair or exposed upstream
+error bodies. No public `/query` or graph endpoint is added to Admin, and future
+browser rendering must handle withheld excerpts.
 
 Planner requests use the fixed configured URL and service authentication, without
 browser credentials or retries. Status mapping:
@@ -130,6 +160,27 @@ SQL execution and area resolution are mocked in this no-service routing test.
 Existing disposable PostgreSQL tests separately verify exact metric execution,
 Unicode projection and complete-population bounds; they skip without
 `TEST_DATABASE_URL`. No live planner, knowledge, encoder or Qdrant calls are needed.
+
+The separate eight-case companion harness is Knowledge's `integration/` at the
+reviewed commit. Run it from Admin `backend/` with read-only Knowledge and merged
+Planner source snapshots on `PYTHONPATH`, their dependencies available, and an empty
+disposable PostgreSQL/PostGIS database ending in `_test`:
+
+```sh
+TEST_DATABASE_URL=postgresql+asyncpg://TEST_USER:TEST_PASSWORD@127.0.0.1:TEST_PORT/knowledge_test \
+PYTHONPATH=/snapshot/knowledge/src:/snapshot/planner/src:/checkout/admin/backend \
+python -m pytest -q /snapshot/knowledge/integration --override-ini asyncio_mode=auto
+```
+
+These eight checks exercise actual ASGI boundaries and exact PostgreSQL longest-text
+and organization-count queries; supported semantic-search/embedding facts;
+unsupported founding date; metadata-only evidence; eleven-FactKey parity; and
+Planner/Admin public-schema parity. Encoder/Qdrant/model responses are synthetic.
+Admin's focused suite additionally checks Knowledge public-schema parity and the
+excerpt/reference regressions. The harness needs no Docker when a disposable local
+PostgreSQL/PostGIS instance is available, and never needs production services.
+Verified against the pinned Knowledge and merged Planner revisions above: **8 passed,
+0 failed, 0 skipped**, using a disposable local PostgreSQL 17/PostGIS instance.
 
 The new endpoint is API-only in this PR. A separately reviewed browser migration must
 add the Nitro allowlist, Zod union and evidence presentation together; do not silently

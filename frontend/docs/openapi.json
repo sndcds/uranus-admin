@@ -24997,7 +24997,7 @@
           },
           "evidence": {
             "items": {
-              "$ref": "#/components/schemas/Chunk"
+              "$ref": "#/components/schemas/Evidence"
             },
             "type": "array",
             "maxItems": 20,
@@ -25141,48 +25141,6 @@
           "pagination"
         ],
         "title": "AreaPage"
-      },
-      "Assertion": {
-        "properties": {
-          "fact": {
-            "type": "string",
-            "enum": [
-              "uranus_overview",
-              "admin_overview",
-              "semantic_search_repository",
-              "embedding_component",
-              "embedding_model",
-              "qdrant_usage",
-              "encoder_communication",
-              "planner_component",
-              "geocoding",
-              "architecture",
-              "founding_date",
-              "unknown"
-            ],
-            "title": "Fact"
-          },
-          "value": {
-            "type": "string",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Value"
-          },
-          "quote": {
-            "type": "string",
-            "maxLength": 480,
-            "minLength": 1,
-            "title": "Quote"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "fact",
-          "value",
-          "quote"
-        ],
-        "title": "Assertion"
       },
       "Assignment": {
         "properties": {
@@ -25613,195 +25571,6 @@
           "pagination"
         ],
         "title": "CheckRunPage"
-      },
-      "Chunk": {
-        "properties": {
-          "index_owner": {
-            "type": "string",
-            "const": "kulturbytes-project-knowledge-v1",
-            "title": "Index Owner",
-            "default": "kulturbytes-project-knowledge-v1"
-          },
-          "schema_version": {
-            "type": "string",
-            "const": "project-chunk-v1",
-            "title": "Schema Version",
-            "default": "project-chunk-v1"
-          },
-          "knowledge_type": {
-            "type": "string",
-            "const": "project_knowledge",
-            "title": "Knowledge Type",
-            "default": "project_knowledge"
-          },
-          "repository": {
-            "type": "string",
-            "pattern": "^sndcds/[a-z0-9-]+$",
-            "title": "Repository"
-          },
-          "commit_sha": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{40}$",
-            "title": "Commit Sha"
-          },
-          "path": {
-            "type": "string",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Path"
-          },
-          "document_type": {
-            "type": "string",
-            "enum": [
-              "documentation",
-              "source_code",
-              "configuration"
-            ],
-            "title": "Document Type"
-          },
-          "heading_or_symbol": {
-            "type": "string",
-            "maxLength": 500,
-            "title": "Heading Or Symbol"
-          },
-          "unit": {
-            "type": "string",
-            "maxLength": 600,
-            "title": "Unit"
-          },
-          "source_url": {
-            "type": "string",
-            "maxLength": 1100,
-            "title": "Source Url"
-          },
-          "content_hash": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Content Hash"
-          },
-          "indexed_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Indexed At"
-          },
-          "chunk_text": {
-            "type": "string",
-            "maxLength": 480,
-            "minLength": 1,
-            "title": "Chunk Text"
-          },
-          "line_start": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Line Start"
-          },
-          "line_end": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Line End"
-          },
-          "language": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 40
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Language"
-          },
-          "symbol": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Symbol"
-          },
-          "component": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Component"
-          },
-          "service": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Service"
-          },
-          "license": {
-            "type": "string",
-            "maxLength": 100,
-            "title": "License"
-          },
-          "embedding_version": {
-            "type": "string",
-            "title": "Embedding Version",
-            "default": "d18862d9a48706220815554fac3ebb4dfa46fc28:native-transformers5.17.0-retrieval-normalized-f32:sections-480-overlap64-v2"
-          },
-          "graph_node_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "maxItems": 10,
-            "title": "Graph Node Ids"
-          },
-          "graph_edge_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "maxItems": 10,
-            "title": "Graph Edge Ids"
-          },
-          "assertions": {
-            "items": {
-              "$ref": "#/components/schemas/Assertion"
-            },
-            "type": "array",
-            "maxItems": 12,
-            "title": "Assertions"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "repository",
-          "commit_sha",
-          "path",
-          "document_type",
-          "heading_or_symbol",
-          "unit",
-          "source_url",
-          "content_hash",
-          "indexed_at",
-          "chunk_text",
-          "line_start",
-          "line_end",
-          "license",
-          "graph_node_ids"
-        ],
-        "title": "Chunk"
       },
       "ClarificationResponse": {
         "properties": {
@@ -28399,6 +28168,112 @@
         ],
         "title": "EventContentStatistics"
       },
+      "Evidence": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "repository": {
+            "type": "string",
+            "title": "Repository"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "commit_sha": {
+            "type": "string",
+            "title": "Commit Sha"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash"
+          },
+          "line_start": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Line Start"
+          },
+          "line_end": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Line End"
+          },
+          "license": {
+            "type": "string",
+            "title": "License"
+          },
+          "license_source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Source Url"
+          },
+          "evidence_available": {
+            "type": "boolean",
+            "const": true,
+            "title": "Evidence Available",
+            "default": true
+          },
+          "evidence_redistribution_allowed": {
+            "type": "boolean",
+            "title": "Evidence Redistribution Allowed"
+          },
+          "excerpt_included": {
+            "type": "boolean",
+            "title": "Excerpt Included"
+          },
+          "chunk_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 480,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Text"
+          },
+          "graph_edge_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Graph Edge Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "repository",
+          "path",
+          "commit_sha",
+          "source_url",
+          "content_hash",
+          "line_start",
+          "line_end",
+          "license",
+          "evidence_redistribution_allowed",
+          "excerpt_included",
+          "graph_edge_ids"
+        ],
+        "title": "Evidence",
+        "description": "Public provenance projection: never serialize internal assertion quotes."
+      },
       "ExecutionClarification": {
         "properties": {
           "kind": {
@@ -28775,8 +28650,7 @@
               "planner_component",
               "geocoding",
               "architecture",
-              "founding_date",
-              "unknown"
+              "founding_date"
             ],
             "title": "Key"
           },

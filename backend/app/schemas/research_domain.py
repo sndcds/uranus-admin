@@ -1,7 +1,7 @@
 """Public planner v4 mirror; compatible addition beside the existing v3 endpoint.
 
-Verified against sndcds/uranus-research-planner PR #12 at
-c47321f8b3e048cddca2eabbe634974b1f6ca951 (domain_schema.py and schemas.Query).
+Verified against sndcds/uranus-research-planner merged PR #12 at
+48831449947520ce3a42c465d0e0357c4316c823 (domain_schema.py and schemas.Query).
 Provider-internal DomainProposal and ProviderDataDecision are not part of this contract.
 """
 

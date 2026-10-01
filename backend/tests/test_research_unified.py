@@ -201,11 +201,10 @@ async def test_injected_invalid_plans_never_reach_execution(
     unified.answer.assert_not_called()
 
 
-def synthetic_evidence(fact):
-    from datetime import UTC, datetime
+def synthetic_evidence(fact, *, excerpt_included=True):
     from hashlib import sha256
 
-    from app.schemas.project_knowledge import Assertion, Chunk, Fact
+    from app.schemas.project_knowledge import Evidence, Fact
 
     if fact == "founding_date":
         return AnswerResponse(
@@ -221,27 +220,26 @@ def synthetic_evidence(fact):
         else "sndcds/uranus-research-encoder"
     )
     prose = f"Synthetic acceptance fixture: {repository}."
-    chunk = Chunk(
+    evidence = Evidence(
+        id="synthetic-evidence",
         repository=repository,
         commit_sha="a" * 40,
         path="README.md",
-        document_type="documentation",
-        heading_or_symbol="Synthetic fixture",
-        unit="fixture",
         source_url=f"https://github.com/{repository}/blob/{'a' * 40}/README.md",
         content_hash=sha256(prose.encode()).hexdigest(),
-        indexed_at=datetime(2026, 1, 1, tzinfo=UTC),
-        chunk_text=prose,
+        chunk_text=prose if excerpt_included else None,
         line_start=1,
         line_end=1,
         license="synthetic",
-        graph_node_ids=[],
-        assertions=[Assertion(fact=fact, value=repository, quote=prose)],
+        license_source_url=f"https://github.com/{repository}/blob/{'a' * 40}/LICENSE",
+        evidence_redistribution_allowed=excerpt_included,
+        excerpt_included=excerpt_included,
+        graph_edge_ids=["synthetic-graph-edge"],
     )
     return AnswerResponse(
         supported=True,
-        facts=[Fact(key=fact, value=repository, evidence_ids=[chunk.point_id])],
-        evidence=[chunk],
+        facts=[Fact(key=fact, value=repository, evidence_ids=[evidence.id])],
+        evidence=[evidence],
         indexed_commits={repository: ["a" * 40]},
         reason="supported",
     )
