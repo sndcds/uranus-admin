@@ -1,12 +1,23 @@
 <script setup lang="ts">
 import { researchQuestionSchema, type ResearchExecutionResponse } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
+import { useResearchSuggestions } from '~/composables/useResearchSuggestions'
 import { researchAnswerQuery, researchAnswerUrl } from '~/utils/research-answer'
 const route = useRoute()
 const auth = useAuthStore()
 const { $adminApi } = useNuxtApp()
 const question = ref('')
+const autosuggest = useResearchSuggestions(question)
+const { result: suggestions, active: activeSuggestion } = autosuggest
+let selectionReceipt: string | undefined
 const input = useTemplateRef('input')
+watch(activeSuggestion, async (index) => {
+  if (index < 0) return
+  await nextTick()
+  input.value?.ownerDocument
+    .getElementById(`research-suggestion-${index}`)
+    ?.scrollIntoView?.({ block: 'nearest' })
+})
 const data = shallowRef<ResearchExecutionResponse | null>(null)
 const error = ref<ApiFailure | null>(null)
 const loading = ref(false)
@@ -27,9 +38,12 @@ async function useExample(example: string) {
   input.value?.focus()
 }
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.isComposing) {
+  if (event.isComposing) return
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
     event.preventDefault()
     void submit()
+  } else if (!event.shiftKey) {
+    autosuggest.keydown(event, submit)
   }
 }
 let mounted = false
@@ -43,6 +57,7 @@ function clear() {
   loading.value = false
 }
 async function load() {
+  autosuggest.close()
   clear()
   const current = generation
   invalid.value = false
@@ -57,7 +72,9 @@ async function load() {
   controller = new AbortController()
   loading.value = true
   try {
-    const response = await $adminApi.researchQuery(parsed.data, controller.signal)
+    const receipt = selectionReceipt
+    selectionReceipt = undefined
+    const response = await $adminApi.researchQuery(parsed.data, controller.signal, receipt)
     if (mounted && current === generation && auth.canResearch) data.value = response
   } catch (cause) {
     if (mounted && current === generation && auth.canResearch) error.value = asFailure(cause)
@@ -65,8 +82,10 @@ async function load() {
     if (current === generation) loading.value = false
   }
 }
-async function submit() {
+async function submit(receipt?: string) {
   if (!mounted || loading.value || !auth.canResearch) return
+  autosuggest.close()
+  selectionReceipt = receipt
   const parsed = researchQuestionSchema.safeParse(question.value)
   invalid.value = !parsed.success
   if (!parsed.success) return
@@ -98,6 +117,7 @@ watch(
   () => auth.revision,
   () => {
     clear()
+    selectionReceipt = undefined
     question.value = ''
     permalink.value = null
   },
@@ -117,7 +137,7 @@ onBeforeUnmount(() => {
     <div class="mx-auto max-w-[51rem]">
       <form
         class="research-composer relative rounded-2xl border border-slate-200 bg-white"
-        @submit.prevent="submit"
+        @submit.prevent="submit()"
       >
         <label for="research-question" class="sr-only">Deine Recherchefrage</label>
         <textarea
@@ -129,11 +149,21 @@ onBeforeUnmount(() => {
           maxlength="2000"
           required
           placeholder="Frage zu Veranstaltungen, Orten oder Organisationen stellen …"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-controls="research-suggestion-list"
+          :aria-expanded="!!suggestions?.suggestions.length"
+          :aria-activedescendant="
+            activeSuggestion >= 0 ? `research-suggestion-${activeSuggestion}` : undefined
+          "
           :disabled="!ready"
           :aria-invalid="invalid"
           :aria-describedby="
             invalid ? 'research-question-help research-question-error' : 'research-question-help'
           "
+          @input="selectionReceipt = undefined"
+          @focus="autosuggest.focus"
+          @blur="autosuggest.blur"
           @keydown="onKeydown"
         />
         <div class="research-composer-actions absolute flex items-end gap-4">
@@ -151,6 +181,27 @@ onBeforeUnmount(() => {
             <span class="sr-only">{{ loading ? 'Wird ausgewertet …' : 'Antwort anzeigen' }}</span>
           </button>
         </div>
+        <ul
+          v-if="suggestions?.suggestions.length"
+          id="research-suggestion-list"
+          role="listbox"
+          aria-label="Recherchevorschläge"
+          class="absolute left-0 top-full z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg"
+        >
+          <li
+            v-for="(suggestion, index) in suggestions.suggestions"
+            :id="`research-suggestion-${index}`"
+            :key="suggestion.id"
+            role="option"
+            :aria-selected="activeSuggestion === index"
+            class="cursor-pointer px-3 py-2 text-sm hover:bg-slate-100"
+            :class="{ 'bg-slate-100': activeSuggestion === index }"
+            @pointerdown.prevent
+            @click="autosuggest.choose(index, submit)"
+          >
+            {{ suggestion.query }}
+          </li>
+        </ul>
       </form>
       <p
         v-if="invalid"
@@ -194,6 +245,9 @@ onBeforeUnmount(() => {
           <p id="research-question-help" class="max-w-sm pb-2 leading-relaxed">
             Bis zu 2.000 Zeichen. Strg/⌘ + Enter zum Absenden. Die Frage wird im kopierbaren Link
             gespeichert.
+          </p>
+          <p class="max-w-sm pb-2 leading-relaxed">
+            Vorschläge basieren auf häufig erfolgreich verwendeten Recherchefragen.
           </p>
         </details>
         <CopyValueButton

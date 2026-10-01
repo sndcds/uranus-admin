@@ -1,3 +1,4 @@
+import { researchSuggestions, suggestionReceipt } from '../fixtures/research-suggestions'
 import { test, expect } from '../fixtures/authenticated'
 import {
   executionResponse,
@@ -14,6 +15,9 @@ test.beforeEach(async ({ page, context }) => {
     data: { login: 'journalist', password: 'test-only-password' },
   })
   expect(login.status()).toBe(200)
+  await page.route(`**${root}/suggestions?**`, (route) =>
+    route.fulfill({ json: { request_id: researchSuggestions.request_id, suggestions: [] } }),
+  )
   await enforceProductionCsp(page)
 })
 test('exact question answer, link/reload/history and independent search modes', async ({
@@ -25,6 +29,10 @@ test('exact question answer, link/reload/history and independent search modes', 
   let searches = 0
   await page.route(`**${root}/**`, async (route) => {
     const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/suggestions'))
+      return route.fulfill({
+        json: { request_id: researchSuggestions.request_id, suggestions: [] },
+      })
     if (path.endsWith('/query')) {
       questions++
       expect(route.request().method()).toBe('POST')
@@ -169,6 +177,51 @@ test('explicit date sort and independent limit render two Flensburg records', as
       /research_plan_unsupported|Abruf fehlgeschlagen|Semantische Relevanzsuche|Ergebnisse insgesamt/,
     ),
   ).toHaveCount(0)
+})
+
+test('learned autosuggest renders, selects and passes receipt without changing the question body', async ({
+  page,
+}) => {
+  let impressions = 0
+  let selections = 0
+  await page.route(`**${root}/suggestions?**`, (route) =>
+    route.fulfill({ json: researchSuggestions }),
+  )
+  await page.route(`**${root}/suggestions/impression`, (route) => {
+    impressions++
+    expect(route.request().postDataJSON()).toEqual({
+      request_id: researchSuggestions.request_id,
+      prefix: 'Wie viele',
+      suggestions: [{ id: researchSuggestions.suggestions[0]!.id, position: 1 }],
+    })
+    return route.fulfill({ json: { ok: true, receipt: null } })
+  })
+  await page.route(`**${root}/suggestions/select`, (route) => {
+    selections++
+    expect(route.request().postDataJSON()).toEqual({
+      request_id: researchSuggestions.request_id,
+      suggestion_id: researchSuggestions.suggestions[0]!.id,
+      position: 1,
+    })
+    return route.fulfill({ json: { ok: true, receipt: suggestionReceipt } })
+  })
+  await page.route(`**${root}/query`, (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      query: researchSuggestions.suggestions[0]!.query,
+    })
+    expect(route.request().headers()['x-research-selection']).toBe(suggestionReceipt)
+    return route.fulfill({ json: executionResponse() })
+  })
+  await page.goto('/research')
+  const question = page.getByRole('combobox', { name: 'Deine Recherchefrage' })
+  await question.fill('Wie viele')
+  await expect(page.getByRole('option')).toHaveCount(1)
+  await question.press('ArrowDown')
+  await question.press('Enter')
+  await expect(page.getByTestId('research-count')).toBeVisible()
+  expect(impressions).toBe(1)
+  expect(selections).toBe(1)
+  expect(new URL(page.url()).searchParams.has('receipt')).toBe(false)
 })
 
 test('homepage examples, keyboard, loading and responsive layout', async ({ page }, info) => {

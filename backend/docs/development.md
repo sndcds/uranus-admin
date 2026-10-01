@@ -497,6 +497,8 @@ GRANT SELECT, INSERT, UPDATE ON admin.notification, admin.notification_delivery 
 GRANT SELECT, INSERT, UPDATE ON admin.geo_area TO admin_user;
 GRANT SELECT, INSERT, UPDATE ON admin.geocode_request TO admin_user;
 GRANT SELECT, INSERT ON admin.geocode_candidate TO admin_user;
+GRANT SELECT, INSERT ON admin.research_query_history, admin.research_query_suggestion_event TO admin_user;
+GRANT SELECT, INSERT, UPDATE ON admin.research_query_suggestion TO admin_user;
 GRANT SELECT, INSERT ON admin.notification_delivery_item TO admin_user;
 -- Migration 0004: runtime cannot create accounts or grant itself global access.
 GRANT SELECT ON admin.auth_account, admin.auth_system_admin, admin.auth_journalist,

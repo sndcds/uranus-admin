@@ -848,3 +848,39 @@ async def test_non_event_limit_without_ordering(settings, execution_source, monk
         Request({"type": "http"}), settings, planned(entity_type=kind, temporal="none", limit=1)
     )
     assert len(response.result.items) == 1 and response.result.total >= 1
+
+
+@pytest.mark.parametrize("failure", [False, True])
+async def test_query_learns_only_after_execution(client, headers, pipeline, monkeypatch, failure):
+    from datetime import UTC, datetime
+
+    from app.api import research
+    from app.schemas.research_execution import (
+        CountResult,
+        ExecutionDiagnostics,
+        ExecutionProvenance,
+        ResearchExecutionResponse,
+    )
+
+    learn = AsyncMock()
+    monkeypatch.setattr(research, "record_success", learn)
+    if failure:
+        executor = AsyncMock(
+            side_effect=APIError(422, "research_execution_unsupported", "Unsupported")
+        )
+    else:
+        executor = AsyncMock(
+            return_value=ResearchExecutionResponse(
+                query="Welche Orte?",
+                plan=planned(),
+                result=CountResult(metric="venue_count", value=0),
+                execution=ExecutionProvenance(),
+                observed_at=datetime.now(UTC),
+                timezone="Europe/Berlin",
+                diagnostics=ExecutionDiagnostics(planner_ms=0, total_ms=0),
+            )
+        )
+    monkeypatch.setattr(research.ResearchPlanExecutor, "execute", executor)
+    response = await client.post(PATH, headers=headers, json={"query": "Welche Orte?"})
+    assert response.status_code == (422 if failure else 200)
+    assert learn.await_count == (0 if failure else 1)

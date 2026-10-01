@@ -1661,3 +1661,5 @@ export { provenanceDefinitionSchema, provenanceResultSchema } from './sql-proven
 export * from './research'
 
 export * from './research-execution'
+
+export * from './research-suggestions'

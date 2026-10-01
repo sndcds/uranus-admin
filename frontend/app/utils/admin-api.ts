@@ -5,6 +5,10 @@ import {
   type ProvenanceParams,
 } from '#shared/sql-provenance'
 import {
+  suggestionsSchema,
+  suggestionTelemetrySchema,
+  suggestionImpressionSchema,
+  suggestionSelectionSchema,
   researchExecutionResponseSchema,
   researchPlanRequestSchema,
   researchPageSchema,
@@ -56,7 +60,6 @@ import {
   optionalAssignmentSchema,
   inboxPageSchema,
 } from '#shared/contracts'
-import type { z } from '#shared/zod'
 import type {
   GeocodeFilters,
   GeoAreaImport,
@@ -77,7 +80,10 @@ import type {
   InboxFilters,
   ResearchQuery,
   ResearchAreaQuery,
+  SuggestionImpression,
+  SuggestionSelection,
 } from '#shared/contracts'
+import type { z } from '#shared/zod'
 import { AdminApiError, failure } from '#shared/errors'
 
 export interface ViewReadContext {
@@ -110,6 +116,7 @@ export function createAdminApi(
     requestBody?: unknown,
     signal?: AbortSignal,
     timeoutMs = 12_000,
+    selectionReceipt?: string,
   ) {
     const generation = accessGeneration
     const inspectable =
@@ -144,6 +151,7 @@ export function createAdminApi(
         method,
         body: requestBody === undefined ? undefined : JSON.stringify(requestBody),
         headers: {
+          ...(selectionReceipt ? { 'X-Research-Selection': selectionReceipt } : {}),
           ...(credential ? { Authorization: `Bearer ${credential}` } : {}),
           ...(requestBody === undefined ? {} : { 'Content-Type': 'application/json' }),
           ...(method === 'GET' ? {} : { 'X-Admin-CSRF': '1' }),
@@ -211,7 +219,36 @@ export function createAdminApi(
     return parsed.data
   }
   return {
-    researchQuery: (query: string, signal?: AbortSignal) => {
+    researchSuggestions: (q: string, signal?: AbortSignal) =>
+      request(
+        '/api/v1/research/suggestions',
+        suggestionsSchema,
+        { q, limit: 8 },
+        'GET',
+        undefined,
+        signal,
+      ),
+    researchSuggestionImpression: (body: SuggestionImpression) =>
+      request(
+        '/api/v1/research/suggestions/impression',
+        suggestionTelemetrySchema,
+        {},
+        'POST',
+        suggestionImpressionSchema.parse(body),
+        undefined,
+        2_000,
+      ),
+    researchSuggestionSelect: (body: SuggestionSelection) =>
+      request(
+        '/api/v1/research/suggestions/select',
+        suggestionTelemetrySchema,
+        {},
+        'POST',
+        suggestionSelectionSchema.parse(body),
+        undefined,
+        2_000,
+      ),
+    researchQuery: (query: string, signal?: AbortSignal, selectionReceipt?: string) => {
       const parsed = researchPlanRequestSchema.safeParse({ query })
       if (!parsed.success) throw new AdminApiError(failure(422, 'invalid_input'))
       return request(
@@ -222,6 +259,7 @@ export function createAdminApi(
         parsed.data,
         signal,
         60_000,
+        selectionReceipt,
       )
     },
     researchAreas: (query: ResearchAreaQuery, signal?: AbortSignal) =>

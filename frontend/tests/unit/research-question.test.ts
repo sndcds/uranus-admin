@@ -22,14 +22,24 @@ import { executionResponse, countQuestion } from '../fixtures/research-execution
 import { AdminApiError, failure } from '../../shared/errors'
 import type { ResearchExecutionResponse } from '../../shared/contracts'
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 function setup(question: unknown = countQuestion) {
   const route = reactive({
     path: '/research',
     query: { question } as Record<string, unknown>,
   })
   const auth = reactive({ canResearch: true, revision: 0 })
-  const api = { researchQuery: vi.fn() }
+  const api = {
+    researchQuery: vi.fn(),
+    researchSuggestions: vi.fn(),
+    researchSuggestionImpression: vi.fn().mockResolvedValue({ ok: true, receipt: null }),
+    researchSuggestionSelect: vi
+      .fn()
+      .mockResolvedValue({ ok: true, receipt: '00000000-0000-4000-8000-000000000003' }),
+  }
   const navigate = vi.fn(
     async (target: { path: string; query?: Record<string, unknown> } | string) => {
       route.path = typeof target === 'string' ? target : target.path
@@ -221,7 +231,11 @@ it('opens the homepage composer directly and renders its answer in the same work
   await view.get('form').trigger('submit')
   await flushPromises()
   expect(ctx.route.path).toBe('/research')
-  expect(ctx.api.researchQuery).toHaveBeenCalledWith(countQuestion, expect.any(AbortSignal))
+  expect(ctx.api.researchQuery).toHaveBeenCalledWith(
+    countQuestion,
+    expect.any(AbortSignal),
+    undefined,
+  )
   expect(view.text()).toContain('123 Veranstaltungen')
   expect(view.get('a[href="/research/search"]').text()).toBe('Klassische Suche')
   for (const destination of ['events', 'venues', 'organizations', 'map']) {
@@ -314,3 +328,140 @@ it('keeps a missing taxonomy match as clarification on the homepage', async () =
   expect(view.text()).not.toContain('Abruf fehlgeschlagen')
   view.unmount()
 })
+
+const learned = {
+  request_id: '00000000-0000-4000-8000-000000000001',
+  suggestions: [
+    {
+      id: '00000000-0000-4000-8000-000000000002',
+      query: 'Welche Organisation hat die meisten Veranstaltungen?',
+      position: 1,
+    },
+  ],
+}
+it('debounces, reports rendered impressions once, navigates and selects with Enter', async () => {
+  vi.useFakeTimers()
+  const ctx = setup(undefined)
+  ctx.route.query = {}
+  ctx.api.researchSuggestions.mockResolvedValue(learned)
+  ctx.api.researchQuery.mockResolvedValue(executionResponse())
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  const input = view.get('textarea')
+  await nextTick() // The homepage enables its composer after hydration.
+  await input.trigger('focus')
+  await input.setValue('welche org')
+  await vi.advanceTimersByTimeAsync(199)
+  expect(ctx.api.researchSuggestions).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(1)
+  await flushPromises()
+  expect(view.find('[role=listbox]').exists()).toBe(true)
+  expect(input.attributes('aria-expanded')).toBe('true')
+  expect(ctx.api.researchSuggestionImpression).toHaveBeenCalledTimes(1)
+  await input.trigger('keydown', { key: 'ArrowDown' })
+  expect(input.attributes('aria-activedescendant')).toBe('research-suggestion-0')
+  await input.trigger('keydown', { key: 'ArrowUp' })
+  await input.trigger('keydown', { key: 'Enter', shiftKey: true })
+  expect(ctx.api.researchSuggestionSelect).not.toHaveBeenCalled()
+  expect(ctx.api.researchQuery).not.toHaveBeenCalled()
+  await input.trigger('keydown', { key: 'Enter' })
+  await flushPromises()
+  expect(ctx.api.researchSuggestionSelect).toHaveBeenCalledTimes(1)
+  expect(ctx.api.researchQuery).toHaveBeenCalledWith(
+    learned.suggestions[0]!.query,
+    expect.any(AbortSignal),
+    '00000000-0000-4000-8000-000000000003',
+  )
+  expect(view.find('[role=listbox]').exists()).toBe(false)
+  view.unmount()
+})
+it('cancels stale responses, Escape closes and auth loss clears suggestions', async () => {
+  vi.useFakeTimers()
+  const ctx = setup()
+  ctx.route.query = {}
+  let resolve!: (value: typeof learned) => void
+  ctx.api.researchSuggestions
+    .mockReturnValueOnce(
+      new Promise((r) => {
+        resolve = r
+      }),
+    )
+    .mockResolvedValue(learned)
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  const input = view.get('textarea')
+  await nextTick() // The homepage enables its composer after hydration.
+  await input.trigger('focus')
+  await input.setValue('welche')
+  await vi.advanceTimersByTimeAsync(200)
+  const signal = ctx.api.researchSuggestions.mock.calls[0]![1] as AbortSignal
+  await input.setValue('welche org')
+  expect(signal.aborted).toBe(true)
+  resolve(learned)
+  await flushPromises()
+  expect(ctx.api.researchSuggestionImpression).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(200)
+  await flushPromises()
+  await input.trigger('keydown', { key: 'Escape' })
+  expect(view.find('[role=listbox]').exists()).toBe(false)
+  expect(ctx.api.researchSuggestionImpression).toHaveBeenCalledTimes(1)
+  await input.setValue('welche orga')
+  await vi.advanceTimersByTimeAsync(200)
+  ctx.auth.canResearch = false
+  ctx.auth.revision++
+  await nextTick()
+  expect(view.find('[role=listbox]').exists()).toBe(false)
+  view.unmount()
+})
+it('mouse selection executes even when telemetry fails and does not select twice', async () => {
+  vi.useFakeTimers()
+  const ctx = setup()
+  ctx.route.query = {}
+  ctx.api.researchSuggestions.mockResolvedValue(learned)
+  ctx.api.researchSuggestionSelect.mockRejectedValue(new Error('offline'))
+  ctx.api.researchQuery.mockResolvedValue(executionResponse())
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  await nextTick() // The homepage enables its composer after hydration.
+  await view.get('textarea').trigger('focus')
+  await view.get('textarea').setValue('welche org')
+  await vi.advanceTimersByTimeAsync(200)
+  await flushPromises()
+  const option = view.get('[role=option]')
+  await option.trigger('click')
+  await flushPromises()
+  expect(ctx.api.researchSuggestionSelect).toHaveBeenCalledTimes(1)
+  expect(ctx.api.researchQuery).toHaveBeenCalledWith(
+    learned.suggestions[0]!.query,
+    expect.any(AbortSignal),
+    undefined,
+  )
+  view.unmount()
+})
+
+it.each(['ctrlKey', 'metaKey'])(
+  'submits the typed homepage question with %s+Enter even when a suggestion is active',
+  async (modifier) => {
+    vi.useFakeTimers()
+    const ctx = setup()
+    ctx.route.query = {}
+    ctx.api.researchSuggestions.mockResolvedValue(learned)
+    ctx.api.researchQuery.mockResolvedValue(executionResponse())
+    const view = mount(ResearchHome, { global: ctx.global })
+    const input = view.get('textarea')
+    await nextTick() // The homepage enables its composer after hydration.
+    await input.trigger('focus')
+    await input.setValue('welche org')
+    await vi.advanceTimersByTimeAsync(200)
+    await flushPromises()
+    await input.trigger('keydown', { key: 'ArrowDown' })
+    await input.trigger('keydown', { key: 'Enter', [modifier]: true })
+    await flushPromises()
+    expect(ctx.api.researchSuggestionSelect).not.toHaveBeenCalled()
+    expect(ctx.api.researchQuery).toHaveBeenCalledExactlyOnceWith(
+      'welche org',
+      expect.any(AbortSignal),
+      undefined,
+    )
+    expect(ctx.route.path).toBe('/research')
+    expect(view.find('[role=listbox]').exists()).toBe(false)
+    view.unmount()
+  },
+)

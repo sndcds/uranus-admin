@@ -176,10 +176,12 @@ experimentelle semantische Suche verfügbar. Die vier unteren Entdeckungskarten
 führen weiterhin zu Veranstaltungen, Orten, Organisationen und Karte.
 
 Die vier festen Beispielchips dienen nur der Einführung, nicht als lernende
-Autosuggestions. Ein Klick füllt die Eingabe und fokussiert sie ohne API-Aufruf.
-Enter und Shift+Enter fügen Zeilenumbrüche ein; Strg/⌘+Enter oder der Sendebutton
-senden ab. Während einer Anfrage bleibt die Frage sichtbar; weiteres Absenden ist
-gesperrt. Kleine Bildschirme zeigen den beschrifteten Sendebutton als zugängliches
+Autosuggestions. Ein Klick füllt die Eingabe und fokussiert sie, ohne eine Recherche
+auszuführen. Für die fokussierte Eingabe können lernende Vorschläge geladen werden.
+Enter fügt einen Zeilenumbruch ein oder wählt einen markierten lernenden Vorschlag.
+Shift+Enter fügt immer einen Zeilenumbruch ein; Strg/⌘+Enter oder der Sendebutton
+senden die eingegebene Frage ab. Während einer Anfrage bleibt die Frage sichtbar;
+weiteres Absenden ist gesperrt. Kleine Bildschirme zeigen den beschrifteten Sendebutton als zugängliches
 Symbol, die Beispiele umbrechen und die Entdeckungskarten stapeln sich.
 
 `/research?question=…` speichert die vollständige Frage (1–2.000 Zeichen) im Link.
@@ -190,7 +192,8 @@ Listenfilter aus der Treffersuche werden nicht auf Fragen übertragen. Absenden 
 die URL; Reload und Zurück/Vorwärts führen die Frage erneut aus. Relative Angaben wie „heute“ werden dabei mit dem aktuellen
 Referenzdatum interpretiert, nicht als eingefrorene Antwort. Ohne Frage erfolgt kein
 Request. Der Hinweis am Formular macht die Sichtbarkeit im kopierbaren Link deutlich;
-keine zusätzliche Speicherung in Browser-Storage, Pinia-Präferenzen oder Telemetrie.
+keine zusätzliche Speicherung in Browser-Storage oder Pinia-Präferenzen. Die separaten
+Lernsignale für Fragevorschläge sind unten beschrieben.
 
 Die Ansicht ruft ausschließlich `POST /api/v1/research/query` über
 `adminApi.researchQuery(query, signal)` auf. Der Nitro-Proxy erlaubt exakt diesen
@@ -239,3 +242,13 @@ Limit als „Maximal N Ergebnisse“ und vollständige Daten einschließlich Jah
 Semantische Treffer behalten ihre Relevanzreihenfolge. Ein unbekannter Gesamtwert ist keine
 Populationszählung und macht eine strukturierte Auswahl nicht zur semantischen Suche.
 [Terminwahl, Grenzen und koordiniertes Deployment](../../backend/docs/research-chronology.md).
+
+## Lernende Fragevorschläge
+
+Die Frageeingabe zeigt nach 200 ms bis zu acht häufig erfolgreich ausgeführte
+Recherchefragen. Erst drei erfolgreiche Ausführungen und die serverseitige
+Privacy-Prüfung erlauben die Anzeige. Tastatur (Pfeile, Enter, Escape) und
+Maus/Touch werden unterstützt; angezeigte Vorschläge, Auswahl und erfolgreiche
+Ausführung nach Auswahl sind getrennte, deduplizierte Lernsignale.
+Keine Personalisierung oder Nutzerprofile, keine LLM-Aufrufe beim Tippen und keine
+semantische Vorschlagssuche. [Tabellen, API, Ranking und Betriebsgrenzen](../../backend/docs/research-suggestions.md).
