@@ -230,7 +230,10 @@ async def test_exact_public_taxonomy_lookup(settings, taxonomy_source):
 async def test_authoritative_taxonomy_intersection(
     settings, taxonomy_source, now, filters, expected
 ):
-    selection = ExecutionFilters.model_validate(filters)
+    # Match the executor's event-only, bounded record selection.
+    selection = ExecutionFilters.model_validate(
+        {"entity_type": "event", "page_size": 20, **filters}
+    )
     ids = await eligible_event_ids(taxonomy_source, settings, selection, None)
     assert ids == [uid(n) for n in expected]
     semantic = ExecutionSemanticFilters(**selection.model_dump(exclude={"q", "sort"}), q="music")
