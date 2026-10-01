@@ -1,6 +1,6 @@
 {
   "repository": "sndcds/uranus-research-planner",
-  "commit": "a95d9917ca2a7240d3aeccfbc0317ec933ddef23",
+  "commit": "c47321f8b3e048cddca2eabbe634974b1f6ca951",
   "source": "src/research_planner/domain_schema.py::PlanEnvelopeV4.model_json_schema()",
   "schema": {
     "$defs": {

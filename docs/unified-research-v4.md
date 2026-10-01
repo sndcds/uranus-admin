@@ -7,9 +7,12 @@ The planner is a model-backed natural-language interpreter: it returns plans onl
 never facts. Admin is the exact executor/router; the knowledge service supplies
 project evidence. Admin accepts only `schema_version=research-query-plan-v4` and
 `interpreter_version=research-domain-planner-v2`, mirrored from Planner PR #12 at
-`a95d9917ca2a7240d3aeccfbc0317ec933ddef23`. Mixed interpreter versions fail closed;
+`c47321f8b3e048cddca2eabbe634974b1f6ca951`. Mixed interpreter versions fail closed;
 there is no legacy dual-read or response repair. Provider-internal `DomainProposal`
-is not an Admin contract.
+and `ProviderDataDecision` are not Admin contracts. The final Planner change preserves
+constraints internally; its generated public JSON Schema is identical to the previous
+pin and remains `PlanEnvelopeV4` → `DataPlan | KnowledgePlan`. Neither
+`has_temporal_constraint` nor `has_other_constraint` is an Admin wire field.
 The browser cannot submit a plan, executor, collection, model or repository selector.
 Existing `/research/query`, Research UI and planner v3 behavior remain unchanged.
 

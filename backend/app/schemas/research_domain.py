@@ -1,8 +1,8 @@
 """Public planner v4 mirror; compatible addition beside the existing v3 endpoint.
 
 Verified against sndcds/uranus-research-planner PR #12 at
-a95d9917ca2a7240d3aeccfbc0317ec933ddef23 (domain_schema.py and schemas.Query).
-Provider-internal DomainProposal is deliberately not part of this contract.
+c47321f8b3e048cddca2eabbe634974b1f6ca951 (domain_schema.py and schemas.Query).
+Provider-internal DomainProposal and ProviderDataDecision are not part of this contract.
 """
 
 from typing import Annotated, Literal, Self
