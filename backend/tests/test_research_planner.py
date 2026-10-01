@@ -24,7 +24,7 @@ URL = "http://127.0.0.1:8090"
 PATH = "/api/v1/research/plan"
 ENVELOPE = {
     "schema_version": "research-query-plan-v3",
-    "prompt_version": "research-planner-v6",
+    "prompt_version": "research-planner-v7",
     "model": "gpt-5.6-terra",
     "plan": {
         "original_query": QUERY,
@@ -34,6 +34,7 @@ ENVELOPE = {
         "area_query": "Flensburg",
         "venue_query": None,
         "organization_query": None,
+        "event_type_queries": [],
         "category_queries": [],
         "genre_queries": [],
         "temporal": "today",
@@ -57,7 +58,7 @@ ENVELOPE = {
         "request_id": "a" * 32,
         "planner_intent": "recommend",
         "planner_model": "gpt-5.6-terra",
-        "planner_prompt_version": "research-planner-v6",
+        "planner_prompt_version": "research-planner-v7",
         "planner_ms": 4200.5,
         "total_ms": 4201.0,
     },
@@ -272,7 +273,8 @@ async def test_compressed_response_rejected_without_reading():
         ("schema_version", "research-query-plan-v4"),
         ("prompt_version", "research-planner-v4"),
         ("prompt_version", "research-planner-v5"),
-        ("prompt_version", "research-planner-v7"),
+        ("prompt_version", "research-planner-v6"),
+        ("prompt_version", "research-planner-v8"),
         ("kind", "other"),
         ("kind", "needs_clarification"),
         ("extra", "secret"),

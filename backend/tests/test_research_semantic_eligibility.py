@@ -236,6 +236,7 @@ async def test_membership_request_bound(settings, retrieval):
         "organization",
         "category",
         "genre",
+        "event_type",
         "area",
         "event_status",
         "date_status",
@@ -286,20 +287,25 @@ async def test_rank_51_real_sql_hard_filters(
     )
     await connection.execute(
         text("""INSERT INTO uranus.event_type_link(event_uuid,type_id,genre_id)
-        VALUES(:id,1,:genre)"""),
+        VALUES(:id,:type,:genre)"""),
         [
-            {"id": uid(n), "genre": 3 if n != 2050 and dimension == "genre" else 2}
+            {
+                "id": uid(n),
+                "type": 2 if n != 2050 and dimension == "event_type" else 1,
+                "genre": 3 if n != 2050 and dimension == "genre" else 2,
+            }
             for n in range(2000, 2051)
         ],
     )
     resolution = Resolution()
     changes = {}
-    if dimension in {"venue", "organization", "category", "genre"}:
+    if dimension in {"venue", "organization", "category", "genre", "event_type"}:
         field, identifier = {
             "venue": ("venue_query", str(uid(21))),
             "organization": ("organization_query", str(uid(10))),
             "category": ("category_queries", "101"),
             "genre": ("genre_queries", "1:2"),
+            "event_type": ("event_type_queries", "1"),
         }[dimension]
         resolution.fields = [
             ResolvedField(
@@ -344,7 +350,7 @@ async def test_rank_51_real_sql_hard_filters(
             await connection.execute(
                 text("UPDATE uranus.venue SET point=NULL WHERE uuid=:id"), {"id": uid(21)}
             )
-        elif dimension == "genre":
+        elif dimension in {"genre", "event_type"}:
             await connection.execute(
                 text("DELETE FROM uranus.event_type_link WHERE event_uuid=:id"), {"id": valid}
             )

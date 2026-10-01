@@ -1216,7 +1216,7 @@ through the tunnel, without model calls or service credentials.
 
 The closed, strict Admin models mirror the
 [canonical planner schema at b2c4a14](https://github.com/sndcds/uranus-research-planner/blob/b2c4a14046a9ba31c15eb96579d29f6774c6071b/src/research_planner/schemas.py).
-Only `schema_version: research-query-plan-v3` and `prompt_version: research-planner-v6`
+Only `schema_version: research-query-plan-v3` and `prompt_version: research-planner-v7`
 are accepted. The response includes `model`, `plan`, `reference_date`, `timezone`,
 `diagnostics`, and `kind` (`plan` or `needs_clarification`). All wire fields are required,
 including nullable plan fields and both version tags. Plan enums, slot/list bounds,
@@ -1400,3 +1400,38 @@ results. Its existing Nitro/client request remains query-only.
 
 Chronological ordering, limits, occurrence selection and synchronized deployment are
 specified in [the v3/v6 chronology contract](research-chronology.md).
+
+
+### Research v3 taxonomy (prompt v7)
+
+Categories != event types != genres:
+
+- `category_queries` resolves `event.categories` via the category lookup.
+- Required `event_type_queries` (up to eight nonblank names, 160 characters each)
+  resolves `event_type_link.type_id -> event_type`.
+- `genre_queries` resolves `event_type_link.(type_id, genre_id) -> genre_type`;
+  genres are subordinate to event types and retain composite `type_id:genre_id` keys.
+
+Resolution uses exact canonical localized labels only, in event type, genre,
+category order; no fuzzy or model-based taxonomy resolution. Event type labels
+prefer German, then English, then the same deterministic fallback as genres.
+Only types linked to public events are offered. IDs are resolved by Admin.
+A genre whose parent is outside the selected event types produces
+`needs_clarification` / `taxonomy_conflict`; no requested filter is discarded.
+
+Execution separately sorts/deduplicates `event_type_ids`, `category_ids` and
+`genre_keys`. PostgreSQL intersects all active dimensions (OR within each list),
+including dates, areas and venue/organization constraints. Semantic execution
+uses the complete PostgreSQL eligible UUID set for Qdrant ranking and rechecks
+all constraints during SQL rehydration. No new Qdrant payload filter is needed.
+
+For `welche jazz konzerte finden heute statt`, prompt v7 emits event type
+`Konzerte`, genre `Jazz`, no category, `temporal=today` and no semantic residual.
+`today` uses the envelope's reference local date. Empty results remain successful
+`records` with `items=[]`, never a taxonomy clarification.
+
+The v3 schema identifier is retained and the prompt gate is bumped to
+`research-planner-v7`; backend, frontend and Planner require the new field,
+including an explicit empty list in neutral/outside-research plans. Coordinate
+the compatible release; no migration, grants or Uranus schema changes are needed.
+The independent v4 domain planner remains unchanged.

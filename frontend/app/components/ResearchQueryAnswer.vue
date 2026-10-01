@@ -32,6 +32,8 @@ const clarification = computed(() => {
     return 'Welche Vergleichskriterien möchtest du verwenden?'
   if (r.reason === 'no_match')
     return `Keine eindeutige Zuordnung für „${r.query ?? 'diese Angabe'}“. Bitte präzisiere die Frage.`
+  if (r.reason === 'taxonomy_conflict')
+    return 'Das Genre gehört nicht zum gewählten Veranstaltungstyp. Bitte präzisiere die Auswahl.'
   if (r.reason === 'duplicate_target') return 'Bitte verwende unterschiedliche Vergleichsziele.'
   return `Welche Zuordnung meinst du${r.query ? ` mit „${r.query}“` : ''}?`
 })
@@ -39,6 +41,7 @@ const fieldLabels = {
   area_query: 'Gebiet',
   venue_query: 'Veranstaltungsort',
   organization_query: 'Organisation',
+  event_type_queries: 'Veranstaltungstyp',
   category_queries: 'Kategorie',
   genre_queries: 'Genre',
   comparison_targets: 'Vergleichsziel',

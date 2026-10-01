@@ -131,6 +131,7 @@ def parameters(
             else None
         ),
         "time_from": None,
+        "event_type_ids": [],
         "category_ids": [],
         "genre_keys": [],
         **filters.model_dump(),
@@ -147,6 +148,10 @@ def eligible_event_ctes(*, candidates: bool = False, ids_only: bool = False) -> 
     candidate_gate = " AND e.uuid=ANY(CAST(:candidate_ids AS uuid[]))" if candidates else ""
     candidate_gate += """ AND (cardinality(CAST(:category_ids AS integer[]))=0
         OR e.categories && CAST(:category_ids AS integer[]))
+        AND (cardinality(CAST(:event_type_ids AS integer[]))=0 OR EXISTS (
+            SELECT 1 FROM uranus.event_type_link event_type
+            WHERE event_type.event_uuid=e.uuid
+            AND event_type.type_id=ANY(CAST(:event_type_ids AS integer[]))))
         AND (cardinality(CAST(:genre_keys AS text[]))=0 OR EXISTS (
             SELECT 1 FROM uranus.event_type_link genre
             WHERE genre.event_uuid=e.uuid AND genre.genre_id<>0
@@ -201,6 +206,7 @@ def research_sql(*, candidates: bool = False, occurrences: bool = False) -> str:
                 AND ({visibility} OR (CAST(:from_date AS date) IS NULL
                     AND CAST(:to_date AS date) IS NULL AND CAST(:category AS integer) IS NULL
                     AND CAST(:status AS text) IS NULL AND CAST(:time_from AS time) IS NULL
+                    AND cardinality(CAST(:event_type_ids AS integer[]))=0
                     AND cardinality(CAST(:category_ids AS integer[]))=0
                     AND cardinality(CAST(:genre_keys AS text[]))=0
                     AND CAST(:organization_id AS uuid) IS NULL)))"""
