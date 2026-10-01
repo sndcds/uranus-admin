@@ -287,3 +287,21 @@ test('homepage API errors keep the editable question and allow retry', async ({ 
   await page.getByRole('button', { name: 'Erneut versuchen' }).click()
   await expect(page.getByTestId('research-count')).toHaveText('123 Veranstaltungen')
 })
+
+test('empty semantic selection explains that no sufficiently relevant events were found', async ({
+  page,
+}) => {
+  const response = executionResponse('records', true)
+  if (response.result.kind !== 'records') throw new Error('Expected records fixture')
+  response.result.items = []
+  await page.route(`**${root}/query`, (route) => route.fulfill({ json: response }))
+  await page.goto(`/research/search?mode=answer&question=${encodeURIComponent(response.query)}`)
+  await expect(
+    page.getByText('Keine ausreichend passenden Veranstaltungen gefunden.'),
+  ).toBeVisible()
+  await expect(page.getByText('Abruf fehlgeschlagen')).toHaveCount(0)
+  await expect(page.getByText('Warum passt das?')).toHaveCount(0)
+  await expect(page.getByText(/Exakte strukturierte Auswertung|Ergebnisse insgesamt/)).toHaveCount(
+    0,
+  )
+})

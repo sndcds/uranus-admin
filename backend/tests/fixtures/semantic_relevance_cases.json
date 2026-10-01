@@ -1,0 +1,694 @@
+{
+  "score_source": "synthetic_final_context_valid_scores",
+  "review_scope": "Reviewable synthetic relevance labels and policy expectations authored for this change; not measured embeddings, production records, or an independent human evaluation. Borderline labels may survive or be removed. Date/area/public eligibility is separate.",
+  "cases": [
+    {
+      "id": "de-01",
+      "query": "Was ist heute kulturell besonders spannend?",
+      "candidates": [
+        {
+          "label": "Experimentelles Musiktheater",
+          "score": 0.275,
+          "relevance": "clearly_relevant",
+          "review_reason": "Künstlerisches Programm"
+        },
+        {
+          "label": "Kulturgespräch im Stadtteil",
+          "score": 0.174,
+          "relevance": "borderline",
+          "review_reason": "Kulturbezug, Erlebnischarakter unklar"
+        },
+        {
+          "label": "Offene Verwaltungssprechstunde",
+          "score": 0.058,
+          "relevance": "irrelevant",
+          "review_reason": "Kein kulturelles Programm beschrieben"
+        }
+      ],
+      "expected_threshold": 0.11,
+      "expected_kept": [
+        "Experimentelles Musiktheater",
+        "Kulturgespräch im Stadtteil"
+      ]
+    },
+    {
+      "id": "de-02",
+      "query": "Wo gibt es Live-Musik?",
+      "candidates": [
+        {
+          "label": "Jazztrio live",
+          "score": 0.32,
+          "relevance": "clearly_relevant",
+          "review_reason": "Live-Auftritt angekündigt"
+        },
+        {
+          "label": "Musikquiz mit Hörbeispielen",
+          "score": 0.11,
+          "relevance": "borderline",
+          "review_reason": "Musikbezug ohne Live-Auftritt"
+        },
+        {
+          "label": "Vortrag über Gartenpflege",
+          "score": 0.06,
+          "relevance": "irrelevant",
+          "review_reason": "Kein Musikbezug"
+        }
+      ],
+      "expected_threshold": 0.128,
+      "expected_kept": [
+        "Jazztrio live"
+      ]
+    },
+    {
+      "id": "de-03",
+      "query": "Gibt es heute Konzerte?",
+      "candidates": [
+        {
+          "label": "Abendkonzert des Kammerorchesters",
+          "score": 0.28,
+          "relevance": "clearly_relevant",
+          "review_reason": "Konzert ausdrücklich benannt"
+        },
+        {
+          "label": "Öffentliche Orchesterprobe",
+          "score": 0.13,
+          "relevance": "borderline",
+          "review_reason": "Musikalische Darbietung, aber Probe"
+        },
+        {
+          "label": "Schachtreff",
+          "score": 0.07,
+          "relevance": "irrelevant",
+          "review_reason": "Kein Konzert"
+        }
+      ],
+      "expected_threshold": 0.112,
+      "expected_kept": [
+        "Abendkonzert des Kammerorchesters",
+        "Öffentliche Orchesterprobe"
+      ]
+    },
+    {
+      "id": "de-04",
+      "query": "Was ist für Familien interessant?",
+      "candidates": [
+        {
+          "label": "Familienwerkstatt mit gemeinsamem Basteln",
+          "score": 0.3,
+          "relevance": "clearly_relevant",
+          "review_reason": "Gemeinsames Familienangebot"
+        },
+        {
+          "label": "Allgemeiner Stadtspaziergang",
+          "score": 0.14,
+          "relevance": "borderline",
+          "review_reason": "Teilnahme denkbar, keine Familienausrichtung"
+        },
+        {
+          "label": "Fachseminar für Steuerberatung",
+          "score": 0.05,
+          "relevance": "irrelevant",
+          "review_reason": "Berufliches Fachpublikum"
+        }
+      ],
+      "expected_threshold": 0.12,
+      "expected_kept": [
+        "Familienwerkstatt mit gemeinsamem Basteln",
+        "Allgemeiner Stadtspaziergang"
+      ]
+    },
+    {
+      "id": "de-05",
+      "query": "Gibt es kostenlose Veranstaltungen?",
+      "candidates": [
+        {
+          "label": "Lesung bei freiem Eintritt",
+          "score": 0.24,
+          "relevance": "clearly_relevant",
+          "review_reason": "Kostenlosigkeit ausdrücklich belegt"
+        },
+        {
+          "label": "Markt mit kostenpflichtigen Ständen",
+          "score": 0.1,
+          "relevance": "borderline",
+          "review_reason": "Zugang offen, Aktivitäten kostenpflichtig"
+        },
+        {
+          "label": "Gala mit Eintrittskarte",
+          "score": 0.08,
+          "relevance": "irrelevant",
+          "review_reason": "Eintritt kostenpflichtig"
+        }
+      ],
+      "expected_threshold": 0.1,
+      "expected_kept": [
+        "Lesung bei freiem Eintritt",
+        "Markt mit kostenpflichtigen Ständen"
+      ]
+    },
+    {
+      "id": "de-06",
+      "query": "Wo kann ich heute Abend hingehen?",
+      "candidates": [
+        {
+          "label": "Offener Spieleabend im Kulturcafé",
+          "score": 0.22,
+          "relevance": "clearly_relevant",
+          "review_reason": "Offene Freizeitaktivität am Abend"
+        },
+        {
+          "label": "Abendliche Informationssprechstunde",
+          "score": 0.11,
+          "relevance": "borderline",
+          "review_reason": "Besuch möglich, Freizeitwert unklar"
+        },
+        {
+          "label": "Geschlossene Fachbesprechung",
+          "score": 0.07,
+          "relevance": "irrelevant",
+          "review_reason": "Kein offenes Freizeitangebot"
+        }
+      ],
+      "expected_threshold": 0.1,
+      "expected_kept": [
+        "Offener Spieleabend im Kulturcafé",
+        "Abendliche Informationssprechstunde"
+      ]
+    },
+    {
+      "id": "de-07",
+      "query": "Gibt es Workshops?",
+      "candidates": [
+        {
+          "label": "Praktischer Siebdruck-Workshop",
+          "score": 0.4,
+          "relevance": "clearly_relevant",
+          "review_reason": "Angeleitetes praktisches Arbeiten"
+        },
+        {
+          "label": "Vortrag über Drucktechniken",
+          "score": 0.15,
+          "relevance": "borderline",
+          "review_reason": "Gleiches Thema ohne Praxis"
+        },
+        {
+          "label": "Filmvorführung",
+          "score": 0.08,
+          "relevance": "irrelevant",
+          "review_reason": "Kein Workshop"
+        }
+      ],
+      "expected_threshold": 0.16,
+      "expected_kept": [
+        "Praktischer Siebdruck-Workshop"
+      ]
+    },
+    {
+      "id": "de-08",
+      "query": "Wo gibt es Technikveranstaltungen?",
+      "candidates": [
+        {
+          "label": "Robotik zum Ausprobieren",
+          "score": 0.35,
+          "relevance": "clearly_relevant",
+          "review_reason": "Technik ist Programminhalt"
+        },
+        {
+          "label": "Ausstellung industrieller Fotografien",
+          "score": 0.15,
+          "relevance": "borderline",
+          "review_reason": "Technik nur als Bildmotiv"
+        },
+        {
+          "label": "Aquarellkurs",
+          "score": 0.06,
+          "relevance": "irrelevant",
+          "review_reason": "Kein Technikinhalt"
+        }
+      ],
+      "expected_threshold": 0.14,
+      "expected_kept": [
+        "Robotik zum Ausprobieren",
+        "Ausstellung industrieller Fotografien"
+      ]
+    },
+    {
+      "id": "de-09",
+      "query": "Gibt es Angebote für Kinder?",
+      "candidates": [
+        {
+          "label": "Puppentheater ab vier Jahren",
+          "score": 0.31,
+          "relevance": "clearly_relevant",
+          "review_reason": "Explizites Kinderangebot"
+        },
+        {
+          "label": "Offener Lesetreff ohne Altersangabe",
+          "score": 0.12,
+          "relevance": "borderline",
+          "review_reason": "Altersgruppe ungeklärt"
+        },
+        {
+          "label": "Fachkongress für Unternehmen",
+          "score": 0.05,
+          "relevance": "irrelevant",
+          "review_reason": "Berufliches Erwachsenenpublikum"
+        }
+      ],
+      "expected_threshold": 0.124,
+      "expected_kept": [
+        "Puppentheater ab vier Jahren"
+      ]
+    },
+    {
+      "id": "de-10",
+      "query": "Welche Veranstaltungen sind barrierefrei?",
+      "candidates": [
+        {
+          "label": "Lesung mit stufenlosem Zugang und Gebärdensprache",
+          "score": 0.34,
+          "relevance": "clearly_relevant",
+          "review_reason": "Konkrete Zugänglichkeitsmerkmale im gültigen Kontext"
+        },
+        {
+          "label": "Konzert mit Sitzplätzen ohne Zugangsinformation",
+          "score": 0.14,
+          "relevance": "borderline",
+          "review_reason": "Sitzplätze allein belegen keine Zugänglichkeit"
+        },
+        {
+          "label": "Vortrag ohne Angaben zur Zugänglichkeit",
+          "score": 0.07,
+          "relevance": "irrelevant",
+          "review_reason": "Kein entsprechender Beleg"
+        }
+      ],
+      "expected_threshold": 0.136,
+      "expected_kept": [
+        "Lesung mit stufenlosem Zugang und Gebärdensprache",
+        "Konzert mit Sitzplätzen ohne Zugangsinformation"
+      ]
+    },
+    {
+      "id": "de-11",
+      "query": "Wo kann ich heute tanzen?",
+      "candidates": [
+        {
+          "label": "Offener Salsa-Tanzabend",
+          "score": 0.33,
+          "relevance": "clearly_relevant",
+          "review_reason": "Publikum kann selbst tanzen"
+        },
+        {
+          "label": "Tanzfilm im Kino",
+          "score": 0.12,
+          "relevance": "borderline",
+          "review_reason": "Tanz wird nur gezeigt"
+        },
+        {
+          "label": "Gespräch über Stadtgeschichte",
+          "score": 0.05,
+          "relevance": "irrelevant",
+          "review_reason": "Kein Tanzangebot"
+        }
+      ],
+      "expected_threshold": 0.132,
+      "expected_kept": [
+        "Offener Salsa-Tanzabend"
+      ]
+    },
+    {
+      "id": "de-12",
+      "query": "Gibt es Theater?",
+      "candidates": [
+        {
+          "label": "Schauspiel auf der Studiobühne",
+          "score": 0.29,
+          "relevance": "clearly_relevant",
+          "review_reason": "Szenische Aufführung"
+        },
+        {
+          "label": "Lesung dramatischer Texte",
+          "score": 0.13,
+          "relevance": "borderline",
+          "review_reason": "Theaternah, aber keine Inszenierung"
+        },
+        {
+          "label": "Schachturnier",
+          "score": 0.06,
+          "relevance": "irrelevant",
+          "review_reason": "Kein Theaterbezug"
+        }
+      ],
+      "expected_threshold": 0.116,
+      "expected_kept": [
+        "Schauspiel auf der Studiobühne",
+        "Lesung dramatischer Texte"
+      ]
+    },
+    {
+      "id": "de-13",
+      "query": "Gibt es Kunstausstellungen?",
+      "candidates": [
+        {
+          "label": "Ausstellung zeitgenössischer Malerei",
+          "score": 0.27,
+          "relevance": "clearly_relevant",
+          "review_reason": "Kunstwerke werden ausgestellt"
+        },
+        {
+          "label": "Kunsthandwerksmarkt",
+          "score": 0.11,
+          "relevance": "borderline",
+          "review_reason": "Kunstnah, aber Verkaufsmarkt"
+        },
+        {
+          "label": "Fachvortrag über Verkehr",
+          "score": 0.04,
+          "relevance": "irrelevant",
+          "review_reason": "Kein Ausstellungsbezug"
+        }
+      ],
+      "expected_threshold": 0.108,
+      "expected_kept": [
+        "Ausstellung zeitgenössischer Malerei",
+        "Kunsthandwerksmarkt"
+      ]
+    },
+    {
+      "id": "de-14",
+      "query": "Was läuft heute in Flensburg?",
+      "candidates": [
+        {
+          "label": "Offenes Stadtteilfest in Flensburg",
+          "score": 0.2,
+          "relevance": "clearly_relevant",
+          "review_reason": "Öffentliche Freizeitveranstaltung"
+        },
+        {
+          "label": "Öffentlicher Infotermin in Flensburg",
+          "score": 0.12,
+          "relevance": "borderline",
+          "review_reason": "Öffentlich, aber enger Informationszweck"
+        },
+        {
+          "label": "Online-Fachtermin ohne Freizeitprogramm",
+          "score": 0.09,
+          "relevance": "irrelevant",
+          "review_reason": "Kein passendes Freizeitprogramm"
+        }
+      ],
+      "expected_threshold": 0.1,
+      "expected_kept": [
+        "Offenes Stadtteilfest in Flensburg",
+        "Öffentlicher Infotermin in Flensburg"
+      ]
+    },
+    {
+      "id": "de-15",
+      "query": "Gibt es Veranstaltungen zum Mitmachen?",
+      "candidates": [
+        {
+          "label": "Gemeinsamer Trommel-Workshop",
+          "score": 0.3,
+          "relevance": "clearly_relevant",
+          "review_reason": "Aktive Beteiligung zentral"
+        },
+        {
+          "label": "Vortrag mit abschließenden Fragen",
+          "score": 0.14,
+          "relevance": "borderline",
+          "review_reason": "Begrenzte Beteiligung am Schluss"
+        },
+        {
+          "label": "Stille Filmvorführung",
+          "score": 0.07,
+          "relevance": "irrelevant",
+          "review_reason": "Nur Zuschauen"
+        }
+      ],
+      "expected_threshold": 0.12,
+      "expected_kept": [
+        "Gemeinsamer Trommel-Workshop",
+        "Vortrag mit abschließenden Fragen"
+      ]
+    },
+    {
+      "id": "de-16",
+      "query": "Wo gibt es Comedy?",
+      "candidates": [
+        {
+          "label": "Stand-up mit drei Comedians",
+          "score": 0.38,
+          "relevance": "clearly_relevant",
+          "review_reason": "Comedy ausdrücklich angekündigt"
+        },
+        {
+          "label": "Satirische Autorenlesung",
+          "score": 0.16,
+          "relevance": "borderline",
+          "review_reason": "Humoristisch, aber anderes Format"
+        },
+        {
+          "label": "Ernster Fachvortrag",
+          "score": 0.05,
+          "relevance": "irrelevant",
+          "review_reason": "Kein Humorprogramm"
+        }
+      ],
+      "expected_threshold": 0.152,
+      "expected_kept": [
+        "Stand-up mit drei Comedians",
+        "Satirische Autorenlesung"
+      ]
+    },
+    {
+      "id": "de-17",
+      "query": "Gibt es gesellschaftspolitische Veranstaltungen?",
+      "candidates": [
+        {
+          "label": "Diskussion zu demokratischer Teilhabe",
+          "score": 0.31,
+          "relevance": "clearly_relevant",
+          "review_reason": "Politische Beteiligung zentral"
+        },
+        {
+          "label": "Lesung eines historischen Romans",
+          "score": 0.13,
+          "relevance": "borderline",
+          "review_reason": "Gesellschaftsbezug nur indirekt"
+        },
+        {
+          "label": "Dekorationsworkshop",
+          "score": 0.06,
+          "relevance": "irrelevant",
+          "review_reason": "Kein politischer Inhalt"
+        }
+      ],
+      "expected_threshold": 0.124,
+      "expected_kept": [
+        "Diskussion zu demokratischer Teilhabe",
+        "Lesung eines historischen Romans"
+      ]
+    },
+    {
+      "id": "de-18",
+      "query": "Gibt es Sportveranstaltungen?",
+      "candidates": [
+        {
+          "label": "Offenes Volleyballturnier",
+          "score": 0.36,
+          "relevance": "clearly_relevant",
+          "review_reason": "Sportliche Aktivität zentral"
+        },
+        {
+          "label": "Vortrag über Sporternährung",
+          "score": 0.14,
+          "relevance": "borderline",
+          "review_reason": "Sportbezug ohne Sportaktivität"
+        },
+        {
+          "label": "Keramikmarkt",
+          "score": 0.05,
+          "relevance": "irrelevant",
+          "review_reason": "Kein Sportbezug"
+        }
+      ],
+      "expected_threshold": 0.144,
+      "expected_kept": [
+        "Offenes Volleyballturnier"
+      ]
+    },
+    {
+      "id": "de-19",
+      "query": "Gibt es etwas im Kühlhaus?",
+      "candidates": [
+        {
+          "label": "Konzert im Kühlhaus",
+          "score": 0.26,
+          "relevance": "clearly_relevant",
+          "review_reason": "Gesuchter Veranstaltungsort im gültigen Kontext"
+        },
+        {
+          "label": "Lesung zur Geschichte alter Kühlhäuser",
+          "score": 0.1,
+          "relevance": "borderline",
+          "review_reason": "Wortbezug ohne passenden Ort"
+        },
+        {
+          "label": "Online-Seminar zu Buchhaltung",
+          "score": 0.04,
+          "relevance": "irrelevant",
+          "review_reason": "Kein entsprechender Bezug"
+        }
+      ],
+      "expected_threshold": 0.104,
+      "expected_kept": [
+        "Konzert im Kühlhaus"
+      ]
+    },
+    {
+      "id": "de-20",
+      "query": "Was findet im Deutschen Haus statt?",
+      "candidates": [
+        {
+          "label": "Konzert im Deutschen Haus",
+          "score": 0.25,
+          "relevance": "clearly_relevant",
+          "review_reason": "Gesuchter Veranstaltungsort im gültigen Kontext"
+        },
+        {
+          "label": "Vortrag über deutsche Wohnhäuser",
+          "score": 0.11,
+          "relevance": "borderline",
+          "review_reason": "Thematische Wortähnlichkeit ohne Ortsbeleg"
+        },
+        {
+          "label": "Online-Sprachkurs",
+          "score": 0.05,
+          "relevance": "irrelevant",
+          "review_reason": "Kein entsprechender Bezug"
+        }
+      ],
+      "expected_threshold": 0.1,
+      "expected_kept": [
+        "Konzert im Deutschen Haus",
+        "Vortrag über deutsche Wohnhäuser"
+      ]
+    },
+    {
+      "id": "de-21",
+      "query": "Gibt es Lesungen mit Autorengespräch?",
+      "candidates": [
+        {
+          "label": "Romanlesung mit anschließendem Gespräch",
+          "score": 0.42,
+          "relevance": "clearly_relevant",
+          "review_reason": "Beide Programmteile ausdrücklich belegt"
+        },
+        {
+          "label": "Buchausstellung ohne Lesung",
+          "score": 0.16,
+          "relevance": "borderline",
+          "review_reason": "Literaturbezug ohne gewünschtes Format"
+        },
+        {
+          "label": "Offener Nähabend",
+          "score": 0.06,
+          "relevance": "irrelevant",
+          "review_reason": "Kein Literaturangebot"
+        }
+      ],
+      "expected_threshold": 0.168,
+      "expected_kept": [
+        "Romanlesung mit anschließendem Gespräch"
+      ]
+    },
+    {
+      "id": "de-22",
+      "query": "Wo kann ich kreativ werden?",
+      "candidates": [
+        {
+          "label": "Offene Malwerkstatt",
+          "score": 0.28,
+          "relevance": "clearly_relevant",
+          "review_reason": "Eigene kreative Tätigkeit"
+        },
+        {
+          "label": "Führung durch eine Galerie",
+          "score": 0.12,
+          "relevance": "borderline",
+          "review_reason": "Kunstbetrachtung ohne eigenes Gestalten"
+        },
+        {
+          "label": "Informationsabend zur Müllabfuhr",
+          "score": 0.07,
+          "relevance": "irrelevant",
+          "review_reason": "Kein kreatives Angebot"
+        }
+      ],
+      "expected_threshold": 0.112,
+      "expected_kept": [
+        "Offene Malwerkstatt",
+        "Führung durch eine Galerie"
+      ]
+    },
+    {
+      "id": "de-23",
+      "query": "Gibt es ruhige Angebote zum Entspannen?",
+      "candidates": [
+        {
+          "label": "Angeleitete Entspannung mit Atemübungen",
+          "score": 0.23,
+          "relevance": "clearly_relevant",
+          "review_reason": "Entspannung ist erklärtes Ziel"
+        },
+        {
+          "label": "Akustisches Konzert",
+          "score": 0.1,
+          "relevance": "borderline",
+          "review_reason": "Ruhige Atmosphäre nicht zugesichert"
+        },
+        {
+          "label": "Laute Motorsportshow",
+          "score": 0.05,
+          "relevance": "irrelevant",
+          "review_reason": "Programm steht Entspannung entgegen"
+        }
+      ],
+      "expected_threshold": 0.1,
+      "expected_kept": [
+        "Angeleitete Entspannung mit Atemübungen",
+        "Akustisches Konzert"
+      ]
+    },
+    {
+      "id": "de-24",
+      "query": "Wo kann ich etwas über Natur lernen?",
+      "candidates": [
+        {
+          "label": "Geführte Exkursion zur Vogelwelt",
+          "score": 0.9,
+          "relevance": "clearly_relevant",
+          "review_reason": "Naturwissen wird vermittelt"
+        },
+        {
+          "label": "Landschaftsfotografie-Ausstellung",
+          "score": 0.35,
+          "relevance": "borderline",
+          "review_reason": "Naturmotive ohne Lernprogramm"
+        },
+        {
+          "label": "Software-Vertriebsschulung",
+          "score": 0.08,
+          "relevance": "irrelevant",
+          "review_reason": "Kein Naturbezug"
+        }
+      ],
+      "expected_threshold": 0.36,
+      "expected_kept": [
+        "Geführte Exkursion zur Vogelwelt"
+      ]
+    }
+  ]
+}

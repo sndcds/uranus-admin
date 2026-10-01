@@ -340,6 +340,11 @@ async def test_ranked_candidates_contract_and_logs(client, headers, retrieval, m
         )
     )
     assert logged["candidate_count"] == 2 and logged["returned_count"] == 1
+    assert logged["pre_threshold_count"] == logged["post_threshold_count"] == 1
+    # The hit absent from PostgreSQL rehydration must not set the reference score.
+    assert logged["best_score"] == 0.8
+    assert logged["effective_min_score"] == 0.32
+    assert "score" not in logged  # Only aggregate score metrics are allowed.
     for key in ("embedding_ms", "qdrant_ms", "postgres_rehydrate_ms", "total_ms"):
         assert logged[key] >= 0
     assert "private query" not in json.dumps(logged)
@@ -347,7 +352,6 @@ async def test_ranked_candidates_contract_and_logs(client, headers, retrieval, m
         "private query",
         "reason",
         "chunk_text",
-        "score",
         "Public evidence",
         "test-secret",
     ):
@@ -1099,3 +1103,108 @@ async def test_context_filter_can_fill_page_from_candidate_after_twentieth(
     assert response.status_code == 200
     assert [i["entity_key"] for i in response.json()["items"]] == [str(uid(9024))]
     assert response.json()["items"][0]["semantic"]["score"] == 0.4
+
+
+async def test_relevance_uses_context_valid_score_not_wrong_occurrence(
+    client, headers, retrieval, caplog
+):
+    retrieval["hits"] = [
+        hit(
+            30,
+            0.40,
+            "tickets",
+            "Wrong occurrence evidence",
+            [
+                {
+                    "scope": "occurrence",
+                    "venue_id": str(uid(20)),
+                    "space_id": str(uid(25)),
+                    "occurrence_id": str(uid(41)),
+                }
+            ],
+        ),
+        hit(30, 0.08),
+        hit(32, 0.12),
+    ]
+    retrieval["rehydrate"].return_value.items.append(
+        ResearchRecord(entity_type="event", entity_key=uid(32), name="Relevant")
+    )
+    with caplog.at_level("INFO", logger="admin.research"):
+        response = await client.get(PATH, headers=headers, params={"q": "culture"})
+    assert response.status_code == 200
+    assert [i["entity_key"] for i in response.json()["items"]] == [str(uid(32))]
+    assert response.json()["items"][0]["semantic"]["score"] == 0.12
+    metrics = next(r for r in caplog.records if r.message == "research_semantic_search")
+    assert metrics.pre_threshold_count == 2
+    assert metrics.post_threshold_count == 1
+    assert metrics.best_score == 0.12  # Wrong raw 0.40 would wrongly remove event 32.
+    assert metrics.effective_min_score == 0.10
+
+
+@pytest.mark.parametrize("page_size", [1, 2, 20])
+async def test_relevance_before_ordering_and_page_size(
+    client, headers, retrieval, caplog, page_size
+):
+    # Deliberately return weak records first; every final score must be considered.
+    scores = [(34, 0.05), (32, 0.14), (30, 0.30)]
+    retrieval["hits"] = [hit(key, score) for key, score in scores]
+    retrieval["rehydrate"].return_value.items = [
+        ResearchRecord(entity_type="event", entity_key=uid(key), name="Synthetic event")
+        for key, _ in scores
+    ]
+    with caplog.at_level("INFO", logger="admin.research"):
+        response = await client.get(
+            PATH, headers=headers, params={"q": "culture", "page_size": page_size}
+        )
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [i["semantic"]["score"] for i in items] == [0.30, 0.14][:page_size]
+    assert response.json()["pagination"]["total"] == len(items)
+    metrics = next(r for r in caplog.records if r.message == "research_semantic_search")
+    assert metrics.pre_threshold_count == 3
+    assert metrics.post_threshold_count == 2  # Before page_size, even when page_size=1.
+    assert metrics.returned_count == len(items)
+    assert metrics.best_score == 0.30
+    assert metrics.effective_min_score == 0.12
+
+
+@pytest.mark.parametrize("score", [0.07, None])
+async def test_relevance_all_weak_or_no_context_valid_hits_return_empty(
+    client, headers, retrieval, caplog, score
+):
+    retrieval["hits"] = (
+        [hit(30, score)]
+        if score is not None
+        else [hit(30, 0.9, "accessibility", "Wrong venue", venue_context(21))]
+    )
+    with caplog.at_level("INFO", logger="admin.research"):
+        response = await client.get(PATH, headers=headers, params={"q": "culture"})
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+    assert response.json()["pagination"]["total"] == 0
+    metrics = next(r for r in caplog.records if r.message == "research_semantic_search")
+    assert metrics.pre_threshold_count == (1 if score is not None else 0)
+    assert metrics.post_threshold_count == metrics.returned_count == 0
+    assert metrics.best_score == score
+    assert metrics.effective_min_score == (0.1 if score is not None else None)
+
+
+async def test_relevance_comparison_and_response_do_not_round_scores(client, headers, retrieval):
+    retrieval["hits"] = [hit(30, 0.099999999), hit(32, 0.100000001)]
+    retrieval["rehydrate"].return_value.items.append(
+        ResearchRecord(entity_type="event", entity_key=uid(32), name="At boundary")
+    )
+    response = await client.get(PATH, headers=headers, params={"q": "culture"})
+    assert response.status_code == 200
+    assert [i["semantic"]["score"] for i in response.json()["items"]] == [0.100000001]
+
+
+@pytest.mark.parametrize("score", [float("nan"), float("inf"), float("-inf")])
+async def test_nonfinite_semantic_scores_fail_closed(
+    client, headers, retrieval, monkeypatch, score
+):
+    monkeypatch.setattr(Qdrant, "search", AsyncMock(return_value=[hit(30, score)]))
+    response = await client.get(PATH, headers=headers, params={"q": "culture"})
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "research_semantic_unavailable"
+    retrieval["rehydrate"].assert_not_awaited()

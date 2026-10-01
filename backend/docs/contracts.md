@@ -1337,7 +1337,8 @@ by a newline for one bounded embedding request (maximum 1,001 characters).
 PostgreSQL/PostGIS hard eligibility (event/occurrence release, date, evening,
 effective venue/space, area, organization, categories, genres) → complete event
 UUID set → Qdrant exact `entity_id` membership filter → top 50 → authoritative
-PostgreSQL rehydration → unchanged contextual evidence validation → score DESC,
+PostgreSQL rehydration → contextual evidence validation → [relevance gate](semantic-relevance.md)
+using final winning scores (`max(0.10, best * 0.40)`) → score DESC,
 UUID tie-breaker → at most 20 records. The UUID-only eligibility query and final
 rehydration share `eligible_event_ctes()` and `DATE_FILTER`, rather than separate
 eligibility predicates. No full source records are materialized for the ID stage.

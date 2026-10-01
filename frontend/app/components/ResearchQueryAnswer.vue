@@ -220,7 +220,14 @@ const fieldLabels = {
       <EmptyState v-if="!result.items.length" message="Keine Gruppen für diese Auswertung." />
     </div>
     <div v-if="result.kind === 'records' || result.kind === 'spatial'" class="space-y-2">
-      <EmptyState v-if="!result.items.length" message="Keine passenden Datensätze gefunden." />
+      <EmptyState
+        v-if="!result.items.length"
+        :message="
+          response.execution.semantic
+            ? 'Keine ausreichend passenden Veranstaltungen gefunden.'
+            : 'Keine passenden Datensätze gefunden.'
+        "
+      />
       <ResearchResult
         v-for="item in result.items"
         :key="researchKey(item)"

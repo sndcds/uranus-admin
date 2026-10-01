@@ -37,7 +37,9 @@ with journalist **or** system administrator permission. Anonymous requests recei
    venue/space/occurrence context. Retain all validated retrieved chunks until this
    check, including chunks of the same kind. If the original winner mismatches, use
    the highest-scoring matching chunk; with none, remove the event. Apply the same
-   context check to supporting evidence. Sort by final evidence score descending,
+   context check to supporting evidence. Apply the [relevance gate](../../backend/docs/semantic-relevance.md)
+   to all final scores: retain scores at least `max(0.10, best * 0.40)`. Zero survivors
+   are allowed. Sort surviving records by final evidence score descending,
    then event UUID; apply `page_size` only afterward. Return a separate `SemanticResearchPage` of `SemanticResearchRecord`
    objects, each with required `semantic`. Keep the original `ResearchPage` and
    `ResearchRecord` unchanged for classic search, details and CSV export. At most
@@ -136,7 +138,10 @@ Candidate retrieval is bounded and may miss otherwise eligible events beyond its
 50 chunks, especially with many chunks per event or restrictive filters. Index text
 can lag source edits, affecting rank; rehydration guarantees current record fields
 and eligibility at the source snapshot, not current semantic relevance or a complete
-index publication. There is no relevance threshold or quality/SLA promise.
+index publication. The initial absolute/relative relevance gate removes weak tails;
+it does not promise perfect relevance or a quality SLA. Constants are provisional
+and reviewable via a synthetic offline corpus, not universally calibrated.
+No reindex is required: embedding version, chunks and collection are unchanged.
 
 ## Configuration, license and operations
 
@@ -191,15 +196,18 @@ is involved. There are no Uranus writes or browser secrets. Fixed SQL uses the e
 reader boundary; vector queries never upsert/delete points. Search text necessarily
 travels to the configured encoder and appears in the user's explicit search
 URL/permalink, as classic Research queries do. Application/proxy logging must continue
-to omit raw URLs/query strings. No query text, reasons, chunk text, scores, vectors, event descriptions, provider
+to omit raw URLs/query strings. No query text, reasons, chunk text, individual score lists, vectors, event descriptions, provider
 response text or credentials enter normal structured logs. No persistent query cache
 or browser storage is added.
 
 ## Measurements and validation
 
 Structured `research_semantic_search` events contain `embedding_ms`, `qdrant_ms`,
-`retrieval_ms`, `postgres_rehydrate_ms`, `total_ms`, `candidate_count`, `returned_count` and a fixed
-failure category. Durations include application transport/connection setup; the
+`retrieval_ms`, `postgres_rehydrate_ms`, `total_ms`, `candidate_count`, `returned_count`,
+`pre_threshold_count`, `post_threshold_count`, `best_score`, `effective_min_score` and a fixed
+failure category. Aggregate score metrics use only context-valid scores and are rounded
+for logs only; response scores and comparisons remain unrounded. Threshold counts precede
+page truncation. Durations include application transport/connection setup; the
 PostgreSQL stage includes reader acquisition, area resolution if requested, projection
 and images. Failure events retain elapsed time for the failing stage. Unstarted
 stages remain zero. No sensitive diagnostics are included in API responses.
