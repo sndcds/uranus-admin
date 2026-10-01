@@ -26434,8 +26434,7 @@
               "event",
               "venue",
               "organization",
-              "category",
-              "area"
+              "category"
             ],
             "title": "Entity Type"
           },
@@ -26443,16 +26442,9 @@
             "type": "string",
             "enum": [
               "description_characters",
-              "description_words",
-              "public_text_characters",
               "occurrence_count",
-              "duration_minutes",
               "event_count",
-              "organization_count",
-              "category_count",
-              "venue_count",
-              "area_count",
-              "events_per_capita"
+              "venue_count"
             ],
             "title": "Metric"
           },

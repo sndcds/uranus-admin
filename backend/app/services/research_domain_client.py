@@ -55,6 +55,8 @@ class ResearchDomainClient:
                         raise APIError(
                             422, "research_plan_unsupported", "This question is unsupported."
                         )
+                    if response.status_code == 502 and not knowledge:
+                        raise APIError(502, "research_domain_invalid", "Invalid research plan.")
                     if response.status_code != 200:
                         raise APIError(
                             503, "research_domain_unavailable", "Research service unavailable."
@@ -86,6 +88,8 @@ class ResearchDomainClient:
         try:
             result = PlanEnvelopeV4.model_validate_json(data)
             if result.original_query != query:
+                raise ValueError
+            if isinstance(result.plan, KnowledgePlan) and result.plan.knowledge_query != query:
                 raise ValueError
             return result
         except (ValidationError, ValueError):

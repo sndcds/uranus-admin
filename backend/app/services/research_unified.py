@@ -30,6 +30,8 @@ async def execute(request: Request, settings: Settings, query: str) -> UnifiedAn
         envelope = PlanEnvelopeV4.model_validate_json(envelope.model_dump_json())
         if envelope.original_query != query:
             raise ValueError
+        if envelope.plan.domain == "project_knowledge" and envelope.plan.knowledge_query != query:
+            raise ValueError
     except ValueError:
         raise APIError(502, "research_domain_invalid", "Invalid research plan.") from None
     plan = envelope.plan
