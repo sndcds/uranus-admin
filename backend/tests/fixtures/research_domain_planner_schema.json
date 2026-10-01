@@ -1,0 +1,162 @@
+{
+  "repository": "sndcds/uranus-research-planner",
+  "commit": "48831449947520ce3a42c465d0e0357c4316c823",
+  "source": "src/research_planner/domain_schema.py::PlanEnvelopeV4.model_json_schema()",
+  "schema": {
+    "$defs": {
+      "DataPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "const": "data",
+            "default": "data",
+            "title": "Domain",
+            "type": "string"
+          },
+          "operation": {
+            "const": "rank",
+            "default": "rank",
+            "title": "Operation",
+            "type": "string"
+          },
+          "entity_type": {
+            "enum": ["event", "venue", "organization", "category"],
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "metric": {
+            "enum": [
+              "description_characters",
+              "occurrence_count",
+              "event_count",
+              "venue_count"
+            ],
+            "title": "Metric",
+            "type": "string"
+          },
+          "ordering": {
+            "default": "desc",
+            "enum": ["asc", "desc"],
+            "title": "Ordering",
+            "type": "string"
+          },
+          "limit": {
+            "default": 1,
+            "maximum": 20,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "area_query": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Area Query"
+          }
+        },
+        "required": ["entity_type", "metric"],
+        "title": "DataPlan",
+        "type": "object"
+      },
+      "KnowledgePlan": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "const": "project_knowledge",
+            "default": "project_knowledge",
+            "title": "Domain",
+            "type": "string"
+          },
+          "operation": {
+            "const": "evidence_answer",
+            "default": "evidence_answer",
+            "title": "Operation",
+            "type": "string"
+          },
+          "knowledge_query": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Knowledge Query",
+            "type": "string"
+          },
+          "fact": {
+            "enum": [
+              "uranus_overview",
+              "admin_overview",
+              "semantic_search_repository",
+              "embedding_component",
+              "embedding_model",
+              "qdrant_usage",
+              "encoder_communication",
+              "planner_component",
+              "geocoding",
+              "architecture",
+              "founding_date"
+            ],
+            "title": "Fact",
+            "type": "string"
+          },
+          "answer_mode": {
+            "const": "evidence",
+            "default": "evidence",
+            "title": "Answer Mode",
+            "type": "string"
+          }
+        },
+        "required": ["knowledge_query", "fact"],
+        "title": "KnowledgePlan",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": "research-query-plan-v4",
+        "default": "research-query-plan-v4",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "interpreter_version": {
+        "const": "research-domain-planner-v2",
+        "default": "research-domain-planner-v2",
+        "title": "Interpreter Version",
+        "type": "string"
+      },
+      "original_query": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "title": "Original Query",
+        "type": "string"
+      },
+      "plan": {
+        "discriminator": {
+          "mapping": {
+            "data": "#/$defs/DataPlan",
+            "project_knowledge": "#/$defs/KnowledgePlan"
+          },
+          "propertyName": "domain"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/DataPlan"
+          },
+          {
+            "$ref": "#/$defs/KnowledgePlan"
+          }
+        ],
+        "title": "Plan"
+      }
+    },
+    "required": ["original_query", "plan"],
+    "title": "PlanEnvelopeV4",
+    "type": "object"
+  }
+}

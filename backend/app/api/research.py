@@ -32,8 +32,10 @@ from app.schemas.research import (
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
 from app.schemas.research_execution import ResearchExecutionResponse
 from app.schemas.research_planner import PlanResponse, ResearchPlanRequest
+from app.schemas.research_unified import UnifiedAnswer
 from app.services.research_plan_execution import ResearchPlanExecutor
 from app.services.research_planner import ResearchPlannerClient, unavailable
+from app.services.research_unified import execute as execute_unified
 from app.services.semantic_search import semantic_search
 
 router = APIRouter(
@@ -222,3 +224,14 @@ async def area_detail(
 @router.get("/areas/{identifier}/metadata", response_model=ResearchArea)
 async def selected_area(identifier: UUID, admin: AdminConnectionDep) -> ResearchArea:
     return await area_metadata(admin, identifier)
+
+
+@router.post(
+    "/v4/query",
+    response_model=UnifiedAnswer,
+    responses={code: {"model": ErrorResponse} for code in (413, 502)},
+)
+async def unified_query(
+    request: Request, body: ResearchPlanRequest, settings: SettingsDep
+) -> UnifiedAnswer:
+    return await execute_unified(request, settings, body.query)

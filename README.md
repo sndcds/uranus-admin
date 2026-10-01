@@ -213,3 +213,9 @@ keine Migrationen/Grants/Worker-Änderungen. Backend und Frontend gemeinsam ausr
 
 Kanonische Felder, Privacy, Queryplan und spätere Uranus-eigene pg_trgm-Indizes:
 [Suchvertrag](backend/docs/contracts.md#global-search-and-command-palette).
+
+## Unified Research proposal
+
+The opt-in API-only v4 Research route combines exact PostgreSQL metrics with project
+source evidence while preserving the existing interface. See
+[domain routing, metrics and migration](docs/unified-research-v4.md).
