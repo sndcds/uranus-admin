@@ -6,6 +6,12 @@ export interface ApiFailure {
 
 export function failure(status: number, code = 'request_failed'): ApiFailure {
   const retryMessages: Record<string, string> = {
+    research_planner_unavailable: 'Die Recherche konnte vorübergehend nicht ausgeführt werden.',
+    research_execution_unavailable: 'Die Recherche konnte vorübergehend nicht ausgeführt werden.',
+    research_plan_unsupported:
+      'Diese Frage kann die Recherche derzeit noch nicht zuverlässig beantworten.',
+    research_execution_unsupported:
+      'Diese Auswertung wird derzeit nicht unterstützt. Bitte passe die Frage an; exakte semantische Zählungen und Vergleiche sind nicht möglich.',
     research_export_limit:
       'Bitte grenze die Suche auf höchstens 10.000 Treffer ein. Der Export wurde nicht gekürzt.',
     research_area_not_found: 'Dieses Gebiet ist nicht verfügbar.',

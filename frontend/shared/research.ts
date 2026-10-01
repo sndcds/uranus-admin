@@ -183,7 +183,7 @@ export const researchQuerySchema = researchFilterSchema
     (q) => q.search_mode !== 'semantic' || (q.q?.trim().length ?? 0) >= 2,
     'Bitte gib mindestens zwei Zeichen ein.',
   )
-const genreKeySchema = z
+export const genreKeySchema = z
   .string()
   .max(23)
   .regex(/^-?(0|[1-9][0-9]*):-?(0|[1-9][0-9]*)$/)

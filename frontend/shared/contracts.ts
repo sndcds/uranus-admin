@@ -372,6 +372,10 @@ export type InboxPage = z.infer<typeof inboxPageSchema>
 
 // Own API codes only. Messages are validated but replaced with local safe text.
 export const adminErrorStatuses = {
+  research_planner_unavailable: 503,
+  research_execution_unavailable: 503,
+  research_plan_unsupported: 422,
+  research_execution_unsupported: 422,
   geocode_request_not_found: 404,
   geocode_retry_not_allowed: 409,
   geocode_no_longer_needed: 409,
@@ -1655,3 +1659,5 @@ export type SqlDiagnosticResult = z.infer<typeof sqlDiagnosticResultSchema>
 export { provenanceDefinitionSchema, provenanceResultSchema } from './sql-provenance'
 
 export * from './research'
+
+export * from './research-execution'

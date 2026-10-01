@@ -1,4 +1,5 @@
 import {
+  researchPlanRequestSchema,
   classicResearchQuerySchema,
   semanticResearchQuerySchema,
   researchAreaQuerySchema,
@@ -25,6 +26,7 @@ import { isIP } from 'node:net'
 import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
+  '/api/v1/research/query': [],
   '/api/v1/admins': [],
   '/api/v1/assignments': ['finding_id', 'workflow_type', 'workflow_key'],
   '/api/v1/inbox': ['scope', 'attention', 'kind', 'entity_type', 'page', 'page_size'],
@@ -309,6 +311,7 @@ export async function forwardAdminRequest(
                           ? routes[input.path]
                           : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
+  const researchExecution = input.path === '/api/v1/research/query'
   const diagnosticExecute = input.path === '/api/v1/findings/sql-diagnostic/execute'
   const authWrite = input.method === 'POST' && ['/auth/login', '/auth/logout'].includes(input.path)
   if (
@@ -319,6 +322,7 @@ export async function forwardAdminRequest(
     return rejected(405, 'method_not_allowed')
   const write =
     authWrite ||
+    (input.method === 'POST' && researchExecution) ||
     (input.method === 'POST' && provenanceExecute) ||
     (input.method === 'POST' && diagnosticExecute) ||
     (input.method === 'POST' && input.path === '/api/v1/geo/areas') ||
@@ -333,6 +337,7 @@ export async function forwardAdminRequest(
     !write &&
     (input.method !== 'GET' ||
       input.path === '/api/v1/finding-reviews' ||
+      researchExecution ||
       diagnosticExecute ||
       provenanceExecute ||
       notificationRetry ||
@@ -349,6 +354,11 @@ export async function forwardAdminRequest(
     const params = validProvenanceParams(provenanceView, input.body)
     if (!params) return rejected(422, 'invalid_input')
     requestBody = JSON.stringify(params)
+  }
+  if (researchExecution) {
+    const parsed = researchPlanRequestSchema.safeParse(input.body)
+    if (!parsed.success) return rejected(422, 'invalid_input')
+    requestBody = JSON.stringify(parsed.data)
   }
   if (diagnosticExecute) {
     const parsed = diagnosticRequestSchema.safeParse(input.body)
@@ -456,8 +466,8 @@ export async function forwardAdminRequest(
     input.path === '/api/v1/findings' &&
     input.query.get('mode') === 'live'
   // Leave two seconds for transport/error rendering within the client's 60s budget.
-  // All other routes retain the existing 10s upstream bound.
-  const timeoutSignal = AbortSignal.timeout(liveFindings ? 58_000 : 10_000)
+  // Planner + execution share the 60s client budget; other routes retain 10s.
+  const timeoutSignal = AbortSignal.timeout(liveFindings || researchExecution ? 58_000 : 10_000)
   try {
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (requestBody) headers['Content-Type'] = 'application/json'
