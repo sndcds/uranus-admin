@@ -380,3 +380,21 @@ async def test_sql_eligibility_bound_is_unique_population(execution_source, sett
     with pytest.raises(APIError) as exc:
         await repository.eligible_event_ids(execution_source, settings, filters, None)
     assert exc.value.code == "research_execution_too_broad"
+
+
+@pytest.mark.parametrize("score,expected_count", [(0.07, 0), (0.15, 1)])
+async def test_planner_semantic_records_apply_relevance_gate(
+    settings, monkeypatch, eligible_population, retrieval, score, expected_count
+):
+    monkeypatch.setattr(executor, "resolve_plan", AsyncMock(return_value=Resolution()))
+    retrieval["hits"] = [hit(30, score)]
+    response = await executor.ResearchPlanExecutor().execute(
+        Request({"type": "http"}), settings, semantic_plan()
+    )
+    assert response.result.kind == "records"
+    assert len(response.result.items) == expected_count
+    assert response.result.total is None
+    assert response.execution.semantic
+    assert len(retrieval["requests"]) == 2
+    if expected_count:
+        assert response.result.items[0].semantic.score == score

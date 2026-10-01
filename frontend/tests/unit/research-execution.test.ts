@@ -229,6 +229,25 @@ function render(kind: (typeof variants)[number], semantic = false) {
   })
 }
 describe('deterministic answers', () => {
+  it.each([false, true])(
+    'renders a clear empty record selection (semantic=%s)',
+    async (semantic) => {
+      const view = render('records', semantic)
+      const response = executionResponse('records', semantic)
+      if (response.result.kind !== 'records') throw new Error('Expected records fixture')
+      response.result.items = []
+      response.result.total = semantic ? null : 0
+      await view.setProps({ response })
+      expect(view.get('empty-state-stub').attributes('message')).toBe(
+        semantic
+          ? 'Keine ausreichend passenden Veranstaltungen gefunden.'
+          : 'Keine passenden Datensätze gefunden.',
+      )
+      expect(view.findAllComponents(ResearchResult)).toHaveLength(0)
+      expect(view.text()).not.toMatch(/Schwelle|Prozent|0\.10/)
+      view.unmount()
+    },
+  )
   it('shows exact count and only resolved context, including zero and all metrics', async () => {
     const view = render('count')
     expect(view.get('[data-testid=research-count]').text()).toBe('123 Veranstaltungen')

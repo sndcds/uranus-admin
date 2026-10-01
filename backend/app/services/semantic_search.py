@@ -22,6 +22,7 @@ from app.repositories.research_areas import (
 )
 from app.research.semantic_evidence import contextualize_event_hit, semantic_hits
 from app.research.semantic_explanations import explain
+from app.research.semantic_limits import semantic_relevance_threshold
 from app.research.vector_models import MODELS
 from app.research.vector_transport import Encoder, Qdrant
 from app.schemas.research import (
@@ -61,6 +62,10 @@ async def semantic_research(
         "retrieval_ms": 0.0,
         "postgres_rehydrate_ms": 0.0,
         "candidate_count": 0,
+        "pre_threshold_count": 0,
+        "post_threshold_count": 0,
+        "best_score": None,
+        "effective_min_score": None,
         "returned_count": 0,
         "error_type": "none",
     }
@@ -145,6 +150,16 @@ async def semantic_research(
                     items.append(
                         SemanticResearchRecord(**item.model_dump(), semantic=explain(contextual))
                     )
+            # Only authoritative, context-valid winning scores set the reference.
+            # Evaluate every rehydrated candidate before sorting and page truncation.
+            scores = [item.semantic.score for item in items]
+            threshold = semantic_relevance_threshold(scores)
+            metrics["pre_threshold_count"] = len(items)
+            if threshold is not None:
+                metrics["best_score"] = round(max(scores), 6)
+                metrics["effective_min_score"] = round(threshold, 6)
+                items = [item for item in items if item.semantic.score >= threshold]
+            metrics["post_threshold_count"] = len(items)
             items.sort(key=lambda item: (-item.semantic.score, str(item.entity_key)))
             items = items[: filters.page_size]
             metrics["returned_count"] = len(items)
