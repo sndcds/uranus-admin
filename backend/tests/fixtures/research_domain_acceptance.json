@@ -1,0 +1,133 @@
+{
+  "repository": "sndcds/uranus-research-planner",
+  "commit": "a95d9917ca2a7240d3aeccfbc0317ec933ddef23",
+  "source": "tests/fixtures/domain_queries.json",
+  "note": "Synthetic contract fixtures, not model-quality evidence. Flensburg adapts the upstream Husum case as requested.",
+  "cases": [
+    {
+      "id": "catalogue_001_de",
+      "language": "de",
+      "query": "Welches Event hat den längsten Veranstaltungstext?",
+      "plan": {
+        "domain": "data",
+        "operation": "rank",
+        "entity_type": "event",
+        "metric": "description_characters",
+        "ordering": "desc",
+        "limit": 1,
+        "area_query": null
+      },
+      "group": "catalogue"
+    },
+    {
+      "id": "paraphrase_054_de",
+      "language": "de",
+      "query": "Welches unserer Events hat eigentlich die ausführlichste Beschreibung?",
+      "plan": {
+        "domain": "data",
+        "operation": "rank",
+        "entity_type": "event",
+        "metric": "description_characters",
+        "ordering": "desc",
+        "limit": 1,
+        "area_query": null
+      },
+      "group": "paraphrase"
+    },
+    {
+      "id": "catalogue_004_de",
+      "language": "de",
+      "query": "Welche Organisation hat die meisten Veranstaltungen?",
+      "plan": {
+        "domain": "data",
+        "operation": "rank",
+        "entity_type": "organization",
+        "metric": "event_count",
+        "ordering": "desc",
+        "limit": 1,
+        "area_query": null
+      },
+      "group": "catalogue"
+    },
+    {
+      "id": "admin_flensburg_variant",
+      "language": "de",
+      "query": "Wer veranstaltet in Flensburg am meisten?",
+      "plan": {
+        "domain": "data",
+        "operation": "rank",
+        "entity_type": "organization",
+        "metric": "event_count",
+        "ordering": "desc",
+        "limit": 1,
+        "area_query": "Flensburg"
+      },
+      "group": "paraphrase"
+    },
+    {
+      "id": "catalogue_025_de",
+      "language": "de",
+      "query": "Welches Repository implementiert die semantische Suche?",
+      "plan": {
+        "domain": "project_knowledge",
+        "operation": "evidence_answer",
+        "fact": "semantic_search_repository",
+        "knowledge_query": "Welches Repository implementiert die semantische Suche?",
+        "answer_mode": "evidence"
+      },
+      "group": "catalogue"
+    },
+    {
+      "id": "paraphrase_079_de",
+      "language": "de",
+      "query": "Wo steckt die Implementierung unserer semantischen Eventsuche?",
+      "plan": {
+        "domain": "project_knowledge",
+        "operation": "evidence_answer",
+        "fact": "semantic_search_repository",
+        "knowledge_query": "Wo steckt die Implementierung unserer semantischen Eventsuche?",
+        "answer_mode": "evidence"
+      },
+      "group": "paraphrase"
+    },
+    {
+      "id": "catalogue_029_de",
+      "language": "de",
+      "query": "Welche Komponente erzeugt die Embeddings für die Eventsuche?",
+      "plan": {
+        "domain": "project_knowledge",
+        "operation": "evidence_answer",
+        "fact": "embedding_component",
+        "knowledge_query": "Welche Komponente erzeugt die Embeddings für die Eventsuche?",
+        "answer_mode": "evidence"
+      },
+      "group": "catalogue"
+    },
+    {
+      "id": "paraphrase_083_de",
+      "language": "de",
+      "query": "Wer baut eigentlich die Vektoren für unsere Events?",
+      "plan": {
+        "domain": "project_knowledge",
+        "operation": "evidence_answer",
+        "fact": "embedding_component",
+        "knowledge_query": "Wer baut eigentlich die Vektoren für unsere Events?",
+        "answer_mode": "evidence"
+      },
+      "group": "paraphrase"
+    },
+    {
+      "id": "catalogue_051_de",
+      "language": "de",
+      "query": "Wann wurde Kulturbytes gegründet?",
+      "plan": {
+        "domain": "project_knowledge",
+        "operation": "evidence_answer",
+        "fact": "founding_date",
+        "knowledge_query": "Wann wurde Kulturbytes gegründet?",
+        "answer_mode": "evidence"
+      },
+      "group": "catalogue"
+    }
+  ]
+}

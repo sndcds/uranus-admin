@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     embedding_url: str | None = None
     embedding_api_key: SecretStr | None = None
     embedding_timeout_seconds: int = Field(default=120, ge=1, le=600)
+    research_domain_enabled: bool = False
+    research_knowledge_url: str | None = None
+    research_knowledge_api_key: SecretStr | None = None
     research_planner_url: str | None = None
     research_planner_api_key: SecretStr | None = None
     research_planner_timeout_seconds: int = Field(default=30, ge=1, le=30)
@@ -107,7 +110,7 @@ class Settings(BaseSettings):
     dev_auth_enabled: bool = False
     dev_admin_token: SecretStr | None = None
 
-    @field_validator("research_planner_url")
+    @field_validator("research_planner_url", "research_knowledge_url")
     @classmethod
     def valid_research_planner_origin(cls, value: str | None) -> str | None:
         if value is not None and (
@@ -117,7 +120,7 @@ class Settings(BaseSettings):
             raise ValueError("RESEARCH_PLANNER_URL requires http://127.0.0.1:<port 1-65535>")
         return value
 
-    @field_validator("research_planner_api_key")
+    @field_validator("research_planner_api_key", "research_knowledge_api_key")
     @classmethod
     def valid_research_planner_key(cls, value: SecretStr | None) -> SecretStr | None:
         if value is not None:
@@ -130,6 +133,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def complete_research_planner(self) -> "Settings":
+        if (self.research_knowledge_url is None) != (self.research_knowledge_api_key is None):
+            raise ValueError("Knowledge URL/key must be configured together")
+        if self.research_domain_enabled and self.research_planner_url is None:
+            raise ValueError("Research v4 requires a planner")
         if (self.research_planner_url is None) != (self.research_planner_api_key is None):
             raise ValueError(
                 "RESEARCH_PLANNER_URL and RESEARCH_PLANNER_API_KEY must be set together"

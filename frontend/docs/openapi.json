@@ -24149,6 +24149,127 @@
           }
         }
       }
+    },
+    "/api/v1/research/v4/query": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Unified Query",
+        "operationId": "unified_query_api_v1_research_v4_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DataAnswer"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AnswerResponse"
+                    }
+                  ],
+                  "title": "Response Unified Query Api V1 Research V4 Query Post",
+                  "discriminator": {
+                    "propertyName": "authoritative_source",
+                    "mapping": {
+                      "postgresql": "#/components/schemas/DataAnswer",
+                      "project_sources": "#/components/schemas/AnswerResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -24853,6 +24974,65 @@
           "items"
         ],
         "title": "AggregateResult"
+      },
+      "AnswerResponse": {
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "title": "Supported"
+          },
+          "authoritative_source": {
+            "type": "string",
+            "const": "project_sources",
+            "title": "Authoritative Source",
+            "default": "project_sources"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/Fact"
+            },
+            "type": "array",
+            "maxItems": 1,
+            "title": "Facts"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Evidence"
+          },
+          "indexed_commits": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Indexed Commits"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "no_explicit_evidence",
+              "conflicting_evidence"
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "supported",
+          "facts",
+          "evidence",
+          "indexed_commits",
+          "reason"
+        ],
+        "title": "AnswerResponse"
       },
       "AreaDossier": {
         "properties": {
@@ -25958,6 +26138,122 @@
           "quality"
         ],
         "title": "DashboardSummary"
+      },
+      "DataAnswer": {
+        "properties": {
+          "authoritative_source": {
+            "type": "string",
+            "const": "postgresql",
+            "title": "Authoritative Source",
+            "default": "postgresql"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/MetricRecord"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Records"
+          },
+          "metric": {
+            "$ref": "#/components/schemas/DataPlan"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ExecutionFilters"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "projection_version": {
+            "type": "string",
+            "const": "research-public-clean-v1",
+            "title": "Projection Version",
+            "default": "research-public-clean-v1"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "records",
+          "metric",
+          "filters",
+          "observed_at"
+        ],
+        "title": "DataAnswer"
+      },
+      "DataPlan": {
+        "properties": {
+          "domain": {
+            "type": "string",
+            "const": "data",
+            "title": "Domain",
+            "default": "data"
+          },
+          "operation": {
+            "type": "string",
+            "const": "rank",
+            "title": "Operation",
+            "default": "rank"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "event",
+              "venue",
+              "organization",
+              "category"
+            ],
+            "title": "Entity Type"
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "description_characters",
+              "occurrence_count",
+              "event_count",
+              "venue_count"
+            ],
+            "title": "Metric"
+          },
+          "ordering": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "title": "Ordering",
+            "default": "desc"
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 1
+          },
+          "area_query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Query"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "entity_type",
+          "metric"
+        ],
+        "title": "DataPlan"
       },
       "DeliveryDetail": {
         "properties": {
@@ -27872,6 +28168,112 @@
         ],
         "title": "EventContentStatistics"
       },
+      "Evidence": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "repository": {
+            "type": "string",
+            "title": "Repository"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "commit_sha": {
+            "type": "string",
+            "title": "Commit Sha"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash"
+          },
+          "line_start": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Line Start"
+          },
+          "line_end": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Line End"
+          },
+          "license": {
+            "type": "string",
+            "title": "License"
+          },
+          "license_source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Source Url"
+          },
+          "evidence_available": {
+            "type": "boolean",
+            "const": true,
+            "title": "Evidence Available",
+            "default": true
+          },
+          "evidence_redistribution_allowed": {
+            "type": "boolean",
+            "title": "Evidence Redistribution Allowed"
+          },
+          "excerpt_included": {
+            "type": "boolean",
+            "title": "Excerpt Included"
+          },
+          "chunk_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 480,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Text"
+          },
+          "graph_edge_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Graph Edge Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "repository",
+          "path",
+          "commit_sha",
+          "source_url",
+          "content_hash",
+          "line_start",
+          "line_end",
+          "license",
+          "evidence_redistribution_allowed",
+          "excerpt_included",
+          "graph_edge_ids"
+        ],
+        "title": "Evidence",
+        "description": "Public provenance projection: never serialize internal assertion quotes."
+      },
       "ExecutionClarification": {
         "properties": {
           "kind": {
@@ -27991,6 +28393,187 @@
         ],
         "title": "ExecutionDiagnostics"
       },
+      "ExecutionFilters": {
+        "properties": {
+          "q": {
+            "type": "string",
+            "maxLength": 120,
+            "title": "Q",
+            "default": ""
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "all",
+              "event",
+              "venue",
+              "organization"
+            ],
+            "title": "Entity Type",
+            "default": "all"
+          },
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date"
+          },
+          "to_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Date"
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "City",
+            "default": ""
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "released",
+                  "cancelled",
+                  "deferred",
+                  "rescheduled"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id"
+          },
+          "venue_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Id"
+          },
+          "area_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Id"
+          },
+          "page": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Page",
+            "default": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "default": 25
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "date",
+              "name"
+            ],
+            "title": "Sort",
+            "default": "date"
+          },
+          "time_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time From"
+          },
+          "event_type_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Event Type Ids"
+          },
+          "category_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Category Ids"
+          },
+          "genre_keys": {
+            "items": {
+              "type": "string",
+              "maxLength": 23,
+              "pattern": "^-?(0|[1-9][0-9]*):-?(0|[1-9][0-9]*)$"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Genre Keys"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ExecutionFilters"
+      },
       "ExecutionProvenance": {
         "properties": {
           "structured": {
@@ -28069,6 +28652,49 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ExecutionProvenance"
+      },
+      "Fact": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "uranus_overview",
+              "admin_overview",
+              "semantic_search_repository",
+              "embedding_component",
+              "embedding_model",
+              "qdrant_usage",
+              "encoder_communication",
+              "planner_component",
+              "geocoding",
+              "architecture",
+              "founding_date"
+            ],
+            "title": "Key"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Value"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Evidence Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "value",
+          "evidence_ids"
+        ],
+        "title": "Fact"
       },
       "Finding": {
         "properties": {
@@ -31248,6 +31874,31 @@
           "status"
         ],
         "title": "MarkUpdate"
+      },
+      "MetricRecord": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "value"
+        ],
+        "title": "MetricRecord"
       },
       "NewRecords": {
         "properties": {
