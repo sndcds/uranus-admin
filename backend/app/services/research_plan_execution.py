@@ -90,7 +90,7 @@ def execution_filters(response: PlanResponse, resolution: Resolution) -> Executi
         from_date=start,
         to_date=end,
         time_from=EVENING_START if response.plan.time_of_day == "evening" else None,
-        page_size=20,
+        page_size=response.plan.limit or 20,
         area_id=resolution.area.area.id if resolution.area else None,
     )
     for item in resolution.fields:
@@ -270,16 +270,16 @@ class ResearchPlanExecutor:
                                         )
                                     )
                                 result = ComparisonResult(metric=metric, items=comparisons)
-                            elif plan.ordering != "none":
-                                assert plan.limit is not None
+                            elif plan.entity_type == "event":
+                                # Structured events always have explicit occurrence ordering.
                                 result = RecordsResult(
                                     items=await chronological_records(
                                         connection,
                                         settings,
                                         filters,
                                         resolution.area,
-                                        plan.ordering,
-                                        plan.limit,
+                                        plan.ordering or "asc",
+                                        filters.page_size,
                                     )
                                 )
                             else:

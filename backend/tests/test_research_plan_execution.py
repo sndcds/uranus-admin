@@ -308,7 +308,8 @@ async def test_structured_works_without_semantics(settings, execution_source, mo
             venue_query="Deutsches Haus",
         ),
     )
-    assert result.result.kind == "records" and result.result.total == 2
+    assert result.result.kind == "records" and result.result.total is None
+    assert len(result.result.items) == 2
     assert all(i.venue_id == uid(20) for i in result.result.items)
     assert result.execution.structured and not result.execution.semantic
     org = await service.ResearchPlanExecutor().execute(
@@ -319,7 +320,7 @@ async def test_structured_works_without_semantics(settings, execution_source, mo
             organization_query="Organization 10",
         ),
     )
-    assert org.result.total == 2
+    assert org.result.total is None and len(org.result.items) == 2
 
 
 async def test_counts_aggregates_comparison(settings, execution_source):
@@ -514,7 +515,10 @@ async def test_area_resolution_and_execution(admin_store, execution_source, sett
             ),
         )
         assert response.resolution[0].target.id == str(uid(901))
-        assert response.result.total == 2 if intent == "list" else response.result.value == 2
+        if intent == "list":
+            assert response.result.total is None and len(response.result.items) == 2
+        else:
+            assert response.result.value == 2
     missing = await service.ResearchPlanExecutor().execute(
         Request({"type": "http"}), settings, planned(area_query="Atlantis")
     )
@@ -672,8 +676,14 @@ async def test_records_bounds_and_stable_tie_order(settings, execution_source, n
     response = await service.ResearchPlanExecutor().execute(
         Request({"type": "http"}), settings, planned(temporal="none")
     )
-    assert response.result.total == 27 and len(response.result.items) == 20
-    undated = [i for i in response.result.items if i.start_date is None]
+    assert response.result.total is None and len(response.result.items) == 2
+    # Undated records remain available through classic search, not occurrence selection.
+    classic = await research_page(
+        execution_source, settings, ExecutionFilters(entity_type="event"), now
+    )
+    assert classic.pagination.total == 27
+    assert all(i.start_date is not None for i in response.result.items)
+    undated = [i for i in classic.items if i.start_date is None]
     assert [i.entity_key for i in undated] == sorted(i.entity_key for i in undated)
 
 
@@ -789,3 +799,52 @@ async def test_execution_sql_is_read_only_and_public(settings, execution_source)
             "custom_fields",
         )
     )
+
+
+@pytest.mark.parametrize("intent,mode", [("search", "records"), ("recommend", "recommendation")])
+async def test_semantic_limit_keeps_relevance_ranking(
+    execution_source, settings, retrieval, monkeypatch, intent, mode
+):
+    from app.services import semantic_search
+
+    async def connection(request):
+        yield execution_source
+
+    monkeypatch.setattr(semantic_search, "get_connection", connection)
+    monkeypatch.setattr(semantic_search, "rehydrate_semantic_events", rehydrate_semantic_events)
+    monkeypatch.setattr(
+        service, "chronological_records", AsyncMock(side_effect=AssertionError("No date sorting"))
+    )
+    await execution_source.execute(
+        text("UPDATE uranus.event_date SET start_date='2026-01-01' WHERE event_uuid=:id"),
+        {"id": uid(30)},
+    )
+    retrieval["hits"] = [hit(30, 0.7), hit(32, 0.99)]
+    for limit, expected in [(None, [32, 30]), (1, [32])]:
+        response = await service.ResearchPlanExecutor().execute(
+            Request({"type": "http"}),
+            settings,
+            planned(
+                intent=intent,
+                answer_mode=mode,
+                semantic_query="interesting",
+                requires_semantic_relevance=True,
+                temporal="none",
+                limit=limit,
+            ),
+        )
+        assert [i.entity_key for i in response.result.items] == [uid(k) for k in expected]
+        assert response.result.total is None
+
+
+@pytest.mark.parametrize("kind", ["venue", "organization"])
+async def test_non_event_limit_without_ordering(settings, execution_source, monkeypatch, kind):
+    monkeypatch.setattr(
+        service,
+        "chronological_records",
+        AsyncMock(side_effect=AssertionError("No event-date sorting")),
+    )
+    response = await service.ResearchPlanExecutor().execute(
+        Request({"type": "http"}), settings, planned(entity_type=kind, temporal="none", limit=1)
+    )
+    assert len(response.result.items) == 1 and response.result.total >= 1

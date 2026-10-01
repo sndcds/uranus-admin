@@ -11,8 +11,9 @@ def make_plan(**changes):
     return planned(temporal="none", **changes).plan
 
 
-@pytest.mark.parametrize("ordering,limit", [("earliest", 1), ("latest", 10), ("earliest", 20)])
-def test_chronological_contract(ordering, limit):
+@pytest.mark.parametrize("ordering", [None, "asc", "desc"])
+@pytest.mark.parametrize("limit", [None, 1, 2, 20])
+def test_independent_ordering_limit_contract(ordering, limit):
     plan = make_plan(ordering=ordering, limit=limit)
     assert plan.ordering == ordering and plan.limit == limit
     assert plan.temporal == "none"
@@ -21,59 +22,65 @@ def test_chronological_contract(ordering, limit):
 @pytest.mark.parametrize(
     "changes",
     [
-        {"ordering": "earliest"},
-        {"limit": 1},
-        {"ordering": "best", "limit": 1},
-        *({"ordering": "earliest", "limit": v} for v in (0, 21, True, "1", 1.5)),
-        {"ordering": "earliest", "limit": 1, "entity_type": "venue"},
+        *({"ordering": v} for v in ("none", "earliest", "latest", "best", True)),
+        *({"limit": v} for v in (0, 21, True, "1", 1.0, 1.5)),
+        {"ordering": "asc", "entity_type": "venue"},
+        {"ordering": "desc", "entity_type": "organization"},
         {
-            "ordering": "earliest",
-            "limit": 1,
-            "intent": "count",
-            "answer_mode": "count",
-            "metric": "event_count",
-        },
-        {
-            "ordering": "latest",
-            "limit": 1,
-            "intent": "aggregate",
-            "answer_mode": "aggregate",
-            "metric": "event_count",
-            "group_by": "venue",
-        },
-        {
-            "ordering": "latest",
-            "limit": 1,
-            "intent": "compare",
-            "answer_mode": "comparison",
-            "clarification": "needs_criteria",
-        },
-        {
-            "ordering": "earliest",
-            "limit": 1,
+            "ordering": "asc",
             "intent": "recommend",
             "answer_mode": "recommendation",
             "semantic_query": "interesting",
             "requires_semantic_relevance": True,
         },
         {
-            "ordering": "earliest",
-            "limit": 1,
+            "ordering": "asc",
             "intent": "search",
             "semantic_query": "interesting",
             "requires_semantic_relevance": True,
         },
     ],
 )
-def test_invalid_chronological_contract(changes):
+def test_invalid_ordering_limit_contract(changes):
     with pytest.raises(ValidationError):
         make_plan(**changes)
 
 
+@pytest.mark.parametrize(
+    "intent,mode,extras",
+    [
+        ("count", "count", {"metric": "event_count"}),
+        ("aggregate", "aggregate", {"metric": "event_count", "group_by": "venue"}),
+        ("compare", "comparison", {"clarification": "needs_criteria"}),
+    ],
+)
+@pytest.mark.parametrize("changes", [{"ordering": "asc"}, {"ordering": "desc"}, {"limit": 2}])
+def test_metrics_reject_ordering_and_limit(intent, mode, extras, changes):
+    with pytest.raises(ValidationError):
+        make_plan(intent=intent, answer_mode=mode, **extras, **changes)
+
+
+@pytest.mark.parametrize("entity", ["venue", "organization"])
+def test_non_event_record_limit(entity):
+    plan = make_plan(entity_type=entity, limit=2)
+    assert plan.limit == 2 and plan.ordering is None
+
+
+@pytest.mark.parametrize("intent,mode", [("search", "records"), ("recommend", "recommendation")])
+def test_semantic_limit_without_ordering(intent, mode):
+    plan = make_plan(
+        intent=intent,
+        answer_mode=mode,
+        semantic_query="interesting",
+        requires_semantic_relevance=True,
+        limit=2,
+    )
+    assert plan.limit == 2 and plan.ordering is None
+
+
 def test_hybrid_chronology_is_explicitly_unsupported():
     plan = make_plan(
-        ordering="earliest",
-        limit=1,
+        ordering="asc",
         intent="search",
         semantic_query="interesting",
         requires_semantic_relevance=True,
@@ -83,7 +90,7 @@ def test_hybrid_chronology_is_explicitly_unsupported():
 
 
 @pytest.mark.parametrize("field", ["ordering", "limit"])
-def test_chronological_fields_required(field):
+def test_ordering_limit_fields_required(field):
     data = make_plan().model_dump(mode="json")
     del data[field]
     with pytest.raises(ValidationError):

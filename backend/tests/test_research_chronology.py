@@ -1,10 +1,12 @@
 """Actual PostgreSQL occurrence ranking and full query API regression; no inference."""
 
+from contextlib import asynccontextmanager
 from datetime import date, time
 from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from fastapi import Request
 from pydantic import SecretStr
 from sqlalchemy import text
 
@@ -76,10 +78,10 @@ async def chronology(execution_source):
 @pytest.mark.parametrize(
     "ordering,limit,keys,dates",
     [
-        ("earliest", 1, [33], ["2024-12-31"]),
-        ("earliest", 2, [33, 30], ["2024-12-31", "2025-01-10"]),
-        ("latest", 1, [30], ["2026-12-20"]),
-        ("latest", 20, [30, 32, 33], ["2026-12-20", "2025-02-01", "2024-12-31"]),
+        ("asc", 1, [33], ["2024-12-31"]),
+        ("asc", 2, [33, 30], ["2024-12-31", "2025-01-10"]),
+        ("desc", 1, [30], ["2026-12-20"]),
+        ("desc", 20, [30, 32, 33], ["2026-12-20", "2025-02-01", "2024-12-31"]),
     ],
 )
 async def test_rank_distinct_events_by_matching_occurrence(
@@ -105,7 +107,7 @@ async def test_latest_returns_exact_occurrence_context(chronology, settings):
             settings,
             ExecutionFilters(entity_type="event"),
             None,
-            "latest",
+            "desc",
             1,
         )
     )[0]
@@ -129,7 +131,7 @@ async def test_latest_returns_exact_occurrence_context(chronology, settings):
             settings,
             ExecutionFilters(entity_type="event", venue_id=uid(20)),
             None,
-            "latest",
+            "desc",
             1,
         )
     )[0]
@@ -140,8 +142,8 @@ async def test_latest_returns_exact_occurrence_context(chronology, settings):
 @pytest.mark.parametrize(
     "temporal,ordering,key,day",
     [
-        ("past", "latest", 32, "2025-02-01"),
-        ("future", "earliest", 30, "2026-12-20"),
+        ("past", "desc", 32, "2025-02-01"),
+        ("future", "asc", 30, "2026-12-20"),
     ],
 )
 async def test_temporal_chronology(chronology, settings, temporal, ordering, key, day):
@@ -180,7 +182,7 @@ async def test_chronology_filters_and_exact_counts(chronology, settings):
             settings,
             ExecutionFilters(entity_type="event", time_from=time(18)),
             None,
-            "earliest",
+            "asc",
             20,
         )
     ] == [uid(30)]
@@ -189,7 +191,7 @@ async def test_chronology_filters_and_exact_counts(chronology, settings):
         settings,
         ExecutionFilters(entity_type="event", organization_id=uid(11)),
         None,
-        "earliest",
+        "asc",
         20,
     )
     assert not await chronological_records(
@@ -197,7 +199,7 @@ async def test_chronology_filters_and_exact_counts(chronology, settings):
         settings,
         ExecutionFilters(entity_type="event", category_ids=[999]),
         None,
-        "earliest",
+        "asc",
         20,
     )
     assert not await chronological_records(
@@ -205,7 +207,7 @@ async def test_chronology_filters_and_exact_counts(chronology, settings):
         settings,
         ExecutionFilters(entity_type="event", genre_keys=["999:999"]),
         None,
-        "earliest",
+        "asc",
         20,
     )
 
@@ -223,14 +225,14 @@ async def test_area_earliest_uses_matching_occurrences(admin_store, chronology, 
         settings,
         ExecutionFilters(entity_type="event", area_id=uid(901)),
         area,
-        "earliest",
+        "asc",
         20,
     )
     assert [i.entity_key for i in items] == [uid(33), uid(30)]
     assert items[1].start_date == date(2025, 1, 10)
 
 
-@pytest.mark.parametrize("ordering,first_date", [("earliest", 501), ("latest", 507)])
+@pytest.mark.parametrize("ordering,first_date", [("asc", 501), ("desc", 507)])
 async def test_uuid_ties_and_null_times_last(chronology, settings, ordering, first_date):
     await chronology.execute(
         text(
@@ -258,13 +260,21 @@ async def test_uuid_ties_and_null_times_last(chronology, settings, ordering, fir
     assert items[0].entity_key == uid(30) and items[0].start_time == time(10)
     assert items[0].venue_id == uid(20 if first_date == 501 else 21)
     assert [i.entity_key for i in items[1:]] == (
-        [uid(32), uid(33)] if ordering == "earliest" else [uid(33), uid(32)]
+        [uid(32), uid(33)] if ordering == "asc" else [uid(33), uid(32)]
     )
 
 
-async def test_first_event_http_regression(client, headers, chronology, monkeypatch):
-    query = "wann war das erste event im system?"
-    expected = planned(original_query=query, temporal="none", ordering="earliest", limit=1)
+@pytest.mark.parametrize(
+    "query,temporal,key,day",
+    [
+        ("wann war das erste event im system?", "none", 33, "2024-12-31"),
+        ("was ist die nächste veranstaltung?", "future", 30, "2026-12-20"),
+    ],
+)
+async def test_first_next_event_http_regression(
+    client, headers, chronology, monkeypatch, query, temporal, key, day
+):
+    expected = planned(original_query=query, temporal=temporal, ordering="asc", limit=1)
     app = client._transport.app
     settings = app.state.settings
     settings.research_planner_url = "http://127.0.0.1:8090"
@@ -284,14 +294,14 @@ async def test_first_event_http_regression(client, headers, chronology, monkeypa
     body = result.json()
     assert body["result"]["kind"] == "records"
     assert len(body["result"]["items"]) == 1
-    assert body["result"]["items"][0]["entity_key"] == str(uid(33))
-    assert body["result"]["items"][0]["start_date"] == "2024-12-31"
-    assert body["plan"]["plan"]["ordering"] == "earliest" and body["plan"]["plan"]["limit"] == 1
+    assert body["result"]["items"][0]["entity_key"] == str(uid(key))
+    assert body["result"]["items"][0]["start_date"] == day
+    assert body["plan"]["plan"]["ordering"] == "asc" and body["plan"]["plan"]["limit"] == 1
     for code in ("planner_invalid_response", "research_planner_invalid_response", "upstream_error"):
         assert code not in result.text
 
 
-@pytest.mark.parametrize("extra", [{"ordering": "earliest"}, {"limit": 1}, {"plan": {}}])
+@pytest.mark.parametrize("extra", [{"ordering": "asc"}, {"limit": 1}, {"plan": {}}])
 async def test_browser_cannot_submit_ordering(client, headers, monkeypatch, extra):
     planner = AsyncMock()
     monkeypatch.setattr(client._transport.app.state, "research_planner", planner)
@@ -300,3 +310,121 @@ async def test_browser_cannot_submit_ordering(client, headers, monkeypatch, extr
     )
     assert result.status_code == 422
     planner.plan.assert_not_called()
+
+
+@pytest.mark.parametrize("ordering,keys", [(None, [33, 30]), ("asc", [33, 30]), ("desc", [30, 32])])
+async def test_structured_executor_effective_ordering(chronology, settings, ordering, keys):
+    response = await service.ResearchPlanExecutor().execute(
+        Request({"type": "http"}), settings, planned(temporal="none", ordering=ordering, limit=2)
+    )
+    assert [i.entity_key for i in response.result.items] == [uid(k) for k in keys]
+    assert response.result.total is None
+
+
+@pytest.mark.parametrize("limit,expected", [(None, 20), (2, 2)])
+async def test_sql_limit_after_deduplication(chronology, settings, limit, expected):
+    await chronology.execute(
+        text("""INSERT INTO uranus.event(uuid,org_uuid,title,release_status)
+        SELECT md5(n::text)::uuid,:org,'Extra','released' FROM generate_series(1000,1024) n"""),
+        {"org": uid(10)},
+    )
+    await chronology.execute(
+        text("""INSERT INTO uranus.event_date(uuid,event_uuid,start_date,release_status)
+        SELECT md5((n+100)::text)::uuid,md5(n::text)::uuid,'2025-03-01','inherited'
+        FROM generate_series(1000,1024) n""")
+    )
+    from sqlalchemy import event
+
+    statements = []
+
+    def capture(conn, cursor, statement, params, context, executemany):
+        statements.append((statement, params))
+
+    event.listen(chronology.sync_connection, "before_cursor_execute", capture)
+    try:
+        response = await service.ResearchPlanExecutor().execute(
+            Request({"type": "http"}), settings, planned(temporal="none", limit=limit)
+        )
+    finally:
+        event.remove(chronology.sync_connection, "before_cursor_execute", capture)
+    assert len(response.result.items) == expected and response.result.total is None
+    query, params = next((q, p) for q, p in statements if "occurrence_rank=1" in q)
+    assert "LIMIT" in query and params[-1] == expected
+    assert len({i.entity_key for i in response.result.items}) == expected
+
+
+@pytest.mark.parametrize("ordering", [None, "asc"])
+async def test_area_sorted_limit_http_regression(
+    admin_store, chronology, client, headers, monkeypatch, ordering
+):
+    from app.repositories import research_resolution
+    from tests.test_semantic_knowledge_index import insert_area
+
+    await insert_area(
+        chronology, uid(901), "Flensburg", "POLYGON((9 54,10 54,10 55,9 55,9 54))", 991
+    )
+
+    @asynccontextmanager
+    async def admin(request):
+        class FixtureConnection:
+            def begin(self):
+                return chronology.begin_nested()
+
+            async def execute(self, statement, params=None):
+                if str(statement).startswith("SET TRANSACTION"):
+                    return None  # Only this fixture transaction; all resolution SQL is real.
+                return await chronology.execute(statement, params or {})
+
+        yield FixtureConnection()
+
+    monkeypatch.setattr(research_resolution, "connect_admin", admin)
+    semantic = AsyncMock(side_effect=AssertionError("No semantic retrieval for structured lists"))
+    monkeypatch.setattr(service, "semantic_research", semantic)
+    query = (
+        "welche veranstaltungen sind in flensburg? sortiere die nach datum. zeige nur 2 ergebnisse."
+        if ordering
+        else "zeige nur 2 veranstaltungen in flensburg"
+    )
+    expected = planned(
+        original_query=query, temporal="none", ordering=ordering, limit=2, area_query="Flensburg"
+    )
+    settings = client._transport.app.state.settings
+    settings.research_planner_url = "http://127.0.0.1:8090"
+    settings.research_planner_api_key = SecretStr("synthetic-planner-service-key-for-tests-only")
+    planner = ResearchPlannerClient(
+        settings,
+        transport=httpx.MockTransport(
+            lambda r: httpx.Response(200, json=expected.model_dump(mode="json"))
+        ),
+    )
+    monkeypatch.setattr(client._transport.app.state, "research_planner", planner)
+    try:
+        response = await client.post(
+            "/api/v1/research/query", headers=headers, json={"query": query}
+        )
+    finally:
+        await planner.close()
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["result"]["kind"] == "records" and body["result"]["total"] is None
+    assert [i["entity_key"] for i in body["result"]["items"]] == [str(uid(33)), str(uid(30))]
+    assert [i["start_date"] for i in body["result"]["items"]] == ["2024-12-31", "2025-01-10"]
+    assert body["resolution"][0]["target"]["label"] == "Flensburg"
+    assert body["plan"]["plan"]["unsupported_reason"] is None
+    assert "research_plan_unsupported" not in response.text
+    semantic.assert_not_called()
+
+
+async def test_category_before_order_and_limit(chronology, settings):
+    await chronology.execute(
+        text("UPDATE uranus.event SET categories=ARRAY[7] WHERE uuid=:id"), {"id": uid(32)}
+    )
+    items = await chronological_records(
+        chronology,
+        settings,
+        ExecutionFilters(entity_type="event", category_ids=[7]),
+        None,
+        "asc",
+        1,
+    )
+    assert [i.entity_key for i in items] == [uid(32)]

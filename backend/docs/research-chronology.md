@@ -1,86 +1,129 @@
-# Chronological Research records — v2 / v5
+# Event record ordering and independent limits — v3 / v6
 
-The wire contract is **research-query-plan-v2**, with prompt **research-planner-v5**.
-Both services and the frontend require the new fields; no v1 or mixed-version
-compatibility mode exists. All plan fields remain required, including nullable fields.
+The required wire contract is **research-query-plan-v3**, with prompt
+**research-planner-v6**. Both fields remain required JSON keys, including when null:
 
-| Field      | Values                       | Validation                             |
-| ---------- | ---------------------------- | -------------------------------------- |
-| `ordering` | `none`, `earliest`, `latest` | Chronological event occurrences only   |
-| `limit`    | integer 1–20 or `null`       | `null` exactly when ordering is `none` |
+| Field      | Type                          | Meaning                                                                        |
+| ---------- | ----------------------------- | ------------------------------------------------------------------------------ |
+| `ordering` | `"asc"`, `"desc"`, or `null`  | Requested event occurrence direction; null means unspecified                   |
+| `limit`    | Strict integer 1–20 or `null` | Requested maximum number of returned records; null uses the normal bound of 20 |
 
-Chronological ordering requires `entity_type=event`, `intent=list` or `search`,
-`answer_mode=records` and a non-null limit. It is forbidden for counts, aggregates,
-comparisons and recommendations. Recommendations retain their semantic behavior.
-Invalid combinations, unknown enums, omitted fields, coercible types and out-of-range
-limits fail validation; nothing is repaired or silently clamped.
+Ordering and limit are independent: null/null, null/2, asc/null, asc/2, desc/null
+and desc/2 are all valid. Old `none`, `earliest`, `latest`, unknown enums,
+omitted fields, boolean/string/float limits and out-of-range integers are rejected.
 
-## Meaning and execution
+Non-null ordering requires `entity_type=event`, `intent=list` or `search` and
+`answer_mode=records`. No venue/organization event-date ordering is invented.
+Limits are valid for list/search/recommend record results, including venue and
+organization lists; recommendations keep their existing relevance ranking.
+Count/aggregate/compare require **both fields null**. A request for an exact count
+combined with an output-list limit is explicitly unsupported, with neutral ordering
+and limit; the presentation restriction is never used to count only N rows.
 
-“First event in the system” means the earliest matching public event occurrence in
-Research, never the event row's `created_at`. Creation-time/database-age questions
-are unsupported (`unsupported_reason=unsupported_constraint`, neutral ordering/limit).
-Best, most interesting and highest quality are not chronological ordering concepts.
+## Effective execution
 
-Admin reuses its authoritative occurrence projection and all existing public event/date
-status, area, effective venue/space, organization, category, genre, date-range and
-start-time eligibility. It does not change `research_page()` or browser sort values.
-Undated events and occurrences with unknown start dates cannot rank chronologically.
+For **structured planner-driven event records** only:
 
-For each event, select its first matching occurrence under the following SQL order;
-then sort these distinct events under the same order and apply the bound limit:
+```text
+effective_ordering = plan.ordering or "asc"
+effective_limit = plan.limit or 20
+```
+
+Null does not mean unsorted or unbounded. The planner does not invent an explicit
+ASC request when none was made; Admin owns the default. All such event selections
+use the occurrence-aware SQL path, not incidental `research_page()` ordering.
+Classic browser Research search/list behavior remains unchanged.
+
+Admin reuses the authoritative occurrence projection: public event/date status,
+area, effective venue/space, organization, category, genre, date range and local
+start-time eligibility all apply **before** ranking and the SQL limit. Undated
+events and occurrences without a known start date cannot establish chronology
+and remain outside this occurrence selection; classic search still exposes its
+existing undated records. No eligibility is inferred from a semantic top-K sample.
 
 ```sql
--- earliest
+-- asc (including the structured default)
 start_date ASC, start_time ASC NULLS LAST, date_key ASC, entity_key ASC
--- latest
+-- desc (only explicitly requested)
 start_date DESC, start_time DESC NULLS LAST, date_key DESC, entity_key DESC
 ```
 
 `date_key` is the occurrence UUID; `entity_key` is the event UUID. Window ranking
-(`row_number() OVER (PARTITION BY entity_key ORDER BY ...)`) returns every event at
-most once. Event A at Jan 1 and Jan 3 and Event B at Jan 2 yields A (Jan 1), B (Jan 2)
-for earliest limit 2. All returned date/time, effective venue/space, city, address,
-coordinates and occurrence status fields come from the selected occurrence.
-An event with Jan and December occurrences can therefore rank first and last using
-different occurrence contexts. The result contains up to `limit` events (zero if no
-eligible occurrence exists). `total=null` means no full population count was requested;
-it does not imply semantic search. Count/aggregate/compare paths remain exact and unbounded
-by these new fields.
+(`row_number() OVER (PARTITION BY entity_key ORDER BY ...)`) selects each event's
+earliest eligible occurrence for ASC or latest eligible occurrence for DESC.
+Then these distinct event records are globally sorted in the same direction and
+bounded by `LIMIT`. Event A at Jan 1 and Jan 3, plus Event B at Jan 2, yields
+A (Jan 1), B (Jan 2) for ASC limit 2; the limit never counts duplicate occurrences.
+Every returned date/time, effective venue/space, city, address, coordinate and
+occurrence-status field comes from the selected occurrence.
 
-## Temporal and semantic interaction
+These event-record selections return `total=null`: no full population count was
+requested/calculated. `items.length` is only the displayed selection size.
+Non-event structured lists retain their exact repository totals and apply the
+limit via their SQL page size. Count/aggregate/compare SQL remains unchanged.
 
-Ordering and temporal filters are independent. First/earliest does not imply past;
-latest does not imply future. “wann war das erste event im system?” uses `temporal=none`,
-`ordering=earliest`, `limit=1`, `intent=list`, `semantic_query=null`.
-Historical “welches war das letzte event?” uses `past/latest/1`.
-“was ist die nächste veranstaltung?” uses `future/earliest/1`.
-Explicit numeric or spelled-out cardinalities set the limit within 1–20.
+## Language and temporal interpretation
 
-Existing calendar semantics remain: past ends before `reference_date`; future includes
-the reference date. Thus “next” is the nearest occurrence on/after the reference local
-calendar date, not a new clock-time filter. Explicit periods and evening filters apply
-before occurrence ranking, with the configured event timezone.
+| Query                                                                                      | ordering | limit | temporal |
+| ------------------------------------------------------------------------------------------ | -------- | ----- | -------- |
+| welche veranstaltungen sind in flensburg?                                                  | null     | null  | none     |
+| welche veranstaltungen sind in flensburg? sortiere die nach datum.                         | asc      | null  | none     |
+| welche veranstaltungen sind in flensburg? sortiere die nach datum. zeige nur 2 ergebnisse. | asc      | 2     | none     |
+| zeige nur 2 veranstaltungen in flensburg                                                   | null     | 2     | none     |
+| zeige die letzten 2 veranstaltungen in flensburg                                           | desc     | 2     | none     |
+| wann war das erste event im system?                                                        | asc      | 1     | none     |
+| welches war das letzte event?                                                              | desc     | 1     | past     |
+| was ist die nächste veranstaltung?                                                         | asc      | 1     | future   |
 
-Pure chronological questions do not invoke semantic retrieval. Hybrid semantic plus
-chronological requests currently use `unsupported_reason=unsupported_constraint`:
-the planner retains the semantic condition and chronology in an unsupported `search`
-plan, and its API returns 422 `planner_unsupported_plan` (Admin maps this to
-`research_plan_unsupported`). A purported supported hybrid plan fails validation.
-No top-K semantic sample is treated as a complete chronological population.
+German, English and Danish fixtures cover implicit ordering, explicit ASC/DESC,
+independent numeric/spelled-out limits and first/last/next. Bare sort/limit commands
+refer to event records without inventing a prior place or topic; the service has
+no conversation memory. Ordering does not itself imply past or future.
+Existing calendar semantics remain: past ends before `reference_date`, future
+includes that local date. “Next” therefore uses the nearest eligible occurrence
+on/after the reference date, not a newly introduced current-clock-time constraint.
+Explicit periods and evening filters apply before ranking.
 
-## Compatibility and deployment
+Event chronology is not event-row `created_at`. “wann wurde das erste event im
+system angelegt?” and database-age questions remain
+`unsupported_reason=unsupported_constraint`, with ordering/limit null.
+Best/most interesting/highest quality are not chronological ordering values.
 
-This is a synchronized breaking deployment, with no database migration, new grants,
-worker restart requirement or Uranus writes. Prepare and validate both release artifacts
-and the matching Admin frontend first. Coordinate a maintenance window: stop/withdraw
-Research request traffic, deploy planner v2/v5, deploy compatible Admin backend and
-frontend, verify version tags and a known earliest/next query, then restore traffic.
-Do not expose either incompatible intermediate combination. Roll back both together.
-The changes and PR creation do not deploy anything automatically.
+## Semantic exception and display
 
-The previous v1/v4 operator model-acceptance evidence remains historical; it is not
-v2/v5 live inference evidence. Offline fixtures and mocked provider HTTP prove wire
-validation and execution behavior. Optional live model acceptance must be reported
-separately. Native PostgreSQL/PostGIS tests exercise real SQL with synthetic source
-fixtures and do not establish a deployed source schema or production data result.
+Semantic search and recommendations retain **relevance ranking**, including when
+ordering is null. An independent limit uses the existing server-side semantic
+page-size contract without changing eligibility, retrieval or ranking. No
+semantic knowledge retrieval code is changed by this extension.
+
+Explicit semantic relevance plus date ordering remains unsupported: preserve
+both conditions in a search plan with `unsupported_reason=unsupported_constraint`.
+The planner maps that to HTTP 422 `planner_unsupported_plan`; Admin maps it to
+`research_plan_unsupported`. A purported supported hybrid fails validation.
+
+The answer UI labels structured event results “Sortierung: Datum aufsteigend”
+(null or asc) or “Sortierung: Datum absteigend” (desc). An explicit limit displays
+“Maximal N Ergebnisse”. This states effective execution, not an invented user
+request. Semantic results have no date-sort claim. All planner answer event cards
+show the full date including year; null totals are never displayed as population
+counts or automatically described as semantic search.
+
+## Breaking compatibility and deployment
+
+Planner PR #10's v2/v5 contract has been merged; this replaces it with v3/v6.
+The still-open Admin PR #159 must use this matching mirror, executor and frontend
+before merging/releasing. No v1/v2 dual-read or malformed mixed-version envelope
+is accepted. Old version acceptance evidence remains historical, not live v6
+model accuracy evidence.
+
+Prepare both release artifacts first. In a coordinated maintenance window,
+withdraw Research request traffic, deploy planner v3/v6, deploy the matching Admin
+backend and frontend, verify versions plus the limited Flensburg/first/next
+queries, then restore traffic. Roll back both services and the frontend together.
+There are no migrations, new grants, worker changes or Uranus writes. No merge
+or production deployment is performed automatically.
+
+Offline golden fixtures and mocked provider HTTP establish contract/dispatch
+behavior, not live model accuracy. Native PostgreSQL/PostGIS regressions use
+synthetic source data. Local tests use no Docker; the existing GitHub CI may use
+its containers, and its outcome is not awaited for this follow-up.

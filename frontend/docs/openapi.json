@@ -25396,12 +25396,12 @@
         "properties": {
           "schema_version": {
             "type": "string",
-            "const": "research-query-plan-v2",
+            "const": "research-query-plan-v3",
             "title": "Schema Version"
           },
           "prompt_version": {
             "type": "string",
-            "const": "research-planner-v5",
+            "const": "research-planner-v6",
             "title": "Prompt Version"
           },
           "model": {
@@ -32272,7 +32272,7 @@
           },
           "planner_prompt_version": {
             "type": "string",
-            "const": "research-planner-v5",
+            "const": "research-planner-v6",
             "title": "Planner Prompt Version"
           },
           "planner_ms": {
@@ -32302,12 +32302,12 @@
         "properties": {
           "schema_version": {
             "type": "string",
-            "const": "research-query-plan-v2",
+            "const": "research-query-plan-v3",
             "title": "Schema Version"
           },
           "prompt_version": {
             "type": "string",
-            "const": "research-planner-v5",
+            "const": "research-planner-v6",
             "title": "Prompt Version"
           },
           "model": {
@@ -33788,11 +33788,17 @@
             "title": "Temporal"
           },
           "ordering": {
-            "type": "string",
-            "enum": [
-              "none",
-              "earliest",
-              "latest"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Ordering"
           },

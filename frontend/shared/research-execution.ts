@@ -48,7 +48,7 @@ export const researchQueryPlanSchema = z
       'future',
       'explicit_range',
     ]),
-    ordering: z.enum(['none', 'earliest', 'latest']),
+    ordering: z.enum(['asc', 'desc']).nullable(),
     limit: z.number().int().min(1).max(20).nullable(),
     explicit_from_date: z.iso.date().nullable(),
     explicit_to_date: z.iso.date().nullable(),
@@ -78,14 +78,13 @@ export const researchQueryPlanSchema = z
       compare: 'comparison',
     }
     if (plan.answer_mode !== modes[plan.intent]) fail()
-    if (plan.ordering === 'none') {
-      if (plan.limit !== null) fail()
-    } else if (
-      !['list', 'search'].includes(plan.intent) ||
-      plan.answer_mode !== 'records' ||
-      plan.entity_type !== 'event' ||
-      plan.limit === null ||
-      (plan.semantic_query !== null && plan.unsupported_reason !== 'unsupported_constraint')
+    if (plan.limit !== null && !['list', 'search', 'recommend'].includes(plan.intent)) fail()
+    if (
+      plan.ordering !== null &&
+      (!['list', 'search'].includes(plan.intent) ||
+        plan.answer_mode !== 'records' ||
+        plan.entity_type !== 'event' ||
+        (plan.semantic_query !== null && plan.unsupported_reason !== 'unsupported_constraint'))
     )
       fail()
     const semantic = plan.semantic_query !== null
@@ -142,7 +141,7 @@ export const researchQueryPlanSchema = z
         plan.category_queries.length ||
         plan.genre_queries.length ||
         plan.temporal !== 'none' ||
-        plan.ordering !== 'none' ||
+        plan.ordering !== null ||
         plan.limit !== null ||
         plan.time_of_day !== 'none' ||
         plan.metric !== 'none' ||
@@ -156,8 +155,8 @@ export const researchQueryPlanSchema = z
 const milliseconds = z.number().finite().nonnegative()
 const planEnvelope = z
   .object({
-    schema_version: z.literal('research-query-plan-v2'),
-    prompt_version: z.literal('research-planner-v5'),
+    schema_version: z.literal('research-query-plan-v3'),
+    prompt_version: z.literal('research-planner-v6'),
     model: z.string().min(1).max(160),
     plan: researchQueryPlanSchema,
     reference_date: z.iso.date(),
@@ -167,7 +166,7 @@ const planEnvelope = z
         request_id: z.string().regex(/^[a-f0-9]{32}$/),
         planner_intent: intent,
         planner_model: z.string().min(1).max(160),
-        planner_prompt_version: z.literal('research-planner-v5'),
+        planner_prompt_version: z.literal('research-planner-v6'),
         planner_ms: milliseconds,
         total_ms: milliseconds,
       })

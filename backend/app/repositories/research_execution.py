@@ -115,7 +115,7 @@ async def chronological_records(
     settings: Settings,
     filters: ExecutionFilters,
     area: ResolvedResearchArea | None,
-    ordering: Literal["earliest", "latest"],
+    ordering: Literal["asc", "desc"],
     limit: int,
 ) -> list[ResearchRecord]:
     """Rank matching occurrences, then distinct events; never the UI representative date.
@@ -125,7 +125,7 @@ async def chronological_records(
     """
     if filters.entity_type != "event" or not 1 <= limit <= 20:
         raise ValueError("invalid_chronological_selection")
-    direction = {"earliest": "ASC", "latest": "DESC"}[ordering]
+    direction = {"asc": "ASC", "desc": "DESC"}[ordering]
     order = (
         f"start_date {direction},start_time {direction} NULLS LAST,"
         f"date_key {direction},entity_key {direction}"

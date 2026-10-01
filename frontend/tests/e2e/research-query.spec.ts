@@ -1,5 +1,10 @@
 import { test, expect } from '../fixtures/authenticated'
-import { executionResponse, countQuestion } from '../fixtures/research-execution'
+import {
+  executionResponse,
+  countQuestion,
+  sortedEventsQuestion,
+  sortedEventsResponse,
+} from '../fixtures/research-execution'
 import { researchPage, researchCategories } from '../fixtures/research'
 import { enforceProductionCsp } from '../fixtures/record-csp'
 const root = '/api/admin/api/v1/research'
@@ -114,7 +119,7 @@ test('first event renders the selected occurrence without semantic or count clai
   response.query = query
   Object.assign(response.plan.plan, {
     original_query: query,
-    ordering: 'earliest',
+    ordering: 'asc',
     limit: 1,
     temporal: 'none',
     explicit_from_date: null,
@@ -133,7 +138,31 @@ test('first event renders the selected occurrence without semantic or count clai
     return route.fulfill({ json: response })
   })
   await page.goto(`/research/search?mode=answer&question=${encodeURIComponent(query)}`)
-  await expect(page.getByText(/Früheste gefundene Veranstaltungen/)).toBeVisible()
+  await expect(page.getByText('Sortierung: Datum aufsteigend')).toBeVisible()
   await expect(page.getByText(/31\.12\.2024/).first()).toBeVisible()
   await expect(page.getByText(/Semantische Relevanzsuche|Ergebnisse insgesamt/)).toHaveCount(0)
+})
+
+test('explicit date sort and independent limit render two Flensburg records', async ({ page }) => {
+  const response = sortedEventsResponse()
+  await page.route(`**${root}/query`, (route) => {
+    expect(route.request().postDataJSON()).toEqual({ query: sortedEventsQuestion })
+    return route.fulfill({ json: response })
+  })
+  await page.goto(
+    `/research/search?mode=answer&question=${encodeURIComponent(sortedEventsQuestion)}`,
+  )
+  const answer = page.getByRole('region', { name: 'Antwort', exact: true })
+  await expect(answer.getByText('Sortierung: Datum aufsteigend')).toBeVisible()
+  await expect(answer.getByText('Maximal 2 Ergebnisse')).toBeVisible()
+  await expect(answer.getByText('Flensburg · Kein Datumsfilter', { exact: true })).toBeVisible()
+  const cards = answer.locator('article')
+  await expect(cards).toHaveCount(2)
+  await expect(cards.nth(0)).toContainText('16.06.2025')
+  await expect(cards.nth(1)).toContainText('27.09.2025')
+  await expect(
+    page.getByText(
+      /research_plan_unsupported|Abruf fehlgeschlagen|Semantische Relevanzsuche|Ergebnisse insgesamt/,
+    ),
+  ).toHaveCount(0)
 })

@@ -207,11 +207,14 @@ Validierung: `research-execution.test.ts`, `research-question.test.ts` und
 sind synthetisch und belegen keine Live-Daten oder produktive Planner-Verfügbarkeit.
 Keine Backendänderung, Migration, Grants oder Workeranpassung erforderlich.
 
-## Chronologische Recherchefragen
+## Sortierung und Limit für Recherchefragen
 
-Der Planvertrag verlangt `research-query-plan-v2` / `research-planner-v5` sowie die
-Pflichtfelder `ordering` und `limit`. Der Browser sendet weiterhin ausschließlich
-`{"query":"..."}`. Früheste/späteste Ergebnisse zeigen die tatsächlich ausgewählten
-Termine und deren Ortskontext; die Auswahl ist auf 1–20 verschiedene Veranstaltungen
-begrenzt. Die Oberfläche unterscheidet diese Auswahl von semantischen Treffern und
-behauptet keine Gesamtzählung. [Semantik und Deployment](../../backend/docs/research-chronology.md).
+Der Planvertrag verlangt `research-query-plan-v3` / `research-planner-v6` sowie
+`ordering: "asc" | "desc" | null` und `limit: 1..20 | null` als unabhängige Pflichtfelder.
+Der Browser sendet weiterhin ausschließlich `{"query":"..."}`. Strukturierte Eventlisten
+verwenden ASC, wenn die Frage keine Richtung vorgibt; ohne Limit werden höchstens 20
+Datensätze geliefert. Die Oberfläche zeigt die effektive Datumssortierung, ein angefordertes
+Limit als „Maximal N Ergebnisse“ und vollständige Daten einschließlich Jahr.
+Semantische Treffer behalten ihre Relevanzreihenfolge. Ein unbekannter Gesamtwert ist keine
+Populationszählung und macht eine strukturierte Auswahl nicht zur semantischen Suche.
+[Terminwahl, Grenzen und koordiniertes Deployment](../../backend/docs/research-chronology.md).

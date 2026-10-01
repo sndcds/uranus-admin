@@ -1215,8 +1215,8 @@ The planner port is never public. Deployment checks only unauthenticated `/healt
 through the tunnel, without model calls or service credentials.
 
 The closed, strict Admin models mirror the
-[canonical planner schema at 05ab44c](https://github.com/sndcds/uranus-research-planner/blob/05ab44c8298781e2a0765066b8fb958913c36784/src/research_planner/schemas.py).
-Only `schema_version: research-query-plan-v2` and `prompt_version: research-planner-v5`
+[canonical planner schema at b2c4a14](https://github.com/sndcds/uranus-research-planner/blob/b2c4a14046a9ba31c15eb96579d29f6774c6071b/src/research_planner/schemas.py).
+Only `schema_version: research-query-plan-v3` and `prompt_version: research-planner-v6`
 are accepted. The response includes `model`, `plan`, `reference_date`, `timezone`,
 `diagnostics`, and `kind` (`plan` or `needs_clarification`). All wire fields are required,
 including nullable plan fields and both version tags. Plan enums, slot/list bounds,
@@ -1309,7 +1309,7 @@ never a newly computed today. Inclusive bounds use occurrence **start dates**:
 | future                 | On/after reference date                                                 |
 | explicit_range         | Both supplied dates, inclusive                                          |
 
-These mirror planner documentation at `05ab44c8298781e2a0765066b8fb958913c36784`.
+These mirror planner documentation at `b2c4a14046a9ba31c15eb96579d29f6774c6071b`.
 Evening requires a known local start time **18:00 inclusive to midnight exclusive**
 and `all_day=false`; all-day, unknown-time and unknown-all-day occurrences are
 excluded. Calendar arithmetic preserves these rules across DST. Category IDs are
@@ -1399,4 +1399,4 @@ The natural-language frontend mirrors the validated plan and displays determinis
 results. Its existing Nitro/client request remains query-only.
 
 Chronological ordering, limits, occurrence selection and synchronized deployment are
-specified in [the v2/v5 chronology contract](research-chronology.md).
+specified in [the v3/v6 chronology contract](research-chronology.md).
