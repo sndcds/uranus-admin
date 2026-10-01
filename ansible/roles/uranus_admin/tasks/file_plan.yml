@@ -138,7 +138,7 @@
       would_enable_before_service_stop: "{{ ua_maintenance_page_enabled }}"
       would_verify_http_503: "{{ ua_maintenance_page_enabled }}"
       would_disable_after_healthchecks: "{{ ua_maintenance_page_enabled }}"
-      maintenance_state_policy: "Preserve an already active marker; otherwise disable after local healthchecks."
+      maintenance_state_policy: "Preserve operator-owned markers; clear deployment-owned maintenance after local healthchecks."
       changed_files: "{{ ua_changed_paths }}"
       restart_services: "{{ ua_restart_services | default([]) }}"
       nginx_reload: "{{ ua_nginx_changed }}"
