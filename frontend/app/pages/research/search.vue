@@ -1,24 +1,26 @@
 <script setup lang="ts">
 import { researchAnswerMode } from '~/utils/research-answer'
-definePageMeta({ layout: 'research' })
-useHead({ title: 'Recherche · Kulturbytes' })
-const route = useRoute()
-const answer = computed(() => researchAnswerMode(route.query))
+definePageMeta({
+  layout: 'research',
+  middleware: (to) => {
+    if (researchAnswerMode(to.query)) {
+      return navigateTo(
+        { path: '/research', query: to.query },
+        { replace: true, redirectCode: 302 },
+      )
+    }
+  },
+})
+useHead({ title: 'Suche · Kulturbytes' })
 </script>
 <template>
   <div class="space-y-3">
-    <div class="research-toggle" aria-label="Recherchemodus">
-      <button
-        :aria-pressed="answer"
-        @click="navigateTo({ path: '/research/search', query: { mode: 'answer' } })"
-      >
-        Frage beantworten
-      </button>
-      <button :aria-pressed="!answer" @click="navigateTo('/research/search')">
-        Treffer suchen
-      </button>
-    </div>
-    <ResearchQuestion v-if="answer" />
-    <ResearchSearch v-else />
+    <NuxtLink
+      to="/research"
+      class="inline-flex min-h-11 items-center gap-2 text-sm text-blue-700 hover:underline"
+    >
+      <AppIcon name="arrow" :size="16" class="rotate-180" />Recherchefrage stellen
+    </NuxtLink>
+    <ResearchSearch />
   </div>
 </template>

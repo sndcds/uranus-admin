@@ -8,7 +8,7 @@ export function researchAnswerQuery(query: Record<string, unknown>) {
   return researchQuestionSchema.safeParse(query.question)
 }
 export function researchAnswerUrl(question?: string) {
-  return { mode: 'answer', ...(question === undefined ? {} : { question }) }
+  return question === undefined ? {} : { question }
 }
 export const researchMetricLabels = {
   event_count: 'Veranstaltungen',

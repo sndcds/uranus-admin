@@ -11,9 +11,11 @@ const auth = useAuthStore()
       :key="link.to"
       :to="link.to"
       :aria-current="
-        route.path === link.to ||
-        route.path.startsWith(link.to + '/') ||
-        (route.path === '/research' && link.to === '/research/search')
+        (
+          link.to === '/research'
+            ? route.path === '/research' || route.path === '/research/search'
+            : route.path === link.to || route.path.startsWith(link.to + '/')
+        )
           ? 'page'
           : undefined
       "
