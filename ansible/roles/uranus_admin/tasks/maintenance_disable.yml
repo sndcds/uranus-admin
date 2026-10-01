@@ -1,5 +1,8 @@
 - name: Disable maintenance only after local healthchecks
-  when: ua_maintenance_page_enabled and not ua_previous_maintenance.stat.exists and not ansible_check_mode
+  when:
+    - ua_maintenance_page_enabled
+    - ua_previous_maintenance_state in ['absent', 'ansible_owned']
+    - not ansible_check_mode
   block:
     - name: Remove the deployment maintenance marker
       ansible.builtin.file:

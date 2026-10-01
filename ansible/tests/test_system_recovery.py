@@ -339,6 +339,8 @@ class ActivationIntegrationTests(unittest.TestCase):
         geocode_active=True,
         geocode_reapply=None,
         originally_on=False,
+        marker_content=b"Operator maintenance\n",
+        maintenance_reapply=False,
         recovery_fail_task=None,
         check=False,
         repeat_without_activation=False,
@@ -421,7 +423,7 @@ class ActivationIntegrationTests(unittest.TestCase):
                 (maintenance / "assets").mkdir(parents=True)
                 maintenance.chmod(0o755)
                 (maintenance / "assets").chmod(0o755)
-                marker.write_text("original maintenance marker\n")
+                marker.write_bytes(marker_content)
                 marker.chmod(0o644)
             files = [
                 *(root / "etc/systemd/system" / name for name in APP_SERVICES),
@@ -739,6 +741,10 @@ class ActivationIntegrationTests(unittest.TestCase):
                     self.assertIn("SYSTEM RECOVERY FAILED", output)
                     self.assertIn("Maintenance mode remains active", output)
                     self.assertTrue(marker.is_file(), output)
+                    self.assertEqual(
+                        marker.read_bytes(),
+                        marker_content if originally_on else b"Ansible-managed maintenance\n",
+                    )
                     return observed
                 self.assertNotEqual(result.returncode, 0, output)
                 if fail_task != "Validate prepared candidates":
@@ -770,15 +776,49 @@ class ActivationIntegrationTests(unittest.TestCase):
                 self.assertTrue(
                     all(event["pointer"] == str(old_release) for event in health_events)
                 )
-            self.assertEqual(marker.exists(), originally_on, output)
-            if originally_on:
+            expected_marker = originally_on and (
+                bool(fail_task) or marker_content != b"Ansible-managed maintenance\n"
+            )
+            self.assertEqual(marker.exists(), expected_marker, output)
+            if expected_marker:
                 self.assertTrue(observed["loaded_maintenance_capable"], output)
-                self.assertEqual(marker.read_text(), "original maintenance marker\n", output)
+                self.assertEqual(marker.read_bytes(), marker_content, output)
             if fail_task != "Validate prepared candidates":
                 metadata = json.loads(
                     next(config.glob("recovery/*/attempt-*/manifest.json")).read_text()
                 )
                 self.assertEqual(metadata["maintenance"]["enabled"], originally_on)
+                self.assertEqual(
+                    metadata["maintenance"],
+                    {
+                        "enabled": originally_on,
+                        "marker": str(marker),
+                        "state": "absent"
+                        if not originally_on
+                        else (
+                            "ansible_owned"
+                            if marker_content == b"Ansible-managed maintenance\n"
+                            else "operator_owned"
+                        ),
+                    },
+                )
+            if not fail_task:
+                local = [
+                    e
+                    for e in observed["events"]
+                    if e["kind"] == "uri"
+                    and not e.get("task", "").startswith("Check public HTTP")
+                    and e["task"] != "Check the public HTTPS login route"
+                ]
+                self.assertTrue(local)
+                self.assertTrue(all(e["maintenance_active"] for e in local), output)
+                if not expected_marker:
+                    public = next(
+                        e
+                        for e in observed["events"]
+                        if e["task"] == "Check the public HTTPS login route"
+                    )
+                    self.assertFalse(public["maintenance_active"], output)
             if not manage:
                 self.assertEqual(
                     {k: observed["services"][k] for k in NOTIFICATION},
@@ -848,8 +888,12 @@ class ActivationIntegrationTests(unittest.TestCase):
                         observed["events"].index(reload),
                         observed["events"].index(recovery_starts[-1]),
                     )
-            if repeat_without_activation or geocode_reapply:
+            if repeat_without_activation or geocode_reapply or maintenance_reapply:
                 count = len(observed["events"])
+                if maintenance_reapply:
+                    # Only the known marker differs from the successful installation.
+                    marker.write_bytes(b"Ansible-managed maintenance\n")
+                    marker.chmod(0o644)
                 if geocode_reapply == "unit":
                     with geocode_files[0].open("a") as stream:
                         stream.write("\n# Synthetic previous unit version\n")
@@ -887,9 +931,34 @@ class ActivationIntegrationTests(unittest.TestCase):
                     )
                     self.assertTrue(after["services"][GEOCODE[1]]["active"])
                     self.assertEqual(after["services"][GEOCODE[1]]["unit_file_state"], "enabled")
+                elif maintenance_reapply:
+                    self.assertTrue(
+                        any(
+                            e["task"] == "Reload nginx after maintenance removal" for e in mutations
+                        )
+                    )
+                    self.assertFalse(any(e.get("unit") in APP_SERVICES for e in mutations))
+                    self.assertFalse(marker.exists())
+                    third = subprocess.run(
+                        result.args,
+                        env={
+                            **os.environ,
+                            "ANSIBLE_CONFIG": str(root / "ansible.cfg"),
+                            "ANSIBLE_LOCAL_TEMP": str(root / "tmp"),
+                        },
+                        capture_output=True,
+                        text=True,
+                        timeout=240,
+                    )
+                    self.assertEqual(third.returncode, 0, third.stdout + third.stderr)
+                    self.assertRegex(third.stdout, r"changed=0\s")
+                    final = json.loads(state_path.read_text())
+                    self.assertFalse(
+                        any(e["kind"] == "systemd" for e in final["events"][len(after["events"]) :])
+                    )
                 else:
                     self.assertFalse(mutations)
-                self.assertEqual(marker.exists(), originally_on)
+                self.assertEqual(marker.exists(), expected_marker)
                 self.assertIn(
                     variables["ua_maintenance_public_title"],
                     (maintenance / "maintenance.html").read_text(),
@@ -1040,6 +1109,38 @@ class ActivationIntegrationTests(unittest.TestCase):
 
     def test_original_maintenance_on_is_preserved_on_recovery(self):
         self.run_activation("Check backend liveness and database readiness", originally_on=True)
+
+    def test_ansible_owned_marker_clears_after_healthchecks_and_stays_absent(self):
+        self.run_activation(
+            originally_on=True,
+            marker_content=b"Ansible-managed maintenance\n",
+            repeat_without_activation=True,
+        )
+
+    def test_unchanged_installation_recovers_ansible_marker_then_changes_nothing(self):
+        self.run_activation(maintenance_reapply=True)
+
+    def test_failed_activation_restores_preexisting_ansible_maintenance(self):
+        self.run_activation(
+            "Check backend liveness and database readiness",
+            originally_on=True,
+            marker_content=b"Ansible-managed maintenance\n",
+        )
+
+    def test_failed_disable_rearms_preexisting_ansible_maintenance(self):
+        self.run_activation(
+            "Reload nginx after maintenance removal",
+            originally_on=True,
+            marker_content=b"Ansible-managed maintenance\n",
+        )
+
+    def test_failed_recovery_preserves_operator_bytes(self):
+        self.run_activation(
+            "Check backend liveness and database readiness",
+            originally_on=True,
+            marker_content=b"Operator maintenance\r\n\x00\xff",
+            recovery_fail_task="Verify restored nginx configuration before any reload",
+        )
 
     def test_failure_immediately_after_service_stop(self):
         self.run_activation("After service stop")

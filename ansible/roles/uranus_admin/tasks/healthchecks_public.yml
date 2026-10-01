@@ -12,8 +12,8 @@
   until: ua_public_health.status == 200
   retries: 10
   delay: 2
-  when: not ua_previous_maintenance.stat.exists
+  when: ua_previous_maintenance_state in ['absent', 'ansible_owned']
 
 - name: Verify preserved public maintenance instead of expecting a public login
   ansible.builtin.import_tasks: maintenance_verify.yml
-  when: ua_previous_maintenance.stat.exists
+  when: ua_previous_maintenance_state == 'operator_owned'

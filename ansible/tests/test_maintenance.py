@@ -26,6 +26,100 @@ TEMPLATES = Environment(loader=FileSystemLoader(ROLE / "templates"), undefined=S
 
 
 class MaintenanceStaticTests(unittest.TestCase):
+    def test_marker_inspection_is_bounded_exact_and_private(self):
+        cases = [
+            ("absent", None, "absent"),
+            ("ansible", b"Ansible-managed maintenance\n", "ansible_owned"),
+            ("operator", b"Operator maintenance\n", "operator_owned"),
+            ("no_newline", b"Ansible-managed maintenance", "operator_owned"),
+            ("extra_newline", b"Ansible-managed maintenance\n\n", "operator_owned"),
+            ("binary", b"\xff\x00Operator maintenance\n", "operator_owned"),
+            ("maximum", b"x" * 4096, "operator_owned"),
+            ("oversized", b"x" * 4097, None),
+            ("symlink", b"Operator maintenance\n", None),
+            ("owner", b"Operator maintenance\n", None),
+            ("mode", b"Operator maintenance\n", None),
+            ("directory", None, None),
+        ]
+        for kind, content, expected in cases:
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                maintenance = root / "maintenance"
+                maintenance.mkdir(mode=0o755)
+                marker = maintenance / "enabled"
+                if content is not None:
+                    marker.write_bytes(content)
+                    marker.chmod(0o600 if kind == "mode" else 0o644)
+                if kind == "symlink":
+                    target = root / "unrelated"
+                    marker.rename(target)
+                    marker.symlink_to(target)
+                if kind == "directory":
+                    marker.mkdir()
+                tasks = yaml.safe_load((ROLE / "tasks/maintenance_inspect.yml").read_text())
+                # Match the privileged boundary to this unprivileged fixture; the
+                # owner rejection uses a different expected uid without chown.
+                boundary = next(t for t in tasks if t["name"].startswith("Reject unsafe"))
+                owner = os.getuid() + int(kind == "owner")
+                boundary["ansible.builtin.assert"]["that"] = [
+                    condition.replace(".uid == 0", f".uid == {owner}")
+                    for condition in boundary["ansible.builtin.assert"]["that"]
+                ]
+                directory_boundary = tasks[1]["ansible.builtin.assert"]["that"]
+                directory_boundary[:] = [
+                    c.replace(".uid == 0", f".uid == {os.getuid()}") for c in directory_boundary
+                ]
+                if expected:
+                    tasks.append(
+                        {
+                            "ansible.builtin.assert": {
+                                "that": f"ua_previous_maintenance_state == '{expected}'"
+                            }
+                        }
+                    )
+                play = [
+                    {
+                        "hosts": "localhost",
+                        "connection": "local",
+                        "gather_facts": False,
+                        "vars": {
+                            "ansible_python_interpreter": sys.executable,
+                            "ansible_remote_tmp": str(root / "remote"),
+                            "ua_maintenance_root": str(maintenance),
+                            "ua_maintenance_marker": str(marker),
+                            "ua_maintenance_page_enabled": True,
+                        },
+                        "tasks": tasks,
+                    }
+                ]
+                (root / "play.yml").write_text(yaml.safe_dump(play))
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "ansible.cli.playbook",
+                        "-i",
+                        "localhost,",
+                        str(root / "play.yml"),
+                        "--diff",
+                        "-v",
+                    ],
+                    env={**os.environ, "ANSIBLE_LOCAL_TEMP": str(root / "tmp")},
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                output = result.stdout + result.stderr
+                self.assertEqual(result.returncode == 0, expected is not None, output)
+                if expected is None:
+                    self.assertNotIn("TASK [Read bounded existing maintenance marker]", output)
+                self.assertNotIn("Operator maintenance", output)
+                self.assertNotIn("Ansible-managed maintenance", output)
+                if content is not None:
+                    self.assertEqual(marker.read_bytes(), content)
+                if kind == "symlink":
+                    self.assertTrue(marker.is_symlink())
+
     def test_accessible_without_javascript_and_all_operator_copy_is_escaped(self):
         values = dict(DEFAULTS)
         for value in ("<script>alert(1)</script>", '" onclick="alert(1)', "& < >"):

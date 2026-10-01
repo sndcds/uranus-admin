@@ -1379,6 +1379,15 @@ Standardmäßig ist `ua_maintenance_page_enabled: true`. Der Wartungsmodus gehö
 bewachten Playbook-Ablauf; es gibt keinen zusätzlichen manuellen Umschalt-Schritt.
 Die unveränderten Freigaben und READ-ONLY-Preflights gelten weiterhin.
 
+Vor jeder Aktivierung wird der vorherige Marker als `absent`, `ansible_owned`
+oder `operator_owned` klassifiziert. Ansible erkennt ausschließlich die exakten
+Bytes `Ansible-managed maintenance\n` (ein abschließendes LF) als eigenen Marker.
+Ein vorhandener Marker muss eine reguläre Datei ohne Symlink, root-owned, Modus
+`0644` und höchstens 4096 Bytes groß sein; unsichere Marker brechen vor dem Lesen
+und vor jeder Service-Umschaltung ab. Andere Inhalte bleiben unverändert und gelten
+als Operator-/extern verwaltete Wartung. Inhalte werden weder geloggt noch in
+Recovery-JSON übernommen.
+
 Reihenfolge bei einer erforderlichen Aktivierung:
 
 1. Artefakt entpacken, Python-Umgebung vorbereiten, Runtime und Konfigurationskandidaten prüfen.
@@ -1402,15 +1411,20 @@ Reihenfolge bei einer erforderlichen Aktivierung:
    übrige Konfiguration installieren, geänderte Units neu laden, `nginx -t` ausführen,
    betroffene Services starten und geändertes Nginx reloaden.
 7. Lokal `127.0.0.1:8011/health`, `/ready` und `127.0.0.1:3011/login` prüfen.
-8. War Maintenance vorher OFF: Marker entfernen, `nginx -t`, Reload, öffentliches
+8. War Maintenance vorher OFF oder gehörte der vorhandene Marker Ansible:
+   nach erfolgreichen lokalen Healthchecks Marker entfernen, `nginx -t`, Reload, öffentliches
    HTTPS-GET `/login` auf 200 prüfen. Jeder Fehler löst Activation-Recovery aus.
-   War Maintenance vorher ON: Marker erhalten und öffentlich erneut 503 prüfen;
+   War der Marker Operator-owned: bytegenau erhalten und öffentlich erneut 503 prüfen;
    der Login wird in diesem Fall ausschließlich lokal geprüft.
 9. Erst danach `current` veröffentlichen und Aktivierung als erfolgreich markieren.
 
-Ein unveränderter Lauf schaltet Maintenance nicht um und reloadet Nginx nicht.
+Ein von einem früheren fehlgeschlagenen Ansible-Lauf hinterlassener eigener Marker
+erzwingt auch bei sonst unveränderter Installation eine bewachte Aktivierung mit
+Healthchecks. Ein erfolgreicher Lauf entfernt ihn automatisch; manuelles Löschen
+ist dafür nicht erforderlich. Der folgende unveränderte Lauf legt keinen neuen
+Marker an und reloadet Nginx nicht.
 Öffentliche Wartungstexte/Assets werden auch ohne Service-Umschaltung idempotent
-aktualisiert; ein vorher aktiver Marker bleibt dabei erhalten.
+aktualisiert; ein Operator-owned Marker bleibt dabei erhalten.
 `ua_maintenance_page_enabled: false` lässt den bisherigen Ablauf ohne Wartungsseite
 zu; ein vorhandener aktiver Marker verhindert diese Deaktivierung ausdrücklich.
 
@@ -1476,10 +1490,16 @@ Zustände wiederherstellen, **erst dann** die alte Nginx-Konfiguration laden (di
 bei Erstübernahme noch ohne Maintenance-Unterstützung sein). Zuletzt den ursprünglichen
 Markerzustand wiederherstellen. Das bestehende Recovery-Verhalten führt weiterhin
 keine HTTP- oder DB-Readiness-Probes aus; vorher gestoppte Services bleiben gestoppt.
-Der Snapshot enthält den ursprünglichen Markerzustand und -pfad im `manifest.json`.
+Der Snapshot enthält den ursprünglichen Markerzustand (`state`: `absent`,
+`ansible_owned` oder `operator_owned`), `enabled` und -pfad im `manifest.json`,
+keine Marker-Inhalte. Operator-owned Marker werden im gesamten Ablauf nicht ersetzt.
 
 Bei erfolgreicher Recovery wird OFF wieder OFF; vorheriges ON bleibt ON. Das Deployment
-endet trotzdem failed. Scheitert Recovery, wird kein Marker blind entfernt; ein bereits
+endet trotzdem failed. Insbesondere bleibt ein vorheriger Ansible-owned Marker auch
+nach erfolgreichem Rollback aktiv; erst eine erfolgreiche neue Aktivierung räumt ihn
+auf. Ein bereits entfernter Ansible-Marker wird vor den Recovery-Service-Stopps
+wieder angelegt, Operator-Inhalte bleiben bytegenau erhalten.
+Scheitert Recovery, wird kein Marker blind entfernt; ein bereits
 entfernter Marker wird nach Möglichkeit wieder angelegt. Ausgabe:
 `SYSTEM RECOVERY FAILED. Maintenance mode remains active where activation was possible.`
 Manueller Operator-Eingriff ist erforderlich. Der zuletzt geladene Wartungs-VHost bleibt

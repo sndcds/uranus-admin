@@ -60,6 +60,7 @@
   ansible.builtin.set_fact:
     ua_activation_required: >-
       {{ ua_changed_paths | length > 0 or ua_restart_services | length > 0
+         or ua_previous_maintenance_state == 'ansible_owned'
          or ua_planner_reconcile | default(false)
          or not ua_previous_services['uranus-admin-geocode-worker.timer'].active
          or not ua_previous_services['uranus-admin-geocode-worker.timer'].enabled
@@ -171,7 +172,7 @@
 
     - name: Save recovery metadata without environment contents
       ansible.builtin.copy:
-        content: "{{ {'files': ua_recovery_files, 'services': ua_previous_services, 'current': ua_previous_current.stat, 'frontend_env': ua_previous_frontend_env.stat, 'maintenance': {'enabled': ua_previous_maintenance.stat.exists, 'marker': ua_maintenance_marker}} | to_nice_json }}"
+        content: "{{ {'files': ua_recovery_files, 'services': ua_previous_services, 'current': ua_previous_current.stat, 'frontend_env': ua_previous_frontend_env.stat, 'maintenance': {'enabled': ua_previous_maintenance_state != 'absent', 'state': ua_previous_maintenance_state, 'marker': ua_maintenance_marker}} | to_nice_json }}"
         dest: "{{ ua_recovery_directory.path }}/manifest.json"
         owner: root
         group: root
