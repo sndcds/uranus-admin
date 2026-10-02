@@ -1466,7 +1466,7 @@ The three suggestion endpoints use existing Research authorization/CSRF policies
 
 ### Geographic Research v6
 
-The optional coordinated v6/v9 planner adds `place_query` and an explicit nearby relation.
+The optional coordinated v6/v11 planner adds `place_query` and an explicit nearby relation.
 `POST /research/query` accepts a closed optional `location_context`; browser coordinates
 stay in the request body. Admin resolves places exclusively through the internal Research
 geocoder and intersects effective venue addresses/PostGIS geometry with source eligibility.

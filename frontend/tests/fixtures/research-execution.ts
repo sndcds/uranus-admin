@@ -178,3 +178,45 @@ export function sortedEventsResponse(
   response.diagnostics.returned_count = 2
   return response
 }
+
+export const eventOccurrencesQuestion = 'Welches Event hat die meisten Termine?'
+export function eventOccurrencesResponse(): ResearchExecutionResponse {
+  const base = executionResponse('aggregate')
+  return {
+    ...base,
+    query: eventOccurrencesQuestion,
+    plan: {
+      ...base.plan,
+      schema_version: 'research-query-plan-v5',
+      prompt_version: 'research-planner-v10',
+      diagnostics: {
+        ...base.plan.diagnostics,
+        planner_prompt_version: 'research-planner-v10',
+      },
+      plan: {
+        ...base.plan.plan,
+        original_query: eventOccurrencesQuestion,
+        taxonomy: null,
+        spatial_metric: null,
+        area_relation: 'inside',
+        intent: 'aggregate',
+        entity_type: 'event',
+        metric: 'occurrence_count',
+        group_by: 'event',
+        ordering: 'desc',
+        limit: 1,
+        temporal: 'none',
+        explicit_from_date: null,
+        explicit_to_date: null,
+      },
+    },
+    resolution: [],
+    execution: { ...base.execution, from_date: null, to_date: null },
+    result: {
+      kind: 'aggregate',
+      metric: 'occurrence_count',
+      group_by: 'event',
+      items: [{ key: '00000000-0000-0000-0000-00000000001e', name: 'Event 30', value: 6 }],
+    },
+  }
+}

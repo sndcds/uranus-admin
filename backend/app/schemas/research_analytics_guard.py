@@ -25,6 +25,28 @@ def analytical_mismatch(
     ):
         return True  # No authoritative structured accessibility count is implemented.
 
+    # Match the requested subject, not dimension names mentioned later as filters.
+    # This is a veto only: never rewrite an unsupported dimension to a supported one.
+    occurrence_rank = re.search(r"\b(termine|dates|occurrences|datoer)\b", q) and re.search(
+        r"meisten|wenigsten|viele|most|fewest|many|flest|færrest|mange", q
+    )
+    if occurrence_rank:
+        for subject, dimension in (
+            (
+                r"veranstaltungstyp(?:en)?|event[- ]typ(?:en)?|event[- ]types?|begivenhedstyper?",
+                "event_type",
+            ),
+            (r"genres?", "genre"),
+            (r"orte?|veranstaltungsorte?|venues?|steder?", "venue"),
+            (r"organisation(?:en)?|organizations?|organisations?|organisationer?", "organization"),
+            (r"events?|veranstaltung(?:en)?|begivenhed(?:er)?|arrangement(?:er)?", "event"),
+        ):
+            if re.search(
+                rf"^\s*(?:welche[rsn]?|which|what|hvilke[nt]?)(?:\s+\d+)?\s+(?:{subject})\b",
+                q,
+            ):
+                return intent != "aggregate" or group_by != dimension
+
     taxonomy = next(
         (
             name

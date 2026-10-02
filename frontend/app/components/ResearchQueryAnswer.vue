@@ -100,6 +100,7 @@ const fieldLabels = {
         {{ metric }} nach
         {{
           {
+            event: 'Veranstaltung',
             venue: 'Veranstaltungsort',
             organization: 'Organisation',
             category: 'Kategorie',
@@ -204,7 +205,16 @@ const fieldLabels = {
         </thead>
         <tbody v-if="result.kind === 'aggregate'">
           <tr v-for="item in result.items" :key="item.key" class="border-b">
-            <th scope="row" class="p-2 font-normal">{{ item.name }}</th>
+            <th scope="row" class="p-2 font-normal">
+              <NuxtLink
+                v-if="result.group_by === 'event'"
+                :to="`/research/events/${item.key}`"
+                class="underline"
+              >
+                {{ item.name }}
+              </NuxtLink>
+              <template v-else>{{ item.name }}</template>
+            </th>
             <td class="p-2 text-right tabular-nums">{{ number(item.value) }}</td>
           </tr>
         </tbody>

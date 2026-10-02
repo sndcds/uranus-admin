@@ -77,6 +77,7 @@ async def count_selection(
 
 def grouping_sql(group_by: ExecutionGrouping) -> tuple[str, str, str]:
     return {
+        "event": ("selected.entity_key::text", "selected.name", ""),
         "venue": ("venue_id::text", "venue_name", ""),
         "organization": ("organization_id::text", "organization_name", ""),
         "category": (
@@ -111,6 +112,8 @@ async def aggregate_selection(
     ordering: Literal["asc", "desc"] = "desc",
     limit: int = 20,
 ) -> list[AggregateItem]:
+    if group_by == "event" and (metric != "occurrence_count" or filters.entity_type != "event"):
+        raise ValueError("event_grouping_requires_event_occurrences")
     # All matching occurrences, including effective venue overrides, not one date/event.
     sql = research_sql(occurrences=True)
     params = parameters(filters.model_copy(update={"entity_type": "event"}), settings, area)

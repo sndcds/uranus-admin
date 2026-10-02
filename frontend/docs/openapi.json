@@ -25261,6 +25261,7 @@
           "group_by": {
             "type": "string",
             "enum": [
+              "event",
               "venue",
               "organization",
               "category",
@@ -25296,7 +25297,7 @@
           },
           "prompt_version": {
             "type": "string",
-            "const": "research-planner-v8",
+            "const": "research-planner-v10",
             "title": "Prompt Version"
           },
           "model": {
@@ -25370,7 +25371,7 @@
           },
           "planner_prompt_version": {
             "type": "string",
-            "const": "research-planner-v8",
+            "const": "research-planner-v10",
             "title": "Planner Prompt Version"
           },
           "planner_ms": {
@@ -25641,6 +25642,7 @@
           "group_by": {
             "type": "string",
             "enum": [
+              "event",
               "venue",
               "area",
               "organization",
@@ -25757,7 +25759,7 @@
           },
           "prompt_version": {
             "type": "string",
-            "const": "research-planner-v8",
+            "const": "research-planner-v10",
             "title": "Prompt Version"
           },
           "model": {
@@ -31050,7 +31052,7 @@
           },
           "prompt_version": {
             "type": "string",
-            "const": "research-planner-v9",
+            "const": "research-planner-v11",
             "title": "Prompt Version"
           },
           "model": {
@@ -31124,7 +31126,7 @@
           },
           "planner_prompt_version": {
             "type": "string",
-            "const": "research-planner-v9",
+            "const": "research-planner-v11",
             "title": "Planner Prompt Version"
           },
           "planner_ms": {
@@ -31395,6 +31397,7 @@
           "group_by": {
             "type": "string",
             "enum": [
+              "event",
               "venue",
               "area",
               "organization",
@@ -31534,7 +31537,7 @@
           },
           "prompt_version": {
             "type": "string",
-            "const": "research-planner-v9",
+            "const": "research-planner-v11",
             "title": "Prompt Version"
           },
           "model": {

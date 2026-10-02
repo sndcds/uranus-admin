@@ -275,6 +275,7 @@ async def test_compressed_response_rejected_without_reading():
         ("prompt_version", "research-planner-v5"),
         ("prompt_version", "research-planner-v6"),
         ("prompt_version", "research-planner-v8"),
+        ("prompt_version", "research-planner-v10"),
         ("kind", "other"),
         ("kind", "needs_clarification"),
         ("extra", "secret"),

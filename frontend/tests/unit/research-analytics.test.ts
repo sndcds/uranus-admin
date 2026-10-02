@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { analyticalQueryPlanSchema } from '../../shared/research-analytics'
 import { researchExecutionResponseSchema } from '../../shared/research-execution'
 import ResearchQueryAnswer from '../../app/components/ResearchQueryAnswer.vue'
-import { executionResponse } from '../fixtures/research-execution'
+import { executionResponse, eventOccurrencesResponse } from '../fixtures/research-execution'
 import { researchEvent } from '../fixtures/research'
 
 const cases: { query: string; plan: unknown }[] = JSON.parse(
@@ -29,12 +29,12 @@ function response(index: number, result: unknown) {
     plan: {
       ...base.plan,
       schema_version: 'research-query-plan-v5',
-      prompt_version: 'research-planner-v8',
+      prompt_version: 'research-planner-v10',
       plan,
       diagnostics: {
         ...base.plan.diagnostics,
         planner_intent: plan.intent,
-        planner_prompt_version: 'research-planner-v8',
+        planner_prompt_version: 'research-planner-v10',
       },
     },
     result,
@@ -97,4 +97,60 @@ it('labels genre rankings as genres, not categories', () => {
   })
   expect(wrapper.text()).toContain('Veranstaltungen nach Genre')
   expect(wrapper.find('table').text()).toContain('Jazz')
+})
+
+it('renders the actual event title, distinct date count and event detail link', () => {
+  vi.stubGlobal('computed', computed)
+  const data = researchExecutionResponseSchema.parse(eventOccurrencesResponse())
+  const golden = cases.find((c) => c.query === data.query)!
+  expect(data.plan.plan).toEqual(golden.plan)
+  const wrapper = mount(ResearchQueryAnswer, {
+    props: { response: data },
+    global: {
+      stubs: {
+        EmptyState: true,
+        NuxtLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
+      },
+    },
+  })
+  expect(wrapper.text()).toContain('Termine nach Veranstaltung')
+  expect(wrapper.text()).not.toContain('Termine nach Veranstaltungstyp')
+  expect(wrapper.text()).not.toContain('Konzert')
+  expect(wrapper.find('tbody').text()).toContain('Event 30')
+  expect(wrapper.find('tbody td').text()).toBe('6')
+  expect(wrapper.find('tbody a').attributes('href')).toBe(
+    '/research/events/00000000-0000-0000-0000-00000000001e',
+  )
+})
+
+it.each(['event_count', 'venue_count', 'organization_count'])(
+  'rejects event grouping with %s',
+  (metric) => {
+    const plan = eventOccurrencesResponse().plan.plan
+    expect(analyticalQueryPlanSchema.safeParse({ ...plan, metric }).success).toBe(false)
+  },
+)
+
+it.each([
+  ['Welcher Veranstaltungstyp hat die meisten Termine?', 'event_type', 'Veranstaltungstyp'],
+  ['Welches Genre hat die meisten Termine?', 'genre', 'Genre'],
+  ['Welcher Ort hat die meisten Termine?', 'venue', 'Veranstaltungsort'],
+  ['Welche Organisation hat die meisten Termine?', 'organization', 'Organisation'],
+])('preserves the requested dimension: %s', (query, group_by, label) => {
+  vi.stubGlobal('computed', computed)
+  const wrapper = mount(ResearchQueryAnswer, {
+    props: {
+      response: response(
+        cases.findIndex((c) => c.query === query),
+        {
+          kind: 'aggregate',
+          metric: 'occurrence_count',
+          group_by,
+          items: [{ key: '1', name: 'Requested group', value: 184 }],
+        },
+      ),
+    },
+    global: { stubs: { EmptyState: true } },
+  })
+  expect(wrapper.text()).toContain(`Termine nach ${label}`)
 })

@@ -9,7 +9,7 @@
           "type": "string"
         },
         "prompt_version": {
-          "const": "research-planner-v8",
+          "const": "research-planner-v10",
           "title": "Prompt Version",
           "type": "string"
         },
@@ -83,7 +83,7 @@
           "type": "string"
         },
         "planner_prompt_version": {
-          "const": "research-planner-v8",
+          "const": "research-planner-v10",
           "title": "Planner Prompt Version",
           "type": "string"
         },
@@ -354,6 +354,7 @@
         },
         "group_by": {
           "enum": [
+            "event",
             "venue",
             "area",
             "organization",
@@ -470,7 +471,7 @@
           "type": "string"
         },
         "prompt_version": {
-          "const": "research-planner-v8",
+          "const": "research-planner-v10",
           "title": "Prompt Version",
           "type": "string"
         },

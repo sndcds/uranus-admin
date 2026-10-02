@@ -440,5 +440,39 @@
       "place_query": null,
       "location_relation": "none"
     }
+  },
+  {
+    "query": "Welches Event hat die meisten Termine?",
+    "plan": {
+      "original_query": "Welches Event hat die meisten Termine?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "semantic_query": null,
+      "area_query": null,
+      "venue_query": null,
+      "organization_query": null,
+      "event_type_queries": [],
+      "category_queries": [],
+      "genre_queries": [],
+      "temporal": "none",
+      "ordering": "desc",
+      "limit": 1,
+      "explicit_from_date": null,
+      "explicit_to_date": null,
+      "time_of_day": "none",
+      "metric": "occurrence_count",
+      "group_by": "event",
+      "comparison_targets": [],
+      "semantic_focus": null,
+      "requires_semantic_relevance": false,
+      "answer_mode": "aggregate",
+      "clarification": "none",
+      "unsupported_reason": null,
+      "taxonomy": null,
+      "spatial_metric": null,
+      "area_relation": "inside",
+      "place_query": null,
+      "location_relation": "none"
+    }
   }
 ]

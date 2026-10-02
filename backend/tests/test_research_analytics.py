@@ -8,14 +8,15 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 from fastapi import Request
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import text
 
 from app.errors import APIError
 from app.repositories.research_areas import ResolvedResearchArea
 from app.repositories.research_execution import count_selection, spatial_records, taxonomy_selection
 from app.repositories.research_resolution import Resolution
-from app.schemas.research_analytics import AnalyticalPlanResponse
+from app.schemas.research_analytics import AnalyticalPlanResponse, AnalyticalQueryPlan
+from app.schemas.research_analytics_guard import analytical_mismatch
 from app.schemas.research_areas import ResearchArea
 from app.schemas.research_execution import ExecutionFilters
 from app.services import research_plan_execution as executor
@@ -36,7 +37,7 @@ def envelope(case):
             dict(
                 kind="plan",
                 schema_version="research-query-plan-v5",
-                prompt_version="research-planner-v8",
+                prompt_version="research-planner-v10",
                 model="synthetic",
                 plan=case["plan"],
                 reference_date="2026-10-02",
@@ -45,7 +46,7 @@ def envelope(case):
                     request_id="a" * 32,
                     planner_intent=case["plan"]["intent"],
                     planner_model="synthetic",
-                    planner_prompt_version="research-planner-v8",
+                    planner_prompt_version="research-planner-v10",
                     planner_ms=0,
                     total_ms=0,
                 ),
@@ -174,12 +175,29 @@ async def test_authoritative_execution(settings, taxonomy_source, monkeypatch, c
     elif intent == "aggregate":
         assert result.kind == "aggregate" and result.group_by == case["plan"]["group_by"]
         expected = {
+            "event": [("Event 30", 6), ("Event 32", 1)],
             "genre": [("Drama", 1), ("Jazz", 1)],
             "event_type": [("Konzert", 1), ("Theater", 1)],
             "organization": [("Organization 10", 2)],
             "venue": [("Deutsches Haus", 6), ("Phänomenta", 1)],
         }[result.group_by]
+        if result.metric == "occurrence_count":
+            expected = {
+                "event": [("Event 30", 6), ("Event 32", 1)],
+                "genre": [("Jazz", 6), ("Drama", 1)],
+                "event_type": [("Konzert", 6), ("Theater", 1)],
+                "venue": [("Deutsches Haus", 6), ("Phänomenta", 1)],
+                "organization": [("Organization 10", 7)],
+            }[result.group_by]
+        expected = sorted(
+            expected,
+            key=lambda i: ((-i[1] if case["plan"]["ordering"] != "asc" else i[1]), i[0].lower()),
+        )[: case["plan"]["limit"] or 20]
         assert [(i.name, i.value) for i in result.items] == expected
+        if result.group_by == "event":
+            assert [i.key for i in result.items] == [
+                str(uid(int(name.split()[-1]))) for name, _ in expected
+            ]
     elif intent == "spatial_rank":
         assert result.kind == "spatial" and len(result.items) == 1
         assert result.items[0].location is not None
@@ -381,6 +399,10 @@ async def test_outside_excludes_missing_empty_and_boundary_points(settings, exec
         {"id": uid(20)},
     )
     assert await count_selection(c, settings, filters, "event_count", resolved) == 2
+    from app.repositories.research_execution import aggregate_selection
+
+    ranked = await aggregate_selection(c, settings, filters, "occurrence_count", "event", resolved)
+    assert [(i.key, i.value) for i in ranked] == [(str(uid(30)), 5), (str(uid(32)), 1)]
     await c.execute(
         text("UPDATE uranus.venue SET point=ST_SetSRID(ST_MakePoint(999,54),4326) WHERE uuid=:id"),
         {"id": uid(20)},
@@ -448,3 +470,198 @@ async def test_jazz_august_count_pipeline_without_semantic_service(settings, mon
     assert filters.event_type_ids == [1] and filters.genre_keys == ["1:1003"]
     assert count.await_args.args[3] == "event_count"
     semantic.assert_not_awaited()
+
+
+RANKING_CASES = [
+    c
+    for c in CASES
+    if c["plan"]["metric"] == "occurrence_count"
+    and c["plan"]["intent"] == "aggregate"
+    and c["plan"]["limit"] is not None
+]
+
+
+@pytest.mark.parametrize("case", RANKING_CASES, ids=lambda c: c["query"])
+@pytest.mark.parametrize(
+    "grouping", ["event", "event_type", "genre", "venue", "organization", "category", "none"]
+)
+def test_ranking_never_substitutes_dimensions(case, grouping):
+    assert analytical_mismatch(case["query"], "aggregate", grouping) == (
+        grouping != case["plan"]["group_by"]
+    )
+
+
+@pytest.mark.parametrize(
+    "metric,entity",
+    [("event_count", "event"), ("venue_count", "venue"), ("organization_count", "organization")],
+)
+def test_event_grouping_requires_occurrences(metric, entity):
+    case = next(c for c in CASES if c["query"] == "Welches Event hat die meisten Termine?")
+    with pytest.raises(ValidationError, match="event_grouping_requires_occurrence_count"):
+        AnalyticalQueryPlan.model_validate_json(
+            json.dumps(case["plan"] | {"metric": metric, "entity_type": entity})
+        )
+
+
+async def test_event_type_substitution_rejected_before_resolution(settings, monkeypatch):
+    case = next(c for c in CASES if c["query"] == "Welches Event hat die meisten Termine?")
+    wrong = {**case, "plan": case["plan"] | {"group_by": "event_type"}}
+    resolve = AsyncMock(side_effect=AssertionError("no DB work"))
+    monkeypatch.setattr(executor, "resolve_plan", resolve)
+    with pytest.raises(APIError) as exc:
+        await executor.ResearchPlanExecutor().execute(
+            Request({"type": "http"}), settings, envelope(wrong)
+        )
+    assert exc.value.code == "research_plan_unsupported"
+    resolve.assert_not_awaited()
+
+
+async def test_exact_event_question_route_to_aggregate_sql(client, headers, monkeypatch):
+    from unittest.mock import Mock
+
+    from app.api import research
+
+    case = next(c for c in CASES if c["query"] == "Welches Event hat die meisten Termine?")
+    app = client._transport.app
+    app.state.settings.research_analytics_enabled = True
+    app.state.research_planner = AsyncMock()
+    app.state.research_planner.plan.return_value = envelope(case)
+    monkeypatch.setattr(research, "record_success", AsyncMock())
+    monkeypatch.setattr(executor, "resolve_plan", AsyncMock(return_value=Resolution()))
+    connection = AsyncMock()
+    rows = Mock()
+    rows.mappings.return_value = [{"key": str(uid(30)), "name": "Event 30", "value": 6}]
+    connection.execute.return_value = rows
+
+    async def connect(request):
+        yield connection
+
+    monkeypatch.setattr(executor, "get_connection", connect)
+    semantic = AsyncMock(side_effect=AssertionError("no semantic ranking"))
+    monkeypatch.setattr(executor, "semantic_research", semantic)
+    response = await client.post(
+        "/api/v1/research/query", headers=headers, json={"query": case["query"]}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["result"] == {
+        "kind": "aggregate",
+        "metric": "occurrence_count",
+        "group_by": "event",
+        "items": [{"key": str(uid(30)), "name": "Event 30", "value": 6}],
+    }
+    statement, params = connection.execute.await_args.args
+    sql = str(statement)
+    assert "count(DISTINCT date_key)" in sql
+    assert "GROUP BY selected.entity_key::text,selected.name" in sql
+    assert (
+        'ORDER BY value DESC,lower(selected.name) COLLATE "C",'
+        '(selected.entity_key::text) COLLATE "C"' in sql
+    )
+    assert params["aggregate_limit"] == 1
+    assert "FROM matched_events" in sql
+    semantic.assert_not_awaited()
+    app.state.research_planner.plan.assert_awaited_once_with(case["query"], analytical=True)
+
+
+@pytest.mark.parametrize(
+    "ordering,expected", [("desc", [(30, 6), (32, 1)]), ("asc", [(32, 1), (30, 6)])]
+)
+async def test_event_occurrences_deduplicate_before_limit(
+    settings, taxonomy_source, monkeypatch, ordering, expected
+):
+    from app.repositories import research_execution as repository
+
+    # Deliberately duplicate the selected rows to exercise count(DISTINCT date_key).
+    original_sql = repository.research_sql
+
+    def duplicated_sql(**kwargs):
+        return (
+            f"WITH population AS ({original_sql(**kwargs)}) "
+            "SELECT entity_key,name,date_key FROM population UNION ALL "
+            "SELECT entity_key,name,date_key FROM population"
+        )
+
+    monkeypatch.setattr(repository, "research_sql", duplicated_sql)
+    result = await repository.aggregate_selection(
+        taxonomy_source,
+        settings,
+        ExecutionFilters(entity_type="event"),
+        "occurrence_count",
+        "event",
+        None,
+        ordering,
+        1,
+    )
+    assert [(i.key, i.name, i.value) for i in result] == [
+        (str(uid(expected[0][0])), f"Event {expected[0][0]}", expected[0][1])
+    ]
+
+
+async def test_event_ranking_ties_use_title_then_uuid(settings, taxonomy_source):
+    from app.repositories.research_execution import aggregate_selection
+
+    await taxonomy_source.execute(
+        text("DELETE FROM uranus.event_date WHERE event_uuid=:id AND uuid!=:date"),
+        {"id": uid(30), "date": uid(40)},
+    )
+    for title, expected in [("alpha", [32, 30]), ("Event 30", [30, 32])]:
+        await taxonomy_source.execute(
+            text("UPDATE uranus.event SET title=:title WHERE uuid=:id"),
+            {"title": title, "id": uid(32)},
+        )
+        for direction in ("asc", "desc"):
+            result = await aggregate_selection(
+                taxonomy_source,
+                settings,
+                ExecutionFilters(entity_type="event"),
+                "occurrence_count",
+                "event",
+                None,
+                direction,
+            )
+            assert [(i.key, i.value) for i in result] == [(str(uid(i)), 1) for i in expected]
+
+
+@pytest.mark.parametrize(
+    "filters,expected",
+    [
+        ({"venue_id": uid(21)}, [(30, 1)]),
+        ({"venue_id": uid(20)}, [(30, 5), (32, 1)]),
+        ({"organization_id": uid(11)}, []),
+        ({"category_ids": [7]}, [(30, 6)]),
+        ({"event_type_ids": [2]}, [(32, 1)]),
+        ({"genre_keys": ["1:1003"]}, [(30, 6)]),
+        ({"from_date": "2026-10-01"}, []),
+    ],
+)
+async def test_event_ranking_retains_population_filters(
+    settings, taxonomy_source, filters, expected
+):
+    from app.repositories.research_execution import aggregate_selection
+
+    selection = ExecutionFilters.model_validate_json(
+        json.dumps({"entity_type": "event", **filters}, default=str)
+    )
+    result = await aggregate_selection(
+        taxonomy_source, settings, selection, "occurrence_count", "event", None
+    )
+    assert [(i.key, i.value) for i in result] == [(str(uid(i)), n) for i, n in expected]
+
+
+async def test_fewest_occurrences_includes_eligible_undated_events(settings, taxonomy_source):
+    from app.repositories.research_execution import aggregate_selection
+
+    await taxonomy_source.execute(
+        text("DELETE FROM uranus.event_date WHERE event_uuid=:id"), {"id": uid(32)}
+    )
+    result = await aggregate_selection(
+        taxonomy_source,
+        settings,
+        ExecutionFilters(entity_type="event"),
+        "occurrence_count",
+        "event",
+        None,
+        "asc",
+        1,
+    )
+    assert [(i.key, i.name, i.value) for i in result] == [(str(uid(32)), "Event 32", 0)]

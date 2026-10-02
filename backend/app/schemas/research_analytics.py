@@ -1,4 +1,4 @@
-"""Closed analytical v5/v8 wire contract; legacy v3/v7 stays frozen."""
+"""Closed analytical v5/v10 wire contract; legacy v3/v7 stays frozen."""
 
 from datetime import date
 from typing import Annotated, Literal, Self
@@ -41,7 +41,9 @@ Temporal = Literal[
     "explicit_range",
 ]
 Metric = Literal["event_count", "venue_count", "organization_count", "occurrence_count", "none"]
-GroupBy = Literal["venue", "area", "organization", "category", "genre", "event_type", "none"]
+GroupBy = Literal[
+    "event", "venue", "area", "organization", "category", "genre", "event_type", "none"
+]
 
 
 class ClosedModel(BaseModel):
@@ -181,6 +183,8 @@ class AnalyticalQueryPlan(ClosedModel):
             raise ValueError("grouping_required")
         if self.intent != "aggregate" and self.group_by != "none":
             raise ValueError("unexpected_grouping")
+        if self.group_by == "event" and self.metric != "occurrence_count":
+            raise ValueError("event_grouping_requires_occurrence_count")
         expected_entity = {
             "event_count": "event",
             "occurrence_count": "event",
@@ -228,14 +232,14 @@ class AnalyticalDiagnostics(ClosedModel):
     request_id: str = Field(pattern=r"^[a-f0-9]{32}$")
     planner_intent: Intent
     planner_model: str = Field(min_length=1, max_length=160)
-    planner_prompt_version: Literal["research-planner-v8"]
+    planner_prompt_version: Literal["research-planner-v10"]
     planner_ms: float = Field(ge=0)
     total_ms: float = Field(ge=0)
 
 
 class AnalyticalEnvelope(ClosedModel):
     schema_version: Literal["research-query-plan-v5"]
-    prompt_version: Literal["research-planner-v8"]
+    prompt_version: Literal["research-planner-v10"]
     model: str = Field(min_length=1, max_length=160)
     plan: AnalyticalQueryPlan
     reference_date: date

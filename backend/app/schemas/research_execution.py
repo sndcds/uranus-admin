@@ -18,7 +18,7 @@ from app.schemas.research_location import Place, PlaceFilter
 from app.schemas.research_planner import ClosedModel, PlanResponse, Query, Slot
 
 ExecutionMetric = Literal["event_count", "occurrence_count", "venue_count", "organization_count"]
-ExecutionGrouping = Literal["venue", "organization", "category", "genre", "event_type"]
+ExecutionGrouping = Literal["event", "venue", "organization", "category", "genre", "event_type"]
 TaxonomyKind = Literal["genre", "event_type", "category"]
 
 

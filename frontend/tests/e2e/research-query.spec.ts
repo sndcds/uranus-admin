@@ -2,6 +2,8 @@ import { researchSuggestions, suggestionReceipt } from '../fixtures/research-sug
 import { test, expect } from '../fixtures/authenticated'
 import {
   executionResponse,
+  eventOccurrencesResponse,
+  eventOccurrencesQuestion,
   countQuestion,
   sortedEventsQuestion,
   sortedEventsResponse,
@@ -304,4 +306,23 @@ test('empty semantic selection explains that no sufficiently relevant events wer
   await expect(page.getByText(/Exakte strukturierte Auswertung|Ergebnisse insgesamt/)).toHaveCount(
     0,
   )
+})
+
+test('event with most dates displays the event rather than its type', async ({ page }) => {
+  await page.route(`**${root}/query`, (route) => {
+    expect(route.request().postDataJSON()).toEqual({ query: eventOccurrencesQuestion })
+    return route.fulfill({ json: eventOccurrencesResponse() })
+  })
+  await page.goto('/research')
+  await page.getByLabel('Deine Recherchefrage').fill(eventOccurrencesQuestion)
+  await page.getByRole('button', { name: 'Antwort anzeigen' }).click()
+  await expect(page.getByText('Termine nach Veranstaltung', { exact: false })).toBeVisible()
+  const table = page.getByRole('table', { name: 'Auswertung' })
+  await expect(table.getByRole('link', { name: 'Event 30', exact: true })).toHaveAttribute(
+    'href',
+    '/research/events/00000000-0000-0000-0000-00000000001e',
+  )
+  await expect(table.getByRole('cell', { name: '6', exact: true })).toBeVisible()
+  await expect(page.getByText('Termine nach Veranstaltungstyp', { exact: false })).toHaveCount(0)
+  await expect(table.getByText('Konzert')).toHaveCount(0)
 })
