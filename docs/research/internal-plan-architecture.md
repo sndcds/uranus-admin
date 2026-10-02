@@ -99,7 +99,11 @@ execute(request, settings,
 `normalize_v3`, `normalize_v5` and `normalize_v6` in `app/research/normalize.py`
 share only the genuinely common mapping. `normalize` is the closed transport
 version dispatch. `normalize_v7` belongs at the explicit comment in that module
-once its coordinated wire contract is integrated. This PR neither imports a v7
+once its coordinated wire contract is integrated. Existing executable capabilities
+require no version-specific executor. New capabilities such as state/district
+grouping still require generic executor/repository capability work: adding an adapter
+alone is insufficient. `entity_type` remains event/venue/organization; administrative
+groupings are only representable, not executable. This PR neither imports a v7
 contract nor enables a new endpoint or flag.
 
 `resolve_plan(request, settings, plan, context)` receives the same internal model.
@@ -132,7 +136,8 @@ do not appear in OpenAPI. The existing exact OpenAPI snapshot remains unchanged.
 Existing execution, taxonomy, chronology, geography, semantic-eligibility and
 client security regressions continue through the normalizer. Database tests retain
 their disposable PostgreSQL/PostGIS fixtures; this refactor adds no alternative SQL
-path or fake database backend. Docker tests are not run locally; CI is not awaited.
+path or fake database backend. Docker tests are not run locally. Final CI, Security and Deployment checks
+are verified for the final PR commit.
 
 Currently executable operations stay records/search/recommendation, exact count,
 aggregate (including occurrence ranking by event), compare, taxonomy and spatial
@@ -145,29 +150,29 @@ claim that the Planner's full future vocabulary is executable.
 
 Branch: `refactor/research-internal-plan`.
 
-| Files                                                 | Change                                                              |
-| ----------------------------------------------------- | ------------------------------------------------------------------- |
-| `backend/app/research/plan.py`                        | Internal intent and immutable domain selections                     |
-| `backend/app/research/context.py`                     | Separate request/runtime context                                    |
-| `backend/app/research/normalize.py`                   | Thin v3/v5/v6 adapters and future v7 insertion point                |
-| `backend/app/research/capabilities.py`                | Shared capability rejection before source access                    |
-| `backend/app/research/outcome.py`                     | Version-independent outcome using existing result classes           |
-| `backend/app/services/research_plan_execution.py`     | Internal-only signature, intent dispatch, unchanged primitive calls |
-| `backend/app/repositories/research_resolution.py`     | Internal-only input and shared context; no SQL changes              |
-| `backend/app/api/research.py`                         | Normalize before execution; assemble the wire response afterward    |
-| `backend/app/schemas/research_execution.py`           | Existing result models, with the transport wrapper extracted        |
-| `backend/app/schemas/research_response.py`            | The unchanged public response envelope                              |
-| `backend/app/schemas/research_values.py`              | Execution response primitives independent of Planner schemas        |
-| `backend/app/services/research_learning.py`           | Import the moved public response type; behavior unchanged           |
-| `backend/tests/research_plan_helpers.py`              | Normalize wire fixtures before execution                            |
-| `backend/tests/test_research_internal_plan.py`        | Mapping, context, parity, failure and architecture guards           |
-| `backend/tests/test_research_plan_execution.py`       | Existing execution regressions use internal inputs                  |
-| `backend/tests/test_research_analytics.py`            | Existing analytical regressions use internal inputs                 |
-| `backend/tests/test_research_geography.py`            | Existing geographic regressions pass separate context               |
-| `backend/tests/test_research_taxonomy.py`             | Existing resolver/genre-conflict regressions use internal inputs    |
-| `backend/tests/test_research_chronology.py`           | Existing time/order regressions use internal inputs                 |
-| `backend/tests/test_research_semantic_eligibility.py` | Existing eligibility/snapshot regressions use internal inputs       |
-| `docs/research/internal-plan-architecture.md`         | Audit, architecture, capability limits and validation report        |
+| Files                                                 | Change                                                                  |
+| ----------------------------------------------------- | ----------------------------------------------------------------------- |
+| `backend/app/research/plan.py`                        | Internal intent and immutable domain selections                         |
+| `backend/app/research/context.py`                     | Separate request/runtime context                                        |
+| `backend/app/research/normalize.py`                   | Thin v3/v5/v6 adapters and future v7 insertion point                    |
+| `backend/app/research/capabilities.py`                | Shared capability rejection before source access                        |
+| `backend/app/research/outcome.py`                     | Version-independent outcome using existing result classes               |
+| `backend/app/services/research_plan_execution.py`     | Internal-only signature, intent dispatch, unchanged primitive calls     |
+| `backend/app/repositories/research_resolution.py`     | Internal-only input, level-aware candidate filtering and shared context |
+| `backend/app/api/research.py`                         | Normalize before execution; assemble the wire response afterward        |
+| `backend/app/schemas/research_execution.py`           | Existing result models, with the transport wrapper extracted            |
+| `backend/app/schemas/research_response.py`            | The unchanged public response envelope                                  |
+| `backend/app/schemas/research_values.py`              | Execution response primitives independent of Planner schemas            |
+| `backend/app/services/research_learning.py`           | Import the moved public response type; behavior unchanged               |
+| `backend/tests/research_plan_helpers.py`              | Normalize wire fixtures before execution                                |
+| `backend/tests/test_research_internal_plan.py`        | Mapping, context, parity, failure and architecture guards               |
+| `backend/tests/test_research_plan_execution.py`       | Existing execution regressions use internal inputs                      |
+| `backend/tests/test_research_analytics.py`            | Existing analytical regressions use internal inputs                     |
+| `backend/tests/test_research_geography.py`            | Existing geographic regressions pass separate context                   |
+| `backend/tests/test_research_taxonomy.py`             | Existing resolver/genre-conflict regressions use internal inputs        |
+| `backend/tests/test_research_chronology.py`           | Existing time/order regressions use internal inputs                     |
+| `backend/tests/test_research_semantic_eligibility.py` | Existing eligibility/snapshot regressions use internal inputs           |
+| `docs/research/internal-plan-architecture.md`         | Audit, architecture, capability limits and validation report            |
 
 Duplication assessment: no source execution SQL was added or copied. Area resolution
 adds the existing `municipality_key` column to its internal metadata projection. The shared population and
@@ -213,7 +218,8 @@ calling Nominatim or importing boundaries during an interactive request.
 
 Planner "region" != Admin resolved administrative level. `geography.py` owns
 `AdministrativeLevel` (`country`, `state`, `district`, `municipality`, `region`),
-`AdministrativeAreaRef`, `AdministrativeIdentity`, `BoundaryReference`,
+`UnresolvedAdministrativeAreaRef`, `ResolvedAdministrativeAreaRef`,
+`AdministrativeIdentity`, `BoundaryReference`,
 `AdministrativeHierarchy` and typed spatial references. They are internal frozen
 dataclasses, not additions to browser input or OpenAPI.
 
@@ -223,19 +229,60 @@ flowchart TD
     N --> P[InternalResearchPlan: typed spatial predicates]
     P --> R[Administrative Resolver]
     A[Persisted research_area metadata and geometry] --> R
-    R --> REF[AdministrativeAreaRef: level, identity, boundary]
+    R --> REF[ResolvedAdministrativeAreaRef: level, identity, boundary]
     REF --> E[Shared PostGIS Executor]
 ```
 
-An unresolved `AdministrativeAreaRef` contains the lookup name and `level=None`.
-Resolution replaces it with persisted identity, explicit level and a boundary
-reference to the same `admin.research_area` UUID whose EWKB is used in the query.
-The executor verifies matching resolved/boundary IDs and the preserved spatial
-relation before building filters; an unresolved area cannot become an unfiltered
-query. No `area_query` string is passed to source execution. Name-based resolution
-keeps its existing ambiguity/no-match behavior. No runtime boundary import occurs.
+`UnresolvedAdministrativeAreaRef(name, expected_level)` expresses the Planner's
+semantic expectation. It contains neither an authoritative level nor an ID or
+boundary. `_area_constraints(query, relation, expected_level=None)` preserves that
+expectation: v3/v5/v6 supply `None`; a future coordinated adapter can supply a level
+without adding version-specific resolver code.
 
-Metadata classification (names below illustrate the data, not a name lookup table):
+`ResolvedAdministrativeAreaRef` requires an authoritative `level`, country,
+resolved UUID and `BoundaryReference`; official codes can remain unknown. These
+are separate types so expected and resolved truth cannot be confused. The immutable
+input plan retains its expectation while `Resolution` carries the resolved reference.
+
+When an expected level exists, the area candidate SQL filters by metadata level
+**before** name ranking and `LIMIT 5`. An exact name at the wrong level cannot hide
+an appropriate match, and five wrong-level matches cannot exhaust the candidate
+budget. No expectation keeps the previous name-resolution behavior. Zero matching
+candidates returns `no_match`; multiple matching candidates returns `ambiguous`.
+This uses one bounded candidate query, not N+1 boundary loads or an unbounded
+in-memory vocabulary. The public `ResolutionCandidate` needs no new fields.
+
+After `resolve_area` loads the selected boundary, the resolver checks its metadata
+level against the original expectation again. A mismatch returns the existing
+`needs_clarification` / `no_match` result, without claiming a successful resolution
+or executing source queries. No new browser error schema is needed. The execution
+filter boundary additionally verifies the expected level, resolved/boundary IDs
+and preserved spatial relation; missing/mismatched resolution cannot become an
+unfiltered query. No raw `area_query` reaches source execution.
+
+### Administrative metadata ownership
+
+`research_administrative.py` only assembles a resolved identity from the
+`AdministrativeMetadata` interface plus its persisted UUID/name. Level/codes and
+hierarchy metadata come from `research_administrative_metadata.py`, an explicitly
+**TRANSITIONAL** adapter for the current persisted schema. Domain models, the main
+resolver and executor contain no OSM-level or country-level mapping knowledge.
+
+Persisted `area_type=municipality` and `district` are authoritative and always win,
+regardless of OSM level. Only legacy `region` rows need compatibility classification:
+current storage cannot distinguish state/country/generic region directly. One
+adapter-owned rule set produces both the SQL level projection and loaded-row
+classification, preventing two divergent mappings. The existing state-code mapping
+is consumed in this adapter only, not recalculated in domain or executor layers.
+
+This fallback is retained to preserve existing v5/v6 behavior without a migration
+or a dependency on an unmerged geocoder change. Its replacement point is the
+metadata adapter: once authoritative ingestion/geocoder metadata stores the complete
+level/code contract, replace the legacy projection and extraction there. Do not
+copy this mapping into the geocoder, normalizer or executor. No geocoder redesign,
+new data import or Danish equivalence mapping is part of this PR.
+
+Metadata classification within the transitional adapter (example names are not rules):
 
 | Stored metadata                                     | Example                           | Internal level |
 | --------------------------------------------------- | --------------------------------- | -------------- |
@@ -294,18 +341,18 @@ selection, timezone and venue override handling are unchanged.
 
 ## Explicit remaining geography capabilities
 
-| Capability                                           | Status / missing evidence                                                                                          |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| One inside/outside administrative boundary           | Executable with a unique cached area; resolved level and ID retained                                               |
-| Multiple administrative AND predicates               | Internal representation ready; v5/v6 wire and execution not yet supported                                          |
-| Group by municipality/district/state/country         | Distinct internal values; explicit unsupported until wire selection and non-overlapping population/group SQL exist |
-| Municipalities with zero events in a district        | Needs authoritative complete child inventory plus zero-preserving aggregation; not enabled                         |
-| District official IDs / municipality parent district | Not stored; remain unknown; no substring-derived or guessed IDs                                                    |
-| State/country/district inventory                     | Not established by synthetic fixtures; current operator import primarily provisions municipalities                 |
-| Independent cities / city states                     | Primary municipality identity preserved; overlapping district/state roles are not automatically expanded           |
-| Border hierarchy / near/across border                | Typed separately from outside; no verified border resolver/execution or invented radius                            |
-| Danish equivalent levels                             | Imported municipalities remain municipality; other regions stay region until an authoritative equivalence is added |
-| General v7 execution                                 | No contract import, transport or parallel executor; future adapter belongs in `normalize.py`                       |
+| Capability                                           | Status / missing evidence                                                                                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| One inside/outside administrative boundary           | Executable with a unique cached area; resolved level and ID retained                                                                       |
+| Multiple administrative AND predicates               | Internal representation ready; v5/v6 wire and execution not yet supported                                                                  |
+| Group by municipality/district/state/country         | Distinct internal values; explicit unsupported until wire selection and non-overlapping population/group SQL exist                         |
+| Municipalities with zero events in a district        | Needs authoritative complete child inventory plus zero-preserving aggregation; not enabled                                                 |
+| District official IDs / municipality parent district | Not stored; remain unknown; no substring-derived or guessed IDs                                                                            |
+| State/country/district inventory                     | Not established by synthetic fixtures; current operator import primarily provisions municipalities                                         |
+| Independent cities / city states                     | Primary municipality identity preserved; overlapping district/state roles are not automatically expanded                                   |
+| Border hierarchy / near/across border                | Typed separately from outside; no verified border resolver/execution or invented radius                                                    |
+| Danish equivalent levels                             | Imported municipalities remain municipality; other regions stay region until an authoritative equivalence is added                         |
+| General v7 execution                                 | No contract import or transport; normalization belongs in `normalize.py`. New capabilities still require generic executor/repository work. |
 
 No new aggregate result format is needed: these new administrative groupings do
 not yet produce results. A later implementation must expose level/official identity
@@ -333,33 +380,34 @@ key in its mocked area row; semantic/classic response expectations stay unchange
 
 Only backend and documentation changed. Frontend, Ansible, dependencies, runtime
 flags, source SQL, grants and migrations are unchanged. OpenAPI is checked against
-the existing generated snapshot rather than hand edited. No Docker tests or CI
-waiting are part of local validation.
+the existing generated snapshot rather than hand edited. No Docker tests are run locally. Final GitHub workflow checks are awaited separately.
 
-## Local validation and review status
+## Final validation and review gate
 
-Commands use the repository's documented `backend/` working directory and existing
-locked environment (`uv run --no-sync --offline`). No dependencies were changed.
+After the review corrections, the final validation runs from `backend/`:
+`uv sync --locked`, `uv run ruff check .`, `uv run ruff format --check .`,
+`uv run mypy`, and a complete `uv run pytest -q`, followed by `git diff --check`.
+The completed counts and exact-head GitHub CI/Security/Deployment status are
+recorded in PR #172's description and the final implementation report. They replace
+the initial PR's fixture-failure report; a focused rerun alone is not the final gate.
+Database/service tests unavailable locally skip explicitly and are exercised in CI.
+No Docker tests run locally, and no merge is performed.
 
-- `ruff check .`: passed.
-- `ruff format --check .`: passed (347 files).
-- `mypy`: passed (233 source files).
-- Internal-plan/admin-geography/OpenAPI regressions: **98 passed, 2 skipped**.
-- Full `pytest -q`: **3182 passed, 1066 skipped, 3 failed** on the first completed
-  run. All three failures were the same pre-existing mocked area row missing the
-  newly projected `municipality_key`; the fixture now supplies `None`. The entire
-  affected semantic-search module was rerun after that correction:
-  **125 passed, 20 skipped**, including all three previously failing cases.
-- `git diff --check`: passed; documentation Prettier check passed.
+Architecture guards forbid Planner wire imports and version checks in resolver,
+executor and domain modules. They additionally forbid `osm_admin_level` and
+`REGION_PREFIX` there and in the identity assembler. Internal expected/resolved
+references stay out of OpenAPI. The existing transport, auth, taxonomy, shared
+population and PostGIS membership rules remain unchanged.
 
-Database/PostGIS and other service-dependent tests skip without their configured
-local services; no Docker services were started. The full suite was not silently
-reported green after correcting its fixture. The additional three boundary-guard
-cases were run in the later focused suite. Earlier exploratory attempts from the
-repository root are not the configured backend gates (pytest fixtures require
-`backend/`; root-wide Ruff also includes unrelated deployment/Ansible files).
+Additional review changes: `research_administrative_metadata.py` isolates the
+compatibility adapter; normalizers retain optional expected level; candidate SQL
+prefilters before ranking/limit; loaded metadata and execution filters recheck
+expectation. Tests include same-name different-level candidates, wrong-level
+boundary metadata, persisted-type precedence, SQL/loaded-metadata consistency,
+wire parity and immutable multiple-constraint rejection.
 
-Frontend/Ansible gates are left to their established CI applicability: neither
-subsystem nor its contract/configuration changed. GitHub CI is not awaited.
-Merge readiness: ready for review after local checks; final merge approval still
-requires CI's real PostgreSQL/PostGIS checks. No merge is performed by this change.
+Administrative grouping/ranking, complete district parentage/official codes,
+authoritative state/country inventory, border operations and multiple administrative
+AND execution remain explicit capability gaps for later generic capability PRs.
+The result is a **typed administrative resolution foundation**, not complete
+administrative geography or a v7 executor implementation.

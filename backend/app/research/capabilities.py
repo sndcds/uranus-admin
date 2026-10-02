@@ -2,8 +2,8 @@
 
 from app.errors import APIError
 from app.research.geography import (
-    AdministrativeAreaRef,
     NamedPlaceRef,
+    UnresolvedAdministrativeAreaRef,
     UserLocationRef,
     administrative_constraints,
 )
@@ -70,7 +70,7 @@ def require_supported_spatial(plan: InternalResearchPlan) -> None:
         reference = constraint.reference
         if constraint.radius_m is not None or not (
             (
-                isinstance(reference, AdministrativeAreaRef)
+                isinstance(reference, UnresolvedAdministrativeAreaRef)
                 and constraint.relation in {"inside", "outside"}
             )
             or (isinstance(reference, NamedPlaceRef) and constraint.relation == "inside")
