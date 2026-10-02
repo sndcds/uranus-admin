@@ -115,7 +115,12 @@ def build_frontend(commit, workspace, verify=False, production_e2e=False):
     frontend = workspace / "frontend"
     if frontend.exists():
         raise ValueError("Release build requires a fresh workspace")
-    raw = subprocess.check_output(["git", "archive", "--format=tar", commit, "frontend"])
+    sources = ["frontend"]
+    if verify:
+        # Frontend contract tests share this synthetic corpus with backend tests.
+        # Keep it commit-pinned and build-only; never extract the whole backend.
+        sources.append("backend/tests/fixtures/research_analytics.json")
+    raw = subprocess.check_output(["git", "archive", "--format=tar", commit, *sources])
     with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
         for member in archive:
             parts = Path(member.name).parts

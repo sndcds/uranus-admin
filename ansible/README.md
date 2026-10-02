@@ -1110,8 +1110,11 @@ Auch `pnpm install`, `npm install`, Nuxt/Vite- und TypeScript-Builds sind dort v
 (nur Existenzprüfung, kein Lesen der Datei). Dies ersetzt nicht die Wahl des richtigen Hosts.
 
 `build_release.py` holt `main` frisch von `origin` und bestimmt `FETCH_HEAD`.
-Es extrahiert nur die versionierten Frontend-Dateien dieses Commits in einen neuen
+Es extrahiert die versionierten Frontend-Dateien dieses Commits in einen neuen
 temporären Arbeitsbereich, unabhängig vom lokalen Branch, Änderungen und `.output`.
+Mit `--verify` kommt ausschließlich die gemeinsame synthetische Test-Fixture
+`backend/tests/fixtures/research_analytics.json` aus demselben Commit hinzu. Sie wird
+nur für die Frontend-Vertragstests benötigt und gehört nicht zum Release-Artefakt.
 Es installiert mit `pnpm install --frozen-lockfile`, führt mit `--verify` Lint,
 Typecheck und Unit-Tests aus und baut mit `pnpm build`/Nitro `node-server`.
 Anschließend wird eine isolierte Kopie der Ausgabe ohne Entwickler-`node_modules`
