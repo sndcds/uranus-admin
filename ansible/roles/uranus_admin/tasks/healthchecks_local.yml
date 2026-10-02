@@ -63,3 +63,7 @@
     - "{{ ua_research_planner_qdrant_local_port }}"
     - "{{ ua_research_planner_embedding_local_port }}"
   when: ua_research_vector_enabled
+
+- name: Check geographic Research unless already verified before backend startup
+  ansible.builtin.import_tasks: healthchecks_research_geocoder.yml
+  when: not (ua_geocoder_prestart_verified | default(false))

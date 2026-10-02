@@ -30,7 +30,8 @@ ExecStart=/usr/bin/ssh -F /dev/null -N -T \
     -L 127.0.0.1:{{ ua_research_planner_local_port }}:127.0.0.1:{{ ua_research_planner_remote_port }} \
     -L 127.0.0.1:{{ ua_research_planner_qdrant_local_port }}:127.0.0.1:{{ ua_research_planner_qdrant_remote_port }} \
     -L 127.0.0.1:{{ ua_research_planner_embedding_local_port }}:127.0.0.1:{{ ua_research_planner_embedding_remote_port }} \
-    {{ ua_research_planner_ssh_user }}@{{ ua_research_planner_ssh_host }}
+{% if ua_research_geocoder_enabled | default(false) %}    -L 127.0.0.1:{{ ua_research_planner_geocoder_local_port }}:127.0.0.1:{{ ua_research_planner_geocoder_remote_port }} \
+{% endif %}    {{ ua_research_planner_ssh_user }}@{{ ua_research_planner_ssh_host }}
 Restart=on-failure
 RestartSec=5s
 TimeoutStartSec=30s

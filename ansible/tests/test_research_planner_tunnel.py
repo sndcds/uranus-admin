@@ -38,6 +38,8 @@ class PlannerTunnelTests(unittest.TestCase):
             qdrant_remote_port=6333,
             embedding_local_port=6335,
             embedding_remote_port=6335,
+            geocoder_local_port=6337,
+            geocoder_remote_port=6337,
             key="/etc/uranus-admin/research-planner-ssh-key",
             known="/etc/uranus-admin/research-planner-known_hosts",
         )
@@ -54,6 +56,8 @@ class PlannerTunnelTests(unittest.TestCase):
             "qdrant_remote_port": 6333,
             "embedding_local_port": 6335,
             "embedding_remote_port": 6335,
+            "geocoder_local_port": 6337,
+            "geocoder_remote_port": 6337,
             "ssh_user": "research-planner-tunnel",
         }.items():
             self.assertEqual(self.defaults["ua_research_planner_" + key], value)
@@ -91,6 +95,8 @@ class PlannerTunnelTests(unittest.TestCase):
             "qdrant_remote_port": [0, 65536, False, "6333"],
             "embedding_local_port": [0, 65536, False, "6335", 8090, 6333],
             "embedding_remote_port": [0, 65536, True, "6335"],
+            "geocoder_local_port": [0, 65536, True, "6337", 8090, 6333, 6335],
+            "geocoder_remote_port": [0, 65536, True, "6337"],
             "remote_host": ["", "localhost", "::1", "10.0.0.1", "127.0.0.2"],
             "key": [
                 "relative/key",
@@ -140,6 +146,10 @@ class PlannerTunnelTests(unittest.TestCase):
             ("qdrant_remote_port", False),
             ("embedding_local_port", 6333),
             ("embedding_remote_port", 65536),
+            ("geocoder_local_port", 6335),
+            ("geocoder_local_port", "6337"),
+            ("geocoder_remote_port", True),
+            ("geocoder_remote_port", 65536),
             ("host", ""),
             ("remote_host", "localhost"),
             ("key", "relative/key"),
@@ -159,7 +169,8 @@ class PlannerTunnelTests(unittest.TestCase):
                             "item.ssh_port, item.user, item.local_port, item.remote_host, "
                             "item.remote_port, item.key, item.known, item.qdrant_local_port, "
                             "item.qdrant_remote_port, item.embedding_local_port, "
-                            "item.embedding_remote_port))",
+                            "item.embedding_remote_port, item.geocoder_local_port, "
+                            "item.geocoder_remote_port))",
                         },
                         "loop": "{{ cases }}",
                     }
@@ -294,10 +305,10 @@ class PlannerTunnelTests(unittest.TestCase):
                 timeout=120,
             )
 
-    def test_exact_three_loopback_forwards_with_defaults_and_custom_ports(self):
+    def test_exact_four_loopback_forwards_with_defaults_and_custom_ports(self):
         for ports in (
-            (8090, 8090, 6333, 6333, 6335, 6335),
-            (18090, 28090, 16333, 26333, 16335, 26335),
+            (8090, 8090, 6333, 6333, 6335, 6335, 6337, 6337),
+            (18090, 28090, 16333, 26333, 16335, 26335, 16337, 26337),
         ):
             overrides = dict(
                 zip(
@@ -308,6 +319,8 @@ class PlannerTunnelTests(unittest.TestCase):
                         "ua_research_planner_qdrant_remote_port",
                         "ua_research_planner_embedding_local_port",
                         "ua_research_planner_embedding_remote_port",
+                        "ua_research_planner_geocoder_local_port",
+                        "ua_research_planner_geocoder_remote_port",
                     ),
                     ports,
                     strict=True,
@@ -315,10 +328,12 @@ class PlannerTunnelTests(unittest.TestCase):
             )
             unit = self.render(
                 **overrides,
+                ua_research_geocoder_enabled=True,
                 ua_runtime={
                     "RESEARCH_PLANNER_API_KEY": "synthetic-planner-secret",
                     "QDRANT_API_KEY": "synthetic-qdrant-secret",
                     "EMBEDDING_API_KEY": "synthetic-embedding-secret",
+                    "RESEARCH_GEOCODER_API_KEY": "synthetic-geocoder-secret-not-live" * 2,
                 },
             )
             self.assertEqual(
@@ -333,7 +348,18 @@ class PlannerTunnelTests(unittest.TestCase):
             self.assertNotIn("API_KEY", unit)
 
     def test_real_ansible_runtime_preflight_and_secret_redaction(self):
-        tasks = yaml.safe_load((ROLE / "tasks/environment_plan.yml").read_text())[-3:]
+        all_tasks = yaml.safe_load((ROLE / "tasks/environment_plan.yml").read_text())
+        tasks = [
+            t
+            for t in all_tasks
+            if t["name"]
+            in {
+                "Require separately provisioned planner runtime credentials "
+                "and matching loopback port",
+                "Determine whether the tunnel requires semantic service validation",
+                "Require separately provisioned vector service keys and matching loopback ports",
+            }
+        ]
         self.assertTrue(all(task["no_log"] for task in tasks))
         runtime = {
             "SEMANTIC_SEARCH_NONCOMMERCIAL_JINA": "true",
@@ -435,7 +461,10 @@ class PlannerTunnelTests(unittest.TestCase):
                 "ua_research_planner_qdrant_local_port",
                 "ua_research_planner_embedding_local_port",
             ]
-            self.assertEqual(collision["loop"], ["{{ " + field + " }}" for field in fields])
+            fields.append("ua_research_planner_geocoder_local_port")
+            for field in fields:
+                self.assertIn(field, collision["loop"])
+            self.assertIn("if ua_research_geocoder_enabled", collision["loop"])
             tasks = []
             for field in fields:
                 tasks.extend(
@@ -450,6 +479,7 @@ class PlannerTunnelTests(unittest.TestCase):
                 )
             variables = {
                 "ua_planner_reconcile": True,
+                "ua_research_geocoder_enabled": True,
                 "ua_research_planner_tunnel_enabled": True,
                 **dict.fromkeys(fields, occupied),
             }
@@ -462,6 +492,32 @@ class PlannerTunnelTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("skipping:", result.stdout)
+
+    def test_disabled_geocoder_does_not_probe_its_occupied_port(self):
+        from contextlib import ExitStack
+
+        block = yaml.safe_load((ROLE / "tasks/activate.yml").read_text())[1]["block"]
+        collision = next(t for t in block if "local tunnel ports to be free" in t["name"])
+        with ExitStack() as stack:
+            sockets = [stack.enter_context(socket.socket()) for _ in range(4)]
+            for listener in sockets:
+                listener.bind(("127.0.0.1", 0))
+            # Only the geocoder socket listens. The three other ports reject connections.
+            sockets[3].listen(8)
+            variables = {
+                "ua_planner_reconcile": True,
+                "ua_research_planner_tunnel_enabled": True,
+                "ua_research_geocoder_enabled": False,
+            }
+            for field, listener in zip(
+                ("local_port", "qdrant_local_port", "embedding_local_port", "geocoder_local_port"),
+                sockets,
+                strict=True,
+            ):
+                variables["ua_research_planner_" + field] = listener.getsockname()[1]
+            result = self.run_tasks([collision], variables)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertNotIn(str(sockets[3].getsockname()[1]), result.stdout)
 
     def test_vector_health_is_bounded_tcp_only_and_conditional(self):
         health = yaml.safe_load((ROLE / "tasks/healthchecks_local.yml").read_text())
@@ -586,6 +642,279 @@ class PlannerTunnelTests(unittest.TestCase):
         self.assertNotIn("research_planner_ssh", settings)
         self.assertNotIn("PRIVATE KEY", (ROLE / "tasks/file_plan.yml").read_text())
         self.assertNotIn("read_bytes", (ROLE / "library/uranus_planner_tunnel.py").read_text())
+
+    def test_geocoder_optional_forward_reconciles_existing_unit(self):
+        old = self.render(ua_research_geocoder_enabled=False)
+        new = self.render(ua_research_geocoder_enabled=True)
+        self.assertNotIn("6337", old)
+        self.assertEqual(new.count("-L 127.0.0.1:6337:127.0.0.1:6337"), 1)
+        self.assertEqual(old.count("-L "), 3)
+        self.assertEqual(new.count("-L "), 4)
+        self.assertEqual(old, new.replace("    -L 127.0.0.1:6337:127.0.0.1:6337 \\\n", ""))
+        running = {"exists": True, "active": True, "enabled": True}
+        changed = ["/etc/systemd/system/" + UNIT] if new != old else []
+        self.assertTrue(filters.planner_reconcile(True, running, changed))
+        self.assertFalse(filters.planner_reconcile(True, running, []))
+        block = yaml.safe_load((ROLE / "tasks/activate.yml").read_text())[1]["block"]
+        reconcile = next(t for t in block if "Reconcile the optional tunnel" in t["name"])
+        verify = next(t for t in block if "Verify geographic Research" in t["name"])
+        start = next(t for t in block if "Start affected application" in t["name"])
+        self.assertLess(block.index(reconcile), block.index(verify))
+        self.assertLess(block.index(verify), block.index(start))
+        self.assertIn("'restarted'", reconcile["ansible.builtin.systemd_service"]["state"])
+        local = yaml.safe_load((ROLE / "tasks/healthchecks_local.yml").read_text())[-1]
+        self.assertIn("ua_geocoder_prestart_verified", local["when"])
+        self.assertEqual(
+            local["ansible.builtin.import_tasks"], verify["ansible.builtin.import_tasks"]
+        )
+
+    def test_geocoder_runtime_validation_and_redaction_in_real_check_mode(self):
+        tasks = yaml.safe_load((ROLE / "tasks/environment_plan.yml").read_text())[-2:]
+        self.assertTrue(tasks[0]["no_log"])
+        self.assertTrue(tasks[1]["block"][0]["no_log"])
+        key = "synthetic-geocoder-secret-not-live-1234567890"
+        runtime = {
+            "RESEARCH_GEOCODER_API_KEY": key,
+            "RESEARCH_GEOCODER_URL": "http://127.0.0.1:6337",
+        }
+        keys = [
+            "RESEARCH_GEOCODER_API_KEY",
+            "RESEARCH_GEOCODER_URL",
+            "RESEARCH_GEOCODER_TIMEOUT_SECONDS",
+        ]
+        cases = [(runtime, True, keys, True)]
+        for url in [
+            "http://89.58.44.151:6337",
+            "http://localhost:6337",
+            "http://127.0.0.1:9999",
+            "https://127.0.0.1:6337",
+            "",
+        ]:
+            cases.append((runtime | {"RESEARCH_GEOCODER_URL": url}, True, keys, False))
+        for value in ["short-secret", " " * 40, "x" * 513, key + " ", "ü" * 32]:
+            cases.append((runtime | {"RESEARCH_GEOCODER_API_KEY": value}, True, keys, False))
+        for value in ["0", "11", "-1", "nan", "inf", "bad", "", "true"]:
+            cases.append(
+                (runtime | {"RESEARCH_GEOCODER_TIMEOUT_SECONDS": value}, True, keys, False)
+            )
+        for value in ["0.1", "5", "10"]:
+            cases.append((runtime | {"RESEARCH_GEOCODER_TIMEOUT_SECONDS": value}, True, keys, True))
+        cases += [
+            (runtime, False, keys, False),
+            (runtime, True, [], False),
+            ({}, True, [], True),
+            ({}, False, [], True),
+            (
+                {"RESEARCH_GEOCODER_URL": "http://127.0.0.1:6337", "RESEARCH_GEOCODER_API_KEY": ""},
+                True,
+                keys,
+                True,
+            ),
+        ]
+        checks = []
+        for index, (values, tunnel, supported, expected) in enumerate(cases):
+            checks += [
+                {
+                    "ansible.builtin.set_fact": {
+                        "ua_runtime": values,
+                        "ua_research_planner_tunnel_enabled": tunnel,
+                        "ua_manifest": {"environment_keys": supported},
+                        "fixture_valid": True,
+                    },
+                    "no_log": True,
+                },
+                {
+                    "block": tasks,
+                    "rescue": [{"ansible.builtin.set_fact": {"fixture_valid": False}}],
+                },
+                {
+                    "name": f"Validate geocoder runtime case {index}",
+                    "ansible.builtin.assert": {"that": f"fixture_valid == {expected}"},
+                },
+            ]
+        protected_source = {
+            "ua_env_stats": {
+                "results": [
+                    {
+                        "stat": {
+                            "exists": True,
+                            "uid": 0,
+                            "gid": 0,
+                            "mode": "0600",
+                        }
+                    }
+                ]
+            }
+        }
+        result = self.run_tasks(checks, protected_source, check=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn(key, result.stdout + result.stderr)
+        self.assertNotIn("short-secret", result.stdout + result.stderr)
+        self.assertIn("must be provisioned in protected runtime.env", result.stdout)
+        # Even an independently enabled validation cannot accept a missing key.
+        result = self.run_tasks(
+            [tasks[1]],
+            {
+                **protected_source,
+                "ua_research_geocoder_enabled": True,
+                "ua_research_planner_tunnel_enabled": True,
+                "ua_manifest": {"environment_keys": keys},
+                "ua_runtime": {},
+            },
+            check=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("must be provisioned in protected runtime.env", result.stdout)
+        result = self.run_tasks(
+            tasks,
+            {
+                **protected_source,
+                "ua_research_planner_geocoder_local_port": 16337,
+                "ua_research_planner_tunnel_enabled": True,
+                "ua_manifest": {"environment_keys": keys},
+                "ua_runtime": runtime | {"RESEARCH_GEOCODER_URL": "http://127.0.0.1:16337"},
+            },
+            check=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_geocoder_requires_canonical_protected_runtime_source(self):
+        tasks = yaml.safe_load((ROLE / "tasks/environment_plan.yml").read_text())[-2:]
+        runtime = {
+            "RESEARCH_GEOCODER_API_KEY": "synthetic-geocoder-protected-source-secret",
+            "RESEARCH_GEOCODER_URL": "http://127.0.0.1:6337",
+        }
+        checks = []
+        for change in ({"exists": False}, {"mode": "0644"}, {"uid": 1000}, {"gid": 1000}):
+            source = {"exists": True, "uid": 0, "gid": 0, "mode": "0600"} | change
+            checks.extend(
+                [
+                    {
+                        "ansible.builtin.set_fact": {
+                            "ua_env_stats": {"results": [{"stat": source}]},
+                            "fixture_valid": True,
+                        }
+                    },
+                    {
+                        "block": tasks,
+                        "rescue": [{"ansible.builtin.set_fact": {"fixture_valid": False}}],
+                    },
+                    {"ansible.builtin.assert": {"that": "not fixture_valid"}},
+                ]
+            )
+        result = self.run_tasks(
+            checks,
+            {
+                "ua_runtime": runtime,
+                "ua_research_planner_tunnel_enabled": True,
+                "ua_manifest": {
+                    "environment_keys": [*runtime, "RESEARCH_GEOCODER_TIMEOUT_SECONDS"]
+                },
+            },
+            check=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn(runtime["RESEARCH_GEOCODER_API_KEY"], result.stdout + result.stderr)
+
+    def test_geocoder_http_checks_authentication_fail_closed_and_secret_redaction(self):
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from threading import Thread
+
+        tasks = yaml.safe_load((ROLE / "tasks/healthchecks_research_geocoder.yml").read_text())
+        key = "synthetic-geocoder-http-secret-not-live"
+        requests = []
+        ready_body = {"status": "ready"}
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                authorization = self.headers.get("Authorization")
+                requests.append((self.path, authorization == "Bearer " + key))
+                if self.path == "/health":
+                    body = {"status": "ok"}
+                    self.send_response(200)
+                else:
+                    body = ready_body if authorization == "Bearer " + key else {"secret": key}
+                    self.send_response(200 if authorization == "Bearer " + key else 401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(body).encode())
+
+            def log_message(self, *args):
+                pass
+
+        for task in tasks:
+            args = task["ansible.builtin.uri"]
+            self.assertTrue(task["no_log"])
+            self.assertEqual(args["follow_redirects"], "none")
+            self.assertFalse(args["use_proxy"])
+            self.assertFalse(args["use_netrc"])
+            self.assertEqual(args["timeout"], 5)
+            self.assertEqual(task["retries"], 10)
+            self.assertEqual(task["delay"], 2)
+            task["retries"] = 1  # Ansible does not evaluate until with zero retries.
+            task["delay"] = 0
+        self.assertNotIn("headers", tasks[0]["ansible.builtin.uri"])
+        with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
+            thread = Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                variables = {
+                    "ua_research_geocoder_enabled": True,
+                    "ua_research_planner_geocoder_local_port": server.server_port,
+                    "ua_runtime": {"RESEARCH_GEOCODER_API_KEY": key},
+                }
+                result = self.run_tasks(tasks, variables)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(requests, [("/health", False), ("/ready", True)])
+                self.assertNotIn(key, result.stdout + result.stderr)
+                ready_body = {"status": "ok", "private": key}
+                result = self.run_tasks(tasks, variables)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn(key, result.stdout + result.stderr)
+                result = self.run_tasks(
+                    tasks, variables | {"ua_runtime": {"RESEARCH_GEOCODER_API_KEY": "wrong"}}
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn(key, result.stdout + result.stderr)
+                requests.clear()
+                result = self.run_tasks(tasks, {"ua_research_geocoder_enabled": False})
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(requests, [])
+            finally:
+                server.shutdown()
+                thread.join(timeout=5)
+
+    def test_geocoder_secret_stays_outside_inventory_unit_and_artifact(self):
+        import tarfile
+
+        from test_deployment import frontend_build, packager
+
+        self.assertNotIn(
+            "RESEARCH_GEOCODER_API_KEY", (ROOT / "ansible/inventory.example.yml").read_text()
+        )
+        unit = self.render(ua_research_geocoder_enabled=True)
+        self.assertNotIn("API_KEY", unit)
+        self.assertNotIn("EnvironmentFile", unit)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            key = "synthetic-operator-provisioned-geocoder-key-not-live"
+            runtime = root / "runtime.env"
+            runtime.write_text("RESEARCH_GEOCODER_API_KEY=" + key + "\n")
+            runtime.chmod(0o600)
+            commit = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+            ).strip()
+            frontend = frontend_build(root, commit)
+            archive_path = root / "release.tar.gz"
+            with patch.dict(os.environ, {"RESEARCH_GEOCODER_API_KEY": key}):
+                packager.package(commit, archive_path, frontend)
+            with tarfile.open(archive_path) as archive:
+                self.assertFalse(
+                    any("runtime.env" in n or "geocoder.env" in n for n in archive.getnames())
+                )
+                for entry in archive:
+                    if entry.isfile():
+                        self.assertNotIn(key.encode(), archive.extractfile(entry).read())
 
 
 class CredentialInspectionTests(unittest.TestCase):

@@ -96,3 +96,29 @@
     fail_msg: "Provision QDRANT_API_KEY and EMBEDDING_API_KEY separately in runtime.env and align both URLs with the tunnel ports."
   when: ua_research_vector_enabled
   no_log: true
+
+- name: Determine whether the release uses geographic Research
+  ansible.builtin.set_fact:
+    ua_research_geocoder_enabled: "{{ ua_runtime.get('RESEARCH_GEOCODER_API_KEY', '') | length > 0 }}"
+  no_log: true
+
+- name: Validate operator-provisioned geographic Research configuration
+  when: ua_research_geocoder_enabled | bool
+  block:
+    - name: Require a supported release, managed tunnel and protected geocoder runtime credentials
+      ansible.builtin.assert:
+        that:
+          - "['RESEARCH_GEOCODER_URL', 'RESEARCH_GEOCODER_API_KEY', 'RESEARCH_GEOCODER_TIMEOUT_SECONDS'] | difference(ua_manifest.environment_keys) | length == 0"
+          - ua_env_stats.results[0].stat.exists
+          - ua_env_stats.results[0].stat.uid == 0
+          - ua_env_stats.results[0].stat.gid == 0
+          - ua_env_stats.results[0].stat.mode == '0600'
+          - ua_research_planner_tunnel_enabled | bool
+          - ua_runtime.get('RESEARCH_GEOCODER_URL', '') == 'http://127.0.0.1:' + (ua_research_planner_geocoder_local_port | string)
+          - ua_runtime.get('RESEARCH_GEOCODER_API_KEY', '') is match('^[!-~]{32,512}$')
+          - "'RESEARCH_GEOCODER_TIMEOUT_SECONDS' not in ua_runtime or (ua_runtime['RESEARCH_GEOCODER_TIMEOUT_SECONDS'] | float(0) > 0 and ua_runtime['RESEARCH_GEOCODER_TIMEOUT_SECONDS'] | float(0) <= 10)"
+      no_log: true
+  rescue:
+    - name: Explain geographic Research provisioning requirements without secret values
+      ansible.builtin.fail:
+        msg: "RESEARCH_GEOCODER_API_KEY must be provisioned in protected runtime.env before enabling geographic Research (32-512 printable ASCII characters without spaces). Require a supporting release, the managed Research tunnel, its exact loopback HTTP URL, and a timeout greater than 0 and at most 10 seconds."

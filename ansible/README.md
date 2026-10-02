@@ -1797,20 +1797,24 @@ Importe sind eigene Betreiberaktionen.
 ## Research planner SSH tunnel
 
 Der optionale Service `uranus-admin-research-planner-tunnel.service` verbindet den
-Admin-Host mit dem privaten Planner, Qdrant und Jina-v3-Encoder auf dem AWS-Host.
-Eine SSH-Verbindung trägt genau drei lokale Forwards:
+Admin-Host mit dem privaten Planner, Qdrant, Jina-v3-Encoder und optionalen Research
+Geocoder auf dem AI-Host. Eine SSH-Verbindung trägt drei lokale Forwards und bei
+aktivierter Geographic Research den vierten:
 
 ```text
 uranus-admin
   ├─ 127.0.0.1:8090 → SSH → planner 127.0.0.1:8090
   ├─ 127.0.0.1:6333 → SSH → Qdrant 127.0.0.1:6333
-  └─ 127.0.0.1:6335 → SSH → Jina-v3 encoder 127.0.0.1:6335
+  ├─ 127.0.0.1:6335 → SSH → Jina-v3 encoder 127.0.0.1:6335
+  └─ 127.0.0.1:6337 → SSH → research-geocoder 127.0.0.1:6337 (optional)
 ```
 
-Alle drei Dienste bleiben auf dem AWS-Host ausschließlich an Loopback gebunden;
+Alle Dienste bleiben auf dem AI-Host ausschließlich an Loopback gebunden;
 auch die lokalen Forwards binden nur `127.0.0.1`. Qdrant und der Encoder erhalten
 keine direkte öffentliche Freigabe. Der Tunnel wird nicht dupliziert und trägt alle
-drei Forwards auch bei deaktivierter semantischer Suche. Ein lokaler Planner
+drei bisherigen Forwards auch bei deaktivierter semantischer Suche. Der Geocoder-Forward
+kommt ausschließlich bei nichtleerem `RESEARCH_GEOCODER_API_KEY` hinzu. Ohne Key
+bleiben ältere Releases unabhängig von Port 6337. Ein lokaler Planner
 funktioniert weiterhin mit derselben URL und deaktiviertem Tunnel. Die Rolle
 verwaltet ausschließlich den Admin-Host, nicht die entfernten Dienste oder deren sshd.
 
@@ -1831,13 +1835,15 @@ ua_research_planner_qdrant_local_port: 6333
 ua_research_planner_qdrant_remote_port: 6333
 ua_research_planner_embedding_local_port: 6335
 ua_research_planner_embedding_remote_port: 6335
+ua_research_planner_geocoder_local_port: 6337
+ua_research_planner_geocoder_remote_port: 6337
 ua_research_planner_ssh_key_path: /etc/uranus-admin/research-planner-ssh-key
 ua_research_planner_known_hosts_path: /etc/uranus-admin/research-planner-known_hosts
 ```
 
 Bei Aktivierung müssen Host und Benutzer nichtleer sein, alle Ports ganzzahlig in
-1–65535 liegen, die drei lokalen Ports verschieden und das Remoteziel exakt
-`127.0.0.1` sein. Qdrant-/Encoder-Zielhosts sind fest im Template vorgegeben.
+1–65535 liegen, die vier konfigurierten lokalen Ports verschieden und das Remoteziel exakt
+`127.0.0.1` sein. Qdrant-/Encoder-/Geocoder-Zielhosts sind fest im Template vorgegeben.
 SSH-Hosts erlauben nur
 ASCII-Buchstaben, Ziffern, Punkte und Bindestriche in begrenzter Hostname-Form;
 SSH-Benutzer nur einfache Unix-Namen, niemals `root`. Credential-Pfade müssen absolut,
@@ -1865,15 +1871,15 @@ wie die bestehenden Services. Andere Services werden nur gemäß ihrem eigenen
 Änderungsplan neu gestartet.
 
 Vor einem Start prüft die Rolle nach dem Stoppen eines eventuell eigenen Tunnels,
-dass alle drei konfigurierten lokalen Ports frei sind. Eine Kollision bricht explizit ab,
+dass alle tatsächlich weitergeleiteten lokalen Ports frei sind (drei oder vier). Eine Kollision bricht explizit ab,
 bevor der verwaltete Tunnel gestartet wird. `ExitOnForwardFailure=yes` verhindert
 einen scheinbar laufenden Tunnel bei Bindefehlern. Fremde Prozesse werden niemals beendet. Diagnose:
 
 ```sh
-ss -ltnp '( sport = :8090 or sport = :6333 or sport = :6335 )'
+ss -ltnp '( sport = :8090 or sport = :6333 or sport = :6335 or sport = :6337 )'
 ```
 
-Der Deployment-Healthcheck fordert über Loopback `GET /health` mit exakt
+Der Planner-Deployment-Healthcheck fordert über Loopback `GET /health` mit exakt
 `{"status":"ok"}` an und prüft zusätzlich den aktiven Tunnel-Service. Er folgt keinen
 Redirects, nutzt keine Proxies, Cookies oder Credentials und hat begrenzte Wiederholungen
 für den SSH-Aufbau. Es gibt keinen `/plan`-Aufruf und keine bezahlte Inferenz beim
@@ -1919,7 +1925,7 @@ Match User research-planner-tunnel
     PasswordAuthentication no
     KbdInteractiveAuthentication no
     AllowTcpForwarding local
-    PermitOpen 127.0.0.1:8090 127.0.0.1:6333 127.0.0.1:6335
+    PermitOpen 127.0.0.1:8090 127.0.0.1:6333 127.0.0.1:6335 127.0.0.1:6337
     AllowStreamLocalForwarding no
     X11Forwarding no
     AllowAgentForwarding no
@@ -1941,7 +1947,7 @@ vor dem kontrollierten Reload. Die Admin-Rolle verändert die entfernte SSH-Konf
 Zusätzlich kann der öffentliche Schlüssel in `authorized_keys` eingeschränkt werden:
 
 ```text
-restrict,port-forwarding,permitopen="127.0.0.1:8090",permitopen="127.0.0.1:6333",permitopen="127.0.0.1:6335" ssh-ed25519 <DEDICATED_PUBLIC_KEY>
+restrict,port-forwarding,permitopen="127.0.0.1:8090",permitopen="127.0.0.1:6333",permitopen="127.0.0.1:6335",permitopen="127.0.0.1:6337" ssh-ed25519 <DEDICATED_PUBLIC_KEY>
 ```
 
 Dies ergänzt den `Match User`-Block. `restrict,port-forwarding` allein begrenzt die
@@ -1952,8 +1958,8 @@ Keine produktiven öffentlichen oder privaten Schlüssel ins Repository aufnehme
 ### Operator-Ablauf
 
 1. Dedizierten SSH-Benutzer auf dem Planner-Host einrichten; SSH-Client auf dem
-   Admin-Host bereitstellen. Planner, Qdrant und Encoder lauschen weiter nur auf
-   `127.0.0.1:8090`, `127.0.0.1:6333` und `127.0.0.1:6335`.
+   Admin-Host bereitstellen. Planner, Qdrant, Encoder und Geocoder lauschen weiter nur auf
+   `127.0.0.1:8090`, `127.0.0.1:6333`, `127.0.0.1:6335` und `127.0.0.1:6337`.
 2. Separat bereitgestellten öffentlichen Schlüssel mit den obigen Einschränkungen
    autorisieren und die effektive sshd-Konfiguration prüfen.
 3. Hostschlüssel über einen vertrauenswürdigen Kanal verifizieren und in Admins
@@ -2008,3 +2014,61 @@ Keine produktiven öffentlichen oder privaten Schlüssel ins Repository aufnehme
    Danach bei Bedarf den [Admin-Planungsendpunkt](../backend/README.md#research-planner-phase-1)
    mit einer Research-berechtigten Admin-Session testen. Dieser explizite Funktionstest
    kann eine bezahlte Inferenz auslösen und ist kein automatischer Deployment-Schritt.
+
+### Geographic Research über denselben Tunnel
+
+Nach Bereitstellung von Planner `/v6/plan` und eines Admin-Releases mit Geocoder-Support
+provisioniert der Operator einmalig in `/etc/uranus-admin/runtime.env` (root:root, 0600):
+
+```dotenv
+RESEARCH_GEOCODER_URL=http://127.0.0.1:6337
+RESEARCH_GEOCODER_API_KEY=<separately-provisioned-geocoder-service-secret>
+RESEARCH_GEOCODER_TIMEOUT_SECONDS=5
+```
+
+Der Key wird **nicht** aus `/etc/research-geocoder/geocoder.env` auf dem AI-Host gelesen,
+übertragen oder generiert. Kein Key gehört ins Inventory, die Tunnel-Unit oder das
+Release-Artefakt. Aktivierung verlangt die vorhandene kanonische `runtime.env` mit
+root:root/0600; eine Legacy-`backend/.env` reicht für den Geocoder-Key nicht aus.
+Die Rolle verwendet ausschließlich die bestehende geschützte Runtime;
+alle Verarbeitung und authentifizierten Checks sind `no_log: true`. Bei Fehlern wird
+nur eine feste Provisionierungsanweisung ohne Werte ausgegeben.
+
+`ua_research_geocoder_enabled` ist ein abgeleiteter interner Zustand: ein nichtleerer
+Runtime-Key aktiviert die Prüfung. Ohne Key (oder mit leerem Wert) bleiben der vierte
+Forward und beide HTTP-Checks aus. Die Existenz der Settings im Release allein aktiviert
+Geographic Research nicht. Ein vorhandener, aber ungültiger Key wird niemals still als
+„deaktiviert“ behandelt: erforderlich sind 32–512 druckbare ASCII-Zeichen ohne Leerzeichen,
+die drei Geocoder-Settings im Release-Manifest, ein aktivierter verwalteter Tunnel und
+die exakte URL `http://127.0.0.1:<ua_research_planner_geocoder_local_port>`. Remote-IPs,
+`localhost`, HTTPS oder andere Ports werden für diesen verwalteten Tunnel abgewiesen.
+Ein gesetzter Timeout muss größer 0 und höchstens 10 Sekunden sein.
+
+Ansible rendert den zusätzlichen `-L` in die bestehende Unit; die bestehende
+`planner_reconcile`-Logik erkennt die Unit-Änderung und startet denselben Tunnel neu.
+Der Kollisionscheck vor dem Start umfasst Port 6337 nur, wenn dieser Forward aktiv ist;
+er beendet keine fremden Prozesse. Es gibt keinen zusätzlichen TCP-Liveness-Test.
+Nach Tunnelstart prüfen die wiederverwendeten Tasks in
+`roles/uranus_admin/tasks/healthchecks_research_geocoder.yml` vor dem Backend-Start:
+
+1. unauthentifiziertes `/health`, HTTP 200 und exakt `{"status":"ok"}`;
+2. `/ready` mit Bearer-Key aus `ua_runtime`, HTTP 200 und exakt `{"status":"ready"}`.
+
+Beide Checks verwenden einen festen Loopback-Ursprung, keine Redirects, Proxies oder
+netrc-Credentials, fünf Sekunden Timeout und begrenzte Wiederholungen. Fehler verhindern
+den Backend-Start und führen durch die vorhandene Activation-/Recovery-Logik. Die späteren
+lokalen Healthchecks verwenden dieselben Tasks, überspringen aber eine im aktuellen
+Activation-Lauf bereits erfolgreiche Geocoder-Prüfung. Kein doppelter HTTP- oder TCP-Test.
+
+`/ready` prüft die vom Geocoder bereitgestellte Upstream-Readiness durch den Tunnel bis
+zu dessen Nominatim-Anbindung. Ein grüner Test mit synthetischen Fixtures beweist keine
+Live-Readiness; erst das tatsächliche Deployment führt diese Checks auf dem Admin-Host aus.
+Danach genügt als zusätzlicher Operator-Liveness-Check:
+
+```sh
+curl -sS http://127.0.0.1:6337/health
+```
+
+Keine manuellen `ssh -L`-Aufrufe oder Unit-/URL-Edits nach jedem Release. Die einmalige
+Secret-Provisionierung und Freigabe von `127.0.0.1:6337` in den bestehenden SSH-Restriktionen
+auf dem AI-Host bleiben separate Operator-Aufgaben; die Rolle verwaltet diesen Host nicht.
