@@ -19,6 +19,7 @@ from app.schemas.research_execution import (
 from app.schemas.research_planner import ResearchQueryPlan
 from app.services import research_plan_execution as service
 from tests.conftest import uid
+from tests.research_plan_helpers import plan_context
 from tests.test_research_plan_execution import execution_source as execution_source_fixture
 from tests.test_research_plan_execution import planned
 
@@ -74,7 +75,7 @@ def taxonomy_lookup(monkeypatch):
 )
 async def test_each_taxonomy_resolves_independently(settings, taxonomy_lookup, field, kind):
     result = await resolver.resolve_plan(
-        Request({"type": "http"}), settings, planned(**{field: ["Label"]}).plan
+        Request({"type": "http"}), settings, *plan_context(planned(**{field: ["Label"]}))
     )
     assert result.clarification is None
     assert result.fields[0].field == field and result.fields[0].target.entity_type == kind
@@ -85,7 +86,7 @@ async def test_taxonomy_no_match(settings, taxonomy_lookup, field):
     taxonomy_lookup.side_effect = None
     taxonomy_lookup.return_value = []
     result = await resolver.resolve_plan(
-        Request({"type": "http"}), settings, planned(**{field: ["Unknown"]}).plan
+        Request({"type": "http"}), settings, *plan_context(planned(**{field: ["Unknown"]}))
     )
     assert result.clarification.reason == "no_match"
     assert result.clarification.field == field and result.clarification.candidates == []
@@ -97,12 +98,14 @@ async def test_taxonomies_intersect_deduplicate_and_sort(settings, taxonomy_look
         genre_queries=["Jazz"] * 2,
         category_queries=["Musik"] * 2,
     )
-    result = await resolver.resolve_plan(Request({"type": "http"}), settings, response.plan)
+    result = await resolver.resolve_plan(
+        Request({"type": "http"}), settings, *plan_context(response)
+    )
     assert result.clarification is None
     assert [call.args[1] for call in taxonomy_lookup.await_args_list] == ["event_type"] * 2 + [
         "genre"
     ] * 2 + ["category"] * 2
-    filters = service.execution_filters(response, result)
+    filters = service.execution_filters(*plan_context(response), result)
     assert (
         filters.event_type_ids == [1]
         and filters.genre_keys == ["1:1003"]
@@ -119,7 +122,8 @@ async def test_incompatible_parent_fails_without_discarding_filters(settings, ta
     result = await service.ResearchPlanExecutor().execute(
         Request({"type": "http"}),
         settings,
-        planned(event_type_queries=["Konzerte"], genre_queries=["Jazz"]),
+        *plan_context(planned(event_type_queries=["Konzerte"], genre_queries=["Jazz"])),
+        planner_ms=0,
     )
     assert result.result.reason == "taxonomy_conflict" and result.result.field == "genre_queries"
     assert [r.target.id for r in result.resolution] == ["1", "2:2004"]
@@ -157,7 +161,7 @@ async def test_semantic_path_preserves_event_type(settings, taxonomy_lookup, mon
     eligible = AsyncMock(return_value=[])
     monkeypatch.setattr(service, "eligible_event_ids", eligible)
     result = await service.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, response
+        Request({"type": "http"}), settings, *plan_context(response), planner_ms=0
     )
     assert result.result.kind == "records" and result.result.items == []
     assert eligible.call_args.args[2].event_type_ids == [1]
@@ -251,12 +255,15 @@ async def test_postgres_bug_regression_records_even_when_empty(
     result = await service.ResearchPlanExecutor().execute(
         Request({"type": "http"}),
         settings,
-        planned(
-            original_query=QUERY,
-            event_type_queries=["Konzerte"],
-            genre_queries=["Jazz"],
-            temporal=temporal,
+        *plan_context(
+            planned(
+                original_query=QUERY,
+                event_type_queries=["Konzerte"],
+                genre_queries=["Jazz"],
+                temporal=temporal,
+            )
         ),
+        planner_ms=0,
     )
     assert result.result.kind == "records"
     assert [r.entity_key for r in result.result.items] == [uid(n) for n in expected]
@@ -302,7 +309,9 @@ async def test_genres_with_and_without_explicit_type_context(settings, taxonomy_
     request = Request({"type": "http"})
     for types, expected in (([], None), (["Konzerte", "Theater"], None), (["Konzerte"], "1:1003")):
         result = await resolver.resolve_plan(
-            request, settings, planned(event_type_queries=types, genre_queries=["Jazz"]).plan
+            request,
+            settings,
+            *plan_context(planned(event_type_queries=types, genre_queries=["Jazz"])),
         )
         if expected is None:
             assert result.clarification.reason == "ambiguous"
@@ -317,7 +326,8 @@ async def test_postgres_taxonomy_conflict_and_unknown_genre(settings, taxonomy_s
         result = await service.ResearchPlanExecutor().execute(
             Request({"type": "http"}),
             settings,
-            planned(event_type_queries=["Konzerte"], genre_queries=[query]),
+            *plan_context(planned(event_type_queries=["Konzerte"], genre_queries=[query])),
+            planner_ms=0,
         )
         assert result.result.reason == reason and result.result.field == "genre_queries"
         assert not result.execution.structured

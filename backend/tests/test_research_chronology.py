@@ -16,6 +16,7 @@ from app.schemas.research_execution import ExecutionFilters
 from app.services import research_plan_execution as service
 from app.services.research_planner import ResearchPlannerClient
 from tests.conftest import uid
+from tests.research_plan_helpers import plan_context
 from tests.test_research_plan_execution import execution_source as execution_source_fixture
 from tests.test_research_plan_execution import planned
 
@@ -148,7 +149,7 @@ async def test_latest_returns_exact_occurrence_context(chronology, settings):
 )
 async def test_temporal_chronology(chronology, settings, temporal, ordering, key, day):
     response = planned(temporal=temporal, ordering=ordering, limit=1)
-    filters = service.execution_filters(response, Resolution())
+    filters = service.execution_filters(*plan_context(response), Resolution())
     item = (await chronological_records(chronology, settings, filters, None, ordering, 1))[0]
     assert item.entity_key == uid(key) and item.start_date.isoformat() == day
 
@@ -315,7 +316,10 @@ async def test_browser_cannot_submit_ordering(client, headers, monkeypatch, extr
 @pytest.mark.parametrize("ordering,keys", [(None, [33, 30]), ("asc", [33, 30]), ("desc", [30, 32])])
 async def test_structured_executor_effective_ordering(chronology, settings, ordering, keys):
     response = await service.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, planned(temporal="none", ordering=ordering, limit=2)
+        Request({"type": "http"}),
+        settings,
+        *plan_context(planned(temporal="none", ordering=ordering, limit=2)),
+        planner_ms=0,
     )
     assert [i.entity_key for i in response.result.items] == [uid(k) for k in keys]
     assert response.result.total is None
@@ -343,7 +347,10 @@ async def test_sql_limit_after_deduplication(chronology, settings, limit, expect
     event.listen(chronology.sync_connection, "before_cursor_execute", capture)
     try:
         response = await service.ResearchPlanExecutor().execute(
-            Request({"type": "http"}), settings, planned(temporal="none", limit=limit)
+            Request({"type": "http"}),
+            settings,
+            *plan_context(planned(temporal="none", limit=limit)),
+            planner_ms=0,
         )
     finally:
         event.remove(chronology.sync_connection, "before_cursor_execute", capture)

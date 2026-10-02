@@ -29,6 +29,7 @@ class ResolvedResearchArea:
     area: ResearchArea
     ewkb: bytes
     geometry: AreaGeometry | None = None
+    municipality_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -99,7 +100,7 @@ async def resolve_area(
         (
             await admin.execute(
                 text(
-                    f"SELECT {AREA_COLUMNS},ST_AsEWKB(geometry) ewkb {geometry} "
+                    f"SELECT {AREA_COLUMNS},municipality_key,ST_AsEWKB(geometry) ewkb {geometry} "
                     "FROM admin.research_area WHERE id=:id"
                 ),
                 {"id": identifier},
@@ -114,6 +115,7 @@ async def resolve_area(
         ResearchArea.model_validate(row),
         bytes(row["ewkb"]),
         AreaGeometry.model_validate(row["boundary"]) if boundary else None,
+        row["municipality_key"],
     )
 
 

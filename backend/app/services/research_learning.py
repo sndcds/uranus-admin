@@ -8,7 +8,7 @@ from fastapi import Request
 
 from app.admin_database import connect_admin
 from app.repositories.research_suggestions import learn
-from app.schemas.research_execution import ResearchExecutionResponse
+from app.schemas.research_response import ResearchExecutionResponse
 
 
 async def record_success(

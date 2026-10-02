@@ -21,6 +21,7 @@ from app.schemas.research_execution import ExecutionFilters, ResolutionCandidate
 from app.services import research_plan_execution as executor
 from app.services import semantic_search as semantic
 from tests.conftest import uid
+from tests.research_plan_helpers import plan_context
 from tests.test_research_plan_execution import eligible_population as eligible_population_fixture
 from tests.test_research_plan_execution import execution_source as execution_source_fixture
 from tests.test_research_plan_execution import planned
@@ -113,7 +114,8 @@ async def test_rank_51_and_snapshot_lifecycle(
     response = await executor.ResearchPlanExecutor().execute(
         Request({"type": "http"}),
         settings,
-        semantic_plan(time_of_day="evening"),
+        *plan_context(semantic_plan(time_of_day="evening")),
+        planner_ms=0,
     )
     assert [item.entity_key for item in response.result.items] == [uid(30)]
     assert response.result.items[0].semantic.score == 0.5
@@ -134,9 +136,7 @@ async def test_empty_eligibility_never_calls_semantic(
     settings.semantic_search_noncommercial_jina = False
     monkeypatch.setattr(executor, "resolve_plan", AsyncMock(return_value=Resolution()))
     response = await executor.ResearchPlanExecutor().execute(
-        Request({"type": "http"}),
-        settings,
-        semantic_plan(),
+        Request({"type": "http"}), settings, *plan_context(semantic_plan()), planner_ms=0
     )
     assert response.result.items == [] and response.result.total is None
     assert response.execution.semantic
@@ -158,7 +158,7 @@ async def test_nonempty_unavailable_never_falls_back(
     monkeypatch.setattr(executor, "research_page", structured)
     with pytest.raises(APIError) as exc:
         await executor.ResearchPlanExecutor().execute(
-            Request({"type": "http"}), settings, semantic_plan()
+            Request({"type": "http"}), settings, *plan_context(semantic_plan()), planner_ms=0
         )
     assert (exc.value.status, exc.value.code) == (503, "research_semantic_unavailable")
     structured.assert_not_called()
@@ -195,7 +195,7 @@ async def test_too_broad_stops_before_encoder(
     )
     with pytest.raises(APIError) as exc:
         await executor.ResearchPlanExecutor().execute(
-            Request({"type": "http"}), settings, semantic_plan()
+            Request({"type": "http"}), settings, *plan_context(semantic_plan()), planner_ms=0
         )
     assert exc.value.code == "research_execution_too_broad"
     assert retrieval["requests"] == []
@@ -335,7 +335,7 @@ async def test_rank_51_real_sql_hard_filters(
     # No area/genre payload membership at all: PostgreSQL alone establishes scope.
     state["hits"] = [hit(n, 1 - (n - 2000) / 100) for n in range(2000, 2051)]
     response = await executor.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, semantic_plan(**changes)
+        Request({"type": "http"}), settings, *plan_context(semantic_plan(**changes)), planner_ms=0
     )
     assert [i.entity_key for i in response.result.items] == [valid]
     assert response.result.items[0].semantic.score == 0.5
@@ -363,7 +363,7 @@ async def test_rank_51_real_sql_hard_filters(
 
     monkeypatch.setattr(semantic, "get_connection", changed_source)
     response = await executor.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, semantic_plan(**changes)
+        Request({"type": "http"}), settings, *plan_context(semantic_plan(**changes)), planner_ms=0
     )
     assert response.result.items == []
 
@@ -389,7 +389,7 @@ async def test_planner_semantic_records_apply_relevance_gate(
     monkeypatch.setattr(executor, "resolve_plan", AsyncMock(return_value=Resolution()))
     retrieval["hits"] = [hit(30, score)]
     response = await executor.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, semantic_plan()
+        Request({"type": "http"}), settings, *plan_context(semantic_plan()), planner_ms=0
     )
     assert response.result.kind == "records"
     assert len(response.result.items) == expected_count

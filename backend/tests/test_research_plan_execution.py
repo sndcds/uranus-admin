@@ -21,6 +21,7 @@ from app.schemas.research_execution import ExecutionFilters, ExecutionSemanticFi
 from app.schemas.research_planner import ClarificationResponse, PlanResponse
 from app.services import research_plan_execution as service
 from tests.conftest import uid
+from tests.research_plan_helpers import plan_context
 from tests.test_research_planner import ENVELOPE
 from tests.test_semantic_search import hit
 from tests.test_semantic_search import retrieval as retrieval_fixture
@@ -59,7 +60,7 @@ def planned(**changes):
     ],
 )
 def test_reference_date_translation(temporal, start, end):
-    bounds = service.temporal_bounds(planned(temporal=temporal))
+    bounds = service.temporal_bounds(*plan_context(planned(temporal=temporal)))
     assert bounds == tuple(date.fromisoformat(v) if v else None for v in (start, end))
 
 
@@ -76,7 +77,10 @@ def test_calendar_dst_sunday_leap_year(ref, temporal, start, end):
     response = planned(temporal=temporal).model_copy(
         update={"reference_date": date.fromisoformat(ref)}
     )
-    assert service.temporal_bounds(response) == (date.fromisoformat(start), date.fromisoformat(end))
+    assert service.temporal_bounds(*plan_context(response)) == (
+        date.fromisoformat(start),
+        date.fromisoformat(end),
+    )
 
 
 def test_explicit_dates_and_evening():
@@ -86,7 +90,7 @@ def test_explicit_dates_and_evening():
         explicit_to_date="2026-02-03",
         time_of_day="evening",
     )
-    filters = service.execution_filters(response, Resolution())
+    filters = service.execution_filters(*plan_context(response), Resolution())
     assert filters.from_date == date(2026, 1, 2) and filters.to_date == date(2026, 2, 3)
     assert filters.time_from == time(18)
 
@@ -217,7 +221,7 @@ async def test_unsupported_before_resolution(settings, monkeypatch, changes):
     monkeypatch.setattr(service, "resolve_plan", resolve)
     with pytest.raises(APIError) as exc:
         await service.ResearchPlanExecutor().execute(
-            Request({"type": "http"}), settings, planned(**changes)
+            Request({"type": "http"}), settings, *plan_context(planned(**changes)), planner_ms=0
         )
     assert exc.value.code == "research_execution_unsupported"
     resolve.assert_not_called()
@@ -303,10 +307,13 @@ async def test_structured_works_without_semantics(settings, execution_source, mo
     result = await service.ResearchPlanExecutor().execute(
         Request({"type": "http"}),
         settings,
-        planned(
-            original_query="Welche Veranstaltungen finden im Deutschen Haus statt?",
-            venue_query="Deutsches Haus",
+        *plan_context(
+            planned(
+                original_query="Welche Veranstaltungen finden im Deutschen Haus statt?",
+                venue_query="Deutsches Haus",
+            )
         ),
+        planner_ms=0,
     )
     assert result.result.kind == "records" and result.result.total is None
     assert len(result.result.items) == 2
@@ -315,10 +322,13 @@ async def test_structured_works_without_semantics(settings, execution_source, mo
     org = await service.ResearchPlanExecutor().execute(
         Request({"type": "http"}),
         settings,
-        planned(
-            original_query="Welche Veranstaltungen organisiert X?",
-            organization_query="Organization 10",
+        *plan_context(
+            planned(
+                original_query="Welche Veranstaltungen organisiert X?",
+                organization_query="Organization 10",
+            )
         ),
+        planner_ms=0,
     )
     assert org.result.total is None and len(org.result.items) == 2
 
@@ -327,19 +337,25 @@ async def test_counts_aggregates_comparison(settings, execution_source):
     request = Request({"type": "http"})
     for metric, expected in (("event_count", 2), ("occurrence_count", 7)):
         result = await service.ResearchPlanExecutor().execute(
-            request, settings, planned(intent="count", answer_mode="count", metric=metric)
+            request,
+            settings,
+            *plan_context(planned(intent="count", answer_mode="count", metric=metric)),
+            planner_ms=0,
         )
         assert result.result.value == expected
     aggregate = await service.ResearchPlanExecutor().execute(
         request,
         settings,
-        planned(
-            original_query="Wo ist heute am meisten los?",
-            intent="aggregate",
-            answer_mode="aggregate",
-            metric="event_count",
-            group_by="venue",
+        *plan_context(
+            planned(
+                original_query="Wo ist heute am meisten los?",
+                intent="aggregate",
+                answer_mode="aggregate",
+                metric="event_count",
+                group_by="venue",
+            )
         ),
+        planner_ms=0,
     )
     assert [(i.name, i.value) for i in aggregate.result.items] == [
         ("Deutsches Haus", 2),
@@ -348,18 +364,21 @@ async def test_counts_aggregates_comparison(settings, execution_source):
     comparison = await service.ResearchPlanExecutor().execute(
         request,
         settings,
-        planned(
-            original_query=(
-                "Wie viele Veranstaltungen gibt es im Deutschen Haus und in der Phänomenta?"
-            ),
-            intent="compare",
-            answer_mode="comparison",
-            metric="event_count",
-            comparison_targets=[
-                {"kind": "venue", "query": "Deutsches Haus"},
-                {"kind": "venue", "query": "Phänomenta"},
-            ],
+        *plan_context(
+            planned(
+                original_query=(
+                    "Wie viele Veranstaltungen gibt es im Deutschen Haus und in der Phänomenta?"
+                ),
+                intent="compare",
+                answer_mode="comparison",
+                metric="event_count",
+                comparison_targets=[
+                    {"kind": "venue", "query": "Deutsches Haus"},
+                    {"kind": "venue", "query": "Phänomenta"},
+                ],
+            )
         ),
+        planner_ms=0,
     )
     assert [i.value for i in comparison.result.items] == [2, 1]
     assert "winner" not in comparison.model_dump_json()
@@ -390,7 +409,10 @@ async def test_ambiguous_unknown_private_and_injection(settings, execution_sourc
         assert await candidates(execution_source, "venue", query, settings) == []
     await execution_source.execute(text("UPDATE uranus.venue SET name='Same'"))
     result = await service.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, planned(venue_query="Same")
+        Request({"type": "http"}),
+        settings,
+        *plan_context(planned(venue_query="Same")),
+        planner_ms=0,
     )
     assert result.result.reason == "ambiguous"
     assert len(result.result.candidates) == 2
@@ -400,7 +422,10 @@ async def test_ambiguous_unknown_private_and_injection(settings, execution_sourc
         uid(20)
     )
     missing = await service.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, planned(venue_query="unknown")
+        Request({"type": "http"}),
+        settings,
+        *plan_context(planned(venue_query="unknown")),
+        planner_ms=0,
     )
     assert missing.result.reason == "no_match"
 
@@ -506,13 +531,16 @@ async def test_area_resolution_and_execution(admin_store, execution_source, sett
         response = await service.ResearchPlanExecutor().execute(
             Request({"type": "http"}),
             settings,
-            planned(
-                original_query="Welche Veranstaltungen gibt es heute in Flensburg?",
-                area_query="Flensburg",
-                intent=intent,
-                answer_mode=mode,
-                metric=metric,
+            *plan_context(
+                planned(
+                    original_query="Welche Veranstaltungen gibt es heute in Flensburg?",
+                    area_query="Flensburg",
+                    intent=intent,
+                    answer_mode=mode,
+                    metric=metric,
+                )
             ),
+            planner_ms=0,
         )
         assert response.resolution[0].target.id == str(uid(901))
         if intent == "list":
@@ -520,14 +548,20 @@ async def test_area_resolution_and_execution(admin_store, execution_source, sett
         else:
             assert response.result.value == 2
     missing = await service.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, planned(area_query="Atlantis")
+        Request({"type": "http"}),
+        settings,
+        *plan_context(planned(area_query="Atlantis")),
+        planner_ms=0,
     )
     assert missing.result.reason == "no_match"
     await insert_area(
         execution_source, uid(903), "Flensburg", "POLYGON((8 54,9 54,9 55,8 55,8 54))", 993
     )
     ambiguous = await service.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, planned(area_query="Flensburg")
+        Request({"type": "http"}),
+        settings,
+        *plan_context(planned(area_query="Flensburg")),
+        planner_ms=0,
     )
     assert ambiguous.result.reason == "ambiguous"
     assert len(ambiguous.result.candidates) == 2
@@ -540,7 +574,7 @@ async def test_stage_failure_is_not_empty_success(settings, monkeypatch):
         monkeypatch.setattr(service, "resolve_plan", AsyncMock(side_effect=error))
         with pytest.raises(APIError) as exc:
             await service.ResearchPlanExecutor().execute(
-                Request({"type": "http"}), settings, planned()
+                Request({"type": "http"}), settings, *plan_context(planned()), planner_ms=0
             )
         assert exc.value.status == 503 and exc.value.code == "research_execution_unavailable"
         assert "private" not in exc.value.message
@@ -554,13 +588,16 @@ async def test_planner_clarification_and_unsupported_do_no_work(settings, monkey
         {**response.model_dump(), "kind": "needs_clarification"}
     )
     assert (
-        await service.ResearchPlanExecutor().execute(Request({"type": "http"}), settings, response)
+        await service.ResearchPlanExecutor().execute(
+            Request({"type": "http"}), settings, *plan_context(response), planner_ms=0
+        )
     ).result.planner_state == "needs_date"
     with pytest.raises(APIError) as exc:
         await service.ResearchPlanExecutor().execute(
             Request({"type": "http"}),
             settings,
-            planned(unsupported_reason="unsupported_constraint"),
+            *plan_context(planned(unsupported_reason="unsupported_constraint")),
+            planner_ms=0,
         )
     assert exc.value.code == "research_plan_unsupported"
     resolver.assert_not_called()
@@ -610,14 +647,17 @@ async def test_semantic_pipeline_hard_filters_with_source(
     response = await service.ResearchPlanExecutor().execute(
         Request({"type": "http"}),
         settings,
-        planned(
-            intent="recommend",
-            answer_mode="recommendation",
-            semantic_query="interesting",
-            requires_semantic_relevance=True,
-            venue_query="Phänomenta",
-            time_of_day="evening",
+        *plan_context(
+            planned(
+                intent="recommend",
+                answer_mode="recommendation",
+                semantic_query="interesting",
+                requires_semantic_relevance=True,
+                venue_query="Phänomenta",
+                time_of_day="evening",
+            )
         ),
+        planner_ms=0,
     )
     assert [i.entity_key for i in response.result.items] == [uid(30)]
     assert response.result.items[0].semantic.score == 0.7
@@ -625,12 +665,15 @@ async def test_semantic_pipeline_hard_filters_with_source(
     empty = await service.ResearchPlanExecutor().execute(
         Request({"type": "http"}),
         settings,
-        planned(
-            intent="search",
-            semantic_query="interesting",
-            requires_semantic_relevance=True,
-            time_of_day="evening",
+        *plan_context(
+            planned(
+                intent="search",
+                semantic_query="interesting",
+                requires_semantic_relevance=True,
+                time_of_day="evening",
+            )
         ),
+        planner_ms=0,
     )
     assert empty.result.items == [] and empty.result.total is None
 
@@ -674,7 +717,7 @@ async def test_records_bounds_and_stable_tie_order(settings, execution_source, n
         {"org": uid(10)},
     )
     response = await service.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, planned(temporal="none")
+        Request({"type": "http"}), settings, *plan_context(planned(temporal="none")), planner_ms=0
     )
     assert response.result.total is None and len(response.result.items) == 2
     # Undated records remain available through classic search, not occurrence selection.
@@ -776,14 +819,23 @@ async def test_execution_sql_is_read_only_and_public(settings, execution_source)
     event.listen(execution_source.sync_connection, "before_cursor_execute", capture)
     try:
         await service.ResearchPlanExecutor().execute(
-            Request({"type": "http"}), settings, planned(venue_query="Deutsches Haus")
+            Request({"type": "http"}),
+            settings,
+            *plan_context(planned(venue_query="Deutsches Haus")),
+            planner_ms=0,
         )
         await service.ResearchPlanExecutor().execute(
             Request({"type": "http"}),
             settings,
-            planned(
-                intent="aggregate", answer_mode="aggregate", metric="event_count", group_by="venue"
+            *plan_context(
+                planned(
+                    intent="aggregate",
+                    answer_mode="aggregate",
+                    metric="event_count",
+                    group_by="venue",
+                )
             ),
+            planner_ms=0,
         )
     finally:
         event.remove(execution_source.sync_connection, "before_cursor_execute", capture)
@@ -824,14 +876,17 @@ async def test_semantic_limit_keeps_relevance_ranking(
         response = await service.ResearchPlanExecutor().execute(
             Request({"type": "http"}),
             settings,
-            planned(
-                intent=intent,
-                answer_mode=mode,
-                semantic_query="interesting",
-                requires_semantic_relevance=True,
-                temporal="none",
-                limit=limit,
+            *plan_context(
+                planned(
+                    intent=intent,
+                    answer_mode=mode,
+                    semantic_query="interesting",
+                    requires_semantic_relevance=True,
+                    temporal="none",
+                    limit=limit,
+                )
             ),
+            planner_ms=0,
         )
         assert [i.entity_key for i in response.result.items] == [uid(k) for k in expected]
         assert response.result.total is None
@@ -845,7 +900,10 @@ async def test_non_event_limit_without_ordering(settings, execution_source, monk
         AsyncMock(side_effect=AssertionError("No event-date sorting")),
     )
     response = await service.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, planned(entity_type=kind, temporal="none", limit=1)
+        Request({"type": "http"}),
+        settings,
+        *plan_context(planned(entity_type=kind, temporal="none", limit=1)),
+        planner_ms=0,
     )
     assert len(response.result.items) == 1 and response.result.total >= 1
 
@@ -855,11 +913,11 @@ async def test_query_learns_only_after_execution(client, headers, pipeline, monk
     from datetime import UTC, datetime
 
     from app.api import research
+    from app.research.outcome import ResearchExecutionOutcome
     from app.schemas.research_execution import (
         CountResult,
         ExecutionDiagnostics,
         ExecutionProvenance,
-        ResearchExecutionResponse,
     )
 
     learn = AsyncMock()
@@ -870,13 +928,11 @@ async def test_query_learns_only_after_execution(client, headers, pipeline, monk
         )
     else:
         executor = AsyncMock(
-            return_value=ResearchExecutionResponse(
-                query="Welche Orte?",
-                plan=planned(),
+            return_value=ResearchExecutionOutcome(
+                resolution=[],
                 result=CountResult(metric="venue_count", value=0),
                 execution=ExecutionProvenance(),
                 observed_at=datetime.now(UTC),
-                timezone="Europe/Berlin",
                 diagnostics=ExecutionDiagnostics(planner_ms=0, total_ms=0),
             )
         )

@@ -16,6 +16,7 @@ from app.repositories.research_place import place_filter
 from app.schemas.research_geography import GeographicPlanResponse
 from app.schemas.research_location import LocationContext, Place
 from app.services import research_plan_execution as executor
+from tests.research_plan_helpers import plan_context
 from tests.test_research_geocoder import PLACE
 from tests.test_research_plan_execution import execution_source as execution_source_fixture
 from tests.test_research_plan_execution import planned
@@ -73,7 +74,7 @@ async def test_bachstrasse_today_reaches_postgres_and_zero_is_success(
     settings, geocoder, execution
 ):
     result = await executor.ResearchPlanExecutor().execute(
-        request_with(geocoder), settings, envelope()
+        request_with(geocoder), settings, *plan_context(envelope()), planner_ms=0
     )
     geocoder.search.assert_awaited_once_with("Bachstraße Flensburg")
     assert result.result.kind == "records" and result.result.items == []
@@ -87,7 +88,7 @@ async def test_bachstrasse_today_reaches_postgres_and_zero_is_success(
 @pytest.mark.parametrize("index", [9, 10, 11, 12])
 async def test_where_is_not_near_me(settings, geocoder, execution, index):
     result = await executor.ResearchPlanExecutor().execute(
-        request_with(geocoder), settings, envelope(index)
+        request_with(geocoder), settings, *plan_context(envelope(index)), planner_ms=0
     )
     assert result.result.kind == "records"
     assert execution.call_args.args[2].place is None
@@ -100,14 +101,14 @@ async def test_near_me_needs_context_then_reverses_and_keeps_coordinates(
 ):
     response = envelope(7)
     result = await executor.ResearchPlanExecutor().execute(
-        request_with(geocoder), settings, response
+        request_with(geocoder), settings, *plan_context(response), planner_ms=0
     )
     assert result.result.planner_state == "needs_location"
     execution.assert_not_awaited()
     geocoder.reverse.assert_not_awaited()
     context = LocationContext(latitude=54.79, longitude=9.43, source="browser_geolocation")
     result = await executor.ResearchPlanExecutor().execute(
-        request_with(geocoder), settings, response, location_context=context
+        request_with(geocoder), settings, *plan_context(response, context), planner_ms=0
     )
     assert result.result.kind == "records"
     geocoder.reverse.assert_awaited_once_with(54.79, 9.43)
@@ -119,8 +120,8 @@ async def test_near_me_needs_context_then_reverses_and_keeps_coordinates(
     await executor.ResearchPlanExecutor().execute(
         request_with(geocoder),
         settings,
-        response,
-        location_context=context.model_copy(update={"display_name": "Flensburg"}),
+        *plan_context(response, context.model_copy(update={"display_name": "Flensburg"})),
+        planner_ms=0,
     )
     geocoder.reverse.assert_not_awaited()
 
@@ -136,7 +137,7 @@ async def test_near_me_needs_context_then_reverses_and_keeps_coordinates(
 async def test_fail_closed_candidates(settings, geocoder, execution, items, reason):
     geocoder.search.return_value = [Place.model_validate_json(json.dumps(p)) for p in items]
     result = await executor.ResearchPlanExecutor().execute(
-        request_with(geocoder), settings, envelope()
+        request_with(geocoder), settings, *plan_context(envelope()), planner_ms=0
     )
     assert result.result.reason == reason
     execution.assert_not_awaited()
@@ -145,7 +146,9 @@ async def test_fail_closed_candidates(settings, geocoder, execution, items, reas
 async def test_safe_geocoder_error_prevents_execution(settings, geocoder, execution):
     geocoder.search.side_effect = APIError(503, "geocoder_unavailable", "Location unavailable.")
     with pytest.raises(APIError) as exc:
-        await executor.ResearchPlanExecutor().execute(request_with(geocoder), settings, envelope())
+        await executor.ResearchPlanExecutor().execute(
+            request_with(geocoder), settings, *plan_context(envelope()), planner_ms=0
+        )
     assert exc.value.code == "geocoder_unavailable"
     execution.assert_not_awaited()
 
@@ -168,7 +171,7 @@ async def test_postgis_modes_today_and_missing_geometry(
     )
     geocoder.search.return_value = [Place.model_validate_json(json.dumps(place))]
     result = await executor.ResearchPlanExecutor().execute(
-        request_with(geocoder), settings, envelope()
+        request_with(geocoder), settings, *plan_context(envelope()), planner_ms=0
     )
     assert result.result.kind == "records" and result.result.items
     assert place_filter(Place.model_validate_json(json.dumps(place))).mode == mode
@@ -180,19 +183,19 @@ async def test_postgis_modes_today_and_missing_geometry(
             text("UPDATE uranus.venue SET point=ST_SetSRID(ST_MakePoint(10,55),4326)")
         )
     outside = await executor.ResearchPlanExecutor().execute(
-        request_with(geocoder), settings, envelope()
+        request_with(geocoder), settings, *plan_context(envelope()), planner_ms=0
     )
     assert outside.result.items == []
     await connection.execute(text("UPDATE uranus.venue SET street='Bachstraße'"))
     # Address matches remain authoritative without a point; geometry matches cannot.
     await connection.execute(text("UPDATE uranus.venue SET point=NULL"))
     result = await executor.ResearchPlanExecutor().execute(
-        request_with(geocoder), settings, envelope()
+        request_with(geocoder), settings, *plan_context(envelope()), planner_ms=0
     )
     assert bool(result.result.items) == (mode == "address")
     await connection.execute(text("UPDATE uranus.event_date SET start_date='2026-10-01'"))
     result = await executor.ResearchPlanExecutor().execute(
-        request_with(geocoder), settings, envelope()
+        request_with(geocoder), settings, *plan_context(envelope()), planner_ms=0
     )
     assert result.result.items == []
 
@@ -269,13 +272,13 @@ async def test_manual_context_searches_and_unrelated_question_ignores_context(
 ):
     context = LocationContext(display_name="Nordermarkt", source="manual")
     result = await executor.ResearchPlanExecutor().execute(
-        request_with(geocoder), settings, envelope(7), location_context=context
+        request_with(geocoder), settings, *plan_context(envelope(7), context), planner_ms=0
     )
     assert result.result.kind == "records"
     geocoder.search.assert_awaited_once_with("Nordermarkt")
     geocoder.search.reset_mock()
     await executor.ResearchPlanExecutor().execute(
-        request_with(geocoder), settings, envelope(9), location_context=context
+        request_with(geocoder), settings, *plan_context(envelope(9), context), planner_ms=0
     )
     geocoder.search.assert_not_awaited()
     assert execution.call_args.args[2].place is None
@@ -306,7 +309,9 @@ async def test_semantic_eligibility_and_rehydration_receive_same_place(
     semantic.return_value.observed_at = datetime.now(UTC)
     monkeypatch.setattr(executor, "eligible_event_ids", eligible)
     monkeypatch.setattr(executor, "semantic_research", semantic)
-    await executor.ResearchPlanExecutor().execute(request_with(geocoder), settings, response)
+    await executor.ResearchPlanExecutor().execute(
+        request_with(geocoder), settings, *plan_context(response), planner_ms=0
+    )
     assert eligible.call_args.args[2].place == semantic.call_args.args[2].place
     assert semantic.call_args.args[2].place.mode == "address"
     execution.assert_not_awaited()
