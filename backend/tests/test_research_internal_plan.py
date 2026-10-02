@@ -16,9 +16,9 @@ from app.errors import APIError
 from app.repositories.research_resolution import Resolution, resolve_plan
 from app.research.context import ResearchExecutionContext
 from app.research.geography import (
-    AdministrativeAreaRef,
     NamedPlaceRef,
     SpatialConstraint,
+    UnresolvedAdministrativeAreaRef,
     UserLocationRef,
 )
 from app.research.normalize import normalize, normalize_v3, normalize_v5, normalize_v6
@@ -95,7 +95,9 @@ def test_explicit_v5_mapping_and_runtime_fields_excluded():
             to_date=date(2026, 10, 31),
             time_of_day="evening",
         ),
-        spatial_constraints=(SpatialConstraint("outside", AdministrativeAreaRef("Flensburg")),),
+        spatial_constraints=(
+            SpatialConstraint("outside", UnresolvedAdministrativeAreaRef("Flensburg")),
+        ),
     )
     names = {f.name for f in fields(internal)}
     assert not names & {
@@ -335,7 +337,10 @@ def test_architecture_guard():
     ]
     forbidden = {"research_planner", "research_analytics", "research_geography", "research_v7"}
     for path in protected:
-        tree = ast.parse(path.read_text())
+        source = path.read_text()
+        assert "osm_admin_level" not in source, path
+        assert "REGION_PREFIX" not in source, path
+        tree = ast.parse(source)
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
                 assert not forbidden.intersection((node.module or "").split(".")), path
@@ -371,7 +376,8 @@ def test_internal_models_not_exposed_in_openapi(client):
         "ResearchExecutionContext",
         "NameFilters",
         "TemporalSelection",
-        "AdministrativeAreaRef",
+        "UnresolvedAdministrativeAreaRef",
+        "ResolvedAdministrativeAreaRef",
         "SpatialConstraint",
         "AdministrativeHierarchy",
         "SemanticSelection",

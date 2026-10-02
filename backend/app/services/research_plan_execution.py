@@ -28,7 +28,8 @@ from app.repositories.research_resolution import Resolution, resolve_plan
 from app.research.capabilities import require_supported
 from app.research.context import ResearchExecutionContext
 from app.research.geography import (
-    AdministrativeAreaRef,
+    ResolvedAdministrativeAreaRef,
+    UnresolvedAdministrativeAreaRef,
     administrative_constraints,
     uses_user_location,
 )
@@ -96,10 +97,13 @@ def execution_filters(
     if constraints:
         resolved = administrative_constraints(resolution.spatial_constraints)
         reference = resolved[0].reference if len(resolved) == 1 else None
+        expected = constraints[0].reference
         if (
             len(constraints) != 1
+            or not isinstance(expected, UnresolvedAdministrativeAreaRef)
             or resolution.area is None
-            or not isinstance(reference, AdministrativeAreaRef)
+            or not isinstance(reference, ResolvedAdministrativeAreaRef)
+            or (expected.expected_level is not None and reference.level != expected.expected_level)
             or reference.resolved_id != resolution.area.area.id
             or reference.boundary is None
             or reference.boundary.area_id != reference.resolved_id

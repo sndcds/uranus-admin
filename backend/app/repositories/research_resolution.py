@@ -19,16 +19,18 @@ from app.errors import APIError
 from app.repositories.entity_search import escape_search
 from app.repositories.research import GENRE_LABELS, parameters, research_options_sql, research_sql
 from app.repositories.research_administrative import administrative_reference
+from app.repositories.research_administrative_metadata import administrative_level_sql
 from app.repositories.research_areas import ResolvedResearchArea, resolve_area
 from app.repositories.research_place import place_filter
 from app.repositories.vector_events import PUBLIC_EVENT
 from app.research.capabilities import require_supported_spatial
 from app.research.context import ResearchExecutionContext
 from app.research.geography import (
-    AdministrativeAreaRef,
     AdministrativeHierarchy,
+    AdministrativeLevel,
     NamedPlaceRef,
     SpatialConstraint,
+    UnresolvedAdministrativeAreaRef,
     administrative_constraints,
     uses_user_location,
 )
@@ -147,6 +149,8 @@ async def candidates(
     settings: Settings,
     area: ResolvedResearchArea | None = None,
     type_ids: set[str] | None = None,
+    *,
+    expected_level: AdministrativeLevel | None = None,
 ) -> list[ResolutionCandidate]:
     if kind == "event_type" or kind == "genre":
         return await taxonomy_candidates(
@@ -163,6 +167,11 @@ async def candidates(
     params = parameters(filters, settings, area)
     if kind == "area":
         base = "SELECT id::text id,display_name label,name FROM admin.research_area"
+        if expected_level is not None:
+            # Filter before ranking/LIMIT, so wrong-level rows cannot hide valid
+            # matches or exhaust the five-candidate budget. No geometry N+1.
+            base += f" WHERE ({administrative_level_sql()})=:expected_area_level"
+            params["expected_area_level"] = expected_level
     elif kind == "category":
         base = f"SELECT id::text id,name label,name FROM ({research_options_sql()}) options"
     else:
@@ -325,25 +334,42 @@ async def resolve_plan(
                         reason="no_match", field=field_name, query=query
                     )
                     return resolved
-    areas: list[tuple[ResolutionField, str]] = []
+    areas: list[tuple[ResolutionField, UnresolvedAdministrativeAreaRef]] = []
     area_constraints = administrative_constraints(plan.spatial_constraints)
     for constraint in area_constraints:
-        assert isinstance(constraint.reference, AdministrativeAreaRef)
-        areas.append(("area_query", constraint.reference.name))
+        assert isinstance(constraint.reference, UnresolvedAdministrativeAreaRef)
+        areas.append(("area_query", constraint.reference))
     areas.extend(
-        ("comparison_targets", t.query) for t in plan.comparison_targets if t.kind == "area"
+        ("comparison_targets", UnresolvedAdministrativeAreaRef(t.query))
+        for t in plan.comparison_targets
+        if t.kind == "area"
     )
     if areas:
         async with connect_admin(request) as admin, admin.begin():
             await admin.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
-            for field_name, query in areas:
-                target = resolved.select(
-                    field_name, query, await candidates(admin, "area", query, settings)
+            for field_name, requested in areas:
+                query = requested.name
+                choices = await candidates(
+                    admin, "area", query, settings, expected_level=requested.expected_level
                 )
-                if target is None:
+                if len(choices) != 1:
+                    resolved.select(field_name, query, choices)
                     return resolved
+                target = choices[0]
                 area = await resolve_area(admin, UUID(target.id))
                 reference = administrative_reference(area)
+                # Defense in depth: candidate classification is not authoritative
+                # execution metadata. Recheck the loaded boundary before recording
+                # a successful resolution or passing any geometry to source SQL.
+                if (
+                    requested.expected_level is not None
+                    and reference.level != requested.expected_level
+                ):
+                    resolved.clarification = ExecutionClarification(
+                        reason="no_match", field=field_name, query=query
+                    )
+                    return resolved
+                resolved.select(field_name, query, choices)
                 resolved.administrative_hierarchy = AdministrativeHierarchy(
                     (*resolved.administrative_hierarchy.areas, reference)
                 )

@@ -1,7 +1,8 @@
 """Internal geography: identity and administrative level are separate from names.
 
-Unresolved names carry no asserted level. Only persisted boundary metadata can
-supply one. Hierarchy references may have official identities without cached
+Unresolved references carry semantic expectations, never resolved truth. Only
+authoritative administrative metadata can supply a resolved level. Hierarchy
+references may have official identities without cached
 boundaries; they must never be used as executable geometry.
 """
 
@@ -41,14 +42,20 @@ class BoundaryReference:
 
 
 @dataclass(frozen=True, slots=True)
-class AdministrativeAreaRef:
+class UnresolvedAdministrativeAreaRef:
     name: str
-    level: AdministrativeLevel | None = None
-    country_code: str | None = None
-    official_code: str | None = None
-    code_system: OfficialCodeSystem | None = None
-    resolved_id: UUID | None = None
-    boundary: BoundaryReference | None = None
+    expected_level: AdministrativeLevel | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedAdministrativeAreaRef:
+    name: str
+    level: AdministrativeLevel
+    country_code: str
+    official_code: str | None
+    code_system: OfficialCodeSystem | None
+    resolved_id: UUID
+    boundary: BoundaryReference
     # Direct parent is deliberately absent if only a more distant ancestor is known.
     parent: AdministrativeIdentity | None = None
     ancestors: tuple[AdministrativeIdentity, ...] = ()
@@ -56,12 +63,14 @@ class AdministrativeAreaRef:
 
 @dataclass(frozen=True, slots=True)
 class AdministrativeHierarchy:
-    areas: tuple[AdministrativeAreaRef, ...]
+    areas: tuple[ResolvedAdministrativeAreaRef, ...]
 
-    def children(self, parent: AdministrativeIdentity) -> tuple[AdministrativeAreaRef, ...]:
+    def children(self, parent: AdministrativeIdentity) -> tuple[ResolvedAdministrativeAreaRef, ...]:
         return tuple(area for area in self.areas if area.parent == parent)
 
-    def descendants(self, ancestor: AdministrativeIdentity) -> tuple[AdministrativeAreaRef, ...]:
+    def descendants(
+        self, ancestor: AdministrativeIdentity
+    ) -> tuple[ResolvedAdministrativeAreaRef, ...]:
         return tuple(area for area in self.areas if ancestor in area.ancestors)
 
 
@@ -77,21 +86,31 @@ class UserLocationRef:
 
 @dataclass(frozen=True, slots=True)
 class BorderRef:
-    area: AdministrativeAreaRef
-    adjoining_area: AdministrativeAreaRef | None = None
+    area: UnresolvedAdministrativeAreaRef
+    adjoining_area: UnresolvedAdministrativeAreaRef | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class SpatialConstraint:
     relation: SpatialRelation
-    reference: AdministrativeAreaRef | NamedPlaceRef | UserLocationRef | BorderRef
+    reference: (
+        UnresolvedAdministrativeAreaRef
+        | ResolvedAdministrativeAreaRef
+        | NamedPlaceRef
+        | UserLocationRef
+        | BorderRef
+    )
     radius_m: int | None = None
 
 
 def administrative_constraints(
     constraints: tuple[SpatialConstraint, ...],
 ) -> tuple[SpatialConstraint, ...]:
-    return tuple(c for c in constraints if isinstance(c.reference, AdministrativeAreaRef))
+    return tuple(
+        c
+        for c in constraints
+        if isinstance(c.reference, (UnresolvedAdministrativeAreaRef, ResolvedAdministrativeAreaRef))
+    )
 
 
 def uses_user_location(constraints: tuple[SpatialConstraint, ...]) -> bool:

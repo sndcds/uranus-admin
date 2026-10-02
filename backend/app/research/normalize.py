@@ -5,9 +5,10 @@ from typing import Literal
 
 from app.errors import APIError
 from app.research.geography import (
-    AdministrativeAreaRef,
+    AdministrativeLevel,
     NamedPlaceRef,
     SpatialConstraint,
+    UnresolvedAdministrativeAreaRef,
     UserLocationRef,
 )
 from app.research.plan import (
@@ -97,9 +98,15 @@ def normalize_v3(response: PlanResponse) -> InternalResearchPlan:
 
 
 def _area_constraints(
-    query: str | None, relation: Literal["inside", "outside"]
+    query: str | None,
+    relation: Literal["inside", "outside"],
+    expected_level: AdministrativeLevel | None = None,
 ) -> tuple[SpatialConstraint, ...]:
-    return (SpatialConstraint(relation, AdministrativeAreaRef(query)),) if query else ()
+    return (
+        (SpatialConstraint(relation, UnresolvedAdministrativeAreaRef(query, expected_level)),)
+        if query
+        else ()
+    )
 
 
 def _analytical(
@@ -147,6 +154,7 @@ def normalize(response: PlannerResponse) -> InternalResearchPlan:
     return normalize_v3(response)
 
 
-# v7 wire support lands here, executor unchanged. Add normalize_v7 with a closed,
-# validated wire type when coordinated; do not accept arbitrary dictionaries or
-# provisionally interpret unknown fields. There is no v7 transport/flag in this PR.
+# v7 wire normalization lands here with a closed, validated contract. Existing
+# executable capabilities need no version-specific executor. New capabilities
+# (e.g. state/district grouping) still require generic executor/repository work.
+# Do not interpret unknown fields. There is no v7 transport/flag in this PR.
