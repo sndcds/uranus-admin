@@ -253,7 +253,9 @@ async def resolve_plan(
     slots.extend(
         ("comparison_targets", t.kind, t.query) for t in plan.comparison_targets if t.kind != "area"
     )
-    candidate_area = None if getattr(plan, "area_relation", "inside") == "outside" else resolved.area
+    candidate_area = (
+        None if getattr(plan, "area_relation", "inside") == "outside" else resolved.area
+    )
     if slots:
         async with asynccontextmanager(get_connection)(request) as connection:
             for field_name, kind, query in slots:

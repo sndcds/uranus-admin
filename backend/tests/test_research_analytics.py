@@ -1,7 +1,7 @@
 """Full v5 wire corpus and source-only PostgreSQL execution (CI database fixtures)."""
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -235,7 +235,7 @@ async def test_time_boundaries_and_all_day(settings, execution_source, period, h
     ]:
         await c.execute(
             text("UPDATE uranus.event_date SET start_time=CAST(:clock AS time),all_day=false"),
-            {"clock": clock},
+            {"clock": time.fromisoformat(clock) if clock is not None else None},
         )
         filters = ExecutionFilters(entity_type="event", time_of_day=period)
         assert await count_selection(c, settings, filters, "occurrence_count", None) == (
