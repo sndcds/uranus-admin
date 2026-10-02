@@ -10,7 +10,7 @@ import {
   suggestionImpressionSchema,
   suggestionSelectionSchema,
   researchExecutionResponseSchema,
-  researchPlanRequestSchema,
+  researchQueryRequestSchema,
   researchPageSchema,
   semanticResearchPageSchema,
   semanticResearchQuerySchema,
@@ -61,6 +61,7 @@ import {
   inboxPageSchema,
 } from '#shared/contracts'
 import type {
+  LocationContext,
   GeocodeFilters,
   GeoAreaImport,
   FindingFilters,
@@ -248,8 +249,16 @@ export function createAdminApi(
         undefined,
         2_000,
       ),
-    researchQuery: (query: string, signal?: AbortSignal, selectionReceipt?: string) => {
-      const parsed = researchPlanRequestSchema.safeParse({ query })
+    researchQuery: (
+      query: string,
+      signal?: AbortSignal,
+      selectionReceipt?: string,
+      locationContext?: LocationContext,
+    ) => {
+      const parsed = researchQueryRequestSchema.safeParse({
+        query,
+        ...(locationContext ? { location_context: locationContext } : {}),
+      })
       if (!parsed.success) throw new AdminApiError(failure(422, 'invalid_input'))
       return request(
         '/api/v1/research/query',

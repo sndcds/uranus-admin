@@ -79,7 +79,7 @@ it('enforces bounded values, records, resolution, genres, date/time and consiste
         total: null,
       },
     },
-    { resolution: Array(32).fill(r.resolution[0]) },
+    { resolution: Array(33).fill(r.resolution[0]) },
     { execution: { ...r.execution, category_ids: Array(9).fill(1) } },
     { execution: { ...r.execution, genre_keys: ['1:0'] } },
     { execution: { ...r.execution, from_date: '2026-02-30' } },
@@ -441,4 +441,48 @@ it('requires distinct event type slots and preserves taxonomy conflicts', async 
   const view = render('records')
   await view.setProps({ response: r })
   expect(view.text()).toContain('Das Genre gehört nicht zum gewählten Veranstaltungstyp')
+})
+
+it('POSTs location only in the body and proxy rejects extra location capabilities', async () => {
+  const location_context = {
+    latitude: 54.79,
+    longitude: 9.43,
+    source: 'browser_geolocation' as const,
+  }
+  const fetcher = vi.fn().mockResolvedValue(Response.json(executionResponse()))
+  const api = createAdminApi(fetcher)
+  await api.researchQuery('Was ist hier los?', undefined, undefined, location_context)
+  expect(fetcher.mock.calls[0]![0]).toBe('/api/admin/api/v1/research/query')
+  expect(JSON.parse(fetcher.mock.calls[0]![1].body)).toEqual({
+    query: 'Was ist hier los?',
+    location_context,
+  })
+  const upstream = vi.fn().mockResolvedValue(Response.json({}))
+  const body = { query: 'Was ist hier los?', location_context }
+  expect(
+    (await forwardAdminRequest({ ...proxyInput, body }, 'http://backend.invalid', upstream)).status,
+  ).toBe(200)
+  expect(JSON.parse(upstream.mock.calls[0]![1].body)).toEqual(body)
+  for (const change of [
+    { osm_id: 1 },
+    { url: 'http://evil.invalid' },
+    { source: 'evil' },
+    { latitude: 91 },
+    { longitude: null },
+  ]) {
+    upstream.mockClear()
+    expect(
+      (
+        await forwardAdminRequest(
+          {
+            ...proxyInput,
+            body: { ...body, location_context: { ...location_context, ...change } },
+          },
+          'http://backend.invalid',
+          upstream,
+        )
+      ).status,
+    ).toBe(422)
+    expect(upstream).not.toHaveBeenCalled()
+  }
 })

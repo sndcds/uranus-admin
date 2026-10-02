@@ -13,6 +13,8 @@ from app.schemas.research import (
     SemanticResearchRecord,
 )
 from app.schemas.research_analytics import AnalyticalPlanResponse
+from app.schemas.research_geography import GeographicPlanResponse
+from app.schemas.research_location import Place, PlaceFilter
 from app.schemas.research_planner import ClosedModel, PlanResponse, Query, Slot
 
 ExecutionMetric = Literal["event_count", "occurrence_count", "venue_count", "organization_count"]
@@ -21,6 +23,7 @@ TaxonomyKind = Literal["genre", "event_type", "category"]
 
 
 class ExecutionFilters(ResearchFilters):
+    place: PlaceFilter | None = Field(default=None, exclude=True)
     time_from: time | None = None
     time_of_day: Literal["none", "morning", "afternoon", "evening", "night"] = "none"
     area_relation: Literal["inside", "outside"] = "inside"
@@ -30,6 +33,7 @@ class ExecutionFilters(ResearchFilters):
 
 
 class ExecutionSemanticFilters(SemanticResearchFilters):
+    place: PlaceFilter | None = Field(default=None, exclude=True)
     # Topic and optional focus are each <=500, joined by one newline.
     # The classic endpoint remains 2–120.
     q: str = Field(min_length=1, max_length=1001)
@@ -41,12 +45,17 @@ class ExecutionSemanticFilters(SemanticResearchFilters):
 
 
 class ResolutionCandidate(ClosedModel):
-    entity_type: Literal["area", "venue", "organization", "category", "event_type", "genre"]
+    entity_type: Literal[
+        "area", "venue", "organization", "category", "event_type", "genre", "place"
+    ]
     id: str
     label: str
+    place: Place | None = None
 
 
 ResolutionField = Literal[
+    "place_query",
+    "location_context",
     "area_query",
     "venue_query",
     "organization_query",
@@ -164,8 +173,8 @@ class ExecutionDiagnostics(ClosedModel):
 
 class ResearchExecutionResponse(ClosedModel):
     query: Query
-    plan: PlanResponse | AnalyticalPlanResponse
-    resolution: list[ResolvedField] = Field(default_factory=list, max_length=31)
+    plan: GeographicPlanResponse | PlanResponse | AnalyticalPlanResponse
+    resolution: list[ResolvedField] = Field(default_factory=list, max_length=32)
     result: ExecutionResult
     execution: ExecutionProvenance
     observed_at: datetime

@@ -22,6 +22,7 @@ from app.repositories.entities import pagination
 from app.repositories.entity_search import SEARCH_DEFINITIONS, escape_search
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
 from app.repositories.research_areas import ResolvedResearchArea, ResolvedResearchAreas
+from app.repositories.research_place import PLACE_PREDICATE, place_parameters
 from app.schemas.research import (
     ResearchCategory,
     ResearchDate,
@@ -76,6 +77,7 @@ DATE_FILTER = f"""e.release_status::text IN {PUBLIC} AND {DATE_STATUS} IN {PUBLI
         WHEN 'evening' THEN d.start_time>=TIME '18:00' AND d.start_time<TIME '22:00'
         WHEN 'night' THEN d.start_time>=TIME '22:00' OR d.start_time<TIME '06:00'
         ELSE FALSE END))
+    AND ({PLACE_PREDICATE})
     AND (:city='' OR v.city ILIKE :city)
     AND (CAST(:area_wkb AS bytea) IS NULL OR (v.point IS NOT NULL
         AND ST_IsValid(v.point) AND NOT ST_IsEmpty(v.point)
@@ -147,6 +149,7 @@ def parameters(
         "category_ids": [],
         "genre_keys": [],
         **filters.model_dump(),
+        **place_parameters(getattr(filters, "place", None)),
         "q": f"%{escape_search(filters.q)}%",
         "city": f"%{escape_search(filters.city)}%" if filters.city.strip() else "",
         "tz": require_timezone(settings),
@@ -196,7 +199,8 @@ def eligible_event_ctes(*, candidates: bool = False, ids_only: bool = False) -> 
             NOT EXISTS (SELECT 1 FROM uranus.event_date known WHERE known.event_uuid=e.uuid)
             AND CAST(:from_date AS date) IS NULL AND CAST(:to_date AS date) IS NULL
             AND CAST(:time_from AS time) IS NULL AND :time_of_day='none'
-            AND :city='' AND CAST(:venue_id AS uuid) IS NULL AND CAST(:area_wkb AS bytea) IS NULL
+            AND :place_mode='none' AND :city='' AND CAST(:venue_id AS uuid) IS NULL
+            AND CAST(:area_wkb AS bytea) IS NULL
             AND (CAST(:status AS text) IS NULL OR e.release_status::text=:status)))
     )"""
 
@@ -227,6 +231,8 @@ def research_sql(*, candidates: bool = False, occurrences: bool = False) -> str:
                     AND cardinality(CAST(:category_ids AS integer[]))=0
                     AND cardinality(CAST(:genre_keys AS text[]))=0
                     AND CAST(:organization_id AS uuid) IS NULL)))"""
+        if kind == "venue":
+            visibility = f"({visibility}) AND ({PLACE_PREDICATE})"
         branches.append(f"""SELECT '{kind}'::text entity_type,v.uuid entity_key,v.name,
             v.description,NULL::text status,'[]'::jsonb categories,v.content_iso_639_1 language,
             NULL::date start_date,NULL::time start_time,NULL::date end_date,NULL::time end_time,

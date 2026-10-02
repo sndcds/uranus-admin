@@ -45,6 +45,8 @@ from app.schemas.research_execution import (
     SpatialResult,
     TaxonomyResult,
 )
+from app.schemas.research_geography import GeographicPlanResponse, GeographicQueryPlan
+from app.schemas.research_location import LocationContext
 from app.schemas.research_planner import PlanResponse
 from app.services.semantic_search import semantic_research
 
@@ -60,7 +62,7 @@ def unsupported(message: str) -> APIError:
 
 
 def temporal_bounds(
-    response: PlanResponse | AnalyticalPlanResponse,
+    response: PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse,
 ) -> tuple[date | None, date | None]:
     # reference_date is already a local date in this validated zone. Calendar
     # arithmetic deliberately avoids UTC offsets, including across DST changes.
@@ -92,10 +94,11 @@ def temporal_bounds(
 
 
 def execution_filters(
-    response: PlanResponse | AnalyticalPlanResponse, resolution: Resolution
+    response: PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse, resolution: Resolution
 ) -> ExecutionFilters:
     start, end = temporal_bounds(response)
     filters = ExecutionFilters(
+        place=resolution.place,
         entity_type=response.plan.entity_type,
         from_date=start,
         to_date=end,
@@ -134,9 +137,10 @@ class ResearchPlanExecutor:
         self,
         request: Request,
         settings: Settings,
-        plan_response: PlanResponse | AnalyticalPlanResponse,
+        plan_response: PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse,
         *,
         planner_ms: float | None = None,
+        location_context: LocationContext | None = None,
     ) -> ResearchExecutionResponse:
         started = perf_counter()
         planner_ms = plan_response.diagnostics.total_ms if planner_ms is None else planner_ms
@@ -157,12 +161,20 @@ class ResearchPlanExecutor:
             )
         ):
             raise APIError(422, "research_plan_unsupported", "This research plan is unsupported.")
-        if plan_response.kind == "needs_clarification":
+        location_satisfied = (
+            isinstance(plan, GeographicQueryPlan)
+            and plan.location_relation == "nearby"
+            and location_context is not None
+            and plan.clarification == "needs_location"
+        )
+        if plan_response.kind == "needs_clarification" and not location_satisfied:
             result: ExecutionResult = ExecutionClarification(
                 reason="planner", planner_state=plan.clarification
             )
         else:
-            if plan.clarification != "none" or plan_response.timezone != settings.event_timezone:
+            if (
+                plan.clarification != "none" and not location_satisfied
+            ) or plan_response.timezone != settings.event_timezone:
                 raise APIError(
                     502, "research_execution_invalid_plan", "The research plan is invalid."
                 )
@@ -192,7 +204,11 @@ class ResearchPlanExecutor:
             try:
                 # Bound the complete resolution stage, in addition to DB statement limits.
                 async with asyncio.timeout(settings.db_timeout_seconds):
-                    resolution = await resolve_plan(request, settings, plan)
+                    resolution = (
+                        await resolve_plan(request, settings, plan, location_context)
+                        if isinstance(plan, GeographicQueryPlan)
+                        else await resolve_plan(request, settings, plan)
+                    )
                 resolution_ms = (perf_counter() - started) * 1000
                 if resolution.clarification is not None:
                     result = resolution.clarification
@@ -214,6 +230,7 @@ class ResearchPlanExecutor:
                     if plan.requires_semantic_relevance:
                         assert plan.semantic_query is not None
                         semantic_filters = ExecutionSemanticFilters(
+                            place=filters.place,
                             **{
                                 k: v
                                 for k, v in filters.model_dump().items()

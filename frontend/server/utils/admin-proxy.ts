@@ -4,7 +4,7 @@ import {
   suggestionSelectionSchema,
 } from '../../shared/contracts'
 import {
-  researchPlanRequestSchema,
+  researchQueryRequestSchema,
   classicResearchQuerySchema,
   semanticResearchQuerySchema,
   researchAreaQuerySchema,
@@ -390,7 +390,7 @@ export async function forwardAdminRequest(
     requestBody = JSON.stringify(params)
   }
   if (researchExecution) {
-    const parsed = researchPlanRequestSchema.safeParse(input.body)
+    const parsed = researchQueryRequestSchema.safeParse(input.body)
     if (!parsed.success) return rejected(422, 'invalid_input')
     requestBody = JSON.stringify(parsed.data)
   }

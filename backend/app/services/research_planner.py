@@ -11,6 +11,7 @@ from pydantic import TypeAdapter, ValidationError
 from app.config import Settings
 from app.errors import APIError
 from app.schemas.research_analytics import AnalyticalPlanResponse
+from app.schemas.research_geography import GeographicPlanResponse
 from app.schemas.research_planner import PlanResponse
 
 MAX_RESPONSE_BYTES = 32 * 1024
@@ -46,15 +47,15 @@ class ResearchPlannerClient:
         await self._http.aclose()
 
     async def plan(
-        self, query: str, *, analytical: bool = False
-    ) -> PlanResponse | AnalyticalPlanResponse:
+        self, query: str, *, analytical: bool = False, geographic: bool = False
+    ) -> PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse:
         started = perf_counter()
         status = 200
         error_code = "none"
         try:
             # Total deadline also bounds slow streaming; httpx bounds each network operation.
             async with asyncio.timeout(self._timeout):
-                return await self._plan(query, analytical=analytical)
+                return await self._plan(query, analytical=analytical, geographic=geographic)
         except (httpx.RequestError, TimeoutError):
             status, error_code = 503, "research_planner_unavailable"
             raise unavailable() from None
@@ -72,13 +73,17 @@ class ResearchPlannerClient:
             )
 
     async def _plan(
-        self, query: str, *, analytical: bool = False
-    ) -> PlanResponse | AnalyticalPlanResponse:
+        self, query: str, *, analytical: bool = False, geographic: bool = False
+    ) -> PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse:
         # Construct independently of inbound requests AND the client's cookie jar.
         # Even a planner Set-Cookie response must never be sent on the next request.
         request = httpx.Request(
             "POST",
-            self._url.removesuffix("/plan") + "/v5/plan" if analytical else self._url,
+            self._url.removesuffix("/plan") + "/v6/plan"
+            if geographic
+            else self._url.removesuffix("/plan") + "/v5/plan"
+            if analytical
+            else self._url,
             headers={
                 "Authorization": f"Bearer {self._key.get_secret_value()}",
                 "Content-Type": "application/json",
@@ -122,7 +127,9 @@ class ResearchPlannerClient:
                 raise invalid_response()
             try:
                 envelope = (
-                    TypeAdapter(AnalyticalPlanResponse).validate_json(body)
+                    TypeAdapter(GeographicPlanResponse).validate_json(body)
+                    if geographic
+                    else TypeAdapter(AnalyticalPlanResponse).validate_json(body)
                     if analytical
                     else PLAN_RESPONSE.validate_json(body)
                 )

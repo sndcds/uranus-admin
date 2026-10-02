@@ -38,6 +38,7 @@ from app.api import (
 from app.auth.body_limit import AuthBodyLimitMiddleware
 from app.auth.dependencies import get_current_admin
 from app.auth.routes import router as auth_router
+from app.clients.research_geocoder import ResearchGeocoderClient
 from app.config import Settings
 from app.database import create_engine
 from app.errors import (
@@ -71,11 +72,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         application.state.sql_console = ConsoleRuntime(settings)
         planner = ResearchPlannerClient(settings) if settings.research_planner_url else None
         application.state.research_planner = planner
+        geocoder = ResearchGeocoderClient(settings) if settings.research_geocoder_api_key else None
+        application.state.research_geocoder = geocoder
         domain = ResearchDomainClient(settings) if settings.research_domain_enabled else None
         application.state.research_domain = domain
         try:
             yield
         finally:
+            if geocoder is not None:
+                await geocoder.close()
             if domain is not None:
                 await domain.close()
             if planner is not None:
@@ -96,6 +101,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
     )
     application.state.settings = settings
+    application.state.research_geocoder = None
     application.state.research_planner = None
     application.state.research_domain = None
     application.add_exception_handler(APIError, api_error_handler)  # type: ignore[arg-type]

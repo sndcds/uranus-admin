@@ -1,3 +1,8 @@
+import {
+  geographicPlanResponseSchema,
+  locationContextSchema,
+  placeSchema,
+} from './research-location'
 import { analyticalPlanResponseSchema } from './research-analytics'
 import { z } from './zod'
 import {
@@ -15,6 +20,9 @@ const nonblank = (max: number) =>
     .refine((value) => !!value.trim())
 export const researchQuestionSchema = nonblank(2000).refine((value) => value.isWellFormed())
 export const researchPlanRequestSchema = z.object({ query: researchQuestionSchema }).strict()
+export const researchQueryRequestSchema = researchPlanRequestSchema.extend({
+  location_context: locationContextSchema.nullable().optional(),
+})
 const slot = nonblank(160)
 const topic = nonblank(500)
 const intent = z.enum(['search', 'list', 'count', 'aggregate', 'recommend', 'compare'])
@@ -182,12 +190,23 @@ export const researchPlanResponseSchema = z.discriminatedUnion('kind', [
 ])
 export const resolutionCandidateSchema = z
   .object({
-    entity_type: z.enum(['area', 'venue', 'organization', 'category', 'event_type', 'genre']),
+    entity_type: z.enum([
+      'area',
+      'venue',
+      'organization',
+      'category',
+      'event_type',
+      'genre',
+      'place',
+    ]),
     id: z.string(),
     label: z.string(),
+    place: placeSchema.nullable().optional(),
   })
   .strict()
 const resolutionField = z.enum([
+  'place_query',
+  'location_context',
   'area_query',
   'venue_query',
   'organization_query',
@@ -282,8 +301,12 @@ export const executionDiagnosticsSchema = z
 export const researchExecutionResponseSchema = z
   .object({
     query: researchQuestionSchema,
-    plan: z.union([researchPlanResponseSchema, analyticalPlanResponseSchema]),
-    resolution: z.array(resolvedFieldSchema).max(31),
+    plan: z.union([
+      geographicPlanResponseSchema,
+      researchPlanResponseSchema,
+      analyticalPlanResponseSchema,
+    ]),
+    resolution: z.array(resolvedFieldSchema).max(32),
     result: executionResultSchema,
     execution: executionProvenanceSchema,
     observed_at: z.iso.datetime({ offset: true }),

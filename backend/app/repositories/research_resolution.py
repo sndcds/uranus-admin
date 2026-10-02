@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import Literal
 from unicodedata import normalize
 from uuid import UUID
@@ -11,12 +12,14 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.admin_database import connect_admin
+from app.clients.research_geocoder import ResearchGeocoderClient, unavailable
 from app.config import Settings
 from app.database import get_connection
 from app.errors import APIError
 from app.repositories.entity_search import escape_search
 from app.repositories.research import GENRE_LABELS, parameters, research_options_sql, research_sql
 from app.repositories.research_areas import ResolvedResearchArea, resolve_area
+from app.repositories.research_place import place_filter
 from app.repositories.vector_events import PUBLIC_EVENT
 from app.schemas.research_analytics import AnalyticalQueryPlan
 from app.schemas.research_execution import (
@@ -26,6 +29,8 @@ from app.schemas.research_execution import (
     ResolutionField,
     ResolvedField,
 )
+from app.schemas.research_geography import GeographicQueryPlan
+from app.schemas.research_location import LocationContext, PlaceFilter
 from app.schemas.research_planner import ResearchQueryPlan
 
 ResolutionKind = Literal["area", "venue", "organization", "category", "event_type", "genre"]
@@ -201,6 +206,7 @@ class Resolution:
     area: ResolvedResearchArea | None = None
     target_areas: dict[str, ResolvedResearchArea] = field(default_factory=dict)
     clarification: ExecutionClarification | None = None
+    place: PlaceFilter | None = None
 
     def select(
         self, field_name: ResolutionField, query: str, choices: list[ResolutionCandidate]
@@ -219,9 +225,77 @@ class Resolution:
 
 
 async def resolve_plan(
-    request: Request, settings: Settings, plan: ResearchQueryPlan | AnalyticalQueryPlan
+    request: Request,
+    settings: Settings,
+    plan: ResearchQueryPlan | AnalyticalQueryPlan,
+    location_context: LocationContext | None = None,
 ) -> Resolution:
     resolved = Resolution()
+    if isinstance(plan, GeographicQueryPlan):
+        query = plan.place_query
+        nearby = plan.location_relation == "nearby"
+        if nearby and location_context is None:
+            resolved.clarification = ExecutionClarification(
+                reason="planner", planner_state="needs_location"
+            )
+            return resolved
+        if query or nearby:
+            geocoder: ResearchGeocoderClient | None = request.app.state.research_geocoder
+            if geocoder is None:
+                raise unavailable()
+            field_name: ResolutionField = "place_query" if query else "location_context"
+            if nearby and location_context is not None and location_context.latitude is not None:
+                assert location_context.longitude is not None
+                # Browser labels never establish identity. Coordinates are sufficient
+                # to execute nearby; reverse supplies an optional canonical label only.
+                if not location_context.display_name:
+                    canonical = await geocoder.reverse(
+                        location_context.latitude, location_context.longitude
+                    )
+                    if canonical and canonical.display_name:
+                        resolved.fields.append(
+                            ResolvedField(
+                                field="location_context",
+                                query="Aktueller Standort",
+                                target=ResolutionCandidate(
+                                    entity_type="place",
+                                    id="current-location",
+                                    label=canonical.display_name,
+                                    place=canonical,
+                                ),
+                            )
+                        )
+                resolved.place = PlaceFilter(
+                    mode="radius",
+                    latitude=location_context.latitude,
+                    longitude=location_context.longitude,
+                    radius_m=500,
+                )
+            else:
+                query = query or (location_context.display_name if location_context else None)
+                assert query is not None
+                places = await geocoder.search(query)
+                choices = [
+                    ResolutionCandidate(
+                        entity_type="place",
+                        id=f"{p.osm_type}:{p.osm_id}"
+                        if p.osm_type and p.osm_id
+                        else sha256(p.model_dump_json().encode()).hexdigest(),
+                        label=p.display_name or query,
+                        place=p,
+                    )
+                    for p in places
+                ]
+                target = resolved.select(field_name, query, choices)
+                if target is None:
+                    return resolved
+                assert target.place is not None
+                resolved.place = place_filter(target.place)
+                if resolved.place is None:
+                    resolved.clarification = ExecutionClarification(
+                        reason="no_match", field=field_name, query=query
+                    )
+                    return resolved
     areas: list[tuple[ResolutionField, str]] = []
     if plan.area_query:
         areas.append(("area_query", plan.area_query))
