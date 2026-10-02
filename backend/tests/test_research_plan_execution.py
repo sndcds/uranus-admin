@@ -381,7 +381,7 @@ async def test_counts_aggregates_comparison(settings, execution_source):
         planner_ms=0,
     )
     assert [i.value for i in comparison.result.items] == [2, 1]
-    assert "winner" not in comparison.model_dump_json()
+    assert "winner" not in comparison.result.model_dump_json()
 
 
 @pytest.mark.parametrize("group", ["venue", "organization", "category"])
