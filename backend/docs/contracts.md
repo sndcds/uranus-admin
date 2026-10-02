@@ -1412,10 +1412,28 @@ Categories != event types != genres:
 - `genre_queries` resolves `event_type_link.(type_id, genre_id) -> genre_type`;
   genres are subordinate to event types and retain composite `type_id:genre_id` keys.
 
-Resolution uses exact canonical localized labels only, in event type, genre,
-category order; no fuzzy or model-based taxonomy resolution. Event type labels
-prefer German, then English, then the same deterministic fallback as genres.
-Only types linked to public events are offered. IDs are resolved by Admin.
+The public `/api/event/type-genre-lookup?lang=de` structure is the domain reference
+contract for IDs, localized labels and the event type → genre hierarchy (for example,
+`Konzert` / type `1` → `Jazz` / genre `1003`). Admin reads the same underlying Uranus
+tables through `EVENT_TYPES_SQL` and `GENRES_SQL`; it makes no HTTP lookup requests
+and maintains no separate taxonomy or ID mapping. Event type labels prefer German,
+then English, then the same deterministic fallback as genres. Only taxonomy entries
+linked to public events are offered; this is not a complete public lookup export.
+
+Resolution runs in event type, genre, category order. Exact labels take precedence
+over Unicode NFKC/casefold, whitespace and typographic-hyphen normalization, then
+conservative German inflection equivalences. These cover productive `-ung`/`-enz`
+plurals and explicit noun forms for Konzert, Workshop, Festival, Vortrag and Seminar;
+they only match labels actually loaded from PostgreSQL and never supply IDs.
+There is no substring, fuzzy, stemming-library or model-based taxonomy resolution.
+Categories retain exact-label matching. Multiple matches at the best tier remain
+`ambiguous`; unknown labels remain `no_match`. Vocabulary overflow fails explicitly
+rather than silently resolving a truncated set. Venue/organization/area resolution
+is unchanged.
+
+Genres first resolve within all explicitly selected event types. Without type context,
+identical genre labels under different types remain ambiguous composite identities.
+If no contextual match exists, the global lookup is used to diagnose contradictions.
 A genre whose parent is outside the selected event types produces
 `needs_clarification` / `taxonomy_conflict`; no requested filter is discarded.
 
@@ -1425,8 +1443,9 @@ including dates, areas and venue/organization constraints. Semantic execution
 uses the complete PostgreSQL eligible UUID set for Qdrant ranking and rechecks
 all constraints during SQL rehydration. No new Qdrant payload filter is needed.
 
-For `welche jazz konzerte finden heute statt`, prompt v7 emits event type
+For `Welche Jazz-Konzerte finden heute statt?`, prompt v7 can emit event type
 `Konzerte`, genre `Jazz`, no category, `temporal=today` and no semantic residual.
+Admin resolves `Konzerte` to canonical `Konzert` (`1`) and then `Jazz` to `1:1003`.
 `today` uses the envelope's reference local date. Empty results remain successful
 `records` with `items=[]`, never a taxonomy clarification.
 

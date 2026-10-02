@@ -3,6 +3,7 @@
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Literal
+from unicodedata import normalize
 from uuid import UUID
 
 from fastapi import Request
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.admin_database import connect_admin
 from app.config import Settings
 from app.database import get_connection
+from app.errors import APIError
 from app.repositories.entity_search import escape_search
 from app.repositories.research import GENRE_LABELS, parameters, research_options_sql, research_sql
 from app.repositories.research_areas import ResolvedResearchArea, resolve_area
@@ -51,13 +53,90 @@ EVENT_TYPES_SQL = f"""WITH types AS (
 """
 
 
+def taxonomy_label(value: str) -> str:
+    """Normalize typography without changing words or removing diacritics."""
+    value = normalize("NFKC", value).casefold()
+    value = value.translate(str.maketrans("‐‑‒–—−", "------"))
+    return " ".join(value.split())
+
+
+def taxonomy_forms(value: str) -> set[str]:
+    """Small German inflection vocabulary, never a source of taxonomy IDs.
+
+    Only whole labels participate. Productive -ung/-enz plurals and a few
+    explicit noun paradigms avoid general suffix stripping (e.g. Jazz -> Jaz).
+    Every match still needs a canonical row from PostgreSQL.
+    """
+    label = taxonomy_label(value)
+    forms = {label}
+    for plural, singular in (("ungen", "ung"), ("enzen", "enz")):
+        if label.endswith(plural):
+            forms.add(label[: -len(plural)] + singular)
+    for paradigm in (
+        {"konzert", "konzerte", "konzerten"},
+        {"workshop", "workshops"},
+        {"festival", "festivals"},
+        {"vortrag", "vorträge", "vorträgen"},
+        {"seminar", "seminare", "seminaren"},
+    ):
+        if label in paradigm:
+            forms.update(paradigm)
+    return forms
+
+
+async def taxonomy_candidates(
+    connection: AsyncConnection,
+    kind: Literal["event_type", "genre"],
+    query: str,
+    type_ids: set[str] | None,
+) -> list[ResolutionCandidate]:
+    base = EVENT_TYPES_SQL if kind == "event_type" else GENRES_SQL
+    context = "WHERE split_part(id, ':', 1)=ANY(:type_ids)" if type_ids else ""
+    # Bound the in-memory vocabulary, fail closed rather than resolve a truncated
+    # set as unique. The returned clarification candidates remain capped at five.
+    vocabulary_limit = 4096
+    rows = list(
+        (
+            await connection.execute(
+                text(f"""WITH choices AS ({base})
+                    SELECT id,label FROM choices {context}
+                    ORDER BY lower(label) COLLATE "C",id COLLATE "C" LIMIT :limit"""),
+                {"type_ids": sorted(type_ids or ()), "limit": vocabulary_limit + 1},
+            )
+        ).mappings()
+    )
+    if len(rows) > vocabulary_limit:
+        raise APIError(503, "research_execution_unavailable", "Taxonomy resolution unavailable.")
+    exact = query.strip().casefold()
+    normalized = taxonomy_label(query)
+    forms = taxonomy_forms(query)
+    tiers: list[list[ResolutionCandidate]] = [[], [], []]
+    for row in rows:
+        label = row["label"]
+        if label.strip().casefold() == exact:
+            tier = 0
+        elif taxonomy_label(label) == normalized:
+            tier = 1
+        elif forms & taxonomy_forms(label):
+            tier = 2
+        else:
+            continue
+        tiers[tier].append(ResolutionCandidate(entity_type=kind, id=row["id"], label=label))
+    return next((matches[:5] for matches in tiers if matches), [])
+
+
 async def candidates(
     connection: AsyncConnection,
     kind: ResolutionKind,
     query: str,
     settings: Settings,
     area: ResolvedResearchArea | None = None,
+    type_ids: set[str] | None = None,
 ) -> list[ResolutionCandidate]:
+    if kind == "event_type" or kind == "genre":
+        return await taxonomy_candidates(
+            connection, kind, query, type_ids if kind == "genre" else None
+        )
     filters = ExecutionFilters(
         entity_type="venue"
         if kind == "venue"
@@ -71,10 +150,6 @@ async def candidates(
         base = "SELECT id::text id,display_name label,name FROM admin.research_area"
     elif kind == "category":
         base = f"SELECT id::text id,name label,name FROM ({research_options_sql()}) options"
-    elif kind == "event_type":
-        base = EVENT_TYPES_SQL
-    elif kind == "genre":
-        base = GENRES_SQL
     else:
         # Reuse canonical visibility/location logic, never private contact search fields.
         base = f"SELECT entity_key::text id,name label,name FROM ({research_sql()}) public_records"
@@ -90,15 +165,15 @@ async def candidates(
         prefix=escape_search(query.strip()) + "%",
         substring="%" + escape_search(query.strip()) + "%",
     )
-    # Taxonomies use exact labels only; names must never become guessed IDs.
+    # Categories retain their exact-label matching; entity/area search is unchanged.
     prefix = (
         "false"
-        if kind in {"category", "event_type", "genre"}
+        if kind == "category"
         else "(name ILIKE :prefix ESCAPE '\\' OR label ILIKE :prefix ESCAPE '\\')"
     )
     substring = (
         "false"
-        if kind in {"category", "event_type", "genre"}
+        if kind == "category"
         else "(name ILIKE :substring ESCAPE '\\' OR label ILIKE :substring ESCAPE '\\')"
     )
     uuid_rank = "id=:identity" if kind in {"venue", "organization"} else "false"
@@ -178,14 +253,18 @@ async def resolve_plan(request: Request, settings: Settings, plan: ResearchQuery
     if slots:
         async with asynccontextmanager(get_connection)(request) as connection:
             for field_name, kind, query in slots:
-                if (
-                    resolved.select(
-                        field_name,
-                        query,
-                        await candidates(connection, kind, query, settings, resolved.area),
+                type_ids = {r.target.id for r in resolved.fields if r.field == "event_type_queries"}
+                if kind == "genre" and type_ids:
+                    choices = await candidates(
+                        connection, kind, query, settings, resolved.area, type_ids
                     )
-                    is None
-                ):
+                    # A global fallback diagnoses a contradictory parent; the
+                    # conflict check below prevents it from reaching execution.
+                    if not choices:
+                        choices = await candidates(connection, kind, query, settings)
+                else:
+                    choices = await candidates(connection, kind, query, settings, resolved.area)
+                if resolved.select(field_name, query, choices) is None:
                     return resolved
     # Every requested genre must belong to one of the explicitly selected types.
     # Keep composite genre identities intact; never discard a contradictory filter.
