@@ -13,6 +13,7 @@ from app.auth.dependencies import get_current_research_user
 from app.database import ConnectionDep, SettingsDep
 from app.errors import ErrorResponse
 from app.repositories import research_suggestions
+from app.repositories.administrative_execution import AdministrativeResult
 from app.repositories.research import (
     research_activity,
     research_detail,
@@ -46,6 +47,7 @@ from app.schemas.research_suggestions import (
     TelemetryResult,
 )
 from app.schemas.research_unified import UnifiedAnswer
+from app.services.research_administrative import execute as execute_administrative
 from app.services.research_learning import record_success
 from app.services.research_plan_execution import ResearchPlanExecutor
 from app.services.research_planner import ResearchPlannerClient, unavailable
@@ -310,3 +312,15 @@ async def suggestion_select(admin: AdminConnectionDep, body: Selection) -> Telem
     async with admin.begin():
         receipt = await research_suggestions.select(admin, body)
     return TelemetryResult(receipt=receipt)
+
+
+@router.post(
+    "/v8/query",
+    response_model=AdministrativeResult,
+    responses={code: {"model": ErrorResponse} for code in (413, 502)},
+)
+async def administrative_query(
+    request: Request, body: ResearchPlanRequest, settings: SettingsDep
+) -> AdministrativeResult:
+    """Resolve administrative geography and execute a validated internal plan."""
+    return await execute_administrative(request, settings, body.query)

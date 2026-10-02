@@ -24580,6 +24580,113 @@
           }
         ]
       }
+    },
+    "/api/v1/research/v8/query": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Administrative Query",
+        "description": "Resolve administrative geography and execute a validated internal plan.",
+        "operationId": "administrative_query_api_v1_research_v8_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdministrativeResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -25214,6 +25321,104 @@
           "subject"
         ],
         "title": "AdminPrincipal"
+      },
+      "AdministrativeGroup": {
+        "properties": {
+          "area_id": {
+            "type": "string",
+            "title": "Area Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "municipality",
+              "district",
+              "state",
+              "country",
+              "region"
+            ],
+            "title": "Level"
+          },
+          "event_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Event Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "area_id",
+          "name",
+          "level",
+          "event_count"
+        ],
+        "title": "AdministrativeGroup"
+      },
+      "AdministrativeResult": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "records",
+              "count",
+              "groups"
+            ],
+            "title": "Kind"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchRecord"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Records"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AdministrativeGroup"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Groups"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "unknown_location_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Unknown Location Count"
+          },
+          "inventory_countries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 250,
+            "title": "Inventory Countries"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "unknown_location_count"
+        ],
+        "title": "AdministrativeResult"
       },
       "AggregateItem": {
         "properties": {
