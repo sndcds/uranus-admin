@@ -287,7 +287,7 @@ def test_unresolved_area_cannot_become_unfiltered_sql(failure):
     assert exc.value.code == "research_execution_invalid_plan"
 
 
-@pytest.mark.parametrize("relation,expected", [("inside", 2), ("outside", 0)])
+@pytest.mark.parametrize("relation,expected", [("inside", 1), ("outside", 0)])
 async def test_typed_boundary_uses_existing_postgis_membership(
     settings, execution_source, relation, expected
 ):
@@ -302,10 +302,16 @@ async def test_typed_boundary_uses_existing_postgis_membership(
         spatial_constraints=(SpatialConstraint(relation, administrative_reference(stored)),),
     )
     filters = execution_filters(plan(relation=relation), CONTEXT, resolved)
+    # Only event30's occurrence override reaches venue21 on the boundary.
+    # Event32 overrides its own venue21 with venue20, whose point is NULL.
     assert await count_selection(c, settings, filters, "event_count", stored) == expected
-    for geometry in ("NULL", "ST_GeomFromText('POINT EMPTY',4326)"):
+    for geometry in (
+        "NULL",
+        "ST_GeomFromText('POINT EMPTY',4326)",
+        "ST_SetSRID(ST_MakePoint(999,54),4326)",
+    ):
         await c.execute(
-            text(f"UPDATE uranus.venue SET point={geometry} WHERE uuid=:id"), {"id": uid(20)}
+            text(f"UPDATE uranus.venue SET point={geometry} WHERE uuid=:id"), {"id": uid(21)}
         )
         assert await count_selection(c, settings, filters, "event_count", stored) == 0
 
