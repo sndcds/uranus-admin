@@ -75,10 +75,10 @@ export const geographicQueryPlanSchema = analyticalQueryPlanSchema
   })
 const envelope = analyticalEnvelopeSchema.extend({
   schema_version: z.literal('research-query-plan-v6'),
-  prompt_version: z.literal('research-planner-v9'),
+  prompt_version: z.literal('research-planner-v11'),
   plan: geographicQueryPlanSchema,
   diagnostics: analyticalEnvelopeSchema.shape.diagnostics.extend({
-    planner_prompt_version: z.literal('research-planner-v9'),
+    planner_prompt_version: z.literal('research-planner-v11'),
   }),
 })
 export const geographicPlanResponseSchema = z.discriminatedUnion('kind', [

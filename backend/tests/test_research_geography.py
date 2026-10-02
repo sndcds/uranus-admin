@@ -29,12 +29,12 @@ def envelope(index=0):
     plan = CASES[index]["plan"]
     data.update(
         schema_version="research-query-plan-v6",
-        prompt_version="research-planner-v9",
+        prompt_version="research-planner-v11",
         plan=plan,
         kind="plan" if plan["clarification"] == "none" else "needs_clarification",
     )
     data["diagnostics"].update(
-        planner_prompt_version="research-planner-v9", planner_intent=plan["intent"]
+        planner_prompt_version="research-planner-v11", planner_intent=plan["intent"]
     )
     return TypeAdapter(GeographicPlanResponse).validate_json(json.dumps(data))
 

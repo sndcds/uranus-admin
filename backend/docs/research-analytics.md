@@ -1,4 +1,4 @@
-# Analytical Research v5 / Planner v8
+# Analytical Research v5 / Planner v10
 
 The browser still submits only `{ "query": "…" }` to `/api/v1/research/query`.
 The LLM interprets names and operations; Admin resolves names and runs fixed,
@@ -22,7 +22,7 @@ parameterized, read-only PostgreSQL/PostGIS selections. It never asks a model fo
 ## Compatibility and activation
 
 Merge/install the Planner PR first: it adds authenticated `POST /v5/plan` with
-`research-query-plan-v5` / `research-planner-v8`, preserving `/plan` v3/v7 and
+`research-query-plan-v5` / `research-planner-v10`, preserving `/plan` v3/v7 and
 `/v4/plan` unified-domain planning. Then install this Admin PR and enable
 `RESEARCH_ANALYTICS_ENABLED=true`. Default false permits independent rollout;
 there is **no retry/fallback to v3** if v5 is enabled but unavailable. The legacy
@@ -106,3 +106,38 @@ against the configured provider before operational activation; mocked outputs do
 not establish model language accuracy. Follow-ups: evidence-backed instrument
 extraction, verified event accessibility semantics, taxonomy pagination if needed,
 and a defined nonoverlapping area grouping level.
+
+
+## Event occurrence ranking correction
+
+“Welches Event hat die meisten Termine?” now means aggregate/event,
+metric=occurrence_count, group_by=event, ordering=desc, limit=1.
+“wenigsten” reverses the ordering; “Welche 5 Events” requests five groups.
+Event types, genres, venues and organizations remain separate dimensions.
+The deterministic veto rejects recognized dimension substitutions without rewriting them.
+Grouping event_count by event is invalid; event grouping requires occurrence_count.
+
+Schema versions remain v5 (analytics) and v6 (geography). Prompt v9 was already
+allocated to geography, so analytics advances from v8 to v10 and the inheriting
+geographic prompt from v9 to v11. Both Admin mirrors must be installed together
+with their corresponding Planner versions; this change does not deploy anything.
+
+SQL groups the authoritative selected occurrence population by event UUID/title,
+counts DISTINCT date_key, sorts by count (requested direction), lower(title) with
+C collation, then UUID, and applies the limit after aggregation. All existing
+public eligibility and area/date/venue/organization/category/type/genre filters apply.
+The existing AggregateItem returns UUID, title and count. The UI says
+“Termine nach Veranstaltung” and links the title to its Research event detail.
+
+The DE/EN/DA golden corpus includes the exact German production question, least/most
+and top-five rankings, and explicit type/genre/venue/organization contrasts.
+Ordinary tests mock inference; they do not claim live model language accuracy.
+Optional Terra/provider acceptance from the Planner repository, with provider settings
+already configured (never required for normal tests):
+
+```sh
+RESEARCH_PLANNER_LIVE_TEST=1 uv run pytest -q tests/test_analytics_live.py
+```
+
+PostgreSQL regressions (duplicate occurrences, ties, limits, filters and full corpus
+execution) run in GitHub CI. No local Docker or live provider call is needed.

@@ -1,4 +1,4 @@
-"""Versioned geographic v6/v9 contract; earlier contracts remain frozen."""
+"""Versioned geographic v6/v11 contract; earlier contracts remain frozen."""
 
 from datetime import date
 from typing import Annotated, Literal, Self
@@ -36,14 +36,14 @@ class GeographicDiagnostics(ClosedModel):
     request_id: str = Field(pattern=r"^[a-f0-9]{32}$")
     planner_intent: Intent
     planner_model: str = Field(min_length=1, max_length=160)
-    planner_prompt_version: Literal["research-planner-v9"]
+    planner_prompt_version: Literal["research-planner-v11"]
     planner_ms: float = Field(ge=0)
     total_ms: float = Field(ge=0)
 
 
 class GeographicEnvelope(ClosedModel):
     schema_version: Literal["research-query-plan-v6"]
-    prompt_version: Literal["research-planner-v9"]
+    prompt_version: Literal["research-planner-v11"]
     model: str = Field(min_length=1, max_length=160)
     plan: GeographicQueryPlan
     reference_date: date

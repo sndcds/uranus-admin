@@ -62,7 +62,16 @@ export const analyticalQueryPlanSchema = z
     explicit_to_date: z.iso.date().nullable(),
     time_of_day: z.enum(['none', 'morning', 'afternoon', 'evening', 'night']),
     metric,
-    group_by: z.enum(['venue', 'area', 'organization', 'category', 'genre', 'event_type', 'none']),
+    group_by: z.enum([
+      'event',
+      'venue',
+      'area',
+      'organization',
+      'category',
+      'genre',
+      'event_type',
+      'none',
+    ]),
     comparison_targets: z
       .array(z.object({ kind: z.enum(['venue', 'area', 'organization']), query: slot }).strict())
       .max(4),
@@ -133,6 +142,7 @@ export const analyticalQueryPlanSchema = z
     )
       fail()
     if ((plan.intent === 'aggregate') !== (plan.group_by !== 'none')) fail()
+    if (plan.group_by === 'event' && plan.metric !== 'occurrence_count') fail()
     const entities = {
       event_count: 'event',
       occurrence_count: 'event',
@@ -202,7 +212,7 @@ const milliseconds = z.number().finite().nonnegative()
 export const analyticalEnvelopeSchema = z
   .object({
     schema_version: z.literal('research-query-plan-v5'),
-    prompt_version: z.literal('research-planner-v8'),
+    prompt_version: z.literal('research-planner-v10'),
     model: z.string().min(1).max(160),
     plan: analyticalQueryPlanSchema,
     reference_date: z.iso.date(),
@@ -212,7 +222,7 @@ export const analyticalEnvelopeSchema = z
         request_id: z.string().regex(/^[a-f0-9]{32}$/),
         planner_intent: intent,
         planner_model: z.string().min(1).max(160),
-        planner_prompt_version: z.literal('research-planner-v8'),
+        planner_prompt_version: z.literal('research-planner-v10'),
         planner_ms: milliseconds,
         total_ms: milliseconds,
       })

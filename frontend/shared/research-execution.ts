@@ -243,7 +243,7 @@ export const executionResultSchema = z.discriminatedUnion('kind', [
     .object({
       kind: z.literal('aggregate'),
       metric: executionMetricSchema,
-      group_by: z.enum(['venue', 'organization', 'category', 'genre', 'event_type']),
+      group_by: z.enum(['event', 'venue', 'organization', 'category', 'genre', 'event_type']),
       items: z.array(z.object({ key: z.string(), name: z.string(), value }).strict()).max(20),
     })
     .strict(),

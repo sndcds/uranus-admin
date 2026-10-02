@@ -221,6 +221,6 @@ source evidence while preserving the existing interface. See
 
 ## Analytical Research contract
 
-See [v5/v8 analytical planning and coordinated activation](backend/docs/research-analytics.md) for taxonomy,
+See [v5/v10 analytical planning and coordinated activation](backend/docs/research-analytics.md) for taxonomy,
 exact rankings, spatial predicates and time windows. Legacy v3/v7 and unified v4
 remain available; activate the new path only after both components are installed.

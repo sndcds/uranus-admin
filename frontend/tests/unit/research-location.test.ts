@@ -30,12 +30,12 @@ it('mirrors the coordinated geographic fields and validates the complete v6 enve
   const envelope = {
     ...legacy,
     schema_version: 'research-query-plan-v6',
-    prompt_version: 'research-planner-v9',
+    prompt_version: 'research-planner-v11',
     plan,
     diagnostics: {
       ...legacy.diagnostics,
       planner_intent: 'list',
-      planner_prompt_version: 'research-planner-v9',
+      planner_prompt_version: 'research-planner-v11',
     },
   }
   expect(geographicPlanResponseSchema.parse(envelope)).toEqual(envelope)

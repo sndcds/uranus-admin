@@ -1,7 +1,7 @@
 # Geographic Research
 
 The coordinated [planner PR #15](https://github.com/sndcds/uranus-research-planner/pull/15)
-introduces `research-query-plan-v6` / `research-planner-v9` and adds required
+introduces `research-query-plan-v6` / `research-planner-v11` and adds required
 nullable `place_query` and `location_relation: none | nearby` to the frozen v5 analytical
 contract. The planner remains lookup-free. Admin and planner JSON Schemas are identical;
 the reviewed DE/EN/DA fixtures test transport and interpretation expectations with mocked
