@@ -13,7 +13,6 @@ from app.auth.dependencies import get_current_research_user
 from app.database import ConnectionDep, SettingsDep
 from app.errors import ErrorResponse
 from app.repositories import research_suggestions
-from app.repositories.administrative_execution import AdministrativeResult
 from app.repositories.research import (
     research_activity,
     research_detail,
@@ -35,6 +34,7 @@ from app.schemas.research import (
     SemanticResearchFilters,
     SemanticResearchPage,
 )
+from app.schemas.research_administrative_result import AdministrativeResult
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
 from app.schemas.research_location import ResearchQueryRequest
 from app.schemas.research_planner import PlanResponse, ResearchPlanRequest

@@ -215,10 +215,8 @@ async def test_area_ambiguity_never_picks_first(settings, monkeypatch, count, re
     load.assert_not_awaited()
 
 
-async def test_multiple_and_predicates_remain_intact_and_fail_before_resolution(
-    settings, monkeypatch
-):
-    from app.services import research_plan_execution as executor
+def test_multiple_and_predicates_remain_intact_for_shared_boundary_execution():
+    from app.research.capabilities import boundary_execution
 
     internal = replace(
         plan(),
@@ -227,23 +225,18 @@ async def test_multiple_and_predicates_remain_intact_and_fail_before_resolution(
             SpatialConstraint("inside", UnresolvedAdministrativeAreaRef("Deutschland")),
         ),
     )
-    resolve = AsyncMock(side_effect=AssertionError("no SQL or dropped predicates"))
-    monkeypatch.setattr(executor, "resolve_plan", resolve)
-    with pytest.raises(APIError) as exc:
-        await ResearchPlanExecutor().execute(
-            Request({"type": "http"}), settings, internal, CONTEXT, planner_ms=0
-        )
-    assert exc.value.code == "research_execution_unsupported"
+    require_supported(internal)
+    assert boundary_execution(internal)
     assert [c.relation for c in internal.spatial_constraints] == ["outside", "inside"]
-    resolve.assert_not_awaited()
 
 
 @pytest.mark.parametrize("level", ["district", "state", "municipality", "country", "region"])
-def test_administrative_grouping_is_distinct_but_not_silently_executable(level):
+def test_administrative_grouping_requires_exact_event_count(level):
     internal = replace(plan(), group_by=level, intent="aggregate")
     assert internal.group_by == level
+    require_supported(internal)
     with pytest.raises(APIError) as exc:
-        require_supported(internal)
+        require_supported(replace(internal, metric="occurrence_count"))
     assert exc.value.code == "research_execution_unsupported"
 
 

@@ -1,80 +1,38 @@
-"""Wire -> Normalizer -> InternalResearchPlan -> Resolver -> resolved-only Executor."""
+"""Versioned transport edge; execution belongs to the shared ResearchPlanExecutor."""
 
-import asyncio
-from contextlib import asynccontextmanager
+from time import perf_counter
 
 from fastapi import Request
-from sqlalchemy.exc import SQLAlchemyError
 
-from app.clients.research_geocoder import ResearchGeocoderClient
 from app.config import Settings
-from app.database import get_connection
 from app.errors import APIError
-from app.repositories.administrative_execution import AdministrativeResult, execute_resolved
-from app.repositories.research_resolution import candidates
-from app.research.administrative_catalog import load_inventory
-from app.research.administrative_resolver import resolve_administrative_area
-from app.research.internal_plan import ResolvedResearchPlan, ResolvedSpatialConstraint
-from app.research.normalizer import normalize_plan
+from app.research.context import ResearchExecutionContext
+from app.research.normalize import normalize_v8
 from app.research.wire.research_v8_schema import PlanResponseV8
-from app.services.research_planner import ResearchPlannerClient, invalid_response, unavailable
+from app.schemas.research_administrative_result import AdministrativeResult
+from app.services.research_plan_execution import ResearchPlanExecutor
+from app.services.research_planner import invalid_response, unavailable
 
 
 async def execute(request: Request, settings: Settings, query: str) -> AdministrativeResult:
-    planner: ResearchPlannerClient | None = request.app.state.research_planner
-    geocoder: ResearchGeocoderClient | None = request.app.state.research_geocoder
+    planner = request.app.state.research_planner
     if planner is None:
         raise unavailable()
-    envelope = await planner.plan_administrative(query)
+    started = perf_counter()
+    response = await planner.plan_administrative(query)
     try:
-        envelope = PlanResponseV8.model_validate_json(envelope.model_dump_json())
-        if envelope.plan.original_query != query or envelope.timezone != settings.event_timezone:
-            raise ValueError
+        response = PlanResponseV8.model_validate_json(response.model_dump_json())
+        if response.plan.original_query != query or response.timezone != settings.event_timezone:
+            raise ValueError("Planner identity mismatch")
     except ValueError:
         raise invalid_response() from None
-    plan = normalize_plan(envelope.plan)
-    if plan.spatial and geocoder is None:
-        raise APIError(503, "geocoder_unavailable", "Geographic resolution is unavailable.")
-    try:
-        spatial = []
-        # Network resolution happens before opening any source transaction.
-        async with asyncio.timeout(45):
-            for constraint in plan.spatial:
-                assert geocoder is not None
-                area = await resolve_administrative_area(geocoder, constraint.area)
-                spatial.append(ResolvedSpatialConstraint(constraint.relation, area))
-            inventory, countries = (
-                await load_inventory(
-                    settings.research_administrative_catalog_path, plan.grouping, tuple(spatial)
-                )
-                if plan.grouping
-                else ((), ())
-            )
-        category_id = None
-        if plan.category is not None:
-            async with asyncio.timeout(settings.db_timeout_seconds):
-                async with asynccontextmanager(get_connection)(request) as source:
-                    options = await candidates(source, "category", plan.category, settings)
-                    if len(options) != 1:
-                        raise APIError(
-                            422, "research_category_ambiguous", "Select an unambiguous category."
-                        )
-                    category_id = int(options[0].id)
-        resolved = ResolvedResearchPlan(
-            operation=plan.operation,
-            grouping=plan.grouping,
-            spatial=tuple(spatial),
-            category_id=category_id,
-            zero_only=plan.zero_only,
-            ordering=plan.ordering,
-            limit=plan.limit,
-            inventory=inventory,
-            inventory_countries=countries,
-        )
-        async with asyncio.timeout(settings.db_timeout_seconds):
-            async with asynccontextmanager(get_connection)(request) as source:
-                return await execute_resolved(source, settings, resolved)
-    except (SQLAlchemyError, TimeoutError):
+    plan = normalize_v8(response.plan)
+    context = ResearchExecutionContext(response.reference_date, response.timezone, query)
+    outcome = await ResearchPlanExecutor().execute(
+        request, settings, plan, context, planner_ms=(perf_counter() - started) * 1000
+    )
+    if outcome.administrative is None:
         raise APIError(
-            503, "research_execution_unavailable", "Research execution is unavailable."
-        ) from None
+            422, "research_plan_clarification", "The research question needs clarification."
+        )
+    return outcome.administrative

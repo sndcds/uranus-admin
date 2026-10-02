@@ -1,0 +1,16 @@
+{
+  "planner_repository": "sndcds/uranus-research-planner",
+  "planner_main_sha": "2710c57c228bac954ad3acb51a9473ced9119bff",
+  "planner_pr": 21,
+  "planner_contract_sha": "8195e891042d5e573c586835b95f8f53be555eff",
+  "status_at_review": "open_dependency_not_main",
+  "schema_version": "research-query-plan-v8",
+  "prompt_version": "research-planner-v14",
+  "schema_snapshot_sha256": "1dc8e7024a96d29a5534fe0a9968e877cd1ce8128bb74258679e39ba27887d2c",
+  "mirror_sha256": {
+    "research_v8_types.py": "d82ca2166536d7e9f91410b2550d4b636218bd1b4599dc88880b11fb9b7969ec",
+    "research_v8_schema.py": "a181d5570acebb6cc1bc508085c149b00d22826b7c57afafddca743e8051e94d",
+    "research_v8_constraints.py": "a51d9967a59f9a867c23e7d82332f2c73cc45b4b21fe6db37ac227f02eff6d3d"
+  },
+  "geocoder_merge_sha": "826a8c0a689a5c8178966b3d9575cbcffd0ebec5"
+}

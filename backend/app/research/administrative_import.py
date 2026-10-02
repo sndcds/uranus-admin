@@ -16,8 +16,8 @@ from app.clients.research_geocoder import ResearchGeocoderClient
 from app.config import Settings
 from app.research.administrative_catalog import MAX_CATALOG_BYTES, Catalog, Catalogs
 from app.research.administrative_resolver import resolved_boundary
-from app.research.internal_plan import AdministrativeLevel
-from app.schemas.research_planner import ClosedModel
+from app.research.geography import AdministrativeLevel
+from app.schemas.research_values import ClosedModel
 
 
 class Identity(ClosedModel):

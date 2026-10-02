@@ -2,6 +2,7 @@
 
 from app.errors import APIError
 from app.research.geography import (
+    ADMINISTRATIVE_LEVELS,
     NamedPlaceRef,
     UnresolvedAdministrativeAreaRef,
     UserLocationRef,
@@ -30,7 +31,7 @@ def unsupported(message: str) -> APIError:
 def require_supported(plan: InternalResearchPlan) -> None:
     if plan.unsupported_reason is not None:
         raise APIError(422, "research_plan_unsupported", "This research plan is unsupported.")
-    if plan.intent not in EXECUTABLE_INTENTS or any(
+    if (plan.intent not in EXECUTABLE_INTENTS and not boundary_execution(plan)) or any(
         value is not None
         for value in (
             plan.price,
@@ -47,6 +48,27 @@ def require_supported(plan: InternalResearchPlan) -> None:
     if plan.semantic is not None and plan.intent not in {"list", "search", "recommend"}:
         raise unsupported("Exact semantic counts, aggregates and comparisons are not supported.")
     require_supported_spatial(plan)
+    if boundary_execution(plan):
+        if (
+            plan.entity_type != "event"
+            or plan.semantic is not None
+            or plan.comparison_targets
+            or plan.taxonomy is not None
+            or plan.spatial_metric is not None
+            or plan.metric not in {"none", "event_count"}
+            or (plan.intent == "list" and plan.group_by != "none")
+            or (
+                plan.intent == "count" and (plan.metric != "event_count" or plan.group_by != "none")
+            )
+            or (
+                plan.intent in {"rank", "aggregate"}
+                and (plan.group_by not in ADMINISTRATIVE_LEVELS or plan.metric != "event_count")
+            )
+            or plan.intent not in {"list", "count", "rank", "aggregate"}
+            or (plan.zero_only and plan.group_by not in ADMINISTRATIVE_LEVELS)
+        ):
+            raise unsupported("This administrative selection is not implemented.")
+        return
     areas = administrative_constraints(plan.spatial_constraints)
     if plan.group_by in {"area", "region", "municipality", "district", "state", "country"}:
         raise unsupported("Area grouping requires an explicit non-overlapping area level.")
@@ -62,10 +84,14 @@ def require_supported(plan: InternalResearchPlan) -> None:
 
 def require_supported_spatial(plan: InternalResearchPlan) -> None:
     areas = administrative_constraints(plan.spatial_constraints)
-    # Preserve every AND predicate. The current SQL primitive accepts one boundary;
-    # do not accidentally substitute resolve_areas(), whose union means OR.
-    if len(areas) > 1 or len(plan.spatial_constraints) - len(areas) > 1:
-        raise unsupported("Multiple spatial references are not yet executable.")
+    # Polygon membership accepts bounded AND predicates, never the OR union
+    # produced by resolve_areas(). Point/place mixing remains unsupported.
+    if (
+        (len(areas) > 4 or len(plan.spatial_constraints) != len(areas))
+        if boundary_execution(plan)
+        else (len(plan.spatial_constraints) - len(areas) > 1)
+    ):
+        raise unsupported("This combination of spatial references is not executable.")
     for constraint in plan.spatial_constraints:
         reference = constraint.reference
         if constraint.radius_m is not None or not (
@@ -77,3 +103,17 @@ def require_supported_spatial(plan: InternalResearchPlan) -> None:
             or (isinstance(reference, UserLocationRef) and constraint.relation == "nearby")
         ):
             raise unsupported("This spatial predicate is not implemented.")
+
+
+def boundary_execution(plan: InternalResearchPlan) -> bool:
+    """Choose a generic polygon/inventory primitive, never a Planner version."""
+    return (
+        plan.location_coverage
+        or any(
+            isinstance(c.reference, UnresolvedAdministrativeAreaRef)
+            and c.reference.country_code is not None
+            for c in plan.spatial_constraints
+        )
+        or plan.group_by in ADMINISTRATIVE_LEVELS
+        or len(administrative_constraints(plan.spatial_constraints)) > 1
+    )

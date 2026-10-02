@@ -1,43 +1,38 @@
-# Internal Research plan and administrative geography
+# Administrative execution on the shared Research architecture
 
 ## Responsibilities and request path
 
 ```mermaid
 flowchart TD
-    U[User Question] --> P[Research Planner: semantic geographic intent]
-    P --> G[Research Geocoder: geographic/admin resolution]
-    G --> A[Uranus Admin: internal typed plan]
-    A --> E[PostGIS Executor]
+    W[Planner v3/v5/v6/v8 wire] --> N[normalize.py]
+    N --> P[InternalResearchPlan + ResearchExecutionContext]
+    P --> R[resolve_plan]
+    M[Cached administrative metadata / private Geocoder] --> R
+    C[Reviewed complete operator inventory] --> R
+    R --> S[ResolvedResearchPlan: filters and authoritative boundary refs]
+    S --> E[ResearchPlanExecutor]
+    E --> SQL[Shared Research SQL + administrative primitives]
+    SQL --> DB[Read-only PostgreSQL/PostGIS]
 ```
 
-The responsibility diagram is implemented as:
+PR #173 was rebased on `c5772d3d4576dbeefb5d398c86f163f673604ae9`,
+which includes merged #172. Its original competing `internal_plan.py` and
+`normalizer.py` were removed. There is only `plan.py::InternalResearchPlan`,
+`normalize.py` and `repositories/research_resolution.py::resolve_plan`.
+`services/research_administrative.py` is a thin versioned transport edge: one
+Planner call, normalization and the same `ResearchPlanExecutor.execute` used by
+the legacy route. It does not resolve names, access a database or select SQL.
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Admin
-    participant Planner
-    participant Resolver
-    participant Geocoder
-    participant Executor
-    User->>Admin: POST /api/v1/research/v8/query, question only
-    Admin->>Planner: one /v8/plan request
-    Planner-->>Admin: strict v8 / v14 wire
-    Admin->>Admin: Normalizer → InternalResearchPlan
-    Admin->>Resolver: names, expected roles, AND constraints
-    Resolver->>Geocoder: search candidates, explicit boundary lookup
-    Geocoder-->>Resolver: observed roles, codes, OSM identity, polygon
-    Resolver-->>Admin: AdministrativeAreaRef + resolved boundary
-    Admin->>Executor: ResolvedResearchPlan (no raw geographic queries)
-    Executor-->>User: exact records/counts/groups + unknown-location count
-```
+The common executor validates capabilities, resolves, creates the internal
+`ResolvedResearchPlan`, and dispatches a generic primitive. Resolved selections
+contain no raw area/category queries or wire fields. They keep shared
+`ExecutionFilters` and typed boundary/inventory identities. Existing result models
+are reused; administrative coverage metadata additionally feeds the backend v8
+response projection. Internal models remain absent from OpenAPI.
 
-`research/wire/` mirrors the versioned Planner contract and its closed validation.
-It contains no name-to-area tables and is checked against the Planner's v8 schema
-snapshot. `normalizer.py` is the only wire-to-internal adapter. The Executor receives
-`ResolvedResearchPlan`, never wire-v7/v8 objects or raw area/category queries. There
-is no `V7ResearchExecutor`. Existing versioned/legacy endpoints remain available;
-the new endpoint does not change the default browser Research query route.
+`research/wire/` is only a pinned wire mirror. No version-specific executor,
+resolver entry point or eligibility population exists. The v8 endpoint does not
+change the default browser Research route or silently fall back to v6.
 
 The new authenticated backend endpoint accepts only a question; browser-submitted
 plans are rejected. Existing journalist/system-admin authorization, body limits,
@@ -46,18 +41,19 @@ browser access to private service keys was introduced.
 
 ## Core model, identities and hierarchy
 
-`AdministrativeAreaRef` carries name, level, country_code, optional official code
-and its tag namespace, OSM type/ID, `area_id`, and `boundary_reference`.
-Levels are municipality, district, state, country, region. No German domain class
-names or hardcoded state/county name tables exist in the new core.
+The existing `UnresolvedAdministrativeAreaRef` carries a name, expected level and
+optional country constraint. `ResolvedAdministrativeAreaRef` carries authoritative
+name, level, country, optional official code/scheme, resolved identity and
+`BoundaryReference`. These are the #172 domain types, extended rather than copied.
+Levels remain country, state, district, municipality and region.
 
-`area_id = osm:<N|W|R>:<id>:<level>` is an Admin reference constructed only from
-validated Geocoder identity and role. It is not an official identifier. Including
-the role allows a dual municipality/district object to participate in both
-inventories. The original official code is copied unchanged when available; it is
-never synthesized, padded or used as an unnamespaced primary key.
-`boundary_reference` is the SHA-256 of the validated polygon JSON. Geometry is
-resolved separately and stays out of result records and normal search payloads.
+Cached identities remain UUIDs. Geocoder identities use
+`osm:<N|W|R>:<id>:<level>`, constructed only from a verified lookup. This is an
+Admin reference, **not an official code**. The role distinguishes dual
+municipality/district objects. Country casing is normalized to uppercase internally;
+provided official codes and namespaces are retained unchanged, absent codes remain
+unknown. BoundaryReference retains the identity and validated polygon JSON for
+this transient selection. Geometry never appears in normal records or URLs.
 
 Parent/child intent preserves the subject and grouping level independently of
 spatial constraints. For municipalities in Nordfriesland, the subject/group is
@@ -79,8 +75,9 @@ canonical exact names among eligible candidates. Multiple distinct eligible
 identities require clarification; candidate order is irrelevant. The lookup must
 confirm the requested OSM type/ID, country and role. Missing geometry, unknown
 levels and district/state mismatches fail explicitly. A bounding box or centroid
-never stands in for an administrative boundary. Numeric OSM mapping is exclusively
-the Geocoder's responsibility. The Planner's expected role cannot overwrite it.
+never stands in for an administrative boundary. New administrative metadata comes from the Geocoder. The isolated transitional
+metadata adapter from #172 remains for existing persisted cache rows; neither
+domain types nor the executor interpret numeric OSM levels. The Planner's expected role cannot overwrite it.
 
 ## Membership and event location
 
@@ -104,7 +101,9 @@ For each eligible occurrence point:
 A boundary point is inside and not outside. All input polygons undergo PostGIS
 validity/nonempty checks before membership evaluation. Unknown locations are
 excluded from spatial matches and reported separately as
-`unknown_location_count`: eligible events with no known eligible occurrence point.
+`unknown_location_count`: distinct eligible events with no known eligible occurrence
+point, after shared hard filters but before spatial matching/inventory grouping.
+NULL, EMPTY, nonfinite and out-of-range points remain unknown, never outside.
 An event with both an inside and an outside occurrence can appear in each separate
 query; inside/outside are complements per point, not per multi-location event.
 
@@ -112,7 +111,9 @@ Administrative grouping counts distinct event IDs in each boundary. Shared bound
 points can count in both adjacent groups because coverage includes their edges;
 totals across groups are therefore not necessarily additive. Parent inside means
 full child-boundary coverage; outside is its complement. The point constraints
-also apply to counted occurrences. Source access remains read-only; there are no
+also apply to counted occurrences. Grouping products exceeding two million occurrence/area pairs fail with
+`research_execution_too_broad`; DB statement timeouts also remain active.
+Source access remains read-only; there are no
 Uranus DML, source migrations, schema changes or new source-location assumptions.
 
 ## Complete grouping inventories
@@ -127,7 +128,8 @@ with `research_inventory_unavailable` instead of empty or misleading success.
 The strict `Catalogs` document contains catalogs with level, optional resolved
 parent_area_id, country_codes, complete, inventory_source and Geocoder-derived
 items including boundaries. Complete means an operator has verified an exhaustive
-inventory for the stated scope; it is never inferred from Nominatim search. Results
+inventory for the stated scope; it is never inferred from Nominatim search. Catalog selection also rejects country coverage that cannot contain the requested
+inside scope. Results
 expose `inventory_countries`, making the indexed coverage explicit. Unscoped rankings
 cover the configured inventory, not an invented worldwide area census.
 
@@ -144,7 +146,7 @@ The manifest has `level`, `parent_area_id`, `country_codes`, `complete`,
 up through Research Geocoder and level-validated; search result counts cannot mark
 it complete. The output is exclusively created and existing files are preserved.
 Multiple reviewed catalogs can be combined under the `catalogs` array. File reads
-and total geometry are bounded to 32 MiB and 12,000 areas per catalog; larger
+and total geometry are bounded to 32 MiB and 12,000 areas across the complete file; larger
 inventories fail explicitly and need a separately designed indexed catalog store.
 No catalog, official list or production geography was fetched/applied for this PR.
 Operator inventory refresh remains explicit and should record the inventory source
@@ -174,10 +176,29 @@ private transport validation and endpoint authentication. Normal CI requires no
 live Planner or Nominatim. Existing backend/frontend commands and OpenAPI snapshot
 validation continue to apply.
 
+## Verified contract dependencies
+
+On 2026-10-02, Planner main was
+`2710c57c228bac954ad3acb51a9473ced9119bff` and did **not** include v8.
+Planner PR #21 was open at `8195e891042d5e573c586835b95f8f53be555eff`.
+All three mirrored modules matched that commit after import-prefix substitution;
+the JSON Schema snapshot also matched. The pin manifest in
+`backend/tests/fixtures/administrative_contract_pin.json` records source hashes,
+snapshot digest, `research-query-plan-v8` and `research-planner-v14`.
+Tests compare the schema with enum ordering normalized (Python's Literal cache can
+reorder equivalent unions), and independently pin exact mirror/snapshot bytes.
+This is an explicit open dependency, not a claim that v8 is deployed.
+
+Geocoder PR #2 is merged at
+`826a8c0a689a5c8178966b3d9575cbcffd0ebec5`. Its administrative metadata/boundary
+shape was checked against Admin. Existing Place callers receive the legacy
+projection of this strict response. Search is still 256 KiB; explicit polygon
+lookup is 8 MiB and verifies returned OSM identity.
+
 ## Rollout
 
-Merge the existing Planner v13 predecessor PR #20, then Geocoder metadata, Planner
-v8/v14 and Admin integration. No production deployment was performed. Deployment
+Planner PR #20/#21 must be merged and v8/v14 deployed before using the new endpoint.
+The Geocoder metadata code is already merged; deployment must be verified separately. No production deployment was performed. Deployment
 requires all offline gates: first install the Admin-compatible client/new endpoint
 while retaining legacy consumers, then enable the Geocoder metadata release and
 Planner v8 endpoint, provision reviewed catalogs, and finally direct consumers to

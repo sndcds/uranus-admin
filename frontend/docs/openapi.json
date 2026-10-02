@@ -25335,10 +25335,10 @@
           "level": {
             "type": "string",
             "enum": [
-              "municipality",
-              "district",
-              "state",
               "country",
+              "state",
+              "district",
+              "municipality",
               "region"
             ],
             "title": "Level"
@@ -25471,7 +25471,12 @@
               "organization",
               "category",
               "genre",
-              "event_type"
+              "event_type",
+              "municipality",
+              "district",
+              "state",
+              "country",
+              "region"
             ],
             "title": "Group By"
           },

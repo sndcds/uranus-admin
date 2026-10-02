@@ -1,15 +1,14 @@
 """Geocoder is authoritative; ambiguity and role mismatches are never auto-corrected."""
 
-import hashlib
 from typing import Literal, cast
 
 from app.clients.research_geocoder import ResearchGeocoderClient
 from app.errors import APIError
-from app.research.internal_plan import (
-    AdministrativeAreaRef,
+from app.research.geography import (
     AdministrativeLevel,
-    AreaRequest,
-    ResolvedBoundary,
+    BoundaryReference,
+    ResolvedAdministrativeAreaRef,
+    UnresolvedAdministrativeAreaRef,
 )
 from app.schemas.research_administrative import AdministrativePlace
 
@@ -22,14 +21,16 @@ def resolution_error(code: str) -> APIError:
     )
 
 
-def select_candidate(items: list[AdministrativePlace], request: AreaRequest) -> AdministrativePlace:
+def select_candidate(
+    items: list[AdministrativePlace], request: UnresolvedAdministrativeAreaRef
+) -> AdministrativePlace:
     # No substring heuristics or first-hit selection. Metadata identifies each object;
     # exact canonical names only disambiguate amongst otherwise eligible candidates.
     eligible = [
         p
         for p in items
         if p.administrative_level != "unknown"
-        and (request.country_code is None or p.country_code == request.country_code)
+        and (request.country_code is None or p.country_code == request.country_code.lower())
         and (request.expected_level is None or request.expected_level in p.administrative_levels)
     ]
     if not eligible:
@@ -37,18 +38,20 @@ def select_candidate(items: list[AdministrativePlace], request: AreaRequest) -> 
     exact = [
         p
         for p in eligible
-        if p.name and p.name.strip().casefold() == request.query.strip().casefold()
+        if p.name and p.name.strip().casefold() == request.name.strip().casefold()
     ]
     choices = exact or eligible
     identities = {(p.osm_type, p.osm_id) for p in choices}
     if len(identities) != 1 or None in next(iter(identities)):
+        raise resolution_error("ambiguous")
+    if len({p.model_dump_json(exclude={"boundary"}) for p in choices}) != 1:
         raise resolution_error("ambiguous")
     return choices[0]
 
 
 def resolved_boundary(
     place: AdministrativePlace, expected: AdministrativeLevel | None
-) -> ResolvedBoundary:
+) -> ResolvedAdministrativeAreaRef:
     level = expected or place.administrative_level
     if level == "unknown" or level not in place.administrative_levels:
         raise resolution_error("level_mismatch")
@@ -62,32 +65,28 @@ def resolved_boundary(
         raise resolution_error("boundary_unavailable")
     osm_type = cast(Literal["N", "W", "R"], OSM_TYPES[place.osm_type])
     geometry = place.boundary.model_dump_json()
-    return ResolvedBoundary(
-        AdministrativeAreaRef(
-            name=place.name,
-            level=level,
-            country_code=place.country_code,
-            official_code=place.official_code,
-            official_code_type=place.official_code_type,
-            osm_type=osm_type,
-            osm_id=place.osm_id,
-            area_id=f"osm:{osm_type}:{place.osm_id}:{level}",
-            boundary_reference="sha256:" + hashlib.sha256(geometry.encode()).hexdigest(),
-        ),
-        geometry,
+    identity = f"osm:{osm_type}:{place.osm_id}:{level}"
+    return ResolvedAdministrativeAreaRef(
+        name=place.name,
+        level=level,
+        country_code=place.country_code.upper(),
+        official_code=place.official_code,
+        code_system=place.official_code_type,
+        resolved_id=identity,
+        boundary=BoundaryReference(identity, geometry),
     )
 
 
 async def resolve_administrative_area(
-    client: ResearchGeocoderClient, request: AreaRequest
-) -> ResolvedBoundary:
-    selected = select_candidate(await client.search_administrative(request.query), request)
+    client: ResearchGeocoderClient, request: UnresolvedAdministrativeAreaRef
+) -> ResolvedAdministrativeAreaRef:
+    selected = select_candidate(await client.search_administrative(request.name), request)
     assert selected.osm_type is not None and selected.osm_id is not None
     lookup = await client.administrative_boundary(OSM_TYPES[selected.osm_type], selected.osm_id)
     if lookup is None:
         raise resolution_error("no_match")
     if lookup.country_code != selected.country_code or (
-        request.country_code is not None and lookup.country_code != request.country_code
+        request.country_code is not None and lookup.country_code != request.country_code.lower()
     ):
         raise resolution_error("level_mismatch")
     # With no requested role, lookup must still confirm the search classification.

@@ -1,19 +1,16 @@
 """Deterministic PostGIS execution; only resolved identities, polygons and category IDs."""
 
 import json
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.config import Settings
 from app.errors import APIError
 from app.repositories.research import images, parameters, record, research_sql
-from app.research.internal_plan import AdministrativeLevel, ResolvedResearchPlan
-from app.schemas.research import ResearchRecord
-from app.schemas.research_execution import ExecutionFilters
-from app.schemas.research_planner import ClosedModel
+from app.research.plan import ResolvedResearchPlan
+from app.schemas.research_administrative_result import AdministrativeGroup, AdministrativeResult
 
 COLUMNS = """entity_type,entity_key,name,description,status,categories,language,
     start_date,start_time,end_date,end_time,all_day,organization_id,organization_name,
@@ -21,42 +18,38 @@ COLUMNS = """entity_type,entity_key,name,description,status,categories,language,
     source_url,created_at,modified_at,date_key"""
 
 
-class AdministrativeGroup(ClosedModel):
-    area_id: str
-    name: str
-    level: AdministrativeLevel
-    event_count: int = Field(ge=0)
-
-
-class AdministrativeResult(ClosedModel):
-    kind: Literal["records", "count", "groups"]
-    records: list[ResearchRecord] = Field(default_factory=list, max_length=20)
-    groups: list[AdministrativeGroup] = Field(default_factory=list, max_length=20)
-    count: int | None = Field(default=None, ge=0)
-    unknown_location_count: int = Field(ge=0)
-    inventory_countries: list[str] = Field(default_factory=list, max_length=250)
-
-
 def execution_sql(plan: ResolvedResearchPlan, settings: Settings) -> tuple[str, dict[str, Any]]:
     constraints = [
-        {"relation": s.relation, "geometry": json.loads(s.boundary.geometry_json)}
-        for s in plan.spatial
+        {
+            "relation": s.relation,
+            "geometry": json.loads(s.reference.boundary.geometry_json or "null"),
+        }
+        for s in plan.administrative_constraints
     ]
     areas = [
-        {"area_id": a.area.area_id, "name": a.area.name, "geometry": json.loads(a.geometry_json)}
+        {
+            "area_id": str(a.resolved_id),
+            "name": a.name,
+            "geometry": json.loads(a.boundary.geometry_json or "null"),
+        }
         for a in plan.inventory
     ]
-    filters = ExecutionFilters(entity_type="event", category=plan.category_id)
-    params = parameters(filters, settings)
+    params = parameters(plan.filters, settings)
     params.update(
         constraints=json.dumps(constraints), inventory=json.dumps(areas), limit=plan.limit
     )
     # Shared eligibility keeps public status and event-date venue/space inheritance.
     # A predicate conjunction is evaluated on ONE occurrence point, then deduplicated.
+    known_point = "latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180"
+    located_columns = COLUMNS.replace(
+        "latitude,longitude",
+        f"""
+        CASE WHEN {known_point} THEN latitude END latitude,
+        CASE WHEN {known_point} THEN longitude END longitude""",
+    )
     sql = f"""WITH eligible AS ({research_sql(occurrences=True)}),
     located AS MATERIALIZED (
-        SELECT {COLUMNS}, CASE WHEN latitude BETWEEN -90 AND 90
-            AND longitude BETWEEN -180 AND 180 THEN
+        SELECT {located_columns}, CASE WHEN {known_point} THEN
             ST_SetSRID(ST_MakePoint(longitude,latitude),4326) END point FROM eligible
     ), constraints AS MATERIALIZED (
         SELECT relation, ST_SetSRID(ST_GeomFromGeoJSON(geometry::text),4326) boundary
@@ -78,13 +71,24 @@ def execution_sql(plan: ResolvedResearchPlan, settings: Settings) -> tuple[str, 
     return sql, params
 
 
-async def execute_resolved(
+async def administrative_selection(
     connection: AsyncConnection,
     settings: Settings,
     plan: ResolvedResearchPlan,
 ) -> AdministrativeResult:
-    if not 1 <= plan.limit <= 20 or len(plan.spatial) > 4:
+    if (
+        plan.filters.entity_type != "event"
+        or (plan.grouping is None and plan.intent not in {"list", "count"})
+        or (plan.grouping is not None and plan.intent not in {"rank", "aggregate"})
+    ):
+        raise ValueError("Unsupported resolved administrative selection")
+    if not 1 <= plan.limit <= 20 or len(plan.administrative_constraints) > 4:
         raise ValueError("Invalid resolved plan bounds")
+    if any(
+        a.boundary.geometry_json is None or a.boundary.area_id != a.resolved_id
+        for a in (*plan.inventory, *(c.reference for c in plan.administrative_constraints))
+    ):
+        raise ValueError("Missing resolved geometry")
     sql, params = execution_sql(plan, settings)
     # Closed GeoJSON shape validation cannot prove topology; PostGIS must reject it.
     valid = (
@@ -100,6 +104,18 @@ async def execute_resolved(
     ).scalar_one()
     if not valid:
         raise APIError(422, "research_area_invalid_boundary", "A resolved boundary is invalid.")
+    # Materialized points cannot use a source GiST index. Bound the grouping
+    # product explicitly before joining inventory polygons to occurrences.
+    if plan.grouping is not None:
+        population = int(
+            (
+                await connection.execute(text(sql + " SELECT count(*) FROM located"), params)
+            ).scalar_one()
+        )
+        if population * len(plan.inventory) > 2_000_000:
+            raise APIError(
+                422, "research_execution_too_broad", "Narrow the administrative selection."
+            )
     unknown = int(
         (await connection.execute(text(sql + " SELECT value FROM unknown"), params)).scalar_one()
     )
@@ -144,14 +160,19 @@ async def execute_resolved(
             )
         ).scalar_one()
     )
-    if plan.operation == "count":
+    if plan.intent == "count":
         return AdministrativeResult(kind="count", count=count, unknown_location_count=unknown)
+    direction = {"asc": "ASC", "desc": "DESC"}[plan.ordering]
     rows = (
         await connection.execute(
             text(
                 sql
-                + f""" SELECT DISTINCT ON (entity_key) {COLUMNS} FROM matched
-        ORDER BY entity_key,start_date NULLS LAST,start_time NULLS LAST,date_key LIMIT :limit"""
+                + f""", chosen AS (SELECT DISTINCT ON (entity_key) {COLUMNS} FROM matched
+        ORDER BY entity_key,start_date {direction} NULLS LAST,
+            start_time {direction} NULLS LAST,date_key)
+        SELECT {COLUMNS} FROM chosen
+        ORDER BY start_date {direction} NULLS LAST,start_time {direction} NULLS LAST,
+            entity_key,date_key LIMIT :limit"""
             ),
             params,
         )

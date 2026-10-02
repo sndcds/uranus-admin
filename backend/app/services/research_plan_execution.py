@@ -5,7 +5,7 @@ from calendar import monthrange
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 from time import perf_counter
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -15,6 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.config import Settings
 from app.database import get_connection
 from app.errors import APIError
+from app.repositories.administrative_execution import administrative_selection
 from app.repositories.research import research_page
 from app.repositories.research_execution import (
     aggregate_selection,
@@ -25,17 +26,21 @@ from app.repositories.research_execution import (
     taxonomy_selection,
 )
 from app.repositories.research_resolution import Resolution, resolve_plan
-from app.research.capabilities import require_supported
+from app.research.capabilities import boundary_execution, require_supported
 from app.research.context import ResearchExecutionContext
 from app.research.geography import (
+    ADMINISTRATIVE_LEVELS,
+    AdministrativeLevel,
     ResolvedAdministrativeAreaRef,
+    ResolvedAdministrativeConstraint,
     UnresolvedAdministrativeAreaRef,
     administrative_constraints,
     uses_user_location,
 )
 from app.research.outcome import ResearchExecutionOutcome
-from app.research.plan import InternalResearchPlan
+from app.research.plan import InternalResearchPlan, ResolvedResearchPlan
 from app.schemas.research_execution import (
+    AggregateItem,
     AggregateResult,
     ComparisonItem,
     ComparisonResult,
@@ -94,7 +99,26 @@ def execution_filters(
     # SQL receives only verified IDs/boundaries. A resolver omission must not drop
     # an administrative constraint and turn a scoped query into a global query.
     constraints = administrative_constraints(plan.spatial_constraints)
-    if constraints:
+    if constraints and boundary_execution(plan):
+        if len(constraints) != len(resolution.spatial_constraints):
+            raise APIError(502, "research_execution_invalid_plan", "Area resolution is incomplete.")
+        for expected_constraint, actual in zip(
+            constraints, resolution.spatial_constraints, strict=True
+        ):
+            expected = expected_constraint.reference
+            ref = actual.reference
+            if (
+                not isinstance(expected, UnresolvedAdministrativeAreaRef)
+                or not isinstance(ref, ResolvedAdministrativeAreaRef)
+                or (expected.expected_level is not None and expected.expected_level != ref.level)
+                or ref.resolved_id != ref.boundary.area_id
+                or ref.boundary.geometry_json is None
+                or actual.relation != expected_constraint.relation
+            ):
+                raise APIError(
+                    502, "research_execution_invalid_plan", "Area resolution is incomplete."
+                )
+    elif constraints:
         resolved = administrative_constraints(resolution.spatial_constraints)
         reference = resolved[0].reference if len(resolved) == 1 else None
         expected = constraints[0].reference
@@ -151,6 +175,7 @@ class ResearchPlanExecutor:
     ) -> ResearchExecutionOutcome:
         started = perf_counter()
         resolution = Resolution()
+        administrative = None
         provenance = ExecutionProvenance()
         resolution_ms = execution_ms = 0.0
         observed_at = datetime.now(UTC)
@@ -175,13 +200,33 @@ class ResearchPlanExecutor:
             require_supported(plan)
             try:
                 # Bound the complete resolution stage, in addition to DB statement limits.
-                async with asyncio.timeout(settings.db_timeout_seconds):
+                resolution_timeout = 45 if boundary_execution(plan) else settings.db_timeout_seconds
+                async with asyncio.timeout(resolution_timeout):
                     resolution = await resolve_plan(request, settings, plan, context)
                 resolution_ms = (perf_counter() - started) * 1000
                 if resolution.clarification is not None:
                     result = resolution.clarification
                 else:
                     filters = execution_filters(plan, context, resolution)
+                    resolved_plan = ResolvedResearchPlan(
+                        filters=filters,
+                        intent=plan.intent,
+                        administrative_constraints=tuple(
+                            ResolvedAdministrativeConstraint(
+                                cast(Literal["inside", "outside"], c.relation),
+                                cast(ResolvedAdministrativeAreaRef, c.reference),
+                            )
+                            for c in resolution.spatial_constraints
+                        ),
+                        grouping=cast(AdministrativeLevel, plan.group_by)
+                        if plan.group_by in ADMINISTRATIVE_LEVELS
+                        else None,
+                        zero_only=plan.zero_only,
+                        ordering=plan.ordering or "desc",
+                        limit=filters.page_size,
+                        inventory=resolution.inventory,
+                        inventory_countries=resolution.inventory_countries,
+                    )
                     provenance = ExecutionProvenance(
                         from_date=filters.from_date,
                         to_date=filters.to_date,
@@ -237,7 +282,34 @@ class ResearchPlanExecutor:
                             asynccontextmanager(get_connection)(request) as connection,
                         ):
                             observed_at = datetime.now(UTC)
-                            if plan.intent == "taxonomy":
+                            if boundary_execution(plan):
+                                administrative = await administrative_selection(
+                                    connection, settings, resolved_plan
+                                )
+                                if administrative.kind == "records":
+                                    result = RecordsResult(
+                                        items=list(administrative.records),
+                                        total=administrative.count,
+                                    )
+                                elif administrative.kind == "count":
+                                    assert administrative.count is not None
+                                    result = CountResult(
+                                        metric="event_count", value=administrative.count
+                                    )
+                                else:
+                                    # Public administrative metadata is carried alongside the
+                                    # shared result; no version-specific execution model.
+                                    result = AggregateResult(
+                                        metric="event_count",
+                                        group_by=cast(ExecutionGrouping, plan.group_by),
+                                        items=[
+                                            AggregateItem(
+                                                key=g.area_id, name=g.name, value=g.event_count
+                                            )
+                                            for g in administrative.groups
+                                        ],
+                                    )
+                            elif plan.intent == "taxonomy":
                                 assert plan.taxonomy is not None
                                 result = await taxonomy_selection(
                                     connection,
@@ -349,6 +421,7 @@ class ResearchPlanExecutor:
                 ) from None
         return ResearchExecutionOutcome(
             resolution=resolution.fields,
+            administrative=administrative,
             result=result,
             execution=provenance,
             observed_at=observed_at,

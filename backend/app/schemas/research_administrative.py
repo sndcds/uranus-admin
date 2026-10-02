@@ -5,7 +5,7 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, model_validator
 
 from app.schemas.research_location import Latitude, Longitude, Place
-from app.schemas.research_planner import ClosedModel
+from app.schemas.research_values import ClosedModel
 
 AdministrativeLevel = Literal["municipality", "district", "state", "country", "region", "unknown"]
 

@@ -14,13 +14,15 @@ from sqlalchemy import text
 
 from app.clients.research_geocoder import ResearchGeocoderClient
 from app.errors import APIError
-from app.repositories.administrative_execution import execute_resolved
+from app.repositories.administrative_execution import administrative_selection
 from app.research.administrative_catalog import Catalog, Catalogs, load_inventory
 from app.research.administrative_resolver import resolved_boundary, select_candidate
-from app.research.internal_plan import AreaRequest, ResolvedResearchPlan, ResolvedSpatialConstraint
-from app.research.normalizer import normalize_plan
+from app.research.geography import ResolvedAdministrativeConstraint, UnresolvedAdministrativeAreaRef
+from app.research.normalize import normalize_v8
+from app.research.plan import ResolvedResearchPlan
 from app.research.wire.research_v8_schema import PlanResponseV8, ResearchQueryPlanV8
 from app.schemas.research_administrative import AdministrativePlace
+from app.schemas.research_execution import ExecutionFilters
 from app.services import research_administrative as service
 from app.services.research_planner import ResearchPlannerClient
 from tests.conftest import uid
@@ -79,11 +81,20 @@ def envelope(example):
 
 
 def test_wire_snapshot_matches_planner_and_no_execution_fields():
-    assert ResearchQueryPlanV8.model_json_schema() == json.loads(
-        Path("tests/fixtures/administrative_planner_v8_schema.json").read_text()
+    # Python caches equivalent Literal unions irrespective of enum order. Import
+    # order may change enum ordering, which is not JSON Schema semantics.
+    def canonical(value):
+        if isinstance(value, dict):
+            return {k: sorted(v) if k == "enum" else canonical(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [canonical(v) for v in value]
+        return value
+
+    assert canonical(ResearchQueryPlanV8.model_json_schema()) == canonical(
+        json.loads(Path("tests/fixtures/administrative_planner_v8_schema.json").read_text())
     )
-    plan = normalize_plan(envelope(EXAMPLES[6]).plan)
-    assert [(s.relation, s.area.expected_level) for s in plan.spatial] == [
+    plan = normalize_v8(envelope(EXAMPLES[6]).plan)
+    assert [(s.relation, s.reference.expected_level) for s in plan.spatial_constraints] == [
         ("outside", "state"),
         ("inside", "country"),
     ]
@@ -92,35 +103,39 @@ def test_wire_snapshot_matches_planner_and_no_execution_fields():
 
 @pytest.mark.parametrize("index", range(len(EXAMPLES)))
 def test_examples_normalize_without_dropping_predicates(index):
-    normalized = normalize_plan(envelope(EXAMPLES[index]).plan)
-    assert len(normalized.spatial) == len(EXAMPLES[index]["spatial"])
-    assert normalized.grouping == (
-        EXAMPLES[index]["group_by"] if EXAMPLES[index]["group_by"] != "none" else None
+    normalized = normalize_v8(envelope(EXAMPLES[index]).plan)
+    assert len(normalized.spatial_constraints) == len(EXAMPLES[index]["spatial"])
+    assert normalized.group_by == (
+        EXAMPLES[index]["group_by"] if EXAMPLES[index]["group_by"] != "none" else "none"
     )
 
 
 def test_mismatch_ambiguity_country_and_canonical_name():
     with pytest.raises(APIError, match="requested level") as failure:
-        select_candidate([place()], AreaRequest("Schleswig-Holstein", "district"))
+        select_candidate(
+            [place()], UnresolvedAdministrativeAreaRef("Schleswig-Holstein", "district")
+        )
     assert failure.value.code == "research_area_level_mismatch"
     with pytest.raises(APIError):
         select_candidate(
             [place("Schleswig", identity=1), place("Schleswig", identity=2)],
-            AreaRequest("Schleswig", "state"),
+            UnresolvedAdministrativeAreaRef("Schleswig", "state"),
         )
     assert (
         select_candidate(
             [place("Schleswig", identity=2), place("Schleswig-Holstein")],
-            AreaRequest("Schleswig-Holstein", "state"),
+            UnresolvedAdministrativeAreaRef("Schleswig-Holstein", "state"),
         ).osm_id
         == 1
     )
     with pytest.raises(APIError):
-        select_candidate([place()], AreaRequest("Schleswig-Holstein", "state", "dk"))
+        select_candidate(
+            [place()], UnresolvedAdministrativeAreaRef("Schleswig-Holstein", "state", "dk")
+        )
 
 
 def test_no_incomplete_metadata_or_implied_codes():
-    assert resolved_boundary(place(), "state").area.official_code is None
+    assert resolved_boundary(place(), "state").official_code is None
     with pytest.raises(ValidationError):
         AdministrativePlace.model_validate_json(
             json.dumps({"administrative_level": "state", "administrative_levels": ["district"]})
@@ -175,7 +190,16 @@ async def test_geocoder_private_metadata_validated_but_not_leaked_to_old_place(s
 @pytest.fixture
 async def source(db_connection, monkeypatch):
     await db_connection.execute(text("UPDATE uranus.event SET release_status='draft'"))
-    points = ["POINT(9.5 54.5)", "POINT(9 54.5)", "POINT(11 54.5)", "POINT(15 60)", None]
+    points = [
+        "POINT(9.5 54.5)",
+        "POINT(9 54.5)",
+        "POINT(11 54.5)",
+        "POINT(15 60)",
+        None,
+        "POINT EMPTY",
+        "POINT(NaN NaN)",
+        "POINT(181 54)",
+    ]
     for index, point in enumerate(points):
         await db_connection.execute(
             text(
@@ -210,7 +234,7 @@ async def source(db_connection, monkeypatch):
             "INSERT INTO uranus.event(uuid,org_uuid,title,release_status) "
             "VALUES(:id,:org,'Split occurrence','released')"
         ),
-        {"id": uid(2005), "org": uid(10)},
+        {"id": uid(2090), "org": uid(10)},
     )
     for index, venue in enumerate([1000, 1003]):
         await db_connection.execute(
@@ -218,7 +242,7 @@ async def source(db_connection, monkeypatch):
                 "INSERT INTO uranus.event_date(uuid,event_uuid,venue_uuid,start_date) "
                 "VALUES(:id,:event,:venue,'2026-10-02')"
             ),
-            {"id": uid(3005 + index), "event": uid(2005), "venue": uid(venue)},
+            {"id": uid(3090 + index), "event": uid(2090), "venue": uid(venue)},
         )
     await db_connection.execute(
         text(
@@ -229,12 +253,16 @@ async def source(db_connection, monkeypatch):
     async def connection(request):
         yield db_connection
 
-    monkeypatch.setattr(service, "get_connection", connection)
+    from app.repositories import research_resolution
+    from app.services import research_plan_execution
+
+    monkeypatch.setattr(research_plan_execution, "get_connection", connection)
+    monkeypatch.setattr(research_resolution, "get_connection", connection)
     return db_connection
 
 
 @pytest.mark.parametrize(
-    "index,expected", [(0, {2002, 2003, 2005}), (1, {2000, 2001, 2005}), (6, {2002})]
+    "index,expected", [(0, {2002, 2003, 2090}), (1, {2000, 2001, 2090}), (6, {2002})]
 )
 async def test_full_pipeline_membership_and_conjunction(source, settings, index, expected):
     example = EXAMPLES[index]
@@ -274,7 +302,7 @@ async def test_full_pipeline_membership_and_conjunction(source, settings, index,
     try:
         result = await service.execute(request, settings, example["original_query"])
         assert {r.entity_key for r in result.records} == {uid(i) for i in expected}
-        assert result.unknown_location_count == 1
+        assert result.unknown_location_count == 4
         assert calls == ["/v8/plan"]
     finally:
         await planner.close()
@@ -335,15 +363,22 @@ async def test_rank_category_and_empty_children(source, settings, tmp_path, inde
 async def test_boundary_points_inside_and_outside_are_complements(source, settings):
     boundary = resolved_boundary(place(), "state")
     plan = ResolvedResearchPlan(
-        "count", None, (ResolvedSpatialConstraint("inside", boundary),), None, False, "desc", 20
+        filters=ExecutionFilters(entity_type="event"),
+        intent="count",
+        administrative_constraints=(ResolvedAdministrativeConstraint("inside", boundary),),
     )
-    inside = await execute_resolved(source, settings, plan)
-    outside = await execute_resolved(
-        source, settings, replace(plan, spatial=(ResolvedSpatialConstraint("outside", boundary),))
+    inside = await administrative_selection(source, settings, plan)
+    outside = await administrative_selection(
+        source,
+        settings,
+        replace(
+            plan,
+            administrative_constraints=(ResolvedAdministrativeConstraint("outside", boundary),),
+        ),
     )
     assert inside.count == 3 and outside.count == 3
     # The multi-location event appears in both; an unknown event appears in neither.
-    assert inside.unknown_location_count == outside.unknown_location_count == 1
+    assert inside.unknown_location_count == outside.unknown_location_count == 4
 
 
 async def test_endpoint_auth_and_rejects_browser_plans(client, headers):

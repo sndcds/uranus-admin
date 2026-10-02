@@ -486,3 +486,11 @@ it('POSTs location only in the body and proxy rejects extra location capabilitie
     expect(upstream).not.toHaveBeenCalled()
   }
 })
+
+it.each(['municipality', 'district', 'state', 'country', 'region'] as const)(
+  'preserves the administrative aggregate level %s in the shared result contract',
+  (level) => {
+    const result = { kind: 'aggregate', metric: 'event_count', group_by: level, items: [] }
+    expect(executionResultSchema.parse(result)).toEqual(result)
+  },
+)

@@ -106,6 +106,11 @@ const fieldLabels = {
             category: 'Kategorie',
             genre: 'Genre',
             event_type: 'Veranstaltungstyp',
+            municipality: 'Gemeinde',
+            district: 'Kreis',
+            state: 'Bundesland',
+            country: 'Staat',
+            region: 'Region',
           }[result.group_by]
         }}
         · {{ result.items.length }} gelieferte Gruppen (höchstens 20)
