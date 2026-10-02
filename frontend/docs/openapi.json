@@ -20917,7 +20917,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResearchPlanRequest"
+                "$ref": "#/components/schemas/ResearchQueryRequest"
               }
             }
           }
@@ -29136,6 +29136,8 @@
               {
                 "type": "string",
                 "enum": [
+                  "place_query",
+                  "location_context",
                   "area_query",
                   "venue_query",
                   "organization_query",
@@ -31039,6 +31041,544 @@
         ],
         "title": "GeocodeRetryResponse"
       },
+      "GeographicClarification": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "research-query-plan-v6",
+            "title": "Schema Version"
+          },
+          "prompt_version": {
+            "type": "string",
+            "const": "research-planner-v9",
+            "title": "Prompt Version"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/GeographicQueryPlan"
+          },
+          "reference_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Reference Date"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Timezone"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/GeographicDiagnostics"
+          },
+          "kind": {
+            "type": "string",
+            "const": "needs_clarification",
+            "title": "Kind",
+            "default": "needs_clarification"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "prompt_version",
+          "model",
+          "plan",
+          "reference_date",
+          "timezone",
+          "diagnostics"
+        ],
+        "title": "GeographicClarification"
+      },
+      "GeographicDiagnostics": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Request Id"
+          },
+          "planner_intent": {
+            "type": "string",
+            "enum": [
+              "search",
+              "list",
+              "count",
+              "aggregate",
+              "recommend",
+              "compare",
+              "taxonomy",
+              "spatial_rank"
+            ],
+            "title": "Planner Intent"
+          },
+          "planner_model": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Planner Model"
+          },
+          "planner_prompt_version": {
+            "type": "string",
+            "const": "research-planner-v9",
+            "title": "Planner Prompt Version"
+          },
+          "planner_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Planner Ms"
+          },
+          "total_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Total Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request_id",
+          "planner_intent",
+          "planner_model",
+          "planner_prompt_version",
+          "planner_ms",
+          "total_ms"
+        ],
+        "title": "GeographicDiagnostics"
+      },
+      "GeographicQueryPlan": {
+        "properties": {
+          "taxonomy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "genre",
+                  "event_type",
+                  "category"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxonomy"
+          },
+          "spatial_metric": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "longitude",
+                  "latitude"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spatial Metric"
+          },
+          "area_relation": {
+            "type": "string",
+            "enum": [
+              "inside",
+              "outside"
+            ],
+            "title": "Area Relation"
+          },
+          "original_query": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Original Query"
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "search",
+              "list",
+              "count",
+              "aggregate",
+              "recommend",
+              "compare",
+              "taxonomy",
+              "spatial_rank"
+            ],
+            "title": "Intent"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "event",
+              "venue",
+              "organization"
+            ],
+            "title": "Entity Type"
+          },
+          "semantic_query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Query"
+          },
+          "area_query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Query"
+          },
+          "venue_query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue Query"
+          },
+          "organization_query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Query"
+          },
+          "event_type_queries": {
+            "items": {
+              "type": "string",
+              "maxLength": 160,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Event Type Queries"
+          },
+          "category_queries": {
+            "items": {
+              "type": "string",
+              "maxLength": 160,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Category Queries"
+          },
+          "genre_queries": {
+            "items": {
+              "type": "string",
+              "maxLength": 160,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Genre Queries"
+          },
+          "temporal": {
+            "type": "string",
+            "enum": [
+              "none",
+              "today",
+              "tomorrow",
+              "this_weekend",
+              "next_week",
+              "this_month",
+              "this_year",
+              "past",
+              "future",
+              "explicit_range"
+            ],
+            "title": "Temporal"
+          },
+          "ordering": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordering"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "explicit_from_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explicit From Date"
+          },
+          "explicit_to_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explicit To Date"
+          },
+          "time_of_day": {
+            "type": "string",
+            "enum": [
+              "none",
+              "morning",
+              "afternoon",
+              "evening",
+              "night"
+            ],
+            "title": "Time Of Day"
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "event_count",
+              "venue_count",
+              "organization_count",
+              "occurrence_count",
+              "none"
+            ],
+            "title": "Metric"
+          },
+          "group_by": {
+            "type": "string",
+            "enum": [
+              "venue",
+              "area",
+              "organization",
+              "category",
+              "genre",
+              "event_type",
+              "none"
+            ],
+            "title": "Group By"
+          },
+          "comparison_targets": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonTarget"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Comparison Targets"
+          },
+          "semantic_focus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Focus"
+          },
+          "requires_semantic_relevance": {
+            "type": "boolean",
+            "title": "Requires Semantic Relevance"
+          },
+          "answer_mode": {
+            "type": "string",
+            "enum": [
+              "records",
+              "count",
+              "aggregate",
+              "recommendation",
+              "comparison",
+              "taxonomy"
+            ],
+            "title": "Answer Mode"
+          },
+          "clarification": {
+            "type": "string",
+            "enum": [
+              "none",
+              "needs_criteria",
+              "needs_location",
+              "needs_date"
+            ],
+            "title": "Clarification"
+          },
+          "unsupported_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "outside_research",
+                  "multi_area",
+                  "unsupported_constraint"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unsupported Reason"
+          },
+          "place_query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Query"
+          },
+          "location_relation": {
+            "type": "string",
+            "enum": [
+              "none",
+              "nearby"
+            ],
+            "title": "Location Relation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "taxonomy",
+          "spatial_metric",
+          "area_relation",
+          "original_query",
+          "intent",
+          "entity_type",
+          "semantic_query",
+          "area_query",
+          "venue_query",
+          "organization_query",
+          "event_type_queries",
+          "category_queries",
+          "genre_queries",
+          "temporal",
+          "ordering",
+          "limit",
+          "explicit_from_date",
+          "explicit_to_date",
+          "time_of_day",
+          "metric",
+          "group_by",
+          "comparison_targets",
+          "semantic_focus",
+          "requires_semantic_relevance",
+          "answer_mode",
+          "clarification",
+          "unsupported_reason",
+          "place_query",
+          "location_relation"
+        ],
+        "title": "GeographicQueryPlan"
+      },
+      "GeographicResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "research-query-plan-v6",
+            "title": "Schema Version"
+          },
+          "prompt_version": {
+            "type": "string",
+            "const": "research-planner-v9",
+            "title": "Prompt Version"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/GeographicQueryPlan"
+          },
+          "reference_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Reference Date"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Timezone"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/GeographicDiagnostics"
+          },
+          "kind": {
+            "type": "string",
+            "const": "plan",
+            "title": "Kind",
+            "default": "plan"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "prompt_version",
+          "model",
+          "plan",
+          "reference_date",
+          "timezone",
+          "diagnostics"
+        ],
+        "title": "GeographicResponse"
+      },
       "GlobalSearchGroup": {
         "properties": {
           "entity_type": {
@@ -31965,6 +32505,64 @@
         "title": "InboxPage"
       },
       "JsonValue": {},
+      "LocationContext": {
+        "properties": {
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "browser_geolocation",
+              "nominatim_reverse",
+              "manual"
+            ],
+            "title": "Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source"
+        ],
+        "title": "LocationContext"
+      },
       "LoginBody": {
         "properties": {
           "login": {
@@ -33807,6 +34405,399 @@
         ],
         "title": "Pagination"
       },
+      "Place": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "osm_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "node",
+                  "way",
+                  "relation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Osm Type"
+          },
+          "osm_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Osm Id"
+          },
+          "place_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Type"
+          },
+          "country_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 3
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Code"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlaceAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number",
+                    "maximum": 90.0,
+                    "minimum": -90.0
+                  },
+                  {
+                    "type": "number",
+                    "maximum": 180.0,
+                    "minimum": -180.0
+                  },
+                  {
+                    "type": "number",
+                    "maximum": 90.0,
+                    "minimum": -90.0
+                  },
+                  {
+                    "type": "number",
+                    "maximum": 180.0,
+                    "minimum": -180.0
+                  }
+                ],
+                "type": "array",
+                "maxItems": 4,
+                "minItems": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Place"
+      },
+      "PlaceAddress": {
+        "properties": {
+          "road": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Road"
+          },
+          "house_number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "House Number"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "municipality": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Municipality"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality"
+          },
+          "district": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District"
+          },
+          "county": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "County"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "postcode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postcode"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PlaceAddress"
+      },
+      "PlaceFilter": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "address",
+              "bbox",
+              "radius"
+            ],
+            "title": "Mode"
+          },
+          "road": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Road"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "house_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "House Number"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number",
+                    "maximum": 90.0,
+                    "minimum": -90.0
+                  },
+                  {
+                    "type": "number",
+                    "maximum": 180.0,
+                    "minimum": -180.0
+                  },
+                  {
+                    "type": "number",
+                    "maximum": 90.0,
+                    "minimum": -90.0
+                  },
+                  {
+                    "type": "number",
+                    "maximum": 180.0,
+                    "minimum": -180.0
+                  }
+                ],
+                "type": "array",
+                "maxItems": 4,
+                "minItems": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox"
+          },
+          "radius_m": {
+            "type": "integer",
+            "enum": [
+              250,
+              500
+            ],
+            "title": "Radius M",
+            "default": 250
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "title": "PlaceFilter",
+        "description": "Internal only: every value originates from validated resolution, never the browser."
+      },
       "PlanDiagnostics": {
         "properties": {
           "request_id": {
@@ -34965,6 +35956,23 @@
               {
                 "oneOf": [
                   {
+                    "$ref": "#/components/schemas/GeographicResponse"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GeographicClarification"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "needs_clarification": "#/components/schemas/GeographicClarification",
+                    "plan": "#/components/schemas/GeographicResponse"
+                  }
+                }
+              },
+              {
+                "oneOf": [
+                  {
                     "$ref": "#/components/schemas/PlannedResponse"
                   },
                   {
@@ -35004,7 +36012,7 @@
               "$ref": "#/components/schemas/ResolvedField"
             },
             "type": "array",
-            "maxItems": 31,
+            "maxItems": 32,
             "title": "Resolution"
           },
           "result": {
@@ -35563,6 +36571,32 @@
         ],
         "title": "ResearchQueryPlan"
       },
+      "ResearchQueryRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "location_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocationContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "ResearchQueryRequest"
+      },
       "ResearchRecord": {
         "properties": {
           "entity_type": {
@@ -35898,7 +36932,8 @@
               "organization",
               "category",
               "event_type",
-              "genre"
+              "genre",
+              "place"
             ],
             "title": "Entity Type"
           },
@@ -35909,6 +36944,16 @@
           "label": {
             "type": "string",
             "title": "Label"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Place"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -35925,6 +36970,8 @@
           "field": {
             "type": "string",
             "enum": [
+              "place_query",
+              "location_context",
               "area_query",
               "venue_query",
               "organization_query",

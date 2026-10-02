@@ -6,6 +6,8 @@ export interface ApiFailure {
 
 export function failure(status: number, code = 'request_failed'): ApiFailure {
   const retryMessages: Record<string, string> = {
+    geocoder_unavailable:
+      'Der Ort konnte vorübergehend nicht aufgelöst werden. Bitte erneut versuchen.',
     research_planner_unavailable: 'Die Recherche konnte vorübergehend nicht ausgeführt werden.',
     research_execution_unavailable: 'Die Recherche konnte vorübergehend nicht ausgeführt werden.',
     research_plan_unsupported:

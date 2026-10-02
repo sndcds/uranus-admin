@@ -1463,3 +1463,12 @@ privacy-gated successful query history and identity-free interaction events in
 admin. Research execution remains question-only; an optional validated selection
 receipt header correlates successful execution without accepting browser plans.
 The three suggestion endpoints use existing Research authorization/CSRF policies.
+
+### Geographic Research v6
+
+The optional coordinated v6/v9 planner adds `place_query` and an explicit nearby relation.
+`POST /research/query` accepts a closed optional `location_context`; browser coordinates
+stay in the request body. Admin resolves places exclusively through the internal Research
+geocoder and intersects effective venue addresses/PostGIS geometry with source eligibility.
+See [geographic Research](research-geography.md) for activation order, fixed radii,
+clarification behavior, privacy and the unchanged legacy contracts.

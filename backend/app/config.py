@@ -94,6 +94,9 @@ class Settings(BaseSettings):
     research_domain_enabled: bool = False
     research_knowledge_url: str | None = None
     research_knowledge_api_key: SecretStr | None = None
+    research_geocoder_url: str = "http://127.0.0.1:6337"
+    research_geocoder_api_key: SecretStr | None = None
+    research_geocoder_timeout_seconds: float = Field(default=5, gt=0, le=10)
     research_analytics_enabled: bool = False
     research_planner_url: str | None = None
     research_planner_api_key: SecretStr | None = None
@@ -111,6 +114,38 @@ class Settings(BaseSettings):
     dev_auth_enabled: bool = False
     dev_admin_token: SecretStr | None = None
 
+    @field_validator("research_geocoder_url")
+    @classmethod
+    def valid_geocoder_origin(cls, value: str) -> str:
+        from ipaddress import ip_address
+        from urllib.parse import urlsplit
+
+        if any(ord(c) <= 32 or ord(c) >= 127 for c in value) or any(c in value for c in "%?#\\"):
+            raise ValueError("Invalid geocoder origin")
+        url = urlsplit(value)
+        if (
+            url.scheme not in {"http", "https"}
+            or url.path
+            or url.username is not None
+            or url.password is not None
+            or not url.hostname
+            or url.port == 0
+        ):
+            raise ValueError("Invalid geocoder origin")
+        if url.scheme == "http":
+            try:
+                loopback = ip_address(url.hostname).is_loopback
+            except ValueError:
+                loopback = False
+            if not loopback:
+                raise ValueError("Geocoder HTTP requires numeric loopback")
+        return value
+
+    @field_validator("research_geocoder_api_key", mode="before")
+    @classmethod
+    def optional_geocoder_key(cls, value: object) -> object:
+        return None if value == "" else value
+
     @field_validator("research_planner_url", "research_knowledge_url")
     @classmethod
     def valid_research_planner_origin(cls, value: str | None) -> str | None:
@@ -121,7 +156,9 @@ class Settings(BaseSettings):
             raise ValueError("RESEARCH_PLANNER_URL requires http://127.0.0.1:<port 1-65535>")
         return value
 
-    @field_validator("research_planner_api_key", "research_knowledge_api_key")
+    @field_validator(
+        "research_planner_api_key", "research_knowledge_api_key", "research_geocoder_api_key"
+    )
     @classmethod
     def valid_research_planner_key(cls, value: SecretStr | None) -> SecretStr | None:
         if value is not None:

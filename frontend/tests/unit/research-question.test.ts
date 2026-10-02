@@ -235,6 +235,7 @@ it('opens the homepage composer directly and renders its answer in the same work
     countQuestion,
     expect.any(AbortSignal),
     undefined,
+    undefined,
   )
   expect(view.text()).toContain('123 Veranstaltungen')
   expect(view.get('a[href="/research/search"]').text()).toBe('Klassische Suche')
@@ -370,6 +371,7 @@ it('debounces, reports rendered impressions once, navigates and selects with Ent
     learned.suggestions[0]!.query,
     expect.any(AbortSignal),
     '00000000-0000-4000-8000-000000000003',
+    undefined,
   )
   expect(view.find('[role=listbox]').exists()).toBe(false)
   view.unmount()
@@ -432,6 +434,7 @@ it('mouse selection executes even when telemetry fails and does not select twice
     learned.suggestions[0]!.query,
     expect.any(AbortSignal),
     undefined,
+    undefined,
   )
   view.unmount()
 })
@@ -459,9 +462,148 @@ it.each(['ctrlKey', 'metaKey'])(
       'welche org',
       expect.any(AbortSignal),
       undefined,
+      undefined,
     )
     expect(ctx.route.path).toBe('/research')
     expect(view.find('[role=listbox]').exists()).toBe(false)
     view.unmount()
   },
 )
+
+function locationClarification() {
+  const response = executionResponse()
+  response.result = {
+    kind: 'needs_clarification',
+    reason: 'planner',
+    planner_state: 'needs_location',
+    field: null,
+    query: null,
+    candidates: [],
+  }
+  return response
+}
+it('requests browser location only on click, resubmits context and reuses it without URL coordinates', async () => {
+  const query = 'Was ist heute in meiner Nähe?'
+  const ctx = setup(query)
+  const getCurrentPosition = vi.fn()
+  vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } })
+  ctx.api.researchQuery
+    .mockResolvedValueOnce(locationClarification())
+    .mockResolvedValue(executionResponse())
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  await flushPromises()
+  expect(getCurrentPosition).not.toHaveBeenCalled()
+  expect(view.text()).toContain('Standort benötigt')
+  await view
+    .findAll('button')
+    .find((b) => b.text() === 'Standort freigeben')!
+    .trigger('click')
+  expect(getCurrentPosition).toHaveBeenCalledOnce()
+  getCurrentPosition.mock.calls[0]![0]({ coords: { latitude: 54.79, longitude: 9.43 } })
+  await flushPromises()
+  expect(ctx.api.researchQuery).toHaveBeenLastCalledWith(
+    query,
+    expect.any(AbortSignal),
+    undefined,
+    { latitude: 54.79, longitude: 9.43, source: 'browser_geolocation' },
+  )
+  expect(ctx.route.query).toEqual({ question: query })
+  expect(ctx.navigate).not.toHaveBeenCalled()
+  ctx.route.query.question = 'Welche Veranstaltungen sind bei mir?'
+  await flushPromises()
+  expect(ctx.api.researchQuery.mock.calls.at(-1)![3]).toEqual({
+    latitude: 54.79,
+    longitude: 9.43,
+    source: 'browser_geolocation',
+  })
+  expect(getCurrentPosition).toHaveBeenCalledOnce()
+  ctx.auth.revision++
+  await nextTick()
+  ctx.route.query.question = 'Was ist hier los?'
+  await flushPromises()
+  expect(ctx.api.researchQuery.mock.calls.at(-1)![3]).toBeUndefined()
+  view.unmount()
+})
+it('offers manual fallback on denied location and resubmits the original question', async () => {
+  const ctx = setup('Was ist hier los?')
+  const getCurrentPosition = vi.fn()
+  vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } })
+  ctx.api.researchQuery
+    .mockResolvedValueOnce(locationClarification())
+    .mockResolvedValue(executionResponse())
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  await flushPromises()
+  await view
+    .findAll('button')
+    .find((b) => b.text() === 'Standort freigeben')!
+    .trigger('click')
+  getCurrentPosition.mock.calls[0]![1]({ code: 1 })
+  await nextTick()
+  expect(view.text()).toContain('Bitte einen Ort manuell eingeben')
+  await view.get('#research-manual-location').setValue('Nordermarkt Flensburg')
+  await view
+    .get('#research-manual-location')
+    .element.closest('form')!
+    .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  await flushPromises()
+  expect(ctx.api.researchQuery).toHaveBeenLastCalledWith(
+    'Was ist hier los?',
+    expect.any(AbortSignal),
+    undefined,
+    { source: 'manual', display_name: 'Nordermarkt Flensburg' },
+  )
+  expect(ctx.route.query).toEqual({ question: 'Was ist hier los?' })
+  view.unmount()
+})
+it('discards late location callbacks after logout', async () => {
+  const ctx = setup('Was ist hier los?')
+  const getCurrentPosition = vi.fn()
+  vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } })
+  ctx.api.researchQuery.mockResolvedValue(locationClarification())
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  await flushPromises()
+  await view
+    .findAll('button')
+    .find((b) => b.text() === 'Standort freigeben')!
+    .trigger('click')
+  ctx.auth.canResearch = false
+  ctx.auth.revision++
+  await nextTick()
+  getCurrentPosition.mock.calls[0]![0]({ coords: { latitude: 54.79, longitude: 9.43 } })
+  await flushPromises()
+  expect(ctx.api.researchQuery).toHaveBeenCalledOnce()
+  view.unmount()
+})
+
+it('reuses the canonical reverse label on the next nearby query', async () => {
+  const ctx = setup('Was ist hier los?')
+  const getCurrentPosition = vi.fn()
+  vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } })
+  const resolved = executionResponse()
+  resolved.resolution = [
+    {
+      field: 'location_context',
+      query: 'Aktueller Standort',
+      target: { entity_type: 'place', id: 'current-location', label: 'Flensburg' },
+    },
+  ]
+  ctx.api.researchQuery.mockResolvedValueOnce(locationClarification()).mockResolvedValue(resolved)
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  await flushPromises()
+  await view
+    .findAll('button')
+    .find((b) => b.text() === 'Standort freigeben')!
+    .trigger('click')
+  getCurrentPosition.mock.calls[0]![0]({ coords: { latitude: 54.79, longitude: 9.43 } })
+  await flushPromises()
+  ctx.route.query.question = 'Was gibt es in meiner Nähe?'
+  await flushPromises()
+  expect(ctx.api.researchQuery.mock.calls.at(-1)![3]).toEqual({
+    latitude: 54.79,
+    longitude: 9.43,
+    source: 'browser_geolocation',
+    display_name: 'Flensburg',
+  })
+  expect(getCurrentPosition).toHaveBeenCalledOnce()
+  view.unmount()
+})

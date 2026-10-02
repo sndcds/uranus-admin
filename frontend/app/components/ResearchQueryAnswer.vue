@@ -38,6 +38,8 @@ const clarification = computed(() => {
   return `Welche Zuordnung meinst du${r.query ? ` mit „${r.query}“` : ''}?`
 })
 const fieldLabels = {
+  place_query: 'Ort',
+  location_context: 'Standort',
   area_query: 'Gebiet',
   venue_query: 'Veranstaltungsort',
   organization_query: 'Organisation',

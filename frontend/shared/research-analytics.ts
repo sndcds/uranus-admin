@@ -199,7 +199,7 @@ export const analyticalQueryPlanSchema = z
       fail()
   })
 const milliseconds = z.number().finite().nonnegative()
-const planEnvelope = z
+export const analyticalEnvelopeSchema = z
   .object({
     schema_version: z.literal('research-query-plan-v5'),
     prompt_version: z.literal('research-planner-v8'),
@@ -220,6 +220,6 @@ const planEnvelope = z
   })
   .strict()
 export const analyticalPlanResponseSchema = z.discriminatedUnion('kind', [
-  planEnvelope.extend({ kind: z.literal('plan') }),
-  planEnvelope.extend({ kind: z.literal('needs_clarification') }),
+  analyticalEnvelopeSchema.extend({ kind: z.literal('plan') }),
+  analyticalEnvelopeSchema.extend({ kind: z.literal('needs_clarification') }),
 ])

@@ -33,6 +33,8 @@ from app.schemas.research import (
 )
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
 from app.schemas.research_execution import ResearchExecutionResponse
+from app.schemas.research_geography import GeographicQueryPlan
+from app.schemas.research_location import ResearchQueryRequest
 from app.schemas.research_planner import PlanResponse, ResearchPlanRequest
 from app.schemas.research_suggestions import (
     Impression,
@@ -77,7 +79,7 @@ async def plan(request: Request, body: ResearchPlanRequest) -> PlanResponse:
 )
 async def query(
     request: Request,
-    body: ResearchPlanRequest,
+    body: ResearchQueryRequest,
     settings: SettingsDep,
     x_research_selection: Annotated[UUID | None, Header()] = None,
 ) -> ResearchExecutionResponse:
@@ -86,15 +88,28 @@ async def query(
         raise unavailable()
     started = perf_counter()
     response = (
-        await planner.plan(body.query, analytical=True)
+        await planner.plan(body.query, geographic=True)
+        if settings.research_geocoder_api_key
+        else await planner.plan(body.query, analytical=True)
         if settings.research_analytics_enabled
         else await planner.plan(body.query)
     )
     planner_ms = (perf_counter() - started) * 1000
     result = await ResearchPlanExecutor().execute(
-        request, settings, response, planner_ms=planner_ms
+        request,
+        settings,
+        response,
+        planner_ms=planner_ms,
+        **(
+            {"location_context": body.location_context} if body.location_context is not None else {}
+        ),
     )
-    await record_success(request, result, x_research_selection)
+    sensitive_location = body.location_context is not None or (
+        isinstance(response.plan, GeographicQueryPlan)
+        and (response.plan.place_query is not None or response.plan.location_relation == "nearby")
+    )
+    if not sensitive_location:
+        await record_success(request, result, x_research_selection)
     return result
 
 

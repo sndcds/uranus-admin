@@ -339,3 +339,8 @@ Evening follows the planner contract: known local start >=18:00 and <24:00, excl
 all-day/unknown-time occurrences. No migrations, new grants, query persistence or
 Uranus writes. Frontend UI and Nitro integration remain deferred. See the
 [execution contract, resolver rules and capability gaps](docs/contracts.md#research-plan-execution).
+
+Geographic Research uses the internal `uranus-research-geocoder` service. Deploy the
+coordinated planner `/v6/plan` first, then configure the protected `RESEARCH_GEOCODER_API_KEY`,
+`RESEARCH_GEOCODER_URL` (default `http://127.0.0.1:6337`) and optional
+`RESEARCH_GEOCODER_TIMEOUT_SECONDS` (default 5). See [the geographic contract](docs/research-geography.md).

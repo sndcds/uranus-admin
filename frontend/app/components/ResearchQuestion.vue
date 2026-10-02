@@ -1,12 +1,29 @@
 <script setup lang="ts">
 import { researchQuestionSchema, type ResearchExecutionResponse } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
+import { useResearchLocation } from '~/composables/useResearchLocation'
 import { useResearchSuggestions } from '~/composables/useResearchSuggestions'
 import { researchAnswerQuery, researchAnswerUrl } from '~/utils/research-answer'
 const route = useRoute()
 const auth = useAuthStore()
 const { $adminApi } = useNuxtApp()
 const question = ref('')
+const location = useResearchLocation()
+const {
+  context: locationContext,
+  error: locationError,
+  pending: locating,
+  manual: manualLocation,
+} = location
+const manualPlace = ref('')
+const needsLocation = computed(
+  () =>
+    data.value?.result.kind === 'needs_clarification' &&
+    data.value.result.planner_state === 'needs_location',
+)
+async function submitManualLocation() {
+  if (location.setManual(manualPlace.value)) await load()
+}
 const autosuggest = useResearchSuggestions(question)
 const { result: suggestions, active: activeSuggestion } = autosuggest
 let selectionReceipt: string | undefined
@@ -74,8 +91,20 @@ async function load() {
   try {
     const receipt = selectionReceipt
     selectionReceipt = undefined
-    const response = await $adminApi.researchQuery(parsed.data, controller.signal, receipt)
-    if (mounted && current === generation && auth.canResearch) data.value = response
+    const response = await $adminApi.researchQuery(
+      parsed.data,
+      controller.signal,
+      receipt,
+      locationContext.value,
+    )
+    if (mounted && current === generation && auth.canResearch) {
+      data.value = response
+      const canonical = response.resolution.find((item) => item.field === 'location_context')
+        ?.target.label
+      if (canonical && canonical.length <= 160 && locationContext.value?.latitude != null) {
+        locationContext.value = { ...locationContext.value, display_name: canonical }
+      }
+    }
   } catch (cause) {
     if (mounted && current === generation && auth.canResearch) error.value = asFailure(cause)
   } finally {
@@ -93,6 +122,17 @@ async function submit(receipt?: string) {
   await navigateTo({ path: '/research', query: researchAnswerUrl(parsed.data) })
 }
 async function adjust(candidate?: string) {
+  if (
+    data.value?.result.kind === 'needs_clarification' &&
+    data.value.result.field === 'location_context'
+  ) {
+    if (candidate && location.setManual(candidate)) {
+      await load()
+      return
+    }
+    manualLocation.value = true
+    return
+  }
   // Candidate labels are editable text, never a browser-submitted execution plan.
   if (candidate) {
     const result = data.value?.result
@@ -108,6 +148,8 @@ async function adjust(candidate?: string) {
 watch(
   () => route.query.question,
   () => {
+    location.cancel()
+    manualLocation.value = false
     question.value = typeof route.query.question === 'string' ? route.query.question : ''
     if (mounted) void load()
   },
@@ -119,6 +161,7 @@ watch(
     clear()
     selectionReceipt = undefined
     question.value = ''
+    manualPlace.value = ''
     permalink.value = null
   },
 )
@@ -265,7 +308,46 @@ onBeforeUnmount(() => {
         :error="error"
         @retry="load"
       />
-      <ResearchQueryAnswer v-if="data" :response="data" @adjust="adjust" />
+      <section
+        v-if="needsLocation || manualLocation"
+        class="rounded-xl border border-slate-200 bg-white p-4 space-y-3"
+        aria-label="Standort benötigt"
+      >
+        <h2 class="font-semibold">Standort benötigt</h2>
+        <p>Nutze deinen Standort oder gib einen Ort für diese Frage an.</p>
+        <div class="flex flex-wrap gap-3">
+          <button
+            type="button"
+            class="button-primary"
+            :disabled="locating || loading"
+            @click="location.locate(load)"
+          >
+            {{ locating ? 'Standort wird ermittelt …' : 'Standort freigeben' }}
+          </button>
+          <button type="button" class="button" @click="manualLocation = true">
+            Ort manuell eingeben
+          </button>
+        </div>
+        <p v-if="locationError" role="alert">{{ locationError }}</p>
+        <form
+          v-if="manualLocation"
+          class="flex flex-wrap gap-3"
+          @submit.prevent="submitManualLocation"
+        >
+          <label for="research-manual-location">Ort oder Adresse</label>
+          <input
+            id="research-manual-location"
+            v-model="manualPlace"
+            maxlength="160"
+            required
+            class="input"
+          />
+          <button type="submit" class="button-primary" :disabled="loading || !manualPlace.trim()">
+            Ort verwenden
+          </button>
+        </form>
+      </section>
+      <ResearchQueryAnswer v-if="data && !needsLocation" :response="data" @adjust="adjust" />
     </div>
   </div>
 </template>

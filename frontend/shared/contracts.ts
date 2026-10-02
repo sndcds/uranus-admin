@@ -373,6 +373,7 @@ export type InboxPage = z.infer<typeof inboxPageSchema>
 // Own API codes only. Messages are validated but replaced with local safe text.
 export const adminErrorStatuses = {
   research_planner_unavailable: 503,
+  geocoder_unavailable: 503,
   research_execution_unavailable: 503,
   research_plan_unsupported: 422,
   research_execution_unsupported: 422,
@@ -1663,3 +1664,5 @@ export * from './research'
 export * from './research-execution'
 
 export * from './research-suggestions'
+
+export * from './research-location'
