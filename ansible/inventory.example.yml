@@ -34,6 +34,8 @@ all:
           # ua_research_planner_qdrant_remote_port: 6333
           # ua_research_planner_embedding_local_port: 6335
           # ua_research_planner_embedding_remote_port: 6335
+          # ua_research_planner_geocoder_local_port: 6337
+          # ua_research_planner_geocoder_remote_port: 6337
           # All remote service targets are fixed to 127.0.0.1.
           # ua_research_planner_ssh_user: research-planner-tunnel
           # Key and known_hosts paths use protected /etc/uranus-admin defaults.

@@ -32,9 +32,12 @@ RESEARCH_GEOCODER_TIMEOUT_SECONDS=5
 
 Provision the geocoder's Bearer service key in Admin's protected server environment.
 HTTP requires a numeric loopback address; HTTPS may use a trusted configured host.
-Origins cannot contain a path, credentials, query or fragment. If Admin and the AI host
-are different machines, operators must provide the loopback tunnel before activation;
-this change neither deploys nor changes live services or SSH access.
+Origins cannot contain a path, credentials, query or fragment. The
+[managed Research tunnel](../../ansible/README.md#geographic-research-über-denselben-tunnel)
+adds the geocoder forward when a key is provisioned in protected `runtime.env`. Ansible
+requires its exact loopback HTTP URL, validates the key, and checks liveness and authenticated
+readiness before backend startup. Secret provisioning and the AI host's SSH allowlist remain
+separate operator responsibilities; no manual per-release tunnel or URL edits are needed.
 
 `ResearchGeocoderClient` calls only the internal service: `/search`, `/reverse`, `/lookup`
 and `/ready`. No Research place request goes directly to Nominatim. The geocoder API's

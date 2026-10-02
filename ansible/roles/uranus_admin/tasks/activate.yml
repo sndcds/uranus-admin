@@ -7,6 +7,7 @@
     ua_maintenance_attempted: false
     ua_geocode_touched: false
     ua_planner_touched: false
+    ua_geocoder_prestart_verified: false
 
 - name: Activate validated system configuration with bounded recovery
   when: not ansible_check_mode
@@ -162,10 +163,7 @@
         state: stopped
         timeout: 1
         msg: "A local tunnel port is occupied; refusing to start the tunnel or stop a foreign process."
-      loop:
-        - "{{ ua_research_planner_local_port }}"
-        - "{{ ua_research_planner_qdrant_local_port }}"
-        - "{{ ua_research_planner_embedding_local_port }}"
+      loop: "{{ [ua_research_planner_local_port, ua_research_planner_qdrant_local_port, ua_research_planner_embedding_local_port] + ([ua_research_planner_geocoder_local_port] if ua_research_geocoder_enabled | default(false) else []) }}"
       when: ua_planner_reconcile | default(false) and ua_research_planner_tunnel_enabled
 
     - name: Reconcile the optional tunnel before starting the backend
@@ -174,6 +172,14 @@
         state: "{{ 'restarted' if ua_research_planner_tunnel_enabled else 'stopped' }}"
         enabled: "{{ ua_research_planner_tunnel_enabled }}"
       when: ua_planner_reconcile | default(false)
+
+    - name: Verify geographic Research before starting the backend
+      ansible.builtin.import_tasks: healthchecks_research_geocoder.yml
+
+    - name: Record successful geocoder pre-start validation
+      ansible.builtin.set_fact:
+        ua_geocoder_prestart_verified: true
+      when: ua_research_geocoder_enabled | default(false) | bool
 
     - name: Start affected application services
       ansible.builtin.systemd_service:

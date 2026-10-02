@@ -336,6 +336,8 @@ def valid_planner_tunnel(
     qdrant_remote_port,
     embedding_local_port,
     embedding_remote_port,
+    geocoder_local_port,
+    geocoder_remote_port,
 ):
     def safe_path(value):
         return (
@@ -361,9 +363,11 @@ def valid_planner_tunnel(
                 qdrant_remote_port,
                 embedding_local_port,
                 embedding_remote_port,
+                geocoder_local_port,
+                geocoder_remote_port,
             )
         )
-        and len({local_port, qdrant_local_port, embedding_local_port}) == 3
+        and len({local_port, qdrant_local_port, embedding_local_port, geocoder_local_port}) == 4
         and remote_host == "127.0.0.1"
         and safe_path(key)
         and safe_path(known)

@@ -1,0 +1,40 @@
+# Shared by pre-start activation and standalone local health validation.
+- name: Check enabled research geocoder tunnel
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ua_research_planner_geocoder_local_port }}/health"
+    method: GET
+    status_code: 200
+    return_content: true
+    follow_redirects: none
+    use_proxy: false
+    use_netrc: false
+    timeout: 5
+  register: ua_geocoder_health
+  until: >-
+    ua_geocoder_health.status | default(0) == 200 and
+    ua_geocoder_health.json | default({}) == {'status': 'ok'}
+  retries: 10
+  delay: 2
+  no_log: true
+  when: ua_research_geocoder_enabled | default(false) | bool
+
+- name: Check enabled research geocoder authenticated readiness
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ua_research_planner_geocoder_local_port }}/ready"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ ua_runtime['RESEARCH_GEOCODER_API_KEY'] }}"
+    status_code: 200
+    return_content: true
+    follow_redirects: none
+    use_proxy: false
+    use_netrc: false
+    timeout: 5
+  register: ua_geocoder_ready
+  until: >-
+    ua_geocoder_ready.status | default(0) == 200 and
+    ua_geocoder_ready.json | default({}) == {'status': 'ready'}
+  retries: 10
+  delay: 2
+  no_log: true
+  when: ua_research_geocoder_enabled | default(false) | bool
