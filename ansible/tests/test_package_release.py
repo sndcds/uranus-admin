@@ -621,6 +621,40 @@ class BuildHostTests(unittest.TestCase):
                     self.builder.build_frontend(commit, root)
                 self.assertTrue(all(call.args[0][0] == "git" for call in run.call_args_list))
 
+    def test_verification_archives_only_shared_fixture_from_selected_commit(self):
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        fixture = Path("backend/tests/fixtures/research_analytics.json")
+        expected = subprocess.check_output(["git", "show", f"{commit}:{fixture}"])
+        original = self.builder.subprocess.check_output
+        for verify in (False, True):
+            with self.subTest(verify=verify), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+
+                def inspect_sources(argv, *, verify=verify, root=root, **kwargs):
+                    if argv == ["node", "--version"]:
+                        if verify:
+                            self.assertEqual((root / fixture).read_bytes(), expected)
+                            self.assertEqual(
+                                sorted(
+                                    path.relative_to(root)
+                                    for path in (root / "backend").rglob("*")
+                                    if path.is_file()
+                                ),
+                                [fixture],
+                            )
+                        else:
+                            self.assertFalse((root / "backend").exists())
+                        return "v0\n"  # Stop before installation, tests or building.
+                    return original(argv, **kwargs)
+
+                with (
+                    patch.object(
+                        self.builder.subprocess, "check_output", side_effect=inspect_sources
+                    ),
+                    self.assertRaisesRegex(ValueError, "requires node v22.22.3"),
+                ):
+                    self.builder.build_frontend(commit, root, verify=verify)
+
 
 if __name__ == "__main__":
     unittest.main()
