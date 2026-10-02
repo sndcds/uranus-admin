@@ -37,14 +37,16 @@ class AdministrativeIdentity:
 
 @dataclass(frozen=True, slots=True)
 class BoundaryReference:
-    # Identity of the persisted admin.research_area geometry, not an upstream URL.
-    area_id: UUID
+    # Cached admin UUID or verified Geocoder role identity; never an upstream URL.
+    area_id: UUID | str
+    geometry_json: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class UnresolvedAdministrativeAreaRef:
     name: str
     expected_level: AdministrativeLevel | None = None
+    country_code: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,8 +55,8 @@ class ResolvedAdministrativeAreaRef:
     level: AdministrativeLevel
     country_code: str
     official_code: str | None
-    code_system: OfficialCodeSystem | None
-    resolved_id: UUID
+    code_system: str | None
+    resolved_id: UUID | str
     boundary: BoundaryReference
     # Direct parent is deliberately absent if only a more distant ancestor is known.
     parent: AdministrativeIdentity | None = None
@@ -119,3 +121,12 @@ def uses_user_location(constraints: tuple[SpatialConstraint, ...]) -> bool:
 
 def location_sensitive(constraints: tuple[SpatialConstraint, ...]) -> bool:
     return any(isinstance(c.reference, (UserLocationRef, NamedPlaceRef)) for c in constraints)
+
+
+ADMINISTRATIVE_LEVELS = frozenset({"country", "state", "district", "municipality", "region"})
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedAdministrativeConstraint:
+    relation: Literal["inside", "outside"]
+    reference: ResolvedAdministrativeAreaRef

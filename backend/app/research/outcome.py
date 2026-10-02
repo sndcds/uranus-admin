@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.schemas.research_administrative_result import AdministrativeResult
 from app.schemas.research_execution import (
     ExecutionDiagnostics,
     ExecutionProvenance,
@@ -18,3 +19,4 @@ class ResearchExecutionOutcome:
     execution: ExecutionProvenance
     observed_at: datetime
     diagnostics: ExecutionDiagnostics
+    administrative: AdministrativeResult | None = None

@@ -1,6 +1,13 @@
 # Planner Wire Contract != Admin Execution Model
 
-## Audit before implementation
+The audit and validation history below record PR #172. PR #173 extends the same
+architecture with generic administrative execution; its current capabilities,
+provider boundaries and rollout are documented in
+[Administrative execution](administrative-execution.md). There is one internal
+plan, normalizer, resolver entry point and executor for v3/v5/v6/v8. Historical
+statements about unsupported administrative grouping describe the #172 baseline.
+
+## Audit before implementation (#172 baseline)
 
 Baseline: `d1e7476fe7966366a220dcc8734842bfe028127d`, freshly fetched `main`.
 This describes repository code, not verification of a running deployment.
@@ -240,7 +247,8 @@ expectation: v3/v5/v6 supply `None`; a future coordinated adapter can supply a l
 without adding version-specific resolver code.
 
 `ResolvedAdministrativeAreaRef` requires an authoritative `level`, country,
-resolved UUID and `BoundaryReference`; official codes can remain unknown. These
+resolved identity and `BoundaryReference` (a cached UUID, or a verified Geocoder
+OSM role identity with polygon JSON); official codes can remain unknown. These
 are separate types so expected and resolved truth cannot be confused. The immutable
 input plan retains its expectation while `Resolution` carries the resolved reference.
 
@@ -312,7 +320,7 @@ parent just because its district is missing. The hierarchy contains the areas
 resolved for this request, not a newly imported national catalog. Parent identities
 do not imply that parent boundaries are cached or executable.
 
-## Spatial membership and examples
+## Spatial membership and examples (#172 baseline; extended by #173)
 
 All `spatial_constraints` are AND predicates. v5/v6 adapters emit the one area
 constraint their wire supports and preserve an additional named-place/nearby
@@ -339,7 +347,7 @@ The effective event venue is `COALESCE(event_date.venue_uuid,event.venue_uuid)`;
 a space or organization point does not replace it. Source eligibility, occurrence
 selection, timezone and venue override handling are unchanged.
 
-## Explicit remaining geography capabilities
+## Geography capability gaps at the #172 baseline
 
 | Capability                                           | Status / missing evidence                                                                                                                  |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -382,7 +390,7 @@ Only backend and documentation changed. Frontend, Ansible, dependencies, runtime
 flags, source SQL, grants and migrations are unchanged. OpenAPI is checked against
 the existing generated snapshot rather than hand edited. No Docker tests are run locally. Final GitHub workflow checks are awaited separately.
 
-## Final validation and review gate
+## Final validation and review gate for #172 (historical)
 
 After the review corrections, the final validation runs from `backend/`:
 `uv sync --locked`, `uv run ruff check .`, `uv run ruff format --check .`,
@@ -411,3 +419,36 @@ authoritative state/country inventory, border operations and multiple administra
 AND execution remain explicit capability gaps for later generic capability PRs.
 The result is a **typed administrative resolution foundation**, not complete
 administrative geography or a v7 executor implementation.
+
+## Consolidated execution after PR #173
+
+`normalize.py` now also owns `normalize_v8`; the overlapping `internal_plan.py`
+and `normalizer.py` from the original #173 branch were removed. `plan.py` extends
+the existing `InternalResearchPlan` with exact location-coverage reporting and a
+zero-count predicate. `entity_type` describes the source population (events for
+administrative event-count analyses); `group_by` describes the output domain.
+Mapping a wire administrative subject to this population/group pair preserves both.
+
+`resolve_plan` remains the only request resolution entry point. Cached single-area
+selections retain #172's persisted metadata adapter and expected-level checks.
+Polygon conjunction/inventory/coverage selections use a specialized Geocoder
+metadata component called from that same resolver. Selection is by generic
+capability, never by schema version. Both providers produce the same
+`ResolvedAdministrativeAreaRef`; no OSM level mapping enters the domain or executor.
+
+`ResearchPlanExecutor.execute(plan, context, ...)` retains its signature and common
+capability gate, resolution, timeout/error handling and result models. A
+`ResolvedResearchPlan` carries SQL filters, verified boundary refs, inventory and
+closed selection options, never unresolved names. The administrative SQL primitive
+reuses `research_sql(occurrences=True)` and `parameters`; it does not define a
+second eligible-event population. Legacy count, aggregate, taxonomy, chronology,
+semantic eligibility and spatial extrema primitives remain unchanged.
+
+Multiple inside/outside predicates (maximum four), administrative event-count
+grouping/ranking and zero-event inventory joins are now generic capabilities.
+They are not a general v8 executor: semantic geography, other metrics and unsupported
+wire constraints fail explicitly. Future v7/v8 normalization belongs in
+`normalize.py`; new capabilities still require generic execution work.
+
+For #173, local validation uses no containers, external fixture skips are reported,
+and GitHub workflows are inspected once after the final push without waiting.

@@ -4,7 +4,13 @@ from dataclasses import dataclass, field
 from datetime import date, time
 from typing import Literal
 
-from app.research.geography import SpatialConstraint
+from app.research.geography import (
+    AdministrativeLevel,
+    ResolvedAdministrativeAreaRef,
+    ResolvedAdministrativeConstraint,
+    SpatialConstraint,
+)
+from app.schemas.research_execution import ExecutionFilters
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,24 +54,27 @@ class ComparisonTarget:
     query: str
 
 
+ResearchIntent = Literal[
+    "list",
+    "search",
+    "recommend",
+    "count",
+    "aggregate",
+    "compare",
+    "taxonomy",
+    "spatial_rank",
+    "rank",
+    "relation",
+    "trend",
+    "anomaly",
+    "explain",
+    "knowledge",
+]
+
+
 @dataclass(frozen=True, slots=True)
 class InternalResearchPlan:
-    intent: Literal[
-        "list",
-        "search",
-        "recommend",
-        "count",
-        "aggregate",
-        "compare",
-        "taxonomy",
-        "spatial_rank",
-        "rank",
-        "relation",
-        "trend",
-        "anomaly",
-        "explain",
-        "knowledge",
-    ]
+    intent: ResearchIntent
     entity_type: Literal["event", "venue", "organization"]
     metric: Literal[
         "none", "event_count", "occurrence_count", "venue_count", "organization_count"
@@ -90,6 +99,10 @@ class InternalResearchPlan:
     filters: NameFilters = field(default_factory=NameFilters)
     temporal: TemporalSelection = field(default_factory=TemporalSelection)
     spatial_constraints: tuple[SpatialConstraint, ...] = ()
+    # Request exact coverage diagnostics and polygon/inventory selection. This is
+    # an execution capability, independent of the supplying wire version.
+    location_coverage: bool = False
+    zero_only: bool = False
     spatial_metric: Literal["longitude", "latitude"] | None = None
     semantic: SemanticSelection | None = None
     taxonomy: Literal["genre", "event_type", "category"] | None = None
@@ -106,3 +119,18 @@ class InternalResearchPlan:
     anomaly: None = None
     explain: None = None
     knowledge: None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedResearchPlan:
+    """Version-independent SQL selection stage; no unresolved names or wire fields."""
+
+    filters: ExecutionFilters
+    intent: ResearchIntent
+    administrative_constraints: tuple[ResolvedAdministrativeConstraint, ...] = ()
+    grouping: AdministrativeLevel | None = None
+    zero_only: bool = False
+    ordering: Literal["asc", "desc"] = "desc"
+    limit: int = 20
+    inventory: tuple[ResolvedAdministrativeAreaRef, ...] = ()
+    inventory_countries: tuple[str, ...] = ()

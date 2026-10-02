@@ -1,5 +1,6 @@
 import re
 from ipaddress import ip_address
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -94,6 +95,7 @@ class Settings(BaseSettings):
     research_domain_enabled: bool = False
     research_knowledge_url: str | None = None
     research_knowledge_api_key: SecretStr | None = None
+    research_administrative_catalog_path: Path | None = None
     research_geocoder_url: str = "http://127.0.0.1:6337"
     research_geocoder_api_key: SecretStr | None = None
     research_geocoder_timeout_seconds: float = Field(default=5, gt=0, le=10)

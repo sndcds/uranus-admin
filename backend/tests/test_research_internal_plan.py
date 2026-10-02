@@ -335,7 +335,15 @@ def test_architecture_guard():
         root / "repositories/research_administrative.py",
         root / "research/capabilities.py",
     ]
-    forbidden = {"research_planner", "research_analytics", "research_geography", "research_v7"}
+    forbidden = {
+        "research_planner",
+        "research_analytics",
+        "research_geography",
+        "research_v7",
+        "research_v8_schema",
+        "research_v8_types",
+        "research_v8_constraints",
+    }
     for path in protected:
         source = path.read_text()
         assert "osm_admin_level" not in source, path
@@ -372,6 +380,7 @@ def test_architecture_guard():
 def test_internal_models_not_exposed_in_openapi(client):
     schema = client._transport.app.openapi()
     assert not {
+        "ResolvedResearchPlan",
         "InternalResearchPlan",
         "ResearchExecutionContext",
         "NameFilters",

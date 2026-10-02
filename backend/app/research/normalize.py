@@ -1,10 +1,11 @@
 """Validated wire -> domain adapters. No lookup, inference or contract repair."""
 
 from datetime import time
-from typing import Literal
+from typing import Literal, cast
 
 from app.errors import APIError
 from app.research.geography import (
+    ADMINISTRATIVE_LEVELS,
     AdministrativeLevel,
     NamedPlaceRef,
     SpatialConstraint,
@@ -18,6 +19,8 @@ from app.research.plan import (
     SemanticSelection,
     TemporalSelection,
 )
+from app.research.wire.research_v8_schema import ResearchQueryPlanV8
+from app.research.wire.research_v8_types import NameFilterV8
 from app.schemas.research_analytics import (
     AnalyticalEnvelope,
     AnalyticalPlanResponse,
@@ -156,5 +159,88 @@ def normalize(response: PlannerResponse) -> InternalResearchPlan:
 
 # v7 wire normalization lands here with a closed, validated contract. Existing
 # executable capabilities need no version-specific executor. New capabilities
-# (e.g. state/district grouping) still require generic executor/repository work.
+# beyond the implemented families still require generic executor/repository work.
 # Do not interpret unknown fields. There is no v7 transport/flag in this PR.
+
+
+def unsupported() -> APIError:
+    return APIError(422, "research_execution_unsupported", "This combination is not supported.")
+
+
+def normalize_v8(wire: ResearchQueryPlanV8) -> InternalResearchPlan:
+    wire = ResearchQueryPlanV8.model_validate_json(wire.model_dump_json())
+    if wire.clarification != "none":
+        raise APIError(
+            422, "research_plan_clarification", "The research question needs clarification."
+        )
+    if wire.unsupported_reason is not None or any(
+        (
+            wire.temporal,
+            wire.price,
+            wire.semantic,
+            wire.relation,
+            wire.trend,
+            wire.anomaly,
+            wire.explain,
+            wire.knowledge,
+            wire.comparison_targets,
+            wire.taxonomy,
+        )
+    ):
+        raise unsupported()
+    if wire.intent not in {"list", "count", "rank", "aggregate"}:
+        raise unsupported()
+    grouping = (
+        cast(AdministrativeLevel, wire.group_by) if wire.group_by in ADMINISTRATIVE_LEVELS else None
+    )
+    if grouping is None:
+        if (
+            wire.entity_type != "event"
+            or wire.group_by != "none"
+            or wire.intent not in {"list", "count"}
+        ):
+            raise unsupported()
+    elif wire.entity_type != grouping or wire.intent not in {"rank", "aggregate"}:
+        raise unsupported()
+    if wire.intent != "list" and (wire.metric is None or wire.metric.operation != "event_count"):
+        raise unsupported()
+    if wire.metric_filter is not None and (
+        grouping is None or wire.metric_filter.operator != "eq" or wire.metric_filter.value != 0
+    ):
+        raise unsupported()
+    category = None
+    for predicate in wire.filters:
+        if (
+            not isinstance(predicate, NameFilterV8)
+            or predicate.field != "category"
+            or predicate.operator != "eq"
+            or category is not None
+        ):
+            raise unsupported()
+        category = predicate.value
+    spatial = []
+    for geo in wire.spatial:
+        if (
+            geo.relation not in {"inside", "outside"}
+            or geo.reference != "named"
+            or geo.area_query is None
+        ):
+            raise unsupported()
+        spatial.append(
+            SpatialConstraint(
+                cast(Literal["inside", "outside"], geo.relation),
+                UnresolvedAdministrativeAreaRef(geo.area_query, geo.area_level),
+            )
+        )
+    return InternalResearchPlan(
+        intent=cast(Literal["list", "count", "rank", "aggregate"], wire.intent),
+        metric="event_count" if wire.metric is not None else "none",
+        entity_type="event",
+        group_by=grouping or "none",
+        spatial_constraints=tuple(spatial),
+        location_coverage=True,
+        filters=NameFilters(category_queries=(category,) if category else ()),
+        zero_only=wire.metric_filter is not None,
+        ordering=wire.ordering or "desc",
+        limit=wire.limit or 20,
+    )

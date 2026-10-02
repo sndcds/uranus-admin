@@ -3,7 +3,7 @@
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
-from typing import Literal
+from typing import Literal, cast
 from unicodedata import normalize
 from uuid import UUID
 
@@ -23,12 +23,17 @@ from app.repositories.research_administrative_metadata import administrative_lev
 from app.repositories.research_areas import ResolvedResearchArea, resolve_area
 from app.repositories.research_place import place_filter
 from app.repositories.vector_events import PUBLIC_EVENT
-from app.research.capabilities import require_supported_spatial
+from app.research.administrative_catalog import load_inventory
+from app.research.administrative_resolver import resolve_administrative_area
+from app.research.capabilities import boundary_execution, require_supported_spatial
 from app.research.context import ResearchExecutionContext
 from app.research.geography import (
+    ADMINISTRATIVE_LEVELS,
     AdministrativeHierarchy,
     AdministrativeLevel,
     NamedPlaceRef,
+    ResolvedAdministrativeAreaRef,
+    ResolvedAdministrativeConstraint,
     SpatialConstraint,
     UnresolvedAdministrativeAreaRef,
     administrative_constraints,
@@ -230,6 +235,9 @@ class Resolution:
         default_factory=lambda: AdministrativeHierarchy(())
     )
 
+    inventory: tuple[ResolvedAdministrativeAreaRef, ...] = ()
+    inventory_countries: tuple[str, ...] = ()
+
     @property
     def area_relation(self) -> Literal["inside", "outside"]:
         constraints = administrative_constraints(self.spatial_constraints)
@@ -344,7 +352,42 @@ async def resolve_plan(
         for t in plan.comparison_targets
         if t.kind == "area"
     )
-    if areas:
+    if boundary_execution(plan):
+        # The boundary/inventory provider supplies geographic identity and roles.
+        # Cached single-area selections retain their existing persisted authority.
+        for constraint in area_constraints:
+            assert isinstance(constraint.reference, UnresolvedAdministrativeAreaRef)
+            geocoder = request.app.state.research_geocoder
+            if geocoder is None:
+                raise unavailable()
+            reference = await resolve_administrative_area(geocoder, constraint.reference)
+            resolved.spatial_constraints += (replace(constraint, reference=reference),)
+            resolved.administrative_hierarchy = AdministrativeHierarchy(
+                (*resolved.administrative_hierarchy.areas, reference)
+            )
+            resolved.select(
+                "area_query",
+                constraint.reference.name,
+                [
+                    ResolutionCandidate(
+                        entity_type="area", id=str(reference.resolved_id), label=reference.name
+                    )
+                ],
+            )
+        if plan.group_by in ADMINISTRATIVE_LEVELS:
+            boundaries = tuple(
+                ResolvedAdministrativeConstraint(
+                    cast(Literal["inside", "outside"], c.relation),
+                    cast(ResolvedAdministrativeAreaRef, c.reference),
+                )
+                for c in resolved.spatial_constraints
+            )
+            resolved.inventory, resolved.inventory_countries = await load_inventory(
+                settings.research_administrative_catalog_path,
+                cast(AdministrativeLevel, plan.group_by),
+                boundaries,
+            )
+    elif areas:
         async with connect_admin(request) as admin, admin.begin():
             await admin.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
             for field_name, requested in areas:
