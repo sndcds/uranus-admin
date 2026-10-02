@@ -269,6 +269,7 @@ async def test_known_area_without_matches_returns_empty_page(
         "retrieved_at": datetime.now(UTC),
         "updated_at": datetime.now(UTC),
         "ewkb": b"synthetic-boundary",
+        "municipality_key": None,
     }
     retrieval["rehydrate"].return_value = RehydratedSemanticPage(
         items=[],

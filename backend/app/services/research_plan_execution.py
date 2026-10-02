@@ -3,7 +3,7 @@
 import asyncio
 from calendar import monthrange
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, timedelta
 from time import perf_counter
 from typing import cast
 from uuid import UUID
@@ -25,8 +25,15 @@ from app.repositories.research_execution import (
     taxonomy_selection,
 )
 from app.repositories.research_resolution import Resolution, resolve_plan
-from app.schemas.research_analytics import AnalyticalPlanResponse, AnalyticalQueryPlan
-from app.schemas.research_analytics_guard import analytical_mismatch
+from app.research.capabilities import require_supported
+from app.research.context import ResearchExecutionContext
+from app.research.geography import (
+    AdministrativeAreaRef,
+    administrative_constraints,
+    uses_user_location,
+)
+from app.research.outcome import ResearchExecutionOutcome
+from app.research.plan import InternalResearchPlan
 from app.schemas.research_execution import (
     AggregateResult,
     ComparisonItem,
@@ -41,35 +48,22 @@ from app.schemas.research_execution import (
     ExecutionResult,
     ExecutionSemanticFilters,
     RecordsResult,
-    ResearchExecutionResponse,
     SpatialResult,
     TaxonomyResult,
 )
-from app.schemas.research_geography import GeographicPlanResponse, GeographicQueryPlan
-from app.schemas.research_location import LocationContext
-from app.schemas.research_planner import PlanResponse
 from app.services.semantic_search import semantic_research
-
-EVENING_START = time(18)
-
-
-def unsupported(message: str) -> APIError:
-    return APIError(
-        422,
-        "research_execution_unsupported",
-        message,
-    )
 
 
 def temporal_bounds(
-    response: PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse,
+    plan: InternalResearchPlan,
+    context: ResearchExecutionContext,
 ) -> tuple[date | None, date | None]:
     # reference_date is already a local date in this validated zone. Calendar
     # arithmetic deliberately avoids UTC offsets, including across DST changes.
-    ZoneInfo(response.timezone)
-    ref, plan = response.reference_date, response.plan
+    ZoneInfo(context.timezone)
+    ref = context.reference_date
     monday = ref - timedelta(days=ref.weekday())
-    match plan.temporal:
+    match plan.temporal.period:
         case "none":
             return None, None
         case "today":
@@ -90,29 +84,38 @@ def temporal_bounds(
         case "future":
             return ref, None
         case "explicit_range":
-            return plan.explicit_from_date, plan.explicit_to_date
+            return plan.temporal.from_date, plan.temporal.to_date
 
 
 def execution_filters(
-    response: PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse, resolution: Resolution
+    plan: InternalResearchPlan, context: ResearchExecutionContext, resolution: Resolution
 ) -> ExecutionFilters:
-    start, end = temporal_bounds(response)
+    # SQL receives only verified IDs/boundaries. A resolver omission must not drop
+    # an administrative constraint and turn a scoped query into a global query.
+    constraints = administrative_constraints(plan.spatial_constraints)
+    if constraints:
+        resolved = administrative_constraints(resolution.spatial_constraints)
+        reference = resolved[0].reference if len(resolved) == 1 else None
+        if (
+            len(constraints) != 1
+            or resolution.area is None
+            or not isinstance(reference, AdministrativeAreaRef)
+            or reference.resolved_id != resolution.area.area.id
+            or reference.boundary is None
+            or reference.boundary.area_id != reference.resolved_id
+            or resolved[0].relation != constraints[0].relation
+        ):
+            raise APIError(502, "research_execution_invalid_plan", "Area resolution is incomplete.")
+    start, end = temporal_bounds(plan, context)
     filters = ExecutionFilters(
         place=resolution.place,
-        entity_type=response.plan.entity_type,
+        entity_type=plan.entity_type,
         from_date=start,
         to_date=end,
-        time_from=EVENING_START
-        if response.plan.time_of_day == "evening"
-        and not isinstance(response.plan, AnalyticalQueryPlan)
-        else None,
-        time_of_day=response.plan.time_of_day
-        if isinstance(response.plan, AnalyticalQueryPlan)
-        else "none",
-        area_relation=response.plan.area_relation
-        if isinstance(response.plan, AnalyticalQueryPlan)
-        else "inside",
-        page_size=response.plan.limit or 20,
+        time_from=plan.temporal.time_from,
+        time_of_day=plan.temporal.time_of_day,
+        area_relation=resolution.area_relation,
+        page_size=plan.limit or 20,
         area_id=resolution.area.area.id if resolution.area else None,
     )
     for item in resolution.fields:
@@ -137,83 +140,44 @@ class ResearchPlanExecutor:
         self,
         request: Request,
         settings: Settings,
-        plan_response: PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse,
+        plan: InternalResearchPlan,
+        context: ResearchExecutionContext,
         *,
-        planner_ms: float | None = None,
-        location_context: LocationContext | None = None,
-    ) -> ResearchExecutionResponse:
+        planner_ms: float,
+    ) -> ResearchExecutionOutcome:
         started = perf_counter()
-        planner_ms = plan_response.diagnostics.total_ms if planner_ms is None else planner_ms
-        plan = plan_response.plan
         resolution = Resolution()
         provenance = ExecutionProvenance()
         resolution_ms = execution_ms = 0.0
         observed_at = datetime.now(UTC)
-        if plan.unsupported_reason is not None or (
-            plan.clarification == "none"
-            and analytical_mismatch(
-                plan.original_query,
-                plan.intent,
-                plan.group_by,
-                getattr(plan, "taxonomy", None),
-                getattr(plan, "area_relation", "inside"),
-                plan.time_of_day,
-            )
-        ):
+        if plan.unsupported_reason is not None:
             raise APIError(422, "research_plan_unsupported", "This research plan is unsupported.")
         location_satisfied = (
-            isinstance(plan, GeographicQueryPlan)
-            and plan.location_relation == "nearby"
-            and location_context is not None
+            uses_user_location(plan.spatial_constraints)
+            and context.location_context is not None
             and plan.clarification == "needs_location"
         )
-        if plan_response.kind == "needs_clarification" and not location_satisfied:
+        if plan.clarification != "none" and not location_satisfied:
             result: ExecutionResult = ExecutionClarification(
                 reason="planner", planner_state=plan.clarification
             )
         else:
             if (
                 plan.clarification != "none" and not location_satisfied
-            ) or plan_response.timezone != settings.event_timezone:
+            ) or context.timezone != settings.event_timezone:
                 raise APIError(
                     502, "research_execution_invalid_plan", "The research plan is invalid."
                 )
-            if plan.requires_semantic_relevance and plan.entity_type != "event":
-                raise unsupported("Semantic execution is supported only for events.")
-            if plan.requires_semantic_relevance and plan.intent in {
-                "count",
-                "aggregate",
-                "compare",
-            }:
-                raise unsupported(
-                    "Exact semantic counts, aggregates and comparisons are not supported."
-                )
-            if plan.group_by == "area":
-                raise unsupported("Area grouping requires an explicit non-overlapping area level.")
-            # A comparison target intersects all common filters. Overriding a
-            # common constraint of the same dimension would broaden the query.
-            if any(
-                (t.kind == "area" and plan.area_query)
-                or (t.kind == "venue" and plan.venue_query)
-                or (t.kind == "organization" and plan.organization_query)
-                for t in plan.comparison_targets
-            ):
-                raise unsupported(
-                    "Comparison targets cannot replace a common filter of the same type."
-                )
+            require_supported(plan)
             try:
                 # Bound the complete resolution stage, in addition to DB statement limits.
                 async with asyncio.timeout(settings.db_timeout_seconds):
-                    resolution = (
-                        await resolve_plan(request, settings, plan, location_context)
-                        if isinstance(plan, GeographicQueryPlan)
-                        else await resolve_plan(request, settings, plan)
-                    )
+                    resolution = await resolve_plan(request, settings, plan, context)
                 resolution_ms = (perf_counter() - started) * 1000
                 if resolution.clarification is not None:
                     result = resolution.clarification
                 else:
-                    filters = execution_filters(plan_response, resolution)
+                    filters = execution_filters(plan, context, resolution)
                     provenance = ExecutionProvenance(
                         from_date=filters.from_date,
                         to_date=filters.to_date,
@@ -224,11 +188,10 @@ class ResearchPlanExecutor:
                         category_ids=filters.category_ids,
                         genre_keys=filters.genre_keys,
                         structured=True,
-                        semantic=plan.requires_semantic_relevance,
+                        semantic=plan.semantic is not None,
                     )
                     before = perf_counter()
-                    if plan.requires_semantic_relevance:
-                        assert plan.semantic_query is not None
+                    if plan.semantic is not None:
                         semantic_filters = ExecutionSemanticFilters(
                             place=filters.place,
                             **{
@@ -239,7 +202,7 @@ class ResearchPlanExecutor:
                             q="\n".join(
                                 dict.fromkeys(
                                     term
-                                    for term in (plan.semantic_query, plan.semantic_focus)
+                                    for term in (plan.semantic.query, plan.semantic.focus)
                                     if term
                                 )
                             ),
@@ -270,7 +233,7 @@ class ResearchPlanExecutor:
                             asynccontextmanager(get_connection)(request) as connection,
                         ):
                             observed_at = datetime.now(UTC)
-                            if isinstance(plan, AnalyticalQueryPlan) and plan.intent == "taxonomy":
+                            if plan.intent == "taxonomy":
                                 assert plan.taxonomy is not None
                                 result = await taxonomy_selection(
                                     connection,
@@ -281,10 +244,7 @@ class ResearchPlanExecutor:
                                     filters.page_size,
                                     plan.ordering or "asc",
                                 )
-                            elif (
-                                isinstance(plan, AnalyticalQueryPlan)
-                                and plan.intent == "spatial_rank"
-                            ):
+                            elif plan.intent == "spatial_rank":
                                 assert plan.spatial_metric is not None and plan.ordering is not None
                                 result = SpatialResult(
                                     spatial_metric=plan.spatial_metric,
@@ -383,14 +343,11 @@ class ResearchPlanExecutor:
                 raise APIError(
                     502, "research_execution_invalid_plan", "The research plan is invalid."
                 ) from None
-        return ResearchExecutionResponse(
-            query=plan.original_query,
-            plan=plan_response,
+        return ResearchExecutionOutcome(
             resolution=resolution.fields,
             result=result,
             execution=provenance,
             observed_at=observed_at,
-            timezone=plan_response.timezone,
             diagnostics=ExecutionDiagnostics(
                 planner_ms=planner_ms,
                 resolution_ms=resolution_ms,

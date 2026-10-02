@@ -1,6 +1,6 @@
 """Closed execution results and internal filters; never accepted from a browser."""
 
-from datetime import date, datetime, time
+from datetime import date, time
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -12,10 +12,8 @@ from app.schemas.research import (
     SemanticResearchFilters,
     SemanticResearchRecord,
 )
-from app.schemas.research_analytics import AnalyticalPlanResponse
-from app.schemas.research_geography import GeographicPlanResponse
 from app.schemas.research_location import Place, PlaceFilter
-from app.schemas.research_planner import ClosedModel, PlanResponse, Query, Slot
+from app.schemas.research_values import ClosedModel, Slot
 
 ExecutionMetric = Literal["event_count", "occurrence_count", "venue_count", "organization_count"]
 ExecutionGrouping = Literal["event", "venue", "organization", "category", "genre", "event_type"]
@@ -169,14 +167,3 @@ class ExecutionDiagnostics(ClosedModel):
     execution_ms: float = Field(default=0, ge=0)
     total_ms: float = Field(ge=0)
     returned_count: int = Field(default=0, ge=0, le=20)
-
-
-class ResearchExecutionResponse(ClosedModel):
-    query: Query
-    plan: GeographicPlanResponse | PlanResponse | AnalyticalPlanResponse
-    resolution: list[ResolvedField] = Field(default_factory=list, max_length=32)
-    result: ExecutionResult
-    execution: ExecutionProvenance
-    observed_at: datetime
-    timezone: str
-    diagnostics: ExecutionDiagnostics

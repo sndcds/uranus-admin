@@ -21,6 +21,9 @@ from app.repositories.research import (
     research_page,
 )
 from app.repositories.research_areas import area_metadata, area_page, request_area
+from app.research.context import ResearchExecutionContext
+from app.research.geography import location_sensitive
+from app.research.normalize import normalize
 from app.schemas.research import (
     ResearchDetail,
     ResearchExport,
@@ -32,10 +35,9 @@ from app.schemas.research import (
     SemanticResearchPage,
 )
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
-from app.schemas.research_execution import ResearchExecutionResponse
-from app.schemas.research_geography import GeographicQueryPlan
 from app.schemas.research_location import ResearchQueryRequest
 from app.schemas.research_planner import PlanResponse, ResearchPlanRequest
+from app.schemas.research_response import ResearchExecutionResponse
 from app.schemas.research_suggestions import (
     Impression,
     Selection,
@@ -95,18 +97,32 @@ async def query(
         else await planner.plan(body.query)
     )
     planner_ms = (perf_counter() - started) * 1000
-    result = await ResearchPlanExecutor().execute(
+    internal = normalize(response)
+    context = ResearchExecutionContext(
+        reference_date=response.reference_date,
+        timezone=response.timezone,
+        original_query=response.plan.original_query,
+        location_context=body.location_context,
+    )
+    outcome = await ResearchPlanExecutor().execute(
         request,
         settings,
-        response,
+        internal,
+        context,
         planner_ms=planner_ms,
-        **(
-            {"location_context": body.location_context} if body.location_context is not None else {}
-        ),
     )
-    sensitive_location = body.location_context is not None or (
-        isinstance(response.plan, GeographicQueryPlan)
-        and (response.plan.place_query is not None or response.plan.location_relation == "nearby")
+    result = ResearchExecutionResponse(
+        query=context.original_query,
+        plan=response,
+        resolution=outcome.resolution,
+        result=outcome.result,
+        execution=outcome.execution,
+        observed_at=outcome.observed_at,
+        timezone=context.timezone,
+        diagnostics=outcome.diagnostics,
+    )
+    sensitive_location = context.location_context is not None or (
+        location_sensitive(internal.spatial_constraints)
     )
     if not sensitive_location:
         await record_success(request, result, x_research_selection)

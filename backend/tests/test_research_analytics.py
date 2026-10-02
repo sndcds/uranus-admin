@@ -12,9 +12,11 @@ from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import text
 
 from app.errors import APIError
+from app.repositories.research_administrative import administrative_reference
 from app.repositories.research_areas import ResolvedResearchArea
 from app.repositories.research_execution import count_selection, spatial_records, taxonomy_selection
 from app.repositories.research_resolution import Resolution
+from app.research.geography import SpatialConstraint
 from app.schemas.research_analytics import AnalyticalPlanResponse, AnalyticalQueryPlan
 from app.schemas.research_analytics_guard import analytical_mismatch
 from app.schemas.research_areas import ResearchArea
@@ -22,6 +24,7 @@ from app.schemas.research_execution import ExecutionFilters
 from app.services import research_plan_execution as executor
 from app.services.research_planner import ResearchPlannerClient
 from tests.conftest import uid
+from tests.research_plan_helpers import plan_context
 from tests.test_research_plan_execution import execution_source as execution_source_fixture
 from tests.test_research_planner import configured
 from tests.test_research_taxonomy import taxonomy_source as taxonomy_source_fixture
@@ -78,7 +81,10 @@ async def test_admin_rejects_generic_fallback_before_source_access(settings, mon
     monkeypatch.setattr(executor, "resolve_plan", resolve)
     with pytest.raises(APIError) as exc:
         await executor.ResearchPlanExecutor().execute(
-            Request({"type": "http"}), settings, planned(original_query=query)
+            Request({"type": "http"}),
+            settings,
+            *plan_context(planned(original_query=query)),
+            planner_ms=0,
         )
     assert exc.value.code == "research_plan_unsupported"
     resolve.assert_not_awaited()
@@ -143,7 +149,17 @@ async def test_authoritative_execution(settings, taxonomy_source, monkeypatch, c
         monkeypatch.setattr(
             executor,
             "resolve_plan",
-            AsyncMock(return_value=Resolution(area=ResolvedResearchArea(area, bytes(geometry)))),
+            AsyncMock(
+                return_value=Resolution(
+                    area=ResolvedResearchArea(area, bytes(geometry)),
+                    spatial_constraints=(
+                        SpatialConstraint(
+                            case["plan"]["area_relation"],
+                            administrative_reference(ResolvedResearchArea(area, bytes(geometry))),
+                        ),
+                    ),
+                )
+            ),
         )
     monkeypatch.setattr(
         executor, "semantic_research", AsyncMock(side_effect=AssertionError("no semantics"))
@@ -151,12 +167,12 @@ async def test_authoritative_execution(settings, taxonomy_source, monkeypatch, c
     if case["plan"]["unsupported_reason"]:
         with pytest.raises(APIError) as exc:
             await executor.ResearchPlanExecutor().execute(
-                Request({"type": "http"}), settings, envelope(case)
+                Request({"type": "http"}), settings, *plan_context(envelope(case)), planner_ms=0
             )
         assert exc.value.code == "research_plan_unsupported"
         return
     response = await executor.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, envelope(case)
+        Request({"type": "http"}), settings, *plan_context(envelope(case)), planner_ms=0
     )
     result = response.result
     assert response.execution.structured and not response.execution.semantic
@@ -462,7 +478,7 @@ async def test_jazz_august_count_pipeline_without_semantic_service(settings, mon
     monkeypatch.setattr(executor, "count_selection", count)
     monkeypatch.setattr(executor, "semantic_research", semantic)
     response = await executor.ResearchPlanExecutor().execute(
-        Request({"type": "http"}), settings, envelope(case)
+        Request({"type": "http"}), settings, *plan_context(envelope(case)), planner_ms=0
     )
     assert response.result.kind == "count" and response.result.value == 37
     filters = count.await_args.args[2]
@@ -510,7 +526,7 @@ async def test_event_type_substitution_rejected_before_resolution(settings, monk
     monkeypatch.setattr(executor, "resolve_plan", resolve)
     with pytest.raises(APIError) as exc:
         await executor.ResearchPlanExecutor().execute(
-            Request({"type": "http"}), settings, envelope(wrong)
+            Request({"type": "http"}), settings, *plan_context(envelope(wrong)), planner_ms=0
         )
     assert exc.value.code == "research_plan_unsupported"
     resolve.assert_not_awaited()

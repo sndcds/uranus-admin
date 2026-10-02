@@ -1,7 +1,7 @@
 """Bounded literal name resolution over public Research projections only."""
 
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from hashlib import sha256
 from typing import Literal
 from unicodedata import normalize
@@ -18,10 +18,21 @@ from app.database import get_connection
 from app.errors import APIError
 from app.repositories.entity_search import escape_search
 from app.repositories.research import GENRE_LABELS, parameters, research_options_sql, research_sql
+from app.repositories.research_administrative import administrative_reference
 from app.repositories.research_areas import ResolvedResearchArea, resolve_area
 from app.repositories.research_place import place_filter
 from app.repositories.vector_events import PUBLIC_EVENT
-from app.schemas.research_analytics import AnalyticalQueryPlan
+from app.research.capabilities import require_supported_spatial
+from app.research.context import ResearchExecutionContext
+from app.research.geography import (
+    AdministrativeAreaRef,
+    AdministrativeHierarchy,
+    NamedPlaceRef,
+    SpatialConstraint,
+    administrative_constraints,
+    uses_user_location,
+)
+from app.research.plan import InternalResearchPlan
 from app.schemas.research_execution import (
     ExecutionClarification,
     ExecutionFilters,
@@ -29,9 +40,7 @@ from app.schemas.research_execution import (
     ResolutionField,
     ResolvedField,
 )
-from app.schemas.research_geography import GeographicQueryPlan
-from app.schemas.research_location import LocationContext, PlaceFilter
-from app.schemas.research_planner import ResearchQueryPlan
+from app.schemas.research_location import PlaceFilter
 
 ResolutionKind = Literal["area", "venue", "organization", "category", "event_type", "genre"]
 
@@ -207,6 +216,17 @@ class Resolution:
     target_areas: dict[str, ResolvedResearchArea] = field(default_factory=dict)
     clarification: ExecutionClarification | None = None
     place: PlaceFilter | None = None
+    spatial_constraints: tuple[SpatialConstraint, ...] = ()
+    administrative_hierarchy: AdministrativeHierarchy = field(
+        default_factory=lambda: AdministrativeHierarchy(())
+    )
+
+    @property
+    def area_relation(self) -> Literal["inside", "outside"]:
+        constraints = administrative_constraints(self.spatial_constraints)
+        if constraints and constraints[0].relation == "outside":
+            return "outside"
+        return "inside"
 
     def select(
         self, field_name: ResolutionField, query: str, choices: list[ResolutionCandidate]
@@ -227,13 +247,22 @@ class Resolution:
 async def resolve_plan(
     request: Request,
     settings: Settings,
-    plan: ResearchQueryPlan | AnalyticalQueryPlan,
-    location_context: LocationContext | None = None,
+    plan: InternalResearchPlan,
+    context: ResearchExecutionContext,
 ) -> Resolution:
+    require_supported_spatial(plan)
     resolved = Resolution()
-    if isinstance(plan, GeographicQueryPlan):
-        query = plan.place_query
-        nearby = plan.location_relation == "nearby"
+    location_context = context.location_context
+    query = next(
+        (
+            c.reference.name
+            for c in plan.spatial_constraints
+            if isinstance(c.reference, NamedPlaceRef)
+        ),
+        None,
+    )
+    nearby = uses_user_location(plan.spatial_constraints)
+    if query or nearby:
         if nearby and location_context is None:
             resolved.clarification = ExecutionClarification(
                 reason="planner", planner_state="needs_location"
@@ -297,8 +326,10 @@ async def resolve_plan(
                     )
                     return resolved
     areas: list[tuple[ResolutionField, str]] = []
-    if plan.area_query:
-        areas.append(("area_query", plan.area_query))
+    area_constraints = administrative_constraints(plan.spatial_constraints)
+    for constraint in area_constraints:
+        assert isinstance(constraint.reference, AdministrativeAreaRef)
+        areas.append(("area_query", constraint.reference.name))
     areas.extend(
         ("comparison_targets", t.query) for t in plan.comparison_targets if t.kind == "area"
     )
@@ -312,24 +343,29 @@ async def resolve_plan(
                 if target is None:
                     return resolved
                 area = await resolve_area(admin, UUID(target.id))
+                reference = administrative_reference(area)
+                resolved.administrative_hierarchy = AdministrativeHierarchy(
+                    (*resolved.administrative_hierarchy.areas, reference)
+                )
                 if field_name == "area_query":
                     resolved.area = area
+                    resolved.spatial_constraints += (
+                        replace(area_constraints[0], reference=reference),
+                    )
                 else:
                     resolved.target_areas[target.id] = area
     slots: list[tuple[ResolutionField, ResolutionKind, str]] = []
-    if plan.venue_query:
-        slots.append(("venue_query", "venue", plan.venue_query))
-    if plan.organization_query:
-        slots.append(("organization_query", "organization", plan.organization_query))
-    slots.extend(("event_type_queries", "event_type", q) for q in plan.event_type_queries)
-    slots.extend(("genre_queries", "genre", q) for q in plan.genre_queries)
-    slots.extend(("category_queries", "category", q) for q in plan.category_queries)
+    if plan.filters.venue_query:
+        slots.append(("venue_query", "venue", plan.filters.venue_query))
+    if plan.filters.organization_query:
+        slots.append(("organization_query", "organization", plan.filters.organization_query))
+    slots.extend(("event_type_queries", "event_type", q) for q in plan.filters.event_type_queries)
+    slots.extend(("genre_queries", "genre", q) for q in plan.filters.genre_queries)
+    slots.extend(("category_queries", "category", q) for q in plan.filters.category_queries)
     slots.extend(
         ("comparison_targets", t.kind, t.query) for t in plan.comparison_targets if t.kind != "area"
     )
-    candidate_area = (
-        None if getattr(plan, "area_relation", "inside") == "outside" else resolved.area
-    )
+    candidate_area = None if resolved.area_relation == "outside" else resolved.area
     if slots:
         async with asynccontextmanager(get_connection)(request) as connection:
             for field_name, kind, query in slots:
