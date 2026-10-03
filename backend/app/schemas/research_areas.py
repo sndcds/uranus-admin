@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.finding import Pagination
 from app.schemas.research import ResearchLocation, ResearchMonth, ResearchPage, ResearchUsageItem
 
-AreaType = Literal["region", "district", "municipality"]
+AreaType = Literal["region", "district", "municipality", "state"]
 
 
 class AreaFilters(BaseModel):

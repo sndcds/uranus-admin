@@ -1,0 +1,55 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:51529:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-SH",
+  "osm_admin_level": 6,
+  "inventory_source": "OSM boundary relation metadata reviewed 2026-10-04; https://wiki.openstreetmap.org/w/index.php?title=Schleswig-Holstein&oldid=2323471; rural districts only (municipality-role cities excluded)",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 27028
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62703
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 27019
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 27025
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62408
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 27026
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 27017
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 27014
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62733
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 27016
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62546
+    }
+  ]
+}
