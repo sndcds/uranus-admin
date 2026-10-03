@@ -69,11 +69,12 @@ def test_bad_dimensions_rejected(dims):
         ResearchQueryPlanV9.model_validate_json(json.dumps(data))
 
 
-def test_old_scalar_normalizes_without_loss():
+@pytest.mark.parametrize("dimension", ["venue", "event_type"])
+def test_old_scalar_normalizes_without_loss(dimension):
     data = wire().model_dump(mode="json")
-    data["group_by"] = "event_type"
+    data["group_by"] = dimension
     old = ResearchQueryPlanV7.model_validate_json(json.dumps(data))
-    assert normalize_v7_grouping(old).groupings == ("event_type",)
+    assert normalize_v7_grouping(old).groupings == (dimension,)
     assert InternalResearchPlan(
         intent="aggregate", entity_type="event", group_by="genre"
     ).groupings == ("genre",)
@@ -121,65 +122,6 @@ async def test_occurrences_not_events_and_join_multiplicity(settings, execution_
         execution_source, settings, replace(plan, metric="event_count"), resolved, None
     )
     assert events.items[0].value == 2
-
-
-async def test_grouped_route_boundary(client, headers, settings, monkeypatch):
-    from types import SimpleNamespace
-
-    from app.research.wire.research_v9_schema import PlanResponseV9
-    from app.schemas.research_execution import GroupedResult
-    from app.services.research_plan_execution import ResearchPlanExecutor
-
-    plan = wire()
-    response = PlanResponseV9.model_validate_json(
-        json.dumps(
-            {
-                "kind": "plan",
-                "schema_version": "research-query-plan-v9",
-                "prompt_version": "research-planner-v15",
-                "model": "test-model",
-                "plan": plan.model_dump(mode="json"),
-                "reference_date": "2026-10-02",
-                "timezone": "Europe/Berlin",
-                "diagnostics": {
-                    "request_id": "a" * 32,
-                    "planner_intent": "aggregate",
-                    "planner_model": "test-model",
-                    "planner_prompt_version": "research-planner-v15",
-                    "planner_ms": 1,
-                    "total_ms": 1,
-                },
-            }
-        )
-    )
-    planner = AsyncMock()
-    planner.plan_grouped.return_value = response
-    client._transport.app.state.research_planner = planner
-    execute = AsyncMock(
-        return_value=SimpleNamespace(
-            result=GroupedResult(
-                metric="occurrence_count",
-                dimensions=["event_type", "month"],
-                ordering="desc",
-                limit=20,
-                items=[],
-            )
-        )
-    )
-    monkeypatch.setattr(ResearchPlanExecutor, "execute", execute)
-    path = "/api/v1/research/v9/query"
-    assert (await client.post(path, json={"query": plan.original_query})).status_code == 401
-    result = await client.post(path, headers=headers, json={"query": plan.original_query})
-    assert result.status_code == 200 and result.json()["dimensions"] == ["event_type", "month"]
-    assert planner.plan_grouped.await_count == 1
-    assert execute.await_args.args[2].groupings == ("event_type", "month")
-    assert (await client.post(path, headers=headers, content=b"x" * 33000)).status_code == 413
-    planner.plan_grouped.return_value = response.model_copy(
-        update={"plan": plan.model_copy(update={"original_query": "altered"})}
-    )
-    assert (
-        await client.post(path, headers=headers, json={"query": plan.original_query})
-    ).status_code == 502
 
 
 async def test_category_municipality_shared_boundaries(settings, execution_source):

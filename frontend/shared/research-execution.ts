@@ -3,6 +3,7 @@ import {
   locationContextSchema,
   placeSchema,
 } from './research-location'
+import { groupedPlanResponseSchema } from './research-grouping'
 import { analyticalPlanResponseSchema } from './research-analytics'
 import { z } from './zod'
 import {
@@ -391,6 +392,7 @@ export const researchExecutionResponseSchema = z
     sql_provenance: z.array(researchSqlStatementSchema).max(16),
     query: researchQuestionSchema,
     plan: z.union([
+      groupedPlanResponseSchema,
       geographicPlanResponseSchema,
       researchPlanResponseSchema,
       analyticalPlanResponseSchema,

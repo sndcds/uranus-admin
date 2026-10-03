@@ -1,10 +1,24 @@
 # Ordered multidimensional Research grouping
 
-The additive `/api/v1/research/v9/query` route calls Planner `/v9/plan` once,
-normalizes the closed wire plan, then uses the existing ResearchPlanExecutor.
-It does not switch existing clients or use a version-specific executor.
-Planner v9 / prompt v15 preserves the public v7 contract. V8 remains the
-administrative-geography transport. No migration, grant or deployment is included.
+The normal `/api/v1/research/query` route selects its Planner contract at the
+server transport boundary. Set `RESEARCH_PLANNER_CONTRACT=v9` in the protected
+runtime environment to call `/v9/plan` once (schema `research-query-plan-v9`,
+prompt `research-planner-v15`). The default `legacy` preserves the existing
+v3/v5/v6 selection and location-context behavior. Rollback is `legacy`.
+No automatic negotiation, language heuristics, second call or version fallback
+is introduced. Deploy a compatible Planner before opting in; this PR does not deploy.
+The existing Ansible runtime setting discovery includes the new setting; the browser
+cannot choose it. V8 administrative transport and capabilities remain unchanged.
+
+Both transports normalize into InternalResearchPlan and use the shared resolver
+and ResearchPlanExecutor. The normal ResearchExecutionResponse preserves the
+validated wire plan, resolution, execution provenance, observed_at, timezone and
+measured planner/total diagnostics. ResearchQuestion still calls researchQuery;
+grouped results reach ResearchQueryAnswer through that same validated envelope.
+The unused `/v9/query`, proxy entry and researchGroupedQuery helper are removed.
+The frontend strictly mirrors the executable v9 plan subset; unsupported v9
+capabilities fail closed before a success envelope is returned.
+No migration, grant or deployment is included.
 
 InternalResearchPlan.groupings is an ordered tuple. Legacy scalar entry points
 normalize to a singleton; none normalizes to empty. A multidimensional plan never

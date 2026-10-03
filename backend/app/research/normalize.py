@@ -21,6 +21,7 @@ from app.research.plan import (
 )
 from app.research.wire.research_v8_schema import ResearchQueryPlanV8
 from app.research.wire.research_v8_types import NameFilterV8
+from app.research.wire.research_v9_schema import PlanResponseV9
 from app.schemas.research_analytics import (
     AnalyticalEnvelope,
     AnalyticalPlanResponse,
@@ -30,7 +31,7 @@ from app.schemas.research_analytics_guard import analytical_mismatch
 from app.schemas.research_geography import GeographicEnvelope, GeographicPlanResponse
 from app.schemas.research_planner import PlanResponse, ResearchQueryPlan
 
-PlannerResponse = PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse
+PlannerResponse = PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse | PlanResponseV9
 
 
 def _common(
@@ -146,6 +147,10 @@ def normalize_v6(response: GeographicPlanResponse) -> InternalResearchPlan:
 
 
 def normalize(response: PlannerResponse) -> InternalResearchPlan:
+    if isinstance(response, PlanResponseV9):
+        from app.research.normalize_grouping import normalize_v9
+
+        return normalize_v9(response.plan)
     # Envelope consistency is validated by the transport. Retain the guard for
     # internal/injected callers without leaking disposition into the domain.
     if (response.kind == "plan") != (response.plan.clarification == "none"):

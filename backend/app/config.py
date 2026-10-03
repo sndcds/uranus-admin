@@ -99,6 +99,8 @@ class Settings(BaseSettings):
     research_geocoder_url: str = "http://127.0.0.1:6337"
     research_geocoder_api_key: SecretStr | None = None
     research_geocoder_timeout_seconds: float = Field(default=5, gt=0, le=10)
+    # Explicit transport selection; legacy preserves the existing v3/v5/v6 rollout.
+    research_planner_contract: Literal["legacy", "v9"] = "legacy"
     research_analytics_enabled: bool = False
     research_planner_url: str | None = None
     research_planner_api_key: SecretStr | None = None

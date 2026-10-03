@@ -242,3 +242,29 @@ class ResearchPlannerClient:
             raise unavailable() from None
         except ValueError:
             raise invalid_response() from None
+
+
+async def plan_active(
+    planner: ResearchPlannerClient, settings: Settings, query: str
+) -> PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse | PlanResponseV9:
+    """Select the configured wire contract once; never retry on an older contract."""
+    if settings.research_planner_contract == "v9":
+        response = await planner.plan_grouped(query)
+        # Revalidate injected clients too: model_copy/construct bypass validators.
+        try:
+            response = PlanResponseV9.model_validate_json(response.model_dump_json())
+            if (
+                response.plan.original_query != query
+                or response.timezone != settings.event_timezone
+                or response.diagnostics.planner_model != response.model
+                or response.diagnostics.planner_prompt_version != response.prompt_version
+            ):
+                raise ValueError("planner_identity_mismatch")
+        except ValueError:
+            raise invalid_response() from None
+        return response
+    if settings.research_geocoder_api_key:
+        return await planner.plan(query, geographic=True)
+    if settings.research_analytics_enabled:
+        return await planner.plan(query, analytical=True)
+    return await planner.plan(query)

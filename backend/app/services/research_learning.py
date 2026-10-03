@@ -8,11 +8,17 @@ from fastapi import Request
 
 from app.admin_database import connect_admin
 from app.repositories.research_suggestions import learn
+from app.research.normalize import normalize
+from app.research.plan import InternalResearchPlan
 from app.schemas.research_response import ResearchExecutionResponse
 
 
 async def record_success(
-    request: Request, response: ResearchExecutionResponse, receipt: UUID | None
+    request: Request,
+    response: ResearchExecutionResponse,
+    receipt: UUID | None,
+    *,
+    plan: InternalResearchPlan | None = None,
 ) -> None:
     if response.result.kind == "needs_clarification" or response.plan.plan.unsupported_reason:
         return
@@ -22,7 +28,7 @@ async def record_success(
             connect_admin(request) as connection,
             connection.begin(),
         ):
-            await learn(connection, response.query, response.plan.plan, receipt)
+            await learn(connection, response.query, plan or normalize(response.plan), receipt)
     except Exception:
         # No exception text, query, planner slots, identity or correlation values in logs.
         logging.getLogger("admin").warning("research_learning_unavailable")
