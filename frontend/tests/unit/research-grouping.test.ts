@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { formatGroupingCoordinate } from '../../app/utils/research-answer'
 import { groupedExecutionResponse } from '../fixtures/research-grouping'
 import {
   researchExecutionResponseSchema,
@@ -21,6 +22,41 @@ const result = {
     },
   ],
 }
+describe('grouping coordinate display', () => {
+  it.each([
+    ['01', 'Januar'],
+    ['02', 'Februar'],
+    ['03', 'März'],
+    ['04', 'April'],
+    ['05', 'Mai'],
+    ['06', 'Juni'],
+    ['07', 'Juli'],
+    ['08', 'August'],
+    ['09', 'September'],
+    ['10', 'Oktober'],
+    ['11', 'November'],
+    ['12', 'Dezember'],
+  ])('displays month %s as %s', (value, label) => {
+    expect(formatGroupingCoordinate('month', value)).toBe(label)
+  })
+
+  it.each(['00', '13', '1', ' 01', '01 ', '2026-01', 'unknown', '', 'toString', '__proto__'])(
+    'preserves unrecognized month value %j without coercion',
+    (value) => {
+      expect(formatGroupingCoordinate('month', value)).toBe(value)
+    },
+  )
+
+  it.each(['event_type', 'genre', 'category', 'venue', 'organization', 'municipality'])(
+    'preserves names for %s, even when they look like month keys',
+    (dimension) => {
+      for (const value of ['Konzert', 'Jazz', 'Kunst', '01', '10']) {
+        expect(formatGroupingCoordinate(dimension, value)).toBe(value)
+      }
+    },
+  )
+})
+
 describe('ordered multidimensional results', () => {
   it('keeps taxonomy, month and occurrence count', () => {
     expect(groupedResultSchema.parse(result)).toEqual(result)
