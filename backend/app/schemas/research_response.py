@@ -13,10 +13,12 @@ from app.schemas.research_execution import (
 )
 from app.schemas.research_geography import GeographicPlanResponse
 from app.schemas.research_planner import PlanResponse
+from app.schemas.research_sql import ResearchSqlStatements
 from app.schemas.research_values import ClosedModel, Query
 
 
 class ResearchExecutionResponse(ClosedModel):
+    sql_provenance: ResearchSqlStatements = Field(default_factory=list)
     query: Query
     plan: GeographicPlanResponse | PlanResponse | AnalyticalPlanResponse
     resolution: list[ResolvedField] = Field(default_factory=list, max_length=32)

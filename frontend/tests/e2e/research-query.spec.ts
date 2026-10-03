@@ -326,3 +326,61 @@ test('event with most dates displays the event rather than its type', async ({ p
   await expect(page.getByText('Termine nach Veranstaltungstyp', { exact: false })).toHaveCount(0)
   await expect(table.getByText('Konzert')).toHaveCount(0)
 })
+
+test('Research SQL Editor reuses the read-only workspace with keyboard navigation and safe copy', async ({
+  page,
+  context,
+}, info) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const response = executionResponse('records', true)
+  await page.route(`**${root}/query`, (route) => route.fulfill({ json: response }))
+  await page.goto(`/research?question=${encodeURIComponent(response.query)}`)
+  const trigger = page.getByRole('button', { name: 'SQL Editor', exact: true })
+  await trigger.focus()
+  await page.keyboard.press('Enter')
+  const dialog = page.getByRole('dialog', { name: 'SQL Editor' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.locator('.sql-workspace')).toBeVisible()
+  const code = dialog.getByRole('region', { name: 'SQL-Abfrage, Nur-Lese-Modus' })
+  await expect(code.locator('.token.keyword').first()).toHaveText('SELECT')
+  await expect(code.locator('.token.keyword').first()).toHaveCSS('color', 'rgb(240, 171, 252)')
+  await expect(dialog.getByText(/im Vektorindex/)).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Abfrage ausführen' })).toHaveCount(0)
+  const second = dialog.getByRole('button', { name: 'SQL-Rehydration', exact: true })
+  await dialog.getByRole('button', { name: 'SQL-Vorauswahl', exact: true }).focus()
+  await page.keyboard.press('Tab')
+  await expect(second).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(second).toHaveAttribute('aria-current', 'page')
+  await expect(code).toContainText('title')
+  await expect(dialog.getByRole('table', { name: 'Gebundene SQL-Parameter' })).toContainText(
+    '[Standort ausgeblendet]',
+  )
+  await page.screenshot({ path: info.outputPath('research-sql.png'), fullPage: true })
+  await dialog.getByRole('button', { name: 'SQL kopieren', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(':key')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).not.toContain(
+    response.sql_provenance[1]!.parameters.key,
+  )
+  await second.focus()
+  await page.keyboard.press('Shift+Tab')
+  await expect(dialog.getByRole('button', { name: 'SQL-Vorauswahl', exact: true })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(dialog).not.toBeVisible()
+  await expect(trigger).toBeFocused()
+  await trigger.click()
+  await expect(dialog.getByRole('button', { name: 'SQL-Vorauswahl', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  await dialog.getByRole('button', { name: 'SQL Editor schließen' }).click()
+  await expect(trigger).toBeFocused()
+})
+
+test('early clarification has no SQL Editor action', async ({ page }) => {
+  const response = executionResponse('needs_clarification')
+  await page.route(`**${root}/query`, (route) => route.fulfill({ json: response }))
+  await page.goto(`/research?question=${encodeURIComponent(response.query)}`)
+  await expect(page.getByRole('heading', { name: 'Frage präzisieren' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'SQL Editor', exact: true })).toHaveCount(0)
+})

@@ -10,6 +10,7 @@ from app.config import Settings
 from app.errors import APIError
 from app.repositories.research import images, parameters, record, research_sql
 from app.research.plan import ResolvedResearchPlan
+from app.research.sql_provenance import execute_research_sql
 from app.schemas.research_administrative_result import AdministrativeGroup, AdministrativeResult
 
 COLUMNS = """entity_type,entity_key,name,description,status,categories,language,
@@ -117,13 +118,21 @@ async def administrative_selection(
                 422, "research_execution_too_broad", "Narrow the administrative selection."
             )
     unknown = int(
-        (await connection.execute(text(sql + " SELECT value FROM unknown"), params)).scalar_one()
+        (
+            await execute_research_sql(
+                connection,
+                text(sql + " SELECT value FROM unknown"),
+                params,
+                label="Unbekannte Standorte",
+            )
+        ).scalar_one()
     )
     if plan.grouping is not None:
         direction = {"asc": "ASC", "desc": "DESC"}[plan.ordering]
         having = "HAVING count(DISTINCT m.entity_key)=0" if plan.zero_only else ""
         rows = (
-            await connection.execute(
+            await execute_research_sql(
+                connection,
                 text(
                     sql
                     + f"""
@@ -155,8 +164,8 @@ async def administrative_selection(
         )
     count = int(
         (
-            await connection.execute(
-                text(sql + " SELECT count(DISTINCT entity_key) FROM matched"), params
+            await execute_research_sql(
+                connection, text(sql + " SELECT count(DISTINCT entity_key) FROM matched"), params
             )
         ).scalar_one()
     )
@@ -164,7 +173,8 @@ async def administrative_selection(
         return AdministrativeResult(kind="count", count=count, unknown_location_count=unknown)
     direction = {"asc": "ASC", "desc": "DESC"}[plan.ordering]
     rows = (
-        await connection.execute(
+        await execute_research_sql(
+            connection,
             text(
                 sql
                 + f""", chosen AS (SELECT DISTINCT ON (entity_key) {COLUMNS} FROM matched

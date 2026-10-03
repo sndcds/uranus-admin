@@ -3,6 +3,7 @@
 import asyncio
 from calendar import monthrange
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from time import perf_counter
 from typing import Literal, cast
@@ -39,6 +40,7 @@ from app.research.geography import (
 )
 from app.research.outcome import ResearchExecutionOutcome
 from app.research.plan import InternalResearchPlan, ResolvedResearchPlan
+from app.research.sql_provenance import collect_research_sql
 from app.schemas.research_execution import (
     AggregateItem,
     AggregateResult,
@@ -165,6 +167,26 @@ def execution_filters(
 
 class ResearchPlanExecutor:
     async def execute(
+        self,
+        request: Request,
+        settings: Settings,
+        plan: InternalResearchPlan,
+        context: ResearchExecutionContext,
+        *,
+        planner_ms: float,
+    ) -> ResearchExecutionOutcome:
+        with collect_research_sql() as statements:
+            outcome = await self._execute(request, settings, plan, context, planner_ms=planner_ms)
+        if outcome.administrative is not None:
+            outcome = replace(
+                outcome,
+                administrative=outcome.administrative.model_copy(
+                    update={"sql_provenance": statements}
+                ),
+            )
+        return replace(outcome, sql_provenance=statements)
+
+    async def _execute(
         self,
         request: Request,
         settings: Settings,
@@ -384,7 +406,13 @@ class ResearchPlanExecutor:
                                         ComparisonItem(
                                             target=selected,
                                             value=await count_selection(
-                                                connection, settings, target_filters, metric, area
+                                                connection,
+                                                settings,
+                                                target_filters,
+                                                metric,
+                                                area,
+                                                label=f"Vergleich: {selected.label}",
+                                                kind="comparison",
                                             ),
                                         )
                                     )

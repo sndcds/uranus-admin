@@ -6,6 +6,7 @@ from pydantic import Field
 from app.schemas.project_knowledge import AnswerResponse
 from app.schemas.research_domain import ClosedV4, DataPlan
 from app.schemas.research_execution import ExecutionFilters
+from app.schemas.research_sql import ResearchSqlStatements
 
 
 class MetricRecord(ClosedV4):
@@ -15,6 +16,7 @@ class MetricRecord(ClosedV4):
 
 
 class DataAnswer(ClosedV4):
+    sql_provenance: ResearchSqlStatements = Field(default_factory=list)
     authoritative_source: Literal["postgresql"] = "postgresql"
     records: list[MetricRecord] = Field(max_length=20)
     metric: DataPlan

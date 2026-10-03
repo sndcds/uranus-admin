@@ -8,6 +8,7 @@ from app.errors import APIError
 from app.repositories.research import eligible_event_ctes, parameters
 from app.repositories.research_areas import ResolvedResearchArea
 from app.research.semantic_documents import public_clean
+from app.research.sql_provenance import execute_research_sql
 from app.schemas.research_domain import DataPlan
 from app.schemas.research_execution import ExecutionFilters
 from app.schemas.research_unified import MetricRecord
@@ -43,7 +44,8 @@ async def rank_metric(
         if size["count"] > MAX_TEXT_EVENTS or size["characters"] > MAX_TEXT_CODEPOINTS:
             raise APIError(422, "research_execution_too_broad", "Narrow the research request.")
         rows = (
-            await connection.execute(
+            await execute_research_sql(
+                connection,
                 text(f"""{ctes}
             SELECT DISTINCT entity_key,name,description FROM matched_events
             ORDER BY entity_key"""),
@@ -83,7 +85,8 @@ async def rank_metric(
     }[(plan.entity_type, plan.metric)]
     direction = {"asc": "ASC", "desc": "DESC"}[plan.ordering]
     rows = (
-        await connection.execute(
+        await execute_research_sql(
+            connection,
             text(f"""{eligible_event_ctes()}
         SELECT {key} key,{label} name,count(DISTINCT {expression}) value
         FROM matched_events {join} WHERE {key} IS NOT NULL

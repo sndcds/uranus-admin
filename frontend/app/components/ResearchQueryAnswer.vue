@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import ResearchSqlEditorModal from './sql/ResearchSqlEditorModal.vue'
 import type { ResearchExecutionResponse } from '#shared/contracts'
 import { researchMetricLabels } from '~/utils/research-answer'
 import { researchKey, researchHref } from '~/utils/research'
 const props = defineProps<{ response: ResearchExecutionResponse }>()
 defineEmits<{ adjust: [text?: string] }>()
+const sqlEditor = ref<InstanceType<typeof ResearchSqlEditorModal> | null>(null)
 const result = computed(() => props.response.result)
 const plan = computed(() => props.response.plan.plan)
 const structuredEvents = computed(
@@ -51,10 +54,26 @@ const fieldLabels = {
 </script>
 <template>
   <section class="space-y-3" aria-label="Antwort">
+    <ResearchSqlEditorModal
+      v-if="response.sql_provenance.length"
+      ref="sqlEditor"
+      :statements="response.sql_provenance"
+      :semantic="response.execution.semantic"
+    />
     <div class="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
-      <h3 class="type-section-title">
-        {{ result.kind === 'needs_clarification' ? 'Frage präzisieren' : 'Antwort' }}
-      </h3>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3 class="type-section-title">
+          {{ result.kind === 'needs_clarification' ? 'Frage präzisieren' : 'Antwort' }}
+        </h3>
+        <button
+          v-if="response.sql_provenance.length"
+          class="button"
+          aria-label="SQL Editor"
+          @click="sqlEditor?.open()"
+        >
+          <AppIcon name="code" :size="14" />SQL Editor
+        </button>
+      </div>
       <template v-if="result.kind === 'count'">
         <p class="text-2xl font-semibold tabular-nums" data-testid="research-count">
           {{ number(result.value) }} {{ metric }}

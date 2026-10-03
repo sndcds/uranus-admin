@@ -65,6 +65,42 @@ export function executionResponse(
                 ],
               }
   return {
+    sql_provenance:
+      kind === 'needs_clarification'
+        ? []
+        : semantic
+          ? [
+              {
+                label: 'SQL-Vorauswahl',
+                kind: 'eligibility',
+                sql: 'SELECT uuid FROM uranus.event WHERE status = :status',
+                parameters: { status: 'published' },
+              },
+              {
+                label: 'SQL-Rehydration',
+                kind: 'rehydration',
+                sql: 'SELECT title FROM uranus.event WHERE uuid = :key',
+                parameters: {
+                  key: researchEvent.entity_key,
+                  place_latitude: '[Standort ausgeblendet]',
+                },
+              },
+            ]
+          : kind === 'comparison'
+            ? targets.map((target) => ({
+                label: `Vergleich: ${target.label}`,
+                kind: 'comparison',
+                sql: 'SELECT count(*) FROM uranus.event WHERE city = :city',
+                parameters: { city: target.label },
+              }))
+            : [
+                {
+                  label: 'Ergebnisabfrage',
+                  kind: 'execution',
+                  sql: 'SELECT count(*) FROM uranus.event WHERE status = :status',
+                  parameters: { status: 'published' },
+                },
+              ],
     query,
     plan: {
       kind: 'plan',
