@@ -162,8 +162,11 @@ async def test_category_municipality_shared_boundaries(settings, execution_sourc
     assert all(item.value > 0 for item in result.items)
 
 
+@pytest.mark.parametrize("calendar_axis,calendar_key", [("month", "09"), ("weekday", "3")])
 @pytest.mark.parametrize("dimension", ["event_type", "genre"])
-async def test_taxonomy_month_population(settings, taxonomy_source, dimension):
+async def test_taxonomy_month_population(
+    settings, taxonomy_source, dimension, calendar_axis, calendar_key
+):
     from tests.conftest import uid
 
     if dimension == "event_type":
@@ -178,18 +181,22 @@ async def test_taxonomy_month_population(settings, taxonomy_source, dimension):
         intent="aggregate",
         entity_type="event",
         metric="occurrence_count",
-        groupings=(dimension, "month"),
+        groupings=(dimension, calendar_axis),
         ordering="desc",
         limit=20,
     )
     resolved = ResolvedResearchPlan(filters=ExecutionFilters(), intent="aggregate")
     result = await grouped_selection(taxonomy_source, settings, plan, resolved, None)
     assert len(result.items) == 2 and sum(item.value for item in result.items) == 7
-    assert all(item.coordinates[1].key == "09" for item in result.items)
+    assert all(item.coordinates[1].key == calendar_key for item in result.items)
     reversed_result = await grouped_selection(
-        taxonomy_source, settings, replace(plan, groupings=("month", dimension)), resolved, None
+        taxonomy_source,
+        settings,
+        replace(plan, groupings=(calendar_axis, dimension)),
+        resolved,
+        None,
     )
-    assert all(item.coordinates[0].key == "09" for item in reversed_result.items)
+    assert all(item.coordinates[0].key == calendar_key for item in reversed_result.items)
     limited = await grouped_selection(
         taxonomy_source, settings, replace(plan, limit=1), resolved, None
     )

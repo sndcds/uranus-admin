@@ -1,0 +1,8 @@
+{
+  "planner_repository": "sndcds/uranus-research-planner",
+  "planner_commit": "18eea0faa6d6447cdbc763a5c1d045257c8bf1dd",
+  "schema_version": "research-query-plan-v10",
+  "prompt_version": "research-planner-v16",
+  "schema_sha256": "e3c7f8809a73a181d07cba02cd4cb10de151db135d7d7b5fe656110232f429df",
+  "digest_format": "ResearchQueryPlanV10 JSON Schema; enum arrays sorted; JSON sort_keys=True, separators=(',', ':'), ensure_ascii=True"
+}

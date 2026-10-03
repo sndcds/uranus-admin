@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import calendarCases from '../fixtures/research-calendar-v10.json' with { type: 'json' }
+import { calendarPlanResponseSchema } from '../../shared/research-grouping'
 import { formatGroupingCoordinate } from '../../app/utils/research-answer'
 import { groupedExecutionResponse } from '../fixtures/research-grouping'
 import {
@@ -104,3 +106,55 @@ it('validates the complete normal execution envelope, including the v9 plan', ()
     ).toBe(false)
   }
 })
+
+it.each([
+  ['1', 'Montag'],
+  ['2', 'Dienstag'],
+  ['3', 'Mittwoch'],
+  ['4', 'Donnerstag'],
+  ['5', 'Freitag'],
+  ['6', 'Samstag'],
+  ['7', 'Sonntag'],
+  ['8', '8'],
+  ['01', '01'],
+])('displays ISO weekday %s as %s without coercion', (value, label) => {
+  expect(formatGroupingCoordinate('weekday', value)).toBe(label)
+})
+
+it.each(
+  calendarCases.filter(
+    (c) => c.plan.clarification === 'none' && c.plan.unsupported_reason === null,
+  ),
+)('accepts executable recurring/audience wire witness $name', ({ plan }) => {
+  const envelope = groupedExecutionResponse().plan
+  expect(
+    calendarPlanResponseSchema.parse({
+      ...envelope,
+      plan,
+      schema_version: 'research-query-plan-v10',
+      prompt_version: 'research-planner-v16',
+      diagnostics: {
+        ...envelope.diagnostics,
+        planner_prompt_version: 'research-planner-v16',
+        planner_intent: plan.intent,
+      },
+    }).plan,
+  ).toEqual(plan)
+})
+
+it.each([[7, 7], [0], [8], ['7'], [true]])(
+  'rejects invalid recurring weekday sets %j',
+  (values) => {
+    const envelope = groupedExecutionResponse().plan
+    const plan = calendarCases.find((c) => c.name === 'sunday')!.plan
+    expect(
+      calendarPlanResponseSchema.safeParse({
+        ...envelope,
+        plan: { ...plan, temporal: { ...plan.temporal, recurring_weekdays: values } },
+        schema_version: 'research-query-plan-v10',
+        prompt_version: 'research-planner-v16',
+        diagnostics: { ...envelope.diagnostics, planner_prompt_version: 'research-planner-v16' },
+      }).success,
+    ).toBe(false)
+  },
+)

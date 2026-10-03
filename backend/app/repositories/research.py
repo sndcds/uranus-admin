@@ -70,6 +70,10 @@ DATE_JOINS = f"""FROM uranus.event_date d JOIN uranus.event e ON e.uuid=d.event_
 DATE_FILTER = f"""e.release_status::text IN {PUBLIC} AND {DATE_STATUS} IN {PUBLIC}
     AND (CAST(:from_date AS date) IS NULL OR d.start_date>=:from_date)
     AND (CAST(:to_date AS date) IS NULL OR d.start_date<=:to_date)
+    AND (cardinality(CAST(:weekdays AS integer[]))=0
+        OR extract(isodow FROM d.start_date)::integer=ANY(CAST(:weekdays AS integer[])))
+    AND (cardinality(CAST(:months AS integer[]))=0
+        OR extract(month FROM d.start_date)::integer=ANY(CAST(:months AS integer[])))
     AND (CAST(:time_from AS time) IS NULL OR
         (d.all_day IS FALSE AND d.start_time>=:time_from AND d.start_time<TIME '24:00'))
     AND (:time_of_day='none' OR (d.all_day IS FALSE AND CASE :time_of_day
@@ -143,6 +147,8 @@ def parameters(
             )
             else None
         ),
+        "weekdays": [],
+        "months": [],
         "time_from": None,
         "time_of_day": "none",
         "area_relation": "inside",
@@ -199,6 +205,8 @@ def eligible_event_ctes(*, candidates: bool = False, ids_only: bool = False) -> 
         AND (d.id IS NOT NULL OR (
             NOT EXISTS (SELECT 1 FROM uranus.event_date known WHERE known.event_uuid=e.uuid)
             AND CAST(:from_date AS date) IS NULL AND CAST(:to_date AS date) IS NULL
+            AND cardinality(CAST(:weekdays AS integer[]))=0
+            AND cardinality(CAST(:months AS integer[]))=0
             AND CAST(:time_from AS time) IS NULL AND :time_of_day='none'
             AND :place_mode='none' AND :city='' AND CAST(:venue_id AS uuid) IS NULL
             AND CAST(:area_wkb AS bytea) IS NULL
@@ -228,6 +236,8 @@ def research_sql(*, candidates: bool = False, occurrences: bool = False) -> str:
                     AND CAST(:to_date AS date) IS NULL AND CAST(:category AS integer) IS NULL
                     AND CAST(:status AS text) IS NULL AND CAST(:time_from AS time) IS NULL
                     AND :time_of_day='none'
+                    AND cardinality(CAST(:weekdays AS integer[]))=0
+                    AND cardinality(CAST(:months AS integer[]))=0
                     AND cardinality(CAST(:event_type_ids AS integer[]))=0
                     AND cardinality(CAST(:category_ids AS integer[]))=0
                     AND cardinality(CAST(:genre_keys AS text[]))=0

@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import Field
 
 from app.research.wire.research_v9_schema import PlanResponseV9
+from app.research.wire.research_v10_schema import PlanResponseV10
 from app.schemas.research_analytics import AnalyticalPlanResponse
 from app.schemas.research_execution import (
     ExecutionDiagnostics,
@@ -21,7 +22,13 @@ from app.schemas.research_values import ClosedModel, Query
 class ResearchExecutionResponse(ClosedModel):
     sql_provenance: ResearchSqlStatements = Field(default_factory=list)
     query: Query
-    plan: GeographicPlanResponse | PlanResponse | AnalyticalPlanResponse | PlanResponseV9
+    plan: (
+        GeographicPlanResponse
+        | PlanResponse
+        | AnalyticalPlanResponse
+        | PlanResponseV9
+        | PlanResponseV10
+    )
     resolution: list[ResolvedField] = Field(default_factory=list, max_length=32)
     result: ExecutionResult
     execution: ExecutionProvenance

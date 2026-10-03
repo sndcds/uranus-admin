@@ -140,6 +140,7 @@ def grouped_execution(plan: InternalResearchPlan) -> bool:
             "event_type",
             "genre",
             "month",
+            "weekday",
             "municipality",
         }
         and not ("event" in plan.groupings and plan.metric != "occurrence_count")

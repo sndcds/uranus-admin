@@ -30,7 +30,13 @@ COUNT_ENTITY = {
     "organization_count": "organization",
 }
 SCALAR_GROUPS = {"event", "venue", "organization", "category", "genre", "event_type"}
-CELL_GROUPS = SCALAR_GROUPS | {"month", "municipality"}
+CELL_GROUPS = SCALAR_GROUPS | {"month", "weekday", "municipality"}
+WEEKDAYS = {
+    name: i
+    for i, name in enumerate(
+        ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"), 1
+    )
+}
 
 
 def normalize_v9_temporal(
@@ -48,7 +54,6 @@ def normalize_v9_temporal(
             (
                 value.before_time,
                 value.after_time,
-                value.weekday,
                 value.overlap,
                 value.multi_day,
                 value.lookback,
@@ -61,6 +66,7 @@ def normalize_v9_temporal(
         raise unsupported()
     return TemporalSelection(
         time_from=time_from,
+        weekdays=(WEEKDAYS[value.weekday],) if value.weekday is not None else (),
         period=value.period,
         from_date=value.from_date,
         to_date=value.to_date,

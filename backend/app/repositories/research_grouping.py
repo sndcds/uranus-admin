@@ -41,6 +41,10 @@ def grouped_sql(
             # Local event dates, not UTC timestamps; cyclical month across years.
             key = "lpad(extract(month FROM selected.start_date)::integer::text,2,'0')"
             name, join = key, ""
+        elif dimension == "weekday":
+            # ISO Monday=1 ... Sunday=7; event-local date, independent of locale.
+            key = "extract(isodow FROM selected.start_date)::integer::text"
+            name, join = key, ""
         elif dimension == "municipality":
             key, name = "municipality.area_id", "municipality.name"
             join = (

@@ -41,6 +41,21 @@ class TemporalSelection:
     time_from: time | None = None
     time_of_day: Literal["none", "morning", "afternoon", "evening", "night"] = "none"
 
+    weekdays: tuple[int, ...] = ()
+    months: tuple[int, ...] = ()
+
+    def __post_init__(self) -> None:
+        for field_name, maximum in (("weekdays", 7), ("months", 12)):
+            values = getattr(self, field_name)
+            if (
+                not isinstance(values, tuple)
+                or len(values) > maximum
+                or len(set(values)) != len(values)
+                or any(type(v) is not int or not 1 <= v <= maximum for v in values)
+            ):
+                raise ValueError("invalid_recurring_calendar_set")
+            object.__setattr__(self, field_name, tuple(sorted(values)))
+
 
 @dataclass(frozen=True, slots=True)
 class SemanticSelection:

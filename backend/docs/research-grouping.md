@@ -24,7 +24,7 @@ InternalResearchPlan.groupings is an ordered tuple. Legacy scalar entry points
 normalize to a singleton; none normalizes to empty. A multidimensional plan never
 exposes a representative scalar axis. Duplicate/unknown dimensions are rejected.
 The generic grouping primitive supports event, venue, organization, category,
-event_type, genre, month and municipality, with event_count/occurrence_count.
+event_type, genre, month, weekday and municipality, with event_count/occurrence_count.
 The v9 adapter also maps the existing legacy families described below; unsupported
 wire constructs still fail before source execution.
 
@@ -112,7 +112,8 @@ provenance continues using the existing collector and redaction.
 - No trend, anomaly, relation, explain, knowledge, price, text-length/duration,
   ratio/diversity or arbitrary metric execution. No occurrence record endpoint or
   semantic execution on venues/organizations. Exact semantic counts remain rejected.
-- No holiday/calendar, weekday, overlap, multi-day, metadata-time or lookback
+- Scalar weekday filters use ISO weekday membership; no holiday/calendar, overlap,
+  multi-day, metadata-time or lookback
   execution. `before_time` and `after_time` are not silently converted to the
   inclusive lower-bound primitive; arbitrary clock predicates are rejected.
 - The historical v3 evening (>=18:00) differs from the bounded v5/v6 evening
@@ -146,3 +147,6 @@ metadata. Its validated wire fixtures are shared with frontend Zod tests. Normal
 API tests exercise the existing SQL families, comparison provenance, semantic
 eligibility/rehydration, and nearby browser/manual roundtrips. Valid but unsupported
 wire plans are tested for rejection before resolution/source access.
+
+Recurring calendar sets and the additive v10 transport are documented in
+[Recurring calendar Research](research-calendar.md).

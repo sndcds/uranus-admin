@@ -144,6 +144,8 @@ def execution_filters(
         entity_type=plan.entity_type,
         from_date=start,
         to_date=end,
+        weekdays=plan.temporal.weekdays,
+        months=plan.temporal.months,
         time_from=plan.temporal.time_from,
         time_of_day=plan.temporal.time_of_day,
         area_relation=resolution.area_relation,

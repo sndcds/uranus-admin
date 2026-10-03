@@ -32,7 +32,18 @@ const monthLabels = new Map<string, string>([
   ['12', 'Dezember'],
 ])
 
+const weekdayLabels = new Map<string, string>([
+  ['1', 'Montag'],
+  ['2', 'Dienstag'],
+  ['3', 'Mittwoch'],
+  ['4', 'Donnerstag'],
+  ['5', 'Freitag'],
+  ['6', 'Samstag'],
+  ['7', 'Sonntag'],
+])
+
 /** Display cyclical calendar months without changing their API coordinates. */
 export function formatGroupingCoordinate(dimension: string, value: string): string {
+  if (dimension === 'weekday') return weekdayLabels.get(value) ?? value
   return dimension === 'month' ? (monthLabels.get(value) ?? value) : value
 }

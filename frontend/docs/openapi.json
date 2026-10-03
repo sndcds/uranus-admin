@@ -25476,6 +25476,7 @@
             "enum": [
               "event",
               "month",
+              "weekday",
               "venue",
               "organization",
               "category",
@@ -28088,6 +28089,65 @@
         ],
         "title": "DiagnosticRequest"
       },
+      "DiagnosticsV10": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Request Id"
+          },
+          "planner_intent": {
+            "type": "string",
+            "enum": [
+              "list",
+              "search",
+              "count",
+              "aggregate",
+              "rank",
+              "compare",
+              "taxonomy",
+              "relation",
+              "trend",
+              "anomaly",
+              "explain",
+              "knowledge"
+            ],
+            "title": "Planner Intent"
+          },
+          "planner_model": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Planner Model"
+          },
+          "planner_prompt_version": {
+            "type": "string",
+            "const": "research-planner-v16",
+            "title": "Planner Prompt Version"
+          },
+          "planner_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Planner Ms"
+          },
+          "total_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Total Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request_id",
+          "planner_intent",
+          "planner_model",
+          "planner_prompt_version",
+          "planner_ms",
+          "total_ms"
+        ],
+        "title": "DiagnosticsV10"
+      },
       "DiagnosticsV9": {
         "properties": {
           "request_id": {
@@ -29802,6 +29862,24 @@
             ],
             "title": "Sort",
             "default": "date"
+          },
+          "weekdays": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 7,
+            "title": "Weekdays",
+            "default": []
+          },
+          "months": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Months",
+            "default": []
           },
           "time_from": {
             "anyOf": [
@@ -32669,6 +32747,7 @@
             "enum": [
               "event",
               "month",
+              "weekday",
               "venue",
               "organization",
               "category",
@@ -32749,6 +32828,7 @@
               "enum": [
                 "event",
                 "month",
+                "weekday",
                 "venue",
                 "organization",
                 "category",
@@ -35834,6 +35914,64 @@
         ],
         "title": "PlanDiagnostics"
       },
+      "PlanResponseV10": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "plan",
+              "needs_clarification",
+              "unsupported"
+            ],
+            "title": "Kind"
+          },
+          "schema_version": {
+            "type": "string",
+            "const": "research-query-plan-v10",
+            "title": "Schema Version"
+          },
+          "prompt_version": {
+            "type": "string",
+            "const": "research-planner-v16",
+            "title": "Prompt Version"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/ResearchQueryPlanV10"
+          },
+          "reference_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Reference Date"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Timezone"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/DiagnosticsV10"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "schema_version",
+          "prompt_version",
+          "model",
+          "plan",
+          "reference_date",
+          "timezone",
+          "diagnostics"
+        ],
+        "title": "PlanResponseV10"
+      },
       "PlanResponseV9": {
         "properties": {
           "kind": {
@@ -37256,6 +37394,9 @@
               },
               {
                 "$ref": "#/components/schemas/PlanResponseV9"
+              },
+              {
+                "$ref": "#/components/schemas/PlanResponseV10"
               }
             ],
             "title": "Plan"
@@ -37827,6 +37968,327 @@
           "unsupported_reason"
         ],
         "title": "ResearchQueryPlan"
+      },
+      "ResearchQueryPlanV10": {
+        "properties": {
+          "original_query": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Original Query"
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "list",
+              "search",
+              "count",
+              "aggregate",
+              "rank",
+              "compare",
+              "taxonomy",
+              "relation",
+              "trend",
+              "anomaly",
+              "explain",
+              "knowledge"
+            ],
+            "title": "Intent"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "event",
+                  "occurrence",
+                  "venue",
+                  "space",
+                  "organization",
+                  "municipality",
+                  "region"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "metric": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "group_by": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "event",
+                "occurrence",
+                "venue",
+                "space",
+                "organization",
+                "category",
+                "event_type",
+                "genre",
+                "municipality",
+                "region",
+                "country",
+                "hour",
+                "weekday",
+                "week",
+                "month",
+                "year"
+              ]
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Group By"
+          },
+          "ordering": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordering"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "filters": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PresenceFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/NameFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/DescriptionFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/StatusFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/NumberFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/DateFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/TimeFilterV9"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Filters"
+          },
+          "metric_filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericPredicateV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taxonomy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "genre",
+                  "event_type",
+                  "category"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxonomy"
+          },
+          "temporal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TemporalV10"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spatial": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SpatialV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "price": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "semantic": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SemanticV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RelationV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trend": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrendV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "anomaly": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnomalyV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "explain": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExplainV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "knowledge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnowledgeV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comparison_targets": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonTargetV9"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Comparison Targets"
+          },
+          "clarification": {
+            "type": "string",
+            "enum": [
+              "none",
+              "needs_criteria",
+              "needs_location",
+              "needs_date",
+              "needs_definition",
+              "needs_context"
+            ],
+            "title": "Clarification"
+          },
+          "unsupported_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "outside_research",
+                  "unsupported_constraint",
+                  "insufficient_structured_data"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unsupported Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "original_query",
+          "intent",
+          "entity_type",
+          "metric",
+          "group_by",
+          "ordering",
+          "limit",
+          "filters",
+          "metric_filter",
+          "taxonomy",
+          "temporal",
+          "spatial",
+          "price",
+          "semantic",
+          "relation",
+          "trend",
+          "anomaly",
+          "explain",
+          "knowledge",
+          "comparison_targets",
+          "clarification",
+          "unsupported_reason"
+        ],
+        "title": "ResearchQueryPlanV10"
       },
       "ResearchQueryPlanV9": {
         "properties": {
@@ -39789,6 +40251,217 @@
         "additionalProperties": false,
         "type": "object",
         "title": "TelemetryResult"
+      },
+      "TemporalV10": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "start_date",
+              "created_at",
+              "modified_at"
+            ],
+            "title": "Field"
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "none",
+              "today",
+              "tomorrow",
+              "this_weekend",
+              "next_week",
+              "this_month",
+              "this_year",
+              "past",
+              "future",
+              "explicit_range"
+            ],
+            "title": "Period"
+          },
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date"
+          },
+          "to_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Date"
+          },
+          "time_of_day": {
+            "type": "string",
+            "enum": [
+              "none",
+              "morning",
+              "afternoon",
+              "evening",
+              "night"
+            ],
+            "title": "Time Of Day"
+          },
+          "before_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,6})?$",
+                "description": "Local wall-clock time without timezone or UTC offset"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before Time"
+          },
+          "after_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,6})?$",
+                "description": "Local wall-clock time without timezone or UTC offset"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Time"
+          },
+          "weekday": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "monday",
+                  "tuesday",
+                  "wednesday",
+                  "thursday",
+                  "friday",
+                  "saturday",
+                  "sunday"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekday"
+          },
+          "calendar_relation": {
+            "type": "string",
+            "enum": [
+              "none",
+              "holiday",
+              "school_holiday"
+            ],
+            "title": "Calendar Relation"
+          },
+          "calendar_area_query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Area Query"
+          },
+          "overlap": {
+            "type": "boolean",
+            "title": "Overlap"
+          },
+          "multi_day": {
+            "type": "boolean",
+            "title": "Multi Day"
+          },
+          "lookback": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 120.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lookback"
+          },
+          "lookback_unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "day",
+                  "week",
+                  "month",
+                  "year"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lookback Unit"
+          },
+          "recurring_weekdays": {
+            "items": {
+              "type": "integer",
+              "maximum": 7.0,
+              "minimum": 1.0
+            },
+            "type": "array",
+            "maxItems": 7,
+            "title": "Recurring Weekdays"
+          },
+          "recurring_months": {
+            "items": {
+              "type": "integer",
+              "maximum": 12.0,
+              "minimum": 1.0
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Recurring Months"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "field",
+          "period",
+          "from_date",
+          "to_date",
+          "time_of_day",
+          "before_time",
+          "after_time",
+          "weekday",
+          "calendar_relation",
+          "calendar_area_query",
+          "overlap",
+          "multi_day",
+          "lookback",
+          "lookback_unit",
+          "recurring_weekdays",
+          "recurring_months"
+        ],
+        "title": "TemporalV10"
       },
       "TemporalV9": {
         "properties": {
