@@ -157,7 +157,11 @@ it('shows ordered grouped dimensions and their actual SQL in the shared read-onl
     'Termine',
   ])
   expect(table.text()).toContain('Konzert')
-  expect(table.text()).toContain('09')
+  expect(table.findAll('tbody td').map((cell) => cell.text())).toEqual([
+    'Konzert',
+    'September',
+    '7',
+  ])
   expect(view.text()).toContain('So wurde die Frage verstanden')
   await view.get('button[aria-label="SQL Editor"]').trigger('click')
   await flushPromises()
@@ -173,6 +177,26 @@ it('shows ordered grouped dimensions and their actual SQL in the shared read-onl
   expect(view.getComponent(SqlQueryPanel).props('copySql')).toBe(response.sql_provenance[0]!.sql)
   expect(view.text()).not.toMatch(/Abfrage ausführen|SQL bearbeiten/)
 })
+
+it.each([
+  ['01', 'Januar'],
+  ['03', 'März'],
+  ['10', 'Oktober'],
+  ['12', 'Dezember'],
+  ['unknown', 'unknown'],
+])('renders month %s as %s without mutating the response', (value, label) => {
+  const response = groupedExecutionResponse()
+  if (response.result.kind !== 'grouped') throw new Error('Expected grouped fixture')
+  const coordinate = response.result.items[0]!.coordinates[1]!
+  coordinate.key = value
+  coordinate.name = value
+  const original = structuredClone(response)
+  const table = answer(response).get('table[aria-label="Mehrdimensionale Auswertung"]')
+  expect(table.findAll('tbody td').map((cell) => cell.text())).toEqual(['Konzert', label, '7'])
+  expect(response).toEqual(original)
+  expect(researchExecutionResponseSchema.parse(response)).toEqual(original)
+})
+
 it('keeps grouped results visible without offering an empty SQL Editor', () => {
   const view = answer({ ...groupedExecutionResponse(), sql_provenance: [] })
   expect(view.find('table[aria-label="Mehrdimensionale Auswertung"]').exists()).toBe(true)

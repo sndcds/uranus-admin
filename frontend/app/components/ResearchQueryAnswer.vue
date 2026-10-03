@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import ResearchSqlEditorModal from './sql/ResearchSqlEditorModal.vue'
 import type { ResearchExecutionResponse } from '#shared/contracts'
-import { researchMetricLabels } from '~/utils/research-answer'
+import { formatGroupingCoordinate, researchMetricLabels } from '~/utils/research-answer'
 import { researchKey, researchHref } from '~/utils/research'
 const props = defineProps<{ response: ResearchExecutionResponse }>()
 defineEmits<{ adjust: [text?: string] }>()
@@ -263,7 +263,7 @@ const fieldLabels = {
             :key="JSON.stringify(item.coordinates.map((c) => c.key))"
           >
             <td v-for="coordinate in item.coordinates" :key="coordinate.dimension">
-              {{ coordinate.name }}
+              {{ formatGroupingCoordinate(coordinate.dimension, coordinate.name) }}
             </td>
             <td>{{ number(item.value) }}</td>
           </tr>

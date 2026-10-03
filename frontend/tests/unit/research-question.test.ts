@@ -628,7 +628,7 @@ it('renders multidimensional results through the normal question URL and validat
     'Monat',
     'Termine',
   ])
-  expect(table.findAll('td').map((cell) => cell.text())).toEqual(['Konzert', '09', '7'])
+  expect(table.findAll('td').map((cell) => cell.text())).toEqual(['Konzert', 'September', '7'])
   expect(view.text()).toContain('So wurde die Frage verstanden')
   expect(view.text()).toContain('Laufzeit (ms)')
   view.unmount()
