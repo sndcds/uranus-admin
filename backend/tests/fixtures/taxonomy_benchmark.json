@@ -1,0 +1,110 @@
+{
+  "cases": [
+    {
+      "query": "Theater",
+      "expected": "event_type",
+      "label": "Theater & Bühne"
+    },
+    {
+      "query": "Schauspiel",
+      "expected": "event_type",
+      "label": "Theater & Bühne"
+    },
+    {
+      "query": "Bühne",
+      "expected": "event_type",
+      "label": "Theater & Bühne"
+    },
+    {
+      "query": "Theateraufführung",
+      "expected": "event_type",
+      "label": "Theater & Bühne"
+    },
+    {
+      "query": "Bühnenkunst",
+      "expected": "event_type",
+      "label": "Theater & Bühne"
+    },
+    {
+      "query": "Circus",
+      "expected": "genre",
+      "label": "Zirkus-Theater"
+    },
+    {
+      "query": "Zirkus",
+      "expected": "genre",
+      "label": "Zirkus-Theater"
+    },
+    {
+      "query": "Zirkustheater",
+      "expected": "genre",
+      "label": "Zirkus-Theater"
+    },
+    {
+      "query": "Musical",
+      "expected": "genre",
+      "label": "Musical"
+    },
+    {
+      "query": "Musiktheater",
+      "expected": "genre",
+      "label": "Musiktheater"
+    },
+    {
+      "query": "Drama",
+      "expected": "genre",
+      "label": "Drama"
+    },
+    {
+      "query": "Komödie",
+      "expected": "genre",
+      "label": "Komödie"
+    },
+    {
+      "query": "Jazz",
+      "expected": "genre",
+      "label": "Jazz"
+    },
+    {
+      "query": "Rock",
+      "expected": "genre",
+      "label": "Rock"
+    },
+    {
+      "query": "Kultur",
+      "expected": "unresolved"
+    },
+    {
+      "query": "Veranstaltung",
+      "expected": "unresolved"
+    },
+    {
+      "query": "Show",
+      "expected": "ambiguous"
+    },
+    {
+      "query": "Kunst",
+      "expected": "ambiguous"
+    },
+    {
+      "query": "Treffen",
+      "expected": "unresolved"
+    },
+    {
+      "query": "Kinder",
+      "expected": "unresolved"
+    },
+    {
+      "query": "Musik",
+      "expected": "ambiguous"
+    },
+    {
+      "query": "Konzertmusik",
+      "expected": "ambiguous"
+    },
+    {
+      "query": "Livemusik",
+      "expected": "ambiguous"
+    }
+  ]
+}
