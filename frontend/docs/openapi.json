@@ -36309,7 +36309,6 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "sql_provenance",
           "query",
           "plan",
           "result",

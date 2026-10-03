@@ -68,6 +68,7 @@ it('opens one statement with shared read-only editor, parameters and parameteriz
   expect(dialog.getComponent(SqlParameterTable).text()).toContain('[Standort ausgeblendet]')
   expect(dialog.getComponent(SqlQueryPanel).props('copySql')).toBe(response.sql_provenance[0]!.sql)
   expect(dialog.findAll('.sql-nav')).toHaveLength(0)
+  expect(dialog.text()).toContain('SQL-Abfragen der fachlichen Research-Ausführung.')
   expect(dialog.text()).toContain('READ ONLY')
   expect(dialog.text()).toContain('PostgreSQL · uranus')
   expect(dialog.text()).not.toMatch(
@@ -131,6 +132,11 @@ it.each([
 it('requires a bounded collection of closed provenance statements', () => {
   const response = executionResponse()
   expect(researchExecutionResponseSchema.parse(response)).toEqual(response)
+  for (const sql_provenance of [undefined, null]) {
+    expect(researchExecutionResponseSchema.safeParse({ ...response, sql_provenance }).success).toBe(
+      false,
+    )
+  }
   expect(
     researchExecutionResponseSchema.safeParse({
       ...response,

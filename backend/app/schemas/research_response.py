@@ -18,7 +18,7 @@ from app.schemas.research_values import ClosedModel, Query
 
 
 class ResearchExecutionResponse(ClosedModel):
-    sql_provenance: ResearchSqlStatements
+    sql_provenance: ResearchSqlStatements = Field(default_factory=list)
     query: Query
     plan: GeographicPlanResponse | PlanResponse | AnalyticalPlanResponse
     resolution: list[ResolvedField] = Field(default_factory=list, max_length=32)

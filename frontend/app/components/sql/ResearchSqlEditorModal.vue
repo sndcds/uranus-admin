@@ -26,7 +26,7 @@ defineExpose({ open })
   <SqlWorkspaceModal
     ref="dialog"
     title="SQL Editor"
-    subtitle="Ausgeführte SQL-Abfragen dieser Recherche."
+    subtitle="SQL-Abfragen der fachlichen Research-Ausführung."
     close-label="SQL Editor schließen"
     @close="selected = 0"
   >

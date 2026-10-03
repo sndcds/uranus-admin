@@ -377,6 +377,30 @@ async def test_capture_is_opt_in_isolated_and_resets_on_error_and_cancellation(c
     assert "private" not in caplog.text and "secret" not in caplog.text
 
 
+def test_response_defaults_to_serialized_empty_sql_provenance():
+    import json
+
+    from app.schemas.research_execution import (
+        CountResult,
+        ExecutionDiagnostics,
+        ExecutionProvenance,
+    )
+    from app.schemas.research_response import ResearchExecutionResponse
+
+    response = ResearchExecutionResponse(
+        query="safe question",
+        plan=planned(),
+        result=CountResult(metric="event_count", value=1),
+        execution=ExecutionProvenance(),
+        observed_at=NOW,
+        timezone="Europe/Berlin",
+        diagnostics=ExecutionDiagnostics(planner_ms=0, total_ms=0),
+    )
+
+    assert response.sql_provenance == []
+    assert json.loads(response.model_dump_json())["sql_provenance"] == []
+
+
 async def test_learning_receives_only_existing_query_and_plan(client, monkeypatch):
     from app.schemas.research_execution import (
         CountResult,
