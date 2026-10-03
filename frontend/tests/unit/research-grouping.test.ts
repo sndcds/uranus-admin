@@ -40,7 +40,14 @@ describe('ordered multidimensional results', () => {
 it('validates the complete normal execution envelope, including the v9 plan', () => {
   const response = groupedExecutionResponse()
   expect(researchExecutionResponseSchema.parse(response)).toEqual(response)
-  for (const field of ['resolution', 'execution', 'observed_at', 'timezone', 'diagnostics']) {
+  for (const field of [
+    'resolution',
+    'execution',
+    'observed_at',
+    'timezone',
+    'diagnostics',
+    'sql_provenance',
+  ]) {
     const missing = Object.fromEntries(Object.entries(response).filter(([key]) => key !== field))
     expect(researchExecutionResponseSchema.safeParse(missing).success).toBe(false)
   }

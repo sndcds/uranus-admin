@@ -52,3 +52,19 @@ renders both coordinates and their count.
 Offline tests cover normalization, strict bounds, result coordinates and SQL
 construction. Disposable PostgreSQL tests verify occurrence-vs-event counts and
 join duplicates in CI. No local Docker/PostgreSQL execution is required.
+
+## SQL provenance integration
+
+Grouped repository execution uses the shared `execute_research_sql` collector
+introduced in #176, with label `Mehrdimensionale Auswertung` and kind `execution`.
+The normal response carries `sql_provenance` alongside the grouped result. The
+existing read-only SQL Editor displays that captured statement; grouping has no
+separate UI or SQL executor. The exact executed TextClause and effective bindings
+are captured, with the shared redaction rules unchanged (including inventory,
+boundary geometry and private location parameters).
+
+The combined API regression checks the captured SQL and redacted parameters against
+the recording connection. Its response fixture is also validated and rendered by
+the frontend tests, so a grouped result cannot inherit unrelated count-query SQL.
+This fixture uses synthetic rows; PostgreSQL/PostGIS population tests remain
+separate and require the disposable test database.

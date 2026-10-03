@@ -2,6 +2,8 @@
 
 import json
 from copy import deepcopy
+from dataclasses import replace
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -10,7 +12,10 @@ from pydantic import SecretStr, ValidationError
 
 from app.api import research as api
 from app.config import Settings
+from app.repositories.research_resolution import Resolution
 from app.research.plan import InternalResearchPlan
+from app.research.sql_provenance import LOCATION_REDACTED, safe_value
+from app.schemas.research_location import PlaceFilter
 from app.schemas.research_response import ResearchExecutionResponse
 from app.services import research_plan_execution as execution
 from app.services.research_planner import ResearchPlannerClient
@@ -74,11 +79,28 @@ async def flow(client, settings, monkeypatch):
     await planner.close()
 
 
-async def test_normal_query_delivers_grouped_envelope(client, headers, flow, monkeypatch):
+@pytest.mark.parametrize("private_location", [False, True])
+async def test_normal_query_delivers_grouped_envelope(
+    client, headers, flow, monkeypatch, caplog, private_location
+):
     state, requests, sql, resolve, learn = flow
     ticks = iter([100.0, 100.125])
     monkeypatch.setattr(api, "perf_counter", lambda: next(ticks))
-    response = await client.post(PATH, headers=headers, json={"query": wire().original_query})
+    body = {"query": wire().original_query}
+    if private_location:
+        from tests.test_research_administrative import boundary
+
+        resolve.side_effect = None
+        resolve.return_value = Resolution(
+            area=replace(boundary(), ewkb=b"private-grouped-boundary"),
+            place=PlaceFilter(mode="radius", latitude=54.791234567, longitude=9.431234567),
+        )
+        body["location_context"] = {
+            "latitude": 54.791234567,
+            "longitude": 9.431234567,
+            "source": "browser_geolocation",
+        }
+    response = await client.post(PATH, headers=headers, json=body)
     assert response.status_code == 200, response.text
     value = response.json()
     ResearchExecutionResponse.model_validate_json(response.content)
@@ -104,7 +126,48 @@ async def test_normal_query_delivers_grouped_envelope(client, headers, flow, mon
     assert internal.groupings == ("event_type", "month")
     assert internal.metric == "occurrence_count"
     sql.execute.assert_awaited_once()
-    assert learn.await_args.kwargs["plan"] is internal
+    statement, parameters = sql.execute.await_args.args
+    provenance = value["sql_provenance"]
+    assert len(provenance) == 1
+    assert provenance[0]["kind"] == "execution"
+    assert provenance[0]["label"] == "Mehrdimensionale Auswertung"
+    assert provenance[0]["sql"] == statement.text
+    assert provenance[0]["parameters"] == {
+        name: safe_value(name, parameters.get(name, default))
+        for name, default in statement.compile().params.items()
+    }
+    assert "count(DISTINCT selected.date_key)" in statement.text
+    assert (
+        "GROUP BY" in statement.text and "extract(month FROM selected.start_date)" in statement.text
+    )
+    assert "uranus.event_type" in statement.text
+    assert statement.text not in caplog.text
+    if private_location:
+        assert parameters["area_wkb"] == b"private-grouped-boundary"
+        assert parameters["place_latitude"] == 54.791234567
+        for name in ("area_wkb", "place_latitude", "place_longitude"):
+            assert provenance[0]["parameters"][name] == LOCATION_REDACTED
+        for private in ("private-grouped-boundary", "54.791234567", "9.431234567"):
+            assert private not in response.text and private not in caplog.text
+        learn.assert_not_awaited()
+    else:
+        assert learn.await_args.kwargs["plan"] is internal
+        fixture = (
+            Path(__file__).parents[2] / "frontend/tests/fixtures/research-grouping-response.json"
+        )
+        recorded = json.loads(fixture.read_text())
+        # The same real API envelope is consumed by frontend Zod/render tests.
+        # Only runtime clocks differ between executions.
+        for field in (
+            "query",
+            "plan",
+            "resolution",
+            "result",
+            "execution",
+            "timezone",
+            "sql_provenance",
+        ):
+            assert value[field] == recorded[field]
 
 
 @pytest.mark.parametrize(

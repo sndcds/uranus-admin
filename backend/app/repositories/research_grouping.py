@@ -12,6 +12,7 @@ from app.repositories.research_areas import ResolvedResearchArea
 from app.repositories.research_execution import grouping_sql
 from app.research.capabilities import boundary_execution, grouped_execution
 from app.research.plan import InternalResearchPlan, ResolvedResearchPlan
+from app.research.sql_provenance import execute_research_sql
 from app.schemas.research_execution import (
     ExecutionMetric,
     GroupCoordinate,
@@ -84,7 +85,11 @@ async def grouped_selection(
         prefix, params = execution_sql(resolved, settings)
         await validate_selection(connection, resolved, prefix, params)
     sql, params = grouped_sql(plan, resolved, settings, area)
-    rows = (await connection.execute(text(sql), params)).mappings()
+    rows = (
+        await execute_research_sql(
+            connection, text(sql), params, label="Mehrdimensionale Auswertung"
+        )
+    ).mappings()
     return GroupedResult(
         metric=cast(ExecutionMetric, plan.metric),
         dimensions=list(plan.groupings),

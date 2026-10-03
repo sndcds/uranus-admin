@@ -207,3 +207,72 @@ def test_axis_aliases_preserve_authoritative_taxonomy_subqueries(axis, dimension
     assert f"JOIN ({source}) taxonomy_{axis}" in join
     assert f"event_type_link l_{axis} ON l_{axis}.event_uuid=selected.entity_key" in join
     assert key == f"taxonomy_{axis}.id" and name == f"taxonomy_{axis}.label"
+
+
+async def test_grouped_inventory_provenance_uses_shared_redaction(settings):
+    from app.research.geography import BoundaryReference, ResolvedAdministrativeAreaRef
+    from app.research.sql_provenance import LOCATION_REDACTED, collect_research_sql
+    from tests.test_research_sql_provenance import Connection, Rows, assert_actual
+
+    geometry = json.dumps(
+        {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [9.431234567, 54.791234567],
+                    [9.5, 54.79],
+                    [9.5, 54.8],
+                    [9.431234567, 54.791234567],
+                ]
+            ],
+        }
+    )
+    municipality = ResolvedAdministrativeAreaRef(
+        name="Fixture municipality",
+        level="municipality",
+        country_code=None,
+        official_code=None,
+        code_system=None,
+        resolved_id="fixture-area",
+        boundary=BoundaryReference("fixture-area", geometry),
+    )
+    plan = InternalResearchPlan(
+        intent="aggregate",
+        entity_type="event",
+        metric="occurrence_count",
+        groupings=("category", "municipality"),
+        ordering="desc",
+        limit=20,
+    )
+    resolved = ResolvedResearchPlan(
+        filters=ExecutionFilters(),
+        intent="aggregate",
+        grouping="municipality",
+        inventory=(municipality,),
+    )
+    connection = Connection(
+        [
+            Rows(scalar=True),
+            Rows(scalar=1),
+            Rows(
+                [
+                    dict(
+                        key_0="1",
+                        name_0="Kultur",
+                        key_1="fixture-area",
+                        name_1="Fixture municipality",
+                        value=1,
+                    )
+                ]
+            ),
+        ]
+    )
+    with collect_research_sql() as statements:
+        result = await grouped_selection(connection, settings, plan, resolved, None)
+    assert result.dimensions == ["category", "municipality"]
+    assert_actual(statements, connection.calls[-1:])
+    assert statements[0].parameters["inventory"] == LOCATION_REDACTED
+    assert statements[0].parameters["constraints"] == LOCATION_REDACTED
+    assert "9.431234567" in connection.calls[-1][1]["inventory"]
+    assert "9.431234567" not in statements[0].model_dump_json()
+    assert "54.791234567" not in statements[0].model_dump_json()
