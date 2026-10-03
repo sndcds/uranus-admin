@@ -245,12 +245,7 @@ class Resolution:
                 reason="ambiguous" if choices else "no_match",
                 field=field_name,
                 query=query,
-                candidates=[
-                    choice.model_copy(update={"id": f"choice-{i}"})
-                    if choice.entity_type in {"event_type", "genre"}
-                    else choice
-                    for i, choice in enumerate(choices)
-                ],
+                candidates=choices,
             )
             return None
         target = choices[0]

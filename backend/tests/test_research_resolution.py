@@ -122,3 +122,17 @@ async def test_other_resolution_paths_do_not_use_taxonomy_normalization(
     assert "lower(trim(label))=lower(:exact)" in str(statement)
     assert ("ILIKE" in str(statement)) == (kind != "category")
     normalize.assert_not_called()
+
+
+def test_ambiguous_genres_keep_authoritative_composite_ids_in_resolution():
+    from app.schemas.research_execution import ResolutionCandidate
+
+    choices = [
+        ResolutionCandidate(entity_type="genre", id="1:1003", label="Jazz"),
+        ResolutionCandidate(entity_type="genre", id="2:2004", label="Jazz"),
+    ]
+    resolution = resolver.Resolution()
+    assert resolution.select("genre_queries", "Jazz", choices) is None
+    assert resolution.clarification.reason == "ambiguous"
+    assert [c.id for c in resolution.clarification.candidates] == ["1:1003", "2:2004"]
+    assert not resolution.fields

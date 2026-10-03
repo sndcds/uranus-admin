@@ -139,3 +139,41 @@ async def test_cross_kind_genre_retains_explicit_type_conflict(client, headers, 
     assert response.status_code == 200, response.text
     assert response.json()["result"]["reason"] == "taxonomy_conflict"
     assert response.json()["sql_provenance"] == []
+
+
+def test_http_choice_projection_preserves_internal_taxonomy_identities():
+    from app.schemas.research_execution import ExecutionClarification, ResolutionCandidate
+
+    internal = ExecutionClarification(
+        reason="ambiguous",
+        field="genre_queries",
+        query="Jazz",
+        candidates=[
+            ResolutionCandidate(entity_type="genre", id="1:1003", label="Jazz"),
+            ResolutionCandidate(entity_type="genre", id="2:2004", label="Jazz"),
+        ],
+    )
+    public = api._public_execution_result(internal)
+    assert [c.id for c in public.candidates] == ["choice-0", "choice-1"]
+    assert [c.label for c in public.candidates] == ["Jazz", "Jazz"]
+    assert [c.id for c in internal.candidates] == ["1:1003", "2:2004"]
+    assert public is not internal
+
+
+def test_http_choice_projection_keeps_non_taxonomy_candidates_and_success():
+    from app.schemas.research_execution import (
+        CountResult,
+        ExecutionClarification,
+        ResolutionCandidate,
+    )
+
+    internal = ExecutionClarification(
+        reason="ambiguous",
+        candidates=[
+            ResolutionCandidate(entity_type="venue", id="venue-id", label="Venue"),
+        ],
+    )
+    public = api._public_execution_result(internal)
+    assert public.candidates == internal.candidates
+    count = CountResult(metric="event_count", value=7)
+    assert api._public_execution_result(count) is count
