@@ -252,3 +252,16 @@ async def test_taxonomy_month_population(settings, taxonomy_source, dimension):
         taxonomy_source, settings, replace(plan, limit=1), resolved, None
     )
     assert len(limited.items) == 1 and limited.items[0].value == result.items[0].value
+
+
+@pytest.mark.parametrize("axis", [0, 1, 2])
+@pytest.mark.parametrize("dimension", ["event_type", "genre"])
+def test_axis_aliases_preserve_authoritative_taxonomy_subqueries(axis, dimension):
+    from app.repositories.research_execution import grouping_sql
+    from app.repositories.research_resolution import EVENT_TYPES_SQL, GENRES_SQL
+
+    key, name, join = grouping_sql(dimension, axis=axis)
+    source = GENRES_SQL if dimension == "genre" else EVENT_TYPES_SQL
+    assert f"JOIN ({source}) taxonomy_{axis}" in join
+    assert f"event_type_link l_{axis} ON l_{axis}.event_uuid=selected.entity_key" in join
+    assert key == f"taxonomy_{axis}.id" and name == f"taxonomy_{axis}.label"

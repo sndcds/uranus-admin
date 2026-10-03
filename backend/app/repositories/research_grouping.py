@@ -47,16 +47,7 @@ def grouped_sql(
                 "AND ST_CoveredBy(selected.point,municipality.boundary)"
             )
         else:
-            key, name, join = grouping_sql(dimension)
-            # Each axis has its own alias. Taxonomy link multiplication is removed
-            # by DISTINCT date_key within each COMPLETE cell, not across cells.
-            for old, new in [
-                ("taxonomy", f"taxonomy_{index}"),
-                ("l.", f"l{index}."),
-                (" l ON", f" l{index} ON"),
-                ("category", f"category_{index}"),
-            ]:
-                key, name, join = (v.replace(old, new) for v in (key, name, join))
+            key, name, join = grouping_sql(dimension, axis=index)
         projections += [f"{key} key_{index}", f"{name} name_{index}"]
         groups += [key, name]
         predicates.append(f"{key} IS NOT NULL")
@@ -65,7 +56,7 @@ def grouped_sql(
     if "event_type" in plan.groupings and "genre" in plan.groupings:
         type_index = plan.groupings.index("event_type")
         genre_index = plan.groupings.index("genre")
-        predicates.append(f"l{type_index}.type_id=l{genre_index}.type_id")
+        predicates.append(f"l_{type_index}.type_id=l_{genre_index}.type_id")
     count = {"occurrence_count": "selected.date_key", "event_count": "selected.entity_key"}[
         plan.metric
     ]

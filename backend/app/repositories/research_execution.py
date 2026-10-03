@@ -86,29 +86,36 @@ async def count_selection(
     )
 
 
-def grouping_sql(group_by: ExecutionGrouping) -> tuple[str, str, str]:
+def grouping_sql(group_by: ExecutionGrouping, *, axis: int | None = None) -> tuple[str, str, str]:
+    # Qualify only this projection's aliases. The reusable taxonomy subqueries
+    # own their inner SQL scopes and must never be rewritten by text replacement.
+    if axis is not None and (type(axis) is not int or not 0 <= axis <= 2):
+        raise ValueError("invalid_grouping_axis")
+    suffix = "" if axis is None else f"_{axis}"
+    link, taxonomy, category = f"l{suffix}", f"taxonomy{suffix}", f"category{suffix}"
     return {
         "event": ("selected.entity_key::text", "selected.name", ""),
         "venue": ("venue_id::text", "venue_name", ""),
         "organization": ("organization_id::text", "organization_name", ""),
         "category": (
-            "category->>'id'",
-            "category->>'name'",
-            "CROSS JOIN LATERAL jsonb_array_elements(categories) category",
+            f"{category}->>'id'",
+            f"{category}->>'name'",
+            f"CROSS JOIN LATERAL jsonb_array_elements(categories) {category}",
         ),
         "genre": (
-            "taxonomy.id",
-            "taxonomy.label",
-            f"JOIN uranus.event_type_link l ON l.event_uuid=selected.entity_key "
-            f"JOIN ({GENRES_SQL}) taxonomy ON taxonomy.id=l.type_id::text||':'||l.genre_id::text "
+            f"{taxonomy}.id",
+            f"{taxonomy}.label",
+            f"JOIN uranus.event_type_link {link} ON {link}.event_uuid=selected.entity_key "
+            f"JOIN ({GENRES_SQL}) {taxonomy} ON "
+            f"{taxonomy}.id={link}.type_id::text||':'||{link}.genre_id::text "
             "AND (cardinality(CAST(:event_type_ids AS integer[]))=0 "
-            "OR l.type_id=ANY(CAST(:event_type_ids AS integer[])))",
+            f"OR {link}.type_id=ANY(CAST(:event_type_ids AS integer[])))",
         ),
         "event_type": (
-            "taxonomy.id",
-            "taxonomy.label",
-            f"JOIN uranus.event_type_link l ON l.event_uuid=selected.entity_key "
-            f"JOIN ({EVENT_TYPES_SQL}) taxonomy ON taxonomy.id=l.type_id::text",
+            f"{taxonomy}.id",
+            f"{taxonomy}.label",
+            f"JOIN uranus.event_type_link {link} ON {link}.event_uuid=selected.entity_key "
+            f"JOIN ({EVENT_TYPES_SQL}) {taxonomy} ON {taxonomy}.id={link}.type_id::text",
         ),
     }[group_by]
 
