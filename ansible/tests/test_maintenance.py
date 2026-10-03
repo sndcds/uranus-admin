@@ -26,6 +26,40 @@ TEMPLATES = Environment(loader=FileSystemLoader(ROLE / "templates"), undefined=S
 
 
 class MaintenanceStaticTests(unittest.TestCase):
+    def test_permissions_policy_is_same_origin_only_for_application_locations(self):
+        for maintenance_enabled in (False, True):
+            with self.subTest(maintenance_enabled=maintenance_enabled):
+                site = TEMPLATES.get_template("nginx-site.conf.j2").render(
+                    {**DEFAULTS, "ua_maintenance_page_enabled": maintenance_enabled}
+                )
+                self.assertNotIn("geolocation=*", site)
+                # Check the server default and every location that overrides headers.
+                blocks = site.split("location ")
+                checked = 0
+                for block in blocks:
+                    if "add_header Permissions-Policy" not in block:
+                        continue
+                    maintenance = block.startswith(
+                        ("= /__maintenance.html", "= /__maintenance_assets/")
+                    )
+                    geolocation = "()" if maintenance else "(self)"
+                    self.assertIn(
+                        'add_header Permissions-Policy "camera=(), microphone=(), '
+                        f'geolocation={geolocation}, payment=(), usb=()" always;',
+                        block,
+                    )
+                    for header in (
+                        'Strict-Transport-Security "max-age=31536000; includeSubDomains"',
+                        'X-Content-Type-Options "nosniff"',
+                        'X-Frame-Options "DENY"',
+                        'Referrer-Policy "strict-origin-when-cross-origin"',
+                        'X-Robots-Tag "noindex, nofollow, noarchive"',
+                    ):
+                        self.assertIn(f"add_header {header} always;", block)
+                    checked += 1
+                # Server, four proxy locations, rate limit; maintenance page + four assets.
+                self.assertEqual(checked, 11 if maintenance_enabled else 6)
+
     def test_marker_inspection_is_bounded_exact_and_private(self):
         cases = [
             ("absent", None, "absent"),
@@ -365,8 +399,20 @@ class MaintenanceNginxTests(unittest.TestCase):
                 else:
                     self.fail("Fixture nginx did not start")
                 self.assertEqual((status, body), (200, "proxied /login"))
-                for path in ("/", "/api/admin/auth/session", "/_nuxt/app.js"):
-                    self.assertEqual(get(path)[2], "proxied " + path)
+                for path in (
+                    "/",
+                    "/api/admin/auth/session",
+                    "/api/admin/api/v1/sql-console/ws",
+                    "/_nuxt/app.js",
+                ):
+                    status, headers, body = get(path)
+                    self.assertEqual((status, body), (200, "proxied " + path))
+                    self.assertEqual(
+                        headers["Permissions-Policy"],
+                        "camera=(), microphone=(), geolocation=(self), payment=(), usb=()",
+                    )
+                    self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
+                    self.assertEqual(headers["X-Frame-Options"], "DENY")
                 for name in ("lottie.min.js", "maintenance.json", "maintenance.js", "unknown"):
                     self.assertEqual(get("/__maintenance_assets/" + name)[0], 404)
                 self.assertEqual(get("/__maintenance.html")[0], 404)
@@ -382,6 +428,10 @@ class MaintenanceNginxTests(unittest.TestCase):
                     self.assertEqual(headers["X-Robots-Tag"], "noindex, nofollow, noarchive")
                     self.assertEqual(headers["X-Frame-Options"], "DENY")
                     self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+                    self.assertEqual(
+                        headers["Permissions-Policy"],
+                        "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+                    )
                     self.assertIn("max-age=31536000", headers["Strict-Transport-Security"])
                     csp = headers["Content-Security-Policy"]
                     self.assertIn("default-src 'none'", csp)
@@ -390,9 +440,13 @@ class MaintenanceNginxTests(unittest.TestCase):
                     self.assertNotIn("https:", csp)
                     self.assertNotIn("unsafe-eval", csp)
                 for name in ("lottie.min.js", "maintenance.json", "maintenance.js"):
-                    status, _, body = get("/__maintenance_assets/" + name)
+                    status, headers, body = get("/__maintenance_assets/" + name)
                     self.assertEqual(status, 200)
                     self.assertEqual(body, (assets / name).read_text())
+                    self.assertEqual(
+                        headers["Permissions-Policy"],
+                        "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+                    )
                 self.assertEqual(get("/__maintenance_assets/unknown")[0], 404)
                 upstream = http.server.ThreadingHTTPServer(
                     ("127.0.0.1", upstream.server_port), ProxyFixture
