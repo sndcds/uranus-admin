@@ -1,3 +1,4 @@
+import { executionResultSchema, researchPlanRequestSchema } from '#shared/research-execution'
 import {
   provenanceDefinitionSchema,
   provenanceResultSchema,
@@ -249,6 +250,19 @@ export function createAdminApi(
         undefined,
         2_000,
       ),
+    researchGroupedQuery: (query: string, signal?: AbortSignal) => {
+      const parsed = researchPlanRequestSchema.safeParse({ query })
+      if (!parsed.success) throw new AdminApiError(failure(422, 'invalid_input'))
+      return request(
+        '/api/v1/research/v9/query',
+        executionResultSchema,
+        {},
+        'POST',
+        parsed.data,
+        signal,
+        60_000,
+      )
+    },
     researchQuery: (
       query: string,
       signal?: AbortSignal,

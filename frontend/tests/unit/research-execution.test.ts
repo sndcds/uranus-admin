@@ -57,7 +57,7 @@ it('mirrors OpenAPI result discriminator and required plan fields', () => {
   const api = JSON.parse(readFileSync('docs/openapi.json', 'utf8'))
   const response = api.components.schemas.ResearchExecutionResponse
   expect(Object.keys(response.properties.result.discriminator.mapping).sort()).toEqual(
-    [...variants, 'taxonomy', 'spatial'].sort(),
+    [...variants, 'taxonomy', 'spatial', 'grouped'].sort(),
   )
   expect(Object.keys(executionResponse().plan.plan).sort()).toEqual(
     api.components.schemas.ResearchQueryPlan.required.sort(),

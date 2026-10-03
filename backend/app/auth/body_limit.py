@@ -17,6 +17,7 @@ class AuthBodyLimitMiddleware:
             "/api/v1/research/query": 32 * 1024,
             "/api/v1/research/v4/query": 32 * 1024,
             "/api/v1/research/v8/query": 32 * 1024,
+            "/api/v1/research/v9/query": 32 * 1024,
         }
         limit = limits.get(scope.get("path", ""))
         if scope["type"] != "http" or limit is None:

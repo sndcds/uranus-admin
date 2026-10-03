@@ -219,7 +219,64 @@ export const resolvedFieldSchema = z
   .object({ field: resolutionField, query: slot, target: resolutionCandidateSchema })
   .strict()
 const value = z.number().int().nonnegative()
+export const groupingDimensionSchema = z.enum([
+  'event',
+  'venue',
+  'organization',
+  'category',
+  'genre',
+  'event_type',
+  'month',
+  'municipality',
+  'district',
+  'state',
+  'country',
+  'region',
+])
+export const groupedResultSchema = z
+  .object({
+    kind: z.literal('grouped'),
+    metric: executionMetricSchema,
+    dimensions: z.array(groupingDimensionSchema).min(1).max(3),
+    ordering: z.enum(['asc', 'desc']).nullable(),
+    limit: z.number().int().min(1).max(20),
+    items: z
+      .array(
+        z
+          .object({
+            coordinates: z
+              .array(
+                z
+                  .object({
+                    dimension: groupingDimensionSchema,
+                    key: z.string(),
+                    name: z.string(),
+                  })
+                  .strict(),
+              )
+              .min(1)
+              .max(3),
+            value,
+          })
+          .strict(),
+      )
+      .max(20),
+  })
+  .strict()
+  .superRefine((result, ctx) => {
+    if (
+      new Set(result.dimensions).size !== result.dimensions.length ||
+      result.items.length > result.limit ||
+      result.items.some(
+        (item) =>
+          item.coordinates.length !== result.dimensions.length ||
+          item.coordinates.some((c, i) => c.dimension !== result.dimensions[i]),
+      )
+    )
+      ctx.addIssue({ code: 'custom', message: 'Inconsistent grouping coordinates' })
+  })
 export const executionResultSchema = z.discriminatedUnion('kind', [
+  groupedResultSchema,
   z
     .object({
       kind: z.literal('taxonomy'),
@@ -244,6 +301,7 @@ export const executionResultSchema = z.discriminatedUnion('kind', [
       kind: z.literal('aggregate'),
       metric: executionMetricSchema,
       group_by: z.enum([
+        'month',
         'event',
         'venue',
         'organization',

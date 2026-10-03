@@ -40,6 +40,20 @@ const clarification = computed(() => {
   if (r.reason === 'duplicate_target') return 'Bitte verwende unterschiedliche Vergleichsziele.'
   return `Welche Zuordnung meinst du${r.query ? ` mit „${r.query}“` : ''}?`
 })
+const dimensionLabels = {
+  event: 'Veranstaltung',
+  venue: 'Ort',
+  organization: 'Organisation',
+  category: 'Kategorie',
+  genre: 'Genre',
+  event_type: 'Veranstaltungstyp',
+  month: 'Monat',
+  municipality: 'Gemeinde',
+  district: 'Kreis',
+  state: 'Bundesland',
+  country: 'Staat',
+  region: 'Region',
+}
 const fieldLabels = {
   place_query: 'Ort',
   location_context: 'Standort',
@@ -119,6 +133,7 @@ const fieldLabels = {
         {{ metric }} nach
         {{
           {
+            month: 'Monat',
             event: 'Veranstaltung',
             venue: 'Veranstaltungsort',
             organization: 'Organisation',
@@ -152,7 +167,7 @@ const fieldLabels = {
         </template>
         <p v-else>{{ result.items.length }} Ergebnisse angezeigt</p>
       </template>
-      <template v-else>
+      <template v-else-if="result.kind === 'needs_clarification'">
         <p>{{ clarification }}</p>
         <p class="text-sm text-slate-600">Passe die Frage an und sende sie erneut ab.</p>
         <div
@@ -216,6 +231,33 @@ const fieldLabels = {
           Semantische Relevanz
         </p>
       </template>
+    </div>
+    <div v-if="result.kind === 'grouped'" class="overflow-x-auto">
+      <p>
+        {{ metric }} je Gruppenkombination · {{ result.items.length }} von höchstens
+        {{ result.limit }} Gruppen
+      </p>
+      <table class="w-full text-left text-sm" aria-label="Mehrdimensionale Auswertung">
+        <thead>
+          <tr>
+            <th v-for="dimension in result.dimensions" :key="dimension" scope="col">
+              {{ dimensionLabels[dimension] }}
+            </th>
+            <th scope="col">{{ metric }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="item in result.items"
+            :key="JSON.stringify(item.coordinates.map((c) => c.key))"
+          >
+            <td v-for="coordinate in item.coordinates" :key="coordinate.dimension">
+              {{ coordinate.name }}
+            </td>
+            <td>{{ number(item.value) }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
     <div v-if="result.kind === 'aggregate' || result.kind === 'comparison'" class="overflow-x-auto">
       <table class="w-full text-left text-sm" aria-label="Auswertung">

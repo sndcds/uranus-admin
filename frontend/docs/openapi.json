@@ -24687,6 +24687,132 @@
           }
         ]
       }
+    },
+    "/api/v1/research/v9/query": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Grouped Query",
+        "description": "Validated v9 wire edge; the existing executor resolves and aggregates.",
+        "operationId": "grouped_query_api_v1_research_v9_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/RecordsResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CountResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AggregateResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GroupedResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ComparisonResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ExecutionClarification"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TaxonomyResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SpatialResult"
+                    }
+                  ],
+                  "title": "Response Grouped Query Api V1 Research V9 Query Post",
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "records": "#/components/schemas/RecordsResult",
+                      "count": "#/components/schemas/CountResult",
+                      "aggregate": "#/components/schemas/AggregateResult",
+                      "grouped": "#/components/schemas/GroupedResult",
+                      "comparison": "#/components/schemas/ComparisonResult",
+                      "needs_clarification": "#/components/schemas/ExecutionClarification",
+                      "taxonomy": "#/components/schemas/TaxonomyResult",
+                      "spatial": "#/components/schemas/SpatialResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -25475,6 +25601,7 @@
             "type": "string",
             "enum": [
               "event",
+              "month",
               "venue",
               "organization",
               "category",
@@ -32401,6 +32528,151 @@
         ],
         "title": "GraphSearchResponse"
       },
+      "GroupCoordinate": {
+        "properties": {
+          "dimension": {
+            "type": "string",
+            "enum": [
+              "event",
+              "month",
+              "venue",
+              "organization",
+              "category",
+              "genre",
+              "event_type",
+              "municipality",
+              "district",
+              "state",
+              "country",
+              "region"
+            ],
+            "title": "Dimension"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dimension",
+          "key",
+          "name"
+        ],
+        "title": "GroupCoordinate"
+      },
+      "GroupedItem": {
+        "properties": {
+          "coordinates": {
+            "items": {
+              "$ref": "#/components/schemas/GroupCoordinate"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Coordinates"
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "coordinates",
+          "value"
+        ],
+        "title": "GroupedItem"
+      },
+      "GroupedResult": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "grouped",
+            "title": "Kind",
+            "default": "grouped"
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "event_count",
+              "occurrence_count",
+              "venue_count",
+              "organization_count"
+            ],
+            "title": "Metric"
+          },
+          "dimensions": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "event",
+                "month",
+                "venue",
+                "organization",
+                "category",
+                "genre",
+                "event_type",
+                "municipality",
+                "district",
+                "state",
+                "country",
+                "region"
+              ]
+            },
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Dimensions"
+          },
+          "ordering": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordering"
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Limit"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GroupedItem"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metric",
+          "dimensions",
+          "ordering",
+          "limit",
+          "items"
+        ],
+        "title": "GroupedResult"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -36264,6 +36536,9 @@
                 "$ref": "#/components/schemas/AggregateResult"
               },
               {
+                "$ref": "#/components/schemas/GroupedResult"
+              },
+              {
                 "$ref": "#/components/schemas/ComparisonResult"
               },
               {
@@ -36283,6 +36558,7 @@
                 "aggregate": "#/components/schemas/AggregateResult",
                 "comparison": "#/components/schemas/ComparisonResult",
                 "count": "#/components/schemas/CountResult",
+                "grouped": "#/components/schemas/GroupedResult",
                 "needs_clarification": "#/components/schemas/ExecutionClarification",
                 "records": "#/components/schemas/RecordsResult",
                 "spatial": "#/components/schemas/SpatialResult",

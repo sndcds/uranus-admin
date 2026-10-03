@@ -11,6 +11,7 @@ from pydantic import TypeAdapter, ValidationError
 from app.config import Settings
 from app.errors import APIError
 from app.research.wire.research_v8_schema import PlanResponseV8
+from app.research.wire.research_v9_schema import PlanResponseV9
 from app.schemas.research_analytics import AnalyticalPlanResponse
 from app.schemas.research_geography import GeographicPlanResponse
 from app.schemas.research_planner import PlanResponse
@@ -181,6 +182,52 @@ class ResearchPlannerClient:
                             raise invalid_response()
                         body.extend(chunk)
                     envelope = PlanResponseV8.model_validate_json(body)
+                    if (
+                        envelope.plan.original_query != query
+                        or envelope.timezone != self._timezone
+                        or envelope.diagnostics.planner_model != envelope.model
+                        or envelope.diagnostics.planner_prompt_version != envelope.prompt_version
+                    ):
+                        raise invalid_response()
+                    return envelope
+                finally:
+                    await response.aclose()
+        except (httpx.HTTPError, TimeoutError):
+            raise unavailable() from None
+        except ValueError:
+            raise invalid_response() from None
+
+    async def plan_grouped(self, query: str) -> "PlanResponseV9":
+        """One bounded v9 request. No retry, old-contract fallback or provider reflection."""
+        try:
+            async with asyncio.timeout(self._timeout):
+                request = httpx.Request(
+                    "POST",
+                    self._url.removesuffix("/plan") + "/v9/plan",
+                    headers={
+                        "Authorization": f"Bearer {self._key.get_secret_value()}",
+                        "Accept": "application/json",
+                        "Accept-Encoding": "identity",
+                    },
+                    json={"query": query, "timezone": self._timezone, "language": "auto"},
+                )
+                response = await self._http.send(request, stream=True)
+                try:
+                    if response.status_code in {401, 403, 503}:
+                        raise unavailable()
+                    if (
+                        response.status_code != 200
+                        or response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                        != "application/json"
+                        or response.headers.get("content-encoding", "identity") != "identity"
+                    ):
+                        raise invalid_response()
+                    body = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        if len(body) + len(chunk) > MAX_RESPONSE_BYTES:
+                            raise invalid_response()
+                        body.extend(chunk)
+                    envelope = PlanResponseV9.model_validate_json(body)
                     if (
                         envelope.plan.original_query != query
                         or envelope.timezone != self._timezone

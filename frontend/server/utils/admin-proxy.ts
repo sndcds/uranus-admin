@@ -32,6 +32,7 @@ import { failure } from '#shared/errors'
 
 const routes: Record<string, readonly string[]> = {
   '/api/v1/research/query': [],
+  '/api/v1/research/v9/query': [],
   '/api/v1/research/suggestions': ['q', 'limit', 'language'],
   '/api/v1/research/suggestions/impression': [],
   '/api/v1/research/suggestions/select': [],
@@ -320,7 +321,8 @@ export async function forwardAdminRequest(
                           ? routes[input.path]
                           : undefined
   if (!allowed) return rejected(404, 'route_not_allowed')
-  const researchExecution = input.path === '/api/v1/research/query'
+  const groupedExecution = input.path === '/api/v1/research/v9/query'
+  const researchExecution = input.path === '/api/v1/research/query' || groupedExecution
   const suggestionImpression = input.path === '/api/v1/research/suggestions/impression'
   const suggestionSelection = input.path === '/api/v1/research/suggestions/select'
   const suggestionWrite = suggestionImpression || suggestionSelection
@@ -332,6 +334,7 @@ export async function forwardAdminRequest(
   if (
     input.selectionReceipt &&
     (!researchExecution ||
+      groupedExecution ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         input.selectionReceipt,
       ))
@@ -389,6 +392,13 @@ export async function forwardAdminRequest(
     if (!params) return rejected(422, 'invalid_input')
     requestBody = JSON.stringify(params)
   }
+  if (
+    groupedExecution &&
+    input.body &&
+    typeof input.body === 'object' &&
+    'location_context' in input.body
+  )
+    return rejected(422, 'invalid_input')
   if (researchExecution) {
     const parsed = researchQueryRequestSchema.safeParse(input.body)
     if (!parsed.success) return rejected(422, 'invalid_input')

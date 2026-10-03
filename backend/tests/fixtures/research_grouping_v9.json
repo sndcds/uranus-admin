@@ -1,0 +1,36 @@
+{
+  "original_query": "Welche Veranstaltungstypen treten saisonal besonders stark auf?",
+  "intent": "aggregate",
+  "entity_type": "event",
+  "metric": {
+    "operation": "occurrence_count",
+    "field": null,
+    "distinct_by": null,
+    "numerator": null,
+    "denominator": null,
+    "measure": null,
+    "window": null,
+    "currency": null
+  },
+  "group_by": [
+    "event_type",
+    "month"
+  ],
+  "ordering": "desc",
+  "limit": 20,
+  "filters": [],
+  "metric_filter": null,
+  "taxonomy": null,
+  "temporal": null,
+  "spatial": null,
+  "price": null,
+  "semantic": null,
+  "relation": null,
+  "trend": null,
+  "anomaly": null,
+  "explain": null,
+  "knowledge": null,
+  "comparison_targets": [],
+  "clarification": "none",
+  "unsupported_reason": null
+}

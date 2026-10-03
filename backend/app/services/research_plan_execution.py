@@ -26,8 +26,9 @@ from app.repositories.research_execution import (
     spatial_records,
     taxonomy_selection,
 )
+from app.repositories.research_grouping import grouped_selection
 from app.repositories.research_resolution import Resolution, resolve_plan
-from app.research.capabilities import boundary_execution, require_supported
+from app.research.capabilities import boundary_execution, grouped_execution, require_supported
 from app.research.context import ResearchExecutionContext
 from app.research.geography import (
     ADMINISTRATIVE_LEVELS,
@@ -55,6 +56,7 @@ from app.schemas.research_execution import (
     ExecutionProvenance,
     ExecutionResult,
     ExecutionSemanticFilters,
+    GroupedResult,
     RecordsResult,
     SpatialResult,
     TaxonomyResult,
@@ -240,9 +242,13 @@ class ResearchPlanExecutor:
                             )
                             for c in resolution.spatial_constraints
                         ),
-                        grouping=cast(AdministrativeLevel, plan.group_by)
-                        if plan.group_by in ADMINISTRATIVE_LEVELS
-                        else None,
+                        grouping=(
+                            "municipality"
+                            if "municipality" in plan.groupings
+                            else cast(AdministrativeLevel, plan.group_by)
+                            if plan.group_by in ADMINISTRATIVE_LEVELS
+                            else None
+                        ),
                         zero_only=plan.zero_only,
                         ordering=plan.ordering or "desc",
                         limit=filters.page_size,
@@ -304,7 +310,11 @@ class ResearchPlanExecutor:
                             asynccontextmanager(get_connection)(request) as connection,
                         ):
                             observed_at = datetime.now(UTC)
-                            if boundary_execution(plan):
+                            if grouped_execution(plan):
+                                result = await grouped_selection(
+                                    connection, settings, plan, resolved_plan, resolution.area
+                                )
+                            elif boundary_execution(plan):
                                 administrative = await administrative_selection(
                                     connection, settings, resolved_plan
                                 )
@@ -464,6 +474,7 @@ class ResearchPlanExecutor:
                     (
                         RecordsResult,
                         AggregateResult,
+                        GroupedResult,
                         ComparisonResult,
                         TaxonomyResult,
                         SpatialResult,

@@ -374,7 +374,7 @@ async def resolve_plan(
                     )
                 ],
             )
-        if plan.group_by in ADMINISTRATIVE_LEVELS:
+        if plan.group_by in ADMINISTRATIVE_LEVELS or "municipality" in plan.groupings:
             boundaries = tuple(
                 ResolvedAdministrativeConstraint(
                     cast(Literal["inside", "outside"], c.relation),
@@ -384,7 +384,10 @@ async def resolve_plan(
             )
             resolved.inventory, resolved.inventory_countries = await load_inventory(
                 settings.research_administrative_catalog_path,
-                cast(AdministrativeLevel, plan.group_by),
+                cast(
+                    AdministrativeLevel,
+                    "municipality" if "municipality" in plan.groupings else plan.group_by,
+                ),
                 boundaries,
             )
     elif areas:
