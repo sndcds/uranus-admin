@@ -11,6 +11,7 @@ import {
   researchSqlStatementSchema,
 } from '../../shared/research-execution'
 import { executionResponse } from '../fixtures/research-execution'
+import { groupedExecutionResponse } from '../fixtures/research-grouping'
 
 const views: ReturnType<typeof mount>[] = []
 beforeEach(() => {
@@ -143,4 +144,37 @@ it('requires a bounded collection of closed provenance statements', () => {
       sql_provenance: Array(17).fill(response.sql_provenance[0]),
     }).success,
   ).toBe(false)
+})
+
+it('shows ordered grouped dimensions and their actual SQL in the shared read-only editor', async () => {
+  const response = groupedExecutionResponse()
+  const view = answer(response)
+  const table = view.get('table[aria-label="Mehrdimensionale Auswertung"]')
+  expect(table.findAll('th').map((column) => column.text())).toEqual([
+    'Veranstaltungstyp',
+    'Monat',
+    'Termine',
+  ])
+  expect(table.text()).toContain('Konzert')
+  expect(table.text()).toContain('09')
+  expect(view.text()).toContain('So wurde die Frage verstanden')
+  await view.get('button[aria-label="SQL Editor"]').trigger('click')
+  await flushPromises()
+  const editor = view.getComponent(SqlCodeEditor)
+  expect(editor.props('readonly')).toBe(true)
+  expect(editor.props('sql')).toBe(response.sql_provenance[0]!.sql)
+  expect(editor.props('sql')).toContain('GROUP BY')
+  expect(editor.props('sql')).toContain('extract(month FROM selected.start_date)')
+  expect(editor.props('sql')).toContain('count(DISTINCT selected.date_key)')
+  expect(view.getComponent(SqlParameterTable).props('parameters')).toEqual(
+    response.sql_provenance[0]!.parameters,
+  )
+  expect(view.getComponent(SqlQueryPanel).props('copySql')).toBe(response.sql_provenance[0]!.sql)
+  expect(view.text()).not.toMatch(/Abfrage ausführen|SQL bearbeiten/)
+})
+it('keeps grouped results visible without offering an empty SQL Editor', () => {
+  const view = answer({ ...groupedExecutionResponse(), sql_provenance: [] })
+  expect(view.find('table[aria-label="Mehrdimensionale Auswertung"]').exists()).toBe(true)
+  expect(view.find('button[aria-label="SQL Editor"]').exists()).toBe(false)
+  expect(view.findComponent(ResearchSqlEditorModal).exists()).toBe(false)
 })

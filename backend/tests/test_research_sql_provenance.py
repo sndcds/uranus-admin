@@ -443,7 +443,9 @@ async def test_learning_receives_only_existing_query_and_plan(client, monkeypatc
     monkeypatch.setattr(research_learning, "connect_admin", admin)
     monkeypatch.setattr(research_learning, "learn", learn)
     await research_learning.record_success(Request({"type": "http"}), response, None)
-    learn.assert_awaited_once_with(connection, response.query, response.plan.plan, None)
+    from app.research.normalize import normalize
+
+    learn.assert_awaited_once_with(connection, response.query, normalize(response.plan), None)
     assert "private parameter" not in repr(learn.await_args)
 
 

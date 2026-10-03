@@ -1,3 +1,4 @@
+import { groupedExecutionResponse } from '../fixtures/research-grouping'
 import { researchSuggestions, suggestionReceipt } from '../fixtures/research-suggestions'
 import { test, expect } from '../fixtures/authenticated'
 import {
@@ -383,4 +384,29 @@ test('early clarification has no SQL Editor action', async ({ page }) => {
   await page.goto(`/research?question=${encodeURIComponent(response.query)}`)
   await expect(page.getByRole('heading', { name: 'Frage präzisieren' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'SQL Editor', exact: true })).toHaveCount(0)
+})
+
+test('grouped normal Research answer offers its actual SQL read-only', async ({ page }) => {
+  const response = groupedExecutionResponse()
+  let requests = 0
+  await page.route(`**${root}/query`, (route) => {
+    requests++
+    expect(route.request().postDataJSON()).toEqual({ query: response.query })
+    return route.fulfill({ json: response })
+  })
+  await page.goto(`/research?question=${encodeURIComponent(response.query)}`)
+  const table = page.getByRole('table', { name: 'Mehrdimensionale Auswertung' })
+  await expect(table.getByRole('columnheader')).toHaveText([
+    'Veranstaltungstyp',
+    'Monat',
+    'Termine',
+  ])
+  await expect(table.getByRole('cell', { name: 'Konzert', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'SQL Editor', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'SQL Editor' })
+  const code = dialog.getByRole('region', { name: 'SQL-Abfrage, Nur-Lese-Modus' })
+  await expect(code).toContainText('GROUP BY')
+  await expect(code).toContainText('selected.start_date')
+  await expect(dialog.getByRole('button', { name: 'Abfrage ausführen' })).toHaveCount(0)
+  expect(requests).toBe(1)
 })
