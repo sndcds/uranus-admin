@@ -273,3 +273,63 @@ export const conversationPlanResponseSchema = z
       v.diagnostics.planner_intent === v.plan.intent &&
       v.diagnostics.planner_model === v.model,
   )
+
+const administrativeLevel = z.enum(['municipality', 'district', 'state', 'country', 'region'])
+const modernSpatial = z
+  .array(
+    z.union([
+      z
+        .object({
+          relation: z.enum(['inside', 'outside']),
+          reference: z.literal('named'),
+          area_query: name,
+          area_level: administrativeLevel.nullable(),
+          place_query: z.null(),
+          radius_m: z.null(),
+        })
+        .strict(),
+      z
+        .object({
+          relation: z.literal('at'),
+          reference: z.literal('named'),
+          area_query: z.null(),
+          area_level: z.null(),
+          place_query: name,
+          radius_m: z.null(),
+        })
+        .strict(),
+      z
+        .object({
+          relation: z.literal('nearby'),
+          reference: z.literal('user_location'),
+          area_query: z.null(),
+          area_level: z.null(),
+          place_query: z.null(),
+          radius_m: z.null(),
+        })
+        .strict(),
+    ]),
+  )
+  .max(4)
+  .refine((v) => new Set(v.map((p) => JSON.stringify(p))).size === v.length)
+  .refine(
+    (v) => v.length < 2 || v.every((p) => p.relation === 'inside' || p.relation === 'outside'),
+  )
+
+export const modernPlanResponseSchema = z
+  .object({
+    ...conversationPlanResponseSchema.shape,
+    schema_version: z.literal('research-query-plan-v12'),
+    prompt_version: z.literal('research-planner-v18'),
+    plan: conversationPlanResponseSchema.shape.plan.extend({ spatial: modernSpatial }),
+    diagnostics: envelopeSchema.shape.diagnostics.extend({
+      planner_prompt_version: z.literal('research-planner-v18'),
+    }),
+  })
+  .strict()
+  .refine(
+    (v) =>
+      (v.kind === 'plan') === (v.plan.clarification === 'none') &&
+      v.diagnostics.planner_intent === v.plan.intent &&
+      v.diagnostics.planner_model === v.model,
+  )

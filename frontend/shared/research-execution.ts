@@ -11,6 +11,7 @@ import {
   groupedPlanResponseSchema,
   calendarPlanResponseSchema,
   conversationPlanResponseSchema,
+  modernPlanResponseSchema,
 } from './research-grouping'
 import { analyticalPlanResponseSchema } from './research-analytics'
 import { z } from './zod'
@@ -414,6 +415,7 @@ export const researchExecutionResponseSchema = z
       groupedPlanResponseSchema,
       calendarPlanResponseSchema,
       conversationPlanResponseSchema,
+      modernPlanResponseSchema,
       geographicPlanResponseSchema,
       researchPlanResponseSchema,
       analyticalPlanResponseSchema,

@@ -24,6 +24,7 @@ from app.research.wire.research_v8_types import NameFilterV8
 from app.research.wire.research_v9_schema import PlanResponseV9
 from app.research.wire.research_v10_schema import PlanResponseV10
 from app.research.wire.research_v11_schema import PlanResponseV11
+from app.research.wire.research_v12_schema import PlanResponseV12
 from app.schemas.research_analytics import (
     AnalyticalEnvelope,
     AnalyticalPlanResponse,
@@ -40,6 +41,7 @@ PlannerResponse = (
     | PlanResponseV9
     | PlanResponseV10
     | PlanResponseV11
+    | PlanResponseV12
 )
 
 
@@ -156,6 +158,10 @@ def normalize_v6(response: GeographicPlanResponse) -> InternalResearchPlan:
 
 
 def normalize(response: PlannerResponse) -> InternalResearchPlan:
+    if isinstance(response, PlanResponseV12):
+        from app.research.normalize_v12 import normalize_v12
+
+        return normalize_v12(response.plan)
     if isinstance(response, PlanResponseV11):
         if (
             response.plan.clarification == "needs_context"

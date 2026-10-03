@@ -110,3 +110,6 @@ fetching a moving upstream contract during tests.
 
 Coordinated Planner source: `6c85cebe00284e8dac9aa608ef0384b8126ff61a`. Snapshot digest and exact versions
 are recorded in `backend/tests/fixtures/conversation_v11_contract.json`.
+
+V12 additionally retains lexical administrative level expectations and up to four
+AND areas in safe summaries. See [the combined v12 contract](modern-v12.md).

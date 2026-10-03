@@ -134,8 +134,8 @@ async def query(
         internal.spatial_constraints
     )
     summary = (
-        summarize_plan(internal)
-        if settings.research_planner_contract == "v11"
+        summarize_plan(internal, administrative=settings.research_planner_contract == "v12")
+        if settings.research_planner_contract in {"v11", "v12"}
         and not sensitive_location
         and outcome.result.kind != "needs_clarification"
         else None

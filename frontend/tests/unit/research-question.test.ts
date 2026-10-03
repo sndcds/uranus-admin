@@ -831,3 +831,59 @@ it('keeps clarification and historical SQL attached to their own immutable respo
   view.unmount()
   vi.restoreAllMocks()
 })
+
+it('renders v12 district clarification labels without internal identities', async () => {
+  const { modernPlanResponseSchema } = await import('../../shared/research-grouping')
+  const { default: cases } = await import('../fixtures/research-modern-v12.json', {
+    with: { type: 'json' },
+  })
+  const item = cases.find((c) => c.name === 'informal-district')!
+  const response = executionResponse('needs_clarification')
+  response.query = item.query
+  response.plan = modernPlanResponseSchema.parse({
+    kind: 'plan',
+    schema_version: 'research-query-plan-v12',
+    prompt_version: 'research-planner-v18',
+    model: 'fixture',
+    plan: item.plan,
+    reference_date: '2026-10-03',
+    timezone: 'Europe/Berlin',
+    diagnostics: {
+      request_id: 'a'.repeat(32),
+      planner_intent: 'list',
+      planner_model: 'fixture',
+      planner_prompt_version: 'research-planner-v18',
+      planner_ms: 1,
+      total_ms: 1,
+    },
+  })
+  response.result = {
+    kind: 'needs_clarification',
+    reason: 'ambiguous',
+    field: 'area_query',
+    query: 'Schleswig',
+    planner_state: null,
+    candidates: [
+      {
+        entity_type: 'area',
+        id: '00000000-0000-4000-8000-000000000991',
+        label: 'Kreis Schleswig-Flensburg',
+      },
+      {
+        entity_type: 'area',
+        id: '00000000-0000-4000-8000-000000000992',
+        label: 'Kreis Schleswig (historisch)',
+      },
+    ],
+  }
+  const ctx = setup(response.query)
+  ctx.api.researchQuery.mockResolvedValue(response)
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  await flushPromises()
+  expect(view.text()).toContain('Kreis Schleswig-Flensburg')
+  expect(view.text()).toContain('Kreis Schleswig (historisch)')
+  expect(view.text()).not.toMatch(
+    /Ahneby|Arnis|Ausacker|Bollingstedt|Boren|00000000-0000|expected_level|area_level/,
+  )
+  view.unmount()
+})

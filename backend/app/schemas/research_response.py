@@ -8,8 +8,10 @@ from app.research.answer import ANSWER_TEXT_MAX_LENGTH
 from app.research.wire.research_v9_schema import PlanResponseV9
 from app.research.wire.research_v10_schema import PlanResponseV10
 from app.research.wire.research_v11_schema import PlanResponseV11
+from app.research.wire.research_v12_schema import PlanResponseV12
 from app.schemas.research_analytics import AnalyticalPlanResponse
 from app.schemas.research_conversation import ResearchPlanSummary
+from app.schemas.research_conversation_v12 import ResearchPlanSummaryV12
 from app.schemas.research_execution import (
     ExecutionDiagnostics,
     ExecutionProvenance,
@@ -24,7 +26,7 @@ from app.schemas.research_values import ClosedModel, Query
 
 class ResearchExecutionResponse(ClosedModel):
     answer_text: str | None = Field(max_length=ANSWER_TEXT_MAX_LENGTH)
-    conversation_summary: ResearchPlanSummary | None = None
+    conversation_summary: ResearchPlanSummaryV12 | ResearchPlanSummary | None = None
     sql_provenance: ResearchSqlStatements = Field(default_factory=list)
     query: Query
     plan: (
@@ -34,6 +36,7 @@ class ResearchExecutionResponse(ClosedModel):
         | PlanResponseV9
         | PlanResponseV10
         | PlanResponseV11
+        | PlanResponseV12
     )
     resolution: list[ResolvedField] = Field(default_factory=list, max_length=32)
     result: ExecutionResult

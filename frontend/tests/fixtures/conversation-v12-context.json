@@ -1,0 +1,38 @@
+{
+  "previous_turns": [
+    {
+      "intent": "list",
+      "entity_type": "event",
+      "metric": "none",
+      "groupings": [],
+      "ordering": null,
+      "limit": 20,
+      "temporal": {
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "weekdays": [],
+        "months": []
+      },
+      "filters": {
+        "venue": null,
+        "organization": null,
+        "event_types": [],
+        "categories": [],
+        "genres": []
+      },
+      "areas": [
+        {
+          "name": "Schleswig-Flensburg",
+          "relation": "inside",
+          "expected_level": "district"
+        }
+      ],
+      "semantic_query": null,
+      "semantic_focus": null,
+      "taxonomy": null,
+      "spatial_metric": null
+    }
+  ]
+}
