@@ -230,7 +230,7 @@ async def test_recurring_calendar_postgres(settings, execution_source):
         await execution_source.execute(
             text("""INSERT INTO uranus.event_date
                 (uuid,event_uuid,start_date,start_time,release_status)
-            VALUES (:id,:event,:day,'18:00','published')"""),
+            VALUES (:id,:event,:day,'18:00','released')"""),
             dict(id=uid(500 + i), event=uid(30), day=date.fromisoformat(day)),
         )
     base = normalize_v10(calendar_plan(CASES[0]))
