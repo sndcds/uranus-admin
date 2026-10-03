@@ -1,9 +1,9 @@
 """Closed execution results and internal filters; never accepted from a browser."""
 
 from datetime import date, time
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.schemas.genre import GenreKey
 from app.schemas.research import (
@@ -18,6 +18,7 @@ from app.schemas.research_values import ClosedModel, Slot
 ExecutionMetric = Literal["event_count", "occurrence_count", "venue_count", "organization_count"]
 ExecutionGrouping = Literal[
     "event",
+    "month",
     "venue",
     "organization",
     "category",
@@ -117,6 +118,37 @@ class AggregateResult(ClosedModel):
     items: list[AggregateItem] = Field(max_length=20)
 
 
+class GroupCoordinate(ClosedModel):
+    dimension: ExecutionGrouping
+    key: str
+    name: str
+
+
+class GroupedItem(ClosedModel):
+    coordinates: list[GroupCoordinate] = Field(min_length=1, max_length=3)
+    value: int = Field(ge=0)
+
+
+class GroupedResult(ClosedModel):
+    kind: Literal["grouped"] = "grouped"
+    metric: ExecutionMetric
+    dimensions: list[ExecutionGrouping] = Field(min_length=1, max_length=3)
+    ordering: Literal["asc", "desc"] | None
+    limit: int = Field(ge=1, le=20)
+    items: list[GroupedItem] = Field(max_length=20)
+
+    @model_validator(mode="after")
+    def consistent_coordinates(self) -> Self:
+        if len(set(self.dimensions)) != len(self.dimensions) or len(self.items) > self.limit:
+            raise ValueError("invalid_grouped_result")
+        if any([c.dimension for c in item.coordinates] != self.dimensions for item in self.items):
+            raise ValueError("inconsistent_group_coordinates")
+        keys = [tuple(c.key for c in item.coordinates) for item in self.items]
+        if len(set(keys)) != len(keys):
+            raise ValueError("duplicate_group_cells")
+        return self
+
+
 class ComparisonItem(ClosedModel):
     target: ResolutionCandidate
     value: int = Field(ge=0)
@@ -152,6 +184,7 @@ ExecutionResult = Annotated[
     RecordsResult
     | CountResult
     | AggregateResult
+    | GroupedResult
     | ComparisonResult
     | ExecutionClarification
     | TaxonomyResult

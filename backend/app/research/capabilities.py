@@ -31,6 +31,9 @@ def unsupported(message: str) -> APIError:
 def require_supported(plan: InternalResearchPlan) -> None:
     if plan.unsupported_reason is not None:
         raise APIError(422, "research_plan_unsupported", "This research plan is unsupported.")
+    if grouped_execution(plan):
+        require_supported_spatial(plan)
+        return
     if (plan.intent not in EXECUTABLE_INTENTS and not boundary_execution(plan)) or any(
         value is not None
         for value in (
@@ -109,6 +112,7 @@ def boundary_execution(plan: InternalResearchPlan) -> bool:
     """Choose a generic polygon/inventory primitive, never a Planner version."""
     return (
         plan.location_coverage
+        or "municipality" in plan.groupings
         or any(
             isinstance(c.reference, UnresolvedAdministrativeAreaRef)
             and c.reference.country_code is not None
@@ -116,4 +120,42 @@ def boundary_execution(plan: InternalResearchPlan) -> bool:
         )
         or plan.group_by in ADMINISTRATIVE_LEVELS
         or len(administrative_constraints(plan.spatial_constraints)) > 1
+    )
+
+
+def grouped_execution(plan: InternalResearchPlan) -> bool:
+    """Cell aggregation primitive, selected by capabilities, never wire version."""
+    return (
+        bool(plan.groupings)
+        and plan.group_by == "none"
+        and plan.intent in {"aggregate", "rank"}
+        and plan.entity_type == "event"
+        and plan.metric in {"event_count", "occurrence_count"}
+        and set(plan.groupings)
+        <= {
+            "event",
+            "venue",
+            "organization",
+            "category",
+            "event_type",
+            "genre",
+            "month",
+            "municipality",
+        }
+        and not ("event" in plan.groupings and plan.metric != "occurrence_count")
+        and not any(
+            (
+                plan.semantic,
+                plan.relation,
+                plan.trend,
+                plan.anomaly,
+                plan.explain,
+                plan.knowledge,
+                plan.price,
+                plan.comparison_targets,
+                plan.taxonomy,
+                plan.spatial_metric,
+                plan.zero_only,
+            )
+        )
     )

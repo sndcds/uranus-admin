@@ -10,7 +10,7 @@ from app.research.geography import (
     ResolvedAdministrativeConstraint,
     SpatialConstraint,
 )
-from app.schemas.research_execution import ExecutionFilters
+from app.schemas.research_execution import ExecutionFilters, ExecutionGrouping
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +94,7 @@ class InternalResearchPlan:
         "country",
         "region",
     ] = "none"
+    groupings: tuple[ExecutionGrouping, ...] = ()
     ordering: Literal["asc", "desc"] | None = None
     limit: int | None = None
     filters: NameFilters = field(default_factory=NameFilters)
@@ -119,6 +120,20 @@ class InternalResearchPlan:
     anomaly: None = None
     explain: None = None
     knowledge: None = None
+
+    def __post_init__(self) -> None:
+        # Old adapters/constructors retain their scalar entry point. Execution owns
+        # the ordered collection; never choose a representative axis of a cube.
+        from typing import get_args
+
+        if len(self.groupings) > 3 or len(set(self.groupings)) != len(self.groupings):
+            raise ValueError("invalid_grouping_dimensions")
+        if any(g not in get_args(ExecutionGrouping) for g in self.groupings):
+            raise ValueError("unsupported_grouping_dimension")
+        if self.group_by != "none":
+            if self.groupings and self.groupings != (self.group_by,):
+                raise ValueError("conflicting_grouping_dimensions")
+            object.__setattr__(self, "groupings", (self.group_by,))
 
 
 @dataclass(frozen=True, slots=True)

@@ -36,6 +36,7 @@ from app.schemas.research import (
 )
 from app.schemas.research_administrative_result import AdministrativeResult
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
+from app.schemas.research_execution import ExecutionResult
 from app.schemas.research_location import ResearchQueryRequest
 from app.schemas.research_planner import PlanResponse, ResearchPlanRequest
 from app.schemas.research_response import ResearchExecutionResponse
@@ -325,3 +326,37 @@ async def administrative_query(
 ) -> AdministrativeResult:
     """Resolve administrative geography and execute a validated internal plan."""
     return await execute_administrative(request, settings, body.query)
+
+
+@router.post("/v9/query", response_model=ExecutionResult)
+async def grouped_query(
+    request: Request, body: ResearchPlanRequest, settings: SettingsDep
+) -> ExecutionResult:
+    """Validated v9 wire edge; the existing executor resolves and aggregates."""
+    from app.research.context import ResearchExecutionContext
+    from app.research.normalize_grouping import normalize_v9
+    from app.research.wire.research_v9_schema import PlanResponseV9
+    from app.services.research_plan_execution import ResearchPlanExecutor
+    from app.services.research_planner import invalid_response, unavailable
+
+    planner = request.app.state.research_planner
+    if planner is None:
+        raise unavailable()
+    response = await planner.plan_grouped(body.query)
+    try:
+        response = PlanResponseV9.model_validate_json(response.model_dump_json())
+        if (
+            response.plan.original_query != body.query
+            or response.timezone != settings.event_timezone
+        ):
+            raise ValueError("planner_identity_mismatch")
+    except ValueError:
+        raise invalid_response() from None
+    outcome = await ResearchPlanExecutor().execute(
+        request,
+        settings,
+        normalize_v9(response.plan),
+        ResearchExecutionContext(response.reference_date, response.timezone, body.query),
+        planner_ms=0,
+    )
+    return outcome.result

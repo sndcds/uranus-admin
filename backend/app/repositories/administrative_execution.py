@@ -83,40 +83,8 @@ async def administrative_selection(
         or (plan.grouping is not None and plan.intent not in {"rank", "aggregate"})
     ):
         raise ValueError("Unsupported resolved administrative selection")
-    if not 1 <= plan.limit <= 20 or len(plan.administrative_constraints) > 4:
-        raise ValueError("Invalid resolved plan bounds")
-    if any(
-        a.boundary.geometry_json is None or a.boundary.area_id != a.resolved_id
-        for a in (*plan.inventory, *(c.reference for c in plan.administrative_constraints))
-    ):
-        raise ValueError("Missing resolved geometry")
     sql, params = execution_sql(plan, settings)
-    # Closed GeoJSON shape validation cannot prove topology; PostGIS must reject it.
-    valid = (
-        await connection.execute(
-            text(
-                sql
-                + """ SELECT coalesce(bool_and(
-        ST_IsValid(boundary) AND NOT ST_IsEmpty(boundary)),true)
-        FROM (SELECT boundary FROM constraints UNION ALL SELECT boundary FROM inventory) b"""
-            ),
-            params,
-        )
-    ).scalar_one()
-    if not valid:
-        raise APIError(422, "research_area_invalid_boundary", "A resolved boundary is invalid.")
-    # Materialized points cannot use a source GiST index. Bound the grouping
-    # product explicitly before joining inventory polygons to occurrences.
-    if plan.grouping is not None:
-        population = int(
-            (
-                await connection.execute(text(sql + " SELECT count(*) FROM located"), params)
-            ).scalar_one()
-        )
-        if population * len(plan.inventory) > 2_000_000:
-            raise APIError(
-                422, "research_execution_too_broad", "Narrow the administrative selection."
-            )
+    await validate_selection(connection, plan, sql, params)
     unknown = int(
         (
             await execute_research_sql(
@@ -192,3 +160,41 @@ async def administrative_selection(
     return AdministrativeResult(
         kind="records", records=records, count=count, unknown_location_count=unknown
     )
+
+
+async def validate_selection(
+    connection: AsyncConnection, plan: ResolvedResearchPlan, sql: str, params: dict[str, Any]
+) -> None:
+    if not 1 <= plan.limit <= 20 or len(plan.administrative_constraints) > 4:
+        raise ValueError("Invalid resolved plan bounds")
+    if any(
+        a.boundary.geometry_json is None or a.boundary.area_id != a.resolved_id
+        for a in (*plan.inventory, *(c.reference for c in plan.administrative_constraints))
+    ):
+        raise ValueError("Missing resolved geometry")
+    # Closed GeoJSON shape validation cannot prove topology; PostGIS must reject it.
+    valid = (
+        await connection.execute(
+            text(
+                sql
+                + """ SELECT coalesce(bool_and(
+        ST_IsValid(boundary) AND NOT ST_IsEmpty(boundary)),true)
+        FROM (SELECT boundary FROM constraints UNION ALL SELECT boundary FROM inventory) b"""
+            ),
+            params,
+        )
+    ).scalar_one()
+    if not valid:
+        raise APIError(422, "research_area_invalid_boundary", "A resolved boundary is invalid.")
+    # Materialized points cannot use a source GiST index. Bound the grouping
+    # product explicitly before joining inventory polygons to occurrences.
+    if plan.grouping is not None:
+        population = int(
+            (
+                await connection.execute(text(sql + " SELECT count(*) FROM located"), params)
+            ).scalar_one()
+        )
+        if population * len(plan.inventory) > 2_000_000:
+            raise APIError(
+                422, "research_execution_too_broad", "Narrow the administrative selection."
+            )
