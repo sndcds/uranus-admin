@@ -406,6 +406,7 @@ export type ResearchSqlStatement = z.infer<typeof researchSqlStatementSchema>
 
 export const researchExecutionResponseSchema = z
   .object({
+    answer_text: z.string().max(1000).nullable(),
     conversation_summary: researchPlanSummarySchema.nullable().optional(),
     sql_provenance: z.array(researchSqlStatementSchema).max(16),
     query: researchQuestionSchema,

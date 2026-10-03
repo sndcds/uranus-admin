@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { summarizeResearchResult } from '~/utils/research-summary'
 import ResearchSqlEditorModal from './sql/ResearchSqlEditorModal.vue'
 import type { ResearchExecutionResponse } from '#shared/contracts'
 import { formatGroupingCoordinate, researchMetricLabels } from '~/utils/research-answer'
 import { researchKey, researchHref } from '~/utils/research'
 const props = defineProps<{ response: ResearchExecutionResponse }>()
 defineEmits<{ adjust: [text?: string] }>()
-const answerSummary = computed(() => summarizeResearchResult(props.response))
 const sqlEditor = ref<InstanceType<typeof ResearchSqlEditorModal> | null>(null)
 const result = computed(() => props.response.result)
 const plan = computed(() => props.response.plan.plan)
@@ -104,8 +102,8 @@ const fieldLabels = {
           <AppIcon name="code" :size="14" />SQL Editor
         </button>
       </div>
-      <p v-if="answerSummary" data-testid="research-answer-summary">
-        {{ answerSummary }}
+      <p v-if="response.answer_text" data-testid="research-answer-summary">
+        {{ response.answer_text }}
       </p>
       <template v-if="result.kind === 'count'">
         <p class="text-2xl font-semibold tabular-nums" data-testid="research-count">

@@ -4,6 +4,7 @@ from datetime import datetime
 
 from pydantic import Field
 
+from app.research.answer import ANSWER_TEXT_MAX_LENGTH
 from app.research.wire.research_v9_schema import PlanResponseV9
 from app.research.wire.research_v10_schema import PlanResponseV10
 from app.research.wire.research_v11_schema import PlanResponseV11
@@ -22,6 +23,7 @@ from app.schemas.research_values import ClosedModel, Query
 
 
 class ResearchExecutionResponse(ClosedModel):
+    answer_text: str | None = Field(max_length=ANSWER_TEXT_MAX_LENGTH)
     conversation_summary: ResearchPlanSummary | None = None
     sql_provenance: ResearchSqlStatements = Field(default_factory=list)
     query: Query

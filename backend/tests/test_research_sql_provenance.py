@@ -388,6 +388,7 @@ def test_response_defaults_to_serialized_empty_sql_provenance():
     from app.schemas.research_response import ResearchExecutionResponse
 
     response = ResearchExecutionResponse(
+        answer_text="Für diese Auswahl wurde 1 Veranstaltung gezählt.",
         query="safe question",
         plan=planned(),
         result=CountResult(metric="event_count", value=1),
@@ -411,6 +412,7 @@ async def test_learning_receives_only_existing_query_and_plan(client, monkeypatc
     from app.services import research_learning
 
     response = ResearchExecutionResponse(
+        answer_text="Für diese Auswahl wurde 1 Veranstaltung gezählt.",
         query="safe question",
         plan=planned(),
         resolution=[],

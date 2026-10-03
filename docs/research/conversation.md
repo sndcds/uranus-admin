@@ -79,7 +79,14 @@ section is removed; all destination pages remain in navigation. User questions a
 compact right-aligned bubbles; structured answers retain their existing components.
 Historical SQL Editors use each turn's own provenance and remain read-only.
 
-`summarizeResearchResult` produces German sentences from returned values only.
+The pure backend `build_research_answer` in `app/research/answer.py` produces
+German sentences from the normalized plan, executed result and provenance. The
+required nullable `answer_text` response field is bounded to 1000 characters.
+The frontend displays this field verbatim; historical turns retain their own text.
+No answer prose is included in `conversation_context` or sent to Planner.
+Aggregate extrema use plan ordering; grouped extrema use result ordering. Null
+ordering gives neutral text, comparisons give a factual value range. Explicit
+nominative/dative labels distinguish “7 Termine” from “mit 7 Terminen”.
 Displayed maximums/ties are explicitly scoped to displayed groups. Semantic results
 are not exact populations. Clarifications receive no invented successful summary.
 

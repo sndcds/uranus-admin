@@ -37643,6 +37643,18 @@
       },
       "ResearchExecutionResponse": {
         "properties": {
+          "answer_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Text"
+          },
           "conversation_summary": {
             "anyOf": [
               {
@@ -37801,6 +37813,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "answer_text",
           "query",
           "plan",
           "result",

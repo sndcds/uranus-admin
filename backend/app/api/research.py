@@ -21,6 +21,7 @@ from app.repositories.research import (
     research_page,
 )
 from app.repositories.research_areas import area_metadata, area_page, request_area
+from app.research.answer import build_research_answer
 from app.research.context import ResearchExecutionContext
 from app.research.conversation import summarize_plan
 from app.research.geography import location_sensitive
@@ -122,7 +123,9 @@ async def query(
         and outcome.result.kind != "needs_clarification"
         else None
     )
+    answer_text = build_research_answer(internal, outcome.result, outcome.execution)
     result = ResearchExecutionResponse(
+        answer_text=answer_text,
         conversation_summary=summary,
         query=context.original_query,
         plan=response,
