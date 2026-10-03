@@ -401,7 +401,8 @@ test('grouped normal Research answer offers its actual SQL read-only', async ({ 
     'Monat',
     'Termine',
   ])
-  await expect(table.getByRole('cell', { name: 'Konzert', exact: true })).toBeVisible()
+  await expect(table.getByRole('rowheader', { name: 'Konzert', exact: true })).toBeVisible()
+  await expect(table.getByRole('cell', { name: 'September', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'SQL Editor', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'SQL Editor' })
   const code = dialog.getByRole('region', { name: 'SQL-Abfrage, Nur-Lese-Modus' })

@@ -623,12 +623,16 @@ it('renders multidimensional results through the normal question URL and validat
   expect(JSON.parse(fetcher.mock.calls[0]![1].body)).toEqual({ query: response.query })
   expect(api).not.toHaveProperty('researchGroupedQuery')
   const table = view.get('table[aria-label="Mehrdimensionale Auswertung"]')
-  expect(table.findAll('th').map((cell) => cell.text())).toEqual([
+  expect(table.findAll('thead th').map((cell) => cell.text())).toEqual([
     'Veranstaltungstyp',
     'Monat',
     'Termine',
   ])
-  expect(table.findAll('td').map((cell) => cell.text())).toEqual(['Konzert', 'September', '7'])
+  expect(table.findAll('tbody th, tbody td').map((cell) => cell.text())).toEqual([
+    'Konzert',
+    'September',
+    '7',
+  ])
   expect(view.text()).toContain('So wurde die Frage verstanden')
   expect(view.text()).toContain('Laufzeit (ms)')
   view.unmount()
