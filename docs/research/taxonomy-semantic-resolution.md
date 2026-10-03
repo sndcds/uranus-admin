@@ -139,7 +139,10 @@ collection migration; `rebuild` never deletes an incompatible/foreign collection
 
 Only canonical `ResolutionCandidate` fields reach existing response composition;
 vector scores, embedding texts, model payloads and Qdrant point IDs do not. Ambiguous
-taxonomy choices use local ordinal display keys rather than database IDs; candidate
+taxonomy choices use local ordinal display keys rather than database IDs **at the
+HTTP response edge only**. Internal resolver/executor results retain authoritative
+composite IDs, including ambiguous genre candidates. The response projection copies
+candidates without mutating domain results; candidate
 buttons still resubmit their canonical label, not an execution ID. Successful resolved
 fields retain the existing canonical-ID provenance contract needed for execution.
 No new public schema, endpoint, frontend flow or Planner behavior.

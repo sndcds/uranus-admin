@@ -38,6 +38,7 @@ from app.schemas.research import (
 )
 from app.schemas.research_administrative_result import AdministrativeResult
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
+from app.schemas.research_execution import ExecutionResult
 from app.schemas.research_location import ResearchQueryRequest
 from app.schemas.research_planner import PlanResponse, ResearchPlanRequest
 from app.schemas.research_response import ResearchExecutionResponse
@@ -62,6 +63,22 @@ router = APIRouter(
     dependencies=[Depends(get_current_research_user)],
     responses={code: {"model": ErrorResponse} for code in (401, 403, 404, 422, 503)},
 )
+
+
+def _public_execution_result(result: ExecutionResult) -> ExecutionResult:
+    """Mask taxonomy choice IDs only at the HTTP edge, never in domain resolution."""
+    if result.kind != "needs_clarification" or result.reason != "ambiguous":
+        return result
+    return result.model_copy(
+        update={
+            "candidates": [
+                choice.model_copy(update={"id": f"choice-{i}"})
+                if choice.entity_type in {"event_type", "genre"}
+                else choice
+                for i, choice in enumerate(result.candidates)
+            ]
+        }
+    )
 
 
 @router.post(
@@ -130,7 +147,7 @@ async def query(
         query=context.original_query,
         plan=response,
         resolution=outcome.resolution,
-        result=outcome.result,
+        result=_public_execution_result(outcome.result),
         execution=outcome.execution,
         sql_provenance=outcome.sql_provenance,
         observed_at=outcome.observed_at,
