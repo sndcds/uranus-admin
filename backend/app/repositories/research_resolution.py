@@ -1,4 +1,4 @@
-"""Bounded literal name resolution over public Research projections only."""
+"""Bounded exact-first resolution; optional vectors propose source-revalidated taxonomy."""
 
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field, replace
@@ -17,12 +17,13 @@ from app.config import Settings
 from app.database import get_connection
 from app.errors import APIError
 from app.repositories.entity_search import escape_search
-from app.repositories.research import GENRE_LABELS, parameters, research_options_sql, research_sql
+from app.repositories.research import parameters, research_options_sql, research_sql
 from app.repositories.research_administrative import administrative_reference
 from app.repositories.research_administrative_metadata import administrative_level_sql
 from app.repositories.research_areas import ResolvedResearchArea, resolve_area
 from app.repositories.research_place import place_filter
-from app.repositories.vector_events import PUBLIC_EVENT
+from app.repositories.research_taxonomy import EVENT_TYPES_SQL as EVENT_TYPES_SQL
+from app.repositories.research_taxonomy import GENRES_SQL as GENRES_SQL
 from app.research.administrative_catalog import load_inventory
 from app.research.administrative_resolver import resolve_administrative_area
 from app.research.capabilities import boundary_execution, require_supported_spatial
@@ -48,31 +49,9 @@ from app.schemas.research_execution import (
     ResolvedField,
 )
 from app.schemas.research_location import PlaceFilter
+from app.services.taxonomy_resolution import outcome, resolve_taxonomy_semantic
 
 ResolutionKind = Literal["area", "venue", "organization", "category", "event_type", "genre"]
-
-
-# Canonical labels and public event eligibility shared with semantic indexing.
-GENRES_SQL = f"""WITH genres AS ({GENRE_LABELS})
-    SELECT g.type_id::text || ':' || g.genre_id::text id,g.name label,g.name name
-    FROM genres g WHERE g.genre_id<>0
-    AND EXISTS (SELECT 1 FROM uranus.event_type_link l
-        JOIN uranus.event e ON e.uuid=l.event_uuid
-        WHERE l.type_id=g.type_id AND l.genre_id=g.genre_id AND {PUBLIC_EVENT})
-"""
-
-
-EVENT_TYPES_SQL = f"""WITH types AS (
-    SELECT DISTINCT ON(type_id) type_id,name FROM uranus.event_type
-    WHERE NULLIF(trim(name),'') IS NOT NULL
-    ORDER BY type_id,CASE iso_639_1 WHEN 'de' THEN 0 WHEN 'en' THEN 1 ELSE 2 END,
-        iso_639_1 COLLATE "C" NULLS LAST,name COLLATE "C"
-)
-    SELECT t.type_id::text id,t.name label,t.name name FROM types t
-    WHERE EXISTS (SELECT 1 FROM uranus.event_type_link l
-        JOIN uranus.event e ON e.uuid=l.event_uuid
-        WHERE l.type_id=t.type_id AND {PUBLIC_EVENT})
-"""
 
 
 def taxonomy_label(value: str) -> str:
@@ -158,9 +137,22 @@ async def candidates(
     expected_level: AdministrativeLevel | None = None,
 ) -> list[ResolutionCandidate]:
     if kind == "event_type" or kind == "genre":
-        return await taxonomy_candidates(
+        exact = await taxonomy_candidates(
             connection, kind, query, type_ids if kind == "genre" else None
         )
+        if exact:
+            outcome("exact_hit" if len(exact) == 1 else "exact_ambiguous")
+            return exact
+        if settings.research_taxonomy_policy_path is None:
+            return []
+        # Planner taxonomy slots are lexical hints, not authoritative hierarchy
+        # levels. Check the other level exactly before using any vectors.
+        other: Literal["event_type", "genre"] = "genre" if kind == "event_type" else "event_type"
+        exact = await taxonomy_candidates(connection, other, query, type_ids)
+        if exact:
+            outcome("exact_hit" if len(exact) == 1 else "exact_ambiguous")
+            return exact
+        return await resolve_taxonomy_semantic(connection, settings, query, type_ids=type_ids)
     filters = ExecutionFilters(
         entity_type="venue"
         if kind == "venue"
@@ -253,7 +245,12 @@ class Resolution:
                 reason="ambiguous" if choices else "no_match",
                 field=field_name,
                 query=query,
-                candidates=choices,
+                candidates=[
+                    choice.model_copy(update={"id": f"choice-{i}"})
+                    if choice.entity_type in {"event_type", "genre"}
+                    else choice
+                    for i, choice in enumerate(choices)
+                ],
             )
             return None
         target = choices[0]
@@ -452,7 +449,16 @@ async def resolve_plan(
                         choices = await candidates(connection, kind, query, settings)
                 else:
                     choices = await candidates(connection, kind, query, settings, candidate_area)
-                if resolved.select(field_name, query, choices) is None:
+                # A semantic proposal may resolve a Planner type term to a genre
+                # (or vice versa). Preserve the canonical hierarchy in execution.
+                selected_field = field_name
+                if len(choices) == 1 and kind in {"event_type", "genre"}:
+                    selected_field = (
+                        "genre_queries"
+                        if choices[0].entity_type == "genre"
+                        else "event_type_queries"
+                    )
+                if resolved.select(selected_field, query, choices) is None:
                     return resolved
     # Every requested genre must belong to one of the explicitly selected types.
     # Keep composite genre identities intact; never discard a contradictory filter.

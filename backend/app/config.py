@@ -80,6 +80,8 @@ class Settings(BaseSettings):
     nominatim_max_response_bytes: int = Field(default=16_777_216, ge=1024, le=33_554_432)
     nominatim_max_geometry_points: int = Field(default=250_000, ge=4, le=500_000)
     semantic_search_noncommercial_jina: bool = False
+    # Opt-in only after a reviewed measured taxonomy benchmark; no guessed thresholds.
+    research_taxonomy_policy_path: Path | None = None
     # Optional combined Jina-v3 event retrieval gateway; server configuration only.
     semantic_search_url: str | None = None
     # Internal retrieval pilot; never serialized into browser configuration.

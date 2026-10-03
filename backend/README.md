@@ -344,3 +344,11 @@ Geographic Research uses the internal `uranus-research-geocoder` service. Deploy
 coordinated planner `/v6/plan` first, then configure the protected `RESEARCH_GEOCODER_API_KEY`,
 `RESEARCH_GEOCODER_URL` (default `http://127.0.0.1:6337`) and optional
 `RESEARCH_GEOCODER_TIMEOUT_SECONDS` (default 5). See [the geographic contract](docs/research-geography.md).
+
+### Semantic taxonomy resolution
+
+Optional Research taxonomy resolution uses a dedicated Jina/Qdrant vocabulary
+collection and revalidates every proposed identity against public Uranus SQL.
+Exact resolution remains first and is the default. See the
+[taxonomy resolver and benchmark workflow](../docs/research/taxonomy-semantic-resolution.md)
+for the separate indexing command, measured confidence policy and rollout gate.
