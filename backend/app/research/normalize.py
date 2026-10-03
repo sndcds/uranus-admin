@@ -148,7 +148,7 @@ def normalize_v6(response: GeographicPlanResponse) -> InternalResearchPlan:
 
 def normalize(response: PlannerResponse) -> InternalResearchPlan:
     if isinstance(response, PlanResponseV9):
-        from app.research.normalize_grouping import normalize_v9
+        from app.research.normalize_v9 import normalize_v9
 
         return normalize_v9(response.plan)
     # Envelope consistency is validated by the transport. Retain the guard for

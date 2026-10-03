@@ -18,6 +18,12 @@ const metric = computed(() =>
 const planMetric = computed(() => {
   const value = plan.value.metric
   const operation = typeof value === 'object' ? value?.operation : value
+  if (operation === 'distinct_count') return 'Unterschiedliche Werte'
+  if (operation === 'value') {
+    return typeof value === 'object' && value?.field
+      ? { start_date: 'Startdatum', longitude: 'Längengrad', latitude: 'Breitengrad' }[value.field]
+      : 'Feldwert'
+  }
   return operation && operation !== 'none' ? researchMetricLabels[operation] : 'Keine'
 })
 const number = (value: number) => value.toLocaleString('de-DE')
