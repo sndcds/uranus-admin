@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ResearchComposer from './ResearchComposer.vue'
 import { researchQuestionSchema, type ResearchExecutionResponse } from '#shared/contracts'
 import { asFailure, type ApiFailure } from '#shared/errors'
 import { useResearchLocation } from '~/composables/useResearchLocation'
@@ -31,23 +32,18 @@ const input = useTemplateRef('input')
 watch(activeSuggestion, async (index) => {
   if (index < 0) return
   await nextTick()
-  input.value?.ownerDocument
-    .getElementById(`research-suggestion-${index}`)
-    ?.scrollIntoView?.({ block: 'nearest' })
+  document.getElementById(`research-suggestion-${index}`)?.scrollIntoView?.({ block: 'nearest' })
 })
 const data = shallowRef<ResearchExecutionResponse | null>(null)
 const error = ref<ApiFailure | null>(null)
 const loading = ref(false)
+const submitting = ref(false)
 const invalid = ref(false)
 const permalink = ref<string | null>(null)
 const ready = ref(false)
 // Onboarding examples, separate from any learned suggestions.
-const examples = [
-  'Welche Jazz-Konzerte finden heute statt?',
-  'Wie viele Veranstaltungen gab es in Flensburg im August?',
-  'Wo finden Jazz-Konzerte statt?',
-  'Welche Orte sind besonders aktiv?',
-]
+const examples = ['Veranstaltungen am Wochenende', 'Konzerte im Sommer', 'Angebote für Kinder']
+
 async function useExample(example: string) {
   question.value = example
   invalid.value = false
@@ -55,13 +51,7 @@ async function useExample(example: string) {
   input.value?.focus()
 }
 function onKeydown(event: KeyboardEvent) {
-  if (event.isComposing) return
-  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-    event.preventDefault()
-    void submit()
-  } else if (!event.shiftKey) {
-    autosuggest.keydown(event, submit)
-  }
+  if (!event.shiftKey && !event.ctrlKey && !event.metaKey) autosuggest.keydown(event, submit)
 }
 let mounted = false
 let generation = 0
@@ -112,14 +102,19 @@ async function load() {
   }
 }
 async function submit(receipt?: string) {
-  if (!mounted || loading.value || !auth.canResearch) return
+  if (!mounted || loading.value || submitting.value || !auth.canResearch) return
   autosuggest.close()
   selectionReceipt = receipt
   const parsed = researchQuestionSchema.safeParse(question.value)
   invalid.value = !parsed.success
   if (!parsed.success) return
-  if (route.query.question === parsed.data) return load()
-  await navigateTo({ path: '/research', query: researchAnswerUrl(parsed.data) })
+  submitting.value = true
+  try {
+    if (route.query.question === parsed.data) await load()
+    else await navigateTo({ path: '/research', query: researchAnswerUrl(parsed.data) })
+  } finally {
+    submitting.value = false
+  }
 }
 async function adjust(candidate?: string) {
   if (
@@ -176,60 +171,122 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <div>
-    <div class="mx-auto max-w-[51rem]">
-      <form
-        class="research-composer relative rounded-2xl border border-slate-200 bg-white"
-        @submit.prevent="submit()"
-      >
-        <label for="research-question" class="sr-only">Deine Recherchefrage</label>
-        <textarea
-          id="research-question"
-          ref="input"
-          v-model="question"
-          class="research-composer-input block w-full resize-none border-0 bg-transparent text-base leading-6 text-slate-900 placeholder:text-slate-500"
-          rows="2"
-          maxlength="2000"
-          required
-          placeholder="Frage zu Veranstaltungen, Orten oder Organisationen stellen …"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-controls="research-suggestion-list"
-          :aria-expanded="!!suggestions?.suggestions.length"
-          :aria-activedescendant="
-            activeSuggestion >= 0 ? `research-suggestion-${activeSuggestion}` : undefined
-          "
-          :disabled="!ready"
-          :aria-invalid="invalid"
-          :aria-describedby="
-            invalid ? 'research-question-help research-question-error' : 'research-question-help'
-          "
-          @input="selectionReceipt = undefined"
-          @focus="autosuggest.focus"
-          @blur="autosuggest.blur"
-          @keydown="onKeydown"
-        />
-        <div class="research-composer-actions absolute flex items-end gap-4">
-          <span class="translate-y-2 text-xs tabular-nums text-slate-500" aria-hidden="true"
-            >{{ question.length.toLocaleString('de-DE') }}/2.000</span
+  <div class="research-question-workspace flex min-h-0 min-w-0 flex-1 flex-col">
+    <div class="research-question-content min-h-0 flex-1 overflow-y-auto px-1 pb-6 pt-2">
+      <template v-if="!route.query.question">
+        <slot name="welcome" />
+        <div class="mt-4 text-center" role="group" aria-label="Beispiele für Fragen">
+          <p class="mb-2 text-sm text-slate-600">Beispiele</p>
+          <div
+            class="research-examples mx-auto flex max-w-[51rem] flex-wrap justify-center gap-4 sm:gap-8"
           >
-          <button
-            type="submit"
-            class="research-send inline-flex h-12 w-12 items-center justify-center rounded-lg bg-blue-700 text-white shadow-soft hover:bg-blue-800 disabled:cursor-not-allowed"
-            :disabled="!ready || loading || !question.trim()"
-            :aria-busy="loading"
-            aria-label="Antwort anzeigen"
-          >
-            <AppIcon :name="loading ? 'refresh' : 'send'" :size="20" />
-            <span class="sr-only">{{ loading ? 'Wird ausgewertet …' : 'Antwort anzeigen' }}</span>
-          </button>
+            <button
+              v-for="example in examples"
+              :key="example"
+              type="button"
+              class="research-example inline-flex min-h-11 max-w-full items-center gap-4 px-4 py-2 text-left text-sm text-slate-700"
+              :disabled="!ready || loading"
+              @click="useExample(example)"
+            >
+              {{ example }}
+            </button>
+          </div>
         </div>
+        <slot name="discover" />
+      </template>
+      <div v-if="loading || error || data" class="mx-auto w-full max-w-5xl space-y-4">
+        <RequestState
+          :loading="loading"
+          loading-message="Frage wird ausgewertet …"
+          :error="error"
+          @retry="submit()"
+        />
+        <section
+          v-if="needsLocation || manualLocation"
+          class="rounded-xl border border-slate-200 bg-white p-4 space-y-3"
+          aria-label="Standort benötigt"
+        >
+          <h2 class="font-semibold">Standort benötigt</h2>
+          <p>Nutze deinen Standort oder gib einen Ort für diese Frage an.</p>
+          <div class="flex flex-wrap gap-3">
+            <button
+              type="button"
+              class="button-primary"
+              :disabled="locating || loading"
+              @click="location.locate(load)"
+            >
+              {{ locating ? 'Standort wird ermittelt …' : 'Standort freigeben' }}
+            </button>
+            <button type="button" class="button" @click="manualLocation = true">
+              Ort manuell eingeben
+            </button>
+          </div>
+          <p v-if="locationError" role="alert">{{ locationError }}</p>
+          <form
+            v-if="manualLocation"
+            class="flex flex-wrap gap-3"
+            @submit.prevent="submitManualLocation"
+          >
+            <label for="research-manual-location">Ort oder Adresse</label>
+            <input
+              id="research-manual-location"
+              v-model="manualPlace"
+              maxlength="160"
+              required
+              class="input"
+            />
+            <button type="submit" class="button-primary" :disabled="loading || !manualPlace.trim()">
+              Ort verwenden
+            </button>
+          </form>
+        </section>
+        <ResearchQueryAnswer v-if="data && !needsLocation" :response="data" @adjust="adjust" />
+      </div>
+      <div class="mx-auto max-w-[51rem]">
+        <p
+          v-if="invalid"
+          id="research-question-error"
+          role="alert"
+          class="mt-2 text-sm text-rose-700"
+        >
+          Bitte gib eine gültige Frage mit 1 bis 2.000 Zeichen ein.
+        </p>
+        <div class="mt-6 flex min-h-8 flex-wrap items-center justify-center gap-x-5 gap-y-1">
+          <NuxtLink
+            to="/research/search"
+            class="inline-flex min-h-8 items-center gap-2 text-xs text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-blue-700"
+          >
+            <AppIcon name="search" :size="16" />Klassische Suche
+          </NuxtLink>
+          <details class="research-input-help text-xs text-slate-500">
+            <summary class="flex min-h-8 cursor-pointer items-center hover:text-blue-700">
+              Hinweise zur Eingabe
+            </summary>
+            <p id="research-question-help" class="max-w-sm pb-2 leading-relaxed">
+              Bis zu 2.000 Zeichen. Enter zum Absenden, Umschalt + Enter für eine neue Zeile. Die
+              Frage wird im kopierbaren Link gespeichert.
+            </p>
+            <p class="max-w-sm pb-2 leading-relaxed">
+              Vorschläge basieren auf häufig erfolgreich verwendeten Recherchefragen.
+            </p>
+          </details>
+          <CopyValueButton
+            v-if="permalink"
+            :value="permalink"
+            label="Frage-Link"
+            button-text="Link kopieren"
+          />
+        </div>
+      </div>
+    </div>
+    <footer class="research-composer-footer shrink-0 px-1 pt-4">
+      <div class="research-composer-container relative mx-auto w-full max-w-[51rem]">
         <ul
           v-if="suggestions?.suggestions.length"
           id="research-suggestion-list"
           role="listbox"
           aria-label="Recherchevorschläge"
-          class="absolute left-0 top-full z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg"
+          class="absolute bottom-full z-20 mb-2 max-h-[min(18rem,40dvh)] w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg"
         >
           <li
             v-for="(suggestion, index) in suggestions.suggestions"
@@ -245,148 +302,40 @@ onBeforeUnmount(() => {
             {{ suggestion.query }}
           </li>
         </ul>
-      </form>
-      <p
-        v-if="invalid"
-        id="research-question-error"
-        role="alert"
-        class="mt-2 text-sm text-rose-700"
-      >
-        Bitte gib eine gültige Frage mit 1 bis 2.000 Zeichen ein.
-      </p>
-      <div
-        v-if="!route.query.question"
-        class="mt-4 text-center"
-        role="group"
-        aria-label="Beispiele für Fragen"
-      >
-        <p class="mb-2 text-sm text-slate-600">Beispiele für Fragen:</p>
-        <div class="research-examples flex flex-wrap justify-center gap-x-3 gap-y-1">
-          <button
-            v-for="example in examples"
-            :key="example"
-            type="button"
-            class="research-example inline-flex min-h-11 max-w-full items-center gap-4 px-4 py-2 text-left text-sm text-slate-700"
-            :disabled="!ready || loading"
-            @click="useExample(example)"
-          >
-            {{ example }}<AppIcon name="arrow" :size="16" class="text-blue-700" />
-          </button>
-        </div>
-      </div>
-      <div class="mt-1 flex min-h-8 flex-wrap items-center justify-center gap-x-5 gap-y-1">
-        <NuxtLink
-          to="/research/search"
-          class="inline-flex min-h-8 items-center gap-2 text-xs text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-blue-700"
-        >
-          <AppIcon name="search" :size="16" />Klassische Suche
-        </NuxtLink>
-        <details class="research-input-help text-xs text-slate-500">
-          <summary class="flex min-h-8 cursor-pointer items-center hover:text-blue-700">
-            Hinweise zur Eingabe
-          </summary>
-          <p id="research-question-help" class="max-w-sm pb-2 leading-relaxed">
-            Bis zu 2.000 Zeichen. Strg/⌘ + Enter zum Absenden. Die Frage wird im kopierbaren Link
-            gespeichert.
-          </p>
-          <p class="max-w-sm pb-2 leading-relaxed">
-            Vorschläge basieren auf häufig erfolgreich verwendeten Recherchefragen.
-          </p>
-        </details>
-        <CopyValueButton
-          v-if="permalink"
-          :value="permalink"
-          label="Frage-Link"
-          button-text="Link kopieren"
+        <ResearchComposer
+          ref="input"
+          v-model="question"
+          :disabled="!ready"
+          :busy="loading || submitting"
+          :invalid="invalid"
+          :expanded="!!suggestions?.suggestions.length"
+          :active-suggestion="activeSuggestion"
+          @submit="submit()"
+          @input="selectionReceipt = undefined"
+          @focus="autosuggest.focus"
+          @blur="autosuggest.blur"
+          @keydown="onKeydown"
         />
       </div>
-    </div>
-    <div v-if="loading || error || data" class="mx-auto mt-6 max-w-5xl space-y-4">
-      <RequestState
-        :loading="loading"
-        loading-message="Frage wird ausgewertet …"
-        :error="error"
-        @retry="load"
-      />
-      <section
-        v-if="needsLocation || manualLocation"
-        class="rounded-xl border border-slate-200 bg-white p-4 space-y-3"
-        aria-label="Standort benötigt"
-      >
-        <h2 class="font-semibold">Standort benötigt</h2>
-        <p>Nutze deinen Standort oder gib einen Ort für diese Frage an.</p>
-        <div class="flex flex-wrap gap-3">
-          <button
-            type="button"
-            class="button-primary"
-            :disabled="locating || loading"
-            @click="location.locate(load)"
-          >
-            {{ locating ? 'Standort wird ermittelt …' : 'Standort freigeben' }}
-          </button>
-          <button type="button" class="button" @click="manualLocation = true">
-            Ort manuell eingeben
-          </button>
-        </div>
-        <p v-if="locationError" role="alert">{{ locationError }}</p>
-        <form
-          v-if="manualLocation"
-          class="flex flex-wrap gap-3"
-          @submit.prevent="submitManualLocation"
-        >
-          <label for="research-manual-location">Ort oder Adresse</label>
-          <input
-            id="research-manual-location"
-            v-model="manualPlace"
-            maxlength="160"
-            required
-            class="input"
-          />
-          <button type="submit" class="button-primary" :disabled="loading || !manualPlace.trim()">
-            Ort verwenden
-          </button>
-        </form>
-      </section>
-      <ResearchQueryAnswer v-if="data && !needsLocation" :response="data" @adjust="adjust" />
-    </div>
+    </footer>
   </div>
 </template>
-
 <style scoped>
 @reference '../assets/css/main.css';
-.research-composer {
-  min-height: 116px;
-  padding: 12px 20px;
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-blue-200) 22%, transparent);
+.research-question-content {
+  scrollbar-gutter: stable both-edges;
+  overscroll-behavior-y: contain;
 }
-.research-composer-input {
-  height: 90px;
-  padding-right: 68px;
-  padding-bottom: 24px;
-}
-.research-composer-actions {
-  right: 16px;
-  bottom: 20px;
+.research-composer-footer {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 .research-example {
-  position: relative;
-  isolation: isolate;
-}
-.research-example::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  inset: 4px 0;
-  border: 1px solid var(--color-slate-200);
-  border-radius: 9999px;
-  background: white;
-  box-shadow: var(--shadow-soft);
-}
-.research-example:hover::before {
+  border: 1px solid var(--color-blue-100);
+  border-radius: 0.625rem;
   background: var(--color-blue-50);
-  border-color: var(--color-blue-200);
+  color: var(--color-blue-700);
 }
-.research-composer:focus-within {
-  @apply border-blue-400 ring-2 ring-blue-100;
+.research-example:hover {
+  border-color: var(--color-blue-300);
 }
 </style>

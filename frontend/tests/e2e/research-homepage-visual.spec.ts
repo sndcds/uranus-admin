@@ -14,7 +14,7 @@ test('approved homepage layout across desktop, tablet and mobile', async ({ page
     await expect(page.getByText('KI-gestützte Kulturanalyse', { exact: true })).toBeVisible()
     await expect(
       page.getByRole('group', { name: 'Beispiele für Fragen' }).getByRole('button'),
-    ).toHaveCount(4)
+    ).toHaveCount(3)
     await expect(page.getByRole('button', { name: 'Antwort anzeigen' })).toBeInViewport()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     const cards = page.locator('.research-discovery-card')
@@ -32,8 +32,8 @@ test('approved homepage layout across desktop, tablet and mobile', async ({ page
       expect(composer!.width).toBeGreaterThan(790)
       expect(composer!.width).toBeLessThan(840)
       expect(composer!.height).toBeLessThan(125)
-      expect(composer!.y).toBeGreaterThan(340)
-      expect(composer!.y).toBeLessThan(380)
+      expect(composer!.y).toBeGreaterThan(height * 0.75)
+      expect(composer!.y + composer!.height).toBeLessThan(height)
     } else {
       expect(new Set(boxes.map((box) => box.x)).size).toBe(name === 'tablet' ? 2 : 1)
     }
