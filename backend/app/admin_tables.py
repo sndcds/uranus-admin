@@ -677,7 +677,7 @@ research_area = sa.Table(
     ),
     sa.UniqueConstraint("osm_type", "osm_id", name="research_area_osm_identity"),
     sa.CheckConstraint(
-        "area_type IN ('region','district','municipality')", name="research_area_type"
+        "area_type IN ('region','district','municipality','state')", name="research_area_type"
     ),
     sa.CheckConstraint("osm_type = 'R' AND osm_id > 0", name="research_area_identity"),
     sa.CheckConstraint("source = 'osm'", name="research_area_source"),
