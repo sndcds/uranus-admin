@@ -236,7 +236,9 @@ async def test_recurring_calendar_postgres(settings, execution_source):
     base = normalize_v10(calendar_plan(CASES[0]))
     # Single weekday dimension isolates weekday counts from taxonomy fixture data.
     plan = replace(base, groupings=("weekday",))
-    filters = ExecutionFilters(weekdays=(6, 7), months=(7, 8, 9))
+    # Match the executor's event population; the default "all" also includes
+    # the matching venue and organization in count_selection's record count.
+    filters = ExecutionFilters(entity_type="event", weekdays=(6, 7), months=(7, 8, 9))
     resolved = ResolvedResearchPlan(filters=filters, intent="aggregate")
     result = await grouped_selection(execution_source, settings, plan, resolved, None)
     assert {i.coordinates[0].key: i.value for i in result.items} == {"7": 3, "6": 1}
@@ -249,6 +251,9 @@ async def test_recurring_calendar_postgres(settings, execution_source):
     assert {i.coordinates[0].key: i.value for i in result.items} == {"7": 2, "6": 1}
     assert await eligible_event_ids(execution_source, settings, filters, None) == [uid(30)]
     assert (await count_selection(execution_source, settings, filters, "event_count", None)) == 1
+    assert (
+        await count_selection(execution_source, settings, filters, "occurrence_count", None)
+    ) == 3
 
 
 def test_v9_scalar_weekday_maps_to_shared_calendar():
