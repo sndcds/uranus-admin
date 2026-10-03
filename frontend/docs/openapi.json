@@ -26965,6 +26965,50 @@
         ],
         "title": "ConversationArea"
       },
+      "ConversationAreaV12": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "inside",
+              "outside"
+            ],
+            "title": "Relation"
+          },
+          "expected_level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "country",
+                  "state",
+                  "district",
+                  "municipality",
+                  "region"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Level"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "relation",
+          "expected_level"
+        ],
+        "title": "ConversationAreaV12"
+      },
       "ConversationNames": {
         "properties": {
           "venue": {
@@ -28387,6 +28431,65 @@
           "total_ms"
         ],
         "title": "DiagnosticsV11"
+      },
+      "DiagnosticsV12": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Request Id"
+          },
+          "planner_intent": {
+            "type": "string",
+            "enum": [
+              "list",
+              "search",
+              "count",
+              "aggregate",
+              "rank",
+              "compare",
+              "taxonomy",
+              "relation",
+              "trend",
+              "anomaly",
+              "explain",
+              "knowledge"
+            ],
+            "title": "Planner Intent"
+          },
+          "planner_model": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Planner Model"
+          },
+          "planner_prompt_version": {
+            "type": "string",
+            "const": "research-planner-v18",
+            "title": "Planner Prompt Version"
+          },
+          "planner_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Planner Ms"
+          },
+          "total_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Total Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request_id",
+          "planner_intent",
+          "planner_model",
+          "planner_prompt_version",
+          "planner_ms",
+          "total_ms"
+        ],
+        "title": "DiagnosticsV12"
       },
       "DiagnosticsV9": {
         "properties": {
@@ -36271,6 +36374,64 @@
         ],
         "title": "PlanResponseV11"
       },
+      "PlanResponseV12": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "plan",
+              "needs_clarification",
+              "unsupported"
+            ],
+            "title": "Kind"
+          },
+          "schema_version": {
+            "type": "string",
+            "const": "research-query-plan-v12",
+            "title": "Schema Version"
+          },
+          "prompt_version": {
+            "type": "string",
+            "const": "research-planner-v18",
+            "title": "Prompt Version"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/ResearchQueryPlanV12"
+          },
+          "reference_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Reference Date"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Timezone"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/DiagnosticsV12"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "schema_version",
+          "prompt_version",
+          "model",
+          "plan",
+          "reference_date",
+          "timezone",
+          "diagnostics"
+        ],
+        "title": "PlanResponseV12"
+      },
       "PlanResponseV9": {
         "properties": {
           "kind": {
@@ -37412,6 +37573,25 @@
         ],
         "title": "ResearchConversationContext"
       },
+      "ResearchConversationContextV12": {
+        "properties": {
+          "previous_turns": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchPlanSummaryV12"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Previous Turns"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "previous_turns"
+        ],
+        "title": "ResearchConversationContextV12"
+      },
       "ResearchDate": {
         "properties": {
           "id": {
@@ -37658,12 +37838,16 @@
           "conversation_summary": {
             "anyOf": [
               {
+                "$ref": "#/components/schemas/ResearchPlanSummaryV12"
+              },
+              {
                 "$ref": "#/components/schemas/ResearchPlanSummary"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Conversation Summary"
           },
           "sql_provenance": {
             "items": {
@@ -37740,6 +37924,9 @@
               },
               {
                 "$ref": "#/components/schemas/PlanResponseV11"
+              },
+              {
+                "$ref": "#/components/schemas/PlanResponseV12"
               }
             ],
             "title": "Plan"
@@ -38146,6 +38333,184 @@
           "spatial_metric"
         ],
         "title": "ResearchPlanSummary"
+      },
+      "ResearchPlanSummaryV12": {
+        "properties": {
+          "intent": {
+            "type": "string",
+            "enum": [
+              "list",
+              "search",
+              "recommend",
+              "count",
+              "aggregate",
+              "rank",
+              "taxonomy",
+              "spatial_rank"
+            ],
+            "title": "Intent"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "event",
+              "venue",
+              "organization"
+            ],
+            "title": "Entity Type"
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "none",
+              "event_count",
+              "occurrence_count",
+              "venue_count",
+              "organization_count"
+            ],
+            "title": "Metric"
+          },
+          "groupings": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "event",
+                "venue",
+                "organization",
+                "category",
+                "event_type",
+                "genre",
+                "month",
+                "weekday",
+                "municipality",
+                "district",
+                "state",
+                "country",
+                "region"
+              ]
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Groupings"
+          },
+          "ordering": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordering"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "temporal": {
+            "$ref": "#/components/schemas/ConversationTemporal"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ConversationNames"
+          },
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationAreaV12"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Areas"
+          },
+          "semantic_query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Query"
+          },
+          "semantic_focus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Focus"
+          },
+          "taxonomy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "genre",
+                  "event_type",
+                  "category"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxonomy"
+          },
+          "spatial_metric": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "longitude",
+                  "latitude"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spatial Metric"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "intent",
+          "entity_type",
+          "metric",
+          "groupings",
+          "ordering",
+          "limit",
+          "temporal",
+          "filters",
+          "areas",
+          "semantic_query",
+          "semantic_focus",
+          "taxonomy",
+          "spatial_metric"
+        ],
+        "title": "ResearchPlanSummaryV12"
       },
       "ResearchPopulation": {
         "properties": {
@@ -39133,6 +39498,325 @@
         ],
         "title": "ResearchQueryPlanV11"
       },
+      "ResearchQueryPlanV12": {
+        "properties": {
+          "original_query": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Original Query"
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "list",
+              "search",
+              "count",
+              "aggregate",
+              "rank",
+              "compare",
+              "taxonomy",
+              "relation",
+              "trend",
+              "anomaly",
+              "explain",
+              "knowledge"
+            ],
+            "title": "Intent"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "event",
+                  "occurrence",
+                  "venue",
+                  "space",
+                  "organization",
+                  "municipality",
+                  "region"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "metric": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "group_by": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "event",
+                "occurrence",
+                "venue",
+                "space",
+                "organization",
+                "category",
+                "event_type",
+                "genre",
+                "municipality",
+                "region",
+                "country",
+                "hour",
+                "weekday",
+                "week",
+                "month",
+                "year"
+              ]
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Group By"
+          },
+          "ordering": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordering"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "filters": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PresenceFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/NameFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/DescriptionFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/StatusFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/NumberFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/DateFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/TimeFilterV9"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Filters"
+          },
+          "metric_filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericPredicateV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taxonomy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "genre",
+                  "event_type",
+                  "category"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxonomy"
+          },
+          "temporal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TemporalV10"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spatial": {
+            "items": {
+              "$ref": "#/components/schemas/SpatialV12"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Spatial"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "semantic": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SemanticV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RelationV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trend": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrendV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "anomaly": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnomalyV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "explain": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExplainV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "knowledge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnowledgeV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comparison_targets": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonTargetV9"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Comparison Targets"
+          },
+          "clarification": {
+            "type": "string",
+            "enum": [
+              "none",
+              "needs_criteria",
+              "needs_location",
+              "needs_date",
+              "needs_definition",
+              "needs_context"
+            ],
+            "title": "Clarification"
+          },
+          "unsupported_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "outside_research",
+                  "unsupported_constraint",
+                  "insufficient_structured_data"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unsupported Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "original_query",
+          "intent",
+          "entity_type",
+          "metric",
+          "group_by",
+          "ordering",
+          "limit",
+          "filters",
+          "metric_filter",
+          "taxonomy",
+          "temporal",
+          "spatial",
+          "price",
+          "semantic",
+          "relation",
+          "trend",
+          "anomaly",
+          "explain",
+          "knowledge",
+          "comparison_targets",
+          "clarification",
+          "unsupported_reason"
+        ],
+        "title": "ResearchQueryPlanV12"
+      },
       "ResearchQueryPlanV9": {
         "properties": {
           "original_query": {
@@ -39465,12 +40149,16 @@
           "conversation_context": {
             "anyOf": [
               {
+                "$ref": "#/components/schemas/ResearchConversationContextV12"
+              },
+              {
                 "$ref": "#/components/schemas/ResearchConversationContext"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Conversation Context"
           },
           "location_context": {
             "anyOf": [
@@ -40615,6 +41303,106 @@
           "items"
         ],
         "title": "SpatialResult"
+      },
+      "SpatialV12": {
+        "properties": {
+          "relation": {
+            "type": "string",
+            "enum": [
+              "at",
+              "inside",
+              "outside",
+              "nearby",
+              "within_radius",
+              "near_border",
+              "across_border",
+              "north_of",
+              "south_of",
+              "east_of",
+              "west_of",
+              "nearest"
+            ],
+            "title": "Relation"
+          },
+          "place_query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Query"
+          },
+          "area_query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Query"
+          },
+          "area_level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "country",
+                  "state",
+                  "district",
+                  "municipality",
+                  "region"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Level"
+          },
+          "radius_m": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 500000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Radius M"
+          },
+          "reference": {
+            "type": "string",
+            "enum": [
+              "named",
+              "user_location",
+              "border",
+              "nearest_venue"
+            ],
+            "title": "Reference"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "relation",
+          "place_query",
+          "area_query",
+          "area_level",
+          "radius_m",
+          "reference"
+        ],
+        "title": "SpatialV12"
       },
       "SpatialV9": {
         "properties": {

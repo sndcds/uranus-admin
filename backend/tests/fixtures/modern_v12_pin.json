@@ -1,0 +1,11 @@
+{
+  "schema_version": "research-query-plan-v12",
+  "prompt_version": "research-planner-v18",
+  "planner_base": "5f7313f",
+  "planner_commit": "64be63eedb704131c7f74b89379da5b0eec35af6",
+  "admin_base": "adca790",
+  "mirror_sha256": {
+    "research_v12_schema.py": "b0c08236c6178fba84d4a16ca5c250221e25dd4f1f9f63f91f0ce1c91f97d31a",
+    "research_v12_spatial.py": "cb43edae1e58f45bbef18f436cac75c89455e12e72a918fa32186608a85ca2d1"
+  }
+}

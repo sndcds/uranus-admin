@@ -32,7 +32,7 @@ const temporal = z
       ? v.from_date !== null && v.to_date !== null && v.from_date <= v.to_date
       : v.from_date === null && v.to_date === null,
   )
-export const researchPlanSummarySchema = z
+export const legacyResearchPlanSummarySchema = z
   .object({
     intent: z.enum([
       'list',
@@ -92,9 +92,38 @@ export const researchPlanSummarySchema = z
   })
   .strict()
   .refine((v) => new TextEncoder().encode(JSON.stringify(v)).length <= 2048)
-export const researchConversationContextSchema = z
-  .object({ previous_turns: z.array(researchPlanSummarySchema).min(1).max(4) })
+const legacyResearchConversationContextSchema = z
+  .object({ previous_turns: z.array(legacyResearchPlanSummarySchema).min(1).max(4) })
   .strict()
   .refine((v) => new TextEncoder().encode(JSON.stringify(v)).length <= 8192)
+export const researchPlanSummaryV12Schema = legacyResearchPlanSummarySchema.safeExtend({
+  areas: z
+    .array(
+      z
+        .object({
+          name,
+          relation: z.enum(['inside', 'outside']),
+          expected_level: z
+            .enum(['municipality', 'district', 'state', 'country', 'region'])
+            .nullable(),
+        })
+        .strict(),
+    )
+    .max(4),
+})
+export const researchConversationContextV12Schema = z
+  .object({
+    previous_turns: z.array(researchPlanSummaryV12Schema).min(1).max(4),
+  })
+  .strict()
+  .refine((v) => new TextEncoder().encode(JSON.stringify(v)).length <= 8192)
+export const researchPlanSummarySchema = z.union([
+  researchPlanSummaryV12Schema,
+  legacyResearchPlanSummarySchema,
+])
+export const researchConversationContextSchema = z.union([
+  researchConversationContextV12Schema,
+  legacyResearchConversationContextSchema,
+])
 export type ResearchPlanSummary = z.infer<typeof researchPlanSummarySchema>
 export type ResearchConversationContext = z.infer<typeof researchConversationContextSchema>

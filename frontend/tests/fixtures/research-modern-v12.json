@@ -1,0 +1,1201 @@
+[
+  {
+    "name": "district",
+    "query": "Veranstaltungen im Kreis Schleswig-Flensburg",
+    "plan": {
+      "original_query": "Veranstaltungen im Kreis Schleswig-Flensburg",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Schleswig-Flensburg",
+          "area_level": "district",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "state",
+    "query": "Veranstaltungen im Bundesland Schleswig-Holstein",
+    "plan": {
+      "original_query": "Veranstaltungen im Bundesland Schleswig-Holstein",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Schleswig-Holstein",
+          "area_level": "state",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "municipality",
+    "query": "Veranstaltungen in der Gemeinde Harrislee",
+    "plan": {
+      "original_query": "Veranstaltungen in der Gemeinde Harrislee",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Harrislee",
+          "area_level": "municipality",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "country",
+    "query": "Veranstaltungen in Deutschland",
+    "plan": {
+      "original_query": "Veranstaltungen in Deutschland",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Deutschland",
+          "area_level": "country",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "region",
+    "query": "Veranstaltungen in Norddeutschland",
+    "plan": {
+      "original_query": "Veranstaltungen in Norddeutschland",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Norddeutschland",
+          "area_level": "region",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "informal-district",
+    "query": "Veranstaltungen am Wochenende im Kreis Schleswig",
+    "plan": {
+      "original_query": "Veranstaltungen am Wochenende im Kreis Schleswig",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "recurring_months": [],
+        "recurring_weekdays": [6, 7],
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null
+      },
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Schleswig",
+          "area_level": "district",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "weekend-district",
+    "query": "Veranstaltungen am Wochenende im Kreis Schleswig-Flensburg",
+    "plan": {
+      "original_query": "Veranstaltungen am Wochenende im Kreis Schleswig-Flensburg",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "recurring_months": [],
+        "recurring_weekdays": [6, 7],
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null
+      },
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Schleswig-Flensburg",
+          "area_level": "district",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "months-state",
+    "query": "Welche Veranstaltungstypen treten von Juli bis September in Schleswig-Holstein besonders stark auf?",
+    "plan": {
+      "original_query": "Welche Veranstaltungstypen treten von Juli bis September in Schleswig-Holstein besonders stark auf?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": ["event_type"],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "recurring_months": [7, 8, 9],
+        "recurring_weekdays": [],
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null
+      },
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Schleswig-Holstein",
+          "area_level": "state",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "current-month-district",
+    "query": "wie viele Events im Oktober im Kreis Schleswig-Flensburg",
+    "plan": {
+      "original_query": "wie viele Events im Oktober im Kreis Schleswig-Flensburg",
+      "intent": "count",
+      "entity_type": "event",
+      "metric": {
+        "operation": "event_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "explicit_range",
+        "from_date": "2026-10-01",
+        "to_date": "2026-10-31",
+        "recurring_months": [],
+        "recurring_weekdays": [],
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null
+      },
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Schleswig-Flensburg",
+          "area_level": "district",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "current-month",
+    "query": "wie viele Events im Oktober",
+    "plan": {
+      "original_query": "wie viele Events im Oktober",
+      "intent": "count",
+      "entity_type": "event",
+      "metric": {
+        "operation": "event_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "explicit_range",
+        "from_date": "2026-10-01",
+        "to_date": "2026-10-31",
+        "recurring_months": [],
+        "recurring_weekdays": [],
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null
+      },
+      "spatial": [],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "january",
+    "query": "Veranstaltungen im Januar",
+    "plan": {
+      "original_query": "Veranstaltungen im Januar",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "explicit_range",
+        "from_date": "2026-01-01",
+        "to_date": "2026-01-31",
+        "recurring_months": [],
+        "recurring_weekdays": [],
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null
+      },
+      "spatial": [],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "explicit-year",
+    "query": "Veranstaltungen im Oktober 2025",
+    "plan": {
+      "original_query": "Veranstaltungen im Oktober 2025",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "explicit_range",
+        "from_date": "2025-10-01",
+        "to_date": "2025-10-31",
+        "recurring_months": [],
+        "recurring_weekdays": [],
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null
+      },
+      "spatial": [],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "recurring-october",
+    "query": "Veranstaltungen jeden Oktober",
+    "plan": {
+      "original_query": "Veranstaltungen jeden Oktober",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "recurring_months": [10],
+        "recurring_weekdays": [],
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null
+      },
+      "spatial": [],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "multi-and",
+    "query": "Veranstaltungen außerhalb Schleswig-Holsteins, innerhalb Deutschlands",
+    "plan": {
+      "original_query": "Veranstaltungen außerhalb Schleswig-Holsteins, innerhalb Deutschlands",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": [
+        {
+          "relation": "outside",
+          "reference": "named",
+          "area_query": "Schleswig-Holstein",
+          "area_level": "state",
+          "place_query": null,
+          "radius_m": null
+        },
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Deutschland",
+          "area_level": "country",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "group-month",
+    "query": "Veranstaltungstypen nach Monat im Kreis Schleswig-Flensburg",
+    "plan": {
+      "original_query": "Veranstaltungstypen nach Monat im Kreis Schleswig-Flensburg",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": ["event_type", "month"],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Schleswig-Flensburg",
+          "area_level": "district",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "group-weekday",
+    "query": "Veranstaltungstypen nach Wochentag im Kreis Schleswig-Flensburg",
+    "plan": {
+      "original_query": "Veranstaltungstypen nach Wochentag im Kreis Schleswig-Flensburg",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": ["event_type", "weekday"],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Schleswig-Flensburg",
+          "area_level": "district",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "group-municipality",
+    "query": "Kategorien nach Gemeinde im Kreis Schleswig-Flensburg",
+    "plan": {
+      "original_query": "Kategorien nach Gemeinde im Kreis Schleswig-Flensburg",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": ["category", "municipality"],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Schleswig-Flensburg",
+          "area_level": "district",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "followup",
+    "query": "Und nur sonntags?",
+    "plan": {
+      "original_query": "Und nur sonntags?",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "recurring_months": [],
+        "recurring_weekdays": [7],
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null
+      },
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Schleswig-Flensburg",
+          "area_level": "district",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    },
+    "conversation_context": {
+      "previous_turns": [
+        {
+          "intent": "list",
+          "entity_type": "event",
+          "metric": "none",
+          "groupings": [],
+          "ordering": null,
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [
+            {
+              "name": "Schleswig-Flensburg",
+              "relation": "inside",
+              "expected_level": "district"
+            }
+          ],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "override-place",
+    "query": "Und nur sonntags in der Gemeinde Harrislee?",
+    "plan": {
+      "original_query": "Und nur sonntags in der Gemeinde Harrislee?",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "recurring_months": [],
+        "recurring_weekdays": [7],
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null
+      },
+      "spatial": [
+        {
+          "relation": "inside",
+          "reference": "named",
+          "area_query": "Harrislee",
+          "area_level": "municipality",
+          "place_query": null,
+          "radius_m": null
+        }
+      ],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    },
+    "conversation_context": {
+      "previous_turns": [
+        {
+          "intent": "list",
+          "entity_type": "event",
+          "metric": "none",
+          "groupings": [],
+          "ordering": null,
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [
+            {
+              "name": "Schleswig-Flensburg",
+              "relation": "inside",
+              "expected_level": "district"
+            }
+          ],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "standalone-reset",
+    "query": "wie viele Events im Oktober",
+    "plan": {
+      "original_query": "wie viele Events im Oktober",
+      "intent": "count",
+      "entity_type": "event",
+      "metric": {
+        "operation": "event_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "explicit_range",
+        "from_date": "2026-10-01",
+        "to_date": "2026-10-31",
+        "recurring_months": [],
+        "recurring_weekdays": [],
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null
+      },
+      "spatial": [],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    },
+    "conversation_context": {
+      "previous_turns": [
+        {
+          "intent": "list",
+          "entity_type": "event",
+          "metric": "none",
+          "groupings": [],
+          "ordering": null,
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [
+            {
+              "name": "Schleswig-Flensburg",
+              "relation": "inside",
+              "expected_level": "district"
+            }
+          ],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "result-reference-20",
+    "query": "Und welcher davon ist der erste?",
+    "plan": {
+      "original_query": "Und welcher davon ist der erste?",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": [],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "needs_context",
+      "unsupported_reason": null
+    },
+    "conversation_context": {
+      "previous_turns": [
+        {
+          "intent": "list",
+          "entity_type": "event",
+          "metric": "none",
+          "groupings": [],
+          "ordering": null,
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [
+            {
+              "name": "Schleswig-Flensburg",
+              "relation": "inside",
+              "expected_level": "district"
+            }
+          ],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        }
+      ]
+    }
+  },
+  {
+    "name": "result-reference-21",
+    "query": "Welche davon?",
+    "plan": {
+      "original_query": "Welche davon?",
+      "intent": "list",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": [],
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "needs_context",
+      "unsupported_reason": null
+    },
+    "conversation_context": {
+      "previous_turns": [
+        {
+          "intent": "list",
+          "entity_type": "event",
+          "metric": "none",
+          "groupings": [],
+          "ordering": null,
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [
+            {
+              "name": "Schleswig-Flensburg",
+              "relation": "inside",
+              "expected_level": "district"
+            }
+          ],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        }
+      ]
+    }
+  }
+]

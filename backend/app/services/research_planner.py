@@ -15,8 +15,10 @@ from app.research.wire.research_v8_schema import PlanResponseV8
 from app.research.wire.research_v9_schema import PlanResponseV9
 from app.research.wire.research_v10_schema import PlanResponseV10
 from app.research.wire.research_v11_schema import PlanResponseV11
+from app.research.wire.research_v12_schema import PlanResponseV12
 from app.schemas.research_analytics import AnalyticalPlanResponse
 from app.schemas.research_conversation import ResearchConversationContext
+from app.schemas.research_conversation_v12 import ResearchConversationContextV12
 from app.schemas.research_geography import GeographicPlanResponse
 from app.schemas.research_planner import PlanResponse
 
@@ -212,12 +214,19 @@ class ResearchPlannerClient:
     ) -> PlanResponseV11:
         return await self._plan_language(query, "v11", PlanResponseV11, context)
 
-    async def _plan_language[T: (PlanResponseV9, PlanResponseV10, PlanResponseV11)](
+    async def plan_modern(
+        self, query: str, context: ResearchConversationContextV12 | None = None
+    ) -> PlanResponseV12:
+        return await self._plan_language(query, "v12", PlanResponseV12, context)
+
+    async def _plan_language[
+        T: (PlanResponseV9, PlanResponseV10, PlanResponseV11, PlanResponseV12)
+    ](
         self,
         query: str,
-        version: Literal["v9", "v10", "v11"],
+        version: Literal["v9", "v10", "v11", "v12"],
         model: type[T],
-        context: ResearchConversationContext | None = None,
+        context: ResearchConversationContext | ResearchConversationContextV12 | None = None,
     ) -> T:
         """One bounded request; closed transport choice, no retry or fallback."""
         try:
@@ -278,7 +287,7 @@ async def plan_active(
     planner: ResearchPlannerClient,
     settings: Settings,
     query: str,
-    context: ResearchConversationContext | None = None,
+    context: ResearchConversationContext | ResearchConversationContextV12 | None = None,
 ) -> (
     PlanResponse
     | AnalyticalPlanResponse
@@ -286,12 +295,40 @@ async def plan_active(
     | PlanResponseV9
     | PlanResponseV10
     | PlanResponseV11
+    | PlanResponseV12
 ):
     """Select the configured wire contract once; never retry on an older contract."""
-    if context is not None and settings.research_planner_contract != "v11":
+    if context is not None and settings.research_planner_contract not in {"v11", "v12"}:
         raise APIError(
             422, "research_execution_unsupported", "Conversation planning is not enabled."
         )
+    if settings.research_planner_contract == "v12":
+        modern_context = None
+        if context is not None:
+            data = context.model_dump(mode="json")
+            if isinstance(context, ResearchConversationContext):
+                for summary in data["previous_turns"]:
+                    for area in summary["areas"]:
+                        area["expected_level"] = None
+            modern_context = ResearchConversationContextV12.model_validate_json(json.dumps(data))
+        response_v12 = await planner.plan_modern(query, modern_context)
+        try:
+            response_v12 = PlanResponseV12.model_validate_json(response_v12.model_dump_json())
+            if (
+                response_v12.plan.original_query != query
+                or response_v12.timezone != settings.event_timezone
+            ):
+                raise ValueError("planner_identity_mismatch")
+        except ValueError:
+            raise invalid_response() from None
+        return response_v12
+    if isinstance(context, ResearchConversationContextV12):
+        # Rollback may accept only losslessly compatible old summaries. Never
+        # discard a level or an extra area to retry an older contract.
+        try:
+            context = ResearchConversationContext.model_validate_json(context.model_dump_json())
+        except ValueError:
+            raise APIError(422, "research_execution_unsupported", "Context requires v12.") from None
     if settings.research_planner_contract in {"v9", "v10", "v11"}:
         response = (
             await planner.plan_conversation(query, context)

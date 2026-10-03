@@ -7,9 +7,12 @@ from pydantic import ValidationError
 from app.research.geography import UnresolvedAdministrativeAreaRef
 from app.research.plan import InternalResearchPlan
 from app.schemas.research_conversation import ResearchPlanSummary
+from app.schemas.research_conversation_v12 import ResearchPlanSummaryV12
 
 
-def summarize_plan(plan: InternalResearchPlan) -> ResearchPlanSummary | None:
+def summarize_plan(
+    plan: InternalResearchPlan, *, administrative: bool = False
+) -> ResearchPlanSummary | ResearchPlanSummaryV12 | None:
     # Do not partially remember a plan. Unrepresented/private semantics reset context.
     if (
         plan.intent == "compare"
@@ -26,24 +29,32 @@ def summarize_plan(plan: InternalResearchPlan) -> ResearchPlanSummary | None:
         ref = constraint.reference
         if (
             not isinstance(ref, UnresolvedAdministrativeAreaRef)
-            or ref.expected_level is not None
+            or (not administrative and ref.expected_level is not None)
             or ref.country_code is not None
             or constraint.radius_m is not None
             or constraint.relation not in {"inside", "outside"}
         ):
             return None
-        areas.append({"name": ref.name, "relation": constraint.relation})
+        areas.append(
+            {
+                "name": ref.name,
+                "relation": constraint.relation,
+                **({"expected_level": ref.expected_level} if administrative else {}),
+            }
+        )
     temporal = asdict(plan.temporal)
     temporal.pop("time_from")
     temporal["weekdays"] = list(plan.temporal.weekdays)
     temporal["months"] = list(plan.temporal.months)
     try:
-        return ResearchPlanSummary.model_validate(
+        return (ResearchPlanSummaryV12 if administrative else ResearchPlanSummary).model_validate(
             {
                 "intent": plan.intent,
                 "entity_type": plan.entity_type,
                 "metric": plan.metric,
-                "groupings": list(plan.groupings),
+                "groupings": list(plan.groupings)
+                if not administrative or plan.group_by == "none"
+                else [plan.group_by],
                 "ordering": plan.ordering,
                 "limit": plan.limit,
                 "temporal": temporal,
