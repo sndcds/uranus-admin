@@ -91,7 +91,9 @@ class ResolvedField(ClosedModel):
 class ExecutionClarification(ClosedModel):
     kind: Literal["needs_clarification"] = "needs_clarification"
     reason: Literal["planner", "ambiguous", "no_match", "duplicate_target", "taxonomy_conflict"]
-    planner_state: Literal["none", "needs_criteria", "needs_location", "needs_date"] = "none"
+    planner_state: Literal[
+        "none", "needs_criteria", "needs_location", "needs_date", "needs_context"
+    ] = "none"
     field: ResolutionField | None = None
     query: Slot | None = None
     candidates: list[ResolutionCandidate] = Field(default_factory=list, max_length=5)

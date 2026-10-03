@@ -1,0 +1,31 @@
+{
+  "intent": "aggregate",
+  "entity_type": "event",
+  "metric": "occurrence_count",
+  "groupings": [
+    "event_type",
+    "month"
+  ],
+  "ordering": "desc",
+  "limit": 20,
+  "temporal": {
+    "period": "none",
+    "from_date": null,
+    "to_date": null,
+    "time_of_day": "none",
+    "weekdays": [],
+    "months": []
+  },
+  "filters": {
+    "venue": null,
+    "organization": null,
+    "event_types": [],
+    "categories": [],
+    "genres": []
+  },
+  "areas": [],
+  "semantic_query": null,
+  "semantic_focus": null,
+  "taxonomy": null,
+  "spatial_metric": null
+}

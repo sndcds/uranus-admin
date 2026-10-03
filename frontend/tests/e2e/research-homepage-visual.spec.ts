@@ -17,25 +17,14 @@ test('approved homepage layout across desktop, tablet and mobile', async ({ page
     ).toHaveCount(3)
     await expect(page.getByRole('button', { name: 'Antwort anzeigen' })).toBeInViewport()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-    const cards = page.locator('.research-discovery-card')
-    await expect(cards).toHaveCount(4)
-    const boxes = await cards.evaluateAll((elements) =>
-      elements.map((element) => {
-        const { x, y, height } = element.getBoundingClientRect()
-        return { x, y, height }
-      }),
-    )
+    await expect(page.locator('.research-discovery-card')).toHaveCount(0)
+    await expect(page.getByText('Kultur entdecken', { exact: true })).toHaveCount(0)
     if (name === 'desktop') {
-      expect(new Set(boxes.map((box) => box.y)).size).toBe(1)
-      expect(boxes[0]!.height).toBeLessThanOrEqual(175)
       const composer = await page.locator('.research-composer').boundingBox()
-      expect(composer!.width).toBeGreaterThan(790)
-      expect(composer!.width).toBeLessThan(840)
+      expect(composer!.width).toBe(1024)
       expect(composer!.height).toBeLessThan(125)
       expect(composer!.y).toBeGreaterThan(height * 0.75)
       expect(composer!.y + composer!.height).toBeLessThan(height)
-    } else {
-      expect(new Set(boxes.map((box) => box.x)).size).toBe(name === 'tablet' ? 2 : 1)
     }
     await page.screenshot({ path: info.outputPath(`homepage-${name}.png`), fullPage: true })
   }

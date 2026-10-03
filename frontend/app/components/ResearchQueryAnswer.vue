@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { summarizeResearchResult } from '~/utils/research-summary'
 import ResearchSqlEditorModal from './sql/ResearchSqlEditorModal.vue'
 import type { ResearchExecutionResponse } from '#shared/contracts'
 import { formatGroupingCoordinate, researchMetricLabels } from '~/utils/research-answer'
 import { researchKey, researchHref } from '~/utils/research'
 const props = defineProps<{ response: ResearchExecutionResponse }>()
 defineEmits<{ adjust: [text?: string] }>()
+const answerSummary = computed(() => summarizeResearchResult(props.response))
 const sqlEditor = ref<InstanceType<typeof ResearchSqlEditorModal> | null>(null)
 const result = computed(() => props.response.result)
 const plan = computed(() => props.response.plan.plan)
@@ -40,6 +42,8 @@ const area = computed(
 const clarification = computed(() => {
   const r = result.value
   if (r.kind !== 'needs_clarification') return ''
+  if (r.planner_state === 'needs_context')
+    return 'Worauf beziehst du dich? Bitte nenne das Thema oder die gemeinten Ergebnisse genauer.'
   if (r.planner_state === 'needs_date') return 'Welchen Zeitraum meinst du?'
   if (r.planner_state === 'needs_location') return 'Welchen Ort meinst du?'
   if (r.planner_state === 'needs_criteria')
@@ -100,6 +104,9 @@ const fieldLabels = {
           <AppIcon name="code" :size="14" />SQL Editor
         </button>
       </div>
+      <p v-if="answerSummary" data-testid="research-answer-summary">
+        {{ answerSummary }}
+      </p>
       <template v-if="result.kind === 'count'">
         <p class="text-2xl font-semibold tabular-nums" data-testid="research-count">
           {{ number(result.value) }} {{ metric }}

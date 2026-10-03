@@ -14,7 +14,9 @@ from app.errors import APIError
 from app.research.wire.research_v8_schema import PlanResponseV8
 from app.research.wire.research_v9_schema import PlanResponseV9
 from app.research.wire.research_v10_schema import PlanResponseV10
+from app.research.wire.research_v11_schema import PlanResponseV11
 from app.schemas.research_analytics import AnalyticalPlanResponse
+from app.schemas.research_conversation import ResearchConversationContext
 from app.schemas.research_geography import GeographicPlanResponse
 from app.schemas.research_planner import PlanResponse
 
@@ -205,8 +207,17 @@ class ResearchPlannerClient:
     async def plan_calendar(self, query: str) -> PlanResponseV10:
         return await self._plan_language(query, "v10", PlanResponseV10)
 
-    async def _plan_language[T: (PlanResponseV9, PlanResponseV10)](
-        self, query: str, version: Literal["v9", "v10"], model: type[T]
+    async def plan_conversation(
+        self, query: str, context: ResearchConversationContext | None = None
+    ) -> PlanResponseV11:
+        return await self._plan_language(query, "v11", PlanResponseV11, context)
+
+    async def _plan_language[T: (PlanResponseV9, PlanResponseV10, PlanResponseV11)](
+        self,
+        query: str,
+        version: Literal["v9", "v10", "v11"],
+        model: type[T],
+        context: ResearchConversationContext | None = None,
     ) -> T:
         """One bounded request; closed transport choice, no retry or fallback."""
         try:
@@ -219,7 +230,16 @@ class ResearchPlannerClient:
                         "Accept": "application/json",
                         "Accept-Encoding": "identity",
                     },
-                    json={"query": query, "timezone": self._timezone, "language": "auto"},
+                    json={
+                        "query": query,
+                        "timezone": self._timezone,
+                        "language": "auto",
+                        **(
+                            {"conversation_context": context.model_dump(mode="json")}
+                            if context is not None
+                            else {}
+                        ),
+                    },
                 )
                 response = await self._http.send(request, stream=True)
                 try:
@@ -255,25 +275,39 @@ class ResearchPlannerClient:
 
 
 async def plan_active(
-    planner: ResearchPlannerClient, settings: Settings, query: str
+    planner: ResearchPlannerClient,
+    settings: Settings,
+    query: str,
+    context: ResearchConversationContext | None = None,
 ) -> (
     PlanResponse
     | AnalyticalPlanResponse
     | GeographicPlanResponse
     | PlanResponseV9
     | PlanResponseV10
+    | PlanResponseV11
 ):
     """Select the configured wire contract once; never retry on an older contract."""
-    if settings.research_planner_contract in {"v9", "v10"}:
+    if context is not None and settings.research_planner_contract != "v11":
+        raise APIError(
+            422, "research_execution_unsupported", "Conversation planning is not enabled."
+        )
+    if settings.research_planner_contract in {"v9", "v10", "v11"}:
         response = (
-            await planner.plan_calendar(query)
+            await planner.plan_conversation(query, context)
+            if settings.research_planner_contract == "v11"
+            else await planner.plan_calendar(query)
             if settings.research_planner_contract == "v10"
             else await planner.plan_grouped(query)
         )
         # Revalidate injected clients too: model_copy/construct bypass validators.
         try:
             response = (
-                PlanResponseV10 if settings.research_planner_contract == "v10" else PlanResponseV9
+                PlanResponseV11
+                if settings.research_planner_contract == "v11"
+                else PlanResponseV10
+                if settings.research_planner_contract == "v10"
+                else PlanResponseV9
             ).model_validate_json(response.model_dump_json())
             if (
                 response.plan.original_query != query

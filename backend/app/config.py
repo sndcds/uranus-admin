@@ -100,7 +100,7 @@ class Settings(BaseSettings):
     research_geocoder_api_key: SecretStr | None = None
     research_geocoder_timeout_seconds: float = Field(default=5, gt=0, le=10)
     # Explicit transport selection; legacy preserves the existing v3/v5/v6 rollout.
-    research_planner_contract: Literal["legacy", "v9", "v10"] = "legacy"
+    research_planner_contract: Literal["legacy", "v9", "v10", "v11"] = "legacy"
     research_analytics_enabled: bool = False
     research_planner_url: str | None = None
     research_planner_api_key: SecretStr | None = None

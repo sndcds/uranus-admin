@@ -22,6 +22,7 @@ from app.repositories.research import (
 )
 from app.repositories.research_areas import area_metadata, area_page, request_area
 from app.research.context import ResearchExecutionContext
+from app.research.conversation import summarize_plan
 from app.research.geography import location_sensitive
 from app.research.normalize import normalize
 from app.schemas.research import (
@@ -91,7 +92,11 @@ async def query(
     if planner is None:
         raise unavailable()
     started = perf_counter()
-    response = await plan_active(planner, settings, body.query)
+    response = (
+        await plan_active(planner, settings, body.query, body.conversation_context)
+        if body.conversation_context is not None
+        else await plan_active(planner, settings, body.query)
+    )
     planner_ms = (perf_counter() - started) * 1000
     internal = normalize(response)
     context = ResearchExecutionContext(
@@ -107,7 +112,18 @@ async def query(
         context,
         planner_ms=planner_ms,
     )
+    sensitive_location = context.location_context is not None or location_sensitive(
+        internal.spatial_constraints
+    )
+    summary = (
+        summarize_plan(internal)
+        if settings.research_planner_contract == "v11"
+        and not sensitive_location
+        and outcome.result.kind != "needs_clarification"
+        else None
+    )
     result = ResearchExecutionResponse(
+        conversation_summary=summary,
         query=context.original_query,
         plan=response,
         resolution=outcome.resolution,
@@ -118,10 +134,7 @@ async def query(
         timezone=context.timezone,
         diagnostics=outcome.diagnostics,
     )
-    sensitive_location = context.location_context is not None or (
-        location_sensitive(internal.spatial_constraints)
-    )
-    if not sensitive_location:
+    if not sensitive_location and body.conversation_context is None:
         await record_success(request, result, x_research_selection, plan=internal)
     return result
 

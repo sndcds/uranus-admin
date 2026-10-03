@@ -4,6 +4,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import Field, field_validator, model_validator
 
+from app.schemas.research_conversation import ResearchConversationContext
 from app.schemas.research_planner import ClosedModel, ResearchPlanRequest, Slot
 
 Latitude = Annotated[float, Field(ge=-90, le=90)]
@@ -36,6 +37,7 @@ class LocationContext(ClosedModel):
 
 
 class ResearchQueryRequest(ResearchPlanRequest):
+    conversation_context: ResearchConversationContext | None = None
     location_context: LocationContext | None = None
 
 
