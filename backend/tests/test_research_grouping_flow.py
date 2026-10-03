@@ -166,6 +166,7 @@ async def test_normal_query_delivers_grouped_envelope(
             "execution",
             "timezone",
             "sql_provenance",
+            "answer_text",
         ):
             assert value[field] == recorded[field]
 
@@ -292,3 +293,25 @@ def test_executor_and_resolver_do_not_import_wire_versions():
         for node in ast.walk(ast.parse(Path(path).read_text())):
             if isinstance(node, ast.ImportFrom):
                 assert not (node.module or "").startswith("app.research.wire")
+
+
+async def test_answer_uses_current_executed_values_without_extra_queries(client, headers, flow):
+    state, requests, sql, resolve, _ = flow
+    for value in (7, 47):
+        rows = MagicMock()
+        rows.mappings.return_value = [
+            dict(key_0="1", name_0="Konzert", key_1="09", name_1="09", value=value)
+        ]
+        sql.execute.return_value = rows
+        response = await client.post(PATH, headers=headers, json={"query": wire().original_query})
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["answer_text"] == (
+            "Unter den angezeigten Kombinationen hat „Konzert / September“ "
+            f"mit {value} Terminen den höchsten angezeigten Wert."
+        )
+        assert len(body["sql_provenance"]) == 1
+        assert body["sql_provenance"][0]["sql"] == sql.execute.await_args.args[0].text
+    assert len(requests) == 2
+    assert sql.execute.await_count == 2
+    assert resolve.await_count == 2

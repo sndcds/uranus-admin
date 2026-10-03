@@ -114,6 +114,7 @@ it('loads on URL state, cancels stale work and discards late success/failure', a
   second.reject(new AdminApiError(failure(503)))
   const current = executionResponse()
   current.result = { kind: 'count', metric: 'event_count', value: 7 }
+  current.answer_text = 'Für diese Auswahl wurden 7 Veranstaltungen gezählt.'
   third.resolve(current)
   await flushPromises()
   expect(view.text()).toContain('7 Veranstaltungen')
@@ -140,9 +141,11 @@ it('clears protected answers on auth loss and ignores late responses', async () 
 })
 it('shows a stable error without fallback and allows an explicit retry', async () => {
   const ctx = setup()
+  const retried = executionResponse()
+  retried.answer_text = 'Frische Antwort vom Backend nach dem Wiederholen.'
   ctx.api.researchQuery
     .mockRejectedValueOnce(new AdminApiError(failure(422, 'research_execution_unsupported')))
-    .mockResolvedValueOnce(executionResponse())
+    .mockResolvedValueOnce(retried)
   const view = mount(ResearchQuestion, { global: ctx.global })
   await flushPromises()
   expect(view.text()).toContain('Diese Auswertung wird derzeit nicht unterstützt.')
@@ -152,6 +155,7 @@ it('shows a stable error without fallback and allows an explicit retry', async (
     .trigger('click')
   await flushPromises()
   expect(view.text()).toContain('123 Veranstaltungen')
+  expect(view.get('[data-testid=research-answer-summary]').text()).toBe(retried.answer_text)
   expect(ctx.api.researchQuery).toHaveBeenCalledTimes(2)
   view.unmount()
 })
@@ -282,6 +286,7 @@ it('keeps empty records as a successful answer', async () => {
   if (response.result.kind !== 'records') throw new Error('fixture')
   response.result.items = []
   response.result.total = 0
+  response.answer_text = 'Für diese Frage wurden keine passenden Ergebnisse gefunden.'
   ctx.api.researchQuery.mockResolvedValue(response)
   const view = mount(ResearchHome, { global: ctx.global })
   await flushPromises()
@@ -477,6 +482,7 @@ it.each(['ctrlKey', 'metaKey'])(
 
 function locationClarification() {
   const response = executionResponse()
+  response.answer_text = null
   response.result = {
     kind: 'needs_clarification',
     reason: 'planner',
@@ -752,7 +758,11 @@ it('retains ordered turns, sends bounded prior semantics, and preserves an edite
     'Und nur sonntags?',
     'Dritte Frage',
   ])
-  expect(view.findAll('[data-testid=research-answer-summary]')).toHaveLength(3)
+  expect(view.findAll('[data-testid=research-answer-summary]').map((item) => item.text())).toEqual([
+    first.answer_text,
+    executionResponse().answer_text,
+    executionResponse().answer_text,
+  ])
   expect(view.findAll('textarea')).toHaveLength(1)
   // Back/forward reveals existing history instead of re-executing or appending it.
   ctx.route.query.question = first.query
@@ -796,6 +806,7 @@ it('limits transcript memory to 20 and reloads only the URL question without con
 it('keeps clarification and historical SQL attached to their own immutable responses', async () => {
   const ctx = setup()
   const first = executionResponse()
+  first.answer_text = 'Historische Backend-Antwort.'
   const second = executionResponse('needs_clarification')
   ctx.api.researchQuery.mockResolvedValueOnce(first).mockResolvedValueOnce(second)
   vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function () {
@@ -808,6 +819,8 @@ it('keeps clarification and historical SQL attached to their own immutable respo
   await flushPromises()
   expect(view.findAll('article')).toHaveLength(2)
   const answers = view.findAllComponents(ResearchQueryAnswer)
+  expect(answers[0]!.get('[data-testid=research-answer-summary]').text()).toBe(first.answer_text)
+  expect(answers[1]!.find('[data-testid=research-answer-summary]').exists()).toBe(false)
   expect(answers[1]!.text()).toContain('Neustadt')
   await answers[0]!.get('button[aria-label="SQL Editor"]').trigger('click')
   await flushPromises()

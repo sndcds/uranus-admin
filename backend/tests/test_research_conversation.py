@@ -47,7 +47,17 @@ def test_projection_is_semantic_not_result_or_runtime_data():
 
 @pytest.mark.parametrize(
     "key",
-    ["sql", "parameters", "latitude", "longitude", "geometry", "entity_id", "question", "results"],
+    [
+        "sql",
+        "parameters",
+        "latitude",
+        "longitude",
+        "geometry",
+        "entity_id",
+        "question",
+        "results",
+        "answer_text",
+    ],
 )
 def test_forbidden_context_fields(key):
     with pytest.raises(ValidationError):
@@ -92,6 +102,9 @@ async def test_context_normal_endpoint_one_request_no_learning(client, settings,
     assert payload["conversation_context"] == context
     assert isinstance(resolve.await_args.args[2], InternalResearchPlan)
     assert response.json()["conversation_summary"] is not None
+    assert response.json()["answer_text"]
+    assert "answer_text" not in payload["conversation_context"]["previous_turns"][0]
+    sql.execute.assert_awaited_once()
     assert response.json()["sql_provenance"]
     learn.assert_not_awaited()
 
@@ -110,6 +123,7 @@ async def test_needs_context_never_executes_sql(client, settings, headers, flow)
     )
     assert response.status_code == 200, response.text
     assert response.json()["result"]["planner_state"] == "needs_context"
+    assert response.json()["answer_text"] is None
     assert response.json()["conversation_summary"] is None
     sql.execute.assert_not_awaited()
     resolve.assert_not_awaited()

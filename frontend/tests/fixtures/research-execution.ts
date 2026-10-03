@@ -64,7 +64,18 @@ export function executionResponse(
                   { entity_type: 'area', id: 'neustadt-glewe', label: 'Neustadt-Glewe' },
                 ],
               }
+  const answerText = {
+    count: 'Für diese Auswahl wurden 123 Veranstaltungen gezählt.',
+    aggregate:
+      'Unter den angezeigten Gruppen hat „Kulturhaus“ mit 42 Veranstaltungen den höchsten angezeigten Wert.',
+    comparison: 'Die Vergleichswerte für 2 Ziele reichen von 123 bis 156 Veranstaltungen.',
+    records: semantic
+      ? 'Die semantische Suche zeigt 1 passende Veranstaltung; dies ist keine vollständige Zählung.'
+      : 'Es wird 1 passende Veranstaltung angezeigt.',
+    needs_clarification: null,
+  }[kind]
   return {
+    answer_text: answerText,
     sql_provenance:
       kind === 'needs_clarification'
         ? []
@@ -211,6 +222,7 @@ export function sortedEventsResponse(
     items: ordering === 'desc' ? items.reverse() : items,
     total: null,
   }
+  response.answer_text = 'Es werden 2 passende Veranstaltungen angezeigt.'
   response.diagnostics.returned_count = 2
   return response
 }
@@ -220,6 +232,8 @@ export function eventOccurrencesResponse(): ResearchExecutionResponse {
   const base = executionResponse('aggregate')
   return {
     ...base,
+    answer_text:
+      'Unter den angezeigten Gruppen hat „Event 30“ mit 6 Terminen den höchsten angezeigten Wert.',
     query: eventOccurrencesQuestion,
     plan: {
       ...base.plan,

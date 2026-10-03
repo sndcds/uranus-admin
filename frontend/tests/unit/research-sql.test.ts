@@ -328,3 +328,50 @@ it.each(['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', '
     expect(view.getComponent(SqlCodeEditor).props('sql')).toBe(response.sql_provenance[0]!.sql)
   },
 )
+
+it.each(['count', 'records', 'aggregate', 'comparison'] as const)(
+  'renders backend answer_text verbatim next to the existing %s detail',
+  (kind) => {
+    const response = executionResponse(kind)
+    response.answer_text = 'Backend-Antwort: <sicher> & unverändert.'
+    const view = answer(response)
+    expect(view.get('[data-testid=research-answer-summary]').text()).toBe(response.answer_text)
+    expect(view.find('sicher').exists()).toBe(false)
+    expect(view.get('button[aria-label="SQL Editor"]').exists()).toBe(true)
+    if (kind === 'count')
+      expect(view.get('[data-testid=research-count]').text()).toBe('123 Veranstaltungen')
+    if (kind === 'aggregate' || kind === 'comparison')
+      expect(view.find('table').exists()).toBe(true)
+    if (kind === 'records') expect(view.find('research-result-stub').exists()).toBe(true)
+  },
+)
+it('renders grouped backend text without deriving extrema and keeps its table', () => {
+  const response = groupedExecutionResponse()
+  response.answer_text = 'Die Auswertung enthält eine angezeigte Kombination.'
+  const view = answer(response)
+  expect(view.get('[data-testid=research-answer-summary]').text()).toBe(response.answer_text)
+  expect(view.get('table').text()).toContain('September')
+  expect(view.get('[data-testid=research-answer-summary]').text()).not.toMatch(/höchst|niedrigst/)
+})
+it('does not fabricate prose for a nullable answer, including clarification', () => {
+  for (const response of [
+    executionResponse('needs_clarification'),
+    { ...executionResponse(), answer_text: null },
+  ]) {
+    const view = answer(response)
+    expect(view.find('[data-testid=research-answer-summary]').exists()).toBe(false)
+  }
+})
+it('requires the bounded nullable answer_text field in the strict response contract', () => {
+  const response = executionResponse()
+  const { answer_text: _text, ...missing } = response
+  expect(researchExecutionResponseSchema.safeParse(missing).success).toBe(false)
+  for (const value of [true, 42, {}, 'x'.repeat(1001)]) {
+    expect(
+      researchExecutionResponseSchema.safeParse({ ...response, answer_text: value }).success,
+    ).toBe(false)
+  }
+  expect(
+    researchExecutionResponseSchema.safeParse({ ...response, answer_text: null }).success,
+  ).toBe(true)
+})

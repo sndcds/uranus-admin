@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
 import summary from '../fixtures/conversation-summary.json' with { type: 'json' }
 import {
@@ -5,8 +6,6 @@ import {
   researchPlanSummarySchema,
 } from '../../shared/research-conversation'
 import { conversationContext, type ResearchTurn } from '../../app/utils/research-conversation'
-import { summarizeResearchResult } from '../../app/utils/research-summary'
-import { researchEvent } from '../fixtures/research'
 import { executionResponse } from '../fixtures/research-execution'
 import { groupedExecutionResponse } from '../fixtures/research-grouping'
 import { researchQueryRequestSchema } from '../../shared/research-execution'
@@ -25,7 +24,7 @@ it('limits advisory memory to the four latest fully represented successful plans
   expect(context.previous_turns.map((t) => t.limit)).toEqual([5, 6, 7, 8])
   const json = JSON.stringify(context)
   expect(json).not.toMatch(
-    /private question|sql|provenance|latitude|longitude|entity_key|request_id/,
+    /private question|answer_text|Für diese Auswahl|sql|provenance|latitude|longitude|entity_key|request_id/,
   )
   expect(new TextEncoder().encode(json).length).toBeLessThanOrEqual(8192)
   turns.push({ id: 9, question: 'private place', state: 'success', response: executionResponse() })
@@ -33,14 +32,18 @@ it('limits advisory memory to the four latest fully represented successful plans
   turns[turns.length - 1]!.state = 'clarification'
   expect(conversationContext(turns)).toBeUndefined()
 })
-it.each(['sql', 'latitude', 'longitude', 'geometry', 'entity_id', 'question', 'result'])(
-  'rejects %s in context',
-  (key) => {
-    expect(researchPlanSummarySchema.safeParse({ ...summary, [key]: 'private' }).success).toBe(
-      false,
-    )
-  },
-)
+it.each([
+  'sql',
+  'latitude',
+  'longitude',
+  'geometry',
+  'entity_id',
+  'question',
+  'result',
+  'answer_text',
+])('rejects %s in context', (key) => {
+  expect(researchPlanSummarySchema.safeParse({ ...summary, [key]: 'private' }).success).toBe(false)
+})
 it('bounds context and names; ordinary requests remain compatible', () => {
   expect(
     researchConversationContextSchema.safeParse({ previous_turns: Array(5).fill(summary) }).success,
@@ -53,48 +56,6 @@ it('bounds context and names; ordinary requests remain compatible', () => {
     false,
   )
 })
-it.each(['count', 'records', 'aggregate', 'comparison'] as const)(
-  'summarizes %s using only the returned values',
-  (kind) => {
-    const response = executionResponse(kind)
-    const text = summarizeResearchResult(response)!
-    expect(text.endsWith('.')).toBe(true)
-    if (kind === 'count') expect(text).toContain('123 Veranstaltungen')
-    if (kind === 'records') expect(text).toContain('1 passende Datensätze')
-    if (kind === 'aggregate') expect(text).toContain('„Kulturhaus“ mit 42 Veranstaltungen')
-    if (kind === 'comparison') expect(text).toContain('„Kiel“ mit 156 Veranstaltungen')
-  },
-)
-it('summarizes grouped display coordinates and ties without claiming causality or overall ranking', () => {
-  const response = groupedExecutionResponse()
-  expect(summarizeResearchResult(response)).toContain('„Konzert / September“ mit 7 Termine')
-  if (response.result.kind !== 'grouped') throw Error('fixture')
-  response.result.items.push({ ...response.result.items[0]! })
-  expect(summarizeResearchResult(response)).toContain('2 der angezeigten Kombinationen teilen sich')
-})
-it('handles semantic, taxonomy, spatial and empty results without fabricating totals', () => {
-  const response = executionResponse('records', true)
-  expect(summarizeResearchResult(response)).toContain('keine vollständige Zählung')
-  response.result = { kind: 'taxonomy', taxonomy: 'genre', items: [], total: 18 }
-  expect(summarizeResearchResult(response)).toContain('18 unterschiedliche Genres')
-  response.result = {
-    kind: 'spatial',
-    spatial_metric: 'longitude',
-    ordering: 'asc',
-    items: [researchEvent],
-  }
-  expect(summarizeResearchResult(response)).toContain('1 Datensätze mit bekannter Position')
-  response.result.items = []
-  expect(summarizeResearchResult(response)).toContain(
-    'keine ausreichend passenden semantischen Treffer',
-  )
-  const empty = executionResponse('records')
-  if (empty.result.kind !== 'records') throw Error('fixture')
-  empty.result.items = []
-  expect(summarizeResearchResult(empty)).toContain('keine passenden Ergebnisse')
-  expect(summarizeResearchResult(executionResponse('needs_clarification'))).toBeNull()
-})
-
 it('validates additive v11 successful and needs_context envelopes without accepting private metadata', async () => {
   const { default: cases } = await import('../fixtures/research-conversation-v11.json', {
     with: { type: 'json' },
@@ -106,6 +67,7 @@ it('validates additive v11 successful and needs_context envelopes without accept
     const value = {
       ...response,
       query: item.plan.original_query,
+      answer_text: clarification ? null : response.answer_text,
       conversation_summary: clarification ? null : summary,
       plan: {
         ...response.plan,
@@ -140,4 +102,11 @@ it('validates additive v11 successful and needs_context envelopes without accept
       }).success,
     ).toBe(false)
   }
+})
+
+it('keeps the authoritative answer builder outside the frontend', () => {
+  const component = readFileSync('app/components/ResearchQueryAnswer.vue', 'utf8')
+  expect(component).toContain('{{ response.answer_text }}')
+  expect(component).not.toMatch(/summarizeResearchResult|research-summary|Math\.(max|min)/)
+  expect(existsSync('app/utils/research-summary.ts')).toBe(false)
 })
