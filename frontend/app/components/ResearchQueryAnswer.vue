@@ -15,6 +15,11 @@ const structuredEvents = computed(
 const metric = computed(() =>
   'metric' in result.value ? researchMetricLabels[result.value.metric] : 'Datensätze',
 )
+const planMetric = computed(() => {
+  const value = plan.value.metric
+  const operation = typeof value === 'object' ? value?.operation : value
+  return operation && operation !== 'none' ? researchMetricLabels[operation] : 'Keine'
+})
 const number = (value: number) => value.toLocaleString('de-DE')
 const date = (value: string | null) => (value ? value.split('-').reverse().join('.') : 'offen')
 const period = computed(() => {
@@ -323,7 +328,7 @@ const fieldLabels = {
         <dt>Datensatztyp</dt>
         <dd>{{ plan.entity_type }}</dd>
         <dt>Metrik</dt>
-        <dd>{{ plan.metric === 'none' ? 'Keine' : researchMetricLabels[plan.metric] }}</dd>
+        <dd>{{ planMetric }}</dd>
         <template v-for="(item, index) in response.resolution" :key="index"
           ><dt>{{ fieldLabels[item.field] }}</dt>
           <dd>{{ item.target.label }}</dd></template

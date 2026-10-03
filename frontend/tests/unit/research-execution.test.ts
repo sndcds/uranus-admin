@@ -184,6 +184,7 @@ it.each([
   [{ method: 'GET' }, 405],
   [{ method: 'PATCH' }, 405],
   [{ path: '/api/v1/research/plan' }, 404],
+  [{ path: '/api/v1/research/v9/query' }, 404],
   [{ body: { query: countQuestion, plan: {} } }, 422],
   [{ body: { query: ' ' } }, 422],
   [{ body: { query: 'x'.repeat(2001) } }, 422],

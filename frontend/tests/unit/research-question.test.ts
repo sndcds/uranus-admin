@@ -19,6 +19,8 @@ import ResearchSearchPage from '../../app/pages/research/search.vue'
 import ResearchQueryAnswer from '../../app/components/ResearchQueryAnswer.vue'
 import RequestState from '../../app/components/RequestState.vue'
 import { executionResponse, countQuestion } from '../fixtures/research-execution'
+import { groupedExecutionResponse } from '../fixtures/research-grouping'
+import { createAdminApi } from '../../app/utils/admin-api'
 import { AdminApiError, failure } from '../../shared/errors'
 import type { ResearchExecutionResponse } from '../../shared/contracts'
 
@@ -605,5 +607,29 @@ it('reuses the canonical reverse label on the next nearby query', async () => {
     display_name: 'Flensburg',
   })
   expect(getCurrentPosition).toHaveBeenCalledOnce()
+  view.unmount()
+})
+
+it('renders multidimensional results through the normal question URL and validated API', async () => {
+  const response = groupedExecutionResponse()
+  const ctx = setup(response.query)
+  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(response)))
+  const api = createAdminApi(fetcher)
+  ctx.api.researchQuery.mockImplementation(api.researchQuery)
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  await flushPromises()
+  expect(ctx.api.researchQuery).toHaveBeenCalledOnce()
+  expect(fetcher.mock.calls[0]![0]).toBe('/api/admin/api/v1/research/query')
+  expect(JSON.parse(fetcher.mock.calls[0]![1].body)).toEqual({ query: response.query })
+  expect(api).not.toHaveProperty('researchGroupedQuery')
+  const table = view.get('table[aria-label="Mehrdimensionale Auswertung"]')
+  expect(table.findAll('th').map((cell) => cell.text())).toEqual([
+    'Veranstaltungstyp',
+    'Monat',
+    'Termine',
+  ])
+  expect(table.findAll('td').map((cell) => cell.text())).toEqual(['Konzert', '09', '7'])
+  expect(view.text()).toContain('So wurde die Frage verstanden')
+  expect(view.text()).toContain('Laufzeit (ms)')
   view.unmount()
 })

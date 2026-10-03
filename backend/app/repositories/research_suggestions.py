@@ -11,6 +11,7 @@ from app.admin_tables import research_query_history as history
 from app.admin_tables import research_query_suggestion as suggestions
 from app.admin_tables import research_query_suggestion_event as events
 from app.errors import APIError
+from app.research.plan import InternalResearchPlan
 from app.schemas.research_analytics import AnalyticalQueryPlan
 from app.schemas.research_planner import ResearchQueryPlan
 from app.schemas.research_suggestions import (
@@ -196,7 +197,7 @@ async def select(connection: AsyncConnection, body: Selection) -> UUID:
 async def learn(
     connection: AsyncConnection,
     query: str,
-    plan: ResearchQueryPlan | AnalyticalQueryPlan,
+    plan: ResearchQueryPlan | AnalyticalQueryPlan | InternalResearchPlan,
     receipt: UUID | None,
 ) -> None:
     now = datetime.now(UTC)
