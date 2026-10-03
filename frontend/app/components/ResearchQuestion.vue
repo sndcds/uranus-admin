@@ -406,9 +406,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
-    <footer
-      class="research-composer-footer sticky bottom-0 z-20 mt-auto shrink-0 bg-slate-50/95 px-1 pt-4"
-    >
+    <footer class="research-composer-footer sticky bottom-0 z-20 mt-auto shrink-0 px-1 pt-4">
       <div class="research-composer-container research-conversation-width relative mx-auto w-full">
         <ul
           v-if="suggestions?.suggestions.length"
