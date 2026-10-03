@@ -12,6 +12,7 @@ import {
 } from '../../shared/research-execution'
 import { executionResponse } from '../fixtures/research-execution'
 import { groupedExecutionResponse } from '../fixtures/research-grouping'
+import v9Cases from '../fixtures/research-v9-parity.json' with { type: 'json' }
 
 const views: ReturnType<typeof mount>[] = []
 beforeEach(() => {
@@ -177,4 +178,31 @@ it('keeps grouped results visible without offering an empty SQL Editor', () => {
   expect(view.find('table[aria-label="Mehrdimensionale Auswertung"]').exists()).toBe(true)
   expect(view.find('button[aria-label="SQL Editor"]').exists()).toBe(false)
   expect(view.findComponent(ResearchSqlEditorModal).exists()).toBe(false)
+})
+
+it.each([
+  ['event_count', 'count', 'Veranstaltungen'],
+  ['aggregate-venue', 'aggregate', 'Veranstaltungsort'],
+  ['compare-area', 'comparison', 'Vergleich'],
+  ['semantic', 'records', 'Semantische Relevanz'],
+  ['chronological-desc', 'records', 'Startdatum'],
+] as const)('renders %s through the same response and SQL Editor', async (name, kind, label) => {
+  const plan = v9Cases.find((item) => item.name === name)!.plan
+  const base = executionResponse(kind, name === 'semantic')
+  const envelope = groupedExecutionResponse().plan
+  const response = researchExecutionResponseSchema.parse({
+    ...base,
+    query: plan.original_query,
+    plan: {
+      ...envelope,
+      plan,
+      diagnostics: { ...envelope.diagnostics, planner_intent: plan.intent },
+    },
+  })
+  const view = answer(response)
+  expect(view.text()).toContain(label)
+  await view.get('button[aria-label="SQL Editor"]').trigger('click')
+  await flushPromises()
+  expect(view.getComponent(SqlCodeEditor).props('readonly')).toBe(true)
+  expect(view.getComponent(SqlCodeEditor).props('sql')).toBe(response.sql_provenance[0]!.sql)
 })

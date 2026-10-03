@@ -25,7 +25,8 @@ normalize to a singleton; none normalizes to empty. A multidimensional plan neve
 exposes a representative scalar axis. Duplicate/unknown dimensions are rejected.
 The generic grouping primitive supports event, venue, organization, category,
 event_type, genre, month and municipality, with event_count/occurrence_count.
-Other v9 language capabilities remain explicitly unsupported by this adapter.
+The v9 adapter also maps the existing legacy families described below; unsupported
+wire constructs still fail before source execution.
 
 The repository reuses research_sql(occurrences=True) for the authoritative public
 population and administrative_execution.execution_sql for polygon membership.
@@ -68,3 +69,80 @@ the recording connection. Its response fixture is also validated and rendered by
 the frontend tests, so a grouped result cannot inherit unrelated count-query SQL.
 This fixture uses synthetic rows; PostgreSQL/PostGIS population tests remain
 separate and require the disposable test database.
+
+
+## v9 legacy capability parity
+
+`research/normalize_v9.py` is the sole v9 wire adapter. It consumes the existing
+strict v9 mirror; no Planner schema, internal model, resolver, repository SQL or
+executor capability is added. `normalize_grouping.py` retains only the frozen v7
+scalar compatibility adapter. The normal route and transport selection are unchanged.
+
+| Existing capability | v9 representation | Existing execution |
+| --- | --- | --- |
+| Event, venue, organization lists | `list`, corresponding entity | chronological records / research page |
+| Exact counts | event/occurrence/venue/organization count | count selection |
+| Distinct count equivalents | `distinct_count` of those same four identities | same count metric, never semantic top-K |
+| Scalar aggregates / count rankings | one supported axis and count metric | aggregate selection |
+| Seasonal and other multidimensional groups | ordered dimensions, event/occurrence count | unchanged grouped selection |
+| Genre / event type / category taxonomy | `taxonomy` plus taxonomy kind | taxonomy selection |
+| Event semantic search / recommendations | `search` with query and optional focus | complete hard eligibility, semantic ranking, authoritative rehydration |
+| Venue / organization / area comparisons | count metric, venue/organization/region targets | existing per-target count selection |
+| Chronological event ordering | `rank`, `value(start_date)`, optional singleton event axis | chronological records |
+| Coordinate ordering | `rank`, `value(longitude/latitude)`, event or venue | spatial records |
+| Named area inside/outside | named `area_query` | existing administrative resolution and membership |
+| Named place | `at`, named `place_query` | existing v6 address/bbox/bounded-radius resolution |
+| Nearby | user_location / nearby, needs_location | existing context, reverse/manual lookup and radius |
+| Administrative inventory grouping | region / country / municipality, event count; optional eq-zero metric filter | existing complete catalog / bounded polygon primitive |
+
+All existing periods and explicit date ranges map to TemporalSelection, as do
+v5/v6 dayparts. A closed `start_time gte` filter maps exactly to inclusive
+`time_from`. Venue/organization/event type/category/genre equality filters retain
+name resolution and hard eligibility. The metric identifies the counted population;
+a ranked/comparison venue subject is not substituted for that population.
+
+Clarifications `needs_criteria`, `needs_location` and `needs_date` retain their
+state. A criterion-free rank remains a clarification with no invented count. Other
+clarification states and explicitly unsupported plans fail closed. Browser context
+never reaches Planner and sensitive-location questions are not learned. SQL
+provenance continues using the existing collector and redaction.
+
+### Deliberate boundaries and lossless-mapping gaps
+
+- No trend, anomaly, relation, explain, knowledge, price, text-length/duration,
+  ratio/diversity or arbitrary metric execution. No occurrence record endpoint or
+  semantic execution on venues/organizations. Exact semantic counts remain rejected.
+- No holiday/calendar, weekday, overlap, multi-day, metadata-time or lookback
+  execution. `before_time` and `after_time` are not silently converted to the
+  inclusive lower-bound primitive; arbitrary clock predicates are rejected.
+- The historical v3 evening (>=18:00) differs from the bounded v5/v6 evening
+  daypart (18:00–22:00). Only an explicit gte clock filter reproduces the former.
+  The current Planner prompt prefers before/after temporal slots, so that historical
+  interpretation is not claimed as automatic language parity.
+- Multiple same-field v9 name equality predicates are not a legacy taxonomy OR-list.
+  They are rejected instead of weakening AND semantics. V9 has no explicit OR-list
+  representation for that legacy combination.
+- V9 has one spatial object and no explicit state/district level. It cannot encode
+  the full v8 AND-boundary/expected-level contract or simultaneous area+place scope.
+  Do not infer missing predicates or levels from language. V8 remains available.
+- Level-specific comparison targets (e.g. municipality/country) cannot lose their
+  expected level in the existing ComparisonTarget; only generic region -> area,
+  venue and organization comparisons map losslessly.
+- No explicit radius, nearest/directional-relative/border execution is invented.
+  Common comparison filters cannot be overwritten. Unsupported group/entity/metric
+  combinations fail before resolution/SQL, with no fallback Planner call.
+
+### Rollout
+
+V9 can replace the **losslessly representable, currently executable legacy subset**
+through the normal Research endpoint. It is not an unconditional full replacement
+for the wire-expression gaps listed above. A cutover requires compatible Planner
+PR #20, its acceptance gates (including these semantic boundaries), and explicit
+operator opt-in. `RESEARCH_PLANNER_CONTRACT=legacy` remains the default and rollback.
+No production configuration changes or deployment are part of this PR.
+
+The parity matrix compares complete InternalResearchPlan values, excluding wire
+metadata. Its validated wire fixtures are shared with frontend Zod tests. Normal
+API tests exercise the existing SQL families, comparison provenance, semantic
+eligibility/rehydration, and nearby browser/manual roundtrips. Valid but unsupported
+wire plans are tested for rejection before resolution/source access.
