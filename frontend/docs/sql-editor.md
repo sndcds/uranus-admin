@@ -243,3 +243,24 @@ SQL-Berechtigungen, Authentifizierung und CSP bleiben unverändert.
 
 [Workspace-Regeln](design-system.md#16-workspace-v21) und
 [synthetische Review-Aufnahmen](screenshots/operations-workspaces/README.md).
+
+## Research SQL Editor
+
+Research answers with nonempty `sql_provenance` show **SQL Editor** beside the
+answer heading. `ResearchSqlEditorModal` composes the existing `SqlWorkspaceModal`
+(and `SqlWorkspace`), `SqlQueryPanel`, `SqlCodeEditor` and `SqlParameterTable`.
+There is no separate editor setup, theme or executor. One statement opens directly;
+multiple statements use the shared `sql-nav` buttons in execution order. Native
+modal keyboard/focus behavior and Escape handling are shared with Findings.
+
+The dialog displays PostgreSQL/Uranus source context, READ ONLY status, the actual
+parameterized template and server-sanitized bindings. Copy preserves placeholders;
+there is no Research “SQL bearbeiten” or execution action. A semantic answer explains
+that vector ranking occurs between SQL eligibility and rehydration. The existing
+“So wurde die Frage verstanden” section remains available. Changing the response
+closes the dialog and clears its selection. Early clarification shows no SQL button.
+
+The optional `hideResult` prop on the shared query panel hides its result/execution
+placeholder for this provenance-only view; Findings and the SQL Console retain
+their existing behavior. Contract, capture and privacy details are in the
+[backend provenance contract](../../backend/docs/sql-provenance.md#research-execution-provenance).

@@ -310,8 +310,27 @@ export const executionDiagnosticsSchema = z
     returned_count: value.max(20),
   })
   .strict()
+const sqlScalar = z.union([
+  z.string().max(4096),
+  z.boolean(),
+  z.number().finite().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER),
+  z.null(),
+])
+export const researchSqlStatementSchema = z
+  .object({
+    label: z.string().min(1).max(200),
+    kind: z.enum(['execution', 'eligibility', 'rehydration', 'comparison']),
+    sql: z.string().min(1).max(65536),
+    parameters: z
+      .record(z.string().min(1).max(64), z.union([sqlScalar, z.array(sqlScalar).max(100)]))
+      .refine((parameters) => Object.keys(parameters).length <= 64),
+  })
+  .strict()
+export type ResearchSqlStatement = z.infer<typeof researchSqlStatementSchema>
+
 export const researchExecutionResponseSchema = z
   .object({
+    sql_provenance: z.array(researchSqlStatementSchema).max(16),
     query: researchQuestionSchema,
     plan: z.union([
       geographicPlanResponseSchema,

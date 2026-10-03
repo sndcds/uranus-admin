@@ -26,6 +26,7 @@ const props = defineProps<{
     observed_at: string | null
     truncated?: boolean
   } | null
+  hideResult?: boolean
   editable?: boolean
   page?: boolean
   errorPosition?: number | null
@@ -149,7 +150,12 @@ function download() {
       :parameters="parameters"
       :initial-only="editable"
     />
-    <section aria-label="Ergebnis" class="sql-result-section space-y-3 pt-1" :aria-busy="running">
+    <section
+      v-if="!hideResult"
+      aria-label="Ergebnis"
+      class="sql-result-section space-y-3 pt-1"
+      :aria-busy="running"
+    >
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 class="font-semibold text-slate-950">

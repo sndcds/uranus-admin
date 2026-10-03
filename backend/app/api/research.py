@@ -119,6 +119,7 @@ async def query(
         resolution=outcome.resolution,
         result=outcome.result,
         execution=outcome.execution,
+        sql_provenance=outcome.sql_provenance,
         observed_at=outcome.observed_at,
         timezone=context.timezone,
         diagnostics=outcome.diagnostics,

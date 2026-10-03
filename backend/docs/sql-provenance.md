@@ -216,3 +216,59 @@ not authorize arbitrary SQL. No WebSocket or free query execution is included he
 
 No migrations, schema changes, roles, grants or Uranus writes are part of this implementation.
 Synthetic fixture setup remains restricted to disposable `_test` databases.
+
+## Research execution provenance
+
+`POST /api/v1/research/query` returns `sql_provenance`, an ordered collection of
+closed `ResearchSqlStatement` objects: `label`, `kind`, `sql`, and `parameters`.
+Kinds are `execution`, `comparison`, `eligibility`, and `rehydration`. The contract
+allows at most 16 statements, 200 characters per label, 65,536 characters per SQL
+template, and 64 parameters with names up to 64 characters. Parameter values are
+finite JSON scalars (numbers within ±9,007,199,254,740,991; strings up to 4,096 characters) or flat arrays of at most 100
+scalars. Pydantic, Zod and the generated OpenAPI export enforce these bounds.
+
+The shared executor opens a request-local capture scope. Only explicitly selected
+repository calls participate: `execute_research_sql` passes the original
+`TextClause` and bindings to `connection.execute`, then records the same template
+and the effective binds identified by SQLAlchemy's compilation API. It neither
+reconstructs a population query nor executes an additional query for display.
+There are no SQLAlchemy listeners, global statement logging, or provenance writes.
+Authentication, admin resolution/cache reads, suggestion learning, geometry
+validation and workload-size probes are outside the displayed result provenance.
+
+| Execution path                        | Captured source operations                                                          |
+| ------------------------------------- | ----------------------------------------------------------------------------------- |
+| Structured event records              | Chronological occurrence selection, result images when present                      |
+| Venue/organization records            | Exact total, record page, result images when present                                |
+| Count                                 | Actual count statement, including distinct occurrence counts                        |
+| Aggregate                             | Actual grouped population statement                                                 |
+| Comparison                            | Every target's count, in target order with its label and bindings                   |
+| Taxonomy                              | Used taxonomy selection and total                                                   |
+| Spatial ranking                       | Coordinate-ranked occurrence/venue selection and result images                      |
+| Administrative records/count/grouping | Unknown-location count and the actual selection/count/grouping; images when present |
+| Semantic Research                     | Complete SQL eligibility, then SQL rehydration and images when executed             |
+| API-only unified metrics              | Exact metric selection; description ranking's source text selection                 |
+
+The existing API-only administrative and unified-data responses also carry the
+same collection. They reuse the same repositories and capture helper; there is no
+version-specific executor. Description-character ranking still performs its
+existing public-text cleaning/counting in Python. Semantic ranking happens in the
+embedding/vector services between eligibility and rehydration, never in fabricated
+SQL. Empty eligibility skips the vector and rehydration stages and therefore has
+only its eligibility statement. Early clarification has an empty collection.
+
+A server-side allowlist serializes only reviewed parameters. Exact coordinates,
+bounding-box and address filters, area WKB and administrative GeoJSON bindings
+(`constraints`/`inventory`) become `[Standort ausgeblendet]` when present. Unknown
+parameter names, unsupported/binary values and oversized values become
+`[Wert ausgeblendet]`. Dates/times and UUIDs are serialized explicitly. Original
+execution bindings remain unchanged; unused filter metadata is not returned.
+Research does not produce `copy_sql` or console-ready literal SQL. The SQL Editor
+copies the parameterized template using the shared formatter.
+
+The location-sensitive learning exclusion remains at the API boundary. Learning
+continues to receive only the existing question/plan arguments, never provenance.
+The browser keeps provenance only with the current answer; changing the answer,
+losing authorization or navigating away removes it. No migration, grants, worker
+changes or SQL Console authorization changes are required. Deploy backend and
+frontend together for the new response field.

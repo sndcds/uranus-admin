@@ -23,6 +23,7 @@ from app.repositories.entity_search import SEARCH_DEFINITIONS, escape_search
 from app.repositories.location import EFFECTIVE_SPACE_SQL, EFFECTIVE_VENUE_SQL
 from app.repositories.research_areas import ResolvedResearchArea, ResolvedResearchAreas
 from app.repositories.research_place import PLACE_PREDICATE, place_parameters
+from app.research.sql_provenance import execute_research_sql
 from app.schemas.research import (
     ResearchCategory,
     ResearchDate,
@@ -299,7 +300,8 @@ async def images(
     if not items:
         return
     rows = (
-        await connection.execute(
+        await execute_research_sql(
+            connection,
             text("""SELECT DISTINCT ON (l.context,l.context_uuid)
         l.context,l.context_uuid,i.uuid FROM uranus.pluto_image_link l
         JOIN uranus.pluto_image i ON i.uuid=l.pluto_image_uuid
@@ -311,6 +313,8 @@ async def images(
         ORDER BY l.context,l.context_uuid,
             CASE WHEN l.identifier='main_photo' THEN 0 ELSE 1 END,l.identifier,i.uuid"""),
             {"kinds": [i.entity_type for i in items], "ids": [i.entity_key for i in items]},
+            label="Ergebnisbilder",
+            kind="rehydration",
         )
     ).mappings()
     urls = {
@@ -330,11 +334,17 @@ async def research_page(
 ) -> ResearchPage:
     sql, params = research_sql(), parameters(filters, settings, area)
     total = int(
-        (await connection.execute(text(f"SELECT count(*) FROM ({sql}) r"), params)).scalar_one()
+        (
+            await execute_research_sql(
+                connection, text(f"SELECT count(*) FROM ({sql}) r"), params, label="Ergebnisanzahl"
+            )
+        ).scalar_one()
     )
     rows = (
-        await connection.execute(
-            text(f"{sql} ORDER BY {ORDER[filters.sort]} LIMIT :page_size OFFSET :offset"), params
+        await execute_research_sql(
+            connection,
+            text(f"{sql} ORDER BY {ORDER[filters.sort]} LIMIT :page_size OFFSET :offset"),
+            params,
         )
     ).mappings()
     items = [record(row) for row in rows]
@@ -581,12 +591,15 @@ async def rehydrate_semantic_events(
     params["candidate_ids"] = candidates
     rows = (
         (
-            await connection.execute(
+            await execute_research_sql(
+                connection,
                 text(
                     research_sql(candidates=True)
                     + " ORDER BY array_position(CAST(:candidate_ids AS uuid[]),entity_key) LIMIT 50"
                 ),
                 params,
+                label="SQL-Rehydration",
+                kind="rehydration",
             )
         )
         .mappings()

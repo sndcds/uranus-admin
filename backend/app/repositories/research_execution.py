@@ -19,6 +19,7 @@ from app.repositories.research import (
 from app.repositories.research_areas import ResolvedResearchArea
 from app.repositories.research_resolution import EVENT_TYPES_SQL, GENRES_SQL
 from app.research.semantic_limits import MAX_ELIGIBLE_EVENTS
+from app.research.sql_provenance import execute_research_sql
 from app.schemas.research import ResearchRecord
 from app.schemas.research_execution import (
     AggregateItem,
@@ -29,6 +30,7 @@ from app.schemas.research_execution import (
     TaxonomyKind,
     TaxonomyResult,
 )
+from app.schemas.research_sql import ResearchSqlKind
 
 
 async def eligible_event_ids(
@@ -38,12 +40,15 @@ async def eligible_event_ids(
     area: ResolvedResearchArea | None,
 ) -> list[UUID]:
     """Complete hard-eligible population or an explicit error; never a truncated sample."""
-    rows = await connection.execute(
+    rows = await execute_research_sql(
+        connection,
         text(f"""{eligible_event_ctes(ids_only=True)}
         SELECT DISTINCT entity_key FROM matched_events
         WHERE (:q='%%' OR entity_key::text IN ({search_sql("event")}))
         ORDER BY entity_key LIMIT :eligibility_probe_limit"""),
         {**parameters(filters, settings, area), "eligibility_probe_limit": MAX_ELIGIBLE_EVENTS + 1},
+        label="SQL-Vorauswahl",
+        kind="eligibility",
     )
     identifiers = list(rows.scalars())
     if len(identifiers) > MAX_ELIGIBLE_EVENTS:
@@ -61,15 +66,21 @@ async def count_selection(
     filters: ExecutionFilters,
     metric: ExecutionMetric,
     area: ResolvedResearchArea | None,
+    *,
+    label: str = "Ergebnisanzahl",
+    kind: ResearchSqlKind = "execution",
 ) -> int:
     occurrences = metric == "occurrence_count"
     sql = research_sql(occurrences=occurrences)
     projection = "count(DISTINCT date_key)" if occurrences else "count(*)"
     return int(
         (
-            await connection.execute(
+            await execute_research_sql(
+                connection,
                 text(f"SELECT {projection} FROM ({sql}) selected"),
                 parameters(filters, settings, area),
+                label=label,
+                kind=kind,
             )
         ).scalar_one()
     )
@@ -127,7 +138,8 @@ async def aggregate_selection(
     direction = {"asc": "ASC", "desc": "DESC"}[ordering]
     params["aggregate_limit"] = limit
     rows = (
-        await connection.execute(
+        await execute_research_sql(
+            connection,
             text(f"""WITH selected AS ({sql})
         SELECT {key} key,{name} name,count(DISTINCT {count}) value
         FROM selected {join} WHERE {key} IS NOT NULL
@@ -165,7 +177,8 @@ async def chronological_records(
         venue_id,venue_name,space_id,space_name,city,address,latitude,longitude,event_count,
         source_url,created_at,modified_at,date_key"""
     rows = (
-        await connection.execute(
+        await execute_research_sql(
+            connection,
             text(f"""WITH selected AS ({research_sql(occurrences=True)}), ranked AS (
                 SELECT {columns},row_number() OVER (
                     PARTITION BY entity_key ORDER BY {order}) occurrence_rank
@@ -194,7 +207,8 @@ async def taxonomy_selection(
     direction = {"asc": "ASC", "desc": "DESC"}[ordering]
     rows = list(
         (
-            await connection.execute(
+            await execute_research_sql(
+                connection,
                 text(f"""
         WITH selected AS ({research_sql(occurrences=True)}), grouped AS (
             SELECT {key} key, {name} name, count(DISTINCT entity_key) event_count
@@ -238,7 +252,8 @@ async def spatial_records(
     tie = "date_key NULLS LAST," if occurrence else ""
     order = f"{coordinate} {direction},{tie}entity_key"
     rows = (
-        await connection.execute(
+        await execute_research_sql(
+            connection,
             text(f"""
         WITH selected AS ({research_sql(occurrences=occurrence)}), ranked AS (
             SELECT {columns}, {"date_key," if occurrence else ""}

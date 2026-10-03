@@ -37,6 +37,7 @@ it.each(variants)('validates closed %s responses', (kind) => {
     'resolution',
     'result',
     'execution',
+    'sql_provenance',
     'observed_at',
     'timezone',
     'diagnostics',

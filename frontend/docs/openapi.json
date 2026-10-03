@@ -25361,6 +25361,14 @@
       },
       "AdministrativeResult": {
         "properties": {
+          "sql_provenance": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchSqlStatement"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Sql Provenance"
+          },
           "kind": {
             "type": "string",
             "enum": [
@@ -27180,6 +27188,14 @@
       },
       "DataAnswer": {
         "properties": {
+          "sql_provenance": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchSqlStatement"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Sql Provenance"
+          },
           "authoritative_source": {
             "type": "string",
             "const": "postgresql",
@@ -36158,6 +36174,14 @@
       },
       "ResearchExecutionResponse": {
         "properties": {
+          "sql_provenance": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchSqlStatement"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Sql Provenance"
+          },
           "query": {
             "type": "string",
             "maxLength": 2000,
@@ -36285,6 +36309,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "sql_provenance",
           "query",
           "plan",
           "result",
@@ -37101,6 +37126,102 @@
           "name"
         ],
         "title": "ResearchRecord"
+      },
+      "ResearchSqlStatement": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "execution",
+              "eligibility",
+              "rehydration",
+              "comparison"
+            ],
+            "title": "Kind"
+          },
+          "sql": {
+            "type": "string",
+            "maxLength": 65536,
+            "minLength": 1,
+            "title": "Sql"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer",
+                  "maximum": 9007199254740991.0,
+                  "minimum": -9007199254740991.0
+                },
+                {
+                  "type": "number",
+                  "maximum": 9007199254740991.0,
+                  "minimum": -9007199254740991.0
+                },
+                {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 4096
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "integer",
+                        "maximum": 9007199254740991.0,
+                        "minimum": -9007199254740991.0
+                      },
+                      {
+                        "type": "number",
+                        "maximum": 9007199254740991.0,
+                        "minimum": -9007199254740991.0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": "array",
+                  "maxItems": 100
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "propertyNames": {
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "type": "object",
+            "maxProperties": 64,
+            "title": "Parameters"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "kind",
+          "sql",
+          "parameters"
+        ],
+        "title": "ResearchSqlStatement"
       },
       "ResearchUsageItem": {
         "properties": {

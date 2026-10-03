@@ -14,6 +14,7 @@ from app.errors import APIError
 from app.repositories.research_areas import resolve_area
 from app.repositories.research_metrics import rank_metric
 from app.repositories.research_resolution import candidates
+from app.research.sql_provenance import collect_research_sql
 from app.schemas.research_domain import PlanEnvelopeV4
 from app.schemas.research_execution import ExecutionFilters
 from app.schemas.research_unified import DataAnswer, UnifiedAnswer
@@ -50,5 +51,12 @@ async def execute(request: Request, settings: Settings, query: str) -> UnifiedAn
         filters = ExecutionFilters(entity_type="event", area_id=area.area.id if area else None)
         async with asynccontextmanager(get_connection)(request) as connection:
             observed_at = datetime.now(UTC)
-            records = await rank_metric(connection, settings, plan, filters, area)
-        return DataAnswer(records=records, metric=plan, filters=filters, observed_at=observed_at)
+            with collect_research_sql() as statements:
+                records = await rank_metric(connection, settings, plan, filters, area)
+        return DataAnswer(
+            records=records,
+            metric=plan,
+            filters=filters,
+            observed_at=observed_at,
+            sql_provenance=statements,
+        )
