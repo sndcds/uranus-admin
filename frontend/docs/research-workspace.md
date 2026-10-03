@@ -158,31 +158,43 @@ Detailvorschau. Klassisch bleibt Standard. [Vertrag, Grenzen, Lizenz und Messung
 
 ## Fragen beantworten
 
-Die Startseite folgt der freigegebenen Desktopvorlage: zweizeilige Überschrift,
-816 × 116 px großer Composer (auf kleinen Bildschirmen flexibel), zwei Reihen
-Beispielchips und vier gleich hohe Entdeckungskarten. `ResearchHeroIllustration`
-zeichnet lokale, rein dekorative SVG-Stadtsilhouetten mit vorhandenen Lucide-Icons;
-auf Tablets werden sie kleiner, auf Mobilgeräten ausgeblendet. Die Hinweise zu
-Tastatur und kopierbarem Link stehen unter „Hinweise zur Eingabe“. Die klassische
-Suche bleibt als ruhiger Link erreichbar. `research-homepage-visual.spec.ts` prüft
-Desktop-/Tablet-/Mobilgeometrie und erzeugt Screenshots mit synthetischen Testkonten.
+Die Startseite folgt der freigegebenen Desktopvorlage: zentrierte Überschrift,
+drei Beispielbuttons und vier Entdeckungskarten mit den vorhandenen dekorativen
+`ResearchHeroIllustration`-Stadtsilhouetten. Die Illustrationen bleiben auf Mobilgeräten
+ausgeblendet. Die klassische Suche und Eingabehinweise bleiben als sekundäre Links erreichbar.
 
-`/research` ist der zentrale Arbeitsbereich: eine Recherchefrage kann direkt im
-mehrzeiligen Composer gestellt werden. Antwort, Rückfrage, leeres Ergebnis und
-technischer Fehler erscheinen unter derselben Eingabe. Es gibt keine vorgeschaltete
-Moduswahl. „Suche“ in der Navigation führt auf diese Startseite; „Klassische Suche“
-führt als sekundärer Link nach `/research/search`. Dort bleiben Filter und die
-experimentelle semantische Suche verfügbar. Die vier unteren Entdeckungskarten
-führen weiterhin zu Veranstaltungen, Orten, Organisationen und Karte.
+`ResearchQuestion` besitzt Zustand, Requests, Standortkontext und Vorschläge. Genau ein
+`ResearchComposer` rendert Formular, Textarea, Zeichenzähler und Sendebutton; er enthält
+keine Request-Logik und keine Upload-, Medien- oder Drag-and-drop-Funktionen.
+Hero, Beispiele und Entdeckungskarten stehen in Slots im scrollbaren Inhaltsbereich.
+Nach dem Absenden stehen dort Antwort, Rückfrage oder Fehler. Der Composer bleibt als
+separater Flex-Fußbereich innerhalb derselben Research-Hauptspalte bestehen.
 
-Die vier festen Beispielchips dienen nur der Einführung, nicht als lernende
-Autosuggestions. Ein Klick füllt die Eingabe und fokussiert sie, ohne eine Recherche
-auszuführen. Für die fokussierte Eingabe können lernende Vorschläge geladen werden.
-Enter fügt einen Zeilenumbruch ein oder wählt einen markierten lernenden Vorschlag.
-Shift+Enter fügt immer einen Zeilenumbruch ein; Strg/⌘+Enter oder der Sendebutton
-senden die eingegebene Frage ab. Während einer Anfrage bleibt die Frage sichtbar;
-weiteres Absenden ist gesperrt. Kleine Bildschirme zeigen den beschrifteten Sendebutton als zugängliches
-Symbol, die Beispiele umbrechen und die Entdeckungskarten stapeln sich.
+Sein Container ist `width: 100%`, `max-width: 51rem` (816px bei 16px Basisschrift),
+zentriert durch automatische Seitenränder. Die vorhandenen Main-Paddings plus 4px pro
+Seite begrenzen ihn auf kleinen Bildschirmen; die Desktop-Sidebar behält ihre 224px
+und den getrennten Main-Abstand. Keine viewportweite oder fixe Composer-Positionierung.
+Die Textarea wächst von mindestens 32px bis `min(12rem, 25dvh)` und scrollt danach intern.
+Der kompakte Formularrahmen ist initial rund 80px hoch, mobil je nach Textumbruch höher.
+Der Footer berücksichtigt `safe-area-inset-bottom`; der Inhaltsbereich besitzt eigenen
+Scroll und 24px unteren Abstand. `scrollbar-gutter: stable both-edges` verhindert
+horizontale Sprünge. Die Seite nutzt `100dvh` und fordert auf unterstützten mobilen
+Browsern `interactive-widget=resizes-content` für die Bildschirmtastatur an.
+
+Die drei festen Beispiele dienen nur der Einführung, nicht als lernende Autosuggestions.
+Ein Klick füllt und fokussiert dieselbe Eingabe, ohne eine Recherche auszuführen.
+Lernende Vorschläge stehen oberhalb des Composers, ohne dessen Größe zu verändern.
+Pfeile und Escape bedienen die bestehende Listbox; Enter wählt einen markierten Vorschlag
+oder sendet die Frage. Shift+Enter fügt eine neue Zeile ein; Strg/⌘+Enter sendet direkt.
+IME-Komposition löst keine Anfrage aus. Paralleles Absenden bleibt gesperrt.
+Fehler und Rückfragen löschen den Text nicht; „Frage anpassen“ fokussiert die Eingabe,
+Kandidaten bearbeiten sie und „Erneut versuchen“ sendet den aktuellen Text.
+
+`research-composer.spec.ts`, `research-query.spec.ts` und
+`research-homepage-visual.spec.ts` prüfen Desktop-/Tablet-/Mobilgeometrie, denselben
+Textarea-Knoten über Zustandswechsel, lange Ergebnisse, Vorschläge und den unveränderten
+SQL Editor. Screenshots verwenden synthetische Testkonten. Die verkleinerte mobile
+Testansicht simuliert Platzmangel; sie ersetzt keinen Test jeder realen Bildschirmtastatur.
 
 `/research?question=…` speichert die vollständige Frage (1–2.000 Zeichen) im Link.
 Alte `/research/search?mode=answer&question=…`-Links (auch ohne `mode`) werden mit

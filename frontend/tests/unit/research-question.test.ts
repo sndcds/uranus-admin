@@ -229,6 +229,9 @@ it('opens the homepage composer directly and renders its answer in the same work
   expect(view.text()).not.toContain('Frage beantworten')
   expect(view.findAll('textarea')).toHaveLength(1)
   expect(ctx.api.researchQuery).not.toHaveBeenCalled()
+  for (const destination of ['events', 'venues', 'organizations', 'map']) {
+    expect(view.find(`a[href="/research/${destination}"]`).exists()).toBe(true)
+  }
   await view.get('textarea').setValue(countQuestion)
   await view.get('form').trigger('submit')
   await flushPromises()
@@ -241,9 +244,6 @@ it('opens the homepage composer directly and renders its answer in the same work
   )
   expect(view.text()).toContain('123 Veranstaltungen')
   expect(view.get('a[href="/research/search"]').text()).toBe('Klassische Suche')
-  for (const destination of ['events', 'venues', 'organizations', 'map']) {
-    expect(view.find(`a[href="/research/${destination}"]`).exists()).toBe(true)
-  }
   view.unmount()
 })
 it('examples populate and focus the composer without execution; keyboard submits once', async () => {
@@ -258,11 +258,10 @@ it('examples populate and focus the composer without execution; keyboard submits
   expect(view.get('textarea').element.value).toBe(example.text())
   expect(document.activeElement).toBe(view.get('textarea').element)
   expect(ctx.api.researchQuery).not.toHaveBeenCalled()
-  await view.get('textarea').trigger('keydown', { key: 'Enter' })
   await view.get('textarea').trigger('keydown', { key: 'Enter', shiftKey: true })
   await view.get('textarea').trigger('keydown', { key: 'Enter', ctrlKey: true, isComposing: true })
   expect(ctx.api.researchQuery).not.toHaveBeenCalled()
-  await view.get('textarea').trigger('keydown', { key: 'Enter', ctrlKey: true })
+  await view.get('textarea').trigger('keydown', { key: 'Enter' })
   await flushPromises()
   await view.get('textarea').trigger('keydown', { key: 'Enter', metaKey: true })
   await view.get('form').trigger('submit')
@@ -635,5 +634,81 @@ it('renders multidimensional results through the normal question URL and validat
   ])
   expect(view.text()).toContain('So wurde die Frage verstanden')
   expect(view.text()).toContain('Laufzeit (ms)')
+  view.unmount()
+})
+
+it.each(['count', 'records', 'grouped', 'clarification', 'error', 'unsupported', 'semantic'])(
+  'keeps the same single composer through loading and %s',
+  async (state) => {
+    const ctx = setup()
+    ctx.route.query = {}
+    const pending = deferred()
+    ctx.api.researchQuery.mockReturnValue(pending.promise)
+    const view = mount(ResearchHome, { global: ctx.global })
+    await flushPromises()
+    const input = view.get('textarea').element
+    const form = view.get('.research-composer').element
+    expect(view.findAll('textarea')).toHaveLength(1)
+    await view.get('textarea').setValue(countQuestion)
+    await view.get('form').trigger('submit')
+    await flushPromises()
+    expect(view.get('textarea').element).toBe(input)
+    expect(view.get('form').attributes('aria-busy')).toBe('true')
+    if (state === 'error' || state === 'unsupported') {
+      pending.reject(
+        new AdminApiError(
+          failure(
+            state === 'error' ? 503 : 422,
+            state === 'unsupported' ? 'research_execution_unsupported' : undefined,
+          ),
+        ),
+      )
+    } else {
+      pending.resolve(
+        state === 'grouped'
+          ? groupedExecutionResponse()
+          : executionResponse(
+              state === 'clarification'
+                ? 'needs_clarification'
+                : state === 'count'
+                  ? 'count'
+                  : 'records',
+              state === 'semantic',
+            ),
+      )
+    }
+    await flushPromises()
+    expect(view.findAll('textarea')).toHaveLength(1)
+    expect(view.get('textarea').element).toBe(input)
+    expect(view.get('.research-composer').element).toBe(form)
+    expect(input.value).toBe(countQuestion)
+    expect(view.get('.research-composer-footer textarea').exists()).toBe(true)
+    expect(view.find('.research-question-content textarea').exists()).toBe(false)
+    expect(view.findAll('input[type=file], nav textarea, aside textarea')).toHaveLength(0)
+    expect(view.get('.research-composer-container').classes()).toEqual(
+      expect.arrayContaining(['mx-auto', 'w-full', 'max-w-[51rem]']),
+    )
+    expect(view.get('.research-question-content').classes()).toContain('pb-6')
+    view.unmount()
+  },
+)
+
+it('retry submits the edited text using the existing composer', async () => {
+  const ctx = setup()
+  ctx.api.researchQuery
+    .mockRejectedValueOnce(new AdminApiError(failure(503)))
+    .mockResolvedValueOnce(executionResponse())
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  await flushPromises()
+  const input = view.get('textarea').element
+  await view.get('textarea').setValue('Neue Frage')
+  await view
+    .findAll('button')
+    .find((b) => b.text() === 'Erneut versuchen')!
+    .trigger('click')
+  await flushPromises()
+  expect(ctx.api.researchQuery.mock.calls.at(-1)![0]).toBe('Neue Frage')
+  expect(view.get('textarea').element).toBe(input)
+  expect(input.value).toBe('Neue Frage')
   view.unmount()
 })

@@ -83,6 +83,7 @@ onBeforeUnmount(() => {
     v-if="auth.canResearch"
     :key="auth.revision"
     class="research-workspace min-h-screen bg-white"
+    :class="{ 'research-composer-workspace': route.path === '/research' }"
   >
     <a
       href="#main-content"
@@ -91,7 +92,7 @@ onBeforeUnmount(() => {
     >
     <header
       ref="header"
-      class="research-header sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95"
+      class="research-header shrink-0 sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95"
     >
       <div
         class="flex flex-wrap items-center gap-3 px-4 py-3 lg:min-h-[4.5rem] lg:flex-nowrap lg:gap-6 lg:px-6"
@@ -186,6 +187,25 @@ onBeforeUnmount(() => {
 
 <style>
 @reference '../assets/css/main.css';
+/* Only the question workspace owns a scrollable content row and a composer footer.
+   The existing main margin reserves the sidebar; neither row uses viewport width. */
+.research-composer-workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.research-composer-workspace > main,
+.research-composer-workspace > main > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.research-composer-workspace > main > div {
+  width: 100%;
+}
 /* Research presentation is confined to its own layout, including native dialogs. */
 .research-workspace :focus-visible {
   @apply outline-blue-700;
