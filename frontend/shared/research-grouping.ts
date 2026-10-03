@@ -246,3 +246,30 @@ export const calendarPlanResponseSchema = z
       ctx.addIssue({ code: 'custom', message: 'Inconsistent planner envelope' })
     }
   })
+
+export const conversationPlanResponseSchema = z
+  .object({
+    ...calendarPlanResponseSchema.shape,
+    schema_version: z.literal('research-query-plan-v11'),
+    prompt_version: z.literal('research-planner-v17'),
+    plan: executablePlan.extend({
+      temporal: calendarTemporal.nullable(),
+      clarification: z.enum([
+        'none',
+        'needs_criteria',
+        'needs_location',
+        'needs_date',
+        'needs_context',
+      ]),
+    }),
+    diagnostics: envelopeSchema.shape.diagnostics.extend({
+      planner_prompt_version: z.literal('research-planner-v17'),
+    }),
+  })
+  .strict()
+  .refine(
+    (v) =>
+      (v.kind === 'plan') === (v.plan.clarification === 'none') &&
+      v.diagnostics.planner_intent === v.plan.intent &&
+      v.diagnostics.planner_model === v.model,
+  )

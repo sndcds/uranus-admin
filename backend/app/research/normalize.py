@@ -23,6 +23,7 @@ from app.research.wire.research_v8_schema import ResearchQueryPlanV8
 from app.research.wire.research_v8_types import NameFilterV8
 from app.research.wire.research_v9_schema import PlanResponseV9
 from app.research.wire.research_v10_schema import PlanResponseV10
+from app.research.wire.research_v11_schema import PlanResponseV11
 from app.schemas.research_analytics import (
     AnalyticalEnvelope,
     AnalyticalPlanResponse,
@@ -38,6 +39,7 @@ PlannerResponse = (
     | GeographicPlanResponse
     | PlanResponseV9
     | PlanResponseV10
+    | PlanResponseV11
 )
 
 
@@ -154,6 +156,18 @@ def normalize_v6(response: GeographicPlanResponse) -> InternalResearchPlan:
 
 
 def normalize(response: PlannerResponse) -> InternalResearchPlan:
+    if isinstance(response, PlanResponseV11):
+        if (
+            response.plan.clarification == "needs_context"
+            and response.plan.unsupported_reason is None
+        ):
+            # Non-executable clarification marker; no constraints are executed or repaired.
+            return InternalResearchPlan(
+                intent="list", entity_type="event", clarification="needs_context"
+            )
+        from app.research.normalize_v10 import normalize_v10
+
+        return normalize_v10(response.plan)
     if isinstance(response, PlanResponseV10):
         from app.research.normalize_v10 import normalize_v10
 

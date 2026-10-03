@@ -6,7 +6,9 @@ from pydantic import Field
 
 from app.research.wire.research_v9_schema import PlanResponseV9
 from app.research.wire.research_v10_schema import PlanResponseV10
+from app.research.wire.research_v11_schema import PlanResponseV11
 from app.schemas.research_analytics import AnalyticalPlanResponse
+from app.schemas.research_conversation import ResearchPlanSummary
 from app.schemas.research_execution import (
     ExecutionDiagnostics,
     ExecutionProvenance,
@@ -20,6 +22,7 @@ from app.schemas.research_values import ClosedModel, Query
 
 
 class ResearchExecutionResponse(ClosedModel):
+    conversation_summary: ResearchPlanSummary | None = None
     sql_provenance: ResearchSqlStatements = Field(default_factory=list)
     query: Query
     plan: (
@@ -28,6 +31,7 @@ class ResearchExecutionResponse(ClosedModel):
         | AnalyticalPlanResponse
         | PlanResponseV9
         | PlanResponseV10
+        | PlanResponseV11
     )
     resolution: list[ResolvedField] = Field(default_factory=list, max_length=32)
     result: ExecutionResult

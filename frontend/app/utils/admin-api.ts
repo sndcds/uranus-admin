@@ -1,3 +1,4 @@
+import type { ResearchConversationContext } from '#shared/research-conversation'
 import {
   provenanceDefinitionSchema,
   provenanceResultSchema,
@@ -254,10 +255,12 @@ export function createAdminApi(
       signal?: AbortSignal,
       selectionReceipt?: string,
       locationContext?: LocationContext,
+      conversationContext?: ResearchConversationContext,
     ) => {
       const parsed = researchQueryRequestSchema.safeParse({
         query,
         ...(locationContext ? { location_context: locationContext } : {}),
+        ...(conversationContext ? { conversation_context: conversationContext } : {}),
       })
       if (!parsed.success) throw new AdminApiError(failure(422, 'invalid_input'))
       return request(

@@ -9,32 +9,6 @@ useHead({
     },
   ],
 })
-const discoveries = [
-  {
-    to: 'events',
-    label: 'Veranstaltungen',
-    icon: 'calendar',
-    description: 'Termine, Inhalte und Quellen zu kulturellen Events in deiner Region.',
-  },
-  {
-    to: 'venues',
-    label: 'Orte',
-    icon: 'pin',
-    description: 'Veranstaltungsorte und ihre Nutzung entdecken.',
-  },
-  {
-    to: 'organizations',
-    label: 'Organisationen',
-    icon: 'users',
-    description: 'Veranstalter, ihre Aktivitäten und Beziehungen kennenlernen.',
-  },
-  {
-    to: 'map',
-    label: 'Karte',
-    icon: 'map',
-    description: 'Kulturelle Angebote räumlich entdecken und Zusammenhänge erkunden.',
-  },
-] as const
 </script>
 
 <template>
@@ -65,57 +39,6 @@ const discoveries = [
         </header>
       </section>
     </template>
-    <template #discover>
-      <section
-        aria-labelledby="research-discover"
-        class="research-discovery border-t border-slate-200 pt-4"
-      >
-        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <div>
-            <h2 id="research-discover" class="text-xl font-semibold text-slate-900">
-              Kultur entdecken
-            </h2>
-            <p class="mt-1 text-sm text-slate-600">
-              Daten, Orte und Zusammenhänge auf neue Weise erkunden.
-            </p>
-          </div>
-          <NuxtLink
-            to="/research/search"
-            class="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-blue-700 hover:underline"
-          >
-            Alle Bereiche ansehen<AppIcon name="arrow" :size="16" />
-          </NuxtLink>
-        </div>
-        <div class="mt-3.5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <NuxtLink
-            v-for="item in discoveries"
-            :key="item.to"
-            :to="`/research/${item.to}`"
-            class="research-discovery-card group flex gap-5 rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-blue-300 hover:bg-blue-50/40"
-          >
-            <span
-              class="grid h-13 w-13 shrink-0 place-items-center rounded-xl"
-              :class="
-                item.to === 'organizations'
-                  ? 'bg-violet-50 text-violet-600'
-                  : 'bg-blue-50 text-blue-700'
-              "
-            >
-              <AppIcon :name="item.icon" :size="28" />
-            </span>
-            <div class="flex min-w-0 flex-col items-start">
-              <h3 class="text-sm font-semibold text-slate-900">{{ item.label }}</h3>
-              <p class="mt-2 text-sm leading-[1.45] text-slate-600">{{ item.description }}</p>
-              <span
-                class="mt-auto inline-flex min-h-8 items-center gap-2 pt-2 text-sm font-medium text-blue-700"
-              >
-                Entdecken<AppIcon name="arrow" :size="16" />
-              </span>
-            </div>
-          </NuxtLink>
-        </div>
-      </section>
-    </template>
   </ResearchQuestion>
 </template>
 
@@ -135,12 +58,6 @@ const discoveries = [
 }
 .research-hero-description {
   line-height: 26px;
-}
-.research-discovery {
-  margin-top: 3rem;
-}
-.research-discovery-card {
-  min-height: 160px;
 }
 @media (min-width: 640px) {
   .research-hero-title {

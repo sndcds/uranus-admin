@@ -1,3 +1,7 @@
+import summary from '../fixtures/conversation-summary.json' with { type: 'json' }
+import { researchPlanSummarySchema } from '../../shared/research-conversation'
+import ResearchSqlEditorModal from '../../app/components/sql/ResearchSqlEditorModal.vue'
+import SqlCodeEditor from '../../app/components/sql/SqlCodeEditor.vue'
 import { afterEach, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import {
@@ -99,7 +103,7 @@ it('loads on URL state, cancels stale work and discards late success/failure', a
   const view = mount(ResearchQuestion, { global: ctx.global })
   await nextTick()
   expect(view.text()).toContain('Frage wird ausgewertet')
-  expect(view.get('button').attributes('disabled')).toBeDefined()
+  expect(view.get('button[type=submit]').attributes('disabled')).toBeDefined()
   const signal = ctx.api.researchQuery.mock.calls[0]![1] as AbortSignal
   ctx.route.query.question = 'Zweite Frage'
   await nextTick()
@@ -230,7 +234,7 @@ it('opens the homepage composer directly and renders its answer in the same work
   expect(view.findAll('textarea')).toHaveLength(1)
   expect(ctx.api.researchQuery).not.toHaveBeenCalled()
   for (const destination of ['events', 'venues', 'organizations', 'map']) {
-    expect(view.find(`a[href="/research/${destination}"]`).exists()).toBe(true)
+    expect(view.find(`a[href="/research/${destination}"]`).exists()).toBe(false)
   }
   await view.get('textarea').setValue(countQuestion)
   await view.get('form').trigger('submit')
@@ -686,14 +690,14 @@ it.each(['count', 'records', 'grouped', 'clarification', 'error', 'unsupported',
     expect(view.find('.research-question-content textarea').exists()).toBe(false)
     expect(view.findAll('input[type=file], nav textarea, aside textarea')).toHaveLength(0)
     expect(view.get('.research-composer-container').classes()).toEqual(
-      expect.arrayContaining(['mx-auto', 'w-full', 'max-w-[51rem]']),
+      expect.arrayContaining(['mx-auto', 'w-full', 'research-conversation-width']),
     )
     expect(view.get('.research-question-content').classes()).toContain('pb-6')
     view.unmount()
   },
 )
 
-it('retry submits the edited text using the existing composer', async () => {
+it('retry submits exactly the failed turn without overwriting an unsubmitted draft', async () => {
   const ctx = setup()
   ctx.api.researchQuery
     .mockRejectedValueOnce(new AdminApiError(failure(503)))
@@ -707,8 +711,110 @@ it('retry submits the edited text using the existing composer', async () => {
     .find((b) => b.text() === 'Erneut versuchen')!
     .trigger('click')
   await flushPromises()
-  expect(ctx.api.researchQuery.mock.calls.at(-1)![0]).toBe('Neue Frage')
+  expect(ctx.api.researchQuery.mock.calls.at(-1)![0]).toBe(countQuestion)
   expect(view.get('textarea').element).toBe(input)
   expect(input.value).toBe('Neue Frage')
   view.unmount()
+})
+
+it('retains ordered turns, sends bounded prior semantics, and preserves an edited draft', async () => {
+  const ctx = setup()
+  ctx.route.query = {}
+  const first = groupedExecutionResponse()
+  first.conversation_summary = researchPlanSummarySchema.parse(summary)
+  const pending = deferred()
+  ctx.api.researchQuery
+    .mockResolvedValueOnce(first)
+    .mockReturnValueOnce(pending.promise)
+    .mockResolvedValue(executionResponse())
+  const view = mount(ResearchHome, { global: ctx.global })
+  await flushPromises()
+  await view.get('textarea').setValue(first.query)
+  await view.get('form').trigger('submit')
+  await flushPromises()
+  expect(view.text()).not.toContain('Was möchtest du über Kultur')
+  expect(view.text()).not.toContain('Kultur entdecken')
+  await view.get('textarea').setValue('Und nur sonntags?')
+  await view.get('form').trigger('submit')
+  await flushPromises()
+  expect(view.findAll('article')).toHaveLength(2)
+  expect(view.findAllComponents(ResearchQueryAnswer)).toHaveLength(1)
+  expect(ctx.api.researchQuery.mock.calls[1]![4]).toEqual({ previous_turns: [summary] })
+  await view.get('textarea').setValue('Ein noch nicht abgesendeter Entwurf')
+  pending.resolve(executionResponse())
+  await flushPromises()
+  expect(view.get('textarea').element.value).toBe('Ein noch nicht abgesendeter Entwurf')
+  await view.get('textarea').setValue('Dritte Frage')
+  await view.get('form').trigger('submit')
+  await flushPromises()
+  expect(view.findAll('[data-testid=research-user-question]').map((v) => v.text())).toEqual([
+    first.query,
+    'Und nur sonntags?',
+    'Dritte Frage',
+  ])
+  expect(view.findAll('[data-testid=research-answer-summary]')).toHaveLength(3)
+  expect(view.findAll('textarea')).toHaveLength(1)
+  // Back/forward reveals existing history instead of re-executing or appending it.
+  ctx.route.query.question = first.query
+  await flushPromises()
+  ctx.route.query.question = 'Dritte Frage'
+  await flushPromises()
+  expect(ctx.api.researchQuery).toHaveBeenCalledTimes(3)
+  expect(view.findAll('article')).toHaveLength(3)
+  await view
+    .findAll('button')
+    .find((b) => b.text() === 'Neue Recherche')!
+    .trigger('click')
+  await flushPromises()
+  expect(view.findAll('article')).toHaveLength(0)
+  expect(view.get('textarea').element.value).toBe('')
+  expect(ctx.route.query).toEqual({})
+  expect(view.text()).toContain('Was möchtest du über Kultur')
+  view.unmount()
+})
+
+it('limits transcript memory to 20 and reloads only the URL question without context', async () => {
+  const ctx = setup()
+  ctx.api.researchQuery.mockResolvedValue(executionResponse())
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  await flushPromises()
+  for (let i = 1; i <= 21; i++) {
+    await view.get('textarea').setValue(`Frage ${i}`)
+    await view.get('form').trigger('submit')
+    await flushPromises()
+  }
+  expect(view.findAll('article')).toHaveLength(20)
+  expect(view.findAll('[data-testid=research-user-question]')[0]!.text()).toBe('Frage 2')
+  view.unmount()
+  const fresh = mount(ResearchQuestion, { global: ctx.global })
+  await flushPromises()
+  expect(fresh.findAll('article')).toHaveLength(1)
+  expect(ctx.api.researchQuery.mock.calls.at(-1)![4]).toBeUndefined()
+  fresh.unmount()
+})
+
+it('keeps clarification and historical SQL attached to their own immutable responses', async () => {
+  const ctx = setup()
+  const first = executionResponse()
+  const second = executionResponse('needs_clarification')
+  ctx.api.researchQuery.mockResolvedValueOnce(first).mockResolvedValueOnce(second)
+  vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function () {
+    this.open = true
+  })
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  await flushPromises()
+  await view.get('textarea').setValue(second.query)
+  await view.get('form').trigger('submit')
+  await flushPromises()
+  expect(view.findAll('article')).toHaveLength(2)
+  const answers = view.findAllComponents(ResearchQueryAnswer)
+  expect(answers[1]!.text()).toContain('Neustadt')
+  await answers[0]!.get('button[aria-label="SQL Editor"]').trigger('click')
+  await flushPromises()
+  const editor = answers[0]!.getComponent(ResearchSqlEditorModal).getComponent(SqlCodeEditor)
+  expect(editor.props('sql')).toBe(first.sql_provenance[0]!.sql)
+  expect(editor.props('readonly')).toBe(true)
+  expect(answers[1]!.findComponent(ResearchSqlEditorModal).exists()).toBe(false)
+  view.unmount()
+  vi.restoreAllMocks()
 })

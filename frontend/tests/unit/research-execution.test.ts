@@ -1,3 +1,4 @@
+import conversationSummary from '../fixtures/conversation-summary.json' with { type: 'json' }
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { computed } from 'vue'
@@ -496,3 +497,30 @@ it.each(['municipality', 'district', 'state', 'country', 'region'] as const)(
     expect(executionResultSchema.parse(result)).toEqual(result)
   },
 )
+
+it('proxy forwards only closed advisory context and rejects private result/SQL fields', async () => {
+  const context = { previous_turns: [conversationSummary] }
+  const body = { query: 'Und sonntags?', conversation_context: context }
+  const upstream = vi.fn().mockResolvedValue(new Response('{}'))
+  expect(
+    (await forwardAdminRequest({ ...proxyInput, body }, 'http://backend.invalid', upstream)).status,
+  ).toBe(200)
+  expect(JSON.parse(upstream.mock.calls[0]![1].body)).toEqual(body)
+  for (const field of ['latitude', 'longitude', 'sql', 'geometry', 'entity_id', 'result']) {
+    upstream.mockClear()
+    const invalid = {
+      query: body.query,
+      conversation_context: { previous_turns: [{ ...conversationSummary, [field]: 'private' }] },
+    }
+    expect(
+      (
+        await forwardAdminRequest(
+          { ...proxyInput, body: invalid },
+          'http://backend.invalid',
+          upstream,
+        )
+      ).status,
+    ).toBe(422)
+    expect(upstream).not.toHaveBeenCalled()
+  }
+})

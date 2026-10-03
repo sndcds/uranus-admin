@@ -123,7 +123,9 @@ class InternalResearchPlan:
     semantic: SemanticSelection | None = None
     taxonomy: Literal["genre", "event_type", "category"] | None = None
     comparison_targets: tuple[ComparisonTarget, ...] = ()
-    clarification: Literal["none", "needs_criteria", "needs_location", "needs_date"] = "none"
+    clarification: Literal[
+        "none", "needs_criteria", "needs_location", "needs_date", "needs_context"
+    ] = "none"
     unsupported_reason: (
         Literal["outside_research", "multi_area", "unsupported_constraint"] | None
     ) = None

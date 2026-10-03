@@ -109,12 +109,17 @@ defineExpose({ focus: () => input.value?.focus() })
   overflow-y: auto;
   padding: 0;
 }
+.research-composer-input:focus-visible {
+  outline: 1px solid var(--color-blue-300);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 .research-composer-count {
   height: 20px;
   line-height: 20px;
   margin-top: 4px;
 }
 .research-composer:focus-within {
-  @apply border-blue-400 ring-2 ring-blue-100;
+  @apply border-blue-300;
 }
 </style>

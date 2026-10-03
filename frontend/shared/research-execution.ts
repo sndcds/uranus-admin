@@ -1,9 +1,17 @@
 import {
+  researchPlanSummarySchema,
+  researchConversationContextSchema,
+} from './research-conversation'
+import {
   geographicPlanResponseSchema,
   locationContextSchema,
   placeSchema,
 } from './research-location'
-import { groupedPlanResponseSchema, calendarPlanResponseSchema } from './research-grouping'
+import {
+  groupedPlanResponseSchema,
+  calendarPlanResponseSchema,
+  conversationPlanResponseSchema,
+} from './research-grouping'
 import { analyticalPlanResponseSchema } from './research-analytics'
 import { z } from './zod'
 import {
@@ -23,6 +31,7 @@ export const researchQuestionSchema = nonblank(2000).refine((value) => value.isW
 export const researchPlanRequestSchema = z.object({ query: researchQuestionSchema }).strict()
 export const researchQueryRequestSchema = researchPlanRequestSchema.extend({
   location_context: locationContextSchema.nullable().optional(),
+  conversation_context: researchConversationContextSchema.nullable().optional(),
 })
 const slot = nonblank(160)
 const topic = nonblank(500)
@@ -341,7 +350,13 @@ export const executionResultSchema = z.discriminatedUnion('kind', [
     .object({
       kind: z.literal('needs_clarification'),
       reason: z.enum(['planner', 'ambiguous', 'no_match', 'duplicate_target', 'taxonomy_conflict']),
-      planner_state: clarification,
+      planner_state: z.enum([
+        'none',
+        'needs_criteria',
+        'needs_location',
+        'needs_date',
+        'needs_context',
+      ]),
       field: resolutionField.nullable(),
       query: slot.nullable(),
       candidates: z.array(resolutionCandidateSchema).max(5),
@@ -391,11 +406,13 @@ export type ResearchSqlStatement = z.infer<typeof researchSqlStatementSchema>
 
 export const researchExecutionResponseSchema = z
   .object({
+    conversation_summary: researchPlanSummarySchema.nullable().optional(),
     sql_provenance: z.array(researchSqlStatementSchema).max(16),
     query: researchQuestionSchema,
     plan: z.union([
       groupedPlanResponseSchema,
       calendarPlanResponseSchema,
+      conversationPlanResponseSchema,
       geographicPlanResponseSchema,
       researchPlanResponseSchema,
       analyticalPlanResponseSchema,

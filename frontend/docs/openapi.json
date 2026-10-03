@@ -26940,6 +26940,187 @@
         "type": "object",
         "title": "ContentParameters"
       },
+      "ConversationArea": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "inside",
+              "outside"
+            ],
+            "title": "Relation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "relation"
+        ],
+        "title": "ConversationArea"
+      },
+      "ConversationNames": {
+        "properties": {
+          "venue": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue"
+          },
+          "organization": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization"
+          },
+          "event_types": {
+            "items": {
+              "type": "string",
+              "maxLength": 160,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Event Types"
+          },
+          "categories": {
+            "items": {
+              "type": "string",
+              "maxLength": 160,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Categories"
+          },
+          "genres": {
+            "items": {
+              "type": "string",
+              "maxLength": 160,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Genres"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "venue",
+          "organization",
+          "event_types",
+          "categories",
+          "genres"
+        ],
+        "title": "ConversationNames"
+      },
+      "ConversationTemporal": {
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "none",
+              "today",
+              "tomorrow",
+              "this_weekend",
+              "next_week",
+              "this_month",
+              "this_year",
+              "past",
+              "future",
+              "explicit_range"
+            ],
+            "title": "Period"
+          },
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date"
+          },
+          "to_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Date"
+          },
+          "time_of_day": {
+            "type": "string",
+            "enum": [
+              "none",
+              "morning",
+              "afternoon",
+              "evening",
+              "night"
+            ],
+            "title": "Time Of Day"
+          },
+          "weekdays": {
+            "items": {
+              "type": "integer",
+              "maximum": 7.0,
+              "minimum": 1.0
+            },
+            "type": "array",
+            "maxItems": 7,
+            "title": "Weekdays"
+          },
+          "months": {
+            "items": {
+              "type": "integer",
+              "maximum": 12.0,
+              "minimum": 1.0
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Months"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "period",
+          "from_date",
+          "to_date",
+          "time_of_day",
+          "weekdays",
+          "months"
+        ],
+        "title": "ConversationTemporal"
+      },
       "CountResult": {
         "properties": {
           "kind": {
@@ -28147,6 +28328,65 @@
           "total_ms"
         ],
         "title": "DiagnosticsV10"
+      },
+      "DiagnosticsV11": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Request Id"
+          },
+          "planner_intent": {
+            "type": "string",
+            "enum": [
+              "list",
+              "search",
+              "count",
+              "aggregate",
+              "rank",
+              "compare",
+              "taxonomy",
+              "relation",
+              "trend",
+              "anomaly",
+              "explain",
+              "knowledge"
+            ],
+            "title": "Planner Intent"
+          },
+          "planner_model": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Planner Model"
+          },
+          "planner_prompt_version": {
+            "type": "string",
+            "const": "research-planner-v17",
+            "title": "Planner Prompt Version"
+          },
+          "planner_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Planner Ms"
+          },
+          "total_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Total Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request_id",
+          "planner_intent",
+          "planner_model",
+          "planner_prompt_version",
+          "planner_ms",
+          "total_ms"
+        ],
+        "title": "DiagnosticsV11"
       },
       "DiagnosticsV9": {
         "properties": {
@@ -29629,7 +29869,8 @@
               "none",
               "needs_criteria",
               "needs_location",
-              "needs_date"
+              "needs_date",
+              "needs_context"
             ],
             "title": "Planner State",
             "default": "none"
@@ -35972,6 +36213,64 @@
         ],
         "title": "PlanResponseV10"
       },
+      "PlanResponseV11": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "plan",
+              "needs_clarification",
+              "unsupported"
+            ],
+            "title": "Kind"
+          },
+          "schema_version": {
+            "type": "string",
+            "const": "research-query-plan-v11",
+            "title": "Schema Version"
+          },
+          "prompt_version": {
+            "type": "string",
+            "const": "research-planner-v17",
+            "title": "Prompt Version"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/ResearchQueryPlanV11"
+          },
+          "reference_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Reference Date"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Timezone"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/DiagnosticsV11"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "schema_version",
+          "prompt_version",
+          "model",
+          "plan",
+          "reference_date",
+          "timezone",
+          "diagnostics"
+        ],
+        "title": "PlanResponseV11"
+      },
       "PlanResponseV9": {
         "properties": {
           "kind": {
@@ -37094,6 +37393,25 @@
         ],
         "title": "ResearchCategory"
       },
+      "ResearchConversationContext": {
+        "properties": {
+          "previous_turns": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchPlanSummary"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Previous Turns"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "previous_turns"
+        ],
+        "title": "ResearchConversationContext"
+      },
       "ResearchDate": {
         "properties": {
           "id": {
@@ -37325,6 +37643,16 @@
       },
       "ResearchExecutionResponse": {
         "properties": {
+          "conversation_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchPlanSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sql_provenance": {
             "items": {
               "$ref": "#/components/schemas/ResearchSqlStatement"
@@ -37397,6 +37725,9 @@
               },
               {
                 "$ref": "#/components/schemas/PlanResponseV10"
+              },
+              {
+                "$ref": "#/components/schemas/PlanResponseV11"
               }
             ],
             "title": "Plan"
@@ -37624,6 +37955,184 @@
           "query"
         ],
         "title": "ResearchPlanRequest"
+      },
+      "ResearchPlanSummary": {
+        "properties": {
+          "intent": {
+            "type": "string",
+            "enum": [
+              "list",
+              "search",
+              "recommend",
+              "count",
+              "aggregate",
+              "rank",
+              "taxonomy",
+              "spatial_rank"
+            ],
+            "title": "Intent"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "event",
+              "venue",
+              "organization"
+            ],
+            "title": "Entity Type"
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "none",
+              "event_count",
+              "occurrence_count",
+              "venue_count",
+              "organization_count"
+            ],
+            "title": "Metric"
+          },
+          "groupings": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "event",
+                "venue",
+                "organization",
+                "category",
+                "event_type",
+                "genre",
+                "month",
+                "weekday",
+                "municipality",
+                "district",
+                "state",
+                "country",
+                "region"
+              ]
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Groupings"
+          },
+          "ordering": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordering"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "temporal": {
+            "$ref": "#/components/schemas/ConversationTemporal"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ConversationNames"
+          },
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationArea"
+            },
+            "type": "array",
+            "maxItems": 1,
+            "title": "Areas"
+          },
+          "semantic_query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Query"
+          },
+          "semantic_focus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Focus"
+          },
+          "taxonomy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "genre",
+                  "event_type",
+                  "category"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxonomy"
+          },
+          "spatial_metric": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "longitude",
+                  "latitude"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spatial Metric"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "intent",
+          "entity_type",
+          "metric",
+          "groupings",
+          "ordering",
+          "limit",
+          "temporal",
+          "filters",
+          "areas",
+          "semantic_query",
+          "semantic_focus",
+          "taxonomy",
+          "spatial_metric"
+        ],
+        "title": "ResearchPlanSummary"
       },
       "ResearchPopulation": {
         "properties": {
@@ -38290,6 +38799,327 @@
         ],
         "title": "ResearchQueryPlanV10"
       },
+      "ResearchQueryPlanV11": {
+        "properties": {
+          "original_query": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Original Query"
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "list",
+              "search",
+              "count",
+              "aggregate",
+              "rank",
+              "compare",
+              "taxonomy",
+              "relation",
+              "trend",
+              "anomaly",
+              "explain",
+              "knowledge"
+            ],
+            "title": "Intent"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "event",
+                  "occurrence",
+                  "venue",
+                  "space",
+                  "organization",
+                  "municipality",
+                  "region"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "metric": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "group_by": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "event",
+                "occurrence",
+                "venue",
+                "space",
+                "organization",
+                "category",
+                "event_type",
+                "genre",
+                "municipality",
+                "region",
+                "country",
+                "hour",
+                "weekday",
+                "week",
+                "month",
+                "year"
+              ]
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Group By"
+          },
+          "ordering": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordering"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "filters": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PresenceFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/NameFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/DescriptionFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/StatusFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/NumberFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/DateFilterV9"
+                },
+                {
+                  "$ref": "#/components/schemas/TimeFilterV9"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Filters"
+          },
+          "metric_filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericPredicateV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taxonomy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "genre",
+                  "event_type",
+                  "category"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxonomy"
+          },
+          "temporal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TemporalV10"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spatial": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SpatialV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "price": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "semantic": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SemanticV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RelationV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trend": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrendV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "anomaly": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnomalyV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "explain": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExplainV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "knowledge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnowledgeV9"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comparison_targets": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonTargetV9"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Comparison Targets"
+          },
+          "clarification": {
+            "type": "string",
+            "enum": [
+              "none",
+              "needs_criteria",
+              "needs_location",
+              "needs_date",
+              "needs_definition",
+              "needs_context"
+            ],
+            "title": "Clarification"
+          },
+          "unsupported_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "outside_research",
+                  "unsupported_constraint",
+                  "insufficient_structured_data"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unsupported Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "original_query",
+          "intent",
+          "entity_type",
+          "metric",
+          "group_by",
+          "ordering",
+          "limit",
+          "filters",
+          "metric_filter",
+          "taxonomy",
+          "temporal",
+          "spatial",
+          "price",
+          "semantic",
+          "relation",
+          "trend",
+          "anomaly",
+          "explain",
+          "knowledge",
+          "comparison_targets",
+          "clarification",
+          "unsupported_reason"
+        ],
+        "title": "ResearchQueryPlanV11"
+      },
       "ResearchQueryPlanV9": {
         "properties": {
           "original_query": {
@@ -38618,6 +39448,16 @@
             "maxLength": 2000,
             "minLength": 1,
             "title": "Query"
+          },
+          "conversation_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchConversationContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "location_context": {
             "anyOf": [

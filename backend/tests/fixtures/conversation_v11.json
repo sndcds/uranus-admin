@@ -1,0 +1,555 @@
+[
+  {
+    "name": "sunday",
+    "context": {
+      "previous_turns": [
+        {
+          "intent": "aggregate",
+          "entity_type": "event",
+          "metric": "occurrence_count",
+          "groupings": [
+            "event_type",
+            "month"
+          ],
+          "ordering": "desc",
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        }
+      ]
+    },
+    "plan": {
+      "original_query": "Und nur sonntags?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [
+          7
+        ],
+        "recurring_months": []
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "flensburg",
+    "context": {
+      "previous_turns": [
+        {
+          "intent": "aggregate",
+          "entity_type": "event",
+          "metric": "occurrence_count",
+          "groupings": [
+            "event_type",
+            "month"
+          ],
+          "ordering": "desc",
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        },
+        {
+          "intent": "aggregate",
+          "entity_type": "event",
+          "metric": "occurrence_count",
+          "groupings": [
+            "event_type"
+          ],
+          "ordering": "desc",
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [
+              7
+            ],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        }
+      ]
+    },
+    "plan": {
+      "original_query": "Und davon nur in Flensburg?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [
+          7
+        ],
+        "recurring_months": []
+      },
+      "spatial": {
+        "relation": "inside",
+        "place_query": null,
+        "area_query": "Flensburg",
+        "radius_m": null,
+        "reference": "named"
+      },
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "august",
+    "context": {
+      "previous_turns": [
+        {
+          "intent": "aggregate",
+          "entity_type": "event",
+          "metric": "occurrence_count",
+          "groupings": [
+            "event_type",
+            "month"
+          ],
+          "ordering": "desc",
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        },
+        {
+          "intent": "aggregate",
+          "entity_type": "event",
+          "metric": "occurrence_count",
+          "groupings": [
+            "event_type"
+          ],
+          "ordering": "desc",
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [
+              7
+            ],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        },
+        {
+          "intent": "aggregate",
+          "entity_type": "event",
+          "metric": "occurrence_count",
+          "groupings": [
+            "event_type"
+          ],
+          "ordering": "desc",
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [
+              7
+            ],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [
+            {
+              "name": "Flensburg",
+              "relation": "inside"
+            }
+          ],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        }
+      ]
+    },
+    "plan": {
+      "original_query": "Und im August?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [
+          7
+        ],
+        "recurring_months": [
+          8
+        ]
+      },
+      "spatial": {
+        "relation": "inside",
+        "place_query": null,
+        "area_query": "Flensburg",
+        "radius_m": null,
+        "reference": "named"
+      },
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "independent",
+    "context": {
+      "previous_turns": [
+        {
+          "intent": "aggregate",
+          "entity_type": "event",
+          "metric": "occurrence_count",
+          "groupings": [
+            "event_type"
+          ],
+          "ordering": "desc",
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [
+              7
+            ],
+            "months": [
+              8
+            ]
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [
+            {
+              "name": "Flensburg",
+              "relation": "inside"
+            }
+          ],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        }
+      ]
+    },
+    "plan": {
+      "original_query": "Welche Organisationen gibt es?",
+      "intent": "list",
+      "entity_type": "organization",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "result-reference",
+    "context": {
+      "previous_turns": [
+        {
+          "intent": "aggregate",
+          "entity_type": "event",
+          "metric": "occurrence_count",
+          "groupings": [
+            "event_type",
+            "month"
+          ],
+          "ordering": "desc",
+          "limit": 20,
+          "temporal": {
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "time_of_day": "none",
+            "weekdays": [],
+            "months": []
+          },
+          "filters": {
+            "venue": null,
+            "organization": null,
+            "event_types": [],
+            "categories": [],
+            "genres": []
+          },
+          "areas": [],
+          "semantic_query": null,
+          "semantic_focus": null,
+          "taxonomy": null,
+          "spatial_metric": null
+        }
+      ]
+    },
+    "plan": {
+      "original_query": "Welcher davon hat die meisten Termine?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [
+          7
+        ],
+        "recurring_months": []
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "needs_context",
+      "unsupported_reason": null
+    }
+  }
+]

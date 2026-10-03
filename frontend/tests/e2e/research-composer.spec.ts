@@ -29,7 +29,7 @@ async function composerBounds(page: Page) {
   expect(box.x).toBeGreaterThan(mainBox.x)
   expect(box.x + box.width).toBeLessThan(mainBox.x + mainBox.width)
   expect(Math.abs(box.x + box.width / 2 - (mainBox.x + mainBox.width / 2))).toBeLessThan(2)
-  expect(box.width).toBeLessThanOrEqual(816)
+  expect(box.width).toBeLessThanOrEqual(1024)
   expect(box.y + box.height).toBeLessThan(page.viewportSize()!.height)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   if (page.viewportSize()!.width >= 1024) {
@@ -101,7 +101,7 @@ for (const state of ['count', 'grouped', 'clarification', 'error', 'long-result'
     expect(await original!.evaluate((element) => element.isConnected)).toBe(true)
     await expect(input).toHaveValue(response.query)
     if (state === 'long-result') {
-      const content = page.locator('.research-question-content')
+      const content = page.locator('.research-question-workspace')
       expect(await content.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
         true,
       )
@@ -159,4 +159,49 @@ test('composer remains usable when the mobile content viewport shrinks', async (
   await composerBounds(page)
   await expect(input).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Antwort anzeigen' })).toBeInViewport()
+})
+
+test('conversation retains history, shared widths, own SQL and URL navigation', async ({
+  page,
+}) => {
+  let calls = 0
+  await page.route(`**${root}/query`, (route) => {
+    calls++
+    return route.fulfill({ json: calls === 1 ? groupedExecutionResponse() : executionResponse() })
+  })
+  await page.goto('/research')
+  const input = page.getByLabel('Deine Recherchefrage')
+  await expect(input).toBeEnabled()
+  await input.fill(groupedExecutionResponse().query)
+  await input.press('Enter')
+  await expect(page.locator('article')).toHaveCount(1)
+  await expect(page.getByTestId('research-answer-summary')).toBeVisible()
+  await input.fill('Eine zweite Recherchefrage')
+  await input.press('Enter')
+  await expect(page.locator('article')).toHaveCount(2)
+  await expect(page.getByTestId('research-count')).toBeVisible()
+  const composer = await composerBounds(page)
+  const first = page.locator('article').first()
+  const second = page.locator('article').last()
+  for (const turn of [first, second]) {
+    const box = (await turn.boundingBox())!
+    expect(box.width).toBeCloseTo(composer.width, 0)
+    expect(box.x).toBeCloseTo(composer.x, 0)
+  }
+  await first.getByRole('button', { name: 'SQL Editor', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'SQL-Abfrage, Nur-Lese-Modus' })).toContainText(
+    'GROUP BY',
+  )
+  await expect(page.getByRole('dialog').locator('[contenteditable=true], textarea')).toHaveCount(0)
+  await page.getByRole('button', { name: 'SQL Editor schließen' }).click()
+  await page.goBack()
+  await expect(page.locator('article')).toHaveCount(2)
+  await page.goForward()
+  await expect(page.locator('article')).toHaveCount(2)
+  expect(calls).toBe(2)
+  await page.getByRole('button', { name: 'Neue Recherche', exact: true }).click()
+  await expect(page.locator('article')).toHaveCount(0)
+  await expect(input).toHaveValue('')
+  await expect(page.getByText('Kultur entdecken', { exact: true })).toHaveCount(0)
 })
