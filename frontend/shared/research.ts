@@ -238,7 +238,7 @@ export const researchPopulationSchema = z
 export const researchAreaSchema = z
   .object({
     id: z.uuid(),
-    area_type: z.enum(['region', 'district', 'municipality']),
+    area_type: z.enum(['region', 'district', 'municipality', 'state']),
     country_code: z.enum(['DE', 'DK']),
     region_code: z.string(),
     name: z.string(),
@@ -258,7 +258,7 @@ export const researchAreaQuerySchema = z
   .object({
     q: z.string().max(120).optional(),
     country_code: z.enum(['DE', 'DK']).optional(),
-    area_type: z.enum(['region', 'district', 'municipality']).optional(),
+    area_type: z.enum(['region', 'district', 'municipality', 'state']).optional(),
     page: z.coerce.number().int().min(1).max(100000).optional(),
     page_size: z.coerce.number().int().min(1).max(50).optional(),
   })

@@ -25,6 +25,9 @@ fachliche Uranus-Schreiblogik wird nicht dupliziert.
 Zur Gesamtübersicht siehe [Repository-README](../README.md), für die Oberfläche
 [Frontend-README](../frontend/README.md) und für den Betrieb [Ansible-Deployment](../ansible/README.md).
 
+Der separate [Research-Operator-Import für Kreise und Bundesländer](../docs/research/persistent-administrative-areas.md)
+bietet einen geprüften Plan-/Apply-Workflow; Gemeinde-Importer bleiben unverändert.
+
 Die [automatische Admin-Datenbankdokumentation](docs/database/README.md) erzeugt
 Migrationshistorie, finales PostgreSQL-Schema, DBML für dbdiagram.io sowie vollständige
 und thematische ER-Diagramme als SVG/PDF – ohne Datenbankverbindung.

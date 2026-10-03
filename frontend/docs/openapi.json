@@ -23685,7 +23685,8 @@
               "enum": [
                 "region",
                 "district",
-                "municipality"
+                "municipality",
+                "state"
               ],
               "type": "string",
               "default": "municipality",
@@ -37431,7 +37432,8 @@
             "enum": [
               "region",
               "district",
-              "municipality"
+              "municipality",
+              "state"
             ],
             "title": "Area Type"
           },
