@@ -38,6 +38,8 @@ PUBLIC_PARAMETERS = frozenset(
         "to_date",
         "time_from",
         "time_of_day",
+        "weekdays",
+        "months",
         "area_relation",
         "event_type_ids",
         "category_ids",

@@ -23,6 +23,7 @@ const dimensions = z
       'genre',
       'event_type',
       'month',
+      'weekday',
       'municipality',
       'region',
       'country',
@@ -50,7 +51,9 @@ const temporal = z
     time_of_day: z.enum(['none', 'morning', 'afternoon', 'evening', 'night']),
     before_time: z.null(),
     after_time: z.null(),
-    weekday: z.null(),
+    weekday: z
+      .enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])
+      .nullable(),
     calendar_relation: z.literal('none'),
     calendar_area_query: z.null(),
     overlap: z.literal(false),
@@ -180,7 +183,7 @@ const executablePlan = z
   })
   .strict()
 const ms = z.number().finite().nonnegative()
-export const groupedPlanResponseSchema = z
+const envelopeSchema = z
   .object({
     kind: z.enum(['plan', 'needs_clarification']),
     schema_version: z.literal('research-query-plan-v9'),
@@ -199,6 +202,39 @@ export const groupedPlanResponseSchema = z
         total_ms: ms,
       })
       .strict(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (
+      (value.kind === 'plan') !== (value.plan.clarification === 'none') ||
+      value.diagnostics.planner_intent !== value.plan.intent ||
+      value.diagnostics.planner_model !== value.model
+    ) {
+      ctx.addIssue({ code: 'custom', message: 'Inconsistent planner envelope' })
+    }
+  })
+
+const recurringSet = (maximum: number) =>
+  z
+    .array(z.number().int().min(1).max(maximum))
+    .max(maximum)
+    .refine((values) => new Set(values).size === values.length)
+const calendarTemporal = temporal
+  .safeExtend({
+    recurring_weekdays: recurringSet(7),
+    recurring_months: recurringSet(12),
+  })
+  .refine((value) => value.weekday === null || value.recurring_weekdays.length === 0)
+export const groupedPlanResponseSchema = envelopeSchema
+export const calendarPlanResponseSchema = z
+  .object({
+    ...envelopeSchema.shape,
+    schema_version: z.literal('research-query-plan-v10'),
+    prompt_version: z.literal('research-planner-v16'),
+    plan: executablePlan.extend({ temporal: calendarTemporal.nullable() }),
+    diagnostics: envelopeSchema.shape.diagnostics.extend({
+      planner_prompt_version: z.literal('research-planner-v16'),
+    }),
   })
   .strict()
   .superRefine((value, ctx) => {

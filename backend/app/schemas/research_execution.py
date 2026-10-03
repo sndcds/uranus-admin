@@ -19,6 +19,7 @@ ExecutionMetric = Literal["event_count", "occurrence_count", "venue_count", "org
 ExecutionGrouping = Literal[
     "event",
     "month",
+    "weekday",
     "venue",
     "organization",
     "category",
@@ -34,6 +35,8 @@ TaxonomyKind = Literal["genre", "event_type", "category"]
 
 
 class ExecutionFilters(ResearchFilters):
+    weekdays: tuple[int, ...] = Field(default=(), max_length=7)
+    months: tuple[int, ...] = Field(default=(), max_length=12)
     place: PlaceFilter | None = Field(default=None, exclude=True)
     time_from: time | None = None
     time_of_day: Literal["none", "morning", "afternoon", "evening", "night"] = "none"
@@ -44,6 +47,8 @@ class ExecutionFilters(ResearchFilters):
 
 
 class ExecutionSemanticFilters(SemanticResearchFilters):
+    weekdays: tuple[int, ...] = Field(default=(), max_length=7)
+    months: tuple[int, ...] = Field(default=(), max_length=12)
     place: PlaceFilter | None = Field(default=None, exclude=True)
     # Topic and optional focus are each <=500, joined by one newline.
     # The classic endpoint remains 2–120.

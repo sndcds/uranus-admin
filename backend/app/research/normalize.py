@@ -22,6 +22,7 @@ from app.research.plan import (
 from app.research.wire.research_v8_schema import ResearchQueryPlanV8
 from app.research.wire.research_v8_types import NameFilterV8
 from app.research.wire.research_v9_schema import PlanResponseV9
+from app.research.wire.research_v10_schema import PlanResponseV10
 from app.schemas.research_analytics import (
     AnalyticalEnvelope,
     AnalyticalPlanResponse,
@@ -31,7 +32,13 @@ from app.schemas.research_analytics_guard import analytical_mismatch
 from app.schemas.research_geography import GeographicEnvelope, GeographicPlanResponse
 from app.schemas.research_planner import PlanResponse, ResearchQueryPlan
 
-PlannerResponse = PlanResponse | AnalyticalPlanResponse | GeographicPlanResponse | PlanResponseV9
+PlannerResponse = (
+    PlanResponse
+    | AnalyticalPlanResponse
+    | GeographicPlanResponse
+    | PlanResponseV9
+    | PlanResponseV10
+)
 
 
 def _common(
@@ -147,6 +154,10 @@ def normalize_v6(response: GeographicPlanResponse) -> InternalResearchPlan:
 
 
 def normalize(response: PlannerResponse) -> InternalResearchPlan:
+    if isinstance(response, PlanResponseV10):
+        from app.research.normalize_v10 import normalize_v10
+
+        return normalize_v10(response.plan)
     if isinstance(response, PlanResponseV9):
         from app.research.normalize_v9 import normalize_v9
 

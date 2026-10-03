@@ -14,6 +14,7 @@ import {
 import { executionResponse } from '../fixtures/research-execution'
 import { groupedExecutionResponse } from '../fixtures/research-grouping'
 import v9Cases from '../fixtures/research-v9-parity.json' with { type: 'json' }
+import calendarCases from '../fixtures/research-calendar-v10.json' with { type: 'json' }
 
 const views: ReturnType<typeof mount>[] = []
 beforeEach(() => {
@@ -275,3 +276,55 @@ it.each([
   expect(view.getComponent(SqlCodeEditor).props('readonly')).toBe(true)
   expect(view.getComponent(SqlCodeEditor).props('sql')).toBe(response.sql_provenance[0]!.sql)
 })
+
+it.each(['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'])(
+  'renders %s in the common grouped table and preserves read-only SQL',
+  async (label) => {
+    const day =
+      ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'].indexOf(
+        label,
+      ) + 1
+    const base = groupedExecutionResponse()
+    const plan = calendarCases.find((c) => c.name === 'weekday-distribution')!.plan
+    const response = researchExecutionResponseSchema.parse({
+      ...base,
+      query: plan.original_query,
+      plan: {
+        ...base.plan,
+        schema_version: 'research-query-plan-v10',
+        prompt_version: 'research-planner-v16',
+        plan,
+        diagnostics: { ...base.plan.diagnostics, planner_prompt_version: 'research-planner-v16' },
+      },
+      result: {
+        ...base.result,
+        dimensions: ['event_type', 'weekday'],
+        items: [
+          {
+            coordinates: [
+              { dimension: 'event_type', key: '1', name: 'Konzert' },
+              { dimension: 'weekday', key: String(day), name: String(day) },
+            ],
+            value: 7,
+          },
+        ],
+      },
+    })
+    const view = answer(response)
+    const table = view.get('table[aria-label="Mehrdimensionale Auswertung"]')
+    expect(table.findAll('thead th').map((cell) => cell.text())).toEqual([
+      'Veranstaltungstyp',
+      'Wochentag',
+      'Termine',
+    ])
+    expect(table.findAll('tbody th, tbody td').map((cell) => cell.text())).toEqual([
+      'Konzert',
+      label,
+      '7',
+    ])
+    await view.get('button[aria-label="SQL Editor"]').trigger('click')
+    await flushPromises()
+    expect(view.getComponent(SqlCodeEditor).props('readonly')).toBe(true)
+    expect(view.getComponent(SqlCodeEditor).props('sql')).toBe(response.sql_provenance[0]!.sql)
+  },
+)

@@ -3,7 +3,7 @@ import {
   locationContextSchema,
   placeSchema,
 } from './research-location'
-import { groupedPlanResponseSchema } from './research-grouping'
+import { groupedPlanResponseSchema, calendarPlanResponseSchema } from './research-grouping'
 import { analyticalPlanResponseSchema } from './research-analytics'
 import { z } from './zod'
 import {
@@ -228,6 +228,7 @@ export const groupingDimensionSchema = z.enum([
   'genre',
   'event_type',
   'month',
+  'weekday',
   'municipality',
   'district',
   'state',
@@ -303,6 +304,7 @@ export const executionResultSchema = z.discriminatedUnion('kind', [
       metric: executionMetricSchema,
       group_by: z.enum([
         'month',
+        'weekday',
         'event',
         'venue',
         'organization',
@@ -393,6 +395,7 @@ export const researchExecutionResponseSchema = z
     query: researchQuestionSchema,
     plan: z.union([
       groupedPlanResponseSchema,
+      calendarPlanResponseSchema,
       geographicPlanResponseSchema,
       researchPlanResponseSchema,
       analyticalPlanResponseSchema,

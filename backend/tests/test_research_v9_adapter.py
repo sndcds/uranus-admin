@@ -403,7 +403,6 @@ UNSUPPORTED = [
     dict(price=dict(mode="free", minimum=None, maximum=None, currency=None)),
     dict(temporal=temporal(after_time="18:00:00")),
     dict(temporal=temporal(before_time="20:00:00")),
-    dict(temporal=temporal(weekday="monday")),
     dict(temporal=temporal(overlap=True)),
     dict(temporal=temporal(multi_day=True)),
     dict(temporal=temporal(field="modified_at")),

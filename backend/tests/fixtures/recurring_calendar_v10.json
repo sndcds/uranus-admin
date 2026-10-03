@@ -1,0 +1,845 @@
+[
+  {
+    "name": "weekday-distribution",
+    "plan": {
+      "original_query": "Welche Veranstaltungstypen treten an bestimmten Wochentagen besonders stark auf?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type",
+        "weekday"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "weekday-event-count",
+    "plan": {
+      "original_query": "An welchem Wochentag gibt es die meisten Veranstaltungen?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "event_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "weekday"
+      ],
+      "ordering": "desc",
+      "limit": 1,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "sunday",
+    "plan": {
+      "original_query": "Welche Veranstaltungstypen treten sonntags besonders stark auf?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [
+          7
+        ],
+        "recurring_months": []
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "saturday",
+    "plan": {
+      "original_query": "Welche Veranstaltungstypen treten samstags besonders stark auf?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [
+          6
+        ],
+        "recurring_months": []
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "weekend",
+    "plan": {
+      "original_query": "Welche Veranstaltungstypen treten am Wochenende besonders stark auf?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [
+          6,
+          7
+        ],
+        "recurring_months": []
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "this-weekend",
+    "plan": {
+      "original_query": "Welche Veranstaltungstypen treten dieses Wochenende besonders stark auf?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "this_weekend",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [],
+        "recurring_months": []
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "coming-weekend",
+    "plan": {
+      "original_query": "Welche Veranstaltungstypen treten kommendes Wochenende besonders stark auf?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "this_weekend",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [],
+        "recurring_months": []
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "summer",
+    "plan": {
+      "original_query": "Welche Veranstaltungstypen treten von Juli bis September besonders stark auf?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [],
+        "recurring_months": [
+          7,
+          8,
+          9
+        ]
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "summer-monthly",
+    "plan": {
+      "original_query": "Verteilung nach Veranstaltungstyp und Monat von Juli bis September",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type",
+        "month"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "none",
+        "from_date": null,
+        "to_date": null,
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [],
+        "recurring_months": [
+          7,
+          8,
+          9
+        ]
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "summer-2026",
+    "plan": {
+      "original_query": "Welche Veranstaltungstypen treten von Juli bis September 2026 besonders stark auf?",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "explicit_range",
+        "from_date": "2026-07-01",
+        "to_date": "2026-09-30",
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [],
+        "recurring_months": []
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "sundays-2026",
+    "plan": {
+      "original_query": "Veranstaltungstypen an Sonntagen 2026",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "explicit_range",
+        "from_date": "2026-01-01",
+        "to_date": "2026-12-31",
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [
+          7
+        ],
+        "recurring_months": []
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "dated-sunday",
+    "plan": {
+      "original_query": "Veranstaltungstypen am Sonntag, den 5. Juli 2026",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "event_type"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": {
+        "field": "start_date",
+        "period": "explicit_range",
+        "from_date": "2026-07-05",
+        "to_date": "2026-07-05",
+        "time_of_day": "none",
+        "before_time": null,
+        "after_time": null,
+        "weekday": null,
+        "calendar_relation": "none",
+        "calendar_area_query": null,
+        "overlap": false,
+        "multi_day": false,
+        "lookback": null,
+        "lookback_unit": null,
+        "recurring_weekdays": [],
+        "recurring_months": []
+      },
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "genre-weekday",
+    "plan": {
+      "original_query": "Genreverteilung nach Wochentag",
+      "intent": "aggregate",
+      "entity_type": "event",
+      "metric": {
+        "operation": "occurrence_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [
+        "genre",
+        "weekday"
+      ],
+      "ordering": "desc",
+      "limit": 20,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": null,
+      "price": null,
+      "semantic": null,
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "audience-0",
+    "plan": {
+      "original_query": "Veranstaltungen für Schüler:innen",
+      "intent": "search",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": null,
+      "price": null,
+      "semantic": {
+        "query": "Schüler:innen",
+        "focus": null
+      },
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "audience-1",
+    "plan": {
+      "original_query": "Veranstaltungen für Familien",
+      "intent": "search",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": null,
+      "price": null,
+      "semantic": {
+        "query": "Familien",
+        "focus": null
+      },
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "audience-2",
+    "plan": {
+      "original_query": "Veranstaltungen für Jugendliche",
+      "intent": "search",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": null,
+      "price": null,
+      "semantic": {
+        "query": "Jugendliche",
+        "focus": null
+      },
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": null
+    }
+  },
+  {
+    "name": "audience-count",
+    "plan": {
+      "original_query": "Wie viele Veranstaltungen sind für Schüler:innen geeignet?",
+      "intent": "count",
+      "entity_type": "event",
+      "metric": {
+        "operation": "event_count",
+        "field": null,
+        "distinct_by": null,
+        "numerator": null,
+        "denominator": null,
+        "measure": null,
+        "window": null,
+        "currency": null
+      },
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": null,
+      "price": null,
+      "semantic": {
+        "query": "Schüler:innen",
+        "focus": null
+      },
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "none",
+      "unsupported_reason": "insufficient_structured_data"
+    }
+  },
+  {
+    "name": "audience-evaluation",
+    "plan": {
+      "original_query": "Welche Veranstaltungen sind pädagogisch wertvoll für Schüler:innen?",
+      "intent": "search",
+      "entity_type": "event",
+      "metric": null,
+      "group_by": [],
+      "ordering": null,
+      "limit": null,
+      "filters": [],
+      "metric_filter": null,
+      "taxonomy": null,
+      "temporal": null,
+      "spatial": null,
+      "price": null,
+      "semantic": {
+        "query": "pädagogisch wertvoll für Schüler:innen",
+        "focus": null
+      },
+      "relation": null,
+      "trend": null,
+      "anomaly": null,
+      "explain": null,
+      "knowledge": null,
+      "comparison_targets": [],
+      "clarification": "needs_definition",
+      "unsupported_reason": null
+    }
+  }
+]

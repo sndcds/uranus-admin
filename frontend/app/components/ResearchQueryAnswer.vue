@@ -59,6 +59,7 @@ const dimensionLabels = {
   genre: 'Genre',
   event_type: 'Veranstaltungstyp',
   month: 'Monat',
+  weekday: 'Wochentag',
   municipality: 'Gemeinde',
   district: 'Kreis',
   state: 'Bundesland',
@@ -145,6 +146,7 @@ const fieldLabels = {
         {{
           {
             month: 'Monat',
+            weekday: 'Wochentag',
             event: 'Veranstaltung',
             venue: 'Veranstaltungsort',
             organization: 'Organisation',
