@@ -1,6 +1,10 @@
 """Mock provider and disposable PostGIS: no live network or production imports."""
 
+import json
+import logging
+from dataclasses import replace
 from datetime import date
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import httpx
@@ -11,12 +15,14 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.admin_database import assert_admin_boundary
 from app.errors import APIError
+from app.logging import JsonFormatter
 from app.repositories.research import research_detail, research_export, research_page
 from app.repositories.research_areas import area_page, resolve_area
 from app.research.areas import (
     CITY_EXCEPTIONS,
     REGIONS,
     boundary,
+    classify,
     import_boundaries,
     provider_policy,
 )
@@ -28,6 +34,181 @@ from app.services.nominatim import NominatimClient
 from tests.conftest import uid
 
 POLYGON = {"type": "Polygon", "coordinates": [[[9, 54], [10, 54], [10, 55], [9, 55], [9, 54]]]}
+
+# Measurements supplied by the operator, not synthetic geometry measurements.
+VERIFIED_OVERLAP_CASES = [
+    (
+        "03151040",
+        1392804,
+        "03151007",
+        1392689,
+        53898.81205722038,
+        0.02386146668532573,
+        0.070628273054532,
+        60000,
+        0.10,
+    ),
+    (
+        "03357019",
+        1079013,
+        "03357017",
+        1079022,
+        36856.37779786327,
+        0.2709004971879667,
+        0.29733202441384327,
+        45000,
+        0.35,
+    ),
+]
+
+
+@pytest.fixture(params=VERIFIED_OVERLAP_CASES, ids=["wittingen", "hamersen"])
+def overlap_case(request, settings):
+    ags, osm_id, peer_ags, peer_id, area, percent, peer_percent, max_area, max_percent = (
+        request.param
+    )
+    item = boundary(
+        row(
+            osm_id=osm_id,
+            address={"country_code": "de", "ISO3166-2-lvl4": "DE-NI"},
+            extratags={"admin_level": "8", "de:amtlicher_gemeindeschluessel": ags},
+        ),
+        settings,
+        "DE-NI",
+        ags,
+    )
+    overlap = {
+        "osm_id": peer_id,
+        "municipality_key": peer_ags,
+        "overlap_m2": area,
+        "candidate_overlap_percent": percent,
+        "existing_overlap_percent": peer_percent,
+    }
+    return item, overlap, max_area, max_percent
+
+
+def classification_connection(
+    overlaps, *, valid=True, overlap=True, existing=False, unchanged=False
+):
+    summary = MagicMock()
+    summary.mappings.return_value.one.return_value = dict(
+        valid=valid,
+        overlap=overlap,
+        existing=existing,
+        unchanged=unchanged,
+    )
+    measured = MagicMock()
+    measured.mappings.return_value.all.return_value = overlaps
+    return AsyncMock(execute=AsyncMock(side_effect=[summary, measured]))
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+async def test_verified_overlap_accepts_measured_pairs_and_logs(
+    overlap_case, reverse, caplog, monkeypatch
+):
+    item, overlap, _, _ = overlap_case
+    if reverse:
+        item, overlap = (
+            replace(item, osm_id=overlap["osm_id"], municipality_key=overlap["municipality_key"]),
+            {
+                **overlap,
+                "osm_id": item.osm_id,
+                "municipality_key": item.municipality_key,
+                "candidate_overlap_percent": overlap["existing_overlap_percent"],
+                "existing_overlap_percent": overlap["candidate_overlap_percent"],
+            },
+        )
+    monkeypatch.setattr(logging.getLogger("admin"), "propagate", True)
+    with caplog.at_level(logging.WARNING, logger="admin.research_areas"):
+        status, _ = await classify(classification_connection([overlap]), item)
+    assert status == "new"
+    records = [r for r in caplog.records if r.getMessage() == "research_area_verified_overlap"]
+    assert len(records) == 1
+    report = json.loads(JsonFormatter().format(records[0]))
+    assert (
+        report.items()
+        >= {
+            "event": "research_area_verified_overlap",
+            "level": "WARNING",
+            "candidate_ags": item.municipality_key,
+            "existing_ags": overlap["municipality_key"],
+            "candidate_osm_id": item.osm_id,
+            "existing_osm_id": overlap["osm_id"],
+            "overlap_m2": overlap["overlap_m2"],
+            "candidate_overlap_percent": overlap["candidate_overlap_percent"],
+            "existing_overlap_percent": overlap["existing_overlap_percent"],
+        }.items()
+    )
+
+
+@pytest.mark.parametrize(
+    "field", ["overlap_m2", "candidate_overlap_percent", "existing_overlap_percent"]
+)
+async def test_verified_overlap_rejects_exceeded_limit(overlap_case, field):
+    item, overlap, max_area, max_percent = overlap_case
+    overlap[field] = (max_area if field == "overlap_m2" else max_percent) + 0.000001
+    assert (await classify(classification_connection([overlap]), item))[0] == "rejected"
+
+
+async def test_verified_overlap_accepts_exact_limits(overlap_case):
+    item, overlap, max_area, max_percent = overlap_case
+    overlap.update(
+        overlap_m2=max_area,
+        candidate_overlap_percent=max_percent,
+        existing_overlap_percent=max_percent,
+    )
+    assert (await classify(classification_connection([overlap]), item))[0] == "new"
+
+
+@pytest.mark.parametrize("missing", ["candidate", "existing", "both", "unlisted"])
+async def test_verified_overlap_requires_exact_keys_even_for_tiny_overlap(overlap_case, missing):
+    item, overlap, _, _ = overlap_case
+    overlap.update(
+        overlap_m2=1, candidate_overlap_percent=0.00001, existing_overlap_percent=0.00001
+    )
+    if missing in {"candidate", "both"}:
+        item = replace(item, municipality_key=None)
+    if missing in {"existing", "both"}:
+        overlap["municipality_key"] = None
+    if missing == "unlisted":
+        overlap["municipality_key"] = "03999999"
+    assert (await classify(classification_connection([overlap]), item))[0] == "rejected"
+
+
+@pytest.mark.parametrize("value", [None, float("nan"), float("inf"), 0, -1])
+@pytest.mark.parametrize(
+    "field", ["overlap_m2", "candidate_overlap_percent", "existing_overlap_percent"]
+)
+async def test_verified_overlap_rejects_unusable_measurements(overlap_case, field, value):
+    item, overlap, _, _ = overlap_case
+    overlap[field] = value
+    assert (await classify(classification_connection([overlap]), item))[0] == "rejected"
+
+
+async def test_verified_overlap_does_not_allow_another_unlisted_peer(overlap_case):
+    item, overlap, _, _ = overlap_case
+    other = {**overlap, "osm_id": 999999, "municipality_key": "03999999"}
+    assert (await classify(classification_connection([overlap, other]), item))[0] == "rejected"
+
+
+@pytest.mark.parametrize(
+    "existing,unchanged,expected",
+    [(False, False, "new"), (True, False, "updated"), (True, True, "unchanged")],
+)
+async def test_zero_overlap_retains_classification(overlap_case, existing, unchanged, expected):
+    item, _, _, _ = overlap_case
+    connection = classification_connection(
+        [], overlap=False, existing=existing, unchanged=unchanged
+    )
+    assert (await classify(connection, item))[0] == expected
+    connection.execute.assert_awaited_once()
+
+
+async def test_verified_overlap_never_accepts_invalid_candidate(overlap_case):
+    item, overlap, _, _ = overlap_case
+    connection = classification_connection([overlap], valid=False)
+    assert (await classify(connection, item))[0] == "rejected"
+    connection.execute.assert_awaited_once()
 
 
 def row(**changes):
@@ -194,6 +375,92 @@ async def area_store(admin_store, database):
             yield connection
     finally:
         await engine.dispose()
+
+
+@pytest.mark.parametrize("same_batch", [False, True], ids=["persisted-peer", "batch-peer"])
+@pytest.mark.parametrize(
+    "size,intrusion,unlisted,expected",
+    [
+        (10000, 4, False, "new"),
+        (10000, 7, False, "rejected"),  # Above both area limits.
+        (1000, 4, False, "rejected"),  # About 0.4% of each, below both area limits.
+        (10000, 1, True, "rejected"),
+        (10000, 0, True, "new"),  # Shared edge remains valid, including unlisted pairs.
+    ],
+)
+async def test_verified_overlap_postgis_plan_and_apply(
+    area_store, settings, overlap_case, same_batch, size, intrusion, unlisted, expected
+):
+    item, overlap, _, _ = overlap_case
+    # Synthetic rectangles in metric CRS, converted to WGS84. The production query
+    # measures the intersection and both complete geometries as spheroidal geography.
+    shapes = []
+    for shift in (0, size - intrusion):
+        raw = await area_store.scalar(
+            text("""SELECT ST_AsGeoJSON(ST_Transform(ST_MakeEnvelope(
+                500000 + :shift, 5900000, 500000 + :shift + :size,
+                5900000 + :size, 25832),4326))"""),
+            {"shift": shift, "size": size},
+        )
+        shapes.append(json.loads(raw))
+    await area_store.rollback()
+    candidate = row(
+        osm_id=item.osm_id,
+        address={"country_code": "de", "ISO3166-2-lvl4": "DE-NI"},
+        extratags={"admin_level": "8", "de:amtlicher_gemeindeschluessel": item.municipality_key},
+        geojson=shapes[0],
+    )
+    peer = row(
+        osm_id=overlap["osm_id"],
+        address={"country_code": "de", "ISO3166-2-lvl4": "DE-NI"},
+        extratags={
+            "admin_level": "8",
+            "de:amtlicher_gemeindeschluessel": "03999999"
+            if unlisted
+            else overlap["municipality_key"],
+        },
+        geojson=shapes[1],
+    )
+    records = [candidate, peer] if same_batch else [candidate]
+    if not same_batch:
+        assert (
+            await import_boundaries(
+                area_store,
+                provider(settings, [peer]),
+                "DE-NI",
+                [],
+                [peer["osm_id"]],
+                apply=True,
+            )
+        )["new"] == 1
+    identities = [r["osm_id"] for r in records]
+    plan = await import_boundaries(area_store, provider(settings, records), "DE-NI", [], identities)
+    assert plan["rejected"] == (1 if expected == "rejected" else 0)
+    assert plan["new"] == len(records) - plan["rejected"]
+    assert await area_store.scalar(text("SELECT count(*) FROM admin.research_area")) == (
+        0 if same_batch else 1
+    )
+    await area_store.rollback()
+    applied = await import_boundaries(
+        area_store,
+        provider(settings, records),
+        "DE-NI",
+        [],
+        identities,
+        apply=True,
+    )
+    assert applied == plan
+    if expected == "new":
+        repeated = await import_boundaries(
+            area_store,
+            provider(settings, records),
+            "DE-NI",
+            [],
+            identities,
+            apply=True,
+        )
+        assert repeated["unchanged"] == len(records)
+        assert repeated["rejected"] == 0
 
 
 async def test_plan_upsert_rename_geometry_and_missing_do_not_delete(area_store, settings):
