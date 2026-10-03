@@ -243,32 +243,39 @@ const fieldLabels = {
         </p>
       </template>
     </div>
-    <div v-if="result.kind === 'grouped'" class="overflow-x-auto">
+    <div v-if="result.kind === 'grouped'" class="space-y-2 overflow-x-auto">
       <p>
         {{ metric }} je Gruppenkombination · {{ result.items.length }} von höchstens
         {{ result.limit }} Gruppen
       </p>
       <table class="w-full text-left text-sm" aria-label="Mehrdimensionale Auswertung">
         <thead>
-          <tr>
-            <th v-for="dimension in result.dimensions" :key="dimension" scope="col">
+          <tr class="border-b">
+            <th v-for="dimension in result.dimensions" :key="dimension" scope="col" class="p-2">
               {{ dimensionLabels[dimension] }}
             </th>
-            <th scope="col">{{ metric }}</th>
+            <th scope="col" class="p-2 text-right">{{ metric }}</th>
           </tr>
         </thead>
         <tbody>
           <tr
             v-for="item in result.items"
             :key="JSON.stringify(item.coordinates.map((c) => c.key))"
+            class="border-b"
           >
-            <td v-for="coordinate in item.coordinates" :key="coordinate.dimension">
-              {{ formatGroupingCoordinate(coordinate.dimension, coordinate.name) }}
-            </td>
-            <td>{{ number(item.value) }}</td>
+            <template v-for="(coordinate, index) in item.coordinates" :key="coordinate.dimension">
+              <th v-if="index === 0" scope="row" class="p-2 font-normal">
+                {{ formatGroupingCoordinate(coordinate.dimension, coordinate.name) }}
+              </th>
+              <td v-else class="p-2">
+                {{ formatGroupingCoordinate(coordinate.dimension, coordinate.name) }}
+              </td>
+            </template>
+            <td class="p-2 text-right tabular-nums">{{ number(item.value) }}</td>
           </tr>
         </tbody>
       </table>
+      <EmptyState v-if="!result.items.length" message="Keine Gruppen für diese Auswertung." />
     </div>
     <div v-if="result.kind === 'aggregate' || result.kind === 'comparison'" class="overflow-x-auto">
       <table class="w-full text-left text-sm" aria-label="Auswertung">

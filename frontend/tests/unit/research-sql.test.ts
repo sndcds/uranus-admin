@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { computed } from 'vue'
 import ResearchQueryAnswer from '../../app/components/ResearchQueryAnswer.vue'
+import EmptyState from '../../app/components/EmptyState.vue'
 import ResearchSqlEditorModal from '../../app/components/sql/ResearchSqlEditorModal.vue'
 import SqlCodeEditor from '../../app/components/sql/SqlCodeEditor.vue'
 import SqlParameterTable from '../../app/components/sql/SqlParameterTable.vue'
@@ -32,7 +33,10 @@ afterEach(() => {
 function answer(response = executionResponse()) {
   const view = mount(ResearchQueryAnswer, {
     props: { response },
-    global: { stubs: { AppIcon: true, ResearchResult: true, NuxtLink: true } },
+    global: {
+      components: { EmptyState },
+      stubs: { AppIcon: true, ResearchResult: true, NuxtLink: true },
+    },
   })
   views.push(view)
   return view
@@ -151,13 +155,13 @@ it('shows ordered grouped dimensions and their actual SQL in the shared read-onl
   const response = groupedExecutionResponse()
   const view = answer(response)
   const table = view.get('table[aria-label="Mehrdimensionale Auswertung"]')
-  expect(table.findAll('th').map((column) => column.text())).toEqual([
+  expect(table.findAll('thead th').map((column) => column.text())).toEqual([
     'Veranstaltungstyp',
     'Monat',
     'Termine',
   ])
   expect(table.text()).toContain('Konzert')
-  expect(table.findAll('tbody td').map((cell) => cell.text())).toEqual([
+  expect(table.findAll('tbody th, tbody td').map((cell) => cell.text())).toEqual([
     'Konzert',
     'September',
     '7',
@@ -181,6 +185,7 @@ it('shows ordered grouped dimensions and their actual SQL in the shared read-onl
 it.each([
   ['01', 'Januar'],
   ['03', 'März'],
+  ['09', 'September'],
   ['10', 'Oktober'],
   ['12', 'Dezember'],
   ['unknown', 'unknown'],
@@ -192,9 +197,49 @@ it.each([
   coordinate.name = value
   const original = structuredClone(response)
   const table = answer(response).get('table[aria-label="Mehrdimensionale Auswertung"]')
-  expect(table.findAll('tbody td').map((cell) => cell.text())).toEqual(['Konzert', label, '7'])
+  expect(table.findAll('tbody th, tbody td').map((cell) => cell.text())).toEqual([
+    'Konzert',
+    label,
+    '7',
+  ])
   expect(response).toEqual(original)
   expect(researchExecutionResponseSchema.parse(response)).toEqual(original)
+})
+
+it.each(['grouped', 'aggregate', 'comparison'] as const)(
+  'uses consistent semantic table styling for %s results',
+  (kind) => {
+    const response = kind === 'grouped' ? groupedExecutionResponse() : executionResponse(kind)
+    const table = answer(response).get('table')
+    expect(table.element.parentElement!.classList.contains('overflow-x-auto')).toBe(true)
+    expect(table.get('thead tr').classes()).toContain('border-b')
+    for (const header of table.findAll('thead th')) {
+      expect(header.attributes('scope')).toBe('col')
+      expect(header.classes()).toContain('p-2')
+    }
+    expect(table.get('thead th:last-child').classes()).toContain('text-right')
+    for (const row of table.findAll('tbody tr')) {
+      expect(row.classes()).toContain('border-b')
+      expect(row.get('th:first-child').attributes('scope')).toBe('row')
+      expect(row.get('th:first-child').classes()).toContain('font-normal')
+      for (const cell of row.findAll('th, td')) expect(cell.classes()).toContain('p-2')
+      expect(row.get('td:last-child').classes()).toEqual(
+        expect.arrayContaining(['text-right', 'tabular-nums']),
+      )
+    }
+  },
+)
+
+it.each(['grouped', 'aggregate'] as const)('shows the same empty-state feedback for %s', (kind) => {
+  const response = kind === 'grouped' ? groupedExecutionResponse() : executionResponse(kind)
+  if (response.result.kind !== 'grouped' && response.result.kind !== 'aggregate') {
+    throw new Error('Expected grouped or aggregate fixture')
+  }
+  response.result.items = []
+  const view = answer(response)
+  expect(view.getComponent(EmptyState).text()).toBe('Keine Gruppen für diese Auswertung.')
+  expect(view.findAll('tbody tr')).toHaveLength(0)
+  expect(view.get('button[aria-label="SQL Editor"]').text()).toBe('SQL Editor')
 })
 
 it('keeps grouped results visible without offering an empty SQL Editor', () => {
