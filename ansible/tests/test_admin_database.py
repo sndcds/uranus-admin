@@ -797,6 +797,37 @@ class AdminBootstrapDatabaseTests(unittest.TestCase):
                 [(True, True, False)],
             )
 
+    def test_exact_0018_upgrade_only_widens_research_area_type(self):
+        self.bootstrap()
+        self.alembic("downgrade", "0018")
+        source_before = self.snapshot_source()
+        area_before = self.execute(
+            "SELECT oid,relowner,relacl::text FROM pg_class "
+            "WHERE oid='admin.research_area'::regclass"
+        )
+        constraint_sql = (
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conrelid='admin.research_area'::regclass AND conname='research_area_type'"
+        )
+        self.assertNotIn("'state'", self.execute(constraint_sql)[0][0])
+        plan = self.boundary.inspect("production", upgrade_approved=True)
+        self.assertEqual(plan["state"], "UPGRADEABLE")
+        self.assertEqual(plan["current_head"], "0018")
+        self.assertEqual(plan["target_head"], "0019")
+        self.assertEqual(plan["blockers"], [])
+        self.assertTrue(self.boundary.upgrade("production", True, self.values, self.migrate))
+        self.assertEqual(self.boundary.inspect("production")["state"], "READY")
+        self.assertEqual(self.execute("SELECT version_num FROM admin.alembic_version"), [("0019",)])
+        self.assertIn("'state'", self.execute(constraint_sql)[0][0])
+        self.assertEqual(self.snapshot_source(), source_before)
+        self.assertEqual(
+            self.execute(
+                "SELECT oid,relowner,relacl::text FROM pg_class "
+                "WHERE oid='admin.research_area'::regclass"
+            ),
+            area_before,
+        )
+
     def test_existing_upgrade_login_is_checked_without_changing_schema(self):
         self.bootstrap()
         self.alembic("downgrade", "0011")

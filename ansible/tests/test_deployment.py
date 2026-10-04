@@ -410,11 +410,22 @@ class ArtifactTests(unittest.TestCase):
             self.assertEqual(paths[0].read_bytes(), paths[1].read_bytes())
             digest = hashlib.sha256(paths[0].read_bytes()).hexdigest()
             manifest = filters.artifact_manifest(paths[0], digest, commit)
-            self.assertEqual(manifest["head"], "0018")
+            upgrade_target = packager.literal_assignment(
+                subprocess.check_output(
+                    ["git", "show", commit + ":backend/app/admin_upgrade_contracts.py"], cwd=ROOT
+                ),
+                "ADMIN_UPGRADE_TARGET",
+            )
+            self.assertEqual(manifest["head"], upgrade_target)
+            self.assertEqual(manifest["head"], "0019")
             self.assertEqual(len(manifest["runtime_grants"]), 24)
             self.assertEqual(
                 set(manifest["admin_upgrade_contracts"]),
-                {"0011", "0012", "0013", "0014", "0015", "0016", "0017"},
+                {"0011", "0012", "0013", "0014", "0015", "0016", "0017", "0018"},
+            )
+            self.assertEqual(
+                manifest["admin_upgrade_contracts"]["0018"]["runtime_grants"],
+                manifest["runtime_grants"],
             )
             self.assertEqual(
                 manifest["admin_upgrade_contracts"]["0013"]["runtime_grants"],
