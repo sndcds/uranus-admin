@@ -7,6 +7,39 @@ import {
 } from '../../shared/research-conversation'
 import { groupedExecutionResponse } from '../fixtures/research-grouping'
 import { researchQueryRequestSchema } from '../../shared/research-execution'
+import { replaceClarificationTarget } from '../../app/utils/research-conversation'
+
+it.each([
+  [
+    'exactly one target',
+    'Wie viele Veranstaltungen gab es in Neustadt im August?',
+    'Neustadt',
+    'Neustadt in Holstein',
+    'Wie viele Veranstaltungen gab es in Neustadt in Holstein im August?',
+  ],
+  ['target at start', 'Jazz im August', 'Jazz', 'Smooth Jazz', 'Smooth Jazz im August'],
+  ['target at end', 'Konzerte in Kiel', 'Kiel', 'Kiel-Mitte', 'Konzerte in Kiel-Mitte'],
+  [
+    'punctuation and spacing',
+    '  In „Kiel“, im AUGUST? ',
+    'Kiel',
+    'Kiel-Mitte',
+    '  In „Kiel-Mitte“, im AUGUST? ',
+  ],
+  ['empty target', 'Konzerte in Kiel', '', 'Berlin', 'Konzerte in Kiel'],
+  ['null target', 'Konzerte in Kiel', null, 'Berlin', 'Konzerte in Kiel'],
+  ['absent target', 'Konzerte in Kiel', 'Hamburg', 'Berlin', 'Konzerte in Kiel'],
+  ['different casing', 'Konzerte in Kiel', 'kiel', 'Berlin', 'Konzerte in Kiel'],
+  ['duplicate target', 'Kiel oder Kiel?', 'Kiel', 'Berlin', 'Kiel oder Kiel?'],
+  ['overlapping targets', 'aaa', 'aa', 'b', 'aaa'],
+  ['literal candidate', 'Konzerte in Kiel?', 'Kiel', 'A.*(B)[$&]$1', 'Konzerte in A.*(B)[$&]$1?'],
+  ['literal query', 'Konzerte in A.*(B)?', 'A.*(B)', 'Kiel', 'Konzerte in Kiel?'],
+] as const)(
+  'edits a clarification draft safely: %s',
+  (_name, original, query, candidate, expected) => {
+    expect(replaceClarificationTarget(original, query, candidate)).toBe(expected)
+  },
+)
 
 it('keeps semantic state ownership entirely in the backend', () => {
   const component = readFileSync('app/components/ResearchQuestion.vue', 'utf8')

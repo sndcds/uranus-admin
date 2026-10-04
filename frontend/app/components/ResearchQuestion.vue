@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { MAX_RESEARCH_TURNS, type ResearchTurn } from '~/utils/research-conversation'
+import {
+  MAX_RESEARCH_TURNS,
+  replaceClarificationTarget,
+  type ResearchTurn,
+} from '~/utils/research-conversation'
 import ResearchComposer from './ResearchComposer.vue'
 import { researchQuestionSchema } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
@@ -200,8 +204,13 @@ async function adjust(turn: ResearchTurn, candidate?: string) {
     return
   }
   // Candidate labels are editable text, never a browser-submitted execution plan.
-  if (candidate) {
-    question.value = candidate
+  if (
+    candidate &&
+    data.value &&
+    !('kind' in data.value) &&
+    data.value.result.kind === 'needs_clarification'
+  ) {
+    question.value = replaceClarificationTarget(turn.question, data.value.result.query, candidate)
   }
   await nextTick()
   input.value?.focus()
