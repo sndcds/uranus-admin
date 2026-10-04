@@ -227,3 +227,7 @@ remain available; activate the new path only after both components are installed
 
 Ephemeral Research conversations and coordinated Planner v11 activation are documented in
 [Research conversations](docs/research/conversation.md).
+
+Die additive [konversationelle Recherche v13](docs/research/conversational-v13.md)
+trennt Rechercheausführung und Gesprächsakte, hält den kurzlebigen Gesprächszustand
+im Backend und formuliert belegte Antworten auf Deutsch, Dänisch oder Englisch.

@@ -10,6 +10,7 @@ from app.admin_database import connect_admin
 from app.repositories.research_suggestions import learn
 from app.research.normalize import normalize
 from app.research.plan import InternalResearchPlan
+from app.research.wire.research_v13_schema import PlanResponseV13
 from app.schemas.research_response import ResearchExecutionResponse
 
 
@@ -20,6 +21,8 @@ async def record_success(
     *,
     plan: InternalResearchPlan | None = None,
 ) -> None:
+    if isinstance(response.plan, PlanResponseV13):
+        return
     if response.result.kind == "needs_clarification" or response.plan.plan.unsupported_reason:
         return
     try:

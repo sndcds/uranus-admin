@@ -8,7 +8,10 @@ const props = defineProps<{ response: ResearchExecutionResponse }>()
 defineEmits<{ adjust: [text?: string] }>()
 const sqlEditor = ref<InstanceType<typeof ResearchSqlEditorModal> | null>(null)
 const result = computed(() => props.response.result)
-const plan = computed(() => props.response.plan.plan)
+const plan = computed(() => {
+  const p = props.response.plan.plan
+  return 'interaction' in p ? p.interaction.research_plan : p
+})
 const structuredEvents = computed(
   () => plan.value.entity_type === 'event' && !props.response.execution.semantic,
 )
@@ -186,7 +189,11 @@ const fieldLabels = {
         <p v-else>{{ result.items.length }} Ergebnisse angezeigt</p>
       </template>
       <template v-else-if="result.kind === 'needs_clarification'">
-        <p>{{ clarification }}</p>
+        <p
+          v-if="response.plan.schema_version !== 'research-query-plan-v13' || !response.answer_text"
+        >
+          {{ clarification }}
+        </p>
         <p class="text-sm text-slate-600">Passe die Frage an und sende sie erneut ab.</p>
         <div
           v-if="result.candidates.length"

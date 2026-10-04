@@ -38,6 +38,7 @@ class LocationContext(ClosedModel):
 
 
 class ResearchQueryRequest(ResearchPlanRequest):
+    conversation_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{43}$")
     conversation_context: ResearchConversationContextV12 | ResearchConversationContext | None = None
     location_context: LocationContext | None = None
 

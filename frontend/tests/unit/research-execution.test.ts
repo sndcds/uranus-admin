@@ -65,8 +65,11 @@ it('mirrors OpenAPI result discriminator and required plan fields', () => {
   )
   expect(
     api.paths['/api/v1/research/query'].post.responses['200'].content['application/json'].schema
-      .$ref,
-  ).toBe('#/components/schemas/ResearchExecutionResponse')
+      .anyOf,
+  ).toEqual([
+    { $ref: '#/components/schemas/ResearchExecutionResponse' },
+    { $ref: '#/components/schemas/ConversationResponse' },
+  ])
 })
 it('enforces bounded values, records, resolution, genres, date/time and consistent plans', () => {
   const r = executionResponse()

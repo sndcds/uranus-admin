@@ -16,9 +16,13 @@ from app.research.wire.research_v9_schema import PlanResponseV9
 from app.research.wire.research_v10_schema import PlanResponseV10
 from app.research.wire.research_v11_schema import PlanResponseV11
 from app.research.wire.research_v12_schema import PlanResponseV12
+from app.research.wire.research_v13_schema import AnswerLanguage, PlanResponseV13
 from app.schemas.research_analytics import AnalyticalPlanResponse
 from app.schemas.research_conversation import ResearchConversationContext
-from app.schemas.research_conversation_v12 import ResearchConversationContextV12
+from app.schemas.research_conversation_v12 import (
+    ResearchConversationContextV12,
+    ResearchPlanSummaryV12,
+)
 from app.schemas.research_geography import GeographicPlanResponse
 from app.schemas.research_planner import PlanResponse
 
@@ -219,14 +223,36 @@ class ResearchPlannerClient:
     ) -> PlanResponseV12:
         return await self._plan_language(query, "v12", PlanResponseV12, context)
 
+    async def plan_natural(
+        self,
+        query: str,
+        context: ResearchConversationContextV12 | None = None,
+        *,
+        language: AnswerLanguage | None = None,
+        pending: ResearchPlanSummaryV12 | None = None,
+        previous_answer_available: bool = False,
+    ) -> PlanResponseV13:
+        return await self._plan_language(
+            query,
+            "v13",
+            PlanResponseV13,
+            context,
+            {
+                "conversation_language": language,
+                "pending_clarification": pending.model_dump(mode="json") if pending else None,
+                "previous_answer_available": previous_answer_available,
+            },
+        )
+
     async def _plan_language[
-        T: (PlanResponseV9, PlanResponseV10, PlanResponseV11, PlanResponseV12)
+        T: (PlanResponseV9, PlanResponseV10, PlanResponseV11, PlanResponseV12, PlanResponseV13)
     ](
         self,
         query: str,
-        version: Literal["v9", "v10", "v11", "v12"],
+        version: Literal["v9", "v10", "v11", "v12", "v13"],
         model: type[T],
         context: ResearchConversationContext | ResearchConversationContextV12 | None = None,
+        extra_context: dict[str, object] | None = None,
     ) -> T:
         """One bounded request; closed transport choice, no retry or fallback."""
         try:
@@ -243,6 +269,7 @@ class ResearchPlannerClient:
                         "query": query,
                         "timezone": self._timezone,
                         "language": "auto",
+                        **(extra_context or {}),
                         **(
                             {"conversation_context": context.model_dump(mode="json")}
                             if context is not None
@@ -298,6 +325,8 @@ async def plan_active(
     | PlanResponseV12
 ):
     """Select the configured wire contract once; never retry on an older contract."""
+    if settings.research_planner_contract == "v13":
+        raise APIError(422, "research_execution_unsupported", "v13 requires conversation routing.")
     if context is not None and settings.research_planner_contract not in {"v11", "v12"}:
         raise APIError(
             422, "research_execution_unsupported", "Conversation planning is not enabled."

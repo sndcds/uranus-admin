@@ -50,6 +50,7 @@ from app.errors import (
     validation_error_handler,
 )
 from app.logging import RequestLoggingMiddleware, configure_logging
+from app.research.conversation_state import ConversationStore
 from app.services.research_domain_client import ResearchDomainClient
 from app.services.research_planner import ResearchPlannerClient
 from app.sql_console.runtime import ConsoleRuntime
@@ -103,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.settings = settings
     application.state.research_geocoder = None
     application.state.research_planner = None
+    application.state.research_conversations = ConversationStore()
     application.state.research_domain = None
     application.add_exception_handler(APIError, api_error_handler)  # type: ignore[arg-type]
     application.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]

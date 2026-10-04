@@ -1,5 +1,3 @@
-import summary from '../fixtures/conversation-summary.json' with { type: 'json' }
-import { researchPlanSummarySchema } from '../../shared/research-conversation'
 import ResearchSqlEditorModal from '../../app/components/sql/ResearchSqlEditorModal.vue'
 import SqlCodeEditor from '../../app/components/sql/SqlCodeEditor.vue'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -169,7 +167,7 @@ it('clarification only edits the question until explicitly resubmitted', async (
     .findAll('button')
     .find((button) => button.text() === 'Neustadt in Holstein')!
     .trigger('click')
-  expect(view.get('textarea').element.value).toContain('in Neustadt in Holstein im August')
+  expect(view.get('textarea').element.value).toBe('Neustadt in Holstein')
   expect(ctx.api.researchQuery).toHaveBeenCalledTimes(1)
   await view.get('form').trigger('submit')
   expect(ctx.navigate).toHaveBeenCalledWith({
@@ -723,11 +721,11 @@ it('retry submits exactly the failed turn without overwriting an unsubmitted dra
   view.unmount()
 })
 
-it('retains ordered turns, sends bounded prior semantics, and preserves an edited draft', async () => {
+it('retains ordered turns, sends only the opaque token, and preserves an edited draft', async () => {
   const ctx = setup()
   ctx.route.query = {}
   const first = groupedExecutionResponse()
-  first.conversation_summary = researchPlanSummarySchema.parse(summary)
+  first.conversation_id = 'a'.repeat(43)
   const pending = deferred()
   ctx.api.researchQuery
     .mockResolvedValueOnce(first)
@@ -745,7 +743,7 @@ it('retains ordered turns, sends bounded prior semantics, and preserves an edite
   await flushPromises()
   expect(view.findAll('article')).toHaveLength(2)
   expect(view.findAllComponents(ResearchQueryAnswer)).toHaveLength(1)
-  expect(ctx.api.researchQuery.mock.calls[1]![4]).toEqual({ previous_turns: [summary] })
+  expect(ctx.api.researchQuery.mock.calls[1]![4]).toBe('a'.repeat(43))
   await view.get('textarea').setValue('Ein noch nicht abgesendeter Entwurf')
   pending.resolve(executionResponse())
   await flushPromises()
@@ -885,5 +883,34 @@ it('renders v12 district clarification labels without internal identities', asyn
   expect(view.text()).not.toMatch(
     /Ahneby|Arnis|Ausacker|Bollingstedt|Boren|00000000-0000|expected_level|area_level/,
   )
+  view.unmount()
+})
+
+it('renders social replies as ordinary text and preserves the opaque conversation handle', async () => {
+  const ctx = setup()
+  ctx.route.query = {}
+  const token = 'b'.repeat(43)
+  ctx.api.researchQuery.mockResolvedValue({
+    kind: 'conversation',
+    answer_text: 'Gerne.',
+    language: 'de',
+    conversation_id: token,
+    interaction: { kind: 'acknowledgement', conversation: { act: 'acknowledge', reason: null } },
+  })
+  const view = mount(ResearchQuestion, { global: ctx.global })
+  await flushPromises()
+  await view.get('textarea').setValue('danke')
+  await view.get('form').trigger('submit')
+  await flushPromises()
+  expect(view.get('[data-testid=research-conversation-answer]').text()).toBe('Gerne.')
+  expect(view.findComponent(ResearchQueryAnswer).exists()).toBe(false)
+  expect(view.text()).not.toContain('Frage präzisieren')
+  await view.get('textarea').setValue('und morgen?')
+  await view.get('form').trigger('submit')
+  await flushPromises()
+  expect(ctx.api.researchQuery.mock.calls[1]![4]).toBe(token)
+  ctx.auth.revision++
+  await nextTick()
+  expect(view.find('[data-testid=research-conversation-answer]').exists()).toBe(false)
   view.unmount()
 })

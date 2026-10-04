@@ -10,8 +10,9 @@ from pydantic import TypeAdapter
 
 from app.admin_database import AdminConnectionDep
 from app.auth.dependencies import get_current_research_user
+from app.config import Settings
 from app.database import ConnectionDep, SettingsDep
-from app.errors import ErrorResponse
+from app.errors import APIError, ErrorResponse
 from app.repositories import research_suggestions
 from app.repositories.research import (
     research_activity,
@@ -26,6 +27,7 @@ from app.research.context import ResearchExecutionContext
 from app.research.conversation import summarize_plan
 from app.research.geography import location_sensitive
 from app.research.normalize import normalize
+from app.research.public_result import public_execution_result as _public_execution_result
 from app.schemas.research import (
     ResearchDetail,
     ResearchExport,
@@ -38,10 +40,9 @@ from app.schemas.research import (
 )
 from app.schemas.research_administrative_result import AdministrativeResult
 from app.schemas.research_areas import AreaDossier, AreaFilters, AreaPage, ResearchArea
-from app.schemas.research_execution import ExecutionResult
 from app.schemas.research_location import ResearchQueryRequest
 from app.schemas.research_planner import PlanResponse, ResearchPlanRequest
-from app.schemas.research_response import ResearchExecutionResponse
+from app.schemas.research_response import ConversationResponse, ResearchExecutionResponse
 from app.schemas.research_suggestions import (
     Impression,
     Selection,
@@ -51,7 +52,9 @@ from app.schemas.research_suggestions import (
 )
 from app.schemas.research_unified import UnifiedAnswer
 from app.services.research_administrative import execute as execute_administrative
+from app.services.research_conversational import execute_conversation
 from app.services.research_learning import record_success
+from app.services.research_legacy_conversation import legacy_turn
 from app.services.research_plan_execution import ResearchPlanExecutor
 from app.services.research_planner import ResearchPlannerClient, plan_active, unavailable
 from app.services.research_unified import execute as execute_unified
@@ -63,22 +66,6 @@ router = APIRouter(
     dependencies=[Depends(get_current_research_user)],
     responses={code: {"model": ErrorResponse} for code in (401, 403, 404, 422, 503)},
 )
-
-
-def _public_execution_result(result: ExecutionResult) -> ExecutionResult:
-    """Mask taxonomy choice IDs only at the HTTP edge, never in domain resolution."""
-    if result.kind != "needs_clarification" or result.reason != "ambiguous":
-        return result
-    return result.model_copy(
-        update={
-            "candidates": [
-                choice.model_copy(update={"id": f"choice-{i}"})
-                if choice.entity_type in {"event_type", "genre"}
-                else choice
-                for i, choice in enumerate(result.candidates)
-            ]
-        }
-    )
 
 
 @router.post(
@@ -97,7 +84,7 @@ async def plan(request: Request, body: ResearchPlanRequest) -> PlanResponse:
 
 @router.post(
     "/query",
-    response_model=ResearchExecutionResponse,
+    response_model=ResearchExecutionResponse | ConversationResponse,
     responses={code: {"model": ErrorResponse} for code in (413, 502)},
 )
 async def query(
@@ -105,10 +92,30 @@ async def query(
     body: ResearchQueryRequest,
     settings: SettingsDep,
     x_research_selection: Annotated[UUID | None, Header()] = None,
-) -> ResearchExecutionResponse:
+) -> ResearchExecutionResponse | ConversationResponse:
     planner: ResearchPlannerClient | None = request.app.state.research_planner
     if planner is None:
         raise unavailable()
+    if settings.research_planner_contract == "v13":
+        return await execute_conversation(request, settings, body, planner)
+    if settings.research_planner_contract in {"v11", "v12"} and body.conversation_context is None:
+
+        async def execute_legacy(revised: ResearchQueryRequest) -> ResearchExecutionResponse:
+            return await _query_legacy(request, revised, settings, planner, x_research_selection)
+
+        return await legacy_turn(request, settings, body, execute_legacy)
+    if body.conversation_id is not None:
+        raise APIError(422, "invalid_input", "Conversation IDs require a conversation contract.")
+    return await _query_legacy(request, body, settings, planner, x_research_selection)
+
+
+async def _query_legacy(
+    request: Request,
+    body: ResearchQueryRequest,
+    settings: Settings,
+    planner: ResearchPlannerClient,
+    x_research_selection: UUID | None,
+) -> ResearchExecutionResponse:
     started = perf_counter()
     response = (
         await plan_active(planner, settings, body.query, body.conversation_context)
