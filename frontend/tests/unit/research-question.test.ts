@@ -159,17 +159,38 @@ it('shows a stable error without fallback and allows an explicit retry', async (
 })
 it('clarification only edits the question until explicitly resubmitted', async () => {
   const response = executionResponse('needs_clarification')
+  response.conversation_id = 'a'.repeat(43)
+  const originalResponse = structuredClone(response)
+  const draft = 'Wie viele Veranstaltungen gab es in Neustadt in Holstein im August?'
   const ctx = setup(response.query)
   ctx.api.researchQuery.mockResolvedValue(response)
-  const view = mount(ResearchQuestion, { global: ctx.global })
+  const view = mount(ResearchQuestion, { global: ctx.global, attachTo: document.body })
   await flushPromises()
+  await view.get('textarea').setValue('Ein anderer ungesendeter Entwurf')
   await view
     .findAll('button')
     .find((button) => button.text() === 'Neustadt in Holstein')!
     .trigger('click')
-  expect(view.get('textarea').element.value).toBe('Neustadt in Holstein')
+  await flushPromises()
+  expect(view.get('textarea').element.value).toBe(draft)
+  expect(document.activeElement).toBe(view.get('textarea').element)
   expect(ctx.api.researchQuery).toHaveBeenCalledTimes(1)
+  expect(ctx.navigate).not.toHaveBeenCalled()
+  expect(ctx.route.query).toEqual({ question: response.query })
+  expect(view.findAll('[data-testid=research-user-question]').map((turn) => turn.text())).toEqual([
+    response.query,
+  ])
+  expect(view.getComponent(ResearchQueryAnswer).props('response')).toEqual(originalResponse)
   await view.get('form').trigger('submit')
+  await flushPromises()
+  expect(ctx.api.researchQuery).toHaveBeenCalledTimes(2)
+  expect(ctx.api.researchQuery).toHaveBeenLastCalledWith(
+    draft,
+    expect.any(AbortSignal),
+    undefined,
+    undefined,
+    response.conversation_id,
+  )
   expect(ctx.navigate).toHaveBeenCalledWith({
     path: '/research',
     query: { question: view.get('textarea').element.value },
