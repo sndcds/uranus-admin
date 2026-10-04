@@ -1,0 +1,16 @@
+{
+  "level": "state",
+  "parent_area_id": null,
+  "country_codes": ["DE"],
+  "region_code": "DE-NI",
+  "osm_admin_level": 4,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Reviewed state identity for Niedersachsen; not a complete country inventory. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv.",
+  "complete": false,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 62771
+    }
+  ]
+}

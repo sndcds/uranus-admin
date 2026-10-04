@@ -1,0 +1,108 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:62341:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-RP",
+  "osm_admin_level": 6,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Rheinland-Pfalz; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 62623
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62357
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62741
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62679
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62569
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62572
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62348
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62527
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62443
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62362
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62668
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62584
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62615
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62361
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62680
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62454
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62737
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62698
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62451
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62367
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62653
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62610
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62632
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62360
+    }
+  ]
+}

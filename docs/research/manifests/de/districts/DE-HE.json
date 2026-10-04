@@ -1,0 +1,96 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:62650:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-HE",
+  "osm_admin_level": 6,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Hessen; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 62730
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62704
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62656
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62566
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62694
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62382
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62596
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62715
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62746
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62519
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62692
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62368
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62585
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62643
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62543
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62700
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62637
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62401
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62736
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62563
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62586
+    }
+  ]
+}

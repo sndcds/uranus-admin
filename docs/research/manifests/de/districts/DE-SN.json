@@ -1,0 +1,52 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:62467:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-SN",
+  "osm_admin_level": 6,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Sachsen; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 62427
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62350
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62943
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62785
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62384
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62345
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62511
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62485
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62434
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62547
+    }
+  ]
+}

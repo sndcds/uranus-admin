@@ -1,0 +1,56 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:62607:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-ST",
+  "osm_admin_level": 6,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Sachsen-Anhalt; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 62602
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62747
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62359
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62639
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62429
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62477
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62681
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62473
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62502
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62725
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62425
+    }
+  ]
+}

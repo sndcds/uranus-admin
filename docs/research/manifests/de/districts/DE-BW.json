@@ -1,0 +1,152 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:62611:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-BW",
+  "osm_admin_level": 6,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Baden-Württemberg; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 62721
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62593
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62475
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62536
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62412
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62750
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62394
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62582
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62542
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62506
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62708
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62393
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62388
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62626
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62577
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62601
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62723
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62354
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62783
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62503
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62624
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62344
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62690
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62682
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62603
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62587
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62716
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62735
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62486
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62446
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62421
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62697
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62635
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62570
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62380
+    }
+  ]
+}

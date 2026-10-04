@@ -1,0 +1,36 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:28322:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-MV",
+  "osm_admin_level": 6,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Mecklenburg-Vorpommern; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 1739376
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 1739377
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 1739379
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 1739380
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 1431517
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 1739381
+    }
+  ]
+}

@@ -1,0 +1,316 @@
+level,region_code,name,osm_relation_id,osm_version,osm_admin_level,official_key,dlt_name,disposition,reviewed_on,source_url
+district,DE-BB,Barnim,62553,132,6,12060,Barnim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62553/132
+district,DE-BB,Dahme-Spreewald,62376,224,6,12061,Dahme-Spreewald,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62376/224
+district,DE-BB,Elbe-Elster,62505,96,6,12062,Elbe-Elster,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62505/96
+district,DE-BB,Havelland,62413,182,6,12063,Havelland,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62413/182
+district,DE-BB,Märkisch-Oderland,318248,107,6,12064,Märkisch-Oderland,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/318248/107
+district,DE-BB,Oberhavel,62488,158,6,12065,Oberhavel,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62488/158
+district,DE-BB,Oberspreewald-Lausitz - Górne Błota-Łužyca,62571,122,6,12066,Oberspreewald-Lausitz,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62571/122
+district,DE-BB,Oder-Spree,62628,163,6,12067,Oder-Spree,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62628/163
+district,DE-BB,Ostprignitz-Ruppin,62574,121,6,12068,Ostprignitz-Ruppin,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62574/121
+district,DE-BB,Potsdam-Mittelmark,62353,260,6,12069,Potsdam-Mittelmark,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62353/260
+district,DE-BB,Prignitz,62738,68,6,12070,Prignitz,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62738/68
+district,DE-BB,Spree-Neiße - Sprjewja-Nysa,62683,177,6,12071,Spree-Neiße,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62683/177
+district,DE-BB,Teltow-Fläming,62364,148,6,12072,Teltow-Fläming,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62364/148
+district,DE-BB,Uckermark,62537,149,6,12073,Uckermark,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62537/149
+district,DE-BW,Landkreis Böblingen,62721,113,6,08115,Böblingen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62721/113
+district,DE-BW,Landkreis Esslingen,62593,48,6,08116,Esslingen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62593/48
+district,DE-BW,Landkreis Göppingen,62475,43,6,08117,Göppingen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62475/43
+district,DE-BW,Landkreis Ludwigsburg,62536,129,6,08118,Ludwigsburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62536/129
+district,DE-BW,Rems-Murr-Kreis,62412,148,6,08119,Rems-Murr-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62412/148
+district,DE-BW,Landkreis Heilbronn,62750,115,6,08125,Heilbronn,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62750/115
+district,DE-BW,Hohenlohekreis,62394,86,6,08126,Hohenlohekreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62394/86
+district,DE-BW,Landkreis Schwäbisch Hall,62582,95,6,08127,Schwäbisch Hall,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62582/95
+district,DE-BW,Main-Tauber-Kreis,62542,105,6,08128,Main-Tauber-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62542/105
+district,DE-BW,Landkreis Heidenheim,62506,49,6,08135,Heidenheim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62506/49
+district,DE-BW,Ostalbkreis,62708,157,6,08136,Ostalbkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62708/157
+district,DE-BW,Landkreis Karlsruhe,62393,184,6,08215,Karlsruhe,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62393/184
+district,DE-BW,Landkreis Rastatt,62388,110,6,08216,Rastatt,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62388/110
+district,DE-BW,Neckar-Odenwald-Kreis,62626,77,6,08225,Neckar-Odenwald-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62626/77
+district,DE-BW,Rhein-Neckar-Kreis,62577,160,6,08226,Rhein-Neckar-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62577/160
+district,DE-BW,Landkreis Calw,62601,94,6,08235,Calw,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62601/94
+district,DE-BW,Enzkreis,62723,145,6,08236,Enzkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62723/145
+district,DE-BW,Landkreis Freudenstadt,62354,80,6,08237,Freudenstadt,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62354/80
+district,DE-BW,Landkreis Breisgau-Hochschwarzwald,62783,230,6,08315,Breisgau-Hochschwarzwald,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62783/230
+district,DE-BW,Landkreis Emmendingen,62503,66,6,08316,Emmendingen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62503/66
+district,DE-BW,Ortenaukreis,62624,141,6,08317,Ortenaukreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62624/141
+district,DE-BW,Landkreis Rottweil,62344,97,6,08325,Rottweil,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62344/97
+district,DE-BW,Schwarzwald-Baar-Kreis,62690,113,6,08326,Schwarzwald-Baar-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62690/113
+district,DE-BW,Landkreis Tuttlingen,62682,71,6,08327,Tuttlingen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62682/71
+district,DE-BW,Landkreis Konstanz,62603,126,6,08335,Konstanz,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62603/126
+district,DE-BW,Landkreis Lörrach,62587,115,6,08336,Lörrach,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62587/115
+district,DE-BW,Landkreis Waldshut,62716,111,6,08337,Waldshut,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62716/111
+district,DE-BW,Landkreis Reutlingen,62735,45,6,08415,Reutlingen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62735/45
+district,DE-BW,Landkreis Tübingen,62486,60,6,08416,Tübingen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62486/60
+district,DE-BW,Zollernalbkreis,62446,38,6,08417,Zollernalbkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62446/38
+district,DE-BW,Alb-Donau-Kreis,62421,51,6,08425,Alb-Donau-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62421/51
+district,DE-BW,Landkreis Biberach,62697,48,6,08426,Biberach,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62697/48
+district,DE-BW,Bodenseekreis,62635,40,6,08435,Bodenseekreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62635/40
+district,DE-BW,Landkreis Ravensburg,62570,41,6,08436,Ravensburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62570/41
+district,DE-BW,Landkreis Sigmaringen,62380,44,6,08437,Sigmaringen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62380/44
+district,DE-BY,Landkreis Altötting,62663,55,6,09171,Altötting,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62663/55
+district,DE-BY,Landkreis Berchtesgadener Land,62712,72,6,09172,Berchtesgadener Land,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62712/72
+district,DE-BY,Landkreis Bad Tölz-Wolfratshausen,62472,58,6,09173,Bad Tölz-Wolfratshausen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62472/58
+district,DE-BY,Landkreis Dachau,62556,64,6,09174,Dachau,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62556/64
+district,DE-BY,Landkreis Ebersberg,2168230,42,6,09175,Ebersberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2168230/42
+district,DE-BY,Landkreis Eichstätt,62684,61,6,09176,Eichstätt,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62684/61
+district,DE-BY,Landkreis Erding,62356,76,6,09177,Erding,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62356/76
+district,DE-BY,Landkreis Freising,62633,66,6,09178,Freising,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62633/66
+district,DE-BY,Landkreis Fürstenfeldbruck,62595,58,6,09179,Fürstenfeldbruck,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62595/58
+district,DE-BY,Landkreis Garmisch-Partenkirchen,62726,57,6,09180,Garmisch-Partenkirchen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62726/57
+district,DE-BY,Landkreis Landsberg am Lech,62498,56,6,09181,Landsberg am Lech,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62498/56
+district,DE-BY,Landkreis Miesbach,2168231,16,6,09182,Miesbach,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2168231/16
+district,DE-BY,Landkreis Mühldorf am Inn,2168232,45,6,09183,Mühldorf a.Inn,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2168232/45
+district,DE-BY,Landkreis München,62580,201,6,09184,München,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62580/201
+district,DE-BY,Landkreis Neuburg-Schrobenhausen,62655,48,6,09185,Neuburg-Schrobenhausen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62655/48
+district,DE-BY,Landkreis Pfaffenhofen an der Ilm,62371,71,6,09186,Pfaffenhofen a.d.Ilm,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62371/71
+district,DE-BY,Landkreis Rosenheim,2156362,68,6,09187,Rosenheim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2156362/68
+district,DE-BY,Landkreis Starnberg,62458,49,6,09188,Starnberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62458/49
+district,DE-BY,Landkreis Traunstein,2156363,57,6,09189,Traunstein,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2156363/57
+district,DE-BY,Landkreis Weilheim-Schongau,62600,45,6,09190,Weilheim-Schongau,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62600/45
+district,DE-BY,Landkreis Deggendorf,62711,52,6,09271,Deggendorf,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62711/52
+district,DE-BY,Landkreis Freyung-Grafenau,2083466,64,6,09272,Freyung-Grafenau,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2083466/64
+district,DE-BY,Landkreis Kelheim,62614,52,6,09273,Kelheim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62614/52
+district,DE-BY,Landkreis Landshut,62657,123,6,09274,Landshut,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62657/123
+district,DE-BY,Landkreis Passau,62541,105,6,09275,Passau,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62541/105
+district,DE-BY,Landkreis Regen,62709,77,6,09276,Regen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62709/77
+district,DE-BY,Landkreis Rottal-Inn,62592,63,6,09277,Rottal-Inn,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62592/63
+district,DE-BY,Landkreis Straubing-Bogen,62727,74,6,09278,Straubing-Bogen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62727/74
+district,DE-BY,Landkreis Dingolfing-Landau,62707,59,6,09279,Dingolfing-Landau,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62707/59
+district,DE-BY,Landkreis Amberg-Sulzbach,62765,71,6,09371,Amberg-Sulzbach,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62765/71
+district,DE-BY,Landkreis Cham,62548,133,6,09372,Cham,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62548/133
+district,DE-BY,Landkreis Neumarkt in der Oberpfalz,62620,62,6,09373,Neumarkt i.d.OPf.,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62620/62
+district,DE-BY,Landkreis Neustadt an der Waldnaab,975339,89,6,09374,Neustadt a.d.Waldnaab,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/975339/89
+district,DE-BY,Landkreis Regensburg,62565,78,6,09375,Regensburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62565/78
+district,DE-BY,Landkreis Schwandorf,62686,91,6,09376,Schwandorf,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62686/91
+district,DE-BY,Landkreis Tirschenreuth,62575,86,6,09377,Tirschenreuth,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62575/86
+district,DE-BY,Landkreis Bamberg,62627,76,6,09471,Bamberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62627/76
+district,DE-BY,Landkreis Bayreuth,62378,120,6,09472,Bayreuth,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62378/120
+district,DE-BY,Landkreis Coburg,62561,74,6,09473,Coburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62561/74
+district,DE-BY,Landkreis Forchheim,62687,50,6,09474,Forchheim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62687/50
+district,DE-BY,Landkreis Hof,2145179,62,6,09475,Hof,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2145179/62
+district,DE-BY,Landkreis Kronach,62383,64,6,09476,Kronach,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62383/64
+district,DE-BY,Landkreis Kulmbach,2145178,36,6,09477,Kulmbach,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2145178/36
+district,DE-BY,Landkreis Lichtenfels,62515,46,6,09478,Lichtenfels,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62515/46
+district,DE-BY,Landkreis Wunsiedel im Fichtelgebirge,62491,92,6,09479,Wunsiedel i. Fichtelgebirge,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62491/92
+district,DE-BY,Landkreis Ansbach,62609,76,6,09571,Ansbach,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62609/76
+district,DE-BY,Landkreis Erlangen-Höchstadt,62448,93,6,09572,Erlangen-Höchstadt,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62448/93
+district,DE-BY,Landkreis Fürth,62778,36,6,09573,Fürth,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62778/36
+district,DE-BY,Landkreis Nürnberger Land,62744,91,6,09574,Nürnberger Land,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62744/91
+district,DE-BY,Landkreis Neustadt an der Aisch-Bad Windsheim,62514,60,6,09575,Neustadt a.d. Aisch-Bad Windsheim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62514/60
+district,DE-BY,Landkreis Roth,62431,70,6,09576,Roth,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62431/70
+district,DE-BY,Landkreis Weißenburg-Gunzenhausen,62390,35,6,09577,Weißenburg-Gunzenhausen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62390/35
+district,DE-BY,Landkreis Aschaffenburg,62497,107,6,09671,Aschaffenburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62497/107
+district,DE-BY,Landkreis Bad Kissingen,62406,78,6,09672,Bad Kissingen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62406/78
+district,DE-BY,Landkreis Rhön-Grabfeld,62739,74,6,09673,Rhön-Grabfeld,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62739/74
+district,DE-BY,Landkreis Haßberge,62520,56,6,09674,Haßberge,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62520/56
+district,DE-BY,Landkreis Kitzingen,62457,40,6,09675,Kitzingen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62457/40
+district,DE-BY,Landkreis Miltenberg,62404,109,6,09676,Miltenberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62404/109
+district,DE-BY,Landkreis Main-Spessart,62641,98,6,09677,Main-Spessart,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62641/98
+district,DE-BY,Landkreis Schweinfurt,62530,75,6,09678,Schweinfurt,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62530/75
+district,DE-BY,Landkreis Würzburg,62465,105,6,09679,Würzburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62465/105
+district,DE-BY,Landkreis Aichach-Friedberg,62377,73,6,09771,Aichach-Friedberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62377/73
+district,DE-BY,Landkreis Augsburg,62622,107,6,09772,Augsburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62622/107
+district,DE-BY,Landkreis Dillingen an der Donau,62521,65,6,09773,Dillingen a.d.Donau,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62521/65
+district,DE-BY,Landkreis Günzburg,62664,68,6,09774,Günzburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62664/68
+district,DE-BY,Landkreis Neu-Ulm,62469,47,6,09775,Neu-Ulm,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62469/47
+district,DE-BY,Landkreis Lindau,62672,81,6,09776,Lindau (Bodensee),import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62672/81
+district,DE-BY,Landkreis Ostallgäu,62533,114,6,09777,Ostallgäu,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62533/114
+district,DE-BY,Landkreis Unterallgäu,62398,84,6,09778,Unterallgäu,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62398/84
+district,DE-BY,Landkreis Donau-Ries,62389,66,6,09779,Donau-Ries,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62389/66
+district,DE-BY,Landkreis Oberallgäu,62415,118,6,09780,Oberallgäu,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62415/118
+district,DE-HE,Kreis Bergstraße,62730,135,6,06431,Bergstraße,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62730/135
+district,DE-HE,Landkreis Darmstadt-Dieburg,62704,149,6,06432,Darmstadt-Dieburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62704/149
+district,DE-HE,Kreis Groß-Gerau,62656,104,6,06433,Groß-Gerau,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62656/104
+district,DE-HE,Hochtaunuskreis,62566,92,6,06434,Hochtaunuskreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62566/92
+district,DE-HE,Main-Kinzig-Kreis,62694,142,6,06435,Main-Kinzig-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62694/142
+district,DE-HE,Main-Taunus-Kreis,62382,106,6,06436,Main-Taunus-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62382/106
+district,DE-HE,Odenwaldkreis,62596,109,6,06437,Odenwaldkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62596/109
+district,DE-HE,Landkreis Offenbach,62715,67,6,06438,Offenbach,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62715/67
+district,DE-HE,Rheingau-Taunus-Kreis,62746,123,6,06439,Rheingau-Taunus-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62746/123
+district,DE-HE,Wetteraukreis,62519,126,6,06440,Wetteraukreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62519/126
+district,DE-HE,Landkreis Gießen,62692,92,6,06531,Gießen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62692/92
+district,DE-HE,Lahn-Dill-Kreis,62368,66,6,06532,Lahn-Dill-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62368/66
+district,DE-HE,Landkreis Limburg-Weilburg,62585,77,6,06533,Limburg-Weilburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62585/77
+district,DE-HE,Landkreis Marburg-Biedenkopf,62643,99,6,06534,Marburg-Biedenkopf,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62643/99
+district,DE-HE,Vogelsbergkreis,62543,119,6,06535,Vogelsbergkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62543/119
+district,DE-HE,Landkreis Fulda,62700,119,6,06631,Fulda,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62700/119
+district,DE-HE,Landkreis Hersfeld-Rotenburg,62637,123,6,06632,Hersfeld-Rotenburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62637/123
+district,DE-HE,Landkreis Kassel,62401,195,6,06633,Kassel,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62401/195
+district,DE-HE,Schwalm-Eder-Kreis,62736,157,6,06634,Schwalm-Eder-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62736/157
+district,DE-HE,Landkreis Waldeck-Frankenberg,62563,146,6,06635,Waldeck-Frankenberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62563/146
+district,DE-HE,Werra-Meißner-Kreis,62586,106,6,06636,Werra-Meißner-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62586/106
+district,DE-MV,Mecklenburgische Seenplatte,1739376,87,6,13071,Mecklenburgische Seenplatte,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1739376/87
+district,DE-MV,Landkreis Rostock,1739377,70,6,13072,Rostock,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1739377/70
+district,DE-MV,Vorpommern-Rügen,1739379,231,6,13073,Vorpommern-Rügen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1739379/231
+district,DE-MV,Nordwestmecklenburg,1739380,66,6,13074,Nordwestmecklenburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1739380/66
+district,DE-MV,Vorpommern-Greifswald,1431517,232,6,13075,Vorpommern-Greifswald,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1431517/232
+district,DE-MV,Ludwigslust-Parchim,1739381,63,6,13076,Ludwigslust-Parchim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1739381/63
+district,DE-NI,Landkreis Gifhorn,62647,115,6,03151,Gifhorn,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62647/115
+district,DE-NI,Landkreis Goslar,62669,116,6,03153,Goslar,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62669/116
+district,DE-NI,Landkreis Helmstedt,62416,90,6,03154,Helmstedt,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62416/90
+district,DE-NI,Landkreis Northeim,62613,125,6,03155,Northeim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62613/125
+district,DE-NI,Landkreis Peine,62494,88,6,03157,Peine,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62494/88
+district,DE-NI,Landkreis Wolfenbüttel,62558,117,6,03158,Wolfenbüttel,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62558/117
+district,DE-NI,Landkreis Göttingen,6679859,113,6,03159,Göttingen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/6679859/113
+district,DE-NI,Region Hannover,62764,136,6,03241,Region Hannover,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62764/136
+district,DE-NI,Landkreis Diepholz,62426,153,6,03251,Diepholz,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62426/153
+district,DE-NI,Landkreis Hameln-Pyrmont,62766,77,6,03252,Hameln-Pyrmont,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62766/77
+district,DE-NI,Landkreis Hildesheim,62742,102,6,03254,Hildesheim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62742/102
+district,DE-NI,Landkreis Holzminden,62510,80,6,03255,Holzminden,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62510/80
+district,DE-NI,Landkreis Nienburg/Weser,62728,123,6,03256,Nienburg/Weser,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62728/123
+district,DE-NI,Landkreis Schaumburg,62762,72,6,03257,Schaumburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62762/72
+district,DE-NI,Landkreis Celle,62608,74,6,03351,Celle,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62608/74
+district,DE-NI,Landkreis Cuxhaven,2083535,67,6,03352,Cuxhaven,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2083535/67
+district,DE-NI,Landkreis Harburg,2083497,68,6,03353,Harburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2083497/68
+district,DE-NI,Landkreis Lüchow-Dannenberg,62662,94,6,03354,Lüchow-Dannenberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62662/94
+district,DE-NI,Landkreis Lüneburg,2084746,60,6,03355,Lüneburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2084746/60
+district,DE-NI,Landkreis Osterholz,62399,92,6,03356,Osterholz,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62399/92
+district,DE-NI,Landkreis Rotenburg (Wümme),62617,111,6,03357,Rotenburg (Wümme),import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62617/111
+district,DE-NI,Heidekreis,62674,97,6,03358,Heidekreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62674/97
+district,DE-NI,Landkreis Stade,62482,134,6,03359,Stade,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62482/134
+district,DE-NI,Landkreis Uelzen,62743,66,6,03360,Uelzen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62743/66
+district,DE-NI,Landkreis Verden,62740,85,6,03361,Verden,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62740/85
+district,DE-NI,Landkreis Ammerland,62689,62,6,03451,Ammerland,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62689/62
+district,DE-NI,Landkreis Aurich,62355,122,6,03452,Aurich,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62355/122
+district,DE-NI,Landkreis Cloppenburg,62597,87,6,03453,Cloppenburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62597/87
+district,DE-NI,Landkreis Emsland,62540,120,6,03454,Emsland,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62540/120
+district,DE-NI,Landkreis Friesland,62773,75,6,03455,Friesland,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62773/75
+district,DE-NI,Landkreis Grafschaft Bentheim,62550,72,6,03456,Grafschaft Bentheim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62550/72
+district,DE-NI,Landkreis Leer,62567,115,6,03457,Leer,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62567/115
+district,DE-NI,Landkreis Oldenburg,62648,72,6,03458,Oldenburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62648/72
+district,DE-NI,Landkreis Osnabrück,62673,176,6,03459,Osnabrück,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62673/176
+district,DE-NI,Landkreis Vechta,62666,84,6,03460,Vechta,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62666/84
+district,DE-NI,Landkreis Wesermarsch,62731,87,6,03461,Wesermarsch,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62731/87
+district,DE-NI,Landkreis Wittmund,62397,78,6,03462,Wittmund,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62397/78
+district,DE-NW,Kreis Kleve,62476,114,6,05154,Kleve,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62476/114
+district,DE-NW,Kreis Mettmann,62423,155,6,05158,Mettmann,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62423/155
+district,DE-NW,Rhein-Kreis Neuss,62535,105,6,05162,Rhein-Kreis Neuss,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62535/105
+district,DE-NW,Kreis Viersen,62489,104,6,05166,Viersen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62489/104
+district,DE-NW,Kreis Wesel,58745,101,6,05170,Wesel,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/58745/101
+district,DE-NW,Städteregion Aachen,62665,180,6,05334,StädteRegion Aachen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62665/180
+district,DE-NW,Kreis Düren,62452,65,6,05358,Düren,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62452/65
+district,DE-NW,Rhein-Erft-Kreis,62661,79,6,05362,Rhein-Erft-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62661/79
+district,DE-NW,Kreis Euskirchen,62555,115,6,05366,Euskirchen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62555/115
+district,DE-NW,Kreis Heinsberg,62767,97,6,05370,Heinsberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62767/97
+district,DE-NW,Oberbergischer Kreis,62373,100,6,05374,Oberbergischer Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62373/100
+district,DE-NW,Rheinisch-Bergischer Kreis,62343,105,6,05378,Rheinisch-Bergischer Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62343/105
+district,DE-NW,Rhein-Sieg-Kreis,62544,217,6,05382,Rhein-Sieg-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62544/217
+district,DE-NW,Kreis Borken,62606,120,6,05554,Borken,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62606/120
+district,DE-NW,Kreis Coesfeld,62779,80,6,05558,Coesfeld,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62779/80
+district,DE-NW,Kreis Recklinghausen,62770,188,6,05562,Recklinghausen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62770/188
+district,DE-NW,Kreis Steinfurt,62442,96,6,05566,Steinfurt,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62442/96
+district,DE-NW,Kreis Warendorf,62706,82,6,05570,Warendorf,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62706/82
+district,DE-NW,Kreis Gütersloh,62379,180,6,05754,Gütersloh,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62379/180
+district,DE-NW,Kreis Herford,62480,162,6,05758,Herford,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62480/162
+district,DE-NW,Kreis Höxter,62524,105,6,05762,Höxter,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62524/105
+district,DE-NW,Kreis Lippe,62483,187,6,05766,Lippe,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62483/187
+district,DE-NW,Kreis Minden-Lübbecke,62358,149,6,05770,Minden-Lübbecke,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62358/149
+district,DE-NW,Kreis Paderborn,62417,81,6,05774,Paderborn,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62417/81
+district,DE-NW,Ennepe-Ruhr-Kreis,1829066,105,6,05954,Ennepe-Ruhr-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1829066/105
+district,DE-NW,Hochsauerlandkreis,62402,151,6,05958,Hochsauerlandkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62402/151
+district,DE-NW,Märkischer Kreis,1831015,50,6,05962,Märkischer Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1831015/50
+district,DE-NW,Kreis Olpe,1891506,44,6,05966,Olpe,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1891506/44
+district,DE-NW,Kreis Siegen-Wittgenstein,62437,79,6,05970,Siegen-Wittgenstein,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62437/79
+district,DE-NW,Kreis Soest,62440,89,6,05974,Soest,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62440/89
+district,DE-NW,Kreis Unna,62420,82,6,05978,Unna,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62420/82
+district,DE-RP,Landkreis Ahrweiler,62623,110,6,07131,Ahrweiler,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62623/110
+district,DE-RP,Landkreis Altenkirchen (Westerwald),62357,96,6,07132,Altenkirchen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62357/96
+district,DE-RP,Landkreis Bad Kreuznach,62741,81,6,07133,Bad Kreuznach,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62741/81
+district,DE-RP,Landkreis Birkenfeld,62679,61,6,07134,Birkenfeld,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62679/61
+district,DE-RP,Landkreis Cochem-Zell,62569,74,6,07135,Cochem-Zell,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62569/74
+district,DE-RP,Landkreis Mayen-Koblenz,62572,122,6,07137,Mayen-Koblenz,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62572/122
+district,DE-RP,Landkreis Neuwied,62348,101,6,07138,Neuwied,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62348/101
+district,DE-RP,Rhein-Hunsrück-Kreis,62527,76,6,07140,Rhein-Hunsrück-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62527/76
+district,DE-RP,Rhein-Lahn-Kreis,62443,104,6,07141,Rhein-Lahn-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62443/104
+district,DE-RP,Westerwaldkreis,62362,90,6,07143,Westerwaldkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62362/90
+district,DE-RP,Landkreis Bernkastel-Wittlich,62668,94,6,07231,Bernkastel-Wittlich,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62668/94
+district,DE-RP,Eifelkreis Bitburg-Prüm,62584,79,6,07232,Eifelkreis Bitburg-Prüm,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62584/79
+district,DE-RP,Landkreis Vulkaneifel,62615,98,6,07233,Vulkaneifel,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62615/98
+district,DE-RP,Landkreis Trier-Saarburg,62361,142,6,07235,Trier-Saarburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62361/142
+district,DE-RP,Landkreis Alzey-Worms,62680,95,6,07331,Alzey-Worms,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62680/95
+district,DE-RP,Landkreis Bad Dürkheim,62454,59,6,07332,Bad Dürkheim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62454/59
+district,DE-RP,Donnersbergkreis,62737,91,6,07333,Donnersbergkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62737/91
+district,DE-RP,Landkreis Germersheim,62698,76,6,07334,Germersheim,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62698/76
+district,DE-RP,Landkreis Kaiserslautern,62451,92,6,07335,Kaiserslautern,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62451/92
+district,DE-RP,Landkreis Kusel,62367,89,6,07336,Kusel,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62367/89
+district,DE-RP,Landkreis Südliche Weinstraße,62653,81,6,07337,Südliche Weinstraße,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62653/81
+district,DE-RP,Rhein-Pfalz-Kreis,62610,54,6,07338,Rhein-Pfalz-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62610/54
+district,DE-RP,Landkreis Mainz-Bingen,62632,99,6,07339,Mainz-Bingen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62632/99
+district,DE-RP,Südwestpfalz,62360,110,6,07340,Südwestpfalz,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62360/110
+district,DE-SH,Kreis Dithmarschen,27028,142,6,01051,Dithmarschen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/27028/142
+district,DE-SH,Kreis Herzogtum Lauenburg,62703,136,6,01053,Herzogtum Lauenburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62703/136
+district,DE-SH,Kreis Nordfriesland,27019,135,6,01054,Nordfriesland,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/27019/135
+district,DE-SH,Kreis Ostholstein,27025,175,6,01055,Ostholstein,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/27025/175
+district,DE-SH,Kreis Pinneberg,62408,108,6,01056,Pinneberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62408/108
+district,DE-SH,Kreis Plön,27026,99,6,01057,Plön,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/27026/99
+district,DE-SH,Kreis Rendsburg-Eckernförde,27017,183,6,01058,Rendsburg-Eckernförde,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/27017/183
+district,DE-SH,Kreis Schleswig-Flensburg,27014,132,6,01059,Schleswig-Flensburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/27014/132
+district,DE-SH,Kreis Segeberg,62733,121,6,01060,Segeberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62733/121
+district,DE-SH,Kreis Steinburg,27016,116,6,01061,Steinburg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/27016/116
+district,DE-SH,Kreis Stormarn,62546,125,6,01062,Stormarn,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62546/125
+district,DE-SL,Regionalverband Saarbrücken,62651,131,6,10041,Regionalverband Saarbrücken,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62651/131
+district,DE-SL,Landkreis Merzig-Wadern,62387,70,6,10042,Merzig-Wadern,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62387/70
+district,DE-SL,Landkreis Neunkirchen,62474,84,6,10043,Neunkirchen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62474/84
+district,DE-SL,Landkreis Saarlouis,62466,73,6,10044,Saarlouis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62466/73
+district,DE-SL,Saarpfalz-Kreis,62579,83,6,10045,Saarpfalz-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62579/83
+district,DE-SL,Landkreis St. Wendel,62346,66,6,10046,St. Wendel,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62346/66
+district,DE-SN,Erzgebirgskreis,62427,138,6,14521,Erzgebirgskreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62427/138
+district,DE-SN,Mittelsachsen,62350,134,6,14522,Mittelsachsen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62350/134
+district,DE-SN,Vogtlandkreis,62943,115,6,14523,Vogtlandkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62943/115
+district,DE-SN,Zwickau,62785,106,6,14524,Zwickau,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62785/106
+district,DE-SN,Bautzen - Budyšin,62384,127,6,14625,Bautzen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62384/127
+district,DE-SN,Görlitz,62345,167,6,14626,Görlitz,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62345/167
+district,DE-SN,Meißen,62511,111,6,14627,Meißen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62511/111
+district,DE-SN,Sächsische Schweiz-Osterzgebirge,62485,141,6,14628,Sächsische Schweiz-Osterzgebirge,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62485/141
+district,DE-SN,Landkreis Leipzig,62434,134,6,14729,Leipzig,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62434/134
+district,DE-SN,Nordsachsen,62547,113,6,14730,Nordsachsen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62547/113
+district,DE-ST,Altmarkkreis Salzwedel,62602,92,6,15081,Altmarkkreis Salzwedel,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62602/92
+district,DE-ST,Anhalt-Bitterfeld,62747,206,6,15082,Anhalt-Bitterfeld,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62747/206
+district,DE-ST,Börde,62359,138,6,15083,Börde,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62359/138
+district,DE-ST,Burgenlandkreis,62639,107,6,15084,Burgenlandkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62639/107
+district,DE-ST,Landkreis Harz,62429,139,6,15085,Harz,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62429/139
+district,DE-ST,Jerichower Land,62477,131,6,15086,Jerichower Land,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62477/131
+district,DE-ST,Mansfeld-Südharz,62681,124,6,15087,Mansfeld-Südharz,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62681/124
+district,DE-ST,Saalekreis,62473,196,6,15088,Saalekreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62473/196
+district,DE-ST,Salzlandkreis,62502,170,6,15089,Salzlandkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62502/170
+district,DE-ST,Stendal,62725,107,6,15090,Stendal,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62725/107
+district,DE-ST,Wittenberg,62425,113,6,15091,Wittenberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62425/113
+district,DE-TH,Landkreis Eichsfeld,62500,108,6,16061,Eichsfeld,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62500/108
+district,DE-TH,Landkreis Nordhausen,62621,65,6,16062,Nordhausen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62621/65
+district,DE-TH,Wartburgkreis,62616,106,6,16063,Wartburgkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62616/106
+district,DE-TH,Unstrut-Hainich-Kreis,62424,64,6,16064,Unstrut-Hainich-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62424/64
+district,DE-TH,Kyffhäuserkreis,62604,59,6,16065,Kyffhäuserkreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62604/59
+district,DE-TH,Landkreis Schmalkalden-Meiningen,62618,106,6,16066,Schmalkalden-Meiningen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62618/106
+district,DE-TH,Landkreis Gotha,62468,71,6,16067,Gotha,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62468/71
+district,DE-TH,Landkreis Sömmerda,62588,64,6,16068,Sömmerda,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62588/64
+district,DE-TH,Landkreis Hildburghausen,62365,70,6,16069,Hildburghausen,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62365/70
+district,DE-TH,Ilm-Kreis,62419,61,6,16070,Ilm-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62419/61
+district,DE-TH,Landkreis Weimarer Land,62462,66,6,16071,Weimarer Land,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62462/66
+district,DE-TH,Landkreis Sonneberg,62552,63,6,16072,Sonneberg,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62552/63
+district,DE-TH,Landkreis Saalfeld-Rudolstadt,62447,66,6,16073,Saalfeld-Rudolstadt,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62447/66
+district,DE-TH,Saale-Holzland-Kreis,62432,57,6,16074,Saale-Holzland-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62432/57
+district,DE-TH,Saale-Orla-Kreis,62339,72,6,16075,Saale-Orla-Kreis,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62339/72
+district,DE-TH,Greiz,62445,93,6,16076,Greiz,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62445/93
+district,DE-TH,Altenburger Land,62492,58,6,16077,Altenburger Land,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62492/58
+region,DK-81,Region Nordjylland,1319936,278,4,DK-81,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1319936/278
+region,DK-82,Region Midtjylland,1319935,340,4,DK-82,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1319935/340
+region,DK-83,Region Syddanmark,1319978,322,4,DK-83,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1319978/322
+region,DK-84,Region Hovedstaden,1320608,282,4,DK-84,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1320608/282
+region,DK-85,Region Sjælland,1320370,259,4,DK-85,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/1320370/259
+state,DE-BB,Brandenburg,62504,712,4,DE-BB,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62504/712
+state,DE-BE,Berlin,62422,451,4,DE-BE,,municipality_identity_excluded,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62422/451
+state,DE-BW,Baden-Württemberg,62611,645,4,DE-BW,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62611/645
+state,DE-BY,Bayern,2145268,577,4,DE-BY,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/2145268/577
+state,DE-HB,Bremen,62718,202,4,DE-HB,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62718/202
+state,DE-HE,Hessen,62650,598,4,DE-HE,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62650/598
+state,DE-HH,Hamburg,62782,269,4,DE-HH,,municipality_identity_excluded,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62782/269
+state,DE-MV,Mecklenburg-Vorpommern,28322,304,4,DE-MV,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/28322/304
+state,DE-NI,Niedersachsen,62771,908,4,DE-NI,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62771/908
+state,DE-NW,Nordrhein-Westfalen,62761,771,4,DE-NW,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62761/771
+state,DE-RP,Rheinland-Pfalz,62341,506,4,DE-RP,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62341/506
+state,DE-SH,Schleswig-Holstein,51529,311,4,DE-SH,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/51529/311
+state,DE-SL,Saarland,62372,223,4,DE-SL,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62372/223
+state,DE-SN,Sachsen,62467,517,4,DE-SN,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62467/517
+state,DE-ST,Sachsen-Anhalt,62607,405,4,DE-ST,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62607/405
+state,DE-TH,Thüringen,62366,398,4,DE-TH,,import,2026-10-04,https://www.openstreetmap.org/api/0.6/relation/62366/398

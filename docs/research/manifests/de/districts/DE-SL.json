@@ -1,0 +1,36 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:62372:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-SL",
+  "osm_admin_level": 6,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Saarland; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 62651
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62387
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62474
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62466
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62579
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62346
+    }
+  ]
+}

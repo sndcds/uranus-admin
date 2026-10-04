@@ -1,0 +1,108 @@
+region_code,name,osm_relation_id,osm_version,osm_admin_level,municipality_key,source_url
+DE-SH,Flensburg,27020,52,6,01001000,https://www.openstreetmap.org/api/0.6/relation/27020/52
+DE-SH,Kiel,27021,105,6,01002000,https://www.openstreetmap.org/api/0.6/relation/27021/105
+DE-SH,Lübeck,27027,125,6,01003000,https://www.openstreetmap.org/api/0.6/relation/27027/125
+DE-SH,Neumünster,62528,53,6,01004000,https://www.openstreetmap.org/api/0.6/relation/62528/53
+DE-HH,Hamburg,62782,269,4,02000000,https://www.openstreetmap.org/api/0.6/relation/62782/269
+DE-NI,Braunschweig,62531,77,6,03101000,https://www.openstreetmap.org/api/0.6/relation/62531/77
+DE-NI,Salzgitter,62659,74,6,03102000,https://www.openstreetmap.org/api/0.6/relation/62659/74
+DE-NI,Wolfsburg,62418,51,6,03103000,https://www.openstreetmap.org/api/0.6/relation/62418/51
+DE-NI,Delmenhorst,62414,44,6,03401000,https://www.openstreetmap.org/api/0.6/relation/62414/44
+DE-NI,Emden,62562,57,6,03402000,https://www.openstreetmap.org/api/0.6/relation/62562/57
+DE-NI,Oldenburg,62409,59,6,03403000,https://www.openstreetmap.org/api/0.6/relation/62409/59
+DE-NI,Osnabrück,62631,56,6,03404000,https://www.openstreetmap.org/api/0.6/relation/62631/56
+DE-NI,Wilhelmshaven,62444,41,6,03405000,https://www.openstreetmap.org/api/0.6/relation/62444/41
+DE-HB,Bremen,62559,141,6,04011000,https://www.openstreetmap.org/api/0.6/relation/62559/141
+DE-HB,Bremerhaven,62658,108,6,04012000,https://www.openstreetmap.org/api/0.6/relation/62658/108
+DE-NW,Düsseldorf,62539,117,6,05111000,https://www.openstreetmap.org/api/0.6/relation/62539/117
+DE-NW,Duisburg,62456,92,6,05112000,https://www.openstreetmap.org/api/0.6/relation/62456/92
+DE-NW,Essen,62713,119,6,05113000,https://www.openstreetmap.org/api/0.6/relation/62713/119
+DE-NW,Krefeld,62748,74,6,05114000,https://www.openstreetmap.org/api/0.6/relation/62748/74
+DE-NW,Mönchengladbach,62410,67,6,05116000,https://www.openstreetmap.org/api/0.6/relation/62410/67
+DE-NW,Mülheim an der Ruhr,62385,79,6,05117000,https://www.openstreetmap.org/api/0.6/relation/62385/79
+DE-NW,Oberhausen,62734,70,6,05119000,https://www.openstreetmap.org/api/0.6/relation/62734/70
+DE-NW,Remscheid,62455,87,6,05120000,https://www.openstreetmap.org/api/0.6/relation/62455/87
+DE-NW,Solingen,62699,89,6,05122000,https://www.openstreetmap.org/api/0.6/relation/62699/89
+DE-NW,Wuppertal,62478,114,6,05124000,https://www.openstreetmap.org/api/0.6/relation/62478/114
+DE-NW,Bonn,62508,127,6,05314000,https://www.openstreetmap.org/api/0.6/relation/62508/127
+DE-NW,Köln,62578,116,6,05315000,https://www.openstreetmap.org/api/0.6/relation/62578/116
+DE-NW,Leverkusen,62449,58,6,05316000,https://www.openstreetmap.org/api/0.6/relation/62449/58
+DE-NW,Bottrop,62634,89,6,05512000,https://www.openstreetmap.org/api/0.6/relation/62634/89
+DE-NW,Gelsenkirchen,62522,103,6,05513000,https://www.openstreetmap.org/api/0.6/relation/62522/103
+DE-NW,Münster,62591,71,6,05515000,https://www.openstreetmap.org/api/0.6/relation/62591/71
+DE-NW,Bielefeld,62646,257,6,05711000,https://www.openstreetmap.org/api/0.6/relation/62646/257
+DE-NW,Bochum,62644,136,6,05911000,https://www.openstreetmap.org/api/0.6/relation/62644/136
+DE-NW,Dortmund,1829065,101,6,05913000,https://www.openstreetmap.org/api/0.6/relation/1829065/101
+DE-NW,Hagen,1800297,57,6,05914000,https://www.openstreetmap.org/api/0.6/relation/1800297/57
+DE-NW,Hamm,62499,55,6,05915000,https://www.openstreetmap.org/api/0.6/relation/62499/55
+DE-NW,Herne,62396,95,6,05916000,https://www.openstreetmap.org/api/0.6/relation/62396/95
+DE-HE,Darmstadt,62581,68,6,06411000,https://www.openstreetmap.org/api/0.6/relation/62581/68
+DE-HE,Frankfurt am Main,62400,129,6,06412000,https://www.openstreetmap.org/api/0.6/relation/62400/129
+DE-HE,Offenbach am Main,62695,55,6,06413000,https://www.openstreetmap.org/api/0.6/relation/62695/55
+DE-HE,Wiesbaden,62496,78,6,06414000,https://www.openstreetmap.org/api/0.6/relation/62496/78
+DE-HE,Hanau,535895,38,6,06415000,https://www.openstreetmap.org/api/0.6/relation/535895/38
+DE-HE,Kassel,62598,93,6,06611000,https://www.openstreetmap.org/api/0.6/relation/62598/93
+DE-RP,Koblenz,62512,58,6,07111000,https://www.openstreetmap.org/api/0.6/relation/62512/58
+DE-RP,Trier,172679,72,6,07211000,https://www.openstreetmap.org/api/0.6/relation/172679/72
+DE-RP,Frankenthal (Pfalz),62573,30,6,07311000,https://www.openstreetmap.org/api/0.6/relation/62573/30
+DE-RP,Kaiserslautern,62652,52,6,07312000,https://www.openstreetmap.org/api/0.6/relation/62652/52
+DE-RP,Landau in der Pfalz,62391,35,6,07313000,https://www.openstreetmap.org/api/0.6/relation/62391/35
+DE-RP,Ludwigshafen am Rhein,62347,41,6,07314000,https://www.openstreetmap.org/api/0.6/relation/62347/41
+DE-RP,Mainz,62630,62,6,07315000,https://www.openstreetmap.org/api/0.6/relation/62630/62
+DE-RP,Neustadt an der Weinstraße,62724,37,6,07316000,https://www.openstreetmap.org/api/0.6/relation/62724/37
+DE-RP,Pirmasens,62642,29,6,07317000,https://www.openstreetmap.org/api/0.6/relation/62642/29
+DE-RP,Speyer,62352,23,6,07318000,https://www.openstreetmap.org/api/0.6/relation/62352/23
+DE-RP,Worms,62453,42,6,07319000,https://www.openstreetmap.org/api/0.6/relation/62453/42
+DE-RP,Zweibrücken,62719,43,6,07320000,https://www.openstreetmap.org/api/0.6/relation/62719/43
+DE-BW,Stuttgart,62375,53,6,08111000,https://www.openstreetmap.org/api/0.6/relation/62375/53
+DE-BW,Heilbronn,62751,41,6,08121000,https://www.openstreetmap.org/api/0.6/relation/62751/41
+DE-BW,Baden-Baden,62340,52,6,08211000,https://www.openstreetmap.org/api/0.6/relation/62340/52
+DE-BW,Karlsruhe,62518,107,6,08212000,https://www.openstreetmap.org/api/0.6/relation/62518/107
+DE-BW,Heidelberg,62487,6,6,08221000,https://www.openstreetmap.org/api/0.6/relation/62487/6
+DE-BW,Mannheim,62691,65,6,08222000,https://www.openstreetmap.org/api/0.6/relation/62691/65
+DE-BW,Pforzheim,62471,56,6,08231000,https://www.openstreetmap.org/api/0.6/relation/62471/56
+DE-BW,Freiburg im Breisgau,62768,189,6,08311000,https://www.openstreetmap.org/api/0.6/relation/62768/189
+DE-BW,Ulm,62495,54,6,08421000,https://www.openstreetmap.org/api/0.6/relation/62495/54
+DE-BY,Ingolstadt,62381,39,6,09161000,https://www.openstreetmap.org/api/0.6/relation/62381/39
+DE-BY,München,62428,215,6,09162000,https://www.openstreetmap.org/api/0.6/relation/62428/215
+DE-BY,Rosenheim,2168233,22,6,09163000,https://www.openstreetmap.org/api/0.6/relation/2168233/22
+DE-BY,Landshut,62484,54,6,09261000,https://www.openstreetmap.org/api/0.6/relation/62484/54
+DE-BY,Passau,62629,33,6,09262000,https://www.openstreetmap.org/api/0.6/relation/62629/33
+DE-BY,Straubing,62636,23,6,09263000,https://www.openstreetmap.org/api/0.6/relation/62636/23
+DE-BY,Amberg,62772,24,6,09361000,https://www.openstreetmap.org/api/0.6/relation/62772/24
+DE-BY,Regensburg,62411,36,6,09362000,https://www.openstreetmap.org/api/0.6/relation/62411/36
+DE-BY,Weiden in der Oberpfalz,62554,26,6,09363000,https://www.openstreetmap.org/api/0.6/relation/62554/26
+DE-BY,Bamberg,62525,28,6,09461000,https://www.openstreetmap.org/api/0.6/relation/62525/28
+DE-BY,Bayreuth,62640,53,6,09462000,https://www.openstreetmap.org/api/0.6/relation/62640/53
+DE-BY,Coburg,62717,39,6,09463000,https://www.openstreetmap.org/api/0.6/relation/62717/39
+DE-BY,Hof,62589,39,6,09464000,https://www.openstreetmap.org/api/0.6/relation/62589/39
+DE-BY,Ansbach,62654,34,6,09561000,https://www.openstreetmap.org/api/0.6/relation/62654/34
+DE-BY,Erlangen,62403,51,6,09562000,https://www.openstreetmap.org/api/0.6/relation/62403/51
+DE-BY,Fürth,62374,51,6,09563000,https://www.openstreetmap.org/api/0.6/relation/62374/51
+DE-BY,Nürnberg,62780,111,6,09564000,https://www.openstreetmap.org/api/0.6/relation/62780/111
+DE-BY,Schwabach,62720,32,6,09565000,https://www.openstreetmap.org/api/0.6/relation/62720/32
+DE-BY,Aschaffenburg,62532,40,6,09661000,https://www.openstreetmap.org/api/0.6/relation/62532/40
+DE-BY,Schweinfurt,62534,34,6,09662000,https://www.openstreetmap.org/api/0.6/relation/62534/34
+DE-BY,Würzburg,62464,47,6,09663000,https://www.openstreetmap.org/api/0.6/relation/62464/47
+DE-BY,Augsburg,62407,104,6,09761000,https://www.openstreetmap.org/api/0.6/relation/62407/104
+DE-BY,Kaufbeuren,62349,28,6,09762000,https://www.openstreetmap.org/api/0.6/relation/62349/28
+DE-BY,Kempten (Allgäu),62701,37,6,09763000,https://www.openstreetmap.org/api/0.6/relation/62701/37
+DE-BY,Memmingen,62590,36,6,09764000,https://www.openstreetmap.org/api/0.6/relation/62590/36
+DE-BE,Berlin,62422,451,4,11000000,https://www.openstreetmap.org/api/0.6/relation/62422/451
+DE-BB,Brandenburg an der Havel,62470,102,6,12051000,https://www.openstreetmap.org/api/0.6/relation/62470/102
+DE-BB,Cottbus - Chóśebuz,62430,88,6,12052000,https://www.openstreetmap.org/api/0.6/relation/62430/88
+DE-BB,Frankfurt (Oder),62523,55,6,12053000,https://www.openstreetmap.org/api/0.6/relation/62523/55
+DE-BB,Potsdam,62369,144,6,12054000,https://www.openstreetmap.org/api/0.6/relation/62369/144
+DE-MV,Rostock,62405,98,6,13003000,https://www.openstreetmap.org/api/0.6/relation/62405/98
+DE-MV,Schwerin,62685,46,6,13004000,https://www.openstreetmap.org/api/0.6/relation/62685/46
+DE-SN,Chemnitz,62594,80,6,14511000,https://www.openstreetmap.org/api/0.6/relation/62594/80
+DE-SN,Dresden,191645,115,6,14612000,https://www.openstreetmap.org/api/0.6/relation/191645/115
+DE-SN,Leipzig,62649,97,6,14713000,https://www.openstreetmap.org/api/0.6/relation/62649/97
+DE-ST,Dessau-Roßlau,62526,107,6,15001000,https://www.openstreetmap.org/api/0.6/relation/62526/107
+DE-ST,Halle (Saale),62638,67,6,15002000,https://www.openstreetmap.org/api/0.6/relation/62638/67
+DE-ST,Magdeburg,62481,99,6,15003000,https://www.openstreetmap.org/api/0.6/relation/62481/99
+DE-TH,Erfurt,62745,72,6,16051000,https://www.openstreetmap.org/api/0.6/relation/62745/72
+DE-TH,Gera,62671,39,6,16052000,https://www.openstreetmap.org/api/0.6/relation/62671/39
+DE-TH,Jena,62693,40,6,16053000,https://www.openstreetmap.org/api/0.6/relation/62693/40
+DE-TH,Suhl,62450,42,6,16054000,https://www.openstreetmap.org/api/0.6/relation/62450/42
+DE-TH,Weimar,62493,31,6,16055000,https://www.openstreetmap.org/api/0.6/relation/62493/31
