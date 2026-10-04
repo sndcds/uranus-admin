@@ -108,12 +108,19 @@ async def taxonomy_candidates(
     )
     if len(rows) > vocabulary_limit:
         raise APIError(503, "research_execution_unavailable", "Taxonomy resolution unavailable.")
+    return [
+        ResolutionCandidate(entity_type=kind, id=rows[i]["id"], label=rows[i]["label"])
+        for i in taxonomy_match_indices(query, [row["label"] for row in rows])
+    ]
+
+
+def taxonomy_match_indices(query: str, labels: list[str]) -> list[int]:
+    """Shared exact-first tiers for runtime SQL labels and benchmark snapshots."""
     exact = query.strip().casefold()
     normalized = taxonomy_label(query)
     forms = taxonomy_forms(query)
-    tiers: list[list[ResolutionCandidate]] = [[], [], []]
-    for row in rows:
-        label = row["label"]
+    tiers: list[list[int]] = [[], [], []]
+    for index, label in enumerate(labels):
         if label.strip().casefold() == exact:
             tier = 0
         elif taxonomy_label(label) == normalized:
@@ -122,7 +129,7 @@ async def taxonomy_candidates(
             tier = 2
         else:
             continue
-        tiers[tier].append(ResolutionCandidate(entity_type=kind, id=row["id"], label=label))
+        tiers[tier].append(index)
     return next((matches[:5] for matches in tiers if matches), [])
 
 
@@ -152,7 +159,9 @@ async def candidates(
         if exact:
             outcome("exact_hit" if len(exact) == 1 else "exact_ambiguous")
             return exact
-        return await resolve_taxonomy_semantic(connection, settings, query, type_ids=type_ids)
+        return await resolve_taxonomy_semantic(
+            connection, settings, query, expected_kind=kind, type_ids=type_ids
+        )
     filters = ExecutionFilters(
         entity_type="venue"
         if kind == "venue"

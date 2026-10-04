@@ -3,108 +3,137 @@
     {
       "query": "Theater",
       "expected": "event_type",
+      "label": "Theater & Bühne",
+      "requested_kind": "event_type"
+    },
+    {
+      "query": "theater",
+      "requested_kind": "event_type",
+      "expected": "event_type",
       "label": "Theater & Bühne"
     },
     {
       "query": "Schauspiel",
-      "expected": "event_type",
-      "label": "Theater & Bühne"
+      "expected": "genre",
+      "label": "Schauspiel",
+      "requested_kind": "event_type"
     },
     {
       "query": "Bühne",
       "expected": "event_type",
-      "label": "Theater & Bühne"
+      "label": "Theater & Bühne",
+      "requested_kind": "event_type"
     },
     {
       "query": "Theateraufführung",
       "expected": "event_type",
-      "label": "Theater & Bühne"
+      "label": "Theater & Bühne",
+      "requested_kind": "event_type"
     },
     {
       "query": "Bühnenkunst",
       "expected": "event_type",
-      "label": "Theater & Bühne"
+      "label": "Theater & Bühne",
+      "requested_kind": "event_type"
     },
     {
       "query": "Circus",
       "expected": "genre",
-      "label": "Zirkus-Theater"
+      "label": "Zirkus-Theater",
+      "requested_kind": "event_type"
     },
     {
       "query": "Zirkus",
       "expected": "genre",
-      "label": "Zirkus-Theater"
+      "label": "Zirkus-Theater",
+      "requested_kind": "genre"
     },
     {
       "query": "Zirkustheater",
       "expected": "genre",
-      "label": "Zirkus-Theater"
+      "label": "Zirkus-Theater",
+      "requested_kind": "genre"
     },
     {
       "query": "Musical",
       "expected": "genre",
-      "label": "Musical"
+      "label": "Musical",
+      "requested_kind": "genre"
     },
     {
       "query": "Musiktheater",
       "expected": "genre",
-      "label": "Musiktheater"
+      "label": "Musiktheater",
+      "requested_kind": "genre"
     },
     {
       "query": "Drama",
       "expected": "genre",
-      "label": "Drama"
+      "label": "Drama",
+      "requested_kind": "genre"
     },
     {
       "query": "Komödie",
       "expected": "genre",
-      "label": "Komödie"
+      "label": "Komödie",
+      "requested_kind": "genre"
     },
     {
       "query": "Jazz",
       "expected": "genre",
-      "label": "Jazz"
+      "label": "Jazz",
+      "requested_kind": "genre"
     },
     {
       "query": "Rock",
       "expected": "genre",
-      "label": "Rock"
+      "label": "Rock",
+      "requested_kind": "genre"
     },
     {
       "query": "Kultur",
-      "expected": "unresolved"
+      "expected": "unresolved",
+      "requested_kind": "event_type"
     },
     {
       "query": "Veranstaltung",
-      "expected": "unresolved"
+      "expected": "unresolved",
+      "requested_kind": "event_type"
     },
     {
       "query": "Show",
-      "expected": "ambiguous"
+      "expected": "ambiguous",
+      "requested_kind": "event_type"
     },
     {
       "query": "Kunst",
-      "expected": "ambiguous"
+      "expected": "exact_or_ambiguous",
+      "requested_kind": "event_type"
     },
     {
       "query": "Treffen",
-      "expected": "unresolved"
+      "expected": "unresolved",
+      "requested_kind": "event_type"
     },
     {
       "query": "Kinder",
-      "expected": "unresolved"
+      "expected": "unresolved",
+      "requested_kind": "event_type"
     },
     {
       "query": "Musik",
-      "expected": "ambiguous"
+      "expected": "ambiguous",
+      "requested_kind": "event_type"
     },
     {
       "query": "Konzertmusik",
-      "expected": "ambiguous"
+      "expected": "ambiguous",
+      "requested_kind": "event_type"
     },
     {
       "query": "Livemusik",
-      "expected": "ambiguous"
+      "expected": "ambiguous",
+      "requested_kind": "event_type"
     }
   ]
 }

@@ -26,7 +26,7 @@ async def resolve_taxonomy_semantic(
     settings: Settings,
     query: str,
     *,
-    expected_kind: Kind | None = None,
+    expected_kind: Kind,
     type_ids: set[str] | None = None,
 ) -> list[ResolutionCandidate]:
     if settings.research_taxonomy_policy_path is None:
@@ -37,6 +37,9 @@ async def resolve_taxonomy_semantic(
         if not settings.semantic_search_noncommercial_jina:
             raise ValueError("jina_acknowledgment_required")
         policy = await asyncio.to_thread(load_policy, settings.research_taxonomy_policy_path)
+        if policy.requested(expected_kind) is None and policy.cross_level is None:
+            outcome("semantic_unresolved")
+            return []
         async with asyncio.timeout(8), AsyncExitStack() as stack:
             qdrant = TaxonomyQdrant(settings)
             stack.push_async_callback(qdrant.http.close)
@@ -46,12 +49,6 @@ async def resolve_taxonomy_semantic(
             encoder = Encoder(settings, "jina-v3")
             stack.push_async_callback(encoder.http.close)
             vector = (await encoder.embed([query.strip()], query=True))[0]
-            raw = await qdrant.query_taxonomy(
-                vector, expected_kind=expected_kind, type_ids=type_ids
-            )
-            hits = validated_proposals(
-                raw, policy.corpus_hash, expected_kind=expected_kind, type_ids=type_ids
-            )
             # One bounded bulk SQL load, not N+1. Revalidate every proposed point,
             # including runners-up, before confidence can authorize any filter.
             current = documents(await load_taxonomy(connection))
@@ -68,14 +65,30 @@ async def resolve_taxonomy_semantic(
                 outcome("stale_candidate_rejected")
                 return []
             canonical = {d.key: d for d in current}
-            for payload, _ in hits:
-                doc = canonical.get(payload.key)
-                if doc is None or any(
-                    payload.model_dump()[k] != v for k, v in doc.model_dump().items()
-                ):
-                    outcome("stale_candidate_rejected")
-                    return []
-            selected = confident(hits, policy)
+            other: Kind = "genre" if expected_kind == "event_type" else "event_type"
+            selected = []
+            for kind, thresholds in (
+                (expected_kind, policy.requested(expected_kind)),
+                (other, policy.cross_level),
+            ):
+                if thresholds is None:
+                    continue
+                raw = await qdrant.query_taxonomy(vector, expected_kind=kind, type_ids=type_ids)
+                hits = validated_proposals(
+                    raw, policy.corpus_hash, expected_kind=kind, type_ids=type_ids
+                )
+                # Revalidate every runner-up as well as the proposed winner.
+                for payload, _ in hits:
+                    doc = canonical.get(payload.key)
+                    if doc is None or any(
+                        payload.model_dump()[k] != v for k, v in doc.model_dump().items()
+                    ):
+                        outcome("stale_candidate_rejected")
+                        return []
+                selected = confident(hits, thresholds)
+                # A lexical or semantic ambiguity is never broken by a fallback.
+                if selected:
+                    break
             outcome(
                 "semantic_accepted"
                 if len(selected) == 1

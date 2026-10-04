@@ -50,7 +50,7 @@ async def flow(client, settings, retrieval, monkeypatch):
     "concept,key,field,ids",
     [
         ("Theater", "event_type:2", "event_type_ids", [2]),
-        ("Schauspiel", "event_type:2", "event_type_ids", [2]),
+        ("Schauspiel", "genre:2:2005", "genre_keys", ["2:2005"]),
         ("Circus", "genre:2:2003", "genre_keys", ["2:2003"]),
     ],
 )
@@ -102,7 +102,7 @@ async def test_weak_quantitative_concept_never_runs_execution_or_event_vectors(
 
 async def test_ambiguous_proposals_return_labels_not_vectors(client, headers, flow):
     state, _, source = flow
-    state["scores"] = [("event_type:2", 0.9), ("genre:2:2004", 0.89)]
+    state["scores"] = [("event_type:2", 0.9), ("event_type:1", 0.89)]
     response = await client.post(
         "/api/v1/research/query",
         headers=headers,
@@ -111,7 +111,7 @@ async def test_ambiguous_proposals_return_labels_not_vectors(client, headers, fl
     assert response.status_code == 200, response.text
     result = response.json()["result"]
     assert result["reason"] == "ambiguous"
-    assert [c["label"] for c in result["candidates"]] == ["Theater & Bühne", "Drama"]
+    assert [c["label"] for c in result["candidates"]] == ["Theater & Bühne", "Konzert"]
     assert "score" not in response.text and "embedding_text" not in response.text
     assert [c["id"] for c in result["candidates"]] == ["choice-0", "choice-1"]
     assert source.execute.await_count == 2

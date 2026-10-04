@@ -6,7 +6,8 @@ A lexical taxonomy term follows the existing Research execution pipeline:
 Planner taxonomy term (no lookups or IDs)
   -> exact label / typography / conservative German inflection
   -> other hierarchy level exact match (when semantic taxonomy is opted in)
-  -> Jina query embedding + dedicated taxonomy Qdrant collection
+  -> Jina query embedding + requested-kind taxonomy Qdrant search
+  -> explicit other-kind search only when the requested kind is unresolved
   -> authoritative PostgreSQL revalidation + measured confidence policy
   -> resolved event_type or composite genre identity
   -> existing InternalResearchPlan / shared SQL executor
@@ -68,31 +69,47 @@ Operators enable the optional semantic step only after reviewing measured benchm
 results and provisioning the resulting local policy JSON. No API or browser can set
 this path, thresholds, collection, credentials or model.
 
-The benchmark fixture is `backend/tests/fixtures/taxonomy_benchmark.json` (23 cases).
-It proposes type targets for Theater, Schauspiel, Bühne, Theateraufführung and
-Bühnenkunst; genre targets for Circus/Zirkus/Zirkustheater and named musical/dramatic
-genres. Broad concepts include ambiguous and unresolved judgments. Konzertmusik and
-Livemusik are conservative ambiguity cases until reviewed against actual source data.
-**These are reviewable expectations, not a claim of live model accuracy.** The
-canonical labels and judgments must be confirmed by an operator against the current
-source corpus. Missing or duplicate canonical targets block measurement; no IDs are
-invented. A term such as Kunst may have an exact canonical match in a real corpus:
-that exact match still wins at runtime regardless of the _semantic-only_ benchmark.
+The benchmark fixture is `backend/tests/fixtures/taxonomy_benchmark.json` (24 cases).
+Every case includes `requested_kind`, the originating Planner slot. All previous
+queries are retained, including Treffen, Musik, Kunst, Konzertmusik and Livemusik;
+a lowercase `theater` case is added. Schauspiel now expects the authoritative genre
+Schauspiel even when requested as an event type. Circus exercises cross-level semantic
+fallback; Zirkus and Zirkustheater exercise requested-genre search.
 
-The calibration command derives minimum-score and top-two margin thresholds from
-observations. It emits a policy only when all reviewed positive, ambiguous and negative
-cases meet their expected decisions. If no safe thresholds exist, it fails, requiring
-broader benchmark/data/model review rather than quietly lowering confidence. Validate
-on additional held-out paraphrases before rollout: a small calibration set is not
-statistical evidence of general language accuracy. Unit test scores are synthetic and
-are never shipped as an active policy.
+Measurement follows runtime's exact-first matching tiers using the same matcher.
+Exact cases never call the encoder or Qdrant search. For nonexact cases it measures
+both kinds separately, each with `expected_kind`, exact vector search and at most six
+hits. Measurements v2 include the source-derived document snapshot so calibration can
+verify corpus identity, canonical targets, every returned payload, and exact matches.
+Old undifferentiated measurements and policies are incompatible and fail closed.
 
-At runtime at most six proposals are retrieved, at most five clarification choices
-returned. A sufficiently high dominant candidate is accepted. Close plausible
-candidates remain ambiguous. A weak top score, or insufficient margin with no second
-confident candidate, remains unresolved. Optional kind and type context constrain
-retrieval and are checked again on returned candidates. Include contextual cases in
-operator acceptance testing when enabling the feature.
+`Kunst` is explicitly reviewed as `exact_or_ambiguous`: an authoritative exact match
+wins (or remains ambiguous when duplicated); without an exact match it must remain
+ambiguous. This implements the reviewed exact-first exception, not a semantic alias.
+Other ambiguous cases, including Musik, keep their ambiguous expectation; if the
+current corpus gives them a unique exact match, calibration fails for operator review
+rather than silently overriding the benchmark. Missing/duplicate canonical positive
+targets also fail. The fixture is a reviewed expectation, not live accuracy evidence.
+
+Policy v2 has separate `event_type`, `genre`, and `cross_level` score/margin policies.
+A null stage is disabled when the benchmark cannot justify its activation. No numeric
+production defaults exist. Calibration derives candidate boundaries solely from
+observed scores and gaps (including the next representable value for strict boundary
+cases), then checks the complete exact/requested-kind/fallback decision for **every**
+case. Each enabled stage needs a reviewed semantic positive; exact positives cannot
+justify vector thresholds. Contradictory cases fail calibration. Additional held-out
+paraphrases should be reviewed before activation; this small set does not establish
+general language accuracy.
+
+Runtime uses one embedding and at most two filtered taxonomy searches under the
+existing eight-second deadline. A unique requested-kind candidate wins. A requested-
+kind ambiguity remains a clarification and never falls through to break the tie.
+Only an unresolved requested-kind stage may try the other kind under `cross_level`.
+Cross-level ambiguity stays ambiguous, and weak fallback remains unresolved. At most
+five clarification choices are returned. Parent type constraints filter both searches
+and are revalidated; the existing final `taxonomy_conflict` check still prevents
+incompatible genres from reaching execution. Planner slots remain search preferences,
+not authoritative identities or authorization boundaries.
 
 All proposals, not only the winner, are checked against a bulk PostgreSQL snapshot.
 Current labels, composite identity, parent and full document must agree. Model and
@@ -118,9 +135,18 @@ uv run python -m app.research.taxonomy_index benchmark \
   --benchmark tests/fixtures/taxonomy_benchmark.json --output /tmp/taxonomy-measured.json
 # Only after reviewing canonical targets, scores and acceptance cases:
 uv run python -m app.research.taxonomy_index calibrate \
-  --reviewed-benchmark --measurements /tmp/taxonomy-measured.json \
+  --reviewed-benchmark --benchmark tests/fixtures/taxonomy_benchmark.json \
+  --measurements /tmp/taxonomy-measured.json \
   --output /tmp/taxonomy-policy.json
 ```
+
+The policy records `benchmark_path` and the SHA-256 of the exact reviewed benchmark
+bytes. Runtime reloads and checks that local file: a missing or changed review fails
+closed, as do stale corpus/model bindings. Provision the benchmark alongside the
+policy; `benchmark_path` may be absolute or relative to the policy directory. Adjust
+only that operator-managed path when relocating identical reviewed bytes. Calibration
+requires `--benchmark` and verifies both its digest and all measurement cases before
+writing a policy. Do not replace an active policy after a failed calibration.
 
 Provision the reviewed policy in a protected operator-managed path and set
 `RESEARCH_TAXONOMY_POLICY_PATH` to it. Existing `EMBEDDING_URL`/key and `QDRANT_URL`/key
@@ -161,8 +187,10 @@ parent conflict checks. Index tests cover deterministic text, translations, stab
 idempotence, stale deletion, interrupted writes and compatibility rejection. A real
 PostgreSQL projection test is included and skips without the disposable test database.
 
-Live Jina measurements and domain review have **not** been performed by this change.
-Theater/Schauspiel -> Theater & Bühne and Circus/Zirkus -> Zirkus-Theater therefore
-remain benchmark expectations, executed only when actual calibrated scores and current
-canonical source rows authorize them. No Docker, deployment, model call to Planner or
-CI polling is required by the implementation/test workflow.
+The kind-aware change does not ship a numeric policy or activate semantic taxonomy.
+Live calibration requires operator encoder/Qdrant endpoints and a verified reader.
+Without a successful reviewed calibration, `theater` remains exact-only/unresolved
+when no canonical exact match exists. The expected semantic result is Theater & Bühne;
+Schauspiel in an event-type slot resolves to the exact genre when present. Synthetic
+unit scores do not establish either result in production. No event retrieval collection,
+Planner contract, migration, grants, deployment, Docker test, or CI polling is changed.
