@@ -21,6 +21,8 @@ class JsonFormatter(logging.Formatter):
         }
         for key in (
             "request_id",
+            "interaction_kind",
+            "validation_stage",
             "region",
             "apply",
             "found",

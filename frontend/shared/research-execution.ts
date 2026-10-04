@@ -1,4 +1,10 @@
 import {
+  conversationIdSchema,
+  answerLanguageSchema,
+  naturalResearchPlanResponseSchema,
+  conversationResponseSchema,
+} from './research-natural'
+import {
   researchPlanSummarySchema,
   researchConversationContextSchema,
 } from './research-conversation'
@@ -32,6 +38,7 @@ export const researchQuestionSchema = nonblank(2000).refine((value) => value.isW
 export const researchPlanRequestSchema = z.object({ query: researchQuestionSchema }).strict()
 export const researchQueryRequestSchema = researchPlanRequestSchema.extend({
   location_context: locationContextSchema.nullable().optional(),
+  conversation_id: conversationIdSchema.nullable().optional(),
   conversation_context: researchConversationContextSchema.nullable().optional(),
 })
 const slot = nonblank(160)
@@ -408,6 +415,8 @@ export type ResearchSqlStatement = z.infer<typeof researchSqlStatementSchema>
 export const researchExecutionResponseSchema = z
   .object({
     answer_text: z.string().max(1000).nullable(),
+    conversation_id: conversationIdSchema.nullable().optional(),
+    language: answerLanguageSchema.nullable().optional(),
     conversation_summary: researchPlanSummarySchema.nullable().optional(),
     sql_provenance: z.array(researchSqlStatementSchema).max(16),
     query: researchQuestionSchema,
@@ -416,6 +425,7 @@ export const researchExecutionResponseSchema = z
       calendarPlanResponseSchema,
       conversationPlanResponseSchema,
       modernPlanResponseSchema,
+      naturalResearchPlanResponseSchema,
       geographicPlanResponseSchema,
       researchPlanResponseSchema,
       analyticalPlanResponseSchema,
@@ -435,3 +445,9 @@ export type ExecutionDiagnostics = z.infer<typeof executionDiagnosticsSchema>
 export type ResolutionCandidate = z.infer<typeof resolutionCandidateSchema>
 export type ResolvedField = z.infer<typeof resolvedFieldSchema>
 export type ResearchQueryPlan = z.infer<typeof researchQueryPlanSchema>
+
+export const researchQueryResponseSchema = z.union([
+  researchExecutionResponseSchema,
+  conversationResponseSchema,
+])
+export type ResearchQueryResponse = z.infer<typeof researchQueryResponseSchema>

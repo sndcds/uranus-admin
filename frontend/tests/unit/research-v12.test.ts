@@ -7,8 +7,6 @@ import {
   researchPlanSummarySchema,
 } from '../../shared/research-conversation'
 import { researchQueryRequestSchema } from '../../shared/research-execution'
-import { conversationContext, type ResearchTurn } from '../../app/utils/research-conversation'
-import { executionResponse } from '../fixtures/research-execution'
 
 it.each(cases)('accepts the combined v12 $name contract', (item) => {
   const response = {
@@ -30,17 +28,10 @@ it.each(cases)('accepts the combined v12 $name contract', (item) => {
   }
   expect(modernPlanResponseSchema.parse(response).plan).toEqual(item.plan)
 })
-it('retains the district expectation in the next conversation request without private data', () => {
-  const summary = researchPlanSummarySchema.parse(context.previous_turns[0])
-  const turns: ResearchTurn[] = [
-    {
-      id: 1,
-      question: 'Veranstaltungen im Kreis Schleswig-Flensburg',
-      state: 'success',
-      response: { ...executionResponse(), conversation_summary: summary },
-    },
-  ]
-  const next = conversationContext(turns)
+it('retains the legacy v12 context wire for rollback clients', () => {
+  const next = researchConversationContextSchema.parse({
+    previous_turns: [researchPlanSummarySchema.parse(context.previous_turns[0])],
+  })
   expect(next).toEqual(context)
   expect(
     researchQueryRequestSchema.parse({ query: 'Und nur sonntags?', conversation_context: next }),

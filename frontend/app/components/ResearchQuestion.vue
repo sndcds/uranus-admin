@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import {
-  conversationContext,
-  MAX_RESEARCH_TURNS,
-  type ResearchTurn,
-} from '~/utils/research-conversation'
-import type { ResearchConversationContext } from '#shared/research-conversation'
+import { MAX_RESEARCH_TURNS, type ResearchTurn } from '~/utils/research-conversation'
 import ResearchComposer from './ResearchComposer.vue'
 import { researchQuestionSchema } from '#shared/contracts'
 import { asFailure } from '#shared/errors'
@@ -25,7 +20,9 @@ const {
 const manualPlace = ref('')
 const needsLocation = computed(
   () =>
-    data.value?.result.kind === 'needs_clarification' &&
+    data.value &&
+    !('kind' in data.value) &&
+    data.value.result.kind === 'needs_clarification' &&
     data.value.result.planner_state === 'needs_location',
 )
 async function submitManualLocation() {
@@ -47,7 +44,7 @@ const data = computed(() => activeTurn.value?.response ?? null)
 const content = useTemplateRef('content')
 let nextId = 0
 let nearBottom = true
-let draftContext: ResearchConversationContext | undefined
+let conversationId: string | undefined
 function onScroll() {
   const el = content.value
   if (el) nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160
@@ -108,15 +105,20 @@ async function load(turn: ResearchTurn | undefined = activeTurn.value) {
       controller.signal,
       receipt,
       locationContext.value,
-      ...(turn.context ? [turn.context] : []),
+      ...(turn.conversationId ? [turn.conversationId] : []),
     )
     if (mounted && current === generation && auth.canResearch) {
       update(turn.id, {
         response,
-        state: response.result.kind === 'needs_clarification' ? 'clarification' : 'success',
+        state:
+          !('kind' in response) && response.result.kind === 'needs_clarification'
+            ? 'clarification'
+            : 'success',
       })
-      const canonical = response.resolution.find((item) => item.field === 'location_context')
-        ?.target.label
+      conversationId = response.conversation_id ?? undefined
+      const canonical =
+        !('kind' in response) &&
+        response.resolution.find((item) => item.field === 'location_context')?.target.label
       if (canonical && canonical.length <= 160 && locationContext.value?.latitude != null) {
         locationContext.value = { ...locationContext.value, display_name: canonical }
       }
@@ -129,8 +131,13 @@ async function load(turn: ResearchTurn | undefined = activeTurn.value) {
     if (current === generation) loading.value = false
   }
 }
-function append(query: string, context?: ResearchConversationContext) {
-  const turn: ResearchTurn = { id: ++nextId, question: query, context, state: 'loading' }
+function append(query: string, token?: string) {
+  const turn: ResearchTurn = {
+    id: ++nextId,
+    question: query,
+    conversationId: token,
+    state: 'loading',
+  }
   turns.value = [...turns.value, turn].slice(-MAX_RESEARCH_TURNS)
   activeId.value = turn.id
   void reveal(turn.id, true)
@@ -145,7 +152,7 @@ async function newConversation() {
   question.value = ''
   manualPlace.value = ''
   manualLocation.value = false
-  draftContext = undefined
+  conversationId = undefined
   selectionReceipt = undefined
   invalid.value = false
   permalink.value = null
@@ -165,9 +172,7 @@ async function submit(receipt?: string) {
   if (!parsed.success) return
   submitting.value = true
   try {
-    const context = draftContext ?? conversationContext(turns.value)
-    draftContext = undefined
-    append(parsed.data, context)
+    append(parsed.data, conversationId)
     ownNavigation = true
     await navigateTo({ path: '/research', query: researchAnswerUrl(parsed.data) })
     permalink.value = window.location.href
@@ -179,10 +184,12 @@ async function submit(receipt?: string) {
 
 async function adjust(turn: ResearchTurn, candidate?: string) {
   activeId.value = turn.id
-  draftContext = turn.context
+  conversationId = turn.response?.conversation_id ?? turn.conversationId
   question.value = turn.question
   if (
-    data.value?.result.kind === 'needs_clarification' &&
+    data.value &&
+    !('kind' in data.value) &&
+    data.value.result.kind === 'needs_clarification' &&
     data.value.result.field === 'location_context'
   ) {
     if (candidate && location.setManual(candidate)) {
@@ -194,12 +201,7 @@ async function adjust(turn: ResearchTurn, candidate?: string) {
   }
   // Candidate labels are editable text, never a browser-submitted execution plan.
   if (candidate) {
-    const result = data.value?.result
-    const original = turn.question
-    question.value =
-      result?.kind === 'needs_clarification' && result.query && original.includes(result.query)
-        ? original.replace(result.query, candidate)
-        : `${original}\nGemeint ist: ${candidate}`
+    question.value = candidate
   }
   await nextTick()
   input.value?.focus()
@@ -213,13 +215,13 @@ function readRoute() {
   invalid.value = route.query.question !== undefined && !parsed.success
   permalink.value = parsed.success ? window.location.href : null
   if (!parsed.success) return
-  draftContext = undefined
   const existing = [...turns.value].reverse().find((turn) => turn.question === parsed.data)
   if (existing) {
     activeId.value = existing.id
     void reveal(existing.id, true)
     return
   }
+  conversationId = undefined
   question.value = parsed.data
   permalink.value = window.location.href
   // Direct URL navigation is independent; never manufacture lost chat context.
@@ -238,7 +240,7 @@ watch(
     selectionReceipt = undefined
     turns.value = []
     activeId.value = null
-    draftContext = undefined
+    conversationId = undefined
     question.value = ''
     manualPlace.value = ''
     permalink.value = null
@@ -309,8 +311,15 @@ onBeforeUnmount(() => {
             :error="turn.error ?? null"
             @retry="load(turn)"
           />
+          <p
+            v-if="turn.response && 'kind' in turn.response"
+            class="whitespace-pre-wrap break-words px-4 py-3"
+            data-testid="research-conversation-answer"
+          >
+            {{ turn.response.answer_text }}
+          </p>
           <ResearchQueryAnswer
-            v-if="turn.response && !(turn.id === activeId && needsLocation)"
+            v-else-if="turn.response && !(turn.id === activeId && needsLocation)"
             :response="turn.response"
             @adjust="adjust(turn, $event)"
           />

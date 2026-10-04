@@ -5,32 +5,15 @@ import {
   researchConversationContextSchema,
   researchPlanSummarySchema,
 } from '../../shared/research-conversation'
-import { conversationContext, type ResearchTurn } from '../../app/utils/research-conversation'
-import { executionResponse } from '../fixtures/research-execution'
 import { groupedExecutionResponse } from '../fixtures/research-grouping'
 import { researchQueryRequestSchema } from '../../shared/research-execution'
 
-it('limits advisory memory to the four latest fully represented successful plans', () => {
-  const turns: ResearchTurn[] = Array.from({ length: 8 }, (_, i) => ({
-    id: i,
-    question: `private question ${i}`,
-    state: 'success',
-    response: {
-      ...executionResponse(),
-      conversation_summary: researchPlanSummarySchema.parse({ ...summary, limit: i + 1 }),
-    },
-  }))
-  const context = conversationContext(turns)!
-  expect(context.previous_turns.map((t) => t.limit)).toEqual([5, 6, 7, 8])
-  const json = JSON.stringify(context)
-  expect(json).not.toMatch(
-    /private question|answer_text|Für diese Auswahl|sql|provenance|latitude|longitude|entity_key|request_id/,
-  )
-  expect(new TextEncoder().encode(json).length).toBeLessThanOrEqual(8192)
-  turns.push({ id: 9, question: 'private place', state: 'success', response: executionResponse() })
-  expect(conversationContext(turns)).toBeUndefined()
-  turns[turns.length - 1]!.state = 'clarification'
-  expect(conversationContext(turns)).toBeUndefined()
+it('keeps semantic state ownership entirely in the backend', () => {
+  const component = readFileSync('app/components/ResearchQuestion.vue', 'utf8')
+  const helper = readFileSync('app/utils/research-conversation.ts', 'utf8')
+  expect(component).not.toMatch(/conversationContext|conversation_summary|previous_turns/)
+  expect(helper).not.toMatch(/previous_turns|researchPlanSummarySchema/)
+  expect(component).toContain('conversation_id')
 })
 it.each([
   'sql',

@@ -1,0 +1,2666 @@
+[
+  {
+    "name": "de-0",
+    "request": {
+      "query": "danke"
+    },
+    "plan": {
+      "original_query": "danke",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-1",
+    "request": {
+      "query": "vielen dank"
+    },
+    "plan": {
+      "original_query": "vielen dank",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-2",
+    "request": {
+      "query": "bitte"
+    },
+    "plan": {
+      "original_query": "bitte",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-3",
+    "request": {
+      "query": "gern"
+    },
+    "plan": {
+      "original_query": "gern",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-4",
+    "request": {
+      "query": "okay"
+    },
+    "plan": {
+      "original_query": "okay",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-5",
+    "request": {
+      "query": "alles klar"
+    },
+    "plan": {
+      "original_query": "alles klar",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-6",
+    "request": {
+      "query": "ach so"
+    },
+    "plan": {
+      "original_query": "ach so",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-7",
+    "request": {
+      "query": "interessant"
+    },
+    "plan": {
+      "original_query": "interessant",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-8",
+    "request": {
+      "query": "genau"
+    },
+    "plan": {
+      "original_query": "genau",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-9",
+    "request": {
+      "query": "das meinte ich"
+    },
+    "plan": {
+      "original_query": "das meinte ich",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-10",
+    "request": {
+      "query": "danke dir!"
+    },
+    "plan": {
+      "original_query": "danke dir!",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-11",
+    "request": {
+      "query": "vielen lieben dank"
+    },
+    "plan": {
+      "original_query": "vielen lieben dank",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-12",
+    "request": {
+      "query": "danke, das hilft mir"
+    },
+    "plan": {
+      "original_query": "danke, das hilft mir",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-13",
+    "request": {
+      "query": "super"
+    },
+    "plan": {
+      "original_query": "super",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "pleased",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-14",
+    "request": {
+      "query": "perfekt"
+    },
+    "plan": {
+      "original_query": "perfekt",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "pleased",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-15",
+    "request": {
+      "query": "super, genau das meinte ich"
+    },
+    "plan": {
+      "original_query": "super, genau das meinte ich",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "pleased",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-16",
+    "request": {
+      "query": "hallo"
+    },
+    "plan": {
+      "original_query": "hallo",
+      "language": "de",
+      "interaction": {
+        "kind": "greeting",
+        "conversation": {
+          "act": "greet",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-17",
+    "request": {
+      "query": "guten morgen"
+    },
+    "plan": {
+      "original_query": "guten morgen",
+      "language": "de",
+      "interaction": {
+        "kind": "greeting",
+        "conversation": {
+          "act": "greet_morning",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-18",
+    "request": {
+      "query": "wie geht es dir"
+    },
+    "plan": {
+      "original_query": "wie geht es dir",
+      "language": "de",
+      "interaction": {
+        "kind": "social",
+        "conversation": {
+          "act": "social",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-19",
+    "request": {
+      "query": "was kannst du?"
+    },
+    "plan": {
+      "original_query": "was kannst du?",
+      "language": "de",
+      "interaction": {
+        "kind": "help",
+        "conversation": {
+          "act": "help",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-20",
+    "request": {
+      "query": "was kannst du eigentlich alles?"
+    },
+    "plan": {
+      "original_query": "was kannst du eigentlich alles?",
+      "language": "de",
+      "interaction": {
+        "kind": "help",
+        "conversation": {
+          "act": "help",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "da-21",
+    "request": {
+      "query": "mange tak"
+    },
+    "plan": {
+      "original_query": "mange tak",
+      "language": "da",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "da-22",
+    "request": {
+      "query": "hej"
+    },
+    "plan": {
+      "original_query": "hej",
+      "language": "da",
+      "interaction": {
+        "kind": "greeting",
+        "conversation": {
+          "act": "greet",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "da-23",
+    "request": {
+      "query": "godmorgen"
+    },
+    "plan": {
+      "original_query": "godmorgen",
+      "language": "da",
+      "interaction": {
+        "kind": "greeting",
+        "conversation": {
+          "act": "greet_morning",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "da-24",
+    "request": {
+      "query": "hvad kan du hjælpe med?"
+    },
+    "plan": {
+      "original_query": "hvad kan du hjælpe med?",
+      "language": "da",
+      "interaction": {
+        "kind": "help",
+        "conversation": {
+          "act": "help",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "en-25",
+    "request": {
+      "query": "thanks a lot"
+    },
+    "plan": {
+      "original_query": "thanks a lot",
+      "language": "en",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "en-26",
+    "request": {
+      "query": "hello"
+    },
+    "plan": {
+      "original_query": "hello",
+      "language": "en",
+      "interaction": {
+        "kind": "greeting",
+        "conversation": {
+          "act": "greet",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "en-27",
+    "request": {
+      "query": "what can I ask you?"
+    },
+    "plan": {
+      "original_query": "what can I ask you?",
+      "language": "en",
+      "interaction": {
+        "kind": "help",
+        "conversation": {
+          "act": "help",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-28",
+    "request": {
+      "query": "warum?",
+      "previous_answer_available": true
+    },
+    "plan": {
+      "original_query": "warum?",
+      "language": "de",
+      "interaction": {
+        "kind": "social",
+        "conversation": {
+          "act": "explain_previous",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-29",
+    "request": {
+      "query": "kannst du das einfacher erklären?",
+      "previous_answer_available": true
+    },
+    "plan": {
+      "original_query": "kannst du das einfacher erklären?",
+      "language": "de",
+      "interaction": {
+        "kind": "social",
+        "conversation": {
+          "act": "simplify_previous",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-30",
+    "request": {
+      "query": "nochmal",
+      "previous_answer_available": true
+    },
+    "plan": {
+      "original_query": "nochmal",
+      "language": "de",
+      "interaction": {
+        "kind": "social",
+        "conversation": {
+          "act": "repeat_previous",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-31",
+    "request": {
+      "query": "und dort?"
+    },
+    "plan": {
+      "original_query": "und dort?",
+      "language": "de",
+      "interaction": {
+        "kind": "clarification",
+        "conversation": {
+          "act": "clarify",
+          "reason": "needs_context"
+        }
+      }
+    }
+  },
+  {
+    "name": "de-32",
+    "request": {
+      "query": "der erste"
+    },
+    "plan": {
+      "original_query": "der erste",
+      "language": "de",
+      "interaction": {
+        "kind": "clarification",
+        "conversation": {
+          "act": "clarify",
+          "reason": "needs_context"
+        }
+      }
+    }
+  },
+  {
+    "name": "de-33",
+    "request": {
+      "query": "das zweite Ergebnis"
+    },
+    "plan": {
+      "original_query": "das zweite Ergebnis",
+      "language": "de",
+      "interaction": {
+        "kind": "clarification",
+        "conversation": {
+          "act": "clarify",
+          "reason": "needs_context"
+        }
+      }
+    }
+  },
+  {
+    "name": "de-34",
+    "request": {
+      "query": "welcher davon"
+    },
+    "plan": {
+      "original_query": "welcher davon",
+      "language": "de",
+      "interaction": {
+        "kind": "clarification",
+        "conversation": {
+          "act": "clarify",
+          "reason": "needs_context"
+        }
+      }
+    }
+  },
+  {
+    "name": "de-35",
+    "request": {
+      "query": "warum?"
+    },
+    "plan": {
+      "original_query": "warum?",
+      "language": "de",
+      "interaction": {
+        "kind": "clarification",
+        "conversation": {
+          "act": "clarify",
+          "reason": "needs_context"
+        }
+      }
+    }
+  },
+  {
+    "name": "de-36",
+    "request": {
+      "query": "nein, morgen"
+    },
+    "plan": {
+      "original_query": "nein, morgen",
+      "language": "de",
+      "interaction": {
+        "kind": "correction",
+        "conversation": {
+          "act": "clarify",
+          "reason": "needs_context"
+        }
+      }
+    }
+  },
+  {
+    "name": "da-37",
+    "request": {
+      "query": "okay",
+      "conversation_language": "da"
+    },
+    "plan": {
+      "original_query": "okay",
+      "language": "da",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-38",
+    "request": {
+      "query": "was kann ich heute in Flensburg machen?"
+    },
+    "plan": {
+      "original_query": "was kann ich heute in Flensburg machen?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "new",
+        "research_plan": {
+          "original_query": "was kann ich heute in Flensburg machen?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "today",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-39",
+    "request": {
+      "query": "was läuft morgen Abend in Kiel?"
+    },
+    "plan": {
+      "original_query": "was läuft morgen Abend in Kiel?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "new",
+        "research_plan": {
+          "original_query": "was läuft morgen Abend in Kiel?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "tomorrow",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "evening",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Kiel",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-40",
+    "request": {
+      "query": "Veranstaltungen im Kreis Schleswig-Flensburg"
+    },
+    "plan": {
+      "original_query": "Veranstaltungen im Kreis Schleswig-Flensburg",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "new",
+        "research_plan": {
+          "original_query": "Veranstaltungen im Kreis Schleswig-Flensburg",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": null,
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Schleswig-Flensburg",
+              "area_level": "district",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-41",
+    "request": {
+      "query": "wo finden Veranstaltungen außerhalb Schleswig-Holsteins statt?"
+    },
+    "plan": {
+      "original_query": "wo finden Veranstaltungen außerhalb Schleswig-Holsteins statt?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "new",
+        "research_plan": {
+          "original_query": "wo finden Veranstaltungen außerhalb Schleswig-Holsteins statt?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": null,
+          "spatial": [
+            {
+              "relation": "outside",
+              "reference": "named",
+              "area_query": "Schleswig-Holstein",
+              "area_level": "state",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-42",
+    "request": {
+      "query": "Welche Veranstaltungstypen treten saisonal besonders stark auf?"
+    },
+    "plan": {
+      "original_query": "Welche Veranstaltungstypen treten saisonal besonders stark auf?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "new",
+        "research_plan": {
+          "original_query": "Welche Veranstaltungstypen treten saisonal besonders stark auf?",
+          "intent": "aggregate",
+          "entity_type": "event",
+          "metric": {
+            "operation": "occurrence_count",
+            "field": null,
+            "distinct_by": null,
+            "numerator": null,
+            "denominator": null,
+            "measure": null,
+            "window": null,
+            "currency": null
+          },
+          "group_by": [
+            "event_type",
+            "month"
+          ],
+          "ordering": "desc",
+          "limit": 20,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": null,
+          "spatial": [],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-43",
+    "request": {
+      "query": "und morgen?",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "und morgen?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "follow_up",
+        "research_plan": {
+          "original_query": "und morgen?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "tomorrow",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-44",
+    "request": {
+      "query": "und sonntags?",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "und sonntags?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "follow_up",
+        "research_plan": {
+          "original_query": "und sonntags?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [
+              7
+            ],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-45",
+    "request": {
+      "query": "nein, morgen",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "nein, morgen",
+      "language": "de",
+      "interaction": {
+        "kind": "correction",
+        "research_mode": "correction",
+        "research_plan": {
+          "original_query": "nein, morgen",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "tomorrow",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-46",
+    "request": {
+      "query": "nee, morgen",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "nee, morgen",
+      "language": "de",
+      "interaction": {
+        "kind": "correction",
+        "research_mode": "correction",
+        "research_plan": {
+          "original_query": "nee, morgen",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "tomorrow",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-47",
+    "request": {
+      "query": "ach so, und sonntags?",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "ach so, und sonntags?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "follow_up",
+        "research_plan": {
+          "original_query": "ach so, und sonntags?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [
+              7
+            ],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-48",
+    "request": {
+      "query": "was gibt es da morgen Abend?",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "was gibt es da morgen Abend?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "follow_up",
+        "research_plan": {
+          "original_query": "was gibt es da morgen Abend?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "tomorrow",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "evening",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-49",
+    "request": {
+      "query": "und in Kiel?",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "und in Kiel?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "follow_up",
+        "research_plan": {
+          "original_query": "und in Kiel?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "today",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Kiel",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-50",
+    "request": {
+      "query": "und wie sieht es in Kiel aus?",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "und wie sieht es in Kiel aus?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "follow_up",
+        "research_plan": {
+          "original_query": "und wie sieht es in Kiel aus?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "today",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Kiel",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-51",
+    "request": {
+      "query": "nicht Kiel, sondern Flensburg",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "nicht Kiel, sondern Flensburg",
+      "language": "de",
+      "interaction": {
+        "kind": "correction",
+        "research_mode": "correction",
+        "research_plan": {
+          "original_query": "nicht Kiel, sondern Flensburg",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "today",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-52",
+    "request": {
+      "query": "ich meinte den Kreis Schleswig-Flensburg",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "ich meinte den Kreis Schleswig-Flensburg",
+      "language": "de",
+      "interaction": {
+        "kind": "correction",
+        "research_mode": "correction",
+        "research_plan": {
+          "original_query": "ich meinte den Kreis Schleswig-Flensburg",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "today",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Schleswig-Flensburg",
+              "area_level": "district",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-53",
+    "request": {
+      "query": "wie viele davon?",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "wie viele davon?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "follow_up",
+        "research_plan": {
+          "original_query": "wie viele davon?",
+          "intent": "count",
+          "entity_type": "event",
+          "metric": {
+            "operation": "event_count",
+            "field": null,
+            "distinct_by": null,
+            "numerator": null,
+            "denominator": null,
+            "measure": null,
+            "window": null,
+            "currency": null
+          },
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "today",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-54",
+    "request": {
+      "query": "und kostenlos?",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "und kostenlos?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "follow_up",
+        "research_plan": {
+          "original_query": "und kostenlos?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "today",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": {
+            "mode": "free",
+            "minimum": null,
+            "maximum": null,
+            "currency": null
+          },
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-55",
+    "request": {
+      "query": "nicht Oktober, sondern November",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "explicit_range",
+              "from_date": "2026-10-01",
+              "to_date": "2026-10-31",
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "nicht Oktober, sondern November",
+      "language": "de",
+      "interaction": {
+        "kind": "correction",
+        "research_mode": "correction",
+        "research_plan": {
+          "original_query": "nicht Oktober, sondern November",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "explicit_range",
+            "from_date": "2026-11-01",
+            "to_date": "2026-11-30",
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "de-56",
+    "request": {
+      "query": "Zeige Organisationen",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "Zeige Organisationen",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "new",
+        "research_plan": {
+          "original_query": "Zeige Organisationen",
+          "intent": "list",
+          "entity_type": "organization",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": null,
+          "spatial": [],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "da-57",
+    "request": {
+      "query": "og i morgen?",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "og i morgen?",
+      "language": "da",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "follow_up",
+        "research_plan": {
+          "original_query": "og i morgen?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "tomorrow",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "en-58",
+    "request": {
+      "query": "no, tomorrow",
+      "conversation_context": {
+        "previous_turns": [
+          {
+            "intent": "list",
+            "entity_type": "event",
+            "metric": "none",
+            "groupings": [],
+            "ordering": null,
+            "limit": 20,
+            "temporal": {
+              "period": "today",
+              "from_date": null,
+              "to_date": null,
+              "time_of_day": "none",
+              "weekdays": [],
+              "months": []
+            },
+            "filters": {
+              "venue": null,
+              "organization": null,
+              "event_types": [],
+              "categories": [],
+              "genres": []
+            },
+            "areas": [
+              {
+                "name": "Flensburg",
+                "relation": "inside",
+                "expected_level": "municipality"
+              }
+            ],
+            "semantic_query": null,
+            "semantic_focus": null,
+            "taxonomy": null,
+            "spatial_metric": null
+          }
+        ]
+      }
+    },
+    "plan": {
+      "original_query": "no, tomorrow",
+      "language": "en",
+      "interaction": {
+        "kind": "correction",
+        "research_mode": "correction",
+        "research_plan": {
+          "original_query": "no, tomorrow",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "tomorrow",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "variant-59",
+    "request": {
+      "query": "super, danke"
+    },
+    "plan": {
+      "original_query": "super, danke",
+      "language": "de",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "variant-60",
+    "request": {
+      "query": "tak for hjælpen"
+    },
+    "plan": {
+      "original_query": "tak for hjælpen",
+      "language": "da",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "variant-61",
+    "request": {
+      "query": "thanks, that helps"
+    },
+    "plan": {
+      "original_query": "thanks, that helps",
+      "language": "en",
+      "interaction": {
+        "kind": "acknowledgement",
+        "conversation": {
+          "act": "acknowledge",
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "variant-62",
+    "request": {
+      "query": "kannst du mir sagen was am Wochenende in Flensburg los ist?"
+    },
+    "plan": {
+      "original_query": "kannst du mir sagen was am Wochenende in Flensburg los ist?",
+      "language": "de",
+      "interaction": {
+        "kind": "research",
+        "research_mode": "new",
+        "research_plan": {
+          "original_query": "kannst du mir sagen was am Wochenende in Flensburg los ist?",
+          "intent": "list",
+          "entity_type": "event",
+          "metric": null,
+          "group_by": [],
+          "ordering": null,
+          "limit": null,
+          "filters": [],
+          "metric_filter": null,
+          "taxonomy": null,
+          "temporal": {
+            "field": "start_date",
+            "period": "none",
+            "from_date": null,
+            "to_date": null,
+            "recurring_months": [],
+            "recurring_weekdays": [
+              6,
+              7
+            ],
+            "time_of_day": "none",
+            "before_time": null,
+            "after_time": null,
+            "weekday": null,
+            "calendar_relation": "none",
+            "calendar_area_query": null,
+            "overlap": false,
+            "multi_day": false,
+            "lookback": null,
+            "lookback_unit": null
+          },
+          "spatial": [
+            {
+              "relation": "inside",
+              "reference": "named",
+              "area_query": "Flensburg",
+              "area_level": "municipality",
+              "place_query": null,
+              "radius_m": null
+            }
+          ],
+          "price": null,
+          "semantic": null,
+          "relation": null,
+          "trend": null,
+          "anomaly": null,
+          "explain": null,
+          "knowledge": null,
+          "comparison_targets": [],
+          "clarification": "none",
+          "unsupported_reason": null
+        }
+      }
+    }
+  }
+]

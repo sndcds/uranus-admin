@@ -1,4 +1,3 @@
-import type { ResearchConversationContext } from '#shared/research-conversation'
 import {
   provenanceDefinitionSchema,
   provenanceResultSchema,
@@ -10,7 +9,7 @@ import {
   suggestionTelemetrySchema,
   suggestionImpressionSchema,
   suggestionSelectionSchema,
-  researchExecutionResponseSchema,
+  researchQueryResponseSchema,
   researchQueryRequestSchema,
   researchPageSchema,
   semanticResearchPageSchema,
@@ -255,17 +254,17 @@ export function createAdminApi(
       signal?: AbortSignal,
       selectionReceipt?: string,
       locationContext?: LocationContext,
-      conversationContext?: ResearchConversationContext,
+      conversationId?: string,
     ) => {
       const parsed = researchQueryRequestSchema.safeParse({
         query,
         ...(locationContext ? { location_context: locationContext } : {}),
-        ...(conversationContext ? { conversation_context: conversationContext } : {}),
+        ...(conversationId ? { conversation_id: conversationId } : {}),
       })
       if (!parsed.success) throw new AdminApiError(failure(422, 'invalid_input'))
       return request(
         '/api/v1/research/query',
-        researchExecutionResponseSchema,
+        researchQueryResponseSchema,
         {},
         'POST',
         parsed.data,
