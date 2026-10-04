@@ -53,6 +53,48 @@ Das Mapping ersetzt nur Discovery und gewährt keine Validierungsausnahme.
 `CITY_EXCEPTIONS` bleibt unverändert; andere reguläre Gemeinden verwenden weiter
 die bestehende Discovery. Es gibt keinen zusätzlichen Runtime-Provider.
 
+### Verifizierte Overlap-Ausnahmen in Niedersachsen
+
+Die allgemeine Regel bleibt: Positive Flächenüberlappung zwischen Municipality-
+Geometrien führt zu `rejected`; gemeinsame Kanten oder Punkte sind zulässig.
+`VERIFIED_MUNICIPALITY_OVERLAPS` erlaubt ausschließlich die folgenden exakt
+verifizierten, ungeordneten AGS-Paare innerhalb aller drei Grenzen:
+
+| AGS-Paar            | Gemeinden (OSM-Relationen)                    | Maximale Überlappung | Maximaler Anteil an **jeder** Gemeinde |
+| ------------------- | --------------------------------------------- | -------------------: | -------------------------------------: |
+| 03151040 / 03151007 | Wittingen (1392804) / Dedelstorf (1392689)    |            60.000 m² |                                 0,10 % |
+| 03357019 / 03357017 | Hamersen (1079013) / Groß Meckelsen (1079022) |            45.000 m² |                                 0,35 % |
+
+Laut bereitgestellter Betreiberverifikation wurden folgende Werte gemessen;
+Candidate und Existing waren in beiden Fällen `ST_IsValid=true`:
+
+| Candidate / Existing      |        overlap_m2 |   candidate_percent |    existing_percent |
+| ------------------------- | ----------------: | ------------------: | ------------------: |
+| Wittingen / Dedelstorf    | 53898.81205722038 | 0.02386146668532573 |   0.070628273054532 |
+| Hamersen / Groß Meckelsen | 36856.37779786327 |  0.2709004971879667 | 0.29733202441384327 |
+
+Der allgemeine, bereits importierte Bestand hatte zum Prüfzeitpunkt
+`overlap_pairs=0`. Diese Betreiberangabe und die Messwerte sind eine Momentaufnahme,
+kein Ergebnis der lokalen synthetischen Tests und keine Zusage über spätere Importe.
+
+Das Mapping ersetzt keine Overlap-Erkennung: `ST_Relate(..., '2********')` bleibt
+maßgeblich. Bei Überlappung misst PostGIS die Schnittfläche sowie beide gesamten
+Gemeindeflächen mit `ST_Area(...::geography)` in m². Die Prozentwerte sind
+`100 * Schnittfläche / Gemeindefläche`, keine Bruchteile zwischen 0 und 1.
+Nur das genaue AGS-Paar und die gleichzeitige Einhaltung von Fläche und beiden
+Prozentgrenzen erlauben die Ausnahme. Fehlende AGS, ungültige Messwerte, andere
+Paare oder eine einzige Grenzüberschreitung führen weiterhin zu `rejected`.
+Namen gewähren keine Ausnahme; bei mehreren überlappenden Nachbarn muss jeder
+einzelne die Prüfung bestehen. Dieselbe Regel gilt für gespeicherte Gemeinden und
+für zuvor akzeptierte Kandidaten desselben Plan-/Apply-Batches.
+
+Jede erlaubte Ausnahme erzeugt das strukturierte WARNING
+`research_area_verified_overlap` mit `candidate_ags`, `existing_ags`,
+`candidate_osm_id`, `existing_osm_id`, `overlap_m2`,
+`candidate_overlap_percent` und `existing_overlap_percent`.
+Es gibt keine globale Sliver-Toleranz. `CITY_EXCEPTIONS`,
+`VERIFIED_MUNICIPALITY_RELATIONS` und die Provider-Policy bleiben unverändert.
+
 **Nominatim ist kein vollständiger Gemeindekatalog.** Seine Suche liefert höchstens
 zehn gerankte Treffer pro Begriff. Ein Operator wählt deshalb explizit Suchbegriffe
 oder bekannte OSM-Relationen. Ein Importlauf garantiert keine Vollständigkeit eines
