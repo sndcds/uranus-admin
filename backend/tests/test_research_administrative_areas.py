@@ -264,7 +264,16 @@ def test_additive_migration_and_lossless_downgrade(monkeypatch):
     output = io.StringIO()
     command.upgrade(Config("alembic.ini", output_buffer=output), "0018:0019", sql=True)
     sql = output.getvalue()
-    assert "'state'" in sql and "research_area_type" in sql
+    statements = [line for line in sql.splitlines() if line.startswith("ALTER TABLE")]
+    assert statements == [
+        "ALTER TABLE admin.research_area DROP CONSTRAINT research_area_type;",
+        "ALTER TABLE admin.research_area ADD CONSTRAINT research_area_type "
+        "CHECK (area_type IN ('region','district','municipality','state'));",
+    ]
+    migration_sql = sql.split("-- Running upgrade 0018 -> 0019", 1)[1]
+    assert all(
+        word not in migration_sql for word in ["CREATE TABLE", "CREATE INDEX", "GRANT", "REVOKE"]
+    )
     assert all(word not in sql for word in ["DELETE", "UPDATE admin.research_area", "uranus."])
     output = io.StringIO()
     command.downgrade(Config("alembic.ini", output_buffer=output), "0019:0018", sql=True)

@@ -5,7 +5,7 @@ older Alembic head.  Adding a new target migration does not implicitly authorize
 upgrade: the target and every supported origin must be reviewed and updated here.
 """
 
-ADMIN_UPGRADE_TARGET = "0018"
+ADMIN_UPGRADE_TARGET = "0019"
 
 ADMIN_UPGRADE_CONTRACTS = {
     "0011": {
@@ -77,5 +77,12 @@ ADMIN_UPGRADE_CONTRACTS = {
             "research_query_suggestion",
             "research_query_suggestion_event",
         ],
+    },
+    # Recomputed from Alembic's offline 0018 inventory by
+    # tests/test_admin_upgrade_contracts.py using the deployment fingerprint.
+    # 0019 only widens research_area_type; tables, columns, indexes and grants stay unchanged.
+    "0018": {
+        "schema_fingerprint": "8ec0112176bb414a9ada75c356e1a61e2226aebef5764d09f9e24f5df9a27b50",
+        "target_only_tables": [],
     },
 }
