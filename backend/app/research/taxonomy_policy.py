@@ -1,20 +1,32 @@
 """Thresholds are an operator-reviewed benchmark artifact, never guessed defaults."""
 
+import hashlib
 from pathlib import Path
 from typing import Self
 
 from pydantic import Field, model_validator
 
-from app.research.taxonomy import MODEL, Closed, TaxonomyPayload
+from app.research.taxonomy import MODEL, Closed, Kind, TaxonomyPayload
+
+
+class ConfidenceThresholds(Closed):
+    minimum_score: float = Field(ge=-1, le=1)
+    minimum_margin: float = Field(gt=0, le=2)
 
 
 class ConfidencePolicy(Closed):
-    version: str = Field(pattern=r"^taxonomy-confidence-v1$")
+    version: str = Field(pattern=r"^taxonomy-confidence-v2$")
     embedding_version: str
     corpus_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
     benchmark_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
-    minimum_score: float = Field(ge=-1, le=1)
-    minimum_margin: float = Field(gt=0, le=2)
+    benchmark_path: str = Field(min_length=1, max_length=4096)
+    # Null disables an uncalibrated stage; it never supplies guessed thresholds.
+    event_type: ConfidenceThresholds | None
+    genre: ConfidenceThresholds | None
+    cross_level: ConfidenceThresholds | None
+
+    def requested(self, kind: Kind) -> ConfidenceThresholds | None:
+        return self.event_type if kind == "event_type" else self.genre
 
     @model_validator(mode="after")
     def compatible(self) -> Self:
@@ -28,15 +40,23 @@ def load_policy(path: Path) -> ConfidencePolicy:
         raw = stream.read(16385)
     if len(raw) > 16384:
         raise ValueError("taxonomy_policy_limit")
-    return ConfidencePolicy.model_validate_json(raw)
+    policy = ConfidencePolicy.model_validate_json(raw)
+    benchmark = Path(policy.benchmark_path)
+    if not benchmark.is_absolute():
+        benchmark = path.parent / benchmark
+    with benchmark.open("rb") as stream:
+        reviewed = stream.read(2_000_001)
+    if len(reviewed) > 2_000_000 or hashlib.sha256(reviewed).hexdigest() != policy.benchmark_hash:
+        raise ValueError("taxonomy_policy_benchmark_mismatch")
+    return policy
 
 
 def confident(
     hits: list[tuple[TaxonomyPayload, float]],
-    policy: ConfidencePolicy,
+    policy: ConfidenceThresholds | None,
 ) -> list[tuple[TaxonomyPayload, float]]:
     """Retain uncertainty; a stale or weak runner-up must never manufacture uniqueness."""
-    if not hits or hits[0][1] < policy.minimum_score:
+    if policy is None or not hits or hits[0][1] < policy.minimum_score:
         return []
     if len(hits) == 1 or hits[0][1] - hits[1][1] >= policy.minimum_margin:
         return hits[:1]

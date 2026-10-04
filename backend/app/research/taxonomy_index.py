@@ -122,9 +122,14 @@ def main() -> None:
             if args.command == "calibrate":
                 from app.research.taxonomy_benchmark import calibrate_file
 
-                if not args.reviewed_benchmark or not args.measurements or not args.output:
+                if (
+                    not args.reviewed_benchmark
+                    or not args.measurements
+                    or not args.output
+                    or not args.benchmark
+                ):
                     raise ValueError("reviewed_benchmark_measurements_and_output_required")
-                calibrate_file(args.measurements, args.output)
+                calibrate_file(args.measurements, args.output, args.benchmark)
                 counts: dict[str, object] = {"calibrated": True}
             else:
                 counts = asyncio.run(run(args))

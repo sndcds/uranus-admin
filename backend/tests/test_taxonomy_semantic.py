@@ -1,5 +1,6 @@
 """Synthetic canonical vocabulary and mocked vectors, not live model quality evidence."""
 
+import hashlib
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
@@ -18,7 +19,7 @@ from app.research.taxonomy import (
     documents,
     index_payload,
 )
-from app.research.taxonomy_policy import ConfidencePolicy
+from app.research.taxonomy_policy import ConfidencePolicy, ConfidenceThresholds
 from app.research.taxonomy_transport import TaxonomyQdrant
 from app.research.vector_transport import Encoder
 from app.services import taxonomy_resolution as service
@@ -35,6 +36,7 @@ def vocabulary():
         row("event_type", "2", "Theater & Bühne", "Theatre & stage"),
         row("genre", "2:2003", "Zirkus-Theater", "Circus theatre"),
         row("genre", "2:2004", "Drama", "Drama"),
+        row("genre", "2:2005", "Schauspiel"),
         row("event_type", "1", "Konzert", "Concert"),
         row("genre", "1:1003", "Jazz", "Jazz"),
     ]
@@ -49,17 +51,20 @@ def payloads():
 def policy():
     # Synthetic unit-only numbers. Never installed/configured as production defaults.
     return ConfidencePolicy(
-        version="taxonomy-confidence-v1",
+        version="taxonomy-confidence-v2",
         embedding_version=MODEL.version,
         corpus_hash=corpus_hash(documents(vocabulary())),
-        benchmark_hash="a" * 64,
-        minimum_score=0.8,
-        minimum_margin=0.1,
+        benchmark_hash=hashlib.sha256(b"reviewed fixture").hexdigest(),
+        benchmark_path="benchmark.json",
+        event_type=ConfidenceThresholds(minimum_score=0.8, minimum_margin=0.1),
+        genre=ConfidenceThresholds(minimum_score=0.8, minimum_margin=0.1),
+        cross_level=ConfidenceThresholds(minimum_score=0.8, minimum_margin=0.1),
     )
 
 
 @pytest.fixture
 def retrieval(settings, monkeypatch, tmp_path):
+    (tmp_path / "benchmark.json").write_bytes(b"reviewed fixture")
     settings.research_taxonomy_policy_path = tmp_path / "policy.json"
     settings.research_taxonomy_policy_path.write_text(policy().model_dump_json())
     settings.semantic_search_noncommercial_jina = True
@@ -108,6 +113,12 @@ def retrieval(settings, monkeypatch, tmp_path):
         points = [
             {"id": docs[k].point_id, "payload": docs[k].model_dump(mode="json"), "score": score}
             for k, score in state["scores"]
+            if all(
+                docs[k].model_dump()[clause["key"]] == clause["match"]["value"]
+                if "value" in clause["match"]
+                else docs[k].model_dump()[clause["key"]] in clause["match"]["any"]
+                for clause in json.loads(req.content)["filter"]["must"]
+            )
         ]
         if state["mutate"]:
             state["mutate"](points)
@@ -125,7 +136,7 @@ def retrieval(settings, monkeypatch, tmp_path):
     "query,key",
     [
         ("Theater", "event_type:2"),
-        ("Schauspiel", "event_type:2"),
+        ("Schauspiel", "genre:2:2005"),
         ("Circus", "genre:2:2003"),
         ("Zirkus", "genre:2:2003"),
     ],
@@ -133,7 +144,9 @@ def retrieval(settings, monkeypatch, tmp_path):
 async def test_confident_revalidated_candidate(settings, retrieval, query, key, caplog):
     state, requests, load = retrieval
     state["scores"] = [(key, 0.95), ("genre:2:2004", 0.7)]
-    found = await service.resolve_taxonomy_semantic(AsyncMock(), settings, query)
+    found = await service.resolve_taxonomy_semantic(
+        AsyncMock(), settings, query, expected_kind="event_type"
+    )
     assert len(found) == 1
     assert f"{found[0].entity_type}:{found[0].id}" == key
     assert "score" not in found[0].model_dump()
@@ -149,8 +162,10 @@ async def test_confident_revalidated_candidate(settings, retrieval, query, key, 
 @pytest.mark.parametrize("scores,count", [([0.9, 0.89], 2), ([0.6, 0.5], 0), ([0.81, 0.79], 0)])
 async def test_ambiguity_weak_and_unsafe_margin(settings, retrieval, scores, count):
     state, _, _ = retrieval
-    state["scores"] = list(zip(["event_type:2", "genre:2:2004"], scores, strict=True))
-    found = await service.resolve_taxonomy_semantic(AsyncMock(), settings, "Konzept")
+    state["scores"] = list(zip(["event_type:2", "event_type:1"], scores, strict=True))
+    found = await service.resolve_taxonomy_semantic(
+        AsyncMock(), settings, "Konzept", expected_kind="event_type"
+    )
     assert len(found) == count
 
 
@@ -171,25 +186,45 @@ async def test_invalid_candidate_never_becomes_filter(settings, retrieval, mutat
     state, _, _ = retrieval
     state["scores"] = [("genre:2:2003", 0.95), ("genre:2:2004", 0.7)]
     state["mutate"] = mutation
-    assert await service.resolve_taxonomy_semantic(AsyncMock(), settings, "Circus") == []
+    assert (
+        await service.resolve_taxonomy_semantic(
+            AsyncMock(), settings, "Circus", expected_kind="event_type"
+        )
+        == []
+    )
 
 
 async def test_removed_sql_row_rejected(settings, retrieval):
     _, _, load = retrieval
     load.return_value = [r for r in vocabulary() if r.id != "2"]
-    assert await service.resolve_taxonomy_semantic(AsyncMock(), settings, "Theater") == []
+    assert (
+        await service.resolve_taxonomy_semantic(
+            AsyncMock(), settings, "Theater", expected_kind="event_type"
+        )
+        == []
+    )
 
 
 async def test_partial_index_cannot_hide_runner_up(settings, retrieval):
     state, _, _ = retrieval
     state["inventory"] = lambda points: points[:1]
-    assert await service.resolve_taxonomy_semantic(AsyncMock(), settings, "Theater") == []
+    assert (
+        await service.resolve_taxonomy_semantic(
+            AsyncMock(), settings, "Theater", expected_kind="event_type"
+        )
+        == []
+    )
 
 
 async def test_missing_collection_is_safe_unresolved(settings, retrieval):
     state, requests, load = retrieval
     state["missing"] = True
-    assert await service.resolve_taxonomy_semantic(AsyncMock(), settings, "Theater") == []
+    assert (
+        await service.resolve_taxonomy_semantic(
+            AsyncMock(), settings, "Theater", expected_kind="event_type"
+        )
+        == []
+    )
     load.assert_not_awaited()
     assert len(requests) == 1
 
@@ -232,11 +267,14 @@ def test_document_generation_deterministic_rich_multilingual_and_parent():
     assert a == documents(list(reversed(vocabulary())))
     assert len({d.key for d in a}) == len(a) == len({d.point_id for d in a})
     by_key = {d.key: d for d in a}
-    assert "Zugehörige Genres: Drama, Zirkus-Theater" in by_key["event_type:2"].embedding_text
+    assert (
+        "Zugehörige Genres: Drama, Schauspiel, Zirkus-Theater"
+        in by_key["event_type:2"].embedding_text
+    )
     assert "en: Circus theatre" in by_key["genre:2:2003"].embedding_text
     assert by_key["genre:2:2003"].parent_label == "Theater & Bühne"
     assert by_key["genre:2:2003"].genre_id == "2003"
-    assert "Schauspiel" not in by_key["event_type:2"].embedding_text
+    assert "Circus" not in by_key["event_type:2"].embedding_text
 
 
 def test_no_runtime_string_table():
@@ -250,7 +288,12 @@ async def test_missing_policy_does_not_use_services(settings, monkeypatch):
     encoder = Mock(side_effect=AssertionError("disabled"))
     monkeypatch.setattr(service, "Encoder", encoder)
     assert settings.research_taxonomy_policy_path is None
-    assert await service.resolve_taxonomy_semantic(AsyncMock(), settings, "Theater") == []
+    assert (
+        await service.resolve_taxonomy_semantic(
+            AsyncMock(), settings, "Theater", expected_kind="event_type"
+        )
+        == []
+    )
     encoder.assert_not_called()
 
 
@@ -272,4 +315,123 @@ async def test_service_failures_never_become_unfiltered_execution(
         encoder.http.close = AsyncMock()
         encoder.embed = AsyncMock(side_effect=error)
         monkeypatch.setattr(service, "Encoder", lambda *a: encoder)
-    assert await service.resolve_taxonomy_semantic(AsyncMock(), settings, "Theater") == []
+    assert (
+        await service.resolve_taxonomy_semantic(
+            AsyncMock(), settings, "Theater", expected_kind="event_type"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "query,kind,other_rows,expected_kind,expected_id",
+    [
+        ("Schauspiel", "event_type", [{"id": "2:2005", "label": "Schauspiel"}], "genre", "2:2005"),
+        ("Jazz", "genre", [], "genre", "1:1003"),
+        ("Kunst", "event_type", [], "event_type", "8"),
+    ],
+)
+async def test_exact_slot_and_cross_level_matches_never_embed(
+    settings, retrieval, query, kind, other_rows, expected_kind, expected_id
+):
+    _, requests, _ = retrieval
+    same = [] if other_rows else [{"id": expected_id, "label": query}]
+    results = []
+    for rows in (same, other_rows):
+        result = Mock()
+        result.mappings.return_value = rows
+        results.append(result)
+    connection = AsyncMock()
+    connection.execute.side_effect = results
+    found = await resolver.candidates(connection, kind, query, settings)
+    assert [(c.entity_type, c.id) for c in found] == [(expected_kind, expected_id)]
+    assert requests == []
+
+
+async def test_exact_other_level_ambiguity_never_calls_vectors(settings, retrieval):
+    _, requests, _ = retrieval
+    first, second = Mock(), Mock()
+    first.mappings.return_value = []
+    second.mappings.return_value = [
+        {"id": "1:1", "label": "Musik"},
+        {"id": "2:1", "label": "Musik"},
+    ]
+    connection = AsyncMock()
+    connection.execute.side_effect = [first, second]
+    found = await resolver.candidates(connection, "event_type", "Musik", settings)
+    assert len(found) == 2
+    assert requests == []
+
+
+async def test_theater_kind_preference_and_bounded_cross_level_fallback(settings, retrieval):
+    state, requests, _ = retrieval
+    # Synthetic close scores across levels do not create a same-kind ambiguity.
+    state["scores"] = [("event_type:2", 0.95), ("genre:2:2005", 0.94), ("event_type:1", 0.5)]
+    found = await service.resolve_taxonomy_semantic(
+        AsyncMock(), settings, "theater", expected_kind="event_type"
+    )
+    assert [c.label for c in found] == ["Theater & Bühne"]
+    searches = [json.loads(r.content) for r in requests if r.url.path.endswith("/query")]
+    assert len(searches) == 1
+    assert searches[0]["filter"]["must"] == [{"key": "kind", "match": {"value": "event_type"}}]
+    requests.clear()
+    state["scores"] = [("event_type:2", 0.6), ("genre:2:2005", 0.95), ("genre:2:2004", 0.6)]
+    found = await service.resolve_taxonomy_semantic(
+        AsyncMock(), settings, "dramatische Darbietung", expected_kind="event_type"
+    )
+    assert [c.label for c in found] == ["Schauspiel"]
+    searches = [json.loads(r.content) for r in requests if r.url.path.endswith("/query")]
+    assert [s["filter"]["must"][0]["match"]["value"] for s in searches] == ["event_type", "genre"]
+    assert len([r for r in requests if r.url.path == "/embed"]) == 1
+
+
+async def test_ambiguous_same_kind_cannot_be_overridden_by_fallback(settings, retrieval):
+    state, requests, _ = retrieval
+    state["scores"] = [("event_type:2", 0.9), ("event_type:1", 0.89), ("genre:2:2005", 0.99)]
+    found = await service.resolve_taxonomy_semantic(
+        AsyncMock(), settings, "Musik", expected_kind="event_type"
+    )
+    assert len(found) == 2
+    assert len([r for r in requests if r.url.path.endswith("/query")]) == 1
+
+
+@pytest.mark.parametrize("change", ["changed", "missing", "v1"])
+async def test_stale_review_or_policy_version_disables_vectors(settings, retrieval, change):
+    _, requests, _ = retrieval
+    path = settings.research_taxonomy_policy_path
+    if change == "missing":
+        (path.parent / "benchmark.json").unlink()
+    elif change == "changed":
+        (path.parent / "benchmark.json").write_text("changed review")
+    else:
+        raw = json.loads(path.read_text())
+        raw["version"] = "taxonomy-confidence-v1"
+        path.write_text(json.dumps(raw))
+    assert (
+        await service.resolve_taxonomy_semantic(
+            AsyncMock(), settings, "theater", expected_kind="event_type"
+        )
+        == []
+    )
+    assert requests == []
+
+
+async def test_policy_disabled_keeps_existing_same_kind_exact_only(settings, monkeypatch):
+    exact = AsyncMock(return_value=[])
+    monkeypatch.setattr(resolver, "taxonomy_candidates", exact)
+    connection = AsyncMock()
+    assert await resolver.candidates(connection, "event_type", "Schauspiel", settings) == []
+    exact.assert_awaited_once_with(connection, "event_type", "Schauspiel", None)
+
+
+async def test_uncalibrated_stages_are_disabled_without_network(settings, retrieval):
+    _, requests, _ = retrieval
+    disabled = policy().model_copy(update={"event_type": None, "cross_level": None})
+    settings.research_taxonomy_policy_path.write_text(disabled.model_dump_json())
+    assert (
+        await service.resolve_taxonomy_semantic(
+            AsyncMock(), settings, "theater", expected_kind="event_type"
+        )
+        == []
+    )
+    assert requests == []
