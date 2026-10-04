@@ -4,7 +4,8 @@
   "country_codes": ["DE"],
   "region_code": "DE-SH",
   "osm_admin_level": 6,
-  "inventory_source": "OSM boundary relation metadata reviewed 2026-10-04; https://wiki.openstreetmap.org/w/index.php?title=Schleswig-Holstein&oldid=2323471; rural districts only (municipality-role cities excluded)",
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Schleswig-Holstein; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
   "complete": true,
   "identities": [
     {

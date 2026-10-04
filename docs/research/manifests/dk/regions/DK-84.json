@@ -1,0 +1,16 @@
+{
+  "level": "region",
+  "parent_area_id": null,
+  "country_codes": ["DK"],
+  "region_code": "DK-84",
+  "osm_admin_level": 4,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Reviewed region identity for Region Hovedstaden; not a complete country inventory. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv.",
+  "complete": false,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 1320608
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:62761:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-NW",
+  "osm_admin_level": 6,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Nordrhein-Westfalen; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 62476
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62423
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62535
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62489
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 58745
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62665
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62452
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62661
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62555
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62767
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62373
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62343
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62544
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62606
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62779
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62770
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62442
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62706
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62379
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62480
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62524
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62483
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62358
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62417
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 1829066
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62402
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 1831015
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 1891506
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62437
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62440
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62420
+    }
+  ]
+}

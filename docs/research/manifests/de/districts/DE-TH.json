@@ -1,0 +1,80 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:62366:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-TH",
+  "osm_admin_level": 6,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Thüringen; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 62500
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62621
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62616
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62424
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62604
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62618
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62468
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62588
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62365
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62419
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62462
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62552
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62447
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62432
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62339
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62445
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62492
+    }
+  ]
+}

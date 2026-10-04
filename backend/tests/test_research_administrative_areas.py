@@ -37,9 +37,9 @@ def manifest(level="district", ids=(101,), **changes):
         {
             "level": level,
             "parent_area_id": None,
-            "country_codes": ["DE"],
-            "region_code": "DE-SH",
-            "osm_admin_level": 4 if level == "state" else 6,
+            "country_codes": ["DK"] if level == "region" else ["DE"],
+            "region_code": "DK-83" if level == "region" else "DE-SH",
+            "osm_admin_level": 4 if level in {"state", "region"} else 6,
             "inventory_source": "Synthetic reviewed test inventory",
             "complete": False,
             "identities": [{"osm_type": "R", "osm_id": i} for i in ids],
@@ -52,7 +52,7 @@ def place(level="district", osm_id=101, **changes):
     return {
         "osm_type": "relation",
         "osm_id": osm_id,
-        "country_code": "de",
+        "country_code": "dk" if level == "region" else "de",
         "name": "Schleswig-Flensburg",
         "display_name": "Schleswig-Flensburg, Schleswig-Holstein",
         "administrative_level": level,
@@ -75,8 +75,8 @@ def geocoder(settings, records):
     return ResearchGeocoderClient(settings, transport=httpx.MockTransport(handle))
 
 
-@pytest.mark.parametrize("level", ["municipality", "region", "country"])
-def test_only_district_and_state(level):
+@pytest.mark.parametrize("level", ["municipality", "country"])
+def test_unsupported_persistent_levels(level):
     with pytest.raises(ValidationError):
         manifest(level)
 
@@ -128,14 +128,14 @@ async def test_state_official_code_must_match_manifest(settings):
         settings, [place("state", official_code="DE-NI", official_code_type="ISO-3166-2")]
     )
     try:
-        with pytest.raises(ValueError, match="State code mismatch"):
+        with pytest.raises(ValueError, match="State/region code mismatch"):
             await boundaries(client, manifest("state"))
     finally:
         await client.close()
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("level", ["district", "state"])
+@pytest.mark.parametrize("level", ["district", "state", "region"])
 async def test_plan_apply_idempotence_and_resolver(area_store, settings, level):
     client = geocoder(settings, [place(level)])
     try:
@@ -192,7 +192,7 @@ async def test_existing_municipality_never_reclassified(area_store, settings):
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("level", ["district", "state"])
+@pytest.mark.parametrize("level", ["district", "state", "region"])
 @pytest.mark.parametrize("persisted", [False, True])
 async def test_same_level_overlap_is_atomic(area_store, settings, level, persisted):
     client = geocoder(settings, [place(level, 101), place(level, 102)])
@@ -317,3 +317,90 @@ async def test_adjacent_boundaries_and_metadata_update(area_store, settings):
         assert await area_store.scalar(text("SELECT count(*) FROM admin.research_area")) == 2
     finally:
         await renamed.close()
+
+
+@pytest.mark.parametrize(
+    "level,country,region",
+    [
+        ("region", "DE", "DE-SH"),
+        ("region", "DK", "DE-SH"),
+        ("region", "DK", "DK-86"),
+        ("region", "dk", "DK-83"),
+        ("state", "DK", "DK-83"),
+        ("district", "DK", "DK-83"),
+    ],
+)
+def test_country_aware_level_scope(level, country, region):
+    with pytest.raises(ValidationError):
+        manifest(level, country_codes=[country], region_code=region)
+
+
+@pytest.mark.parametrize("region", ["DK-81", "DK-82", "DK-83", "DK-84", "DK-85"])
+def test_danish_regions_are_regions(region):
+    assert manifest("region", region_code=region).level == "region"
+
+
+@pytest.mark.parametrize("level,osm_id", [("state", 62422), ("state", 62782), ("district", 27020)])
+def test_known_city_identity_is_rejected_before_lookup(level, osm_id):
+    with pytest.raises(ValidationError, match="municipality identities"):
+        manifest(level, (osm_id,))
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"osm_id": 102},
+        {"country_code": "de"},
+        {"administrative_level": "state", "administrative_levels": ["state"]},
+        {"administrative_levels": ["municipality", "region"]},
+        {"boundary": None},
+        {"official_code": "DK-84", "official_code_type": "ISO-3166-2"},
+    ],
+)
+async def test_region_identity_country_role_boundary_and_code(settings, changes):
+    client = geocoder(settings, [place("region", **changes)])
+    try:
+        with pytest.raises((ValueError, APIError)):
+            await boundaries(client, manifest("region"))
+    finally:
+        await client.close()
+
+
+@pytest.mark.integration
+async def test_danish_municipality_containment_and_identity_conflict(area_store, settings):
+    municipality = row(
+        osm_id=2178063,
+        name="Middelfart",
+        address={"country_code": "dk", "ISO3166-2-lvl4": "DK-83"},
+        extratags={"admin_level": "7", "ref": "410"},
+    )
+    await import_boundaries(
+        area_store, provider(settings, [municipality]), "DK-83", [], [2178063], apply=True
+    )
+    client = geocoder(
+        settings,
+        [
+            place("region", 1319978, name="Region Syddanmark", boundary=polygon(8, 11)),
+            place("region", 2178063),  # Even incorrect provider metadata cannot reclassify a row.
+        ],
+    )
+    try:
+        await import_areas(area_store, client, manifest("region", (1319978,)), apply=True)
+        with pytest.raises(ValueError, match="conflicting area_type"):
+            await import_areas(area_store, client, manifest("region", (2178063,)), apply=True)
+        assert (
+            await area_store.scalar(
+                text("SELECT area_type FROM admin.research_area WHERE osm_id=2178063")
+            )
+            == "municipality"
+        )
+        matches = await candidates(
+            area_store, "area", "Syddanmark", settings, expected_level="region"
+        )
+        assert len(matches) == 1
+        assert (await resolve_area(area_store, UUID(matches[0].id))).area.area_type == "region"
+        assert not await candidates(
+            area_store, "area", "Syddanmark", settings, expected_level="state"
+        )
+    finally:
+        await client.close()

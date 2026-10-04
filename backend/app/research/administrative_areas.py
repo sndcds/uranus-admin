@@ -1,4 +1,4 @@
-"""Explicit, atomic operator import of reviewed district/state boundaries.
+"""Explicit, atomic operator import of reviewed district/state/region boundaries.
 
 No discovery, deployment hook, source writes or municipality reclassification.
 The Geocoder owns level classification; reviewed manifest metadata supplies only
@@ -9,6 +9,7 @@ import argparse
 import asyncio
 import json
 from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
 from typing import Self
 from uuid import uuid4
@@ -23,7 +24,7 @@ from app.config import Settings
 from app.research.administrative_catalog import MAX_CATALOG_BYTES
 from app.research.administrative_import import Manifest
 from app.research.administrative_resolver import resolved_boundary
-from app.research.areas import IMPORT_GRANTS, IMPORT_LOCK, REGIONS
+from app.research.areas import CITY_EXCEPTIONS, IMPORT_GRANTS, IMPORT_LOCK, REGIONS
 from app.services.nominatim import validate_geometry
 from app.storage_preflight import check_grants, check_schema
 
@@ -33,20 +34,27 @@ class PersistentManifest(Manifest):
 
     region_code: str = Field(min_length=5, max_length=5)
     osm_admin_level: int = Field(ge=2, le=12)
+    reviewed_on: date | None = None
 
     @model_validator(mode="after")
     def persistent_scope(self) -> Self:
-        if self.level not in {"district", "state"}:
-            raise ValueError("Persistent import supports district and state only")
-        if self.region_code not in REGIONS or self.country_codes not in (
-            [self.region_code[:2]],
-            [self.region_code[:2].lower()],
+        if self.level not in {"district", "state", "region"}:
+            raise ValueError("Persistent import supports district, state and region only")
+        country = "DK" if self.level == "region" else "DE"
+        if (
+            self.region_code not in REGIONS
+            or not self.region_code.startswith(country + "-")
+            or self.country_codes != [country]
         ):
-            raise ValueError("Select exactly the reviewed region's country")
+            raise ValueError(
+                "Select a German state/district or Danish region with its exact country"
+            )
         if not 1 <= len(self.identities) <= 100 or any(
             i.osm_type != "R" or i.osm_id > 2**63 - 1 for i in self.identities
         ):
             raise ValueError("Select 1–100 unique positive bigint relation identities")
+        if any(i.osm_id in CITY_EXCEPTIONS for i in self.identities):
+            raise ValueError("Reviewed municipality identities cannot be imported at another level")
         return self
 
 
@@ -82,11 +90,11 @@ async def boundaries(
         ):
             raise ValueError("Boundary identity/country mismatch or municipality role")
         if (
-            manifest.level == "state"
+            manifest.level in {"state", "region"}
             and resolved.code_system == "ISO-3166-2"
             and resolved.official_code != manifest.region_code
         ):
-            raise ValueError("State code mismatch")
+            raise ValueError("State/region code mismatch")
         name, display = resolved.name, place.display_name
         if (
             not name.strip()
@@ -269,17 +277,21 @@ async def run(
         await engine.dispose()
 
 
+def load_manifest(path: Path) -> PersistentManifest:
+    with path.open("rb") as handle:
+        raw = handle.read(64 * 1024 + 1)
+    if len(raw) > 64 * 1024:
+        raise ValueError("Manifest exceeds byte limit")
+    return PersistentManifest.model_validate_json(raw)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["plan", "apply"])
     parser.add_argument("manifest", type=Path)
     args = parser.parse_args()
     try:
-        with args.manifest.open("rb") as handle:
-            raw = handle.read(64 * 1024 + 1)
-        if len(raw) > 64 * 1024:
-            raise ValueError("Manifest exceeds byte limit")
-        manifest = PersistentManifest.model_validate_json(raw)
+        manifest = load_manifest(args.manifest)
         settings = Settings(_env_file=None)  # type: ignore[call-arg]
         report = asyncio.run(run(settings, manifest, apply=args.mode == "apply"))
         print(json.dumps(report, ensure_ascii=False))

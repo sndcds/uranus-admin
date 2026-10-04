@@ -1,0 +1,160 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:62771:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-NI",
+  "osm_admin_level": 6,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Niedersachsen; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 62647
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62669
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62416
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62613
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62494
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62558
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 6679859
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62764
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62426
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62766
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62742
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62510
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62728
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62762
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62608
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 2083535
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 2083497
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62662
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 2084746
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62399
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62617
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62674
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62482
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62743
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62740
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62689
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62355
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62597
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62540
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62773
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62550
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62567
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62648
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62673
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62666
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62731
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62397
+    }
+  ]
+}

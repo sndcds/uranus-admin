@@ -1,0 +1,68 @@
+{
+  "level": "district",
+  "parent_area_id": "osm:R:62504:state",
+  "country_codes": ["DE"],
+  "region_code": "DE-BB",
+  "osm_admin_level": 6,
+  "reviewed_on": "2026-10-04",
+  "inventory_source": "Complete reviewed rural-district inventory for Brandenburg; municipality-role independent cities excluded by persistent model. OSM relation API reviewed 2026-10-04; versions, keys and URLs: docs/research/manifests/reviewed-inventory.csv. DLT: https://www.landkreistag.de/der-verband/landesverbaende/mittelbare-mitglieder",
+  "complete": true,
+  "identities": [
+    {
+      "osm_type": "R",
+      "osm_id": 62553
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62376
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62505
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62413
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 318248
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62488
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62571
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62628
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62574
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62353
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62738
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62683
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62364
+    },
+    {
+      "osm_type": "R",
+      "osm_id": 62537
+    }
+  ]
+}

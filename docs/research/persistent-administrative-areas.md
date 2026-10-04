@@ -1,119 +1,146 @@
 # Persistent administrative boundaries
 
-`app.research.administrative_areas` is an explicit operator tool for **district**
-and **state** boundaries in `admin.research_area`. It does not run on deployment,
-API startup, queries or worker timers. `app.research.areas` and `app.research.scope`
-remain unchanged municipality-only workflows. No Uranus source data is written.
+`app.research.administrative_areas` is an explicit operator tool for **district**,
+**state** and **region** boundaries in `admin.research_area`. It never runs during
+deployment, migration, API startup, queries or worker startup. No Uranus source
+data is written. `app.research.areas` and `app.research.scope` continue to own
+municipalities; `municipality` and `country` remain unsupported here.
+
+The Research storage hierarchy is:
+
+- Germany: `state` → `district` → `municipality`, with independent cities remaining
+  municipality entities instead of duplicate districts.
+- Denmark: `region` → `municipality`. There is no Danish district layer.
+
+This describes Research storage, not equivalent administrative systems. In
+particular, **Region Syddanmark is `region`, never `state`**.
+
+## Reviewed inventory and the city-state limit
+
+[The manifest inventory](manifests/README.md) lists every exact manifest path and
+batch count. Review date: **2026-10-04**. There are:
+
+- **14 importable German state manifests**; all **16** state identities are reviewed.
+- **13 German district manifests**, containing **294 distinct rural-district
+  identities**, cross-checked against the Deutscher Landkreistag inventory.
+- **5 Danish region manifests**, one for each of DK-81 through DK-85.
+
+**Berlin (R62422) and Hamburg (R62782) cannot also be persisted as states under
+this model.** Those exact state relations are already protected municipality
+identities in `areas.CITY_EXCEPTIONS`. `UNIQUE(osm_type, osm_id)`, municipality
+exclusion and the prohibition on reclassification make 16 simultaneously stored
+German states impossible without a separately authorized model change. They are
+recorded in [reviewed-inventory.csv](manifests/reviewed-inventory.csv) as
+`municipality_identity_excluded`, with versioned OSM evidence, and deliberately
+have no executable state manifest. No substitute or guessed identity is used.
+Bremen's distinct state relation R62718 is importable; its two city relations
+R62559 and R62658 remain municipalities.
+
+[excluded-municipalities.csv](manifests/excluded-municipalities.csv) records all
+107 existing German city exceptions, including Flensburg, Kiel, Lübeck,
+Neumünster, Berlin and Hamburg, with municipality keys and verified OSM versions.
+The district set includes Region Hannover, StädteRegion Aachen and Regionalverband
+Saarbrücken as district-role associations listed by the DLT, not as municipalities.
+
+For each district manifest, `complete=true` means **complete reviewed rural-district
+inventory for that Bundesland; municipality-role independent cities excluded by
+the persistent model**. It does not mean every `admin_level=6` object, a partition
+covering independent cities, or a complete catalog of all possible administrative
+roles. City states have no rural-district manifests. Each state/region manifest
+has `complete=false`: it is a single identity, not the country's entire inventory.
+
+These flags and `parent_area_id` describe reviewed scope; they do not persist
+hierarchy or establish execution-time completeness for zero-event grouping.
+Do not substitute this rural-only inventory for an exhaustive operator catalog.
 
 ## Manifest and authority
 
-The closed `PersistentManifest` extends the existing
-`app.research.administrative_import.Manifest`. It accepts 1–100 unique OSM
-**relation** identities (positive signed bigint), one country and one reviewed
-region per batch. File size is limited to 64 KiB. No names/search queries are
-accepted as import identities. `municipality`, `country` and generic `region`
-imports are rejected; future levels require explicit validation/storage work.
+The closed `PersistentManifest` extends
+`app.research.administrative_import.Manifest`. A file contains 1–100 unique OSM
+**relation** identities (positive signed bigint), one level, one country and one
+reviewed region. File size remains limited to 64 KiB. No name searches, first-hit
+selection or discovery occurs during plan/apply.
 
-The current Geocoder supplies administrative roles, country, names, identity and
-boundary geometry. Each lookup goes exclusively through `ResearchGeocoderClient`
-with its existing authenticated, bounded 8 MiB boundary transport. The importer
-calls `resolved_boundary(candidate, manifest.level)` and checks the requested
-identity and country. Municipality-role places (including dual-role city states
-and kreisfreie Städte) are rejected even if the Geocoder also lists `district` or
-`state`. Existing rows with a different `area_type` are never reclassified.
+The explicit supported combinations are:
 
-Two additional reviewed manifest fields are required because the current Geocoder
-contract does not expose the corresponding non-null storage fields:
+| Expected semantic level | Exact country codes | Reviewed region code                            |
+| ----------------------- | ------------------- | ----------------------------------------------- |
+| `state`                 | `["DE"]`            | The state's supported DE subdivision code       |
+| `district`              | `["DE"]`            | The containing Bundesland's DE subdivision code |
+| `region`                | `["DK"]`            | `DK-81`, `DK-82`, `DK-83`, `DK-84` or `DK-85`   |
 
-- `region_code`: an existing supported ISO subdivision, such as `DE-SH`;
-- `osm_admin_level`: the reviewed OSM tag value, 2–12.
+`osm_admin_level` remains mandatory reviewed metadata (2–12). Checked-in state and
+Danish region relations currently have raw level 4; district relations have raw
+level 6. These observed values are **not classification rules**. `reviewed_on` is
+present in every checked-in manifest; older operator manifests may omit that
+advisory date and retain their existing `inventory_source` review provenance.
 
-These values are operator-supplied metadata, **not classification inputs**.
-No name or raw OSM-level mapping determines the administrative level. An available
-Geocoder state code in the `ISO-3166-2` scheme must agree with `region_code`.
-The operator must review region membership and the raw tag; the importer cannot
-independently verify fields absent from the service contract. No German-level
-assumption is applied to Denmark.
+Only the configured private `ResearchGeocoderClient` supplies current names,
+country, administrative roles and boundary geometry. Each lookup uses its existing
+authenticated, bounded 8 MiB boundary transport. The importer continues to call
+`resolved_boundary(place, manifest.level)`, requires the exact relation identity
+and country, and rejects any municipality role. Known German municipality
+exceptions are also rejected before lookup. An existing row with another
+`area_type` always fails closed, even if provider metadata now claims another role.
 
-`inventory_source`, `complete` and `parent_area_id` describe the reviewed manifest;
-they do not create persistent hierarchy/completeness assertions. This importer
-does not replace the separate complete operator catalog used for zero-event
-inventory/grouping. Do not feed the rural-only example to a catalog claiming to
-contain every administrative district role, including municipal dual roles.
+For states **and regions**, an available Geocoder `ISO-3166-2` official code must
+match `region_code`. The current Geocoder contract does not expose all storage
+metadata: raw OSM admin level and district-to-state membership remain explicitly
+reviewed manifest assertions. A missing official subdivision code is not fabricated.
+Neither `region_code`, names nor a raw OSM tag can replace the Geocoder's semantic
+role validation. No German-level assumption is applied to Denmark.
 
 ## Validation and persistence
 
-Plan and apply share the same lookup, geometry validation, database classification
-and overlap pipeline. All network calls finish before the database transaction.
-Polygons must be closed and bounded, at most 500,000 points per boundary and
-32 MiB geometry JSON per batch. PostGIS then rejects empty/invalid geometry;
-there is no simplification or automatic repair.
+Plan and apply use the same lookup, geometry, classification and overlap pipeline.
+Network calls finish before each database transaction. Polygons must be closed and
+bounded, with at most 500,000 points per boundary and 32 MiB geometry JSON per
+manifest. PostGIS rejects empty/invalid geometry; there is no simplification or
+repair. Inventory review confirms identities and tags, not production Geocoder
+availability, role metadata or the size/topology of its current geometries. A
+failed lookup, transport limit, topology check or role check blocks that manifest.
 
-Plan uses a read-only repeatable-read transaction and never inserts scratch rows
-or refreshes timestamps. Both modes use the existing importer advisory lock.
-Apply additionally serializes table writers while allowing readers; lock and
-statement timeouts are 10 seconds. Any failure rolls back the entire batch.
+Plan uses a read-only repeatable-read transaction: no scratch rows or timestamp
+refresh. Both modes retain the importer advisory lock. Apply also serializes table
+writers while allowing readers; statement and lock timeouts remain 10 seconds.
+Each manifest commits atomically or rolls back in full.
 
-Positive-area overlap is checked only at the **same stored level**, both within
-the final batch and against rows outside the batch. Shared edges/points are valid.
-State/district/municipality containment is valid. When replacing multiple rows,
-overlap checks use their new geometries, not obsolete versions of the same IDs.
+Positive-area overlaps are rejected only at the **same stored level**:
+`district/district`, `state/state`, `region/region`. Shared edges/points are valid.
+Municipality/district, district/state and municipality/region containment are valid,
+including Danish municipalities inside regions. Updated batch geometries replace
+old versions for the overlap comparison. No geographic coverage is inferred.
 
-The upsert uses `UNIQUE (osm_type, osm_id)` and additionally guards the existing
-level. UUID and `created_at` survive updates. Geometry is stored as EPSG:4326
-MultiPolygon; centroid uses `ST_PointOnSurface`. Names, country, region, OSM
-metadata and `source='osm'` are retained. `retrieved_at` refreshes on every apply;
-`updated_at` changes only for changed data. `municipality_key` and all population
-fields are null. No rows are deleted when omitted from later manifests.
+Upserts preserve UUID and `created_at`, EPSG:4326 MultiPolygon geometry and
+`ST_PointOnSurface` centroids. `retrieved_at` refreshes on apply; `updated_at`
+changes only for changed data. Municipality keys and population fields stay null
+on these nonmunicipal rows. Existing expected-level resolution supports all three
+levels and excludes wrong-level matches before ranking/limiting.
 
-Existing expected-level resolution finds persisted district/state rows without
-resolver changes, even when municipality display names mention the same district.
+## Migration and privileges
 
-## Schleswig-Holstein examples
+The audited main baseline is `cf9985ac48fa2a0ed89282ba2ba3f00c862c25ef`, with
+Alembic head **0019**. Its `research_area_type` constraint already permits
+`region`, `district`, `municipality` and `state`. **No new migration is needed**;
+no shipped revision is changed. Use the regular migration workflow to reach the
+current deployed code's head before invoking the importer.
 
-- [State manifest](manifests/sh-state.json): Schleswig-Holstein only; not a complete
-  inventory of German states (`complete=false`).
-- [District manifest](manifests/sh-districts.json): the eleven rural districts,
-  explicitly excluding Flensburg, Kiel, Lübeck and Neumünster. Those remain
-  municipalities under the existing importer.
+No new grants are required. The auth operator connection from
+`ADMIN_AUTH_MANAGEMENT_DATABASE_URL` needs SELECT on `admin.alembic_version` and
+SELECT/INSERT/UPDATE on `admin.research_area`. Existing operator boundary,
+schema-head and grant checks run before imports. Runtime SELECT-only access stays
+unchanged. Provision the Geocoder key in protected `runtime.env`.
 
-Identities were checked against the [OSM boundary inventory](https://wiki.openstreetmap.org/w/index.php?title=Schleswig-Holstein&oldid=2323471)
-and the public OSM relation metadata API on 2026-10-04. These are administrative
-boundary relations, including maritime areas, not the alternate landmass relations.
-This authoring-time review introduces no public OSM/Nominatim runtime dependency.
-Re-review before applying; live boundary availability/classification still comes
-from the configured private Research Geocoder.
+## Production plan and apply
 
-| Name                  | OSM relation | Reviewed relation version | Raw admin level |
-| --------------------- | ------------ | ------------------------- | --------------- |
-| Schleswig-Holstein    | 51529        | 311                       | 4               |
-| Dithmarschen          | 27028        | 142                       | 6               |
-| Herzogtum Lauenburg   | 62703        | 136                       | 6               |
-| Nordfriesland         | 27019        | 135                       | 6               |
-| Ostholstein           | 27025        | 175                       | 6               |
-| Pinneberg             | 62408        | 108                       | 6               |
-| Plön                  | 27026        | 99                        | 6               |
-| Rendsburg-Eckernförde | 27017        | 183                       | 6               |
-| Schleswig-Flensburg   | 27014        | 132                       | 6               |
-| Segeberg              | 62733        | 121                       | 6               |
-| Steinburg             | 27016        | 116                       | 6               |
-| Stormarn              | 62546        | 125                       | 6               |
+The batch CLI reads only `de/states/*.json`, `de/districts/*.json` and
+`dk/regions/*.json` under the supplied root, in that order, sorted by filename
+within each group. CSV/README files are advisory evidence, never import authority.
+The root may contain a reviewed subset, but must contain at least one manifest;
+there is a 64-manifest limit. Directory scope, filename/region and repeated OSM
+identities across files are checked before any network/database work.
 
-## Migration and operator commands
-
-Migration **0019** is required: the previous `research_area_type` check allowed
-region/district/municipality but not state. This additive migration only widens
-that check; it does not import or reclassify data. Its downgrade refuses while
-state rows remain, without deleting them. Apply through the existing migration
-workflow using the migrator, never the runtime or operator connection.
-
-No new grants are needed. The existing auth operator connection from
-`ADMIN_AUTH_MANAGEMENT_DATABASE_URL` requires SELECT on `admin.alembic_version`
-and SELECT/INSERT/UPDATE on `admin.research_area`. Existing operator boundary,
-schema-head and grant checks run first. Runtime SELECT-only area access remains
-unchanged. Provision the Geocoder key separately in protected `runtime.env`.
-
-Copy/review the example into an operator-owned path. Plan:
+Plan **all** intended manifests first:
 
 ```sh
 sudo bash -lc '
@@ -129,12 +156,13 @@ cd /var/lib/uranus-admin/current/backend
 runuser -u oklab -- \
   /usr/local/bin/uv run \
   --no-cache --no-sync --offline --no-python-downloads --no-env-file \
-  python -m app.research.administrative_areas \
-  plan /path/to/sh-districts.json
+  python -m app.research.administrative_areas_batch \
+  plan /var/lib/uranus-admin/current/docs/research/manifests
 '
 ```
 
-Review the bounded JSON report (identity/name/level/status and counts), then apply:
+Review each JSON report's manifest path, identities, names, levels and
+new/updated/unchanged counts. Only after that review, apply:
 
 ```sh
 sudo bash -lc '
@@ -150,22 +178,74 @@ cd /var/lib/uranus-admin/current/backend
 runuser -u oklab -- \
   /usr/local/bin/uv run \
   --no-cache --no-sync --offline --no-python-downloads --no-env-file \
-  python -m app.research.administrative_areas \
-  apply /path/to/sh-districts.json
+  python -m app.research.administrative_areas_batch \
+  apply /var/lib/uranus-admin/current/docs/research/manifests
 '
 ```
 
-Use `/path/to/sh-state.json` for the state; either order is valid. Apply repeats all
-validation against current service/database state; a plan is not a frozen geometry
-snapshot or a token bypassing revalidation. Errors never print provider/SQL details,
-credentials or geometry. No deployment, import or migration is automatic.
+Apply first repeats a read-only plan of **every** manifest, then applies each
+sequentially with full live revalidation. No parallel writes or giant transaction
+are used. Planning checks against the current stored rows, not a simulated final
+state of other manifests; cross-manifest same-level conflicts are caught when
+applying against preceding commits. A plan is not a frozen geometry snapshot or
+an approval token bypassing checks.
 
-## Regression coverage
+The first failure stops execution and reports `failed_manifest` and `phase`, with
+no provider/driver details, geometry or credentials. Previously committed
+manifests remain applied; the failed transaction rolls back. Correct the cause,
+plan the entire intended set again, review it, then restart apply from the root.
+Already-applied unchanged identities retain UUIDs and are reported as unchanged.
 
-`backend/tests/test_research_administrative_areas.py` covers manifest bounds,
-expected roles, municipality exclusion, state codes, missing/invalid boundaries,
-plan/no-write, idempotent apply, identity conflicts, atomic overlap rejection,
-hierarchical containment, level-aware resolver lookup and guarded migration SQL.
-Database cases use the existing disposable PostGIS fixture; ordinary transport
-cases use a mocked Geocoder. Tests were added but not run for this change, as
-requested. No Docker or CI waiting is needed by the operator workflow.
+Individual imports remain available, for example from `backend/` with the same
+operator environment:
+
+```sh
+python -m app.research.administrative_areas plan ../docs/research/manifests/de/districts/DE-SH.json
+python -m app.research.administrative_areas apply ../docs/research/manifests/de/districts/DE-SH.json
+```
+
+The old `sh-state.json` and `sh-districts.json` examples have moved into the
+country/level directories; there are no duplicate executable SH inventories.
+
+## Post-import verification
+
+Run these read-only queries through an authorized admin reader/operator:
+
+```sql
+SELECT area_type, country_code, count(*)
+FROM admin.research_area
+GROUP BY area_type, country_code
+ORDER BY country_code, area_type;
+
+SELECT name, area_type, country_code, region_code, osm_admin_level
+FROM admin.research_area
+WHERE area_type IN ('state','district','region')
+ORDER BY country_code, area_type, region_code, name;
+
+SELECT osm_id, name, area_type, country_code, region_code, osm_admin_level
+FROM admin.research_area
+WHERE osm_type = 'R' AND osm_id IN (51529, 27014, 27019, 1319978)
+ORDER BY osm_id;
+```
+
+Expect Schleswig-Holstein R51529 → `state`, Schleswig-Flensburg R27014 →
+`district`, Nordfriesland R27019 → `district`, and Region Syddanmark R1319978 →
+`region`. Source names may include the prefix `Kreis`. After successful application
+of the full checked-in set to otherwise empty nonmunicipal storage, expect
+DE/state=14, DE/district=294 and DK/region=5. Counts may include previously stored
+areas because the importer never synchronizes by deletion.
+
+## Rollback and regression coverage
+
+Removing a manifest or omitting an identity **does not delete any row**. Cleanup
+must be a separate explicit future operator action. There is no destructive sync,
+automatic rollback of earlier successful manifests or source mutation.
+
+Regression cases cover country/level validation, Danish region persistence,
+municipality conflicts/containment, same-level overlap, read-only plans, idempotence,
+batch ordering/failure/restart and offline manifest evidence. PostGIS v12 cases
+exercise persisted state/district/region resolution, outside-state execution and
+wrong-level exclusion for the requested German queries and a Danish Syddanmark
+example. Their Planner responses are fixtures: they do not prove live Planner
+language support. Tests are added but **not executed**, per the task instruction.
+No production import, deployment, Docker run or CI wait is part of this change.
