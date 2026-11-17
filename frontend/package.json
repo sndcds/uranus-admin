@@ -31,7 +31,7 @@
     "d3-zoom": "^3.0.0",
     "leaflet": "^1.9.4",
     "markdown-it": "^15.0.2",
-    "nuxt": "^4.0.0",
+    "nuxt": "^4.6.4",
     "pinia": "^3.0.0",
     "prismjs": "^1.30.0",
     "sql-formatter": "^15.8.2",
